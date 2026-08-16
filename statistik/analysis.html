@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analisis RAL — Statistik Pertanian</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">STATISTIK PERTANIAN</div>
+      <h1>Analisis RAL</h1>
+      <p>Data dari lembar input Rancangan Acak Lengkap</p>
+    </div>
+    <a class="back-link" href="index.html">← Kembali ke input</a>
+  </header>
+  <main class="container">
+    <section class="card">
+      <h2>Modul ANOVA RAL</h2>
+      <p>Halaman analisis sudah terhubung dengan data input. Perhitungan ANOVA akan dibangun pada tahap berikutnya.</p>
+      <div class="next-step"><div><strong>Data tersimpan</strong><span id="dataInfo">Memuat data...</span></div></div>
+    </section>
+  </main>
+  <script>
+    try {
+      const s=JSON.parse(localStorage.getItem('ral-input-v1'));
+      const n=s?.data?.reduce((a,r)=>a+r.filter(v=>v!==''&&v!=null&&Number.isFinite(Number(String(v).replace(',','.')))).length,0)||0;
+      document.getElementById('dataInfo').textContent=`${s?.treatments||0} perlakuan × ${s?.reps||0} ulangan · ${n} nilai numerik tersedia.`;
+    } catch(e) { document.getElementById('dataInfo').textContent='Data input belum tersedia.'; }
+  </script>
+</body>
+</html>
