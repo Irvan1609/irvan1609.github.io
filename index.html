@@ -3,121 +3,77 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Statistical Tool for Agricultural Research</title>
-<link rel="stylesheet" href="star-ui.css">
-<link rel="stylesheet" href="vendor/fontawesome-free/css/all.min.css">
+<link rel="stylesheet" href="star-ui.css"><link rel="stylesheet" href="vendor/fontawesome-free/css/all.min.css">
 <style>
-.ral-modal{position:fixed;inset:0;background:rgba(0,0,0,.22);display:none;align-items:center;justify-content:center;z-index:9999;font-family:"Segoe UI",Arial,sans-serif}.ral-modal.show{display:flex}.ral-window{width:min(850px,94vw);background:#f7f7f7;border:1px solid #999;box-shadow:0 8px 28px rgba(0,0,0,.3);color:#222}.ral-title{height:40px;background:#f3f3f3;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 14px;font-size:17px}.ral-body{padding:16px}.ral-grid{display:grid;grid-template-columns:280px 1fr 280px;gap:18px}.ral-label{font-size:15px;margin:0 0 7px}.ral-list{height:125px;background:#fff;border:1px solid #aaa;overflow:auto;list-style:none;padding:0;margin:0}.ral-list.tall{height:190px}.ral-list li{padding:5px 7px;cursor:pointer;white-space:nowrap}.ral-list li.selected{background:#cfe4ff}.ral-list li:hover{background:#e8f2ff}.ral-center{display:flex;flex-direction:column;align-items:center;gap:9px;padding-top:26px}.ral-btn{min-width:90px;height:30px;border:1px solid #bbb;background:linear-gradient(#fff,#e9e9e9);cursor:pointer}.ral-btn:disabled{color:#888;cursor:default}.ral-help{font-size:12px;color:#666;margin-top:7px;line-height:1.4}.ral-box{border:1px solid #aaa;background:#fafafa;padding:9px;margin-top:18px}.ral-radio{display:block;margin:5px 0}.ral-footer{display:flex;justify-content:flex-end;gap:10px;padding:10px 16px 14px;border-top:1px solid #d0d0d0}.ral-footer button{min-width:105px;height:34px;border:1px solid #bbb;background:linear-gradient(#fff,#e8e8e8);border-radius:3px;cursor:pointer}.ral-footer .primary{border-color:#1976d2}.minimal-menu{cursor:default}.minimal-menu .dropdown{min-width:250px}.minimal-toolbar{border-bottom:1px solid #bbb}.workspace-full{min-width:0}.sheet-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sheet-toolbar button{border:1px solid #aaa;background:linear-gradient(#fff,#e8e8e8);padding:5px 10px;cursor:pointer}.sheet-help{font-size:12px;color:#666;flex:1}.dashboard-sheet{min-width:650px}.dashboard-sheet input{font:inherit;width:100%;box-sizing:border-box;border:0;background:transparent;padding:5px}.dashboard-sheet .head{font-weight:600}.dashboard-sheet input:focus{outline:1px solid #2d7dd2;background:#fff}.dashboard-sheet th{padding:0}.dashboard-sheet .corner,.dashboard-sheet .row-no{width:42px;text-align:center;background:#eee;color:#555}.only-ral-note{padding:6px 10px;background:#f7f7f7;border:1px solid #d2d2d2;color:#555;font-size:12px}
-@media(max-width:850px){.ral-grid{grid-template-columns:1fr}.ral-center{flex-direction:row;padding-top:0}.ral-window{max-height:94vh;overflow:auto}}
+.ral-modal{position:fixed;inset:0;background:rgba(0,0,0,.22);display:none;align-items:center;justify-content:center;z-index:9999;font-family:"Segoe UI",Arial,sans-serif}.ral-modal.show{display:flex}.ral-window{width:min(820px,96vw);background:#f7f7f7;border:1px solid #999;box-shadow:0 8px 28px rgba(0,0,0,.3);color:#222}.ral-title{height:40px;background:#f3f3f3;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 14px;font-size:17px}.ral-tabs{display:flex;border-bottom:1px solid #bbb;background:#f0f0f0}.ral-tab{padding:8px 15px;border-right:1px solid #ccc;background:#eee}.ral-tab.active{background:#fff;border-bottom:1px solid #fff;margin-bottom:-1px}.ral-body{padding:14px 16px 10px}.ral-grid{display:grid;grid-template-columns:290px 120px 290px;gap:16px;align-items:start}.ral-label{font-size:15px;margin:0 0 7px}.ral-list{height:100px;background:#fff;border:1px solid #aaa;overflow:auto;list-style:none;padding:0;margin:0}.ral-list.factor-list{height:205px}.ral-list li{padding:5px 7px;cursor:pointer;white-space:nowrap;user-select:none}.ral-list li.selected{background:#cfe4ff}.ral-list li:hover{background:#e8f2ff}.ral-center{display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:33px}.ral-btn{width:92px;height:30px;border:1px solid #bbb;background:linear-gradient(#fff,#e9e9e9);cursor:pointer}.ral-btn:disabled{color:#999;cursor:default}.ral-set{margin-top:8px;border:1px solid #bbb;background:#fafafa;padding:8px}.ral-radio{display:block;margin:5px 0}.ral-footer{display:flex;justify-content:flex-end;gap:10px;padding:10px 16px 14px;border-top:1px solid #d0d0d0}.ral-footer button{min-width:105px;height:34px;border:1px solid #bbb;background:linear-gradient(#fff,#e8e8e8);border-radius:3px;cursor:pointer}.ral-footer .primary{border-color:#1976d2}.ral-help{font-size:12px;color:#666;margin-top:7px;line-height:1.4}.ral-status{margin-top:10px;padding:6px 8px;background:#f7f7f7;border:1px solid #d2d2d2;color:#555;font-size:12px}.minimal-menu{cursor:default}.minimal-menu .dropdown{min-width:250px}.minimal-toolbar{border-bottom:1px solid #bbb}.workspace-full{min-width:0}.sheet-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sheet-toolbar button{border:1px solid #aaa;background:linear-gradient(#fff,#e8e8e8);padding:5px 10px;cursor:pointer}.sheet-help{font-size:12px;color:#666;flex:1}.dashboard-sheet{min-width:650px}.dashboard-sheet input{font:inherit;width:100%;box-sizing:border-box;border:0;background:transparent;padding:5px}.dashboard-sheet .head{font-weight:600}.dashboard-sheet input:focus{outline:1px solid #2d7dd2;background:#fff}.dashboard-sheet th{padding:0}.dashboard-sheet .corner,.dashboard-sheet .row-no{width:42px;text-align:center;background:#eee;color:#555}.only-ral-note{padding:6px 10px;background:#f7f7f7;border:1px solid #d2d2d2;color:#555;font-size:12px}@media(max-width:850px){.ral-grid{grid-template-columns:1fr}.ral-center{flex-direction:row;padding-top:0}.ral-window{max-height:94vh;overflow:auto}}
 </style>
 </head>
 <body>
 <div class="star-app">
 <header class="titlebar"><div class="app-icon"><i class="fas fa-seedling"></i></div><div class="title">Statistical Tool for Agricultural Research — [DATA PENELITIAN]</div></header>
 <nav class="menubar">
-  <div class="menu minimal-menu">Data<div class="dropdown"><a href="#data-sheet">Input Data</a><a href="#data-sheet">New Data Sheet</a></div></div>
-  <div class="menu minimal-menu">Analyze<div class="dropdown"><div class="submenu-trigger">Analysis of Variance<div class="submenu"><a href="#" id="menuRalAnalyze">Completely Randomized Design (RAL) ...</a></div></div></div></div>
+<div class="menu minimal-menu">Data<div class="dropdown"><a href="#data-sheet">Input Data</a><a href="#data-sheet">New Data Sheet</a></div></div>
+<div class="menu minimal-menu">Analyze<div class="dropdown"><div class="submenu-trigger">Analysis of Variance<div class="submenu"><a href="#" id="menuRalAnalyze">Completely Randomized Design (RAL) ...</a></div></div></div></div>
 </nav>
-<div class="toolbar minimal-toolbar">
-  <a class="tool" href="#data-sheet" title="Data Sheet"><i class="fas fa-table"></i></a>
-  <button class="tool" id="analyzeTop" title="Analyze RAL"><i class="fas fa-chart-bar"></i></button>
-</div>
+<div class="toolbar minimal-toolbar"><a class="tool" href="#data-sheet" title="Data Sheet"><i class="fas fa-table"></i></a><button class="tool" id="analyzeTop" title="Analyze RAL"><i class="fas fa-chart-bar"></i></button></div>
 <div class="main">
-<aside class="explorer"><div class="pane-title">Project Explorer</div><div class="tree">
-  <div class="tree-row selected"><i class="fas fa-folder-open"></i><strong>DATA PENELITIAN</strong></div>
-  <div class="tree-row indent"><i class="fas fa-folder-open"></i>Data</div>
-  <a class="tree-row indent" href="#data-sheet"><i class="far fa-file-excel"></i>Data_Sheet</a>
-  <div class="tree-row indent"><i class="fas fa-folder"></i>Output</div>
-  <a class="tree-row indent" href="#" id="treeRal"><i class="far fa-file-alt"></i>ANOVA_RAL</a>
-</div></aside>
-<section class="workspace workspace-full" id="data-sheet">
-  <div class="tabs"><div class="tab active">DATA SHEET</div></div>
-  <div class="sheet-toolbar">
-    <strong>Input Data</strong>
-    <span class="sheet-help">Ketik langsung atau salin tabel dari Excel lalu Ctrl+V pada sel pertama.</span>
-    <button id="addRow" type="button">＋ Baris</button>
-    <button id="addCol" type="button">＋ Variabel</button>
-    <button id="clearSheet" type="button">Kosongkan</button>
-    <button id="analyze" type="button">Analisis RAL →</button>
-  </div>
-  <div class="only-ral-note">Saat ini aplikasi difokuskan hanya pada <b>Input Data</b> dan <b>RAL (Completely Randomized Design)</b>.</div>
-  <div class="sheet-wrap" id="sheetWrap"></div>
-  <div class="input-note">Baris pertama = nama variabel. Contoh minimal: <b>Ulangan | Perlakuan | Y</b>. Data dapat ditempel langsung dari Excel.</div>
-</section>
-</div>
-<footer class="statusbar"><span class="status-item" id="status">Ready · Data Sheet</span><span class="status-item">Design: —</span><span class="status-right">RAL</span></footer>
+<aside class="explorer"><div class="pane-title">Project Explorer</div><div class="tree"><div class="tree-row selected"><i class="fas fa-folder-open"></i><strong>DATA PENELITIAN</strong></div><div class="tree-row indent"><i class="fas fa-folder-open"></i>Data</div><a class="tree-row indent" href="#data-sheet"><i class="far fa-file-excel"></i>Data_Sheet</a><div class="tree-row indent"><i class="fas fa-folder"></i>Output</div><a class="tree-row indent" href="#" id="treeRal"><i class="far fa-file-alt"></i>ANOVA_RAL</a></div></aside>
+<section class="workspace workspace-full" id="data-sheet"><div class="tabs"><div class="tab active">DATA SHEET</div></div><div class="sheet-toolbar"><strong>Input Data</strong><span class="sheet-help">Ketik langsung atau salin tabel dari Excel lalu Ctrl+V pada sel pertama.</span><button id="addRow" type="button">＋ Baris</button><button id="addCol" type="button">＋ Variabel</button><button id="clearSheet" type="button">Kosongkan</button><button id="analyze" type="button">Analisis RAL →</button></div><div class="only-ral-note">Saat ini aplikasi difokuskan hanya pada <b>Input Data</b> dan <b>RAL (Completely Randomized Design)</b>.</div><div class="sheet-wrap" id="sheetWrap"></div><div class="input-note">Baris pertama = nama variabel. Data dapat ditempel langsung dari Excel.</div></section>
+</div><footer class="statusbar"><span class="status-item" id="status">Ready · Data Sheet</span><span class="status-item">Design: —</span><span class="status-right">RAL</span></footer>
 </div>
 
 <div class="ral-modal" id="ralModal" role="dialog" aria-modal="true" aria-labelledby="ralTitle">
 <div class="ral-window">
-  <div class="ral-title" id="ralTitle">Completely Randomized Design (CRD) : DATA SHEET</div>
-  <div class="ral-body">
-    <div class="ral-grid">
-      <div>
-        <div class="ral-label">Numeric Variable(s)</div>
-        <ul class="ral-list tall" id="numericList"></ul>
-      </div>
-      <div class="ral-center">
-        <button class="ral-btn" id="addResponse" disabled>Add →</button>
-        <button class="ral-btn" id="setFactor">Set to Factor →</button>
-      </div>
-      <div>
-        <div class="ral-label">Response Variable(s)</div>
-        <ul class="ral-list" id="responseList"></ul>
-        <div class="ral-label" style="margin-top:16px">Treatment(s)</div>
-        <ul class="ral-list" id="treatmentList"></ul>
-      </div>
-    </div>
-    <div class="ral-box">
-      <b>Factor(s)</b>
-      <ul class="ral-list" style="height:80px;margin-top:7px" id="factorList"></ul>
-      <div class="ral-help">Untuk RAL satu faktor, pilih satu variabel perlakuan sebagai <b>Treatment</b> dan satu variabel numerik sebagai <b>Response</b>.</div>
-    </div>
-    <div class="ral-help" id="ralStatus">Pilih Response dan Treatment. Variabel otomatis dikenali dari header data.</div>
-  </div>
-  <div class="ral-footer"><button id="ralReset">Reset</button><button id="ralCancel">Cancel</button><button class="primary" id="ralOk">OK</button></div>
+<div class="ral-title" id="ralTitle">Completely Randomized Design (CRD) : DATA SHEET</div>
+<div class="ral-tabs"><div class="ral-tab active">Model</div><div class="ral-tab">Options</div></div>
+<div class="ral-body">
+<div class="ral-grid">
+<div>
+<div class="ral-label">Numeric Variable(s)</div><ul class="ral-list" id="numericList"></ul>
+</div>
+<div class="ral-center">
+<button class="ral-btn" id="addResponse" disabled>Add</button>
+<button class="ral-btn" id="setFactor" disabled>Set to Factor</button>
+</div>
+<div>
+<div class="ral-label">Response Variable(s)</div><ul class="ral-list" id="responseList"></ul>
 </div>
 </div>
+<div class="ral-grid" style="margin-top:15px">
+<div><div class="ral-label">Factor(s)</div><ul class="ral-list factor-list" id="factorList"></ul></div>
+<div class="ral-center" style="padding-top:35px"><button class="ral-btn" id="addTreatment" disabled>Add</button></div>
+<div>
+<div class="ral-label">Treatment(s)</div><ul class="ral-list factor-list" id="treatmentList"></ul>
+</div>
+</div>
+<div class="ral-set"><b>Set</b><label class="ral-radio"><input type="radio" name="setMode" value="per" checked> Perform Analysis Per Set</label><label class="ral-radio"><input type="radio" name="setMode" value="combined"> Perform Combined Analysis</label></div>
+<div class="ral-status" id="ralStatus">Pilih variabel numerik. Klik <b>Add</b> untuk menjadikannya Response, atau <b>Set to Factor</b> untuk memindahkannya ke Factor(s).</div>
+<div class="ral-help">Untuk RAL satu faktor: pilih satu variabel perlakuan pada <b>Factor(s)</b>, klik <b>Add</b> pada bagian Treatment(s), lalu pilih satu variabel numerik sebagai <b>Response</b>.</div>
+</div>
+<div class="ral-footer"><button id="ralContrast" disabled>Contrast</button><button id="ralPostHoc" disabled>Post Hoc</button><button id="ralReset">Reset</button><button id="ralCancel">Cancel</button><button class="primary" id="ralOk">OK</button></div>
+</div></div>
 
 <script>
-const KEY='dashboard-data-v1', ANALYSIS_KEY='star-dataset-v2';
+const KEY='dashboard-data-v1',ANALYSIS_KEY='star-dataset-v2';
 let data=JSON.parse(localStorage.getItem(KEY)||'null')||{headers:['Ulangan','Perlakuan','Y'],rows:Array.from({length:15},()=>['','',''])};
-const wrap=document.getElementById('sheetWrap');
-const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
-const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-function render(){
- while(data.rows.length<15)data.rows.push(Array(data.headers.length).fill(''));
- data.rows=data.rows.map(r=>{while(r.length<data.headers.length)r.push('');return r.slice(0,data.headers.length)});
- let h='<table class="sheet dashboard-sheet"><thead><tr><th class="corner">#</th>';
- data.headers.forEach((v,j)=>h+=`<th><input class="head" data-j="${j}" value="${esc(v)}"></th>`);
- h+='</tr></thead><tbody>';
- data.rows.forEach((r,i)=>{h+=`<tr><td class="row-no">${i+1}</td>`;data.headers.forEach((_,j)=>h+=`<td><input class="cell" data-i="${i}" data-j="${j}" value="${esc(r[j])}"></td>`);h+='</tr>'});
- h+='</tbody></table>';wrap.innerHTML=h;
- document.querySelectorAll('.cell').forEach(x=>{x.addEventListener('input',()=>{data.rows[+x.dataset.i][+x.dataset.j]=x.value;save();document.getElementById('status').textContent='Ready · Data tersimpan otomatis'});x.addEventListener('keydown',nav)});
- document.querySelectorAll('.head').forEach(x=>x.addEventListener('input',()=>{data.headers[+x.dataset.j]=x.value;save()}));
-}
+const wrap=document.getElementById('sheetWrap');const save=()=>localStorage.setItem(KEY,JSON.stringify(data));const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+function render(){while(data.rows.length<15)data.rows.push(Array(data.headers.length).fill(''));data.rows=data.rows.map(r=>{while(r.length<data.headers.length)r.push('');return r.slice(0,data.headers.length)});let h='<table class="sheet dashboard-sheet"><thead><tr><th class="corner">#</th>';data.headers.forEach((v,j)=>h+=`<th><input class="head" data-j="${j}" value="${esc(v)}"></th>`);h+='</tr></thead><tbody>';data.rows.forEach((r,i)=>{h+=`<tr><td class="row-no">${i+1}</td>`;data.headers.forEach((_,j)=>h+=`<td><input class="cell" data-i="${i}" data-j="${j}" value="${esc(r[j])}"></td>`);h+='</tr>'});h+='</tbody></table>';wrap.innerHTML=h;document.querySelectorAll('.cell').forEach(x=>{x.addEventListener('input',()=>{data.rows[+x.dataset.i][+x.dataset.j]=x.value;save();document.getElementById('status').textContent='Ready · Data tersimpan otomatis'});x.addEventListener('keydown',nav)});document.querySelectorAll('.head').forEach(x=>x.addEventListener('input',()=>{data.headers[+x.dataset.j]=x.value;save()}) )}
 function nav(e){if(!['Tab','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();const i=+e.currentTarget.dataset.i,j=+e.currentTarget.dataset.j;let ni=i,nj=j;if(e.key==='Tab')nj=j+(e.shiftKey?-1:1);if(e.key==='Enter'||e.key==='ArrowDown')ni=i+1;if(e.key==='ArrowUp')ni=i-1;if(e.key==='ArrowLeft')nj=j-1;if(e.key==='ArrowRight')nj=j+1;ni=Math.max(0,Math.min(data.rows.length-1,ni));nj=Math.max(0,Math.min(data.headers.length-1,nj));document.querySelector(`.cell[data-i="${ni}"][data-j="${nj}"]`)?.focus()}
 document.addEventListener('paste',e=>{if(!e.target.closest('.cell'))return;const t=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(t))return;e.preventDefault();const rows=t.replace(/\r/g,'').split('\n').filter(Boolean).map(x=>x.split('\t'));const si=+e.target.dataset.i,sj=+e.target.dataset.j;rows.forEach((r,ri)=>r.forEach((v,cj)=>{let i=si+ri,j=sj+cj;if(j>=data.headers.length){data.headers.push('V'+(j+1));data.rows.forEach(x=>{while(x.length<data.headers.length)x.push('')})}if(i>=data.rows.length)data.rows.push(Array(data.headers.length).fill(''));data.rows[i][j]=v.trim()}));render();save()});
-document.getElementById('addRow').onclick=()=>{data.rows.push(Array(data.headers.length).fill(''));render();save()};
-document.getElementById('addCol').onclick=()=>{data.headers.push('V'+(data.headers.length+1));data.rows.forEach(r=>r.push(''));render();save()};
-document.getElementById('clearSheet').onclick=()=>{if(confirm('Kosongkan seluruh data?')){data.rows=Array.from({length:15},()=>Array(data.headers.length).fill(''));save();render()}};
-const modal=document.getElementById('ralModal');let selected=null,selectedType=null;
-function isNumericColumn(j){let seen=0;for(const r of data.rows){const v=String(r?.[j]??'').trim();if(!v)continue;seen++;if(!Number.isFinite(Number(v.replace(',','.'))))return false}return seen>0}
+document.getElementById('addRow').onclick=()=>{data.rows.push(Array(data.headers.length).fill(''));render();save()};document.getElementById('addCol').onclick=()=>{data.headers.push('V'+(data.headers.length+1));data.rows.forEach(r=>r.push(''));render();save()};document.getElementById('clearSheet').onclick=()=>{if(confirm('Kosongkan seluruh data?')){data.rows=Array.from({length:15},()=>Array(data.headers.length).fill(''));save();render()}};
+const modal=document.getElementById('ralModal');let selectedIndex=null,selectedType=null;
+function numericColumn(j){let n=0;for(const r of data.rows){const v=String(r?.[j]??'').trim();if(!v)continue;n++;if(!Number.isFinite(Number(v.replace(',','.'))))return false}return n>0}
+function uniqueNonEmpty(j){return [...new Set(data.rows.map(r=>String(r?.[j]??'').trim()).filter(Boolean))]}
+function liFor(name,j,type){const li=document.createElement('li');li.textContent=name||`V${j+1}`;li.dataset.j=j;li.dataset.type=type;li.addEventListener('click',()=>selectItem(li,type));return li}
+function buildRalLists(){selectedIndex=null;selectedType=null;['numericList','factorList','responseList','treatmentList'].forEach(id=>document.getElementById(id).innerHTML='');const numeric=document.getElementById('numericList'),factor=document.getElementById('factorList');data.headers.forEach((raw,j)=>{const name=String(raw||`V${j+1}`).trim();if(numericColumn(j))numeric.appendChild(liFor(name,j,'numeric'));else factor.appendChild(liFor(name,j,'factor'))});document.getElementById('ralStatus').innerHTML='Pilih variabel pada <b>Numeric Variable(s)</b>. <b>Add</b> = Response, <b>Set to Factor</b> = Factor(s).'}
+function clearSelection(){document.querySelectorAll('.ral-list li').forEach(x=>x.classList.remove('selected'))}
+function selectItem(li,type){clearSelection();li.classList.add('selected');selectedIndex=+li.dataset.j;selectedType=type;document.getElementById('addResponse').disabled=type!=='numeric';document.getElementById('setFactor').disabled=type!=='numeric';document.getElementById('addTreatment').disabled=type!=='factor';}
+function addResponse(){if(selectedType!=='numeric')return;const ul=document.getElementById('responseList');if([...ul.children].some(x=>+x.dataset.j===selectedIndex))return;const li=liFor(data.headers[selectedIndex],selectedIndex,'response');ul.appendChild(li);document.getElementById('ralStatus').innerHTML=`Response = <b>${esc(data.headers[selectedIndex])}</b>`}
+function setFactor(){if(selectedType!=='numeric')return;const j=selectedIndex;const factor=document.getElementById('factorList');if([...factor.children].some(x=>+x.dataset.j===j))return;const old=document.querySelector(`#numericList li[data-j="${j}"]`);if(old)old.remove();const li=liFor(data.headers[j],j,'factor');factor.appendChild(li);document.getElementById('ralStatus').innerHTML=`<b>${esc(data.headers[j])}</b> dipindahkan ke Factor(s). Pilih variabel tersebut lalu klik Add pada Treatment(s).`;clearSelection()}
+function addTreatment(){if(selectedType!=='factor')return;const ul=document.getElementById('treatmentList');if([...ul.children].some(x=>+x.dataset.j===selectedIndex))return;const li=liFor(data.headers[selectedIndex],selectedIndex,'treatment');ul.appendChild(li);document.getElementById('ralStatus').innerHTML=`Treatment = <b>${esc(data.headers[selectedIndex])}</b>`}
 function openRal(){buildRalLists();modal.classList.add('show')}
 function closeRal(){modal.classList.remove('show')}
-function buildRalLists(){selected=null;selectedType=null;document.getElementById('numericList').innerHTML='';document.getElementById('factorList').innerHTML='';document.getElementById('responseList').innerHTML='';document.getElementById('treatmentList').innerHTML='';const headers=data.headers.map(x=>String(x||'').trim());headers.forEach((name,j)=>{const li=document.createElement('li');li.textContent=name||`V${j+1}`;li.dataset.j=j;li.addEventListener('click',()=>selectLi(li,'numeric'));if(isNumericColumn(j))document.getElementById('numericList').appendChild(li);else{const f=li.cloneNode(true);f.addEventListener('click',()=>selectLi(f,'factor'));document.getElementById('factorList').appendChild(f)}});document.getElementById('ralStatus').textContent='Pilih Response dari Numeric Variable(s) dan Treatment dari Factor(s).'}
-function selectLi(li,type){document.querySelectorAll('.ral-list li').forEach(x=>x.classList.remove('selected'));li.classList.add('selected');selected=+li.dataset.j;selectedType=type;document.getElementById('addResponse').disabled=type!=='numeric'}
-function addResponse(){if(selectedType!=='numeric')return;const name=data.headers[selected];const ul=document.getElementById('responseList');if([...ul.children].some(x=>+x.dataset.j===selected))return;const li=document.createElement('li');li.textContent=name;li.dataset.j=selected;ul.appendChild(li);document.getElementById('ralStatus').textContent='Response: '+name+'. Sekarang pilih Treatment pada Factor(s).'}
-function setFactor(){if(selected==null)return;const name=data.headers[selected];const factor=document.getElementById('factorList');if(selectedType==='numeric'){const li=document.createElement('li');li.textContent=name;li.dataset.j=selected;li.addEventListener('click',()=>selectLi(li,'factor'));factor.appendChild(li)}else{const treatment=document.getElementById('treatmentList');if([...treatment.children].some(x=>+x.dataset.j===selected))return;const li=document.createElement('li');li.textContent=name;li.dataset.j=selected;treatment.appendChild(li);document.getElementById('ralStatus').textContent='Treatment: '+name+'. Pilih Response numerik lalu klik OK.'}}
-function prepareRal(){const resp=document.querySelector('#responseList li');const tr=document.querySelector('#treatmentList li');if(!resp||!tr){alert('RAL belum lengkap. Pilih satu Response dan satu Treatment.');return false}const ri=+resp.dataset.j,ti=+tr.dataset.j;if(ri===ti){alert('Response dan Treatment harus berbeda.');return false}localStorage.setItem(ANALYSIS_KEY,JSON.stringify({headers:data.headers,rows:data.rows,design:{type:'RAL',treatment:ti,response:ri}}));return true}
-document.getElementById('addResponse').onclick=addResponse;
-document.getElementById('setFactor').onclick=setFactor;
-document.getElementById('ralOk').onclick=()=>{if(prepareRal())location.href='statistik/ral-analysis.html'};
-document.getElementById('ralCancel').onclick=closeRal;
-document.getElementById('ralReset').onclick=buildRalLists;
-document.getElementById('menuRalAnalyze').onclick=e=>{e.preventDefault();openRal()};
-document.getElementById('analyze').onclick=openRal;
-document.getElementById('analyzeTop').onclick=openRal;
-document.getElementById('treeRal').onclick=e=>{e.preventDefault();openRal()};
-render();
+function prepareRal(){const resp=document.querySelector('#responseList li');const tr=document.querySelector('#treatmentList li');if(!resp||!tr){alert('RAL belum lengkap. Pilih satu Response dan satu Treatment.');return false}const ri=+resp.dataset.j,ti=+tr.dataset.j;if(ri===ti){alert('Response dan Treatment harus berbeda.');return false}if(uniqueNonEmpty(ti).length<2){alert('Treatment harus memiliki minimal dua taraf.');return false}if(!data.rows.some(r=>String(r?.[ri]??'').trim())){alert('Response belum memiliki data.');return false}localStorage.setItem(ANALYSIS_KEY,JSON.stringify({headers:data.headers,rows:data.rows,design:{type:'RAL',treatment:ti,response:ri,setMode:document.querySelector('input[name="setMode"]:checked')?.value||'per'}}));return true}
+document.getElementById('addResponse').onclick=addResponse;document.getElementById('setFactor').onclick=setFactor;document.getElementById('addTreatment').onclick=addTreatment;document.getElementById('ralOk').onclick=()=>{if(prepareRal())location.href='statistik/ral-analysis.html'};document.getElementById('ralCancel').onclick=closeRal;document.getElementById('ralReset').onclick=buildRalLists;document.getElementById('menuRalAnalyze').onclick=e=>{e.preventDefault();openRal()};document.getElementById('analyze').onclick=openRal;document.getElementById('analyzeTop').onclick=openRal;document.getElementById('treeRal').onclick=e=>{e.preventDefault();openRal()};render();
 </script>
 </body></html>
