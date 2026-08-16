@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Input Data RAL — Statistik Pertanian</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">STATISTIK PERTANIAN</div>
+      <h1>Input Data RAL</h1>
+      <p>Rancangan Acak Lengkap · lembar data bergaya Excel</p>
+    </div>
+    <a class="back-link" href="../">← Beranda</a>
+  </header>
+
+  <main class="container">
+    <section class="card setup-card">
+      <div class="section-title">
+        <div><h2>1. Pengaturan percobaan</h2><p>Tentukan struktur data sebelum memasukkan pengamatan.</p></div>
+      </div>
+      <div class="form-grid">
+        <label>Nama variabel<input id="variableName" value="Variabel pengamatan" maxlength="80"></label>
+        <label>Satuan<input id="unitName" value="" maxlength="30" placeholder="mis. cm, g, t ha⁻¹"></label>
+        <label>Jumlah perlakuan<input id="treatmentCount" type="number" min="1" max="50" value="5"></label>
+        <label>Jumlah ulangan<input id="repCount" type="number" min="1" max="100" value="4"></label>
+      </div>
+      <div class="actions">
+        <button id="applySetup" class="primary">Buat tabel</button>
+        <button id="clearData" class="ghost">Kosongkan data</button>
+        <span id="saveStatus" class="status">Data tersimpan otomatis di browser.</span>
+      </div>
+    </section>
+
+    <section class="card sheet-card">
+      <div class="sheet-head">
+        <div><h2>2. Data pengamatan</h2><p>Anda dapat menempelkan blok data langsung dari Excel.</p></div>
+        <div class="sheet-tools">
+          <button id="addTreatment">＋ Perlakuan</button>
+          <button id="addRep">＋ Ulangan</button>
+          <button id="downloadCsv">↓ CSV</button>
+        </div>
+      </div>
+      <div class="paste-tip">Tip: salin range dari Excel lalu klik sel pertama dan tekan <b>Ctrl+V</b>. Tekan <b>Tab</b> untuk berpindah sel.</div>
+      <div id="tableWrap" class="table-wrap"></div>
+    </section>
+
+    <section class="card summary-card">
+      <div><h2>Ringkasan</h2><p>Rerata dihitung otomatis dari nilai numerik yang tersedia.</p></div>
+      <div id="summary" class="summary-grid"></div>
+    </section>
+
+    <section class="next-step">
+      <div><strong>Langkah berikutnya</strong><span>Data ini akan menjadi input untuk ANOVA RAL, kemudian uji lanjut BNT/Tukey.</span></div>
+      <button disabled>Analisis RAL →</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
