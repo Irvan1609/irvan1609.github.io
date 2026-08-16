@@ -5,31 +5,39 @@
 <header class="titlebar"><div class="app-icon"><i class="fas fa-seedling"></i></div><div class="title">Statistik Pertanian — [DATA PENELITIAN]</div></header>
 <nav class="menubar">
   <div class="menu">Project<div class="dropdown"><a href="index.html">New Project</a><a href="index.html">Open Project</a><a href="index.html">Save Project</a><a href="index.html">Exit</a></div></div>
-  <div class="menu">Data<div class="dropdown"><a href="statistik/index.html">New Data Sheet</a><a href="statistik/index.html">Import Data</a><a href="statistik/index.html">Input Data RAL</a></div></div>
+  <div class="menu">Data<div class="dropdown"><a href="#data-sheet">New Data Sheet</a><a href="#data-sheet">Import Data</a><a href="#data-sheet">Input Data</a></div></div>
   <div class="menu">Design<div class="dropdown"><a href="statistik/index.html">Randomized Complete Design (RAL)</a><a href="#">Randomized Block Design (RAK)</a><a href="#">Factorial Design</a></div></div>
   <div class="menu">Analyze<div class="dropdown"><a href="statistik/index.html">Analysis of Variance</a><a href="statistik/index.html">RAL — ANOVA</a><a href="#">Descriptive Statistics</a><a href="#">Correlation</a><a href="#">Regression</a></div></div>
   <div class="menu">Graphs<div class="dropdown"><a href="#">Mean Comparison</a><a href="#">Boxplot</a><a href="#">Residual Plot</a></div></div>
   <div class="menu">Help<div class="dropdown"><a href="#">Panduan</a><a href="#">Tentang aplikasi</a></div></div>
 </nav>
-<div class="toolbar"><a class="tool" href="index.html" title="New Project"><i class="far fa-file"></i></a><a class="tool" href="statistik/index.html" title="Open Data"><i class="far fa-folder-open"></i></a><button class="tool" title="Save"><i class="far fa-save"></i></button><span class="sep"></span><a class="tool" href="statistik/index.html" title="Data Sheet"><i class="fas fa-table"></i></a><a class="tool" href="statistik/index.html" title="Analyze"><i class="fas fa-chart-bar"></i></a><a class="tool" href="#" title="Graphs"><i class="fas fa-chart-line"></i></a></div>
+<div class="toolbar"><a class="tool" href="index.html" title="New Project"><i class="far fa-file"></i></a><a class="tool" href="#data-sheet" title="Data Sheet"><i class="fas fa-table"></i></a><button class="tool" title="Save"><i class="far fa-save"></i></button><span class="sep"></span><a class="tool" href="#data-sheet" title="Input Data"><i class="fas fa-edit"></i></a><a class="tool" href="statistik/index.html" title="Analyze"><i class="fas fa-chart-bar"></i></a><a class="tool" href="#" title="Graphs"><i class="fas fa-chart-line"></i></a></div>
 <div class="main">
 <aside class="explorer"><div class="pane-title">Project Explorer</div><div class="tree">
   <div class="tree-row selected"><i class="fas fa-folder-open"></i><strong>DATA PENELITIAN</strong></div>
   <div class="tree-row indent"><i class="fas fa-folder-open"></i>Data</div>
-  <a class="tree-row indent" href="statistik/index.html"><i class="far fa-file-excel"></i>RAL_Data</a>
+  <a class="tree-row indent" href="#data-sheet"><i class="far fa-file-excel"></i>Data_Sheet</a>
   <div class="tree-row indent"><i class="far fa-file"></i>Descriptive.csv</div>
   <div class="tree-row indent"><i class="far fa-file"></i>Experimental_Data.csv</div>
   <div class="tree-row indent"><i class="fas fa-folder"></i>Output</div>
-  <div class="tree-row indent"><i class="far fa-file-alt"></i>ANOVA_RAL</div>
+  <a class="tree-row indent" href="statistik/index.html"><i class="far fa-file-alt"></i>ANOVA_RAL</a>
   <div class="tree-row indent"><i class="far fa-file-alt"></i>Mean_Comparison</div>
 </div></aside>
-<section class="workspace"><div class="tabs"><div class="tab active">DATA PENELITIAN</div></div><div class="welcome"><h1>Statistical Tool for Agricultural Research</h1><p>Lingkungan analisis statistik berbasis web untuk data percobaan pertanian.</p><div class="quick-grid">
-<a class="quick" href="statistik/index.html"><strong><i class="fas fa-table"></i> Data Management</strong><span>Input, edit, dan paste data seperti spreadsheet.</span></a>
-<a class="quick" href="statistik/index.html"><strong><i class="fas fa-calculator"></i> RAL — ANOVA</strong><span>Analisis RAL dan tabel ANOVA.</span></a>
-<a class="quick" href="statistik.html"><strong><i class="fas fa-chart-line"></i> Statistical Analysis</strong><span>Pilih rancangan dan metode analisis.</span></a>
-<a class="quick" href="#"><strong><i class="fas fa-random"></i> Experimental Design</strong><span>RAL tersedia; RAK dan faktorial dalam pengembangan.</span></a>
-<a class="quick" href="#"><strong><i class="fas fa-chart-area"></i> Graphs</strong><span>Visualisasi rerata dan distribusi data.</span></a>
-<a class="quick" href="#"><strong><i class="fas fa-book"></i> Help</strong><span>Panduan penggunaan dan interpretasi hasil.</span></a>
-</div><div class="note"><strong>Project:</strong> DATA PENELITIAN &nbsp;|&nbsp; <strong>Active design:</strong> RAL &nbsp;|&nbsp; <strong>Status:</strong> Ready</div></div></section>
-</div><footer class="statusbar"><span class="status-item">Ready</span><span class="status-item">Project: DATA PENELITIAN</span><span class="status-item">Data: RAL_Data</span><span class="status-right">Statistik Pertanian</span></footer>
-</div></body></html>
+<section class="workspace" id="data-sheet"><div class="tabs"><div class="tab active">DATA SHEET</div></div>
+<div class="sheet-toolbar"><strong>Data penelitian</strong><span class="sheet-help">Klik sel untuk mengetik. Anda juga dapat menyalin tabel dari Excel lalu Ctrl+V pada sel pertama.</span><button id="addRow" type="button">＋ Baris</button><button id="addCol" type="button">＋ Variabel</button><button id="clearSheet" type="button">Kosongkan</button><button id="analyze" type="button">Analisis RAL →</button></div>
+<div class="sheet-wrap" id="sheetWrap"></div>
+<div class="input-note">Format disarankan: baris pertama = nama variabel; baris berikutnya = observasi. Contoh: <b>Ulangan | Perlakuan | Y</b>.</div>
+</section>
+</div><footer class="statusbar"><span class="status-item" id="status">Ready · Data Sheet</span><span class="status-item">Project: DATA PENELITIAN</span><span class="status-item">Input: spreadsheet</span><span class="status-right">Statistik Pertanian</span></footer>
+</div>
+<script>
+const KEY='dashboard-data-v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'null')||{headers:['Ulangan','Perlakuan','Y'],rows:Array.from({length:15},()=>['','',''])};
+const wrap=document.getElementById('sheetWrap');
+const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
+const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+function render(){while(data.rows.length<15)data.rows.push(Array(data.headers.length).fill(''));data.rows=data.rows.map(r=>{while(r.length<data.headers.length)r.push('');return r.slice(0,data.headers.length)});let h='<table class="sheet dashboard-sheet"><thead><tr><th class="corner">#</th>';data.headers.forEach((v,j)=>h+=`<th><input class="head" data-j="${j}" value="${esc(v)}"></th>`);h+='</tr></thead><tbody>';data.rows.forEach((r,i)=>{h+=`<tr><td class="row-no">${i+1}</td>`;data.headers.forEach((_,j)=>h+=`<td><input class="cell" data-i="${i}" data-j="${j}" value="${esc(r[j])}"></td>`);h+='</tr>'});h+='</tbody></table>';wrap.innerHTML=h;document.querySelectorAll('.cell').forEach(x=>{x.addEventListener('input',()=>{data.rows[+x.dataset.i][+x.dataset.j]=x.value;save();document.getElementById('status').textContent='Ready · Data tersimpan otomatis'});x.addEventListener('keydown',nav)});document.querySelectorAll('.head').forEach(x=>x.addEventListener('input',()=>{data.headers[+x.dataset.j]=x.value;save()}));}
+function nav(e){if(!['Tab','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();const i=+e.currentTarget.dataset.i,j=+e.currentTarget.dataset.j;let ni=i,nj=j;if(e.key==='Tab')nj=j+(e.shiftKey?-1:1);if(e.key==='Enter'||e.key==='ArrowDown')ni=i+(e.key==='Enter'&&!e.shiftKey?1:e.key==='ArrowDown'?1:-1);if(e.key==='ArrowUp')ni=i-1;if(e.key==='ArrowLeft')nj=j-1;if(e.key==='ArrowRight')nj=j+1;ni=Math.max(0,Math.min(data.rows.length-1,ni));nj=Math.max(0,Math.min(data.headers.length-1,nj));document.querySelector(`.cell[data-i="${ni}"][data-j="${nj}"]`)?.focus()}
+document.addEventListener('paste',e=>{if(!e.target.closest('.cell'))return;const t=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(t))return;e.preventDefault();const rows=t.replace(/\r/g,'').split('\n').filter(Boolean).map(x=>x.split('\t'));const si=+e.target.dataset.i,sj=+e.target.dataset.j;rows.forEach((r,ri)=>r.forEach((v,cj)=>{let i=si+ri,j=sj+cj;if(j>=data.headers.length){data.headers.push('V'+(j+1));data.rows.forEach(x=>{while(x.length<data.headers.length)x.push('')})}if(i>=data.rows.length)data.rows.push(Array(data.headers.length).fill(''));data.rows[i][j]=v.trim()}));render();save()});
+document.getElementById('addRow').onclick=()=>{data.rows.push(Array(data.headers.length).fill(''));render();save()};document.getElementById('addCol').onclick=()=>{data.headers.push('V'+(data.headers.length+1));data.rows.forEach(r=>r.push(''));render();save()};document.getElementById('clearSheet').onclick=()=>{if(confirm('Kosongkan seluruh data?')){data.rows=Array.from({length:15},()=>Array(data.headers.length).fill(''));save();render()}};document.getElementById('analyze').onclick=()=>{location.href='statistik/index.html'};render();
+</script></body></html>
