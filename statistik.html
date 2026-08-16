@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Statistik — Statistik Pertanian</title>
+  <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet">
+  <link href="css/sb-admin-2.min.css" rel="stylesheet">
+</head>
+<body id="page-top">
+<div id="wrapper">
+  <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="index.html">
+      <div class="sidebar-brand-icon"><i class="fas fa-seedling"></i></div>
+      <div class="sidebar-brand-text mx-3">Statistik Pertanian</div>
+    </a>
+    <hr class="sidebar-divider my-0">
+    <li class="nav-item"><a class="nav-link" href="index.html"><i class="fas fa-fw fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+    <hr class="sidebar-divider">
+    <div class="sidebar-heading">Analisis</div>
+    <li class="nav-item active"><a class="nav-link" href="statistik.html"><i class="fas fa-fw fa-chart-line"></i><span>Statistik</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="statistik/index.html"><i class="fas fa-fw fa-table"></i><span>Input Data RAL</span></a></li>
+    <hr class="sidebar-divider d-none d-md-block">
+    <div class="text-center d-none d-md-inline"><button class="rounded-circle border-0" id="sidebarToggle"></button></div>
+  </ul>
+  <div id="content-wrapper" class="d-flex flex-column">
+    <div id="content">
+      <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+        <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3"><i class="fa fa-bars"></i></button>
+        <span class="h6 mb-0 text-gray-800">Modul Statistik</span>
+      </nav>
+      <div class="container-fluid">
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+          <div><h1 class="h3 mb-1 text-gray-800">Statistik</h1><p class="mb-0 text-gray-600">Pilih rancangan percobaan atau metode analisis.</p></div>
+        </div>
+        <div class="row">
+          <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+              <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Rancangan Acak Lengkap</div><div class="h5 mb-3 font-weight-bold text-gray-800">RAL</div><p class="small text-gray-600">Input data, ANOVA, BNT, BNJ, dan DMRT.</p><a href="statistik/index.html" class="btn btn-primary btn-sm">Mulai Analisis <i class="fas fa-arrow-right ml-1"></i></a></div><div class="col-auto"><i class="fas fa-table fa-2x text-gray-300"></i></div></div></div>
+            </div>
+          </div>
+          <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+              <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-info text-uppercase mb-1">Rancangan Acak Kelompok</div><div class="h5 mb-3 font-weight-bold text-gray-800">RAK</div><p class="small text-gray-600">Modul analisis RAK akan tersedia pada tahap berikutnya.</p><button class="btn btn-light btn-sm" disabled>Segera Hadir</button></div><div class="col-auto"><i class="fas fa-layer-group fa-2x text-gray-300"></i></div></div></div>
+            </div>
+          </div>
+          <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+              <div class="card-body"><div class="row no-gutters align-items-center"><div class="col mr-2"><div class="text-xs font-weight-bold text-success text-uppercase mb-1">Percobaan Faktorial</div><div class="h5 mb-3 font-weight-bold text-gray-800">Faktorial</div><p class="small text-gray-600">Analisis efek utama dan interaksi antar faktor.</p><button class="btn btn-light btn-sm" disabled>Segera Hadir</button></div><div class="col-auto"><i class="fas fa-project-diagram fa-2x text-gray-300"></i></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-lg-6 mb-4"><div class="card shadow"><div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Rencana Modul</h6></div><div class="card-body"><ul class="mb-0"><li>Statistik deskriptif</li><li>RAK</li><li>Faktorial</li><li>Split plot</li><li>Korelasi dan regresi</li><li>PCA</li></ul></div></div></div>
+          <div class="col-lg-6 mb-4"><div class="card shadow"><div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Alur Analisis</h6></div><div class="card-body"><div class="text-gray-700">Input data → validasi → ANOVA → uji lanjut → tabel hasil → grafik.</div><a href="statistik/index.html" class="btn btn-primary btn-sm mt-3">Buka Input RAL</a></div></div></div>
+        </div>
+      </div>
+    </div>
+    <footer class="sticky-footer bg-white"><div class="container my-auto"><div class="copyright text-center my-auto"><span>Statistik Pertanian · GitHub Pages</span></div></div></footer>
+  </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+<script src="vendor/jquery/jquery.min.js"></script><script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script><script src="vendor/jquery-easing/jquery.easing.min.js"></script><script src="js/sb-admin-2.min.js"></script>
+</body>
+</html>
