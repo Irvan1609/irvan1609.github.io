@@ -11,23 +11,69 @@
     <div>
       <div class="eyebrow">STATISTIK PERTANIAN</div>
       <h1>Analisis RAL</h1>
-      <p>Data dari lembar input Rancangan Acak Lengkap</p>
+      <p>ANOVA satu faktor untuk Rancangan Acak Lengkap</p>
     </div>
     <a class="back-link" href="index.html">← Kembali ke input</a>
   </header>
+
   <main class="container">
     <section class="card">
-      <h2>Modul ANOVA RAL</h2>
-      <p>Halaman analisis sudah terhubung dengan data input. Perhitungan ANOVA akan dibangun pada tahap berikutnya.</p>
-      <div class="next-step"><div><strong>Data tersimpan</strong><span id="dataInfo">Memuat data...</span></div></div>
+      <div class="section-title">
+        <div><h2>Ringkasan data</h2><p>Perhitungan menggunakan seluruh nilai numerik yang tersedia pada setiap perlakuan.</p></div>
+      </div>
+      <div id="dataInfo" class="summary-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><h2>Tabel ANOVA</h2><p>Model RAL: Yᵢⱼ = μ + τᵢ + εᵢⱼ.</p></div>
+      </div>
+      <div class="table-wrap"><table class="sheet result-table">
+        <thead><tr><th>Sumber keragaman</th><th>db</th><th>JK</th><th>KT</th><th>F-hitung</th><th>p-value</th></tr></thead>
+        <tbody id="anovaBody"></tbody>
+      </table></div>
+      <div id="anovaNote" class="paste-tip"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title"><div><h2>Rerata perlakuan</h2><p>Rerata, jumlah pengamatan, dan penyimpangan baku dalam perlakuan.</p></div></div>
+      <div class="table-wrap"><table class="sheet result-table">
+        <thead><tr><th>Perlakuan</th><th>n</th><th>Rerata</th><th>SD</th></tr></thead>
+        <tbody id="meansBody"></tbody>
+      </table></div>
     </section>
   </main>
-  <script>
-    try {
-      const s=JSON.parse(localStorage.getItem('ral-input-v1'));
-      const n=s?.data?.reduce((a,r)=>a+r.filter(v=>v!==''&&v!=null&&Number.isFinite(Number(String(v).replace(',','.')))).length,0)||0;
-      document.getElementById('dataInfo').textContent=`${s?.treatments||0} perlakuan × ${s?.reps||0} ulangan · ${n} nilai numerik tersedia.`;
-    } catch(e) { document.getElementById('dataInfo').textContent='Data input belum tersedia.'; }
-  </script>
+
+<script>
+const KEY='ral-input-v1';
+const fmt=x=>Number.isFinite(x)?x.toFixed(4):'—';
+const num=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).trim().replace(',','.'));return Number.isFinite(n)?n:null};
+function erf(x){const s=x<0?-1:1; x=Math.abs(x);const t=1/(1+0.3275911*x);const y=1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return s*y}
+function normalCDF(x){return .5*(1+erf(x/Math.sqrt(2)))}
+// Approximation of the upper-tail F probability using the incomplete beta continued fraction.
+function logGamma(z){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.001208650973866179,-0.000005395239384953];let x=z,y=x,tmp=x+5.5;tmp-=(x+.5)*Math.log(tmp);let ser=1.000000000190015;for(let j=0;j<c.length;j++){y+=1;ser+=c[j]/y}return -tmp+Math.log(2.5066282746310005*ser/x)}
+function betacf(a,b,x){const MAX=200,EPS=3e-7,FPMIN=1e-30;let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;let h=d;for(let m=1;m<=MAX;m++){let m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<EPS)break}return h}
+function betaInc(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(logGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x));if(x<(a+1)/(a+b+2))return bt*betacf(a,b,x)/a;return 1-bt*betacf(b,a,1-x)/b}
+function fUpper(F,d1,d2){if(!Number.isFinite(F)||F<0)return 1;const x=d2/(d2+d1*F);return betaInc(x,d2/2,d1/2)}
+function sd(a){if(a.length<2)return 0;const m=a.reduce((x,y)=>x+y,0)/a.length;return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1))}
+function esc(v){return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
+function analyze(){
+ let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){s=null}
+ if(!s||!Array.isArray(s.data)){document.getElementById('dataInfo').innerHTML='<div class="summary-item"><div class="name">Status</div><div class="value">Data input belum tersedia.</div></div>';return}
+ const groups=s.data.slice(0,s.treatments).map((r,i)=>({label:r.label||'P'+(i+1),values:(r||[]).slice(0,s.reps).map(num).filter(v=>v!==null)}));
+ const all=groups.flatMap(g=>g.values), k=groups.length,N=all.length;
+ const grand=N?all.reduce((a,b)=>a+b,0)/N:NaN;
+ const valid=groups.filter(g=>g.values.length>0);
+ document.getElementById('dataInfo').innerHTML=`<div class="summary-item"><div class="name">Variabel</div><div class="value">${esc(s.variable||'—')} ${s.unit?`(${esc(s.unit)})`:''}</div></div><div class="summary-item"><div class="name">Perlakuan</div><div class="value">${k}</div></div><div class="summary-item"><div class="name">Pengamatan</div><div class="value">${N}</div></div><div class="summary-item"><div class="name">Rerata umum</div><div class="value">${fmt(grand)}</div></div>`;
+ const meansBody=document.getElementById('meansBody');meansBody.innerHTML=groups.map(g=>{const m=g.values.length?g.values.reduce((a,b)=>a+b,0)/g.values.length:NaN;return `<tr><td>${esc(g.label)}</td><td>${g.values.length}</td><td>${fmt(m)}</td><td>${fmt(sd(g.values))}</td></tr>`}).join('');
+ if(k<2||N<=k||valid.length<2){document.getElementById('anovaBody').innerHTML='<tr><td colspan="6">Data tidak cukup untuk ANOVA RAL. Minimal diperlukan dua perlakuan dengan pengamatan.</td></tr>';return}
+ const ssT=all.reduce((a,y)=>a+(y-grand)**2,0);
+ const ssA=groups.reduce((a,g)=>{if(!g.values.length)return a;const m=g.values.reduce((x,y)=>x+y,0)/g.values.length;return a+g.values.length*(m-grand)**2},0);
+ const ssE=ssT-ssA,dfA=k-1,dfE=N-k,dfT=N-1,msA=ssA/dfA,msE=ssE/dfE,F=msE>0?msA/msE:NaN,p=fUpper(F,dfA,dfE),cv=grand!==0?Math.sqrt(Math.max(0,msE))/Math.abs(grand)*100:NaN;
+ document.getElementById('anovaBody').innerHTML=`<tr><td>Perlakuan</td><td>${dfA}</td><td>${fmt(ssA)}</td><td>${fmt(msA)}</td><td>${fmt(F)}</td><td>${fmt(p)}</td></tr><tr><td>Galat</td><td>${dfE}</td><td>${fmt(ssE)}</td><td>${fmt(msE)}</td><td>—</td><td>—</td></tr><tr><td>Total</td><td>${dfT}</td><td>${fmt(ssT)}</td><td>—</td><td>—</td><td>—</td></tr>`;
+ document.getElementById('anovaNote').innerHTML=`<b>CV = ${fmt(cv)}%</b> · JK dihitung dari data aktual. Jika terdapat sel kosong, analisis ini menggunakan observasi yang tersedia sehingga desain menjadi tidak seimbang; untuk RAL standar sebaiknya setiap perlakuan memiliki jumlah ulangan yang sama.`;
+}
+analyze();
+</script>
 </body>
 </html>
