@@ -1,6 +1,5 @@
 const STORAGE_KEY='ral-input-v1';
 let state=loadState()||{variable:'Variabel pengamatan',unit:'',treatments:5,reps:4,data:[]};
-
 const $=id=>document.getElementById(id);
 function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))}catch(e){return null}}
 function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));$('saveStatus').textContent='Tersimpan otomatis · '+new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}
@@ -17,6 +16,6 @@ $('addTreatment').addEventListener('click',()=>rebuild(state.treatments+1,state.
 $('addRep').addEventListener('click',()=>rebuild(state.treatments,state.reps+1));
 $('clearData').addEventListener('click',()=>{if(confirm('Kosongkan seluruh nilai pengamatan?')){state.data=Array.from({length:state.treatments},(_,i)=>Object.assign(Array.from({length:state.reps},()=>''),{label:'P'+(i+1)}));render()}});
 $('downloadCsv').addEventListener('click',()=>{let rows=[['Perlakuan',...Array.from({length:state.reps},(_,j)=>'U'+(j+1)),'Rerata']];for(let i=0;i<state.treatments;i++){const vals=state.data[i].slice(0,state.reps).map(v=>v??'');const nums=vals.map(num).filter(v=>v!==null);const mean=nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:'';rows.push([state.data[i].label||'P'+(i+1),...vals,mean])}const csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='data-RAL.csv';a.click();URL.revokeObjectURL(a.href)});
-$('analyzeRal').addEventListener('click',()=>{normalize();saveState();window.location.href='analysis.html'});
+$('analyzeRal').addEventListener('click',()=>{try{normalize();const errors=[];state.data.forEach((row,i)=>{for(let j=0;j<state.reps;j++){const raw=row[j];if(raw===''||raw===null||raw===undefined)errors.push(`P${i+1} U${j+1}: data kosong`);else if(num(raw)===null)errors.push(`P${i+1} U${j+1}: "${raw}" bukan angka`)}});if(errors.length){alert('ERROR: Data RAL belum valid.\n\n'+errors.slice(0,12).join('\n')+(errors.length>12?'\n… dan '+(errors.length-12)+' error lainnya.':''));return}saveState();window.location.href='analysis.html'}catch(e){console.error(e);alert('ERROR saat menjalankan Analisis RAL:\n\n'+e.message)}});
 document.addEventListener('paste',e=>{const target=e.target.closest('.cell');if(!target)return;const text=(e.clipboardData||window.clipboardData).getData('text');if(!text||!/[\t\n]/.test(text))return;e.preventDefault();const rows=text.replace(/\r/g,'').split('\n').filter(r=>r.length);const si=+target.dataset.i,sj=+target.dataset.j;rows.forEach((row,ri)=>row.split('\t').forEach((value,cj)=>{const i=si+ri,j=sj+cj;if(i<state.treatments&&j<state.reps)state.data[i][j]=value.trim()}));render();document.querySelector(`.cell[data-i="${si}"][data-j="${sj}"]`)?.focus()});
 render();
