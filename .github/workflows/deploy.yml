@@ -30,7 +30,10 @@ jobs:
       - name: Build
         run: npm run build
       - name: Verify build output
-        run: test -f dist/index.html
+        run: |
+          test -s dist/index.html
+          test -d dist/assets
+          grep -q "Statistical Web" dist/index.html
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
