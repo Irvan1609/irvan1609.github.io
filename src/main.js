@@ -1,170 +1,47 @@
 const FILES_KEY='statistical_web_txt_files_v2';
 const ACTIVE_KEY='statistical_web_active_txt_v2';
 const state={files:{},active:'dataset.txt',headers:[],rows:[]};
-
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-function showError(message,errorObj){
-  console.error(message,errorObj||'');
-  const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;
-  const box=$('#errorBox');
-  if(box){box.hidden=false;box.textContent=text;}
-  if($('#status')) $('#status').textContent=text;
-}
+function showError(message,errorObj){console.error(message,errorObj||'');const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;const box=$('#errorBox');if(box){box.hidden=false;box.textContent=text;}if($('#status'))$('#status').textContent=text;}
 function clearError(){const box=$('#errorBox');if(box){box.hidden=true;box.textContent='';}}
 function setStatus(text){if($('#status'))$('#status').textContent=text;}
-
-function parseTSV(text){
-  return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));
-}
-function serialize(){
-  if(!state.headers.length)return '';
-  return [state.headers.join('\t'),...state.rows.map(r=>state.headers.map((_,i)=>r[i]??'').join('\t'))].join('\n');
-}
-function persist(){
-  try{
-    state.files[state.active]=serialize();
-    localStorage.setItem(FILES_KEY,JSON.stringify(state.files));
-    localStorage.setItem(ACTIVE_KEY,state.active);
-    updateStorageStatus();
-  }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
-}
-function updateStorageStatus(){
-  const el=$('#storageStatus');
-  if(el)el.textContent=`● ${Object.keys(state.files).length} file .txt`;
-}
-function loadStorage(){
-  try{
-    state.files=JSON.parse(localStorage.getItem(FILES_KEY)||'{}')||{};
-    state.active=localStorage.getItem(ACTIVE_KEY)||Object.keys(state.files)[0]||'dataset.txt';
-    if(!(state.active in state.files))state.files[state.active]='';
-  }catch(e){
-    state.files={'dataset.txt':''};state.active='dataset.txt';
-    showError('Penyimpanan browser tidak dapat dibaca; dataset baru dibuat.',e);
-  }
-  loadActive(false);
-}
-function loadActive(save=true){
-  const text=state.files[state.active]??'';
-  const parsed=parseTSV(text);
-  state.headers=parsed[0]||[];
-  state.rows=parsed.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));
-  if(save)localStorage.setItem(ACTIVE_KEY,state.active);
-  renderTree();renderGrid();updateStorageStatus();
-  $('#activeFile').textContent=state.active;
-}
-function renderTree(){
-  const tree=$('#fileTree');if(!tree)return;
-  tree.innerHTML=Object.keys(state.files).map(name=>`<button type="button" class="tree-item ${name===state.active?'active':''}" data-file="${esc(name)}">📄 ${esc(name)}</button>`).join('');
-  tree.querySelectorAll('[data-file]').forEach(btn=>btn.addEventListener('click',()=>{
-    clearError();state.active=btn.dataset.file;loadActive();setStatus(`✓ ${state.active} dibuka.`);
-  }));
-}
-function renderGrid(){
-  const wrap=$('#gridWrap');if(!wrap)return;
-  if(!state.headers.length){
-    wrap.innerHTML=`<div class="empty-state"><div class="icon">📄</div><h3>${esc(state.active)}</h3><p>File .txt kosong. Gunakan <b>Paste from Excel</b> atau <b>Import CSV</b>.</p></div>`;
-  }else{
-    wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number">#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number">${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-    wrap.querySelectorAll('[contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
-      state.rows[Number(cell.dataset.r)][Number(cell.dataset.c)]=cell.textContent;persist();
-    }));
-  }
-  $('#info').textContent=`${state.rows.length} × ${state.headers.length}`;
-  $('#activeFile').textContent=state.active;
-}
-
+function parseTSV(text){return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));}
+function serialize(){if(!state.headers.length)return '';return [state.headers.join('\t'),...state.rows.map(r=>state.headers.map((_,i)=>r[i]??'').join('\t'))].join('\n');}
+function persist(){try{state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);updateStorageStatus();}catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}}
+function updateStorageStatus(){const el=$('#storageStatus');if(el)el.textContent=`● ${Object.keys(state.files).length} file .txt`;}
+function loadStorage(){try{state.files=JSON.parse(localStorage.getItem(FILES_KEY)||'{}')||{};state.active=localStorage.getItem(ACTIVE_KEY)||Object.keys(state.files)[0]||'dataset.txt';if(!(state.active in state.files))state.files[state.active]='';}catch(e){state.files={'dataset.txt':''};state.active='dataset.txt';showError('Penyimpanan browser tidak dapat dibaca; dataset baru dibuat.',e);}loadActive(false);}
+function loadActive(save=true){const text=state.files[state.active]??'';const parsed=parseTSV(text);state.headers=parsed[0]||[];state.rows=parsed.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));if(save)localStorage.setItem(ACTIVE_KEY,state.active);renderTree();renderGrid();updateStorageStatus();$('#activeFile').textContent=state.active;}
+function renderTree(){const tree=$('#fileTree');if(!tree)return;tree.innerHTML=Object.keys(state.files).map(name=>`<button type="button" class="tree-item ${name===state.active?'active':''}" data-file="${esc(name)}">📄 ${esc(name)}</button>`).join('');tree.querySelectorAll('[data-file]').forEach(btn=>btn.addEventListener('click',()=>{clearError();state.active=btn.dataset.file;loadActive();setStatus(`✓ ${state.active} dibuka.`);}));}
+function renderGrid(){const wrap=$('#gridWrap');if(!wrap)return;if(!state.headers.length){wrap.innerHTML=`<div class="empty-state"><div class="icon">📄</div><h3>${esc(state.active)}</h3><p>File .txt kosong. Gunakan <b>Paste from Excel</b> atau <b>Import CSV</b>.</p></div>`;}else{wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number">#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number">${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;wrap.querySelectorAll('[contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{state.rows[Number(cell.dataset.r)][Number(cell.dataset.c)]=cell.textContent;persist();}));}$('#info').textContent=`${state.rows.length} × ${state.headers.length}`;$('#activeFile').textContent=state.active;}
 function excelRows(text){return text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>line.split('\t'));}
-function detectDelimiter(text){
-  let semis=0,commas=0,quotes=false;
-  for(const c of text.slice(0,10000)){
-    if(c==='"')quotes=!quotes;
-    else if(!quotes&&c===';')semis++;
-    else if(!quotes&&c===',')commas++;
-  }
-  return semis>commas?';':',';
-}
-function csvRows(text,delimiter){
-  const rows=[];let row=[],cell='',quoted=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i];
-    if(c==='"'){
-      if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;
-    }else if(c===delimiter&&!quoted){row.push(cell);cell='';}
-    else if((c==='\n'||c==='\r')&&!quoted){
-      if(c==='\r'&&text[i+1]==='\n')i++;
-      row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);row=[];cell='';
-    }else cell+=c;
-  }
-  if(cell!==''||row.length){row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);}
-  return rows;
-}
-
+function detectDelimiter(text){let semis=0,commas=0,quotes=false;for(const c of text.slice(0,10000)){if(c==='"')quotes=!quotes;else if(!quotes&&c===';')semis++;else if(!quotes&&c===',')commas++;}return semis>commas?';':',';}
+function csvRows(text,delimiter){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(c===delimiter&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);row=[];cell='';}else cell+=c;}if(cell!==''||row.length){row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);}return rows;}
 function openModal(){clearError();const m=$('#pasteModal');m.classList.add('open');$('#pasteArea').value='';$('#preview').textContent='';setTimeout(()=>$('#pasteArea').focus(),0);}
 function closeModal(){$('#pasteModal').classList.remove('open');}
-function previewPaste(){
-  const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';
-}
-function applyPasted(){
-  try{
-    const a=excelRows($('#pasteArea').value);
-    if(!a.length)return showError('Tidak ada data Excel yang ditempel.');
-    const hasHeader=$('#hasHeader').checked;
-    state.headers=hasHeader?a[0].map(v=>v.trim()||'Variable'):a[0].map((_,i)=>`Variable${i+1}`);
-    state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));
-    persist();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${state.active}.`);
-  }catch(e){showError('Gagal memasukkan data dari Excel.',e);}
-}
-async function importCSV(event){
-  try{
-    const file=event.target.files?.[0];if(!file)return;
-    const text=await file.text();if(!text.trim())return showError('File CSV kosong.');
-    const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);
-    if(!a.length)return showError('CSV tidak dapat dibaca.');
-    state.headers=a[0].map(v=>v.trim()||'Variable');
-    state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));
-    persist();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);
-  }catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}
-}
-function newTXT(){
-  let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;
-  state.files[name]='';state.active=name;persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);
-}
-function addRow(){
-  if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');
-  state.rows.push(state.headers.map(()=>''));persist();renderGrid();setStatus('✓ Baris baru ditambahkan.');
-}
-function addColumn(){
-  if(!state.headers.length){state.headers=['Variable1'];state.rows=[];}else state.headers.push(`Variable${state.headers.length+1}`);
-  state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');
-}
-function clearData(){
-  if(!confirm(`Hapus seluruh isi ${state.active}?`))return;
-  state.headers=[];state.rows=[];persist();renderGrid();setStatus(`✓ Isi ${state.active} dikosongkan.`);
-}
+function previewPaste(){const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';}
+function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?a[0].map(v=>v.trim()||'Variable'):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${state.active}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
+async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');state.headers=a[0].map(v=>v.trim()||'Variable');state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
+function newTXT(){let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;state.files[name]='';state.active=name;persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);}
+function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');state.rows.push(state.headers.map(()=>''));persist();renderGrid();setStatus('✓ Baris baru ditambahkan.');}
+function addColumn(){if(!state.headers.length){state.headers=['Variable1'];state.rows=[];}else state.headers.push(`Variable${state.headers.length+1}`);state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
+function clearData(){if(!confirm(`Hapus seluruh isi ${state.active}?`))return;state.headers=[];state.rows=[];persist();renderGrid();setStatus(`✓ Isi ${state.active} dikosongkan.`);}
 function placeholder(name){showError(`Fitur ${name} belum tersedia. Tombol berfungsi dan sengaja menampilkan pesan ini.`);}
-
+function populateSelect(id,filterNumeric=false){const el=$(id);if(!el)return;el.innerHTML='';state.headers.forEach((h,i)=>{if(filterNumeric){const vals=state.rows.map(r=>Number(String(r[i]??'').replace(',','.')));if(!vals.some(Number.isFinite))return;}const o=document.createElement('option');o.value=String(i);o.textContent=h;el.appendChild(o);});}
+function rakError(text){const box=$('#rakError');if(box){box.hidden=false;box.textContent=`⚠ ${text}`;}}
+function clearRakError(){const box=$('#rakError');if(box){box.hidden=true;box.textContent='';}}
+function logGamma(z){const p=[676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.984369578019571e-6,1.5056327351493116e-7];if(z<0.5)return Math.log(Math.PI)-Math.log(Math.sin(Math.PI*z))-logGamma(1-z);z-=1;let x=0.9999999999998099;for(let i=0;i<p.length;i++)x+=p[i]/(z+i+1);const t=z+p.length-0.5;return 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(x);}
+function betaCF(a,b,x){const MAX=200,EPS=3e-10,FPMIN=1e-300;let qab=a+b,qap=a+1,qam=a-1,c=1-qab*x/qap;if(Math.abs(c)<FPMIN)c=FPMIN;c=1/c;let d=1-qab*x/qap;if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;let h=d;for(let m=1;m<=MAX;m++){let m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<EPS)break;}return h;}
+function regBeta(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(logGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x));return x<(a+1)/(a+b+2)?bt*betaCF(a,b,x)/a:1-bt*betaCF(b,a,1-x)/b;}
+function fCdf(x,d1,d2){if(!Number.isFinite(x)||x<0)return 0;return regBeta((d1*x)/(d1*x+d2),d1/2,d2/2);}
+function fmt(x){return Number.isFinite(x)?x.toLocaleString('id-ID',{minimumFractionDigits:3,maximumFractionDigits:3}):'—';}
+function runRAK(){clearRakError();$('#rakResult').innerHTML='';try{if(state.rows.length<2||state.headers.length<3)return rakError('Data RAK belum cukup. Masukkan minimal 2 perlakuan × 2 kelompok dengan peubah respons numerik.');const yi=Number($('#rakResponse').value),ti=Number($('#rakTreatment').value),bi=Number($('#rakBlock').value);if([yi,ti,bi].some(Number.isNaN)||new Set([yi,ti,bi]).size<3)return rakError('Peubah respons, perlakuan, dan kelompok harus berbeda.');const obs=[];for(const r of state.rows){const y=Number(String(r[yi]??'').trim().replace(',','.'));const t=String(r[ti]??'').trim();const b=String(r[bi]??'').trim();if(t!==''&&b!==''&&Number.isFinite(y))obs.push({y,t,b});}const treatments=[...new Set(obs.map(o=>o.t))],blocks=[...new Set(obs.map(o=>o.b))];if(treatments.length<2||blocks.length<2)return rakError('RAK memerlukan sedikitnya 2 taraf perlakuan dan 2 kelompok.');if(obs.length!==treatments.length*blocks.length)return rakError(`Data tidak seimbang. Ditemukan ${obs.length} observasi, sedangkan RAK lengkap memerlukan ${treatments.length} × ${blocks.length} = ${treatments.length*blocks.length} observasi.`);const keys=new Set();for(const o of obs){const k=`${o.t}\u0000${o.b}`;if(keys.has(k))return rakError(`Terdapat pengamatan ganda untuk perlakuan “${o.t}” pada kelompok “${o.b}”.`);keys.add(k);}const N=obs.length,grand=obs.reduce((s,o)=>s+o.y,0)/N;const byT=new Map(),byB=new Map();obs.forEach(o=>{byT.set(o.t,(byT.get(o.t)||0)+o.y);byB.set(o.b,(byB.get(o.b)||0)+o.y);});const a=treatments.length,b=blocks.length;const sst=obs.reduce((s,o)=>s+(o.y-grand)**2,0);const ssTr=b*treatments.reduce((s,t)=>s+(byT.get(t)/b-grand)**2,0);const ssBl=a*blocks.reduce((s,k)=>s+(byB.get(k)/a-grand)**2,0);const sse=sst-ssTr-ssBl;const dfTr=a-1,dfBl=b-1,dfE=(a-1)*(b-1),dfTot=N-1;const msTr=ssTr/dfTr,msBl=ssBl/dfBl,mse=sse/dfE;const fTr=msTr/mse,fBl=msBl/mse,pTr=1-fCdf(fTr,dfTr,dfE),pBl=1-fCdf(fBl,dfBl,dfE);$('#rakResult').innerHTML=`<h3 style="margin:18px 0 5px;color:var(--navy)">Tabel ANOVA RAK</h3><table class="result-table"><thead><tr><th>Sumber</th><th>db</th><th>JK</th><th>KT</th><th>F hitung</th><th>p-value</th></tr></thead><tbody><tr><td>Perlakuan</td><td>${dfTr}</td><td>${fmt(ssTr)}</td><td>${fmt(msTr)}</td><td>${fmt(fTr)}</td><td>${pTr<0.001?'<0.001':fmt(pTr)}</td></tr><tr><td>Kelompok</td><td>${dfBl}</td><td>${fmt(ssBl)}</td><td>${fmt(msBl)}</td><td>${fmt(fBl)}</td><td>${pBl<0.001?'<0.001':fmt(pBl)}</td></tr><tr><td>Galat</td><td>${dfE}</td><td>${fmt(sse)}</td><td>${fmt(mse)}</td><td>—</td><td>—</td></tr><tr><td>Total</td><td>${dfTot}</td><td>${fmt(sst)}</td><td>—</td><td>—</td><td>—</td></tr></tbody></table><div class="analysis-note">n = ${N}; perlakuan = ${a}; kelompok = ${b}. Keputusan pada α = 0,05: perlakuan ${pTr<0.05?'berpengaruh nyata':'tidak berpengaruh nyata'}, kelompok ${pBl<0.05?'berpengaruh nyata':'tidak berpengaruh nyata'}.</div>`;}catch(e){rakError('Analisis RAK gagal dijalankan.');console.error(e);}}
+function openRAK(){clearError();if(!state.headers.length)return showError('Tidak ada dataset aktif. Masukkan data terlebih dahulu.');populateSelect('#rakResponse',true);populateSelect('#rakTreatment',false);populateSelect('#rakBlock',false);$('#rakResult').innerHTML='';clearRakError();const m=$('#rakModal');m.classList.add('open');}
+function closeRAK(){$('#rakModal').classList.remove('open');}
 function bind(){
-  $('#pasteBtn').addEventListener('click',openModal);
-  $('#importBtn').addEventListener('click',()=>$('#file').click());
-  $('#file').addEventListener('change',importCSV);
-  $('#newTxt').addEventListener('click',newTXT);
-  $('#addRow').addEventListener('click',addRow);
-  $('#addCol').addEventListener('click',addColumn);
-  $('#clearData').addEventListener('click',clearData);
-  $('#closeModal').addEventListener('click',closeModal);
-  $('#cancelPaste').addEventListener('click',closeModal);
-  $('#applyPaste').addEventListener('click',applyPasted);
-  $('#pasteArea').addEventListener('input',previewPaste);
-  $('#outputBtn').addEventListener('click',()=>placeholder('Output'));
-  document.querySelectorAll('[data-menu]').forEach(btn=>btn.addEventListener('click',()=>{
-    if(btn.dataset.menu!=='Data')placeholder(btn.dataset.menu);else{clearError();setStatus('✓ Menu Data aktif.');}
-  }));
-  document.querySelectorAll('[data-mobile]').forEach(btn=>btn.addEventListener('click',()=>placeholder(btn.dataset.mobile)));
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-  window.addEventListener('error',e=>showError('Terjadi kesalahan JavaScript.',e.error||e.message));
-  window.addEventListener('unhandledrejection',e=>showError('Terjadi kesalahan proses aplikasi.',e.reason));
+  $('#pasteBtn').addEventListener('click',openModal);$('#importBtn').addEventListener('click',()=>$('#file').click());$('#file').addEventListener('change',importCSV);$('#newTxt').addEventListener('click',newTXT);$('#addRow').addEventListener('click',addRow);$('#addCol').addEventListener('click',addColumn);$('#clearData').addEventListener('click',clearData);$('#closeModal').addEventListener('click',closeModal);$('#cancelPaste').addEventListener('click',closeModal);$('#applyPaste').addEventListener('click',applyPasted);$('#pasteArea').addEventListener('input',previewPaste);$('#runRak').addEventListener('click',runRAK);$('#closeRak').addEventListener('click',closeRAK);$('#closeRak2').addEventListener('click',closeRAK);$('#outputBtn').addEventListener('click',()=>placeholder('Output'));
+  document.querySelectorAll('[data-menu]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.menu==='Analyze'){openRAK();return;}if(btn.dataset.menu!=='Data')placeholder(btn.dataset.menu);else{clearError();setStatus('✓ Menu Data aktif.');}}));
+  document.querySelectorAll('[data-mobile]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.mobile==='Analyze'){openRAK();return;}if(btn.dataset.mobile!=='Data')placeholder(btn.dataset.mobile);else{clearError();setStatus('✓ Menu Data aktif.');}}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeRAK();}});window.addEventListener('error',e=>showError('Terjadi kesalahan JavaScript.',e.error||e.message));window.addEventListener('unhandledrejection',e=>showError('Terjadi kesalahan proses aplikasi.',e.reason));
 }
-
 try{loadStorage();bind();setStatus('✓ Statistical Web siap digunakan.');}catch(e){showError('Aplikasi gagal diinisialisasi.',e);}
