@@ -10,12 +10,33 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>\"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[m]))
 }
 
+function showError(message, error = null) {
+  console.error(message, error)
+  const status = document.querySelector('#status')
+  if (status) {
+    status.textContent = `⚠ ERROR: ${message}${error?.message ? ` — ${error.message}` : ''}`
+    status.className = 'status-bar border-top px-2 py-1 small bg-danger-subtle text-danger-emphasis'
+  }
+  const box = document.querySelector('#errorBox')
+  if (box) {
+    box.textContent = `ERROR: ${message}${error?.message ? ` — ${error.message}` : ''}`
+    box.classList.remove('d-none')
+  }
+}
+
+function clearError() {
+  const status = document.querySelector('#status')
+  const box = document.querySelector('#errorBox')
+  if (box) box.classList.add('d-none')
+  if (status) status.className = 'status-bar border-top px-2 py-1 small bg-light'
+}
+
 function saveData() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ headers: state.headers, rows: state.rows, savedAt: Date.now() }))
     updateStorageStatus()
   } catch (err) {
-    document.querySelector('#status').textContent = '⚠ Data terlalu besar untuk penyimpanan browser.'
+    showError('Gagal menyimpan data ke penyimpanan browser.', err)
   }
 }
 
@@ -29,25 +50,32 @@ function loadData() {
       state.rows = saved.rows
       return true
     }
-  } catch (_) {}
+  } catch (err) {
+    showError('Data tersimpan tidak dapat dipulihkan.', err)
+  }
   return false
 }
 
 function clearSavedData() {
-  localStorage.removeItem(STORAGE_KEY)
-  state.headers = []
-  state.rows = []
-  renderGrid()
-  updateStorageStatus()
-  document.querySelector('#status').textContent = 'Data sementara telah dihapus dari browser.'
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    state.headers = []
+    state.rows = []
+    renderGrid()
+    updateStorageStatus()
+    clearError()
+    document.querySelector('#status').textContent = 'Data sementara telah dihapus dari browser.'
+  } catch (err) { showError('Gagal menghapus data sementara.', err) }
 }
 
 function updateStorageStatus() {
   const status = document.querySelector('#storageStatus')
   if (!status) return
-  const hasData = !!localStorage.getItem(STORAGE_KEY)
-  status.textContent = hasData ? '● Tersimpan di browser' : '○ Belum tersimpan'
-  status.className = `small ${hasData ? 'text-success' : 'text-secondary'} text-nowrap`
+  try {
+    const hasData = !!localStorage.getItem(STORAGE_KEY)
+    status.textContent = hasData ? '● Tersimpan di browser' : '○ Belum tersimpan'
+    status.className = `small ${hasData ? 'text-success' : 'text-secondary'} text-nowrap ms-auto`
+  } catch (err) { showError('Penyimpanan browser tidak tersedia.', err) }
 }
 
 function render() {
@@ -59,7 +87,7 @@ function render() {
           <strong class="app-title">Statistical Data Editor</strong>
         </div>
         <nav class="nav nav-pills flex-nowrap overflow-x-auto px-2 pb-2 gap-1">
-          ${['Project','Data','Design','Analyze','Graphs','Help'].map((x,i)=>`<button class="nav-link ${i===1?'active':''} text-nowrap">${x}</button>`).join('')}
+          ${['Project','Data','Design','Analyze','Graphs','Help'].map((x,i)=>`<button class="nav-link ${i===1?'active':''} text-nowrap" data-action="menu" data-name="${x}">${x}</button>`).join('')}
         </nav>
       </header>
 
@@ -71,14 +99,16 @@ function render() {
         <button id="clearData" class="btn btn-outline-danger text-nowrap">🗑 Hapus Data</button>
       </div>
 
+      <div id="errorBox" class="alert alert-danger rounded-0 mb-0 d-none" role="alert"></div>
+
       <main class="d-flex flex-grow-1 min-h-0 overflow-hidden">
         <aside class="offcanvas-lg offcanvas-start border-end bg-white project-panel" tabindex="-1" id="projectPanel">
           <div class="offcanvas-header border-bottom"><h6 class="offcanvas-title mb-0">Project Explorer</h6><button class="btn-close d-lg-none" data-bs-dismiss="offcanvas"></button></div>
           <div class="p-2">
             <div class="fw-semibold small text-secondary px-2 py-1">PROJECT</div>
-            <button class="tree-item active">📁 Data</button>
-            <button class="tree-item">　📄 Dataset</button>
-            <button class="tree-item">📁 Output</button>
+            <button class="tree-item active" data-action="tree" data-name="Data">📁 Data</button>
+            <button class="tree-item" data-action="tree" data-name="Dataset">　📄 Dataset</button>
+            <button class="tree-item" data-action="tree" data-name="Output">📁 Output</button>
           </div>
         </aside>
 
@@ -95,9 +125,9 @@ function render() {
       </main>
 
       <nav class="mobile-nav d-lg-none border-top bg-white">
-        <button class="mobile-nav-item active">▦<span>Data</span></button>
-        <button class="mobile-nav-item">ƒ<span>Analyze</span></button>
-        <button class="mobile-nav-item">≡<span>Output</span></button>
+        <button class="mobile-nav-item active" data-action="mobile" data-name="Data">▦<span>Data</span></button>
+        <button class="mobile-nav-item" data-action="mobile" data-name="Analyze">ƒ<span>Analyze</span></button>
+        <button class="mobile-nav-item" data-action="mobile" data-name="Output">≡<span>Output</span></button>
         <button class="mobile-nav-item" data-bs-toggle="offcanvas" data-bs-target="#projectPanel">☰<span>More</span></button>
       </nav>
     </div>
@@ -121,53 +151,119 @@ function render() {
   updateStorageStatus()
 }
 
-function parse(text) { return text.replace(/\r/g,'').split('\n').filter(Boolean).map(r => r.split('\t')) }
+function parse(text) {
+  if (!text || !text.trim()) return []
+  return text.replace(/\r/g,'').split('\n').filter(Boolean).map(r => r.split('\t'))
+}
+
 function renderGrid() {
-  const wrap = document.querySelector('#gridWrap')
-  if (!state.headers.length) {
-    wrap.innerHTML = '<div class="empty-state"><div class="fs-2">▦</div><h5>Belum ada data</h5><p>Salin data dari Excel lalu tekan <strong>Paste from Excel</strong>.</p></div>'
-    document.querySelector('#info').textContent = '0 × 0'
+  try {
+    const wrap = document.querySelector('#gridWrap')
+    if (!state.headers.length) {
+      wrap.innerHTML = '<div class="empty-state"><div class="fs-2">▦</div><h5>Belum ada data</h5><p>Salin data dari Excel lalu tekan <strong>Paste from Excel</strong>.</p></div>'
+      document.querySelector('#info').textContent = '0 × 0'
+      updateStorageStatus()
+      return
+    }
+    wrap.innerHTML = `<table class="table table-bordered table-sm data-grid mb-0"><thead><tr><th class="row-number">#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number">${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    document.querySelector('#info').textContent = `${state.rows.length} × ${state.headers.length}`
+    wrap.querySelectorAll('[contenteditable]').forEach(td => td.addEventListener('input', () => {
+      state.rows[+td.dataset.r][+td.dataset.c] = td.textContent
+      saveData()
+    }))
     updateStorageStatus()
-    return
-  }
-  wrap.innerHTML = `<table class="table table-bordered table-sm data-grid mb-0"><thead><tr><th class="row-number">#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number">${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`
-  document.querySelector('#info').textContent = `${state.rows.length} × ${state.headers.length}`
-  wrap.querySelectorAll('[contenteditable]').forEach(td => td.addEventListener('input', () => {
-    state.rows[+td.dataset.r][+td.dataset.c] = td.textContent
-    saveData()
-  }))
-  updateStorageStatus()
+  } catch (err) { showError('Gagal menampilkan Data Editor.', err) }
 }
+
 function updatePreview() {
-  const a = parse(document.querySelector('#pasteArea').value)
-  const preview = document.querySelector('#preview')
-  if (!a.length) { preview.innerHTML=''; return }
-  const hasHeader = document.querySelector('#hasHeader').checked
-  const hs = hasHeader ? a[0] : a[0].map((_,i)=>`Variable${i+1}`)
-  const rows = a.slice(hasHeader ? 1 : 0)
-  preview.innerHTML = `<div class="small fw-semibold mb-2">Preview: ${rows.length} baris × ${hs.length} kolom</div><table class="table table-bordered table-sm"><thead><tr>${hs.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,8).map(r=>`<tr>${hs.map((_,i)=>`<td>${esc(r[i]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  try {
+    const a = parse(document.querySelector('#pasteArea').value)
+    const preview = document.querySelector('#preview')
+    if (!a.length) { preview.innerHTML=''; return }
+    const hasHeader = document.querySelector('#hasHeader').checked
+    const hs = hasHeader ? a[0] : a[0].map((_,i)=>`Variable${i+1}`)
+    const rows = a.slice(hasHeader ? 1 : 0)
+    preview.innerHTML = `<div class="small fw-semibold mb-2">Preview: ${rows.length} baris × ${hs.length} kolom</div><table class="table table-bordered table-sm"><thead><tr>${hs.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,8).map(r=>`<tr>${hs.map((_,i)=>`<td>${esc(r[i]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  } catch (err) { showError('Gagal membaca data yang ditempel dari Excel.', err) }
 }
+
 function bind() {
-  const modal = new bootstrap.Modal('#pasteModal')
-  document.querySelector('#pasteBtn').onclick = () => { document.querySelector('#pasteArea').value=''; modal.show(); setTimeout(()=>document.querySelector('#pasteArea').focus(),300) }
-  document.querySelector('#pasteArea').addEventListener('input', updatePreview)
-  document.querySelector('#hasHeader').addEventListener('change', updatePreview)
-  document.querySelector('#applyPaste').onclick = () => {
-    const a = parse(document.querySelector('#pasteArea').value); if (!a.length) return
-    const hh = document.querySelector('#hasHeader').checked
-    state.headers = hh ? a[0] : a[0].map((_,i)=>`Variable${i+1}`)
-    state.rows = a.slice(hh ? 1 : 0).map(r => state.headers.map((_,i)=>r[i]??''))
-    saveData()
-    renderGrid()
-    document.querySelector('#status').textContent = `✓ ${state.rows.length} baris × ${state.headers.length} kolom berhasil dimasukkan dan disimpan sementara di browser.`
-    modal.hide()
-  }
-  document.querySelector('#importBtn').onclick = () => document.querySelector('#file').click()
-  document.querySelector('#file').onchange = async (e) => { const f=e.target.files[0]; if(!f)return; const a=parse(await f.text()); if(a.length){state.headers=a[0];state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));saveData();renderGrid();document.querySelector('#status').textContent=`✓ CSV diimpor: ${state.rows.length} baris dan disimpan sementara di browser.`} }
-  document.querySelector('#addRow').onclick = () => { if(!state.headers.length)state.headers=['Variable1']; state.rows.push(state.headers.map(()=>'')); saveData(); renderGrid() }
-  document.querySelector('#addCol').onclick = () => { state.headers.push(`Variable${state.headers.length+1}`); state.rows.forEach(r=>r.push('')); saveData(); renderGrid() }
-  document.querySelector('#clearData').onclick = () => { if (state.headers.length && confirm('Hapus dataset sementara dari browser?')) clearSavedData() }
+  try {
+    const modalElement = document.querySelector('#pasteModal')
+    const modal = new bootstrap.Modal(modalElement)
+
+    document.querySelector('#pasteBtn').onclick = () => {
+      try {
+        clearError()
+        document.querySelector('#pasteArea').value=''
+        document.querySelector('#preview').innerHTML=''
+        modal.show()
+        setTimeout(()=>document.querySelector('#pasteArea').focus(),300)
+      } catch (err) { showError('Tombol Paste from Excel gagal dibuka.', err) }
+    }
+
+    document.querySelector('#pasteArea').addEventListener('input', updatePreview)
+    document.querySelector('#hasHeader').addEventListener('change', updatePreview)
+
+    document.querySelector('#applyPaste').onclick = () => {
+      try {
+        clearError()
+        const a = parse(document.querySelector('#pasteArea').value)
+        if (!a.length) return showError('Tidak ada data. Tempelkan data dari Excel terlebih dahulu.')
+        const hh = document.querySelector('#hasHeader').checked
+        state.headers = hh ? a[0] : a[0].map((_,i)=>`Variable${i+1}`)
+        state.rows = a.slice(hh ? 1 : 0).map(r => state.headers.map((_,i)=>r[i]??''))
+        saveData(); renderGrid()
+        document.querySelector('#status').textContent = `✓ ${state.rows.length} baris × ${state.headers.length} kolom berhasil dimasukkan dan disimpan sementara di browser.`
+        modal.hide()
+      } catch (err) { showError('Gagal memasukkan data dari Excel.', err) }
+    }
+
+    document.querySelector('#importBtn').onclick = () => {
+      try { clearError(); document.querySelector('#file').value=''; document.querySelector('#file').click() }
+      catch (err) { showError('Tombol Import CSV gagal dibuka.', err) }
+    }
+
+    document.querySelector('#file').onchange = async (e) => {
+      try {
+        clearError()
+        const f=e.target.files[0]
+        if(!f) return showError('Tidak ada file CSV yang dipilih.')
+        const text = await f.text()
+        const a=parse(text)
+        if(!a.length) return showError('File CSV kosong atau formatnya tidak dapat dibaca.')
+        state.headers=a[0]
+        state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''))
+        saveData(); renderGrid()
+        document.querySelector('#status').textContent=`✓ CSV diimpor: ${state.rows.length} baris × ${state.headers.length} kolom dan disimpan sementara di browser.`
+      } catch (err) { showError('Gagal mengimpor file CSV.', err) }
+    }
+
+    document.querySelector('#addRow').onclick = () => {
+      try { clearError(); if(!state.headers.length)state.headers=['Variable1']; state.rows.push(state.headers.map(()=>'')); saveData(); renderGrid(); document.querySelector('#status').textContent='✓ Baris baru ditambahkan.' }
+      catch (err) { showError('Gagal menambahkan baris.', err) }
+    }
+
+    document.querySelector('#addCol').onclick = () => {
+      try { clearError(); state.headers.push(`Variable${state.headers.length+1}`); state.rows.forEach(r=>r.push('')); saveData(); renderGrid(); document.querySelector('#status').textContent='✓ Kolom baru ditambahkan.' }
+      catch (err) { showError('Gagal menambahkan kolom.', err) }
+    }
+
+    document.querySelector('#clearData').onclick = () => {
+      try { clearError(); if (!state.headers.length) return showError('Tidak ada dataset yang dapat dihapus.'); if (confirm('Hapus dataset sementara dari browser?')) clearSavedData() }
+      catch (err) { showError('Tombol Hapus Data gagal dijalankan.', err) }
+    }
+
+    document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
+      const name = button.dataset.name || 'Menu'
+      if (name !== 'Data') showError(`Fitur ${name} belum tersedia. Tombol berfungsi dan sengaja menampilkan error ini.`)
+      else { clearError(); document.querySelector('#status').textContent='✓ Menu Data aktif.' }
+    }))
+  } catch (err) { showError('Inisialisasi aplikasi gagal.', err) }
 }
+
+window.addEventListener('error', event => showError('Terjadi JavaScript error.', event.error || new Error(event.message)))
+window.addEventListener('unhandledrejection', event => showError('Terjadi error pada proses aplikasi.', event.reason instanceof Error ? event.reason : new Error(String(event.reason))))
 
 const restored = loadData()
 render()
