@@ -173,6 +173,72 @@ function parse(text) {
   return text.replace(/\r/g,'').split('\n').filter(Boolean).map(r => r.split('\t'))
 }
 
+function detectCsvDelimiter(text) {
+  const sample = text.replace(/\r/g, '').split('\n').filter(line => line.trim()).slice(0, 20).join('\n')
+  const candidates = [',', ';']
+  const scores = candidates.map(delimiter => {
+    let count = 0
+    let inQuotes = false
+    for (let i = 0; i < sample.length; i++) {
+      const ch = sample[i]
+      if (ch === '"') {
+        if (inQuotes && sample[i + 1] === '"') i++
+        else inQuotes = !inQuotes
+      } else if (ch === delimiter && !inQuotes) count++
+    }
+    return { delimiter, count }
+  })
+  scores.sort((a, b) => b.count - a.count)
+  return scores[0].count > 0 ? scores[0].delimiter : ','
+}
+
+function parseCsv(text, delimiter) {
+  const rows = []
+  let row = []
+  let cell = ''
+  let inQuotes = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        cell += '"'
+        i++
+      } else {
+        inQuotes = !inQuotes
+      }
+    } else if (ch === delimiter && !inQuotes) {
+      row.push(cell)
+      cell = ''
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++
+      row.push(cell)
+      if (row.some(value => value.trim() !== '')) rows.push(row)
+      row = []
+      cell = ''
+    } else {
+      cell += ch
+    }
+  }
+
+  if (cell !== '' || row.length) {
+    row.push(cell)
+    if (row.some(value => value.trim() !== '')) rows.push(row)
+  }
+  return rows
+}
+
+function normalizeDecimal(value) {
+  const s = String(value ?? '').trim()
+  if (!s) return ''
+  if (/^[+-]?\d+,\d+$/.test(s)) return s.replace(',', '.')
+  return s
+}
+
+function normalizeCsvRows(rows) {
+  return rows.map(row => row.map(normalizeDecimal))
+}
+
 function renderGrid() {
   try {
     const wrap = document.querySelector('#gridWrap')
@@ -229,12 +295,23 @@ function bind() {
     document.querySelector('#importBtn').onclick = () => { try { clearError(); const file=document.querySelector('#file'); file.value=''; file.click() } catch(err){ showError('Tombol Import CSV gagal dibuka.',err) } }
     document.querySelector('#file').onchange = async e => {
       try {
-        clearError(); const f=e.target.files[0]
+        clearError()
+        const f=e.target.files[0]
         if(!f) return showError('Tidak ada file CSV yang dipilih.')
-        const text=await f.text(); const a=parse(text)
-        if(!a.length) return showError('File CSV kosong atau formatnya tidak dapat dibaca.')
-        state.headers=a[0]; state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??'')); saveData(); renderGrid()
-        document.querySelector('#status').textContent=`✓ CSV diimpor: ${state.rows.length} baris × ${state.headers.length} kolom dan disimpan sementara di browser.`
+        const text=await f.text()
+        if(!text.trim()) return showError('File CSV kosong.')
+
+        const delimiter = detectCsvDelimiter(text)
+        const delimiterName = delimiter === ';' ? 'titik koma (;)' : 'koma (,)'
+        const parsed = parseCsv(text, delimiter)
+        if(!parsed.length) return showError('File CSV kosong atau formatnya tidak dapat dibaca.')
+        if(parsed[0].length < 1) return showError('Header CSV tidak dapat dibaca.')
+
+        const normalized = normalizeCsvRows(parsed)
+        state.headers = normalized[0].map(h => h.trim())
+        state.rows = normalized.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''))
+        saveData(); renderGrid()
+        document.querySelector('#status').textContent=`✓ CSV diimpor: ${state.rows.length} baris × ${state.headers.length} kolom. Pemisah terdeteksi: ${delimiterName}. Nilai desimal koma otomatis diubah menjadi titik.`
       } catch(err){ showError('Gagal mengimpor file CSV.',err) }
     }
 
@@ -259,13 +336,13 @@ window.addEventListener('unhandledrejection', event => showError('Terjadi error 
 
 document.addEventListener('keydown', e => { if(e.key==='Escape') { closePasteModal(); toggleProjectPanel(false) } })
 
-document.addEventListener('click', e => { if(e.target.id==='pasteModal') closePasteModal() })
-
 try {
-  const restored = loadData()
   render()
-  if (restored) document.querySelector('#status').textContent = `✓ Dataset sementara dipulihkan dari browser: ${state.rows.length} baris × ${state.headers.length} kolom.`
+  if (loadData()) {
+    renderGrid()
+    const status = document.querySelector('#status')
+    if (status) status.textContent = `✓ Dataset sementara dipulihkan: ${state.rows.length} baris × ${state.headers.length} kolom.`
+  }
 } catch (err) {
-  if (app) app.innerHTML = `<div class="fatal-error"><h2>Statistical Web gagal dimuat</h2><p>${esc(err?.message || err)}</p><p>Refresh halaman dengan Ctrl+F5.</p></div>`
-  console.error('Fatal application error', err)
+  showError('Aplikasi gagal dimulai.', err)
 }
