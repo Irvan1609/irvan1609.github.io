@@ -1,25 +1,170 @@
-import 'bootstrap/dist/css/bootstrap.min.css'
-import './style.css'
+const FILES_KEY='statistical_web_txt_files_v2';
+const ACTIVE_KEY='statistical_web_active_txt_v2';
+const state={files:{},active:'dataset.txt',headers:[],rows:[]};
 
-const FILES='statistical_web_txt_files_v1', ACTIVE='statistical_web_active_txt_v1'
-const state={files:{},active:'dataset.txt',headers:[],rows:[]}
-const app=document.querySelector('#app')
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))
-const error=(m,e)=>{console.error(m,e);const t=`⚠ ERROR: ${m}${e?.message?' — '+e.message:''}`,s=document.querySelector('#status'),b=document.querySelector('#errorBox');if(s)s.textContent=t;if(b){b.textContent=t;b.classList.remove('d-none')}}
-const clearError=()=>document.querySelector('#errorBox')?.classList.add('d-none')
-function parseTSV(t){return t.replace(/\r/g,'').split('\n').filter(Boolean).map(x=>x.split('\t'))}
-function textOf(){return state.headers.length?[state.headers.join('\t'),...state.rows.map(r=>state.headers.map((_,i)=>r[i]??'').join('\t'))].join('\n'):''}
-function persist(){try{state.files[state.active]=textOf();localStorage.setItem(FILES,JSON.stringify(state.files));localStorage.setItem(ACTIVE,state.active);status()}catch(e){error('Gagal menyimpan file .txt sementara.',e)}}
-function status(){const x=document.querySelector('#storageStatus');if(x)x.textContent=`● ${Object.keys(state.files).length} file .txt tersimpan di browser`}
-function load(){try{state.files=JSON.parse(localStorage.getItem(FILES)||'{}')||{};state.active=localStorage.getItem(ACTIVE)||Object.keys(state.files)[0]||'dataset.txt';if(!(state.active in state.files))state.files[state.active]='';open(state.active,false)}catch(e){error('Penyimpanan browser tidak dapat dibaca.',e);state.files={'dataset.txt':''};open('dataset.txt',false)}}
-function open(name,save=true){if(!(name in state.files))return error(`File ${name} tidak ditemukan.`);state.active=name;const a=parseTSV(state.files[name]);state.headers=a[0]||[];state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));if(save){localStorage.setItem(ACTIVE,name)}renderGrid();tree();status();document.querySelector('#status').textContent=`✓ ${name} dibuka.`}
-function tree(){const el=document.querySelector('#fileTree');if(!el)return;el.innerHTML=Object.keys(state.files).map(n=>`<button class="tree-item ${n===state.active?'active':''}" data-file="${esc(n)}">📄 ${esc(n)}</button>`).join('');el.querySelectorAll('[data-file]').forEach(b=>b.onclick=()=>open(b.dataset.file))}
-function render(){app.innerHTML=`<div class="app-shell d-flex flex-column vh-100"><header class="border-bottom bg-white"><div class="container-fluid py-2"><strong class="app-title">Statistical Data Editor</strong></div><nav class="nav nav-pills flex-nowrap overflow-x-auto px-2 pb-2 gap-1">${['Project','Data','Design','Analyze','Graphs','Help'].map((x,i)=>`<button class="nav-link ${i===1?'active':''}" data-menu="${x}">${x}</button>`).join('')}</nav></header><div class="toolbar border-bottom bg-light p-2 d-flex gap-2 overflow-x-auto"><button id="pasteBtn" class="btn btn-primary text-nowrap">📋 Paste from Excel</button><button id="importBtn" class="btn btn-outline-secondary text-nowrap">📁 Import CSV</button><button id="newTxt" class="btn btn-outline-secondary text-nowrap">＋ TXT</button><button id="addRow" class="btn btn-outline-secondary text-nowrap">＋ Row</button><button id="addCol" class="btn btn-outline-secondary text-nowrap">＋ Column</button><button id="clearData" class="btn btn-outline-danger text-nowrap">🗑 Hapus</button></div><div id="errorBox" class="alert alert-danger rounded-0 mb-0 d-none"></div><main class="d-flex flex-grow-1 min-h-0 overflow-hidden"><aside class="project-panel border-end bg-white" id="projectPanel"><div class="p-2"><div class="fw-semibold small text-secondary px-2 py-1">DATA (.TXT)</div><div id="fileTree"></div><div class="fw-semibold small text-secondary px-2 py-1 mt-3">OUTPUT</div><button class="tree-item" data-placeholder="Output">📁 Output</button></div></aside><section class="workspace flex-grow-1 min-w-0 d-flex flex-column"><div class="sheet-header p-2 border-bottom bg-light d-flex align-items-center gap-2"><strong>Data Editor</strong><span>/</span><span id="activeFile" class="fw-semibold small">dataset.txt</span><span id="info" class="small text-secondary">0 × 0</span><span id="storageStatus" class="small text-success ms-auto"></span></div><div id="gridWrap" class="table-responsive flex-grow-1"></div><div id="status" class="status-bar border-top px-2 py-1 small bg-light">Siap.</div></section></main></div><input id="file" type="file" accept=".csv,text/csv" hidden><div id="pasteModal" class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5>Paste Data dari Excel</h5><button id="closeModal" class="btn-close"></button></div><div class="modal-body"><textarea id="pasteArea" class="form-control font-monospace" rows="9" placeholder="Tempel data Excel di sini..."></textarea><div class="form-check mt-2"><input id="hasHeader" class="form-check-input" type="checkbox" checked><label>Baris pertama adalah nama variabel</label></div><div id="preview" class="table-responsive mt-3"></div></div><div class="modal-footer"><button id="cancelPaste" class="btn btn-secondary">Batal</button><button id="applyPaste" class="btn btn-primary">Masukkan Data</button></div></div></div></div>`;bind();tree();renderGrid();status()}
-function renderGrid(){const w=document.querySelector('#gridWrap');if(!state.headers.length){w.innerHTML=`<div class="empty-state"><div class="fs-2">📄</div><h5>${esc(state.active)}</h5><p>File .txt kosong. Gunakan <strong>Paste from Excel</strong> atau <strong>Import CSV</strong>.</p></div>`}else{w.innerHTML=`<table class="table table-bordered table-sm data-grid mb-0"><thead><tr><th>#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td>${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;w.querySelectorAll('[contenteditable]').forEach(td=>td.oninput=()=>{state.rows[+td.dataset.r][+td.dataset.c]=td.textContent;persist()})}document.querySelector('#info').textContent=`${state.rows.length} × ${state.headers.length}`;document.querySelector('#activeFile').textContent=state.active;tree();status()}
-function excelRows(t){return t.replace(/\r/g,'').split('\n').filter(Boolean).map(x=>x.split('\t'))}
-function csvRows(t,d){const out=[];let row=[],cell='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(c==='"'){if(q&&t[i+1]==='"'){cell+='"';i++}else q=!q}else if(c===d&&!q){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&t[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x.trim()))out.push(row);row=[];cell=''}else cell+=c}if(cell||row.length){row.push(cell);if(row.some(x=>x.trim()))out.push(row)}return out}
-function delimiter(t){let a=0,b=0,q=false;for(const c of t.slice(0,5000)){if(c==='"')q=!q;else if(!q&&c===';')a++;else if(!q&&c===',')b++}return a>b?';':','}
-function close(){const m=document.querySelector('#pasteModal');m.classList.remove('show');m.style.display='none';document.body.classList.remove('modal-open')}
-function preview(){const a=excelRows(document.querySelector('#pasteArea').value),p=document.querySelector('#preview');if(!a.length){p.innerHTML='';return}const h=document.querySelector('#hasHeader').checked?a[0]:a[0].map((_,i)=>`Variable${i+1}`),r=a.slice(document.querySelector('#hasHeader').checked?1:0);p.innerHTML=`<b>${r.length} baris × ${h.length} kolom</b>`}
-function bind(){document.querySelector('#pasteBtn').onclick=()=>{clearError();const m=document.querySelector('#pasteModal');m.classList.add('show');m.style.display='block';document.body.classList.add('modal-open');document.querySelector('#pasteArea').value='';document.querySelector('#pasteArea').focus()};document.querySelector('#closeModal').onclick=close;document.querySelector('#cancelPaste').onclick=close;document.querySelector('#pasteArea').oninput=preview;document.querySelector('#applyPaste').onclick=()=>{try{const a=excelRows(document.querySelector('#pasteArea').value);if(!a.length)return error('Tidak ada data yang ditempel.');const h=document.querySelector('#hasHeader').checked;state.headers=h?a[0]:a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(h?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();document.querySelector('#status').textContent=`✓ Data tersimpan sebagai ${state.active}.`;close()}catch(e){error('Gagal memasukkan data Excel.',e)}};document.querySelector('#importBtn').onclick=()=>document.querySelector('#file').click();document.querySelector('#file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const t=await f.text();if(!t.trim())return error('CSV kosong.');const a=csvRows(t,delimiter(t));if(!a.length)return error('CSV tidak dapat dibaca.');state.headers=a[0];state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();document.querySelector('#status').textContent=`✓ CSV diimpor ke ${state.active}.`;}catch(x){error('Gagal mengimpor CSV.',x)}};document.querySelector('#newTxt').onclick=()=>{let i=1,n='dataset.txt';while(state.files[n])n=`dataset${i++}.txt`;state.files[n]='';persist();open(n);};document.querySelector('#addRow').onclick=()=>{if(!state.headers.length)return error('File .txt belum memiliki kolom.');state.rows.push(state.headers.map(()=>''));persist();renderGrid()};document.querySelector('#addCol').onclick=()=>{if(!state.headers.length)return error('File .txt belum memiliki kolom.');state.headers.push(`Variable${state.headers.length+1}`);state.rows.forEach(r=>r.push(''));persist();renderGrid()};document.querySelector('#clearData').onclick=()=>{state.headers=[];state.rows=[];persist();renderGrid();document.querySelector('#status').textContent=`✓ Isi ${state.active} dikosongkan.`};document.querySelectorAll('[data-placeholder]').forEach(x=>x.onclick=()=>error(`Fitur ${x.dataset.placeholder} belum tersedia.`));document.querySelectorAll('[data-menu]').forEach(x=>x.onclick=()=>x.dataset.menu==='Data'?null:error(`Menu ${x.dataset.menu} belum tersedia.`))}
-load();render()
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function showError(message,errorObj){
+  console.error(message,errorObj||'');
+  const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;
+  const box=$('#errorBox');
+  if(box){box.hidden=false;box.textContent=text;}
+  if($('#status')) $('#status').textContent=text;
+}
+function clearError(){const box=$('#errorBox');if(box){box.hidden=true;box.textContent='';}}
+function setStatus(text){if($('#status'))$('#status').textContent=text;}
+
+function parseTSV(text){
+  return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));
+}
+function serialize(){
+  if(!state.headers.length)return '';
+  return [state.headers.join('\t'),...state.rows.map(r=>state.headers.map((_,i)=>r[i]??'').join('\t'))].join('\n');
+}
+function persist(){
+  try{
+    state.files[state.active]=serialize();
+    localStorage.setItem(FILES_KEY,JSON.stringify(state.files));
+    localStorage.setItem(ACTIVE_KEY,state.active);
+    updateStorageStatus();
+  }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
+}
+function updateStorageStatus(){
+  const el=$('#storageStatus');
+  if(el)el.textContent=`● ${Object.keys(state.files).length} file .txt`;
+}
+function loadStorage(){
+  try{
+    state.files=JSON.parse(localStorage.getItem(FILES_KEY)||'{}')||{};
+    state.active=localStorage.getItem(ACTIVE_KEY)||Object.keys(state.files)[0]||'dataset.txt';
+    if(!(state.active in state.files))state.files[state.active]='';
+  }catch(e){
+    state.files={'dataset.txt':''};state.active='dataset.txt';
+    showError('Penyimpanan browser tidak dapat dibaca; dataset baru dibuat.',e);
+  }
+  loadActive(false);
+}
+function loadActive(save=true){
+  const text=state.files[state.active]??'';
+  const parsed=parseTSV(text);
+  state.headers=parsed[0]||[];
+  state.rows=parsed.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));
+  if(save)localStorage.setItem(ACTIVE_KEY,state.active);
+  renderTree();renderGrid();updateStorageStatus();
+  $('#activeFile').textContent=state.active;
+}
+function renderTree(){
+  const tree=$('#fileTree');if(!tree)return;
+  tree.innerHTML=Object.keys(state.files).map(name=>`<button type="button" class="tree-item ${name===state.active?'active':''}" data-file="${esc(name)}">📄 ${esc(name)}</button>`).join('');
+  tree.querySelectorAll('[data-file]').forEach(btn=>btn.addEventListener('click',()=>{
+    clearError();state.active=btn.dataset.file;loadActive();setStatus(`✓ ${state.active} dibuka.`);
+  }));
+}
+function renderGrid(){
+  const wrap=$('#gridWrap');if(!wrap)return;
+  if(!state.headers.length){
+    wrap.innerHTML=`<div class="empty-state"><div class="icon">📄</div><h3>${esc(state.active)}</h3><p>File .txt kosong. Gunakan <b>Paste from Excel</b> atau <b>Import CSV</b>.</p></div>`;
+  }else{
+    wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number">#</th>${state.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number">${i+1}</td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    wrap.querySelectorAll('[contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
+      state.rows[Number(cell.dataset.r)][Number(cell.dataset.c)]=cell.textContent;persist();
+    }));
+  }
+  $('#info').textContent=`${state.rows.length} × ${state.headers.length}`;
+  $('#activeFile').textContent=state.active;
+}
+
+function excelRows(text){return text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>line.split('\t'));}
+function detectDelimiter(text){
+  let semis=0,commas=0,quotes=false;
+  for(const c of text.slice(0,10000)){
+    if(c==='"')quotes=!quotes;
+    else if(!quotes&&c===';')semis++;
+    else if(!quotes&&c===',')commas++;
+  }
+  return semis>commas?';':',';
+}
+function csvRows(text,delimiter){
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){
+      if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;
+    }else if(c===delimiter&&!quoted){row.push(cell);cell='';}
+    else if((c==='\n'||c==='\r')&&!quoted){
+      if(c==='\r'&&text[i+1]==='\n')i++;
+      row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);row=[];cell='';
+    }else cell+=c;
+  }
+  if(cell!==''||row.length){row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);}
+  return rows;
+}
+
+function openModal(){clearError();const m=$('#pasteModal');m.classList.add('open');$('#pasteArea').value='';$('#preview').textContent='';setTimeout(()=>$('#pasteArea').focus(),0);}
+function closeModal(){$('#pasteModal').classList.remove('open');}
+function previewPaste(){
+  const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';
+}
+function applyPasted(){
+  try{
+    const a=excelRows($('#pasteArea').value);
+    if(!a.length)return showError('Tidak ada data Excel yang ditempel.');
+    const hasHeader=$('#hasHeader').checked;
+    state.headers=hasHeader?a[0].map(v=>v.trim()||'Variable'):a[0].map((_,i)=>`Variable${i+1}`);
+    state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));
+    persist();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${state.active}.`);
+  }catch(e){showError('Gagal memasukkan data dari Excel.',e);}
+}
+async function importCSV(event){
+  try{
+    const file=event.target.files?.[0];if(!file)return;
+    const text=await file.text();if(!text.trim())return showError('File CSV kosong.');
+    const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);
+    if(!a.length)return showError('CSV tidak dapat dibaca.');
+    state.headers=a[0].map(v=>v.trim()||'Variable');
+    state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));
+    persist();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);
+  }catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}
+}
+function newTXT(){
+  let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;
+  state.files[name]='';state.active=name;persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);
+}
+function addRow(){
+  if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');
+  state.rows.push(state.headers.map(()=>''));persist();renderGrid();setStatus('✓ Baris baru ditambahkan.');
+}
+function addColumn(){
+  if(!state.headers.length){state.headers=['Variable1'];state.rows=[];}else state.headers.push(`Variable${state.headers.length+1}`);
+  state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');
+}
+function clearData(){
+  if(!confirm(`Hapus seluruh isi ${state.active}?`))return;
+  state.headers=[];state.rows=[];persist();renderGrid();setStatus(`✓ Isi ${state.active} dikosongkan.`);
+}
+function placeholder(name){showError(`Fitur ${name} belum tersedia. Tombol berfungsi dan sengaja menampilkan pesan ini.`);}
+
+function bind(){
+  $('#pasteBtn').addEventListener('click',openModal);
+  $('#importBtn').addEventListener('click',()=>$('#file').click());
+  $('#file').addEventListener('change',importCSV);
+  $('#newTxt').addEventListener('click',newTXT);
+  $('#addRow').addEventListener('click',addRow);
+  $('#addCol').addEventListener('click',addColumn);
+  $('#clearData').addEventListener('click',clearData);
+  $('#closeModal').addEventListener('click',closeModal);
+  $('#cancelPaste').addEventListener('click',closeModal);
+  $('#applyPaste').addEventListener('click',applyPasted);
+  $('#pasteArea').addEventListener('input',previewPaste);
+  $('#outputBtn').addEventListener('click',()=>placeholder('Output'));
+  document.querySelectorAll('[data-menu]').forEach(btn=>btn.addEventListener('click',()=>{
+    if(btn.dataset.menu!=='Data')placeholder(btn.dataset.menu);else{clearError();setStatus('✓ Menu Data aktif.');}
+  }));
+  document.querySelectorAll('[data-mobile]').forEach(btn=>btn.addEventListener('click',()=>placeholder(btn.dataset.mobile)));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  window.addEventListener('error',e=>showError('Terjadi kesalahan JavaScript.',e.error||e.message));
+  window.addEventListener('unhandledrejection',e=>showError('Terjadi kesalahan proses aplikasi.',e.reason));
+}
+
+try{loadStorage();bind();setStatus('✓ Statistical Web siap digunakan.');}catch(e){showError('Aplikasi gagal diinisialisasi.',e);}
