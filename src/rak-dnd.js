@@ -7,6 +7,8 @@
     const style = document.createElement('style');
     style.id = 'rakDndStyles';
     style.textContent = `
+      /* Mobile phone: the bottom navigation is intentionally disabled. */
+      @media(max-width:767.98px){.mobile-nav{display:none!important}}
       .rak-model{display:grid;grid-template-columns:minmax(190px,1fr) 36px minmax(210px,1.15fr);gap:14px;align-items:start}
       .rak-var-panel,.rak-role-panel{border:1px solid var(--border);background:#fff;border-radius:5px;min-height:330px}
       .rak-panel-title{font-size:12px;font-weight:650;color:#526171;background:#f1f4f7;border-bottom:1px solid var(--border);padding:9px 10px}
@@ -29,8 +31,6 @@
   }
 
   function headersFromApp() {
-    // main.js keeps the active variables in the DOM only through its selects.
-    // Read the option labels so this module does not depend on private state.
     const response = $('#rakResponse');
     if (!response) return [];
     const all = new Set();
@@ -116,8 +116,6 @@
     body.insertBefore(root, body.firstChild);
     ['response','treatment','block'].forEach(bindDrop);
     modal.addEventListener('click', () => populateVariables(), { once:false });
-    const originalOpen = window.openRAK;
-    // openRAK is module-scoped, so use the visible Analyze controls as the refresh trigger.
     document.querySelectorAll('[data-menu="Analyze"],[data-mobile="Analyze"]').forEach(btn => btn.addEventListener('click', () => setTimeout(populateVariables, 30));
     document.querySelectorAll('#rakModal select').forEach(s => s.addEventListener('change', () => {
       const role = s.id === 'rakResponse' ? 'response' : s.id === 'rakTreatment' ? 'treatment' : 'block';
