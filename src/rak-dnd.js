@@ -161,7 +161,7 @@
     root.innerHTML=`<div class="rak-model"><div class="rak-var-panel"><div class="rak-panel-title">Variabel</div><div id="rakVariableList" class="rak-variable-list"></div></div><div class="rak-arrow">→</div><div class="rak-role-panel"><div class="rak-panel-title">Model RAK</div><div class="rak-drop-panel"><div id="rakRole-response" class="rak-role"><div class="rak-role-title">RESPONSE VARIABLE(S) — BISA LEBIH DARI SATU</div><div id="rakResponseMulti" class="rak-response-list"></div><div id="rakResponseCount" class="rak-selected-count">0 peubah dipilih</div></div><div id="rakRole-treatment" class="rak-role"><div class="rak-role-title">TREATMENT(S) / PERLAKUAN</div><div id="rakRoleValue-treatment" class="rak-role-value">Tarik perlakuan ke sini</div></div><div id="rakRole-block" class="rak-role"><div class="rak-role-title">BLOCK / KELOMPOK / ULANGAN</div><div id="rakRoleValue-block" class="rak-role-value">Tarik kelompok ke sini</div></div></div></div></div><div class="rak-helper">💡 <b>Response</b> dapat dipilih lebih dari satu. Perlakuan dan kelompok tetap satu faktor. Seret variabel dari panel kiri atau centang beberapa peubah respons.</div>`;
     body.insertBefore(root,body.firstChild);
     ['response','treatment','block'].forEach(bindDrop);
-    document.querySelectorAll('[data-menu="Analyze"],[data-mobile="Analyze"]').forEach(btn=>btn.addEventListener('click',()=>setTimeout(populateVariables,30));
+    document.querySelectorAll('#openRak').forEach(btn=>btn.addEventListener('click',()=>setTimeout(populateVariables,30)));
     document.querySelectorAll('#rakModal select').forEach(s=>s.addEventListener('change',()=>{const role=s.id==='rakResponse'?'response':s.id==='rakTreatment'?'treatment':'block';const selected=s.options[s.selectedIndex];if(selected&&selected.value!=='')setRole(role,selected.textContent);}));
     populateVariables();
     setTimeout(installMultiRun,0);
@@ -173,6 +173,7 @@
 (() => {
   function cleanName(name){return String(name||'dataset').replace(/\.txt$/i,'');}
   function refreshDataLabels(){
+    observer.disconnect();
     const title=document.querySelector('.panel-title');
     if(title && /DATA\s*\(\.TXT\)/i.test(title.textContent)) title.textContent='DATA';
     const newData=document.querySelector('#newTxt');
@@ -185,7 +186,8 @@
     const empty=document.querySelector('#gridWrap .empty-state');
     if(empty) empty.innerHTML=empty.innerHTML.replace(/File \.txt/gi,'Dataset');
   }
-  const observer=new MutationObserver(refreshDataLabels);
+  const observer=new MutationObserver(()=>{refreshDataLabels();watch();});
+  function watch(){const tree=document.querySelector("#fileTree");if(tree)observer.observe(tree,{childList:true,subtree:true});const active=document.querySelector("#activeFile");if(active)observer.observe(active,{childList:true,characterData:true,subtree:true});}
   function start(){refreshDataLabels();const tree=document.querySelector('#fileTree');if(tree)observer.observe(tree,{childList:true,subtree:true});const active=document.querySelector('#activeFile');if(active)observer.observe(active,{childList:true,characterData:true,subtree:true});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
