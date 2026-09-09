@@ -61,7 +61,20 @@ function exportScope(scope, filename) {
   const safe = String(filename || 'hasil-analisis').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'hasil-analisis';
   const body = scopeToHtml(scope);
   const doc = `<!doctype html><html><head><meta charset="UTF-8"><style>
-    body{font-family:Arial,sans-serif;font-size:11pt;color:#111}table{border-collapse:collapse;margin:10px 0 18px}th,td{border:1px solid #777;padding:6px 8px}th{font-weight:bold;background:#eee}sup{vertical-align:super;font-size:70%}.analysis-note{margin:8px 0 12px}h3,h4{margin:14px 0 6px}
+    body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;background:#fff;margin:0;padding:0}
+    h3,h4{font-family:Calibri,Arial,sans-serif;font-size:11pt;font-weight:700;margin:0;padding:5px 6px;border:1px solid #7f7f7f;border-bottom:0;background:#fff;color:#000}
+    table{border-collapse:collapse;border-spacing:0;margin:0;width:100%;table-layout:fixed;font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff}
+    th,td{border:1px solid #7f7f7f;padding:3px 6px;height:18px;background:#fff;color:#000;vertical-align:middle}
+    th{font-weight:700;text-align:center}
+    td{text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    .analysis-note{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;border:1px solid #7f7f7f;padding:4px 6px;margin:10px 0 0}
+    .analysis-note+.analysis-note{margin-top:0;border-top:0}
+    .posthoc-table{margin-top:10px}
+    .posthoc-table th,.posthoc-table td{text-align:center}
+    .posthoc-table th:first-child,.posthoc-table td:first-child{text-align:left}
+    .posthoc-value{white-space:nowrap;font-weight:400}
+    sup{vertical-align:super;font-size:70%;font-weight:700}
   </style></head><body>${body}</body></html>`;
   const blob = new Blob(['\ufeff', doc], {type:'application/vnd.ms-excel;charset=utf-8'});
   const url = URL.createObjectURL(blob);
