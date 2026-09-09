@@ -1,4 +1,4 @@
-const escAttr = value => String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const escAttr = value => String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
 
 function cleanClone(scope) {
   const clone = scope.cloneNode(true);
@@ -14,24 +14,12 @@ function tableToTsv(table) {
   }).join('\t')).join('\n');
 }
 
-function chartToTsv(chart) {
-  const rows=[...chart.querySelectorAll('.mean-chart-row')].map(row=>{
-    const label=row.querySelector('.mean-chart-label')?.textContent.replace(/\s+/g,' ').trim() || '';
-    const value=row.querySelector('.mean-chart-value')?.textContent.replace(/\s+/g,' ').trim() || '';
-    return `${label}\t${value}`;
-  });
-  return rows.length ? ['Perlakuan\tRata-Rata',...rows].join('\n') : '';
-}
-
 function scopeToTsv(scope) {
   const clone = cleanClone(scope);
   const parts = [];
-  clone.querySelectorAll('h3,h4,.analysis-note,table,.mean-chart').forEach(el => {
+  clone.querySelectorAll('h3,h4,.analysis-note,table').forEach(el => {
     if (el.tagName === 'TABLE') parts.push(tableToTsv(el));
-    else if (el.classList.contains('mean-chart')) {
-      const chart=chartToTsv(el);
-      if(chart) parts.push(chart);
-    } else {
+    else {
       const text = el.textContent.replace(/\s+/g, ' ').trim();
       if (text) parts.push(text);
     }
@@ -80,25 +68,12 @@ function exportScope(scope, filename) {
     th{font-weight:700;text-align:center}
     td{text-align:right}
     th:first-child,td:first-child{text-align:left}
-    .analysis-note{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;border:0;padding:2px 0;margin:8px 0}
-    .report-caption,.figure-caption{font-weight:700;margin:10px 0 4px}
-    .report-statline{font-weight:700}
-    .observation-table th,.observation-table td{text-align:center}
-    .observation-table th:first-child,.observation-table td:first-child{text-align:left}
-    .observation-table tfoot td{font-weight:700}
+    .analysis-note{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;border:1px solid #7f7f7f;padding:4px 6px;margin:10px 0 0}
+    .analysis-note+.analysis-note{margin-top:0;border-top:0}
     .posthoc-table{margin-top:10px}
     .posthoc-table th,.posthoc-table td{text-align:center}
     .posthoc-table th:first-child,.posthoc-table td:first-child{text-align:left}
     .posthoc-value{white-space:nowrap;font-weight:400}
-    .report-bnj-table{width:60%;margin:8px 0 10px}
-    .report-bnj-table th,.report-bnj-table td{text-align:center}
-    .mean-chart{border:1px solid #7f7f7f;padding:8px;margin:10px 0;font-family:Calibri,Arial,sans-serif;font-size:10pt}
-    .mean-chart-row{display:table;width:100%;table-layout:fixed;margin:2px 0}
-    .mean-chart-label,.mean-chart-track,.mean-chart-value{display:table-cell;vertical-align:middle}
-    .mean-chart-label{width:38%;padding-right:6px}
-    .mean-chart-track{width:50%;height:14px;border-left:1px solid #777;border-bottom:1px solid #ddd}
-    .mean-chart-bar{height:14px;background:#5b9bd5}
-    .mean-chart-value{width:12%;text-align:right;padding-left:6px}
     sup{vertical-align:super;font-size:70%;font-weight:700}
   </style></head><body>${body}</body></html>`;
   const blob = new Blob(['\ufeff', doc], {type:'application/vnd.ms-excel;charset=utf-8'});
