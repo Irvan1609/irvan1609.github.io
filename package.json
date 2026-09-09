@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:syntax": "node --check src/main.js && node --check src/ral.js && node --check src/rak-dnd.js && node --check src/number-format.js && node --check src/result-export.js",
+    "test:ui": "node scripts/check-ui-contract.mjs",
+    "test:dist": "node scripts/check-dist.mjs",
+    "verify": "npm run check:syntax && npm run test:ui && npm run build && npm run test:dist"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
