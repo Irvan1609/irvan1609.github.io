@@ -8,7 +8,7 @@ const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function showError(message,errorObj){console.error(message,errorObj||'');const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;const box=$('#errorBox');if(box){box.hidden=false;box.textContent=text;}if($('#status'))$('#status').textContent=text;}
 function clearError(){const box=$('#errorBox');if(box){box.hidden=true;box.textContent='';}}
-function setStatus(text){if($('#status'))$('#status'].textContent=text;}
+function setStatus(text){if($('#status'))$('#status').textContent=text;}
 function parseTSV(text){return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));}
 function serialize(){if(!state.headers.length)return '';return [state.headers.join('\t'),...state.rows.map(r=>state.headers.map((_,i)=>r[i]??'').join('\t'))].join('\n');}
 function persist(){try{state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);updateStorageStatus();}catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}}
