@@ -24,16 +24,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          check-latest: true
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Build
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: npm run check:syntax
+      - name: Check UI contract
+        run: npm run test:ui
+      - name: Build Vite application
         run: npm run build
-      - name: Verify build output
-        run: |
-          test -s dist/index.html
-          test -d dist/assets
-          grep -q "Statistical Web" dist/index.html
+      - name: Check built site
+        run: npm run test:dist
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
