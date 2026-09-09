@@ -17,7 +17,7 @@ function tableToTsv(table) {
 function scopeToTsv(scope) {
   const clone = cleanClone(scope);
   const parts = [];
-  clone.querySelectorAll('h3,h4,.analysis-note,table').forEach(el => {
+  clone.querySelectorAll('h3,h4,.analysis-lead,.table-caption,.figure-caption,.analysis-note,table').forEach(el => {
     if (el.tagName === 'TABLE') parts.push(tableToTsv(el));
     else {
       const text = el.textContent.replace(/\s+/g, ' ').trim();
@@ -63,6 +63,8 @@ function exportScope(scope, filename) {
   const doc = `<!doctype html><html><head><meta charset="UTF-8"><style>
     body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;background:#fff;margin:0;padding:0}
     h3,h4{font-family:Calibri,Arial,sans-serif;font-size:11pt;font-weight:700;margin:0;padding:5px 6px;border:1px solid #7f7f7f;border-bottom:0;background:#fff;color:#000}
+    .analysis-lead,.table-caption,.figure-caption{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;padding:4px 6px;margin:7px 0 0;font-weight:400}
+    .table-caption{font-weight:700;margin-bottom:3px}
     table{border-collapse:collapse;border-spacing:0;margin:0;width:100%;table-layout:fixed;font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff}
     th,td{border:1px solid #7f7f7f;padding:3px 6px;height:18px;background:#fff;color:#000;vertical-align:middle}
     th{font-weight:700;text-align:center}
