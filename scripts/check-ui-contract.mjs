@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const html = fs.readFileSync('index.html', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
+const report = fs.readFileSync('src/report-utils.js', 'utf8');
 
 function fail(message) {
   console.error(`UI contract failed: ${message}`);
@@ -50,4 +51,16 @@ for (const id of ralBindings) {
 if (!main.includes('addEventListener')) fail('main.js contains no event listeners');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 
-console.log(`UI contract OK: ${requiredIds.length} required elements, no duplicate IDs, core modules present.`);
+for (const [name, source] of [['main.js',main],['ral.js',ral]]) {
+  for (const required of ['F. Hitung','F. Tabel 0.05','F. Tabel 0.01','table-caption']) {
+    if (!source.includes(required)) fail(`${name} missing reporting marker: ${required}`);
+  }
+  if (/p-value|\bSig\.?\b/i.test(source)) fail(`${name} must not expose p-value/Sig. reporting`);
+  if (!source.includes("./report-utils.js")) fail(`${name} must use shared report-utils.js`);
+}
+
+for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMeanChart']) {
+  if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
+}
+
+console.log(`UI contract OK: ${requiredIds.length} required elements, core buttons preserved, F-table reporting contract present.`);
