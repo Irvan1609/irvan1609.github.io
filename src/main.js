@@ -6,7 +6,7 @@ const ACTIVE_KEY='statistical_web_active_txt_v2';
 const state={files:{},active:'dataset.txt',headers:[],rows:[]};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function showError(message,errorObj){console.error(message,errorObj||'');const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;const box=$('#errorBox');if(box){box.hidden=false;box.textContent=text;}if($('#status'))$('#status'].textContent=text;}
+function showError(message,errorObj){console.error(message,errorObj||'');const text=`⚠ ${message}${errorObj?.message?` — ${errorObj.message}`:''}`;const box=$('#errorBox');if(box){box.hidden=false;box.textContent=text;}if($('#status'))$('#status').textContent=text;}
 function clearError(){const box=$('#errorBox');if(box){box.hidden=true;box.textContent='';}}
 function setStatus(text){if($('#status'))$('#status').textContent=text;}
 function parseTSV(text){return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));}
