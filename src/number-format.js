@@ -1,6 +1,24 @@
 const KEY = 'statistical_web_decimal_separator';
-let separator = '.';
-try { separator = localStorage.getItem(KEY) === ',' ? ',' : '.'; } catch {}
+
+function detectedSeparator() {
+  try {
+    const decimal = new Intl.NumberFormat().formatToParts(1.1).find(part => part.type === 'decimal')?.value;
+    return decimal === ',' ? ',' : '.';
+  } catch {
+    return '.';
+  }
+}
+
+const detected = detectedSeparator();
+let separator = detected;
+try {
+  const saved = localStorage.getItem(KEY);
+  if (saved === ',' || saved === '.') separator = saved;
+} catch {}
+
+export function getDecimalSeparator() {
+  return separator;
+}
 
 export function parseNumber(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
@@ -15,14 +33,28 @@ export function formatNumber(value, digits = 3) {
   if (value === Infinity) return '∞';
   if (!Number.isFinite(value)) return '—';
   return value.toLocaleString(separator === ',' ? 'id-ID' : 'en-US', {
-    useGrouping: false, minimumFractionDigits: digits, maximumFractionDigits: digits
+    useGrouping: false,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
   });
 }
 
 export function initNumberSettings() {
+  if (document.querySelector('#numberSettings')) return;
   const panel = document.createElement('details');
+  panel.id = 'numberSettings';
   panel.className = 'number-settings';
-  panel.innerHTML = '<summary>Pengaturan angka</summary><div class="number-settings-body"><label for="decimalSeparator">Pemisah desimal pada data Excel Anda</label><select id="decimalSeparator"><option value=".">Titik (.) — contoh: 13.50</option><option value=",">Koma (,) — contoh: 13,50</option></select><p>Pilih sesuai format angka pada laptop Anda. Masukkan angka tanpa pemisah ribuan. Pilihan ini berlaku untuk pembacaan data dan tampilan hasil.</p></div>';
+  const detectedText = detected === ',' ? 'koma (,)' : 'titik (.)';
+  panel.innerHTML = `<summary>⚙ Pengaturan format angka</summary>
+    <div class="number-settings-body">
+      <div class="number-detected">Terdeteksi dari browser/laptop: <b>${detectedText}</b></div>
+      <label for="decimalSeparator">Angka pada data Anda menggunakan pemisah desimal:</label>
+      <select id="decimalSeparator">
+        <option value=".">Titik (.) — contoh: 23.47</option>
+        <option value=",">Koma (,) — contoh: 23,47</option>
+      </select>
+      <p>Pilih sesuai format angka yang Anda salin dari Excel. Jangan gunakan pemisah ribuan. Pengaturan ini digunakan untuk membaca data dan menampilkan seluruh hasil analisis.</p>
+    </div>`;
   const toolbar = document.querySelector('.toolbar');
   (toolbar || document.querySelector('main')).before(panel);
   const select = panel.querySelector('select');
@@ -32,6 +64,7 @@ export function initNumberSettings() {
     try { localStorage.setItem(KEY, separator); } catch {}
     document.querySelectorAll('#ralResult, #rakResult').forEach(el => { el.innerHTML = ''; });
     const status = document.querySelector('#status');
-    if (status) status.textContent = 'Format angka diperbarui. Jalankan kembali analisis untuk melihat hasil.';
+    const text = separator === ',' ? 'koma (,)' : 'titik (.)';
+    if (status) status.textContent = `✓ Format angka diubah menjadi ${text}. Jalankan kembali analisis.`;
   });
 }
