@@ -1,3 +1,4 @@
+import { installAnalysisFlow } from './analysis-flow.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
@@ -35,10 +36,39 @@ function closeModal(){$('#pasteModal').classList.remove('open');}
 function previewPaste(){const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';}
 function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?a[0].map(v=>v.trim()||'Variable'):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${state.active}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
 async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');state.headers=a[0].map(v=>v.trim()||'Variable');state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
-function newTXT(){let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;state.files[name]='';state.active=name;persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);}
+function newTXT(){let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;state.files[name]='';state.active=name;state.headers=[];state.rows=[];persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);}
 function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');state.rows.push(state.headers.map(()=>''));persist();renderGrid();setStatus('✓ Baris baru ditambahkan.');}
 function addColumn(){if(!state.headers.length){state.headers=['Variable1'];state.rows=[];}else state.headers.push(`Variable${state.headers.length+1}`);state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
 function clearData(){if(!confirm(`Hapus seluruh isi ${state.active}?`))return;state.headers=[];state.rows=[];persist();renderGrid();setStatus(`✓ Isi ${state.active} dikosongkan.`);}
+function renameDataset() {
+  $('#datasetName').value=state.active.replace(/\.txt$/i,'');
+  $('#datasetNameError').hidden=true;
+  $('#datasetNameModal').classList.add('open');
+  $('#datasetName').focus();
+}
+function saveDatasetName(event) {
+  event.preventDefault();
+  const name=$('#datasetName').value.trim().replace(/\.txt$/i,'');
+  const target=name+'.txt', box=$('#datasetNameError');
+  if(!name||/[\\/\u0000-\u001f]/.test(name)){box.hidden=false;box.textContent='Masukkan nama tanpa garis miring atau karakter kontrol.';return;}
+  if(Object.keys(state.files).some(key=>key.toLowerCase()===target.toLowerCase()&&key!==state.active)){box.hidden=false;box.textContent='Nama tersebut sudah digunakan dataset lain.';return;}
+  const files=Object.fromEntries(Object.entries(state.files).map(([key,value])=>[key===state.active?target:key,key===state.active?serialize():value]));
+  try{
+    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);
+    state.files=files;state.active=target;loadActive(false);$('#datasetNameModal').classList.remove('open');setStatus('Nama dataset diperbarui.');
+  }catch(error){box.hidden=false;box.textContent='Nama tidak dapat disimpan. '+error.message;}
+}
+function deleteDataset() {
+  const old=state.active;
+  if(!confirm('Hapus dataset “'+old.replace(/\.txt$/i,'')+'” beserta seluruh datanya?'))return;
+  const files=Object.fromEntries(Object.entries(state.files).filter(([name])=>name!==old));
+  const next=Object.keys(files)[0]||'dataset.txt';
+  if(!Object.keys(files).length)files[next]='';
+  try{
+    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,next);
+    state.files=files;state.active=next;loadActive(false);setStatus('Dataset dihapus.'+(Object.keys(files).length===1&&files[next]===''?' Dataset kosong siap digunakan.':''));
+  }catch(error){showError('Dataset tidak dapat dihapus.',error);}
+}
 function placeholder(name){showError(`Fitur ${name} belum tersedia. Tombol berfungsi dan sengaja menampilkan pesan ini.`);}
 function populateSelect(id,filterNumeric=false){const el=$(id);if(!el)return;el.innerHTML='';state.headers.forEach((h,i)=>{if(filterNumeric){const vals=state.rows.map(r=>parseNumber(r[i]));if(!vals.some(Number.isFinite))return;}const o=document.createElement('option');o.value=String(i);o.textContent=h;el.appendChild(o);});}
 function rakError(text){const box=$('#rakError');if(box){box.hidden=false;box.textContent=`⚠ ${text}`;}setStatus(`⚠ ${text}`);}
@@ -56,13 +86,15 @@ function runRAK(){
   $('#rakResult').innerHTML='';
   try{
     if(state.rows.length<2||state.headers.length<3)return rakError('Data RAK belum cukup. Masukkan minimal 2 perlakuan × 2 kelompok dengan peubah respons numerik.');
-    const yi=Number($('#rakResponse').value),ti=Number($('#rakTreatment').value),bi=Number($('#rakBlock').value),alpha=Number($('#rakAlpha')?.value||0.05);
-    if([yi,ti,bi].some(Number.isNaN)||new Set([yi,ti,bi]).size<3)return rakError('Peubah respons, perlakuan, dan kelompok harus berbeda.');
+    const yi=Number($('#rakResponse').value),ti=Number($('#rakTreatment').value),bi=Number($('#rakBlock').value),alpha=Number($('#rakAlpha')?.value||0.05),posthoc=$('#rakPosthoc').value;
+    if($('#rakTreatment').value===''||$('#rakBlock').value===''||[yi,ti,bi].some(Number.isNaN)||new Set([yi,ti,bi]).size<3)return rakError('Peubah respons, perlakuan, dan kelompok harus berbeda.');
     if(![0.05,0.01].includes(alpha))return rakError('Pilih taraf nyata BNJ 0.05 atau 0.01.');
 
     const obs=[];
     for(const [rowIndex,r] of state.rows.entries()){
       const y=parseNumber(r[yi]),t=String(r[ti]??'').trim(),b=String(r[bi]??'').trim();
+      if(!r.some(v=>String(v??'').trim()))continue;
+      if(t===''||b==='')return rakError(`Perlakuan atau ulangan kosong pada baris ${rowIndex+1}.`);
       if(t!==''&&b!==''&&!Number.isFinite(y))return rakError(`Angka respons pada baris ${rowIndex+1} tidak valid atau kosong. Periksa Pengaturan angka.`);
       if(t!==''&&b!==''&&Number.isFinite(y))obs.push({y,t,b});
     }
@@ -100,20 +132,24 @@ function runRAK(){
 
     let html=`<section class="analysis-result" data-export-scope><h3>Hasil RAK — ${esc(responseName)}</h3>${resultActions(`RAK-${safeFilename(responseName)}`)}<div class="analysis-lead">Data pengamatan ${esc(responseName)} dan sidik ragam disajikan pada Tabel 1 dan Tabel 2.</div><div class="table-caption">Tabel 1. Data Pengamatan ${esc(responseName)} pada Berbagai Perlakuan dan Kelompok</div><table class="result-table observation-table"><thead><tr><th>Perlakuan</th>${blocks.map(block=>`<th>${esc(block)}</th>`).join('')}<th>Total</th><th>Rata-Rata</th></tr></thead><tbody>${observationRows}<tr class="table-total"><td>Total</td>${blockTotals.map(x=>`<td>${fmt(x,2)}</td>`).join('')}<td>${fmt(grandTotal,2)}</td><td>${fmt(grand,2)}</td></tr></tbody></table><div class="table-caption">Tabel 2. Sidik Ragam ${esc(responseName)} pada Berbagai Perlakuan</div><table class="result-table"><thead><tr><th>SK</th><th>db</th><th>JK</th><th>KT</th><th>F. Hitung</th><th>F. Tabel 0.05</th><th>F. Tabel 0.01</th></tr></thead><tbody><tr><td>Perlakuan</td><td>${dfTr}</td><td>${fmt(ssTr)}</td><td>${fmt(msTr)}</td><td>${fmt(fTr)}</td><td>${fmt(fTr05)}</td><td>${fmt(fTr01)}</td></tr><tr><td>Kelompok</td><td>${dfBl}</td><td>${fmt(ssBl)}</td><td>${fmt(msBl)}</td><td>${fmt(fBl)}</td><td>${fmt(fBl05)}</td><td>${fmt(fBl01)}</td></tr><tr><td>Galat</td><td>${dfE}</td><td>${fmt(sse)}</td><td>${fmt(mse)}</td><td>—</td><td>—</td><td>—</td></tr><tr><td>Total</td><td>${dfTot}</td><td>${fmt(sst)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody></table><div class="analysis-note"><b>Interpretasi perlakuan:</b> F. Hitung = ${fmt(fTr)}, F. Tabel 0.05 = ${fmt(fTr05)}, dan F. Tabel 0.01 = ${fmt(fTr01)}; pengaruh perlakuan terhadap ${esc(responseName)} adalah <b>${treatmentLevel}</b>.</div><div class="analysis-note"><b>Interpretasi kelompok:</b> F. Hitung = ${fmt(fBl)}, F. Tabel 0.05 = ${fmt(fBl05)}, dan F. Tabel 0.01 = ${fmt(fBl01)}; pengaruh kelompok adalah <b>${blockLevel}</b>. KK = ${fmt(cv,2)}%.</div>`;
 
-    if(treatmentSignificant){
-      let q=NaN;try{q=jStat.tukey.inv(1-alpha,a,dfE);}catch{}
-      if(!Number.isFinite(q)||q<=0)return rakError('Nilai q tabel tidak valid untuk uji BNJ.');
-      const hsd=q*Math.sqrt(mse/b);
+    if(treatmentSignificant && posthoc!=='none'){
+      const method=posthoc==='bnt'?'BNT':'BNJ';
+      let q=NaN;try{q=posthoc==='bnt'?jStat.studentt.inv(1-alpha/2,dfE):jStat.tukey.inv(1-alpha,a,dfE);}catch{}
+      if(!Number.isFinite(q)||q<=0)return rakError('Nilai kritis tidak dapat dihitung untuk uji lanjut.');
+      const hsd=q*Math.sqrt((posthoc==='bnt'?2:1)*mse/b);
       const significant=Array.from({length:a},()=>Array(a).fill(false));
       for(let i=0;i<a;i++)for(let j=i+1;j<a;j++)significant[i][j]=significant[j][i]=Math.abs(meanValues[i]-meanValues[j])>hsd;
       const notations=compactLetters(meanValues,significant);
       const means=treatments.map((t,i)=>`<tr><td>${esc(t)}</td><td class="posthoc-value">${fmt(meanValues[i],2)}${notations[i]?`<sup>${esc(notations[i])}</sup>`:''}</td></tr>`).join('');
       const high=meanValues.indexOf(Math.max(...meanValues)),low=meanValues.indexOf(Math.min(...meanValues));
       const related=shareLetter(notations[high],notations[low]);
-      html+=`<div class="analysis-note"><b>BNJ ${alpha*100}%</b>: q tabel = ${fmt(q)} (k = ${a}, db galat = ${dfE}), SE = ${fmt(Math.sqrt(mse/b))}, nilai BNJ = ${fmt(hsd)}. Huruf superscript yang sama menunjukkan tidak berbeda nyata.</div><div class="table-caption">Tabel 3. Rata-Rata ${esc(responseName)} pada Berbagai Perlakuan</div><table class="result-table posthoc-table"><thead><tr><th>Perlakuan</th><th>${esc(responseName)}</th></tr></thead><tbody>${means}</tbody></table><div class="analysis-note">Rata-rata tertinggi terdapat pada ${esc(treatments[high])} (${fmt(meanValues[high],2)}), sedangkan terendah pada ${esc(treatments[low])} (${fmt(meanValues[low],2)}). Kedua perlakuan tersebut ${related?'masih memiliki huruf yang sama sehingga tidak berbeda nyata':'tidak memiliki huruf yang sama sehingga berbeda nyata'} pada BNJ ${alpha*100}%. Urutan hasil mengikuti urutan perlakuan pada dataset.</div>`;
+      html+=`<div class="analysis-note"><b>${method} ${alpha*100}%</b>: ${posthoc==='bnt'?'t':'q'} tabel = ${fmt(q)} (k = ${a}, db galat = ${dfE}), SE = ${fmt(Math.sqrt(mse/b))}, nilai ${method} = ${fmt(hsd)}. Huruf superscript yang sama menunjukkan tidak berbeda nyata.</div><div class="table-caption">Tabel 3. Rata-Rata ${esc(responseName)} pada Berbagai Perlakuan</div><table class="result-table posthoc-table"><thead><tr><th>Perlakuan</th><th>${esc(responseName)}</th></tr></thead><tbody>${means}</tbody></table><div class="analysis-note">Rata-rata tertinggi terdapat pada ${esc(treatments[high])} (${fmt(meanValues[high],2)}), sedangkan terendah pada ${esc(treatments[low])} (${fmt(meanValues[low],2)}). Kedua perlakuan tersebut ${related?'masih memiliki huruf yang sama sehingga tidak berbeda nyata':'tidak memiliki huruf yang sama sehingga berbeda nyata'} pada ${method} ${alpha*100}%. Urutan hasil mengikuti urutan perlakuan pada dataset.</div>`;
+    }else if(posthoc==='none'){
+      html+='<div class="analysis-note">Uji lanjut tidak dilakukan sesuai pilihan Anda.</div>';
+      html+=`<table class="result-table posthoc-table"><thead><tr><th>Perlakuan</th><th>${esc(responseName)}</th></tr></thead><tbody>${treatments.map((t,i)=>`<tr><td>${esc(t)}</td><td>${fmt(meanValues[i],2)}</td></tr>`).join('')}</tbody></table>`;
     }else{
       const high=meanValues.indexOf(Math.max(...meanValues)),low=meanValues.indexOf(Math.min(...meanValues));
-      html+=`<div class="analysis-note">Pada taraf α = ${fmt(alpha,2)}, F. Hitung perlakuan tidak melebihi F. Tabel yang digunakan sehingga uji lanjut BNJ ${alpha*100}% tidak dilakukan. Rata-rata tertinggi (${esc(treatments[high])}: ${fmt(meanValues[high],2)}) dan terendah (${esc(treatments[low])}: ${fmt(meanValues[low],2)}) hanya bersifat deskriptif.</div>${descriptiveMeanChart({labels:treatments,values:meanValues,responseName,figureNo:1,alpha,esc,fmt})}`;
+      html+=`<div class="analysis-note">Pada taraf α = ${fmt(alpha,2)}, F. Hitung perlakuan tidak melebihi F. Tabel yang digunakan sehingga uji lanjut ${posthoc.toUpperCase()} ${alpha*100}% tidak dilakukan. Rata-rata tertinggi (${esc(treatments[high])}: ${fmt(meanValues[high],2)}) dan terendah (${esc(treatments[low])}: ${fmt(meanValues[low],2)}) hanya bersifat deskriptif.</div>${descriptiveMeanChart({labels:treatments,values:meanValues,responseName,figureNo:1,alpha,esc,fmt,method:posthoc.toUpperCase()})}`;
     }
 
     html+='</section>';
@@ -122,7 +158,22 @@ function runRAK(){
   }catch(e){rakError('Analisis RAK gagal dijalankan.');console.error(e);}
 }
 
-function openRAK(){clearError();if(!state.headers.length)return showError('Tidak ada dataset aktif. Masukkan data terlebih dahulu.');populateSelect('#rakResponse',true);populateSelect('#rakTreatment',false);populateSelect('#rakBlock',false);$('#rakResult').innerHTML='';clearRakError();const m=$('#rakModal');m.classList.add('open');}
+function openRAK(){clearError();if(!state.headers.length)return showError('Tidak ada dataset aktif. Masukkan data terlebih dahulu.');populateSelect('#rakResponse',true);populateSelect('#rakTreatment',false);populateSelect('#rakBlock',false);$('#rakTreatment').insertAdjacentHTML('afterbegin','<option value="">Pilih perlakuan</option>');$('#rakTreatment').value='';$('#rakBlock').insertAdjacentHTML('afterbegin','<option value="">Pilih ulangan</option>');$('#rakBlock').value='';$('#rakParameters').innerHTML=state.headers.map((h,i)=>`<label class="ral-check"><input type="checkbox" value="${i}"><span>${esc(h)}</span></label>`).join('');$('#rakResult').innerHTML='';clearRakError();const m=$('#rakModal');m.classList.add('open');}
 function closeRAK(){$('#rakModal').classList.remove('open');}
-function bind(){initNumberSettings();installResultExport();$('#openRak')?.addEventListener('click',openRAK);$('#pasteBtn').addEventListener('click',openModal);$('#importBtn').addEventListener('click',()=>$('#file').click());$('#file').addEventListener('change',importCSV);$('#newTxt').addEventListener('click',newTXT);$('#addRow').addEventListener('click',addRow);$('#addCol').addEventListener('click',addColumn);$('#clearData').addEventListener('click',clearData);$('#closeModal').addEventListener('click',closeModal);$('#cancelPaste').addEventListener('click',closeModal);$('#applyPaste').addEventListener('click',applyPasted);$('#pasteArea').addEventListener('input',previewPaste);$('#runRak').addEventListener('click',runRAK);$('#closeRak').addEventListener('click',closeRAK);$('#closeRak2').addEventListener('click',closeRAK);$('#outputBtn').addEventListener('click',()=>placeholder('Output'));document.querySelectorAll('[data-menu]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.menu==='Analyze'){openRAK();return;}if(btn.dataset.menu!=='Data')placeholder(btn.dataset.menu);else{clearError();setStatus('✓ Menu Data aktif.');}}));document.querySelectorAll('[data-mobile]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.mobile==='Analyze'){openRAK();return;}if(btn.dataset.mobile!=='Data')placeholder(btn.dataset.mobile);else{clearError();setStatus('✓ Menu Data aktif.');}}));document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeRAK();}});window.addEventListener('error',e=>showError('Terjadi kesalahan JavaScript.',e.error||e.message));window.addEventListener('unhandledrejection',e=>showError('Terjadi kesalahan proses aplikasi.',e.reason));}
+function runRakParameters(){
+  const selected=[...document.querySelectorAll('#rakParameters input:checked')].map(el=>el.value);
+  $('#rakResult').innerHTML='';clearRakError();
+  if(!selected.length)return rakError('Pilih minimal satu parameter.');
+  const results=[];
+  for(const value of selected){$('#rakResponse').value=value;runRAK();if(!$('#rakError').hidden){$('#rakResult').innerHTML='';return;}results.push($('#rakResult').innerHTML);}
+  $('#rakResult').innerHTML=results.join('');
+}
+function bind(){initNumberSettings();installAnalysisFlow();
+$('#renameDataset').addEventListener('click',renameDataset);
+$('#deleteDataset').addEventListener('click',deleteDataset);
+$('#datasetNameForm').addEventListener('submit',saveDatasetName);
+$('#closeDatasetName').addEventListener('click',()=>$('#datasetNameModal').classList.remove('open'));
+document.addEventListener('open-analysis-rak',openRAK);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#datasetNameModal').classList.remove('open');});
+installResultExport();$('#openRak')?.addEventListener('click',openRAK);$('#pasteBtn').addEventListener('click',openModal);$('#importBtn').addEventListener('click',()=>$('#file').click());$('#file').addEventListener('change',importCSV);$('#newTxt').addEventListener('click',newTXT);$('#addRow').addEventListener('click',addRow);$('#addCol').addEventListener('click',addColumn);$('#clearData').addEventListener('click',clearData);$('#closeModal').addEventListener('click',closeModal);$('#cancelPaste').addEventListener('click',closeModal);$('#applyPaste').addEventListener('click',applyPasted);$('#pasteArea').addEventListener('input',previewPaste);$('#runRak').addEventListener('click',runRakParameters);$('#closeRak').addEventListener('click',closeRAK);$('#closeRak2').addEventListener('click',closeRAK);$('#outputBtn').addEventListener('click',()=>placeholder('Output'));document.querySelectorAll('[data-menu]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.menu==='Analyze'){openRAK();return;}if(btn.dataset.menu!=='Data')placeholder(btn.dataset.menu);else{clearError();setStatus('✓ Menu Data aktif.');}}));document.querySelectorAll('[data-mobile]').forEach(btn=>btn.addEventListener('click',()=>{if(btn.dataset.mobile==='Analyze'){openRAK();return;}if(btn.dataset.mobile!=='Data')placeholder(btn.dataset.mobile);else{clearError();setStatus('✓ Menu Data aktif.');}}));document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeRAK();}});window.addEventListener('error',e=>showError('Terjadi kesalahan JavaScript.',e.error||e.message));window.addEventListener('unhandledrejection',e=>showError('Terjadi kesalahan proses aplikasi.',e.reason));}
 try{loadStorage();bind();setStatus('✓ Statistical Web siap digunakan.');}catch(e){showError('Aplikasi gagal diinisialisasi.',e);}

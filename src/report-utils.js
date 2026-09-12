@@ -45,12 +45,12 @@ export function cvPercent(mse, grandMean) {
   return Math.sqrt(mse) / Math.abs(grandMean) * 100;
 }
 
-export function descriptiveMeanChart({ labels, values, responseName, figureNo, alpha, esc, fmt }) {
+export function descriptiveMeanChart({ labels, values, responseName, figureNo, alpha, esc, fmt, method='BNJ' }) {
   const maxAbs = Math.max(1, ...values.map(v => Math.abs(v)));
   const rows = labels.map((label, i) => {
     const value = values[i];
     const width = Math.max(1.5, Math.abs(value) / maxAbs * 100);
     return `<div class="mean-chart-row"><div class="mean-chart-label">${esc(label)}</div><div class="mean-chart-track"><div class="mean-chart-bar" style="width:${width}%"></div></div><div class="mean-chart-value">${fmt(value,2)}</div></div>`;
   }).join('');
-  return `<div class="mean-chart" role="img" aria-label="Grafik rata-rata ${esc(responseName)}"><div class="mean-chart-rows">${rows}</div></div><div class="figure-caption">Gambar ${figureNo}. Rata-rata ${esc(responseName)} pada berbagai perlakuan (deskriptif; uji lanjut BNJ ${alpha * 100}% tidak dilakukan).</div>`;
+  return `<div class="mean-chart" role="img" aria-label="Grafik rata-rata ${esc(responseName)}"><div class="mean-chart-rows">${rows}</div></div><div class="figure-caption">Gambar ${figureNo}. Rata-rata ${esc(responseName)} pada berbagai perlakuan (deskriptif; uji lanjut ${method} ${alpha * 100}% tidak dilakukan).</div>`;
 }

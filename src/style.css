@@ -95,3 +95,8 @@ table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 .analysis-result .posthoc-value sup{font-size:.72em;line-height:0;vertical-align:super;margin-left:1px;font-weight:700}
 .ral-result-block.analysis-result{padding-top:0;border-top:1px solid #7f7f7f}
 @media(max-width:720px){.analysis-result{margin-left:-6px;margin-right:-6px}.analysis-result .result-table{min-width:620px}}
+.dataset-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.dataset-actions button{flex:1;font-size:14px}
+.design-options{display:grid;grid-template-columns:1fr 1fr;gap:16px}.design-options button{padding:24px 16px;text-align:left}.design-options b,.design-options span{display:block}.design-options b{font-size:24px;margin-bottom:8px}
+.field-label{display:block;margin:12px 12px 0}.form-help{font-size:14px;color:var(--muted)}#datasetName{display:block;width:100%;margin-top:8px}
+#rakBnjOptions{display:grid;grid-template-columns:1fr 1fr;gap:12px}#rakBnjOptions>div:last-child{grid-column:1/-1}#rakBnjOptions select{display:block;width:100%;margin-top:6px}
+@media(max-width:600px){.design-options,#rakBnjOptions{grid-template-columns:1fr}}

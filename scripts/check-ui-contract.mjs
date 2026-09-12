@@ -17,7 +17,7 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
-  'openRak','rakModal','runRak','closeRak','closeRak2',
+  'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
   'status','errorBox','gridWrap'
 ];
@@ -26,7 +26,7 @@ for (const id of requiredIds) {
 }
 
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
-for (const src of ['/src/main.js','/src/rak-dnd.js','/src/ral.js']) {
+for (const src of ['/src/main.js','/src/ral.js']) {
   if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
 }
 
@@ -34,9 +34,14 @@ if (html.includes('report-enhancements.js')) {
   fail('report-enhancements.js must not be loaded in production shell');
 }
 
+const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
+if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis'))fail('navigation must contain only Analisis data');
+if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
+const flow=fs.readFileSync('src/analysis-flow.js','utf8');
+for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 const mainBindings = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData',
-  'closeModal','cancelPaste','applyPaste','pasteArea','openRak',
+  'closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset',
   'runRak','closeRak','closeRak2'
 ];
 for (const id of mainBindings) {
