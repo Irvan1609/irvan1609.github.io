@@ -57,40 +57,15 @@ async function copyScope(scope) {
   area.remove();
 }
 
-function exportScope(scope, filename) {
-  const safe = String(filename || 'hasil-analisis').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'hasil-analisis';
-  const body = scopeToHtml(scope);
-  const doc = `<!doctype html><html><head><meta charset="UTF-8"><style>
-    body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000;background:#fff;margin:0;padding:0}
-    h3,h4{font-family:Calibri,Arial,sans-serif;font-size:11pt;font-weight:700;margin:0;padding:5px 6px;border:1px solid #7f7f7f;border-bottom:0;background:#fff;color:#000}
-    .analysis-lead,.table-caption,.figure-caption{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;padding:4px 6px;margin:7px 0 0;font-weight:400}
-    .table-caption{font-weight:700;margin-bottom:3px}
-    table{border-collapse:collapse;border-spacing:0;margin:0;width:100%;table-layout:fixed;font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff}
-    th,td{border:1px solid #7f7f7f;padding:3px 6px;height:18px;background:#fff;color:#000;vertical-align:middle}
-    th{font-weight:700;text-align:center}
-    td{text-align:right}
-    th:first-child,td:first-child{text-align:left}
-    .analysis-note{font-family:Calibri,Arial,sans-serif;font-size:10pt;color:#000;background:#fff;border:1px solid #7f7f7f;padding:4px 6px;margin:10px 0 0}
-    .analysis-note+.analysis-note{margin-top:0;border-top:0}
-    .posthoc-table{margin-top:10px}
-    .posthoc-table th,.posthoc-table td{text-align:center}
-    .posthoc-table th:first-child,.posthoc-table td:first-child{text-align:left}
-    .posthoc-value{white-space:nowrap;font-weight:400}
-    sup{vertical-align:super;font-size:70%;font-weight:700}
-  </style></head><body>${body}</body></html>`;
-  const blob = new Blob(['\ufeff', doc], {type:'application/vnd.ms-excel;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${safe}.xls`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function exportScope(scope, filename) {
+  const snapshot = cleanClone(scope);
+  snapshot.dataset.decimalSeparator = getDecimalSeparator();
+  const { downloadReportXlsx } = await import('./xlsx-export.js');
+  await downloadReportXlsx(snapshot, filename);
 }
 
 export function resultActions(filename='hasil-analisis') {
-  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xls)</button></div>`;
+  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
 export function installResultExport() {
@@ -102,17 +77,27 @@ export function installResultExport() {
     const scope = button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
+    const feedback=button.closest('.result-actions')?.querySelector('.export-status');
+    const message=text=>{if(status)status.textContent=text;if(feedback)feedback.textContent=text;};
+    const originalLabel=button.textContent;
+    if(button.disabled)return;
+    button.disabled=true;
+    button.textContent='Memproses…';
     try {
       if (button.dataset.resultAction === 'copy') {
         await copyScope(scope);
-        if (status) status.textContent = '✓ Hasil analisis disalin. Tempel langsung ke Excel.';
+        message('Hasil disalin. Tempel langsung ke Excel.');
       } else if (button.dataset.resultAction === 'export') {
-        exportScope(scope, button.dataset.resultFilename);
-        if (status) status.textContent = '✓ Hasil analisis diekspor ke file Excel-compatible (.xls).';
+        await exportScope(scope, button.dataset.resultFilename);
+        message('File Excel (.xlsx) siap diunduh.');
       }
     } catch (error) {
       console.error(error);
-      if (status) status.textContent = '⚠ Hasil tidak dapat disalin/diekspor oleh browser ini.';
+      message('Hasil belum dapat disalin/diekspor. Coba lagi atau gunakan tombol ekspor Excel.');
+    } finally {
+      button.disabled=false;
+      button.textContent=originalLabel;
     }
   });
 }
+import { getDecimalSeparator } from './number-format.js';
