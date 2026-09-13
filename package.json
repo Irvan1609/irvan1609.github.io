@@ -11,7 +11,8 @@
     "test:ui": "node scripts/check-ui-contract.mjs",
     "test:dist": "node scripts/check-dist.mjs",
     "test:statistics": "node scripts/check-statistics.mjs",
-    "verify": "npm run check:syntax && npm run test:ui && npm run test:statistics && npm run build && npm run test:dist"
+    "test:drive-backup": "node scripts/check-drive-backup.mjs",
+    "verify": "npm run check:syntax && npm run test:ui && npm run test:statistics && npm run test:drive-backup && npm run build && npm run test:dist"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",

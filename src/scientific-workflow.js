@@ -2,6 +2,7 @@ import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,getDecimalSeparator} from './number-format.js';
 import {validateData,analyzeParameter} from './statistics-engine.js';
 import {renderReport,esc,designNames,installChartDownload} from './scientific-report.js';
+import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container){container.innerHTML='<div class="result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><span role="status" class="export-status"></span></div>'+reports.map(renderReport).join('');}
@@ -53,6 +54,8 @@ async function analyze(){
     showResults(reports,$('#scienceResults'));
     const saved=saveHistory(reports,o);
     $('#scienceRunStatus').textContent=saved?'Analisis selesai dan tersimpan dalam riwayat.':'Analisis selesai. Penyimpanan browser penuh; ekspor hasil untuk menyimpannya.';
+    // Capture this dataset before another analysis changes the active selection.
+    void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
   }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
   finally{$('#runScience').disabled=false;$('#runScience').textContent='Jalankan analisis';}
 }
@@ -82,4 +85,5 @@ export function installScientificWorkflow(){
   $('#analysisHistory').onclick=history;
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
+  installDriveBackup();
 }
