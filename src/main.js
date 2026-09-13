@@ -1,4 +1,5 @@
 import { installAnalysisFlow } from './analysis-flow.js';
+import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
@@ -168,7 +169,12 @@ function runRakParameters(){
   for(const value of selected){$('#rakResponse').value=value;runRAK();if(!$('#rakError').hidden){$('#rakResult').innerHTML='';return;}results.push($('#rakResult').innerHTML);}
   $('#rakResult').innerHTML=results.join('');
 }
-function bind(){initNumberSettings();installAnalysisFlow();
+function bind(){initNumberSettings();installDataTools();installAnalysisFlow();
+document.addEventListener('dataset-import',event=>{
+  const {name,headers,rows}=event.detail;let base=String(name||'Impor').replace(/[\\/\u0000-\u001f]/g,'-'),target=base+'.txt',i=2;
+  while(Object.prototype.hasOwnProperty.call(state.files,target))target=base+'-'+i+++'.txt';
+  state.files[target]='';state.active=target;state.headers=headers;state.rows=rows;persist();loadActive(false);setStatus('Dataset Excel diimpor: '+target);
+});
 $('#renameDataset').addEventListener('click',renameDataset);
 $('#deleteDataset').addEventListener('click',deleteDataset);
 $('#datasetNameForm').addEventListener('submit',saveDatasetName);
