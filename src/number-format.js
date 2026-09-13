@@ -62,7 +62,7 @@ export function initNumberSettings() {
   select.addEventListener('change', () => {
     separator = select.value;
     try { localStorage.setItem(KEY, separator); } catch {}
-    document.querySelectorAll('#ralResult, #rakResult').forEach(el => { el.innerHTML = ''; });
+    document.querySelectorAll('#ralResult, #rakResult, #scienceResults, #historyResult').forEach(el => { el.innerHTML = ''; });
     const status = document.querySelector('#status');
     const text = separator === ',' ? 'koma (,)' : 'titik (.)';
     if (status) status.textContent = `✓ Format angka diubah menjadi ${text}. Jalankan kembali analisis.`;

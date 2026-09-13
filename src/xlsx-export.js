@@ -5,16 +5,16 @@ import { getDecimalSeparator } from './number-format.js';
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
 
-export function createReportWorkbook(scope) {
+export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis') {
   const separator=scope.dataset.decimalSeparator||getDecimalSeparator();
   const parseNumber=text=>{
     const normalized=separator===','?text.replace(',','.'):text;
     if(separator===','&&text.includes('.'))return NaN;
     return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)?Number(normalized):NaN;
   };
-  const book = new ExcelJS.Workbook();
+  book ||= new ExcelJS.Workbook();
   book.creator = 'Statistical Web';
-  const sheet = book.addWorksheet('Hasil analisis', {
+  const sheet = book.addWorksheet(sheetName, {
     pageSetup:{paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0}
   });
   const width = Math.max(4, ...[...scope.querySelectorAll('table tr')].map(row=>row.cells.length));
@@ -50,7 +50,8 @@ export function createReportWorkbook(scope) {
         }else{
           const number=parseNumber(text);
           // Treatment names and column headings are always literal text, including numeric IDs.
-          cell.value=!header&&index>0&&text!==''&&Number.isFinite(number)?number:text;
+          const precise=source.hasAttribute('data-number')?Number(source.dataset.number):number;
+          cell.value=!header&&index>0&&text!==''&&Number.isFinite(precise)?precise:text;
           if(typeof cell.value==='number'){
             const decimals=text.match(/[.,](\d+)/)?.[1].length||0;
             cell.numFmt=decimals?'0.'+'0'.repeat(decimals):'0';
@@ -85,6 +86,7 @@ export function createReportWorkbook(scope) {
 export async function downloadReportXlsx(scope,filename) {
   // Capture the visible report synchronously, before asynchronous workbook serialization.
   const book=createReportWorkbook(scope);
+  await addChartImages(book,book.worksheets[0],scope);
   const buffer=await book.xlsx.writeBuffer();
   const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
@@ -93,4 +95,40 @@ export async function downloadReportXlsx(scope,filename) {
   link.download=(String(filename||'hasil-analisis').replace(/[^a-z0-9._-]+/gi,'-').replace(/^-+|-+$/g,'')||'hasil-analisis')+'.xlsx';
   document.body.appendChild(link);
   try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
+}
+
+async function addChartImages(book,sheet,scope){
+  let row=sheet.rowCount+2;
+  for(const svg of scope.querySelectorAll('.scientific-chart svg')){
+    const rect=svg.getAttribute('viewBox').split(/\s+/).map(Number),scale=Math.min(1,1100/rect[2]);
+    const canvas=document.createElement('canvas');canvas.width=Math.ceil(rect[2]*scale);canvas.height=Math.ceil(rect[3]*scale);
+    const url=URL.createObjectURL(new Blob([svg.outerHTML],{type:'image/svg+xml'}));
+    try{
+      const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Grafik tidak dapat disisipkan ke Excel.'));image.src=url;});
+      canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+      const id=book.addImage({base64:canvas.toDataURL('image/png'),extension:'png'});
+      sheet.addImage(id,{tl:{col:0,row},ext:{width:canvas.width,height:canvas.height}});
+      row+=Math.ceil(canvas.height/20)+2;
+    }finally{URL.revokeObjectURL(url);}
+  }
+  if(row>sheet.rowCount+2)sheet.pageSetup.printArea=`A1:${sheet.getColumn(sheet.columnCount).letter}${row}`;
+}
+
+export function createCombinedWorkbook(scopes){
+  const book=new ExcelJS.Workbook(),used=new Set();
+  scopes.forEach((scope,index)=>{
+    const base=String(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`).replace(/[\\/*?:\[\]]/g,'-').replace(/^'+|'+$/g,'').slice(0,31)||`Parameter ${index+1}`;
+    let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
+    createReportWorkbook(scope,book,name);
+  });
+  return book;
+}
+export async function downloadAllReportsXlsx(scope){
+  const sections=[...scope.querySelectorAll('[data-export-scope]')];
+  if(!sections.length)throw Error('Belum ada hasil untuk diekspor.');
+  sections.forEach(section=>section.dataset.decimalSeparator=scope.dataset.decimalSeparator||getDecimalSeparator());
+  const book=createCombinedWorkbook(sections);
+  for(let i=0;i<sections.length;i++)await addChartImages(book,book.worksheets[i],sections[i]);
+  const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a=document.createElement('a');a.href=url;a.download='seluruh-hasil-analisis.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }

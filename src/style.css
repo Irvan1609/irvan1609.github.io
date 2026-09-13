@@ -100,3 +100,7 @@ table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 .field-label{display:block;margin:12px 12px 0}.form-help{font-size:14px;color:var(--muted)}#datasetName{display:block;width:100%;margin-top:8px}
 #rakBnjOptions{display:grid;grid-template-columns:1fr 1fr;gap:12px}#rakBnjOptions>div:last-child{grid-column:1/-1}#rakBnjOptions select{display:block;width:100%;margin-top:6px}
 @media(max-width:600px){.design-options,#rakBnjOptions{grid-template-columns:1fr}}
+.table-scroll{overflow:auto;max-width:100%}.scientific-chart{padding:12px;background:white}.scientific-chart svg{width:100%;min-width:560px;display:block}.scientific-chart{overflow:auto}.scientific-chart button{margin-top:8px}
+#scienceFields select{display:block;width:100%;margin:8px 0}#scienceFields details{margin:14px 0;padding:12px;border:1px solid var(--border);border-radius:6px}#scienceContrastText{width:100%}#scienceContrastFields label{display:flex;justify-content:space-between;gap:12px;margin:8px 0}
+.data-invalid{background:#ffe0df!important;outline:2px solid #b91c1c}.history-row{display:flex;gap:8px;margin-bottom:8px}.history-row button:first-child{flex:1;text-align:left}
+#dataToolBody>select{display:block;width:100%;margin-top:8px}#scienceFields>.form-grid{margin-bottom:12px}.export-status{display:block;flex-basis:100%;font-size:14px}

@@ -74,7 +74,7 @@ export function installResultExport() {
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
-    const scope = button.closest('[data-export-scope]');
+    const scope = button.dataset.resultAction==='export-all'?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
     const feedback=button.closest('.result-actions')?.querySelector('.export-status');
@@ -84,7 +84,11 @@ export function installResultExport() {
     button.disabled=true;
     button.textContent='Memproses…';
     try {
-      if (button.dataset.resultAction === 'copy') {
+      if(button.dataset.resultAction==='export-all'){
+        const snapshot=cleanClone(scope);snapshot.dataset.decimalSeparator=getDecimalSeparator();
+        const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot);
+        message('Seluruh parameter diekspor; satu lembar per parameter.');
+      } else if (button.dataset.resultAction === 'copy') {
         await copyScope(scope);
         message('Hasil disalin. Tempel langsung ke Excel.');
       } else if (button.dataset.resultAction === 'export') {
