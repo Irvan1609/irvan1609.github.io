@@ -18,6 +18,22 @@ let setting={},sent=[],message='';
 globalThis.localStorage={getItem:()=>JSON.stringify(setting)};
 globalThis.document={getElementById:()=>({set textContent(x){message=x;}})};
 globalThis.fetch=async(url,options)=>{sent.push({url,options});return {type:'opaque'};};
+// Stored JSON can be valid but have the wrong shape, or storage can be unavailable.
+// Every invalid configuration must fail closed without a rejected backup promise.
+for(const stored of [null,[],true,42,'enabled',{enabled:'false',endpoint},{enabled:'true',endpoint},{enabled:1,endpoint},{enabled:true,endpoint:[endpoint]},{enabled:true,endpoint:'https://invalid.example/exec'}]){
+  setting=stored;
+  await assert.doesNotReject(backupRawDataset(data));
+  assert.equal(sent.length,0,'Invalid settings must not send data');
+  assert.match(message,/belum aktif/);
+}
+for(const getItem of [()=>'{broken',()=>{throw Error('Storage disabled');}]){
+  globalThis.localStorage={getItem};
+  await assert.doesNotReject(backupRawDataset(data));assert.equal(sent.length,0);
+}
+assert.equal(validEndpoint([endpoint]),false);
+assert.equal(validEndpoint(null),false);
+globalThis.localStorage={getItem:()=>JSON.stringify(setting)};
+setting={};
 await backupRawDataset(data);assert.equal(sent.length,0);
 setting={enabled:true,endpoint};await backupRawDataset(data);
 assert.equal(sent.length,1);assert.equal(sent[0].options.mode,'no-cors');

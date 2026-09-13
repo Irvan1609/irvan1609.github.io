@@ -3,9 +3,18 @@ const KEY='statistical_web_drive_backup_v1';
 export const MAX_BYTES=2*1024*1024;
 let busy=false;
 export function validEndpoint(value){
-  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(value);
+  return typeof value==='string'&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(value);
 }
-function config(){try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch{return {};}}
+function config(){
+  const disabled={enabled:false,endpoint:''};
+  try{
+    const stored=JSON.parse(localStorage.getItem(KEY)||'{}');
+    if(!stored||typeof stored!=='object'||Array.isArray(stored))return disabled;
+    const endpoint=validEndpoint(stored.endpoint)?stored.endpoint:'';
+    // Corrupt storage must not throw or turn a truthy string into upload consent.
+    return {enabled:stored.enabled===true&&!!endpoint,endpoint};
+  }catch{return disabled;}
+}
 function status(text){const el=document.getElementById('driveBackupStatus');if(el)el.textContent=text;}
 export async function rawWorkbook(dataset){
   if(!dataset.headers?.length||!dataset.rows?.length)throw Error('Dataset kosong.');
