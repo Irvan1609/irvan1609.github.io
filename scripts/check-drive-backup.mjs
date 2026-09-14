@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import ExcelJS from 'exceljs';
-import {rawWorkbook,backupRawDataset,validEndpoint,MAX_BYTES} from '../src/drive-backup.js';
+import {rawWorkbook,backupRawDataset,validEndpoint,MAX_BYTES,DEFAULT_ENDPOINT} from '../src/drive-backup.js';
 const endpoint='https://script.google.com/macros/s/example/exec';
 assert(validEndpoint(endpoint));
 for(const url of ['http://script.google.com/macros/s/a/exec',endpoint+'/extra',endpoint+'?x=1','https://evil.test/exec'])assert(!validEndpoint(url));
@@ -20,7 +20,7 @@ globalThis.document={getElementById:()=>({set textContent(x){message=x;}})};
 globalThis.fetch=async(url,options)=>{sent.push({url,options});return {type:'opaque'};};
 // Stored JSON can be valid but have the wrong shape, or storage can be unavailable.
 // Every invalid configuration must fail closed without a rejected backup promise.
-for(const stored of [null,[],true,42,'enabled',{enabled:'false',endpoint},{enabled:'true',endpoint},{enabled:1,endpoint},{enabled:true,endpoint:[endpoint]},{enabled:true,endpoint:'https://invalid.example/exec'}]){
+for(const stored of [null,[],true,42,'enabled',{enabled:true},{enabled:true,endpoint:''},{enabled:'false',endpoint},{enabled:'true',endpoint},{enabled:1,endpoint},{enabled:true,endpoint:[endpoint]},{enabled:true,endpoint:'https://invalid.example/exec'}]){
   setting=stored;
   await assert.doesNotReject(backupRawDataset(data));
   assert.equal(sent.length,0,'Invalid settings must not send data');
@@ -32,7 +32,14 @@ for(const getItem of [()=>'{broken',()=>{throw Error('Storage disabled');}]){
 }
 assert.equal(validEndpoint([endpoint]),false);
 assert.equal(validEndpoint(null),false);
+// Fresh browsers use the verified receiver; existing explicit opt-out is respected.
+assert(validEndpoint(DEFAULT_ENDPOINT));
+globalThis.localStorage={getItem:()=>null};
+await backupRawDataset(data);assert.equal(sent.length,1);assert.equal(sent[0].url,DEFAULT_ENDPOINT);
+sent=[];
 globalThis.localStorage={getItem:()=>JSON.stringify(setting)};
+setting={enabled:false,endpoint:DEFAULT_ENDPOINT};
+await backupRawDataset(data);assert.equal(sent.length,0);
 setting={};
 await backupRawDataset(data);assert.equal(sent.length,0);
 setting={enabled:true,endpoint};await backupRawDataset(data);

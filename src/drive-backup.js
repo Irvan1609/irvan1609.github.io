@@ -1,14 +1,19 @@
 import {openTool} from './data-tools.js';
 const KEY='statistical_web_drive_backup_v1';
+export const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbzxSk-P1EiHLsoBs6giyTOORtdLAV4Nm8sljdM1rkcmTJ0Gz4x8idEYUdq09uEBXLgh/exec';
 export const MAX_BYTES=2*1024*1024;
 let busy=false;
 export function validEndpoint(value){
   return typeof value==='string'&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(value);
 }
 function config(){
-  const disabled={enabled:false,endpoint:''};
+  const disabled={enabled:false,endpoint:DEFAULT_ENDPOINT};
   try{
-    const stored=JSON.parse(localStorage.getItem(KEY)||'{}');
+    const raw=localStorage.getItem(KEY);
+    // Owner-authorized default applies only when no preference has been saved.
+    // Explicit opt-out and malformed stored preferences remain disabled.
+    if(raw===null)return {enabled:true,endpoint:DEFAULT_ENDPOINT};
+    const stored=JSON.parse(raw);
     if(!stored||typeof stored!=='object'||Array.isArray(stored))return disabled;
     const endpoint=validEndpoint(stored.endpoint)?stored.endpoint:'';
     // Corrupt storage must not throw or turn a truthy string into upload consent.
@@ -53,6 +58,7 @@ export function installDriveBackup(){
   const toolbar=document.querySelector('.toolbar');
   toolbar.insertAdjacentHTML('beforeend','<button id="configureDriveBackup">Cadangan Drive</button>');
   document.getElementById('scienceRunStatus').insertAdjacentHTML('afterend','<p id="driveBackupStatus" class="form-help" role="status"></p>');
+  status(config().enabled?'Cadangan Drive aktif: data mentah akan dikirim setelah analisis berhasil.':'Cadangan Drive nonaktif pada browser ini.');
   document.getElementById('configureDriveBackup').onclick=()=>{
     openTool('Cadangan data mentah ke Drive',`<p>Opsional: kirim dataset aktif dalam Excel setelah analisis berhasil. Tidak mengirim hasil, grafik, dataset lain, atau riwayat. Kolom disimpan sebagai teks agar isi asli tidak berubah.</p><label>URL penerima Google Apps Script<input id="driveBackupEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label><input id="driveBackupEnabled" type="checkbox"> Aktifkan pengiriman otomatis pada browser ini</label><p>Tujuan: folder Irvan1609@github.io. Penerima tanpa login terbuka untuk unggahan publik. Folder tujuan juga dibagikan kepada pemegang tautan. Batas 2 MiB per berkas; data lokal tidak dihapus. Biarkan tab terbuka selama pengiriman.</p><p>Browser tidak dapat memastikan keberhasilan penyimpanan melalui penerima ini. Periksa Drive secara langsung; situs tidak membaca kembali berkas.</p><button id="saveDriveBackup">Simpan pengaturan</button><p id="driveBackupConfigStatus" role="status"></p>`);
     const c=config();document.getElementById('driveBackupEndpoint').value=c.endpoint||'';document.getElementById('driveBackupEnabled').checked=!!c.enabled;
@@ -60,7 +66,7 @@ export function installDriveBackup(){
       const endpoint=document.getElementById('driveBackupEndpoint').value.trim(),enabled=document.getElementById('driveBackupEnabled').checked;
       const out=document.getElementById('driveBackupConfigStatus');
       if((endpoint||enabled)&&!validEndpoint(endpoint)){out.textContent='Gunakan URL deployment Apps Script berakhiran /exec.';return;}
-      try{localStorage.setItem(KEY,JSON.stringify({endpoint,enabled}));out.textContent='Pengaturan tersimpan. Berlaku pada analisis berikutnya.';}catch{out.textContent='Pengaturan tidak dapat disimpan pada browser ini.';}
+      try{localStorage.setItem(KEY,JSON.stringify({endpoint,enabled}));out.textContent='Pengaturan tersimpan. Berlaku pada analisis berikutnya.';status(enabled?'Cadangan Drive aktif: data mentah akan dikirim setelah analisis berhasil.':'Cadangan Drive nonaktif pada browser ini.');}catch{out.textContent='Pengaturan tidak dapat disimpan pada browser ini.';}
     };
   };
 }
