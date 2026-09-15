@@ -2,6 +2,7 @@ import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,getDecimalSeparator} from './number-format.js';
 import {validateData,analyzeParameter} from './statistics-engine.js';
 import {plannedContrastsFlexible} from './planned-contrasts.js';
+import {finalizeAgronomyFactorial} from './agronomy-factorial.js';
 import {renderReport,esc,designNames,installChartDownload} from './scientific-report.js';
 import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
@@ -120,6 +121,7 @@ async function analyze(){
           report.notes.push(`${evaluated.nonOrthogonalPairs.length} pasangan kontras tidak ortogonal${preview?`: ${preview}`:''}. Hal ini diperbolehkan untuk planned contrasts, tetapi JK antar-kontras tidak boleh dijumlahkan sebagai dekomposisi JK perlakuan.`);
         }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
       }
+      finalizeAgronomyFactorial(report);
       reports.push(report);
     }
     showResults(reports,$('#scienceResults'));
