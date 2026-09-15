@@ -12,6 +12,8 @@ function noTest(items,title,mse,df,layout){
   return {title,items:items.map(item=>({...item,letters:[]})),mse,df,method:'none',critical:[],pairs:[],layout};
 }
 
+function withError(test,mse,df){return {...test,mse,df};}
+
 function significanceMatrix(items,threshold){
   const n=items.length,sig=Array.from({length:n},()=>Array(n).fill(false)),pairs=[];
   for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
@@ -41,7 +43,7 @@ function buildSplitInteraction(report,mseA,dfA,mseB,dfB){
   const A=report.factorA,B=report.factorB,r=report.cells[0]?.n||0,method=report.posthoc,alpha=report.alpha;
   const rowTests=A.map(a=>{
     const items=B.map(b=>report.cells.find(cell=>cell.a===a&&cell.b===b));
-    const test=method==='none'?noTest(items,`Anak Petak (B) pada Petak Utama (A) = ${a}`,mseB,dfB):compareMeans(items,method,alpha,mseB,dfB);
+    const test=method==='none'?noTest(items,`Anak Petak (B) pada Petak Utama (A) = ${a}`,mseB,dfB):withError(compareMeans(items,method,alpha,mseB,dfB),mseB,dfB);
     return {...test,a,title:`Anak Petak (B) pada Petak Utama (A) = ${a}`};
   });
   const effectiveMse=(mseA+(B.length-1)*mseB)/B.length;
@@ -51,7 +53,7 @@ function buildSplitInteraction(report,mseA,dfA,mseB,dfB){
     let test;
     if(method==='none')test=noTest(items,`Petak Utama (A) pada Anak Petak (B) = ${b}`,effectiveMse,effectiveDf);
     else if(method==='bnt')test=weightedBnt(items,alpha,mseA,dfA,mseB,dfB,B.length,r);
-    else test=compareMeans(items,method,alpha,effectiveMse,effectiveDf);
+    else test=withError(compareMeans(items,method,alpha,effectiveMse,effectiveDf),effectiveMse,effectiveDf);
     test.items=columnLetters(test.items);
     return {...test,b,title:`Petak Utama (A) pada Anak Petak (B) = ${b}`};
   });
@@ -74,7 +76,7 @@ function finalizeOrdinaryFactorial(report){
   report.notes=report.notes.filter(note=>!note.startsWith('Interaksi A × B nyata:'));
   if(interaction.p<report.alpha){
     const title='Interaksi A × B';
-    const compared=report.posthoc==='none'?noTest(report.cells,title,error.ms,error.df,'factorial-interaction'):compareMeans(report.cells,report.posthoc,report.alpha,error.ms,error.df);
+    const compared=report.posthoc==='none'?noTest(report.cells,title,error.ms,error.df,'factorial-interaction'):withError(compareMeans(report.cells,report.posthoc,report.alpha,error.ms,error.df),error.ms,error.df);
     report.comparisons=[{...compared,title,layout:'factorial-interaction'}];
     report.notes.push('Interaksi A × B nyata: uji lanjut hanya dilakukan pada kombinasi interaksi. Faktor tunggal A dan B tidak diuji lanjut karena telah terwakili oleh interaksi.');
   }
@@ -87,7 +89,8 @@ function finalizeSplitPlot(report){
   const factorB=original.find(term=>term.label==='Faktor B'),interaction=original.find(term=>term.label==='A × B'),errorB=original.find(term=>term.label==='Galat (b)'),total=original.find(term=>term.label==='Total');
   if(!block||!factorA||!errorA||!factorB||!interaction||!errorB)return report;
   report.terms=[renameTerm(block,'Kelompok','Acak (a)'),renameTerm(factorA,'Petak Utama (A)','Acak (a)'),renameTerm(errorA,'Acak (a)'),renameTerm(factorB,'Anak Petak (B)','Acak (b)'),renameTerm(interaction,'Interaksi (A × B)','Acak (b)'),renameTerm(errorB,'Acak (b)'),total];
-  report.notes=report.notes.filter(note=>!note.startsWith('Interaksi A × B nyata:'));
+  report.notes=report.notes.filter(note=>!note.startsWith('Interaksi A × B nyata:')&&!note.startsWith('RPT berbasis RAK:'));
+  report.notes.push('RPT berbasis RAK: Kelompok dan Petak Utama diuji dengan Acak (a); Anak Petak dan Interaksi A × B diuji dengan Acak (b).');
   if(interaction.p<report.alpha){
     report.comparisons=[];
     report.interactionPosthoc=buildSplitInteraction(report,errorA.ms,errorA.df,errorB.ms,errorB.df);
