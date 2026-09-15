@@ -1,9 +1,10 @@
 import {formatNumber as fmt} from './number-format.js';
 import {resultActions} from './result-export.js';
 import jStat from 'jstat';
-export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 export const designNames={ral:'RAL',rak:'RAK',fral:'Faktorial RAL',frak:'Faktorial RAK',split:'RPT / petak terbagi dalam RAK'};
 const pv=p=>p===null||!Number.isFinite(p)?'—':p<.001?'&lt;'+fmt(.001):fmt(p);
+const sigMark=t=>t.f===null?'':t.f>t.f01?'**':t.f>t.f05?'*':'tn';
 function cell(x){return typeof x==='number'?`<td data-number="${x}">${fmt(x)}</td>`:`<td>${x??'—'}</td>`;}
 function table(headers,rows,cls=''){return `<div class="table-scroll"><table class="result-table ${cls}"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;}
 const labelLines=(label,x,y)=>String(label).match(/.{1,35}(?:\s|$)|.{1,35}/g)?.map((text,i)=>`<tspan x="${x}" dy="${i?14:0}">${esc(text)}</tspan>`).join('')||'';
@@ -26,26 +27,52 @@ function diagnosticPlot(values,fitted,qq){
   const title=qq?'Q–Q residual':'Residual terhadap nilai prediksi';
   return `<div class="scientific-chart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 300" role="img" aria-label="${title}"><rect width="100%" height="100%" fill="white"/><g font-family="Arial" font-size="12"><text x="30" y="22" font-weight="bold">${title}</text><path d="M55,45V255H600" fill="none" stroke="#666"/>${qq?`<path d="M60,250L590,50" stroke="#999"/>`:`<path d="M60,${y(0)}H590" stroke="#999"/>`}${xs.map((v,i)=>`<circle cx="${x(v)}" cy="${y(ys[i])}" r="2.5" fill="#215cc5"/>`).join('')}<text x="60" y="273">${esc(fmt(xmin,2))}</text><text x="555" y="273">${esc(fmt(xmax,2))}</text><text x="3" y="55">${esc(fmt(ymax,2))}</text><text x="3" y="250">${esc(fmt(ymin,2))}</text><text x="230" y="293">${qq?'Kuantil normal teoretis':'Nilai prediksi'}</text></g></svg><button data-chart-download>Unduh grafik SVG</button></div>`;
 }
+function criticalText(test){return (test.critical||[]).map(x=>`${x.range}: ${fmt(x.value,3)}`).join('; ')||'—';}
+function factorialInteractionTable(report,comparison,name){
+  const rows=report.factorA.map(a=>[esc(a),...report.factorB.map(b=>{const item=comparison.items.find(x=>x.a===a&&x.b===b),letters=(item?.letters||[]).join('');return item?`${fmt(item.mean,2)}${letters?`<sup>${esc(letters)}</sup>`:''}`:'—';})]);
+  return table(['Faktor A \\ Faktor B',...report.factorB],rows,'posthoc-table')+`<div class="analysis-note">${comparison.method==='none'?'Uji lanjut interaksi tidak dipilih.':`${comparison.method.toUpperCase()} ${report.alpha*100}% diterapkan pada seluruh kombinasi A × B menggunakan KT Acak = ${fmt(comparison.mse)} dan db = ${fmt(comparison.df,0)}. Huruf yang sama menunjukkan kombinasi tidak terdeteksi berbeda nyata.`}</div>${comparison.method==='none'?'':table(['Rentang','Nilai kritis '+(comparison.method==='bnt'?'t':'q')],comparison.critical.map(x=>[x.range,x.value]))}`;
+}
+function splitInteractionTable(report,posthoc){
+  const rows=posthoc.rows.map(a=>[esc(a),...posthoc.columns.map(b=>{const item=posthoc.cells.find(x=>x.a===a&&x.b===b),rowLetters=(item?.rowLetters||[]).join(''),columnLetters=(item?.columnLetters||[]).join('');return item?`${fmt(item.mean,2)}${rowLetters?`<sup>${esc(rowLetters)}</sup>`:''}${columnLetters?`<sub>${esc(columnLetters)}</sub>`:''}`:'—';})]);
+  let html=table(['Petak Utama (A) \\ Anak Petak (B)',...posthoc.columns],rows,'posthoc-table');
+  if(posthoc.method==='none')return html+'<div class="analysis-note">Interaksi nyata, tetapi uji lanjut tidak dipilih. Tabel hanya menampilkan rataan kombinasi.</div>';
+  const rowTest=posthoc.rowTests[0],columnTest=posthoc.columnTests[0];
+  html+=`<div class="analysis-note"><b>Uji lanjut interaksi RPT — ${posthoc.method.toUpperCase()} ${posthoc.alpha*100}%.</b> Huruf <sup>a, b, c, …</sup> dibandingkan <b>dalam baris yang sama</b> (Anak Petak pada Petak Utama yang sama). Huruf <sub>x, y, z, …</sub> dibandingkan <b>dalam kolom yang sama</b> (Petak Utama pada Anak Petak yang sama). Huruf dari baris atau kolom berbeda tidak dibandingkan langsung.</div>`;
+  html+=table(['Arah perbandingan','Galat pembanding','db efektif','Nilai kritis','Ambang pertama'],[
+    ['B pada setiap A',`Acak (b): KT ${fmt(posthoc.mseB)}`,rowTest.df,criticalText(rowTest),rowTest.pairs?.[0]?.threshold??'—'],
+    ['A pada setiap B',posthoc.method==='bnt'?`Acak (a) + Acak (b), t terbobot`:`Acak (a) + Acak (b), Satterthwaite`,columnTest.df,criticalText(columnTest),columnTest.pairs?.[0]?.threshold??'—']
+  ]);
+  return html;
+}
+
 export function renderReport(report){
   const {name,design,alpha}=report;let num=0;
   const caption=text=>`<div class="table-caption">Tabel ${++num}. ${esc(text)}</div>`;
-  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; KK = ${fmt(report.cv,2)}%${report.cvWhole!==null?`; KK petak utama = ${fmt(report.cvWhole,2)}%`:''}.</div>`;
-  const multi=['fral','frak','split'].includes(design);
+  const cvText=design==='split'?`KK (a) = ${fmt(report.cvWhole,2)}%; KK (b) = ${fmt(report.cv,2)}%`:`KK = ${fmt(report.cv,2)}%`;
+  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
+  const multi=['fral','frak','split'].includes(design),grouped=['rak','frak','split'].includes(design);
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));
   const repNames=hasRep?report.replicates:Array.from({length:Math.max(...rawGroups.map(g=>g.length))},(_,i)=>String(i+1));
   const displayGroups=rawGroups.map(g=>repNames.map((rep,i)=>hasRep?g.find(o=>o.rep===rep)?.y:g[i]?.y));
   const observationRows=report.cells.map((c,i)=>[esc(c.label),...displayGroups[i].map(x=>x===undefined?'':x),rawGroups[i].reduce((s,o)=>s+o.y,0),c.mean]);
   observationRows.push(['Total',...repNames.map((_,i)=>displayGroups.reduce((s,g)=>s+(g[i]??0),0)),report.observations.reduce((s,o)=>s+o.y,0),report.grand]);
-  html+=caption('Data pengamatan')+table(['Perlakuan',...repNames.map(r=>'Ulangan '+r),'Total','Rata-rata'],observationRows,'observation-table');
-  html+=caption('Sidik ragam')+table(['SK','db','JK','KT','F. Hitung','F. Tabel 0.05','F. Tabel 0.01','Galat pembanding'],report.terms.map(t=>[esc(t.label),t.df,t.ss,t.ms,t.f,t.f05,t.f01,esc(t.error||'—')]));
+  html+=caption('Data pengamatan')+table(['Perlakuan',...repNames.map(r=>(grouped?'Kelompok ':'Ulangan ')+r),'Total','Rata-rata'],observationRows,'observation-table');
+  html+=caption('Sidik ragam')+table(['SK','db','JK','KT','F. Hitung','F. Tabel 0.05','F. Tabel 0.01','Ket.'],report.terms.map(t=>[esc(t.label),t.df,t.ss,t.ms,t.f,t.f05,t.f01,sigMark(t)]));
   const tested=report.terms.filter(t=>t.f!==null);
   html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(name)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
+  if(report.interactionPosthoc){
+    html+=caption(`Uji lanjut interaksi RPT — ${report.interactionPosthoc.method==='none'?'tanpa uji lanjut':report.interactionPosthoc.method.toUpperCase()}`)+splitInteractionTable(report,report.interactionPosthoc);
+  }
   for(const comparison of report.comparisons){
     const method=comparison.method==='none'?'Tanpa uji lanjut':comparison.method.toUpperCase();
+    if(comparison.layout==='factorial-interaction'){
+      html+=caption(`${comparison.title} — ${method}`)+factorialInteractionTable(report,comparison,name);
+      continue;
+    }
     html+=caption(`${comparison.title} — ${method}`)+table(['Perlakuan',name,'n','SD','SE'],comparison.items.map(item=>[esc(item.label),`${fmt(item.mean,2)}${item.letters?.length?`<sup>${esc(item.letters.join(comparison.items.length>26?' · ':''))}</sup>`:''}`,item.n,item.sd,item.se]),'posthoc-table');
     if(comparison.method!=='none'){
-      html+=`<div class="analysis-note">${method} ${alpha*100}%; KT galat = ${fmt(comparison.mse)}; db galat = ${comparison.df}. Rataan dengan huruf bersama tidak terdeteksi berbeda nyata. Huruf hanya berlaku di dalam tabel ini.</div>`;
+      html+=`<div class="analysis-note">${method} ${alpha*100}%; KT galat = ${fmt(comparison.mse)}; db galat = ${fmt(comparison.df,2)}. Rataan dengan huruf bersama tidak terdeteksi berbeda nyata. Huruf hanya berlaku di dalam tabel ini.</div>`;
       html+=table(['Rentang','Nilai kritis '+(comparison.method==='bnt'?'t':'q')],comparison.critical.map(x=>[x.range,x.value]));
     }else html+='<div class="analysis-note">Huruf tidak diberikan karena uji lanjut tidak dipilih atau uji F yang relevan tidak nyata.</div>';
     const high=comparison.items.reduce((a,b)=>a.mean>=b.mean?a:b),low=comparison.items.reduce((a,b)=>a.mean<=b.mean?a:b);
