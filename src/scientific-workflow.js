@@ -1,6 +1,7 @@
 import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,getDecimalSeparator} from './number-format.js';
 import {validateData,analyzeParameter} from './statistics-engine.js';
+import {plannedContrastsFlexible} from './planned-contrasts.js';
 import {renderReport,esc,designNames,installChartDownload} from './scientific-report.js';
 import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
@@ -29,7 +30,7 @@ function contrastFields(){
   const mode=$('#scienceContrastMode').value,levels=levelsForA(),container=$('#scienceContrastFields');
   if(mode==='none'){container.innerHTML='';return;}
   if(!levels.length){container.innerHTML='<p>Pilih kolom perlakuan terlebih dahulu.</p>';return;}
-  container.innerHTML=mode==='polynomial'?`<p>Masukkan nilai dosis/tingkat kuantitatif sesuai setiap taraf. Satuan harus sama.</p>${levels.map((level,i)=>`<label>${esc(level)} <input data-level="${i}" placeholder="Nilai kuantitatif" inputmode="decimal"></label>`).join('')}`:`<p>Urutan koefisien: ${levels.map(esc).join(' ; ')}.</p><p>Satu kontras per baris: nama; koefisien 1; koefisien 2; … . Jumlah koefisien harus nol. Antarbaris akan diperiksa ortogonalitasnya.</p><textarea id="scienceContrastText" rows="4" placeholder="Kontrol vs lainnya; -2; 1; 1"></textarea>`;
+  container.innerHTML=mode==='polynomial'?`<p>Masukkan nilai dosis/tingkat kuantitatif sesuai setiap taraf. Satuan harus sama.</p>${levels.map((level,i)=>`<label>${esc(level)} <input data-level="${i}" placeholder="Nilai kuantitatif" inputmode="decimal"></label>`).join('')}`:`<p><b>Urutan koefisien:</b> ${levels.map(esc).join(' ; ')}.</p><p>Masukkan satu kontras per baris dengan format <b>nama; koefisien 1; koefisien 2; …</b>. Jumlah koefisien pada setiap baris harus nol. Beberapa kontras boleh tidak ortogonal; setiap p-value dilaporkan terpisah tanpa koreksi multipel.</p><textarea id="scienceContrastText" rows="6" placeholder="Kontrol vs Semuanya;-5;1;1;1;1;1\nKontrol vs Mulsa Kulit Kakao;-2;1;1;0;0;0\nMulsa Kulit Kakao Tanpa Fermentasi vs Dengan Fermentasi;0;-1;1;0;-1;1"></textarea>`;
 }
 function validate(){
   const o=options(),check=validateData(data,o,parseNumber);
@@ -43,13 +44,26 @@ async function analyze(){
   $('#scienceResults').innerHTML='';const {o,check}=validate();if(check.issues.length)return;
   try{
     if(o.contrastMode==='polynomial')o.levels=[...document.querySelectorAll('[data-level]')].map(el=>parseNumber(el.value));
-    if(o.contrastMode==='custom')o.contrasts=$('#scienceContrastText').value.trim().split(/\r?\n/).filter(Boolean).map(line=>{const [name,...coefficients]=line.split(';');return {name:name.trim(),coefficients:coefficients.map(parseNumber)};});
+    if(o.contrastMode==='custom')o.contrasts=$('#scienceContrastText').value.trim().split(/\r?\n/).filter(line=>line.trim()).map(line=>{const [name,...coefficients]=line.split(';');return {name:name.trim(),coefficients:coefficients.map(value=>parseNumber(value.trim()))};});
     const button=$('#runScience');button.disabled=true;button.textContent='Menghitung…';
     const reports=[];
     for(let i=0;i<o.parameters.length;i++){
       await new Promise(resolve=>setTimeout(resolve,0));
       if(runRevision!==revision)return;
-      reports.push(analyzeParameter(check.observations,o,i,data.headers[o.parameters[i]]));
+      const engineOptions=o.contrastMode==='custom'?{...o,contrastMode:'none'}:o;
+      const report=analyzeParameter(check.observations,engineOptions,i,data.headers[o.parameters[i]]);
+      if(o.contrastMode==='custom'){
+        const error=report.terms.find(term=>term.label==='Galat');
+        if(!error)throw Error('Galat pembanding untuk uji kontras tidak ditemukan.');
+        const evaluated=plannedContrastsFlexible(report.cells,o.contrasts,error.ms,error.df);
+        report.contrasts=evaluated.contrasts;
+        report.notes.push('Kontras terencana diuji dengan KT galat model tanpa mensyaratkan F perlakuan keseluruhan nyata. p-value yang ditampilkan adalah p-value individual dan belum disesuaikan untuk pengujian multipel.');
+        if(evaluated.nonOrthogonalPairs.length){
+          const preview=evaluated.nonOrthogonalPairs.slice(0,5).map(pair=>`${pair[0]} ↔ ${pair[1]}`).join('; ');
+          report.notes.push(`${evaluated.nonOrthogonalPairs.length} pasangan kontras tidak ortogonal${preview?`: ${preview}`:''}. Hal ini diperbolehkan untuk planned contrasts, tetapi JK antar-kontras tidak boleh dijumlahkan sebagai dekomposisi JK perlakuan.`);
+        }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
+      }
+      reports.push(report);
     }
     showResults(reports,$('#scienceResults'));
     const saved=saveHistory(reports,o);
@@ -77,7 +91,7 @@ export function openScientific(design){
   $('#scientificModal').classList.add('open');
 }
 export function installScientificWorkflow(){
-  document.body.insertAdjacentHTML('beforeend',`<div id="scientificModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle"><div class="modal-head"><strong id="scienceTitle">Analisis data</strong><button id="closeScience" aria-label="Tutup">✕</button></div><div class="modal-body"><div id="scienceFields"><div class="form-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label>Ulangan<select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help"></p><div class="ral-title">Parameter (boleh lebih dari satu)</div><div id="scienceParameters" class="ral-list"></div><div class="form-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>Taraf nyata<select id="scienceAlpha"><option value="0.05">0.05 (5%)</option><option value="0.01">0.01 (1%)</option></select></label></div><label class="ral-check"><input type="checkbox" id="scienceAssumptions" checked> Pemeriksaan asumsi dan grafik residual</label><details><summary>Kontras terencana / polinomial ortogonal</summary><label>Jenis analisis<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras ortogonal</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp"></p><div id="scienceContrastFields"></div></details></div><button id="validateScience">Periksa data</button><div id="scienceValidation"></div><p id="scienceRunStatus" role="status"></p><div id="scienceResults" data-all-results></div></div><div class="modal-foot"><button id="backScience">Kembali</button><button id="runScience" class="primary">Jalankan analisis</button><button id="closeScience2">Tutup</button></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend',`<div id="scientificModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle"><div class="modal-head"><strong id="scienceTitle">Analisis data</strong><button id="closeScience" aria-label="Tutup">✕</button></div><div class="modal-body"><div id="scienceFields"><div class="form-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label>Ulangan<select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help"></p><div class="ral-title">Parameter (boleh lebih dari satu)</div><div id="scienceParameters" class="ral-list"></div><div class="form-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>Taraf nyata<select id="scienceAlpha"><option value="0.05">0.05 (5%)</option><option value="0.01">0.01 (1%)</option></select></label></div><label class="ral-check"><input type="checkbox" id="scienceAssumptions" checked> Pemeriksaan asumsi dan grafik residual</label><details><summary>Kontras terencana / polinomial ortogonal</summary><label>Jenis analisis<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana (boleh beberapa)</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp"></p><div id="scienceContrastFields"></div></details></div><button id="validateScience">Periksa data</button><div id="scienceValidation"></div><p id="scienceRunStatus" role="status"></p><div id="scienceResults" data-all-results></div></div><div class="modal-foot"><button id="backScience">Kembali</button><button id="runScience" class="primary">Jalankan analisis</button><button id="closeScience2">Tutup</button></div></div></div>`);
   const close=()=>$('#scientificModal').classList.remove('open');$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#analysisChoice').classList.add('open');};
   $('#validateScience').onclick=validate;$('#runScience').onclick=analyze;
   $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();};

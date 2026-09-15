@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {analyzeParameter,compareMeans,plannedContrasts,polynomialContrasts,normality,validateData} from '../src/statistics-engine.js';
+import {plannedContrastsFlexible} from '../src/planned-contrasts.js';
 const ref=JSON.parse(fs.readFileSync(new URL('./statistics-reference.json',import.meta.url),'utf8'));
 const near=(a,b,tolerance=1e-7)=>assert.ok(Math.abs(a-b)<=tolerance*Math.max(1,Math.abs(b)),`${a} != ${b}`);
 for(const design of ['fral','frak','split']){
@@ -22,9 +23,17 @@ const poly=polynomialContrasts(items,[0,1,2],2,6);near(poly.reduce((s,x)=>s+x.ss
 const planned=plannedContrasts(items,[{name:'C1',coefficients:[-2,1,1]},{name:'C2',coefficients:[0,-1,1]}],2,6);near(planned.reduce((s,x)=>s+x.ss,0),14);
 assert.throws(()=>plannedContrasts(items,[{name:'bad',coefficients:[1,1,1]}],2,6));
 assert.throws(()=>plannedContrasts(items,[{coefficients:[-1,1,0]},{coefficients:[-1,0,1]}],2,6));
+const sixItems=[10,12,14,16,18,20].map((mean,i)=>({label:'P'+i,n:3,mean}));
+const flexible=plannedContrastsFlexible(sixItems,[
+ {name:'Kontrol vs Semuanya',coefficients:[-5,1,1,1,1,1]},
+ {name:'Kontrol vs Mulsa Kulit Kakao',coefficients:[-2,1,1,0,0,0]},
+ {name:'Mulsa Kulit Kakao Tanpa Fermentasi vs Dengan Fermentasi',coefficients:[0,-1,1,0,-1,1]}
+],4,12);
+assert.equal(flexible.contrasts.length,3);assert.equal(flexible.nonOrthogonalPairs.length,1);near(flexible.contrasts[0].estimate,30);near(flexible.contrasts[0].ss,90);near(flexible.contrasts[0].f,22.5);
+assert.throws(()=>plannedContrastsFlexible(sixItems,[{name:'bad',coefficients:[1,1,1,1,1,1]}],4,12));
 assert.throws(()=>polynomialContrasts(items,[0,0,1],2,6));assert.equal(normality([1,2,3]).p,null);
 const dataset={headers:['A','B','R','Y'],rows:ref.rows.map(o=>[o.a,o.b,o.rep,o.values[0]])},options={design:'frak',a:0,b:1,rep:2,parameters:[3]};
 assert.equal(validateData(dataset,options,Number).issues.length,0);
 assert.ok(validateData({...dataset,rows:[...dataset.rows,dataset.rows[0]]},options,Number).issues.length>0);
 assert.ok(validateData({...dataset,rows:dataset.rows.slice(1)},options,Number).issues.length>0);
-console.log('Statistics verified: factorial/split-plot SS and df against independent least-squares; normality and Brown–Forsythe against SciPy; BNT/BNJ/DMRT at both alpha levels; CLD pairwise consistency; contrasts and polynomial SS; incomplete/duplicate data.');
+console.log('Statistics verified: factorial/split-plot SS and df against independent least-squares; normality and Brown–Forsythe against SciPy; BNT/BNJ/DMRT at both alpha levels; CLD pairwise consistency; orthogonal and flexible planned contrasts; polynomial SS; incomplete/duplicate data.');
