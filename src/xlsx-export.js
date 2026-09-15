@@ -1,5 +1,6 @@
 // Loaded only when the user exports a report.
 import ExcelJS from 'exceljs';
+import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
 
@@ -38,18 +39,14 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis')
         if(rowSpan>1||colSpan>1)sheet.mergeCells(rowNumber,index+1,rowNumber+rowSpan-1,index+colSpan);
         const cell=sheet.getCell(rowNumber,index+1);
         const header=source.tagName==='TH';
-        const sup=source.querySelector('sup');
+        const sup=source.querySelector('sup,sub');
         const text=textOf(source);
         cell.font={name:'Calibri',size:11,bold:header};
         cell.alignment={horizontal:header?'center':index===0?'left':'right',vertical:'middle',wrapText:true};
         cell.border={top:border,left:border,bottom:border,right:border};
         if(header)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
         if(sup){
-          const base=source.cloneNode(true);base.querySelectorAll('sup').forEach(el=>el.remove());
-          cell.value={richText:[
-            {text:textOf(base),font:{name:'Calibri',size:11}},
-            {text:textOf(sup),font:{name:'Calibri',size:11,vertAlign:'superscript'}}
-          ]};
+          cell.value=excelRichText(source);
         }else{
           const number=parseNumber(text);
           // Treatment names and column headings are always literal text, including numeric IDs.
