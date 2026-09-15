@@ -86,6 +86,11 @@ table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 .analysis-result .result-table td{text-align:right}
 .analysis-result .result-table th:first-child,.analysis-result .result-table td:first-child{text-align:left;min-width:130px}
 .analysis-result .result-table tr:nth-child(even){background:#fff!important}
+.analysis-result .anova-table{min-width:740px;font-size:14px}
+.analysis-result .anova-table th,.analysis-result .anova-table td{height:27px}
+.analysis-result .anova-table thead th{text-align:center;min-width:0}
+.analysis-result .anova-table td:last-child{text-align:center}
+.analysis-result .anova-table sup{font-size:.75em;margin-left:2px}
 .analysis-result .analysis-note{margin:12px 0 0;padding:5px 7px;border:1px solid #8f8f8f;border-radius:0;background:#fff;color:#111;font-family:Calibri,"Segoe UI",Arial,sans-serif;font-size:12px;line-height:1.35}
 .analysis-result .analysis-note+.analysis-note{margin-top:0;border-top:0}
 .analysis-result .posthoc-table{margin-top:12px}

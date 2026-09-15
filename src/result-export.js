@@ -1,3 +1,4 @@
+import {tableLayout} from './table-layout.js';
 const escAttr = value => String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 function cleanClone(scope) {
@@ -7,11 +8,14 @@ function cleanClone(scope) {
   return clone;
 }
 
-function tableToTsv(table) {
-  return [...table.rows].map(row => [...row.cells].map(cell => {
-    const text = cell.textContent.replace(/\s+/g, ' ').trim();
-    return /[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  }).join('\t')).join('\n');
+export function tableToTsv(table) {
+  const layout=tableLayout([...table.rows].map(row=>[...row.cells]));
+  const grid=Array.from({length:layout.height},()=>Array(layout.width).fill(''));
+  for(const {source,row,col} of layout.cells){
+    const text=source.textContent.replace(/\s+/g,' ').trim();
+    grid[row][col]=/[\t\n"]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
+  }
+  return grid.map(row=>row.join('\t')).join('\n');
 }
 
 function scopeToTsv(scope) {

@@ -1,6 +1,7 @@
 // Loaded only when the user exports a report.
 import ExcelJS from 'exceljs';
 import { getDecimalSeparator } from './number-format.js';
+import {tableLayout} from './table-layout.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
@@ -17,7 +18,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis')
   const sheet = book.addWorksheet(sheetName, {
     pageSetup:{paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0}
   });
-  const width = Math.max(4, ...[...scope.querySelectorAll('table tr')].map(row=>row.cells.length));
+  const width = Math.max(4, ...[...scope.querySelectorAll('table')].map(table=>tableLayout([...table.rows].map(row=>[...row.cells])).width));
   sheet.columns = Array.from({length:width},(_,i)=>({width:i===0?44:18}));
   let rowNumber=1;
   function paragraph(text, bold=false) {
@@ -31,14 +32,16 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis')
     rowNumber++;
   }
   function addTable(rows) {
-    for(const cells of rows){
-      cells.forEach((source,index)=>{
+    const layout=tableLayout(rows),start=rowNumber;
+    for(const {source,row,col:index,rowSpan,colSpan} of layout.cells){
+        rowNumber=start+row;
+        if(rowSpan>1||colSpan>1)sheet.mergeCells(rowNumber,index+1,rowNumber+rowSpan-1,index+colSpan);
         const cell=sheet.getCell(rowNumber,index+1);
         const header=source.tagName==='TH';
         const sup=source.querySelector('sup');
         const text=textOf(source);
         cell.font={name:'Calibri',size:11,bold:header};
-        cell.alignment={horizontal:index===0?'left':'right',vertical:'middle',wrapText:true};
+        cell.alignment={horizontal:header?'center':index===0?'left':'right',vertical:'middle',wrapText:true};
         cell.border={top:border,left:border,bottom:border,right:border};
         if(header)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
         if(sup){
@@ -57,11 +60,9 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis')
             cell.numFmt=decimals?'0.'+'0'.repeat(decimals):'0';
           }
         }
-      });
-      sheet.getRow(rowNumber).height=Math.max(24,18*Math.max(...cells.map((cell,i)=>Math.ceil(textOf(cell).length/(i===0?42:16)))));
-      rowNumber++;
     }
-    rowNumber++;
+    rows.forEach((cells,i)=>{sheet.getRow(start+i).height=Math.max(24,18*Math.max(1,...cells.map((cell,j)=>Math.ceil(textOf(cell).length/((j===0?42:16)*Math.max(1,cell.colSpan||1))))));});
+    rowNumber=start+layout.height+1;
   }
   const clone=scope.cloneNode(true);
   clone.querySelectorAll('.result-actions,button,input,select,textarea,[hidden]').forEach(el=>el.remove());
