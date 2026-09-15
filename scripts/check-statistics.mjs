@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {analyzeParameter,compareMeans,plannedContrasts,polynomialContrasts,normality,validateData} from '../src/statistics-engine.js';
 import {plannedContrastsFlexible} from '../src/planned-contrasts.js';
+import {finalizeAgronomyFactorial} from '../src/agronomy-factorial.js';
 const ref=JSON.parse(fs.readFileSync(new URL('./statistics-reference.json',import.meta.url),'utf8'));
 const near=(a,b,tolerance=1e-7)=>assert.ok(Math.abs(a-b)<=tolerance*Math.max(1,Math.abs(b)),`${a} != ${b}`);
+const shares=(a,b)=>a.some(letter=>b.includes(letter));
 for(const design of ['fral','frak','split']){
  const report=analyzeParameter(ref.rows,{design,alpha:.05,posthoc:'bnj',assumptions:true,contrastMode:'none'},0,'Y');
  for(const expected of ref.refs[design].terms){const actual=report.terms.find(t=>t.label===expected.label);assert.equal(actual.df,expected.df);near(actual.ss,expected.ss);}
@@ -11,6 +13,37 @@ for(const design of ['fral','frak','split']){
  if(design==='split'){assert.equal(report.terms.find(t=>t.label==='Faktor A').error,'Galat (a)');assert.equal(report.terms.find(t=>t.label==='Faktor B').error,'Galat (b)');}
  assert.ok(report.comparisons.every(c=>c.title.startsWith('Faktor B pada A')));
 }
+for(const design of ['fral','frak']){
+ const report=finalizeAgronomyFactorial(analyzeParameter(ref.rows,{design,alpha:.05,posthoc:'bnj',assumptions:false,contrastMode:'none'},0,'Y'));
+ assert.ok(report.terms.some(term=>term.label==='Perlakuan'));
+ if(design==='frak')assert.equal(report.terms[0].label,'Kelompok');
+ const treatment=report.terms.find(term=>term.label==='Perlakuan');
+ const parts=['Faktor A','Faktor B','Interaksi (A × B)'].map(label=>report.terms.find(term=>term.label===label));
+ near(treatment.ss,parts.reduce((s,term)=>s+term.ss,0));
+ assert.equal(report.comparisons.length,1);assert.equal(report.comparisons[0].layout,'factorial-interaction');
+ assert.equal(report.comparisons[0].items.length,report.factorA.length*report.factorB.length);
+ assert.ok(!report.comparisons.some(c=>c.title==='Faktor A'||c.title==='Faktor B'));
+}
+const rptSource=[
+ ['t0','v1',[1.10,1.15,1.17]],['t0','v2',[1.25,1.27,1.28]],['t0','v3',[1.16,1.17,1.18]],['t0','v4',[1.24,1.24,1.25]],
+ ['t1','v1',[1.50,1.60,1.65]],['t1','v2',[1.48,1.59,1.63]],['t1','v3',[1.60,1.61,1.62]],['t1','v4',[1.65,1.70,1.75]],
+ ['t2','v1',[1.49,1.51,1.53]],['t2','v2',[1.52,1.57,1.58]],['t2','v3',[1.59,1.60,1.62]],['t2','v4',[1.70,1.75,1.79]]
+];
+const rptRows=rptSource.flatMap(([a,b,ys])=>ys.map((y,i)=>({a,b,rep:String(i+1),values:[y]})));
+const rpt=finalizeAgronomyFactorial(analyzeParameter(rptRows,{design:'split',alpha:.01,posthoc:'bnt',assumptions:false,contrastMode:'none'},0,'Y'));
+assert.deepEqual(rpt.terms.map(term=>term.label),['Kelompok','Petak Utama (A)','Acak (a)','Anak Petak (B)','Interaksi (A × B)','Acak (b)','Total']);
+near(rpt.terms.find(t=>t.label==='Kelompok').f,8.826848249028394);
+near(rpt.terms.find(t=>t.label==='Petak Utama (A)').f,458.82684824909006);
+near(rpt.terms.find(t=>t.label==='Anak Petak (B)').f,75.37333333333434);
+near(rpt.terms.find(t=>t.label==='Interaksi (A × B)').f,16.561904761904934);
+assert.equal(rpt.comparisons.length,0);assert.ok(rpt.interactionPosthoc);
+assert.equal(rpt.interactionPosthoc.rowTests.length,3);assert.equal(rpt.interactionPosthoc.columnTests.length,4);
+near(rpt.interactionPosthoc.rowTests[0].pairs[0].threshold,0.05181785088783711);
+near(rpt.interactionPosthoc.columnTests[0].critical[0].value,3.7321328316281117);
+const rptCell=(a,b)=>rpt.interactionPosthoc.cells.find(cell=>cell.a===a&&cell.b===b);
+assert.equal(shares(rptCell('t0','v1').rowLetters,rptCell('t0','v2').rowLetters),false);
+assert.equal(shares(rptCell('t1','v1').columnLetters,rptCell('t2','v1').columnLetters),true);
+assert.equal(shares(rptCell('t0','v1').columnLetters,rptCell('t1','v1').columnLetters),false);
 const obs=ref.single.flatMap((g,i)=>g.map((y,r)=>({a:'P'+i,b:'',rep:String(r+1),values:[y]})));
 for(const alpha of [.05,.01])for(const method of ['bnt','bnj','dmrt']){
  const report=analyzeParameter(obs,{design:'ral',alpha,posthoc:method,assumptions:true,contrastMode:'none'},0,'Y'),c=report.comparisons[0];near(report.terms.find(t=>t.label==='Galat').ms,ref.mse);
@@ -36,4 +69,4 @@ const dataset={headers:['A','B','R','Y'],rows:ref.rows.map(o=>[o.a,o.b,o.rep,o.v
 assert.equal(validateData(dataset,options,Number).issues.length,0);
 assert.ok(validateData({...dataset,rows:[...dataset.rows,dataset.rows[0]]},options,Number).issues.length>0);
 assert.ok(validateData({...dataset,rows:dataset.rows.slice(1)},options,Number).issues.length>0);
-console.log('Statistics verified: factorial/split-plot SS and df against independent least-squares; normality and Brown–Forsythe against SciPy; BNT/BNJ/DMRT at both alpha levels; CLD pairwise consistency; orthogonal and flexible planned contrasts; polynomial SS; incomplete/duplicate data.');
+console.log('Statistics verified: factorial/split-plot SS and df; agronomic factorial interaction-only follow-up; RPT row-column follow-up with separate error strata; normality and Brown–Forsythe; BNT/BNJ/DMRT; planned contrasts; incomplete/duplicate data.');
