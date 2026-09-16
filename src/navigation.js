@@ -16,7 +16,8 @@ export function installNavigation(){
   if(toolbar)toolbar.hidden=true;
 
   for(const [id,title,ids] of [
-    ['fileMenu','File',['pasteBtn','importBtn','newTxt','importXlsx']],
+    ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
+    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
     ['helpMenu','Help',['dataTemplate','analysisHistory','configureDriveBackup']]
   ]){
     const button=document.createElement('button');
@@ -45,7 +46,7 @@ export function installNavigation(){
   }
 
   function closeMenus(){
-    for(const id of ['fileMenu','helpMenu']){
+    for(const id of ['fileMenu','dataMenu','helpMenu']){
       const panel=document.getElementById(id),button=document.getElementById(id+'Button');
       if(panel)panel.hidden=true;
       if(button)button.setAttribute('aria-expanded','false');
