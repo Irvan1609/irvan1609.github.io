@@ -35,10 +35,11 @@ if (html.includes('report-enhancements.js')) {
 }
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis'))fail('navigation must contain only Analisis data');
+if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('navigation must contain one Analyze button');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 const flow=fs.readFileSync('src/analysis-flow.js','utf8');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
+for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'"])if(!flow.includes(required))fail('analysis flow missing '+required);
 const mainBindings = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData',
   'closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset',
@@ -68,4 +69,4 @@ for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMea
   if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
 }
 
-console.log(`UI contract OK: ${requiredIds.length} required elements, core buttons preserved, F-table reporting contract present.`);
+console.log(`UI contract OK: Analyze navigation, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
