@@ -17,7 +17,10 @@ assert.throws(()=>numericRows({headers:['X'],rows:[['bad']]},[0],Number));
 near(correlation([[1,4],[1,4],[2,2],[3,1]],'spearman').matrix[0][1],-1);
 const html=renderAssociation(correlation(a.rows),['TiTa','DiBa','BoPa','PaTo'],'correlation',.05);
 assert.equal((html.match(/<sup>/g)||[]).length,10); // 4 diagonal + 6 upper-triangle pairs
-assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));assert(html.includes('0.3809'));assert(html.includes('0.4869'));assert(html.includes('1.00<sup>**</sup>'));
+assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));assert(html.includes('1.00<sup>**</sup>'));
+const rows27=Array.from({length:27},(_,i)=>[i+1,(i+1)*2+((i%3)-1)]);
+const html27=renderAssociation(correlation(rows27),['X','Y'],'correlation',.05);
+assert(html27.includes('0.3809'));assert(html27.includes('0.4869'));
 const pathHtml=renderAssociation(p,['Produksi','TiTa','DiBa','BoPa'],'path',.05);
 assert(pathHtml.includes('Koefisien lintas terstandar'));assert(pathHtml.includes('Dekomposisi korelasi'));assert(pathHtml.includes('koefisien residual'));
 console.log('Pearson/Spearman, agronomy-style matrix notation, r critical N=27, and standardized path coefficients/SE/p/VIF match independent references; path decomposition and residual identity passed.');
