@@ -43,30 +43,29 @@ export function formatNumber(value, digits = 3) {
 export function initNumberSettings() {
   initDisplaySettings();
   if (document.querySelector('#decimalSeparator')) return;
-  const panel = document.createElement('details');
-  panel.id = 'numberSettings';
-  panel.className = 'number-settings';
+  const mount=document.querySelector('#numberSettingsMount');
+  if(!mount)return;
+  const section=document.createElement('section');
+  section.className='settings-section';
   const detectedText = detected === ',' ? 'koma (,)' : 'titik (.)';
-  panel.innerHTML = `<summary>⚙ Pengaturan format angka</summary>
-    <div class="number-settings-body">
-      <div class="number-detected">Terdeteksi dari browser/laptop: <b>${detectedText}</b></div>
-      <label for="decimalSeparator">Angka pada data Anda menggunakan pemisah desimal:</label>
-      <select id="decimalSeparator">
-        <option value=".">Titik (.) — contoh: 23.47</option>
-        <option value=",">Koma (,) — contoh: 23,47</option>
-      </select>
-      <p>Pilih sesuai format angka yang Anda salin dari Excel. Jangan gunakan pemisah ribuan. Pengaturan ini digunakan untuk membaca data dan menampilkan seluruh hasil analisis.</p>
-    </div>`;
-  const toolbar = document.querySelector('.toolbar');
-  (toolbar || document.querySelector('main')).before(panel);
-  const select = panel.querySelector('select');
+  section.innerHTML = `<div class="settings-detected">Terdeteksi dari browser/laptop: <b>${detectedText}</b></div>
+    <label for="decimalSeparator">Pemisah desimal</label>
+    <select id="decimalSeparator">
+      <option value=".">Titik (.) — contoh: 23.47</option>
+      <option value=",">Koma (,) — contoh: 23,47</option>
+    </select>
+    <p>Pilih sesuai format angka yang Anda salin dari Excel. Jangan gunakan pemisah ribuan.</p>`;
+  mount.append(section);
+  const select = section.querySelector('select');
   select.value = separator;
-  select.addEventListener('settings-save', () => {
+  const save=()=>{
     separator = select.value;
     try { localStorage.setItem(KEY, separator); } catch {}
-    document.querySelectorAll('#ralResult, #rakResult, #scienceResults, #historyResult, #assocResult').forEach(el => { el.innerHTML = ''; });
+    document.querySelectorAll('#ralResult, #rakResult, #scienceResults, #historyResult, #assocResult, #advancedResult, #nextgenResult, #mixedResult').forEach(el => { el.innerHTML = ''; });
     const status = document.querySelector('#status');
     const text = separator === ',' ? 'koma (,)' : 'titik (.)';
     if (status) status.textContent = `✓ Format angka diubah menjadi ${text}. Jalankan kembali analisis.`;
-  });
+  };
+  select.addEventListener('change',save);
+  select.addEventListener('settings-save',save);
 }
