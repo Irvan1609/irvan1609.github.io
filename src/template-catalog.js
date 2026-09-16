@@ -25,6 +25,13 @@ function repeated(){
   for(const [pi,p] of ['P0','P1','P2'].entries())for(const s of [1,2,3])for(const [ti,t] of ['2 MST','4 MST','6 MST','8 MST'].entries())rows.push([p,`${p}-U${s}`,t,round(18+pi*2.4+ti*5.2+pi*ti*.55+(s-2)*.4)]);
   return {headers,rows};
 }
+function nonparametric(){
+  const headers=['Perlakuan','Kelompok','Skor'];
+  const rows=[];
+  const base={P0:[1,2,1,2,2],P1:[2,3,2,3,3],P2:[3,4,4,3,4],P3:[4,5,4,5,5]};
+  for(const [p,values] of Object.entries(base))values.forEach((score,i)=>rows.push([p,i+1,score]));
+  return {headers,rows};
+}
 function multivariate(){
   const headers=['Sampel','TiTa','DiBa','BoPa','PaTo','DiTo','Produksi'];
   const rows=seq(12).map(i=>{
@@ -69,6 +76,7 @@ const defs=[
   ['split','Rancangan','RPT / Split-plot dalam RAK','Faktor A = petak utama, Faktor B = anak petak, dan Kelompok = blok.',()=>factorial('Kelompok')],
   ['nested','Rancangan','Rancangan Tersarang','Faktor B tersarang di dalam Faktor A, dengan ulangan pada setiap B(A).',nested],
   ['repeated','Rancangan','Repeated Measures','Perlakuan antar-subjek dan Waktu dalam-subjek; setiap subjek diukur pada seluruh waktu.',repeated],
+  ['nonparametric','Eksplorasi','Analisis Nonparametrik','Perlakuan, kelompok/subjek, dan skor/nilai numerik untuk Kruskal–Wallis atau Friedman.',nonparametric],
   ['descriptive','Eksplorasi','Statistik Deskriptif','Satu baris per sampel dan beberapa karakter numerik. Kolom Sampel berfungsi sebagai identitas.',multivariate],
   ['correlation','Eksplorasi','Korelasi','Beberapa karakter numerik untuk matriks korelasi Pearson/Spearman.',multivariate],
   ['path','Eksplorasi','Sidik Lintas','Beberapa karakter X numerik dan satu respons Y; contoh memakai Produksi sebagai Y.',multivariate],
@@ -77,7 +85,7 @@ const defs=[
   ['combined','Multilokasi','ANOVA Gabungan','Lokasi, Genotipe/Perlakuan, Kelompok, dan parameter Y. Contoh dibuat seimbang.',()=>multilocation(false)],
   ['mixed','Multilokasi','Mixed Model REML','Lokasi, Genotipe, Kelompok, dan Y. Contoh sengaja tidak seimbang tetapi setiap sel Lokasi × Genotipe tetap terisi.',()=>multilocation(true)],
   ['genetic','Pemuliaan','Parameter Genetik','Genotipe, kelompok/ulangan, dan parameter Y pada RAK seimbang.',genetic],
-  ['stability','Pemuliaan','AMMI / GGE Biplot','Lingkungan, Genotipe, Ulangan, dan parameter hasil. Semua sel Lingkungan × Genotipe harus terisi.',stability]
+  ['stability','Pemuliaan','AMMI / GGE / Indeks Stabilitas','Lingkungan, Genotipe, Ulangan, dan parameter hasil. Template yang sama dapat dipakai untuk AMMI/GGE dan indeks stabilitas.',stability]
 ];
 
 export const templateCatalog=defs.map(([id,group,label,description,build])=>({id,group,label,description,build}));
@@ -99,6 +107,7 @@ export function templateHelp(template){
     split:'Faktor A adalah petak utama; Faktor B adalah anak petak; Kelompok adalah blok.',
     nested:'Setiap taraf Faktor A harus memiliki jumlah B(A) dan ulangan yang sama. Nama B(A) sebaiknya unik di dalam A.',
     repeated:'Setiap Subjek/Ulangan harus memiliki satu pengamatan pada setiap Waktu. Subjek harus unik di dalam perlakuan.',
+    nonparametric:'Untuk Kruskal–Wallis, kolom Kelompok dapat diabaikan. Untuk Friedman, setiap perlakuan harus muncul sekali pada setiap kelompok/subjek.',
     correlation:'Pilih minimal dua karakter numerik; kolom identitas seperti Sampel tidak dianalisis.',
     path:'Tentukan satu variabel sebagai Y/respons dan minimal dua variabel lain sebagai X.',
     regression:'Gunakan X/dosis numerik. Beberapa ulangan pada dosis yang sama memungkinkan pemisahan pure error dan lack-of-fit.',
@@ -106,7 +115,7 @@ export function templateHelp(template){
     combined:'Setiap Lokasi × Genotipe harus terisi. Data seimbang dianalisis dengan ANOVA klasik; data tidak seimbang dapat memakai GLM.',
     mixed:'Kelompok diperlakukan sebagai efek acak tersarang dalam Lokasi. Setiap Lokasi × Genotipe harus memiliki data.',
     genetic:'Template parameter genetik menggunakan RAK seimbang agar komponen ragam dapat diestimasi secara klasik.',
-    stability:'AMMI/GGE membutuhkan semua kombinasi Lingkungan × Genotipe terisi; ulangan boleh lebih dari satu.',
+    stability:'AMMI/GGE dan indeks stabilitas membutuhkan semua kombinasi Lingkungan × Genotipe terisi; ulangan boleh lebih dari satu.',
     descriptive:'Kolom numerik dapat dipilih seluruhnya atau sebagian.'
   };
   return [...common,specific[template.id]].filter(Boolean);
