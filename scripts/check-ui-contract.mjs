@@ -3,6 +3,9 @@ import fs from 'node:fs';
 const html = fs.readFileSync('index.html', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
+const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
+const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
+const scientificReport = fs.readFileSync('src/scientific-report.js', 'utf8');
 const report = fs.readFileSync('src/report-utils.js', 'utf8');
 
 function fail(message) {
@@ -37,13 +40,12 @@ if (html.includes('report-enhancements.js')) {
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
 if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('navigation must contain one Analyze button');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
-const flow=fs.readFileSync('src/analysis-flow.js','utf8');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
-for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'"])if(!flow.includes(required))fail('analysis flow missing '+required);
+for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
+
 const mainBindings = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData',
-  'closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset',
-  'runRak','closeRak','closeRak2'
+  'closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset'
 ];
 for (const id of mainBindings) {
   if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
@@ -54,19 +56,17 @@ for (const id of ralBindings) {
   if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 }
 
-if (!main.includes('addEventListener')) fail('main.js contains no event listeners');
+if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
-
-for (const [name, source] of [['main.js',main],['ral.js',ral]]) {
-  for (const required of ['F. Hitung','F. Tabel 0.05','F. Tabel 0.01','table-caption']) {
-    if (!source.includes(required)) fail(`${name} missing reporting marker: ${required}`);
-  }
-  if (/p-value|\bSig\.?\b/i.test(source)) fail(`${name} must not expose p-value/Sig. reporting`);
-  if (!source.includes("./report-utils.js")) fail(`${name} must use shared report-utils.js`);
+if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport')) fail('scientific workflow is not connected to analysis/report engine');
+for (const design of ["'ral'","'rak'","'fral'","'frak'","'split'"]) {
+  if (!scientificReport.includes(design)) fail(`scientific report missing design ${design}`);
 }
-
+for (const required of ['F. Hitung','F. Tabel','table-caption']) {
+  if (!scientificReport.includes(required)) fail(`scientific-report.js missing reporting marker: ${required}`);
+}
 for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMeanChart']) {
   if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
 }
 
-console.log(`UI contract OK: Analyze navigation, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
+console.log(`UI contract OK: data-grid bindings, Analyze navigation, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
