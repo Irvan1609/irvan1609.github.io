@@ -8,5 +8,5 @@ export function initDisplaySettings(){
   try{saved=localStorage.getItem(KEY)||'medium';}catch{}
   select.value=['small','medium','large'].includes(saved)?saved:'medium';
   const apply=()=>{document.documentElement.dataset.dataFont=select.value;};apply();
-  select.addEventListener('change',()=>{apply();try{localStorage.setItem(KEY,select.value);}catch{}});
+  select.addEventListener('settings-save',()=>{apply();try{localStorage.setItem(KEY,select.value);}catch{}});
 }

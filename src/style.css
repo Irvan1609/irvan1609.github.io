@@ -123,3 +123,8 @@ html[data-data-font="large"]{--data-font-size:17px}
 .data-grid,.analysis-result .result-table{font-size:var(--data-font-size)}
 .data-grid th,.data-grid td{padding:6px 9px;height:auto;min-width:80px}
 @media(pointer:coarse){button,.result-actions button{min-height:40px}}
+.nav-command-panel{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;border-top:1px solid var(--border);background:#f4f7fb}
+.nav button[aria-expanded="true"]{background:#eaf1fd;border-color:#9ab3d6}
+.settings-dialog{max-width:560px}
+.settings-dialog .font-size-setting{margin:16px 0 0;justify-content:space-between}
+.settings-dialog .number-settings-body{padding:0}

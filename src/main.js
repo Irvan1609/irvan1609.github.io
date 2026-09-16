@@ -1,4 +1,5 @@
 import { installAnalysisFlow } from './analysis-flow.js';
+import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
@@ -169,7 +170,7 @@ function runRakParameters(){
   for(const value of selected){$('#rakResponse').value=value;runRAK();if(!$('#rakError').hidden){$('#rakResult').innerHTML='';return;}results.push($('#rakResult').innerHTML);}
   $('#rakResult').innerHTML=results.join('');
 }
-function bind(){initNumberSettings();installDataTools();installAnalysisFlow();
+function bind(){initNumberSettings();installDataTools();installAnalysisFlow();installNavigation();
 document.addEventListener('dataset-import',event=>{
   const {name,headers,rows}=event.detail;let base=String(name||'Impor').replace(/[\\/\u0000-\u001f]/g,'-'),target=base+'.txt',i=2;
   while(Object.prototype.hasOwnProperty.call(state.files,target))target=base+'-'+i+++'.txt';

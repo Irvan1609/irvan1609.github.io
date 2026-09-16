@@ -42,7 +42,7 @@ export function formatNumber(value, digits = 3) {
 
 export function initNumberSettings() {
   initDisplaySettings();
-  if (document.querySelector('#numberSettings')) return;
+  if (document.querySelector('#decimalSeparator')) return;
   const panel = document.createElement('details');
   panel.id = 'numberSettings';
   panel.className = 'number-settings';
@@ -61,7 +61,7 @@ export function initNumberSettings() {
   (toolbar || document.querySelector('main')).before(panel);
   const select = panel.querySelector('select');
   select.value = separator;
-  select.addEventListener('change', () => {
+  select.addEventListener('settings-save', () => {
     separator = select.value;
     try { localStorage.setItem(KEY, separator); } catch {}
     document.querySelectorAll('#ralResult, #rakResult, #scienceResults, #historyResult').forEach(el => { el.innerHTML = ''; });
