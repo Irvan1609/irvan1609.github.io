@@ -13,7 +13,7 @@ export function nestedAnova(rows){
   const seen=new Set();for(const row of rows){const k=JSON.stringify(row.slice(0,3).map(String));if(seen.has(k))throw Error('Ada kombinasi A × B(A) × Ulangan ganda.');seen.add(k);}
   const y=rows.map(r=>r[3]),grand=mean(y),meanA=new Map(A.map(a=>[a,mean(rows.filter(x=>String(x[0])===a).map(x=>x[3]))])),meanAB=new Map();
   for(const a of A)for(const bb of BByA.get(a))meanAB.set(`${a}\0${bb}`,mean(rows.filter(x=>String(x[0])===a&&String(x[1])===bb).map(x=>x[3])));
-  const ssA=b*r*sum(A.map(a=>sq(meanA.get(a)-grand))),ssB=r*sum(A.flatMap(a=>BByA.get(a).map(bb=>sq(meanAB.get(`${a}\0${bb}`)-meanA.get(a))))),ssE=sum(rows.map(row=>sq(row[3]-meanAB.get(`${row[0]}\0${row[1]}`)))),ssT=sum(y.map(v=>sq(v-grand));
+  const ssA=b*r*sum(A.map(a=>sq(meanA.get(a)-grand))),ssB=r*sum(A.flatMap(a=>BByA.get(a).map(bb=>sq(meanAB.get(`${a}\0${bb}`)-meanA.get(a))))),ssE=sum(rows.map(row=>sq(row[3]-meanAB.get(`${row[0]}\0${row[1]}`)))),ssT=sum(y.map(v=>sq(v-grand)));
   const dfA=A.length-1,dfB=A.length*(b-1),dfE=A.length*b*(r-1),msB=ssB/dfB,msE=ssE/dfE;
   const means=A.map(a=>({a,mean:meanA.get(a),nested:BByA.get(a).map(bb=>({b:bb,mean:meanAB.get(`${a}\0${bb}`)}))}));
   return {n:rows.length,A,b,r,grand,means,terms:[term('Faktor A',ssA,dfA,msB,dfB,'B(A)'),term('B(A)',ssB,dfB,msE,dfE,'Galat'),term('Galat',ssE,dfE),term('Total',ssT,rows.length-1)]};
