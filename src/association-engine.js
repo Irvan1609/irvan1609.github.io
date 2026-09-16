@@ -5,6 +5,12 @@ export function correlationCritical(n,alpha){
   if(!Number.isInteger(n)||n<3||![.05,.01].includes(alpha))throw Error('N minimal 3; taraf 0.05 atau 0.01.');
   const t=jStat.studentt.inv(1-alpha/2,n-2);return Math.sqrt(t*t/(t*t+n-2));
 }
+export function correlationCI(r,n,alpha=.05){
+  if(!Number.isFinite(r)||r < -1||r > 1||!Number.isInteger(n)||n<4||!(alpha>0&&alpha<1))throw Error('CI korelasi Pearson memerlukan -1 ≤ r ≤ 1, N ≥ 4, dan 0 < alpha < 1.');
+  if(Math.abs(r)>=1-1e-15)return [Math.sign(r),Math.sign(r)];
+  const z=.5*Math.log((1+r)/(1-r)),se=1/Math.sqrt(n-3),critical=jStat.normal.inv(1-alpha/2,0,1);
+  return [Math.tanh(z-critical*se),Math.tanh(z+critical*se)];
+}
 function standardized(x){
   const m=mean(x),center=x.map(v=>v-m),norm=Math.sqrt(dot(center,center));
   if(!Number.isFinite(norm)||norm<=1e-13*Math.max(Math.abs(m),Number.MIN_VALUE))throw Error('Kolom konstan atau hampir konstan tidak dapat dianalisis.');
