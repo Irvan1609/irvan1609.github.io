@@ -1,8 +1,9 @@
 import jStat from 'jstat';
-import {fTail} from './statistics-engine.js';
+import {fTail,compareMeans} from './statistics-engine.js';
 
 const sum=x=>x.reduce((a,b)=>a+b,0),mean=x=>sum(x)/x.length,sq=x=>x*x,unique=x=>[...new Set(x.map(String))];
 function term(label,ss,df,denMs=null,denDf=null,error=null){const ms=ss/df,f=denMs&&denMs>0?ms/denMs:null;return {label,ss,df,ms,f,p:f===null?null:fTail(f,df,denDf),f05:f===null?null:jStat.centralF.inv(.95,df,denDf),f01:f===null?null:jStat.centralF.inv(.99,df,denDf),error};}
+function noComparison(items,mse,df){return {items:items.map(item=>({...item,letters:[]})),method:'none',critical:[],pairs:[],mse,df};}
 
 export function nestedAnova(rows){
   if(!rows.length||rows.some(r=>r.length!==4||!Number.isFinite(r[3])))throw Error('Nested design memerlukan Faktor A, Faktor B(A), Ulangan, dan Y numerik.');
@@ -17,6 +18,22 @@ export function nestedAnova(rows){
   const dfA=A.length-1,dfB=A.length*(b-1),dfE=A.length*b*(r-1),msB=ssB/dfB,msE=ssE/dfE;
   const means=A.map(a=>({a,mean:meanA.get(a),nested:BByA.get(a).map(bb=>({b:bb,mean:meanAB.get(`${a}\0${bb}`)}))}));
   return {n:rows.length,A,b,r,grand,means,terms:[term('Faktor A',ssA,dfA,msB,dfB,'B(A)'),term('B(A)',ssB,dfB,msE,dfE,'Galat'),term('Galat',ssE,dfE),term('Total',ssT,rows.length-1)]};
+}
+
+export function nestedPosthoc(result,method='none',alpha=.05){
+  if(!result?.terms||!Array.isArray(result.means)||!['none','bnt','bnj','dmrt'].includes(method)||![.05,.01].includes(alpha))throw Error('Pengaturan uji lanjut nested tidak valid.');
+  const effectA=result.terms.find(t=>t.label==='Faktor A'),effectB=result.terms.find(t=>t.label==='B(A)'),error=result.terms.find(t=>t.label==='Galat');
+  if(!effectA||!effectB||!error||!(effectB.ms>0)||!(error.ms>0))throw Error('Galat pembanding nested tidak tersedia.');
+  const aItems=result.means.map(item=>({label:item.a,a:item.a,mean:item.mean,n:result.b*result.r}));
+  const aGate=Number.isFinite(effectA.p)&&effectA.p<alpha;
+  const factorA=method==='none'||!aGate?noComparison(aItems,effectB.ms,effectB.df):{...compareMeans(aItems,method,alpha,effectB.ms,effectB.df),mse:effectB.ms,df:effectB.df};
+  const bGate=Number.isFinite(effectB.p)&&effectB.p<alpha;
+  const nested=result.means.map(group=>{
+    const items=group.nested.map(item=>({label:item.b,a:group.a,b:item.b,mean:item.mean,n:result.r}));
+    const comparison=method==='none'||!bGate?noComparison(items,error.ms,error.df):{...compareMeans(items,method,alpha,error.ms,error.df),mse:error.ms,df:error.df};
+    return {a:group.a,...comparison};
+  });
+  return {method,alpha,factorA:{...factorA,significant:aGate,error:'B(A)'},nested:nested.map(x=>({...x,significant:bGate,error:'Galat'}))};
 }
 
 function covariance(vectors){
