@@ -14,15 +14,25 @@ function validateContrast(row,index,n){
   return {name,coefficients};
 }
 
+function validateItems(items){
+  if(!Array.isArray(items)||items.length<2)throw Error('Uji kontras memerlukan minimal dua taraf perlakuan.');
+  items.forEach((item,index)=>{
+    if(!Number.isFinite(item?.mean))throw Error(`Taraf ${index+1}: rataan perlakuan tidak valid.`);
+    if(!Number.isInteger(item?.n)||item.n<1)throw Error(`Taraf ${index+1}: jumlah pengamatan harus berupa bilangan bulat positif.`);
+  });
+}
+
 export function plannedContrastsFlexible(items,matrix,mse,df){
+  validateItems(items);
   const n=items.length;
   if(!Array.isArray(matrix)||!matrix.length)throw Error('Masukkan minimal satu uji kontras terencana.');
   if(matrix.length>50)throw Error('Maksimal 50 uji kontras dalam satu analisis.');
-  if(!(mse>0)||df<1)throw Error('Galat percobaan tidak cukup untuk menghitung uji kontras.');
+  if(!Number.isFinite(mse)||!(mse>0)||!Number.isInteger(df)||df<1)throw Error('Galat percobaan tidak cukup untuk menghitung uji kontras.');
   const rows=matrix.map((row,i)=>validateContrast(row,i,n));
   const contrasts=rows.map(row=>{
     const estimate=sum(items.map((item,i)=>row.coefficients[i]*item.mean));
     const divisor=sum(items.map((item,i)=>row.coefficients[i]**2/item.n));
+    if(!Number.isFinite(divisor)||!(divisor>0))throw Error(`${row.name}: ragam kontras tidak dapat dihitung dari jumlah pengamatan yang tersedia.`);
     const variance=mse*divisor;
     const se=Math.sqrt(variance);
     const f=estimate**2/variance;
