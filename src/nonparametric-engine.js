@@ -47,7 +47,7 @@ export function friedman(rows){
   for(const b of blocks){
     const vals=groups.map(g=>rows.find(r=>String(r[0])===g&&String(r[1])===b)[2]),ranked=rank(vals);ranked.ties.forEach(t=>tieTerms.push(t**3-t));groups.forEach((g,i)=>rankSums.set(g,rankSums.get(g)+ranked.ranks[i]));
   }
-  const n=blocks.length,k=groups.length,raw=12/(n*k*(k+1))*sum(groups.map(g=>rankSums.get(g)**2)-0)-3*n*(k+1),tieSum=sum(tieTerms),correction=1-tieSum/(n*(k**3-k)),Q=correction>0?raw/correction:raw,df=k-1,p=chiTail(Q,df),se=Math.sqrt(k*(k+1)/(6*n)*Math.max(correction,Number.EPSILON)),pairs=[];
+  const n=blocks.length,k=groups.length,rankSquareSum=sum(groups.map(g=>rankSums.get(g)**2)),raw=12/(n*k*(k+1))*rankSquareSum-3*n*(k+1),tieSum=sum(tieTerms),correction=1-tieSum/(n*(k**3-k)),Q=correction>0?raw/correction:raw,df=k-1,p=chiTail(Q,df),se=Math.sqrt(k*(k+1)/(6*n)*Math.max(correction,Number.EPSILON)),pairs=[];
   for(let i=0;i<k;i++)for(let j=i+1;j<k;j++){
     const a=groups[i],b=groups[j],meanRankA=rankSums.get(a)/n,meanRankB=rankSums.get(b)/n,z=se>0?(meanRankA-meanRankB)/se:0;pairs.push({a,b,difference:meanRankA-meanRankB,z,p:normalTwoTail(z)});
   }
