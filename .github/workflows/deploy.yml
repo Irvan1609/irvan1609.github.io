@@ -31,6 +31,8 @@ jobs:
         run: npm run check:syntax
       - name: Check UI contract
         run: npm run test:ui
+      - name: Check statistical calculations
+        run: npm run test:statistics
       - name: Build Vite application
         run: npm run build
       - name: Check built site
