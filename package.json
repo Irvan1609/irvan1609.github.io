@@ -10,7 +10,7 @@
     "check:syntax": "node --check src/main.js && node --check src/ral.js && node --check src/rak-dnd.js && node --check src/number-format.js && node --check src/result-export.js",
     "test:ui": "node scripts/check-ui-contract.mjs",
     "test:dist": "node scripts/check-dist.mjs",
-    "test:statistics": "node scripts/check-statistics.mjs && node scripts/check-report-layout.mjs && node scripts/check-export-rich.mjs && node scripts/check-export-filename.mjs",
+    "test:statistics": "node scripts/check-statistics.mjs && node scripts/check-report-layout.mjs && node scripts/check-export-rich.mjs && node scripts/check-export-filename.mjs && node scripts/check-association.mjs",
     "test:drive-backup": "node scripts/check-drive-backup.mjs",
     "verify": "npm run check:syntax && npm run test:ui && npm run test:statistics && npm run test:drive-backup && npm run build && npm run test:dist"
   },
