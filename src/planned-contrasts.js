@@ -29,6 +29,8 @@ export function plannedContrastsFlexible(items,matrix,mse,df){
   if(matrix.length>50)throw Error('Maksimal 50 uji kontras dalam satu analisis.');
   if(!Number.isFinite(mse)||!(mse>0)||!Number.isInteger(df)||df<1)throw Error('Galat percobaan tidak cukup untuk menghitung uji kontras.');
   const rows=matrix.map((row,i)=>validateContrast(row,i,n));
+  const normalizedNames=rows.map(row=>row.name.toLocaleLowerCase('id-ID'));
+  if(new Set(normalizedNames).size!==normalizedNames.length)throw Error('Nama setiap kontras harus unik agar hasil dan ekspor tidak ambigu.');
   const contrasts=rows.map(row=>{
     const estimate=sum(items.map((item,i)=>row.coefficients[i]*item.mean));
     const divisor=sum(items.map((item,i)=>row.coefficients[i]**2/item.n));
