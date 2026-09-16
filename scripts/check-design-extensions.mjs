@@ -46,6 +46,6 @@ for(const label of ['Waktu','Perlakuan × Waktu']){const term=r.terms.find(x=>x.
 assert.throws(()=>repeatedMeasuresAnova(repeated.slice(1)),/harus mempunyai|tidak lengkap|seimbang/i);
 
 const workflow=fs.readFileSync(new URL('../src/design-extensions-workflow.js',import.meta.url),'utf8');
-for(const marker of ['data-nest-param','data-repeat-param','nestPosthoc','nestAlpha','resultActions','backupRawDataset'])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ["parameterField(data,'nest')","parameterField(data,'repeat')",'data-${prefix}-param','nestPosthoc','nestAlpha','resultActions','backupRawDataset'])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 assert.ok(workflow.includes('Semua kolom numerik dicentang otomatis'));
 console.log('Design extensions verified: balanced nested ANOVA, nested BNT/BNJ/DMRT gating and error strata, multi-parameter UI contract, repeated-measures error strata, Greenhouse–Geisser epsilon, and incomplete-data rejection.');
