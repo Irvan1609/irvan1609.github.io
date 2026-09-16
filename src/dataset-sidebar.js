@@ -47,22 +47,29 @@ export function installDatasetSidebarEnhancements(){
   const observer=new MutationObserver(()=>decorateTree());
   observer.observe(tree,{childList:true});
 
-  tree.addEventListener('dblclick',event=>{
-    const item=event.target.closest('.tree-item');
-    if(!item||!tree.contains(item))return;
-    event.preventDefault();
-    activateDataset(item);
-    $('#renameDataset')?.click();
-  });
-
+  let lastDataset='',lastClick=0;
   tree.addEventListener('click',event=>{
     const del=event.target.closest('.dataset-delete-shortcut');
-    if(!del||!tree.contains(del))return;
-    event.preventDefault();
-    event.stopPropagation();
-    const item=del.closest('.dataset-tree-row')?.querySelector('.tree-item');
-    if(!item)return;
-    activateDataset(item);
-    $('#deleteDataset')?.click();
+    if(del&&tree.contains(del)){
+      event.preventDefault();
+      event.stopPropagation();
+      const item=del.closest('.dataset-tree-row')?.querySelector('.tree-item');
+      if(!item)return;
+      activateDataset(item);
+      $('#deleteDataset')?.click();
+      lastDataset='';lastClick=0;
+      return;
+    }
+
+    const item=event.target.closest('.tree-item');
+    if(!item||!tree.contains(item))return;
+    const name=item.dataset.file||item.textContent.replace(/^📄\s*/, '').trim(),now=Date.now();
+    if(name===lastDataset&&now-lastClick<=450){
+      event.preventDefault();
+      lastDataset='';lastClick=0;
+      $('#renameDataset')?.click();
+      return;
+    }
+    lastDataset=name;lastClick=now;
   });
 }
