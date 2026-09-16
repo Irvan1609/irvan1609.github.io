@@ -43,8 +43,9 @@ export function pathAnalysis(rows){
   const solve=b=>{const result=Array(p).fill(0);for(let i=p-1;i>=0;i--)result[i]=(b[i]-sum(R[i].slice(i+1).map((v,j)=>v*result[i+1+j])))/R[i][i];return result;};
   const beta=solve(q.map(v=>dot(v,y))),res=y.map((v,i)=>v-sum(x.map((c,j)=>c[i]*beta[j]))),sse=dot(res,res),r2=1-sse,df=n-p-1;
   if(r2< -1e-8||r2>1+1e-8)throw Error('Model tidak stabil secara numerik.');
+  const boundedR2=Math.max(0,Math.min(1,r2)),modelF=sse<=1e-15?Infinity:(boundedR2/p)/(sse/df),modelP=Number.isFinite(modelF)?jStat.ibeta(df/(df+p*modelF),df/2,p/2):0;
   const inverseColumns=Array.from({length:p},(_,i)=>solve(Array.from({length:p},(_,j)=>+(i===j))));
   const effects=beta.map((direct,i)=>{const vif=sum(inverseColumns.map(c=>c[i]**2)),se=Math.sqrt(sse/df*vif),t=se>0?direct/se:null;return {direct,se,t,p:t===null?null:jStat.ibeta(df/(df+t*t),df/2,.5),vif,indirect:beta.map((b,j)=>j===i?0:corr.matrix[i+1][j+1]*b),total:corr.matrix[0][i+1]};});
   if(effects.some(e=>!Number.isFinite(e.vif)||e.vif>1e10))throw Error('Multikolinearitas terlalu tinggi untuk estimasi yang stabil.');
-  return {n,p,df,r2:Math.max(0,r2),adjustedR2:1-sse*(n-1)/df,residual:Math.sqrt(Math.max(0,sse)),effects,corr};
+  return {n,p,df,r2:boundedR2,adjustedR2:1-sse*(n-1)/df,residual:Math.sqrt(Math.max(0,sse)),modelF,modelP,effects,corr};
 }
