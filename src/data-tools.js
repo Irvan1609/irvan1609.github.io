@@ -1,8 +1,17 @@
 import {getDecimalSeparator} from './number-format.js';
+import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 export function readDataset(){
   return {name:$('#activeFile')?.textContent||'Dataset',headers:[...document.querySelectorAll('.data-grid thead th')].slice(1).map(x=>x.textContent.trim()),rows:[...document.querySelectorAll('.data-grid tbody tr')].map(tr=>[...tr.cells].slice(1).map(td=>td.textContent))};
+}
+function templateOptions(){
+  const groups=[...new Set(templateCatalog.map(x=>x.group))];
+  return groups.map(group=>`<optgroup label="${esc(group)}">${templateCatalog.filter(x=>x.group===group).map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</optgroup>`).join('');
+}
+function templatePreview(template){
+  const separator=getDecimalSeparator(),rows=rowsForEditor(template,separator),preview=rows.slice(0,6);
+  return `<div class="analysis-note"><b>${esc(template.label)}</b><br>${esc(template.description)}</div><p><b>Kolom:</b> ${template.headers.map(esc).join(' · ')}</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="form-help">Preview ${preview.length} dari ${rows.length} baris contoh. Dataset yang dibuat dapat langsung diedit pada Data Editor.</p>`;
 }
 export function installDataTools(){
   const toolbar=$('.toolbar');
@@ -48,16 +57,23 @@ export function installDataTools(){
     }catch(e){$('#dataToolBody').innerHTML=`<p role="alert">${esc(e.message)}</p>`;}
   };
   $('#dataTemplate').onclick=()=>{
-    openTool('Template data',`<label for="templateDesign">Rancangan</label><select id="templateDesign"><option value="ral">RAL</option><option value="rak">RAK</option><option value="fral">Faktorial RAL (2 faktor)</option><option value="frak">Faktorial RAK (2 faktor)</option><option value="split">RPT / petak terbagi dalam RAK</option></select><p>Template memuat contoh 3 ulangan dan dua parameter. Ganti seluruh data contoh dengan data penelitian Anda.</p><button id="downloadTemplate" class="primary">Unduh template .xlsx</button><p id="templateStatus" role="status"></p>`);
-    $('#downloadTemplate').onclick=async()=>{const button=$('#downloadTemplate');button.disabled=true;try{
-      const {default:ExcelJS}=await import('exceljs');const book=new ExcelJS.Workbook();const sheet=book.addWorksheet('Data');const design=$('#templateDesign').value,multi=['fral','frak','split'].includes(design);
-      sheet.addRow(multi?['Faktor A','Faktor B','Ulangan','Parameter 1','Parameter 2']:['Perlakuan','Ulangan','Parameter 1','Parameter 2']);
-      for(let r=1;r<=3;r++)for(let a=1;a<=3;a++)for(let b=1;b<=(multi?2:1);b++)sheet.addRow(multi?[`A${a}`,`B${b}`,r,10+a+b+r*.3,20+a*2+b+r*.2]:[`P${a}`,r,10+a+r*.3,20+a*2+r*.2]);
-      sheet.columns.forEach(c=>c.width=20);sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];
-      const help=book.addWorksheet('Petunjuk');help.getColumn(1).width=110;
-      ['Data contoh untuk format, bukan data penelitian.','Satu baris = satu unit percobaan; satu kolom = satu variabel.','Jangan masukkan baris total/rataan. Judul kolom harus unik.',multi?'Semua kombinasi A × B harus tersedia pada setiap ulangan.':'Setiap perlakuan memiliki pengamatan pada ulangan yang sesuai.',design==='split'?'Faktor A = petak utama; Faktor B = anak petak; ulangan = kelompok.':'Ulangan merupakan kelompok hanya pada RAK.','Parameter 1 dan Parameter 2 dapat diganti namanya atau ditambah.'].forEach(x=>help.addRow([x]));
-      downloadBlob(await book.xlsx.writeBuffer(),`template-${design}.xlsx`);$('#templateStatus').textContent='Template siap diunduh.';
-    }catch(e){$('#templateStatus').textContent=e.message;}finally{button.disabled=false;}};
+    openTool('Template data',`<label for="templateDesign">Analisis / rancangan</label><select id="templateDesign">${templateOptions()}</select><div id="templateInfo"></div><div class="dataset-actions"><button id="createTemplateDataset" class="primary">Buat dataset</button><button id="downloadTemplate">Unduh template .xlsx</button></div><p id="templateStatus" role="status"></p>`);
+    const updateInfo=()=>{try{$('#templateInfo').innerHTML=templatePreview(getDataTemplate($('#templateDesign').value));$('#templateStatus').textContent='';}catch(e){$('#templateInfo').innerHTML='';$('#templateStatus').textContent=e.message;}};
+    $('#templateDesign').onchange=updateInfo;updateInfo();
+    $('#createTemplateDataset').onclick=()=>{try{
+      const template=getDataTemplate($('#templateDesign').value),rows=rowsForEditor(template,getDecimalSeparator());
+      document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:template.name,headers:template.headers,rows}}));
+      const status=$('#status');if(status)status.textContent=`✓ Dataset ${template.label} dibuat dari template dan siap diedit.`;
+      $('#dataToolModal').classList.remove('open');
+    }catch(e){$('#templateStatus').textContent=e.message;}};
+    $('#downloadTemplate').onclick=async()=>{const button=$('#downloadTemplate');button.disabled=true;$('#createTemplateDataset').disabled=true;try{
+      const {default:ExcelJS}=await import('exceljs'),template=getDataTemplate($('#templateDesign').value),book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Data');
+      sheet.addRow(template.headers);template.rows.forEach(row=>sheet.addRow(row));
+      sheet.columns.forEach((c,i)=>c.width=Math.max(14,Math.min(28,String(template.headers[i]).length+5)));sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:template.headers.length}};
+      const help=book.addWorksheet('Petunjuk');help.getColumn(1).width=115;help.addRow([`${template.label} — ${template.description}`]);templateHelp(template).forEach(x=>help.addRow([x]));help.getRow(1).font={bold:true};
+      const info=book.addWorksheet('Struktur');info.columns=[{header:'Kolom',key:'column',width:28},{header:'Contoh',key:'example',width:24}];template.headers.forEach((h,i)=>info.addRow({column:h,example:template.rows[0]?.[i]??''}));info.getRow(1).font={bold:true};
+      downloadBlob(await book.xlsx.writeBuffer(),`${template.name}.xlsx`);$('#templateStatus').textContent='Template Excel siap diunduh.';
+    }catch(e){$('#templateStatus').textContent=e.message;}finally{button.disabled=false;$('#createTemplateDataset').disabled=false;}};
   };
 }
 export function openTool(title,html){$('#dataToolTitle').textContent=title;$('#dataToolBody').innerHTML=html;$('#dataToolModal').classList.add('open');}
