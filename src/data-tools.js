@@ -1,5 +1,6 @@
 import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
+import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 export function readDataset(){
@@ -14,6 +15,7 @@ function templatePreview(template){
   return `<div class="analysis-note"><b>${esc(template.label)}</b><br>${esc(template.description)}</div><p><b>Kolom:</b> ${template.headers.map(esc).join(' · ')}</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="form-help">Preview ${preview.length} dari ${rows.length} baris contoh. Dataset yang dibuat dapat langsung diedit pada Data Editor.</p>`;
 }
 export function installDataTools(){
+  installDatasetSidebarEnhancements();
   const toolbar=$('.toolbar');
   toolbar.insertAdjacentHTML('beforeend','<button id="importXlsx">Impor Excel</button><button id="dataTemplate">Template data</button><button id="analysisHistory">Riwayat analisis</button>');
   document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head"><strong id="dataToolTitle"></strong><button id="closeDataTool" aria-label="Tutup">✕</button></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
