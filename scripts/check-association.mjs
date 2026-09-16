@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {correlation,correlationCritical,pathAnalysis,numericRows} from '../src/association-engine.js';
+import {correlation,correlationCritical,correlationCI,pathAnalysis,numericRows} from '../src/association-engine.js';
 import {renderAssociation} from '../src/association-workflow.js';
 const a=JSON.parse(fs.readFileSync(new URL('./association-reference.json',import.meta.url)));
 const near=(a,b,t=1e-7)=>assert(Math.abs(a-b)<t*Math.max(1,Math.abs(b)),`${a} != ${b}`);
@@ -10,6 +10,8 @@ for(const method of ['pearson','spearman']){
 const p=pathAnalysis(a.rows);near(p.r2,a.r2);p.effects.forEach((e,i)=>{near(e.direct,a.beta[i]);near(e.se,a.se[i]);near(e.p,a.p[i]);near(e.vif,a.vif[i]);near(e.direct+e.indirect.reduce((s,v)=>s+v,0),e.total);});
 near(p.residual**2,1-p.r2);
 near(correlationCritical(27,.05),.3809,.00005);near(correlationCritical(27,.01),.4869,.00005);
+const fisher=correlationCI(.5,30,.05);near(fisher[0],.17043136511180015);near(fisher[1],.7289585563883555);assert(fisher[0]<.5&&fisher[1]>.5);
+assert.deepEqual(correlationCI(1,30,.05),[1,1]);assert.deepEqual(correlationCI(-1,30,.05),[-1,-1]);assert.throws(()=>correlationCI(.5,3,.05));
 assert.throws(()=>correlation([[1,2],[1,3],[1,4]]));assert.throws(()=>correlation([]));
 assert.throws(()=>pathAnalysis(a.rows.map(r=>[r[0],r[1],2*r[1]])));
 assert.throws(()=>numericRows({headers:['X'],rows:[[1]]},[0,0],Number));
@@ -17,10 +19,11 @@ assert.throws(()=>numericRows({headers:['X'],rows:[['bad']]},[0],Number));
 near(correlation([[1,4],[1,4],[2,2],[3,1]],'spearman').matrix[0][1],-1);
 const html=renderAssociation(correlation(a.rows),['TiTa','DiBa','BoPa','PaTo'],'correlation',.05);
 assert.equal((html.match(/<sup>/g)||[]).length,10); // 4 diagonal + 6 upper-triangle pairs
-assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));assert(html.includes('1.00<sup>**</sup>'));
+assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));assert(html.includes('1.00<sup>**</sup>'));assert(html.includes('Batas bawah CI 95%'));assert(html.includes('transformasi Fisher z'));
+const spearmanHtml=renderAssociation(correlation(a.rows,'spearman'),['TiTa','DiBa','BoPa','PaTo'],'correlation',.05);assert(!spearmanHtml.includes('Batas bawah CI'));assert(spearmanHtml.includes('pendekatan t'));
 const rows27=Array.from({length:27},(_,i)=>[i+1,(i+1)*2+((i%3)-1)]);
 const html27=renderAssociation(correlation(rows27),['X','Y'],'correlation',.05);
 assert(html27.includes('0.3809'));assert(html27.includes('0.4869'));
 const pathHtml=renderAssociation(p,['Produksi','TiTa','DiBa','BoPa'],'path',.05);
 assert(pathHtml.includes('Koefisien lintas terstandar'));assert(pathHtml.includes('Dekomposisi korelasi'));assert(pathHtml.includes('koefisien residual'));
-console.log('Pearson/Spearman, agronomy-style matrix notation, r critical N=27, and standardized path coefficients/SE/p/VIF match independent references; path decomposition and residual identity passed.');
+console.log('Pearson/Spearman, agronomy-style matrix notation, Pearson Fisher confidence intervals, r critical N=27, and standardized path coefficients/SE/p/VIF match independent references; path decomposition and residual identity passed.');
