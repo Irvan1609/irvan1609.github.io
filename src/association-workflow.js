@@ -1,6 +1,6 @@
 import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,formatNumber as fmt} from './number-format.js';
-import {numericRows,correlation,pathAnalysis,correlationCritical} from './association-engine.js';
+import {numericRows,correlation,pathAnalysis,correlationCritical,correlationCI} from './association-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
 import {backupRawDataset} from './drive-backup.js';
@@ -23,8 +23,11 @@ export function renderAssociation(result,names,kind,alpha){
     html+='<div class="analysis-note">Koefisien langsung adalah koefisien regresi terstandar. Pengaruh tidak langsung Xi melalui Xj dihitung sebagai r(Xi,Xj) × koefisien lintas Xj. Jumlah pengaruh langsung dan seluruh pengaruh tidak langsung sama dengan korelasi Xi terhadap Y. Sidik lintas menjelaskan dekomposisi hubungan linear berdasarkan model yang dipilih; hasil ini bukan bukti sebab-akibat. p koefisien belum dikoreksi multipel.</div>';
     if(result.effects.some(e=>e.vif>5))html+='<div class="analysis-note">Ada VIF > 5: prediktor saling berkorelasi kuat; koefisien lintas dapat tidak stabil.</div>';
   }else{
-    html+='<div class="table-caption">Uji korelasi dua sisi</div>'+table(['Variabel 1','Variabel 2','r','p mentah','p Holm','Ket. Holm'],c.pairs.map(p=>[names[p.i],names[p.j],p.r,p.p,p.holm,p.holm<alpha?'Nyata':'Tidak nyata']));
-    html+=`<div class="analysis-note">${c.method==='spearman'?'Spearman memakai peringkat rata-rata untuk nilai sama. p memakai pendekatan t; sampel kecil memerlukan uji permutasi untuk inferensi yang lebih andal.':'Pearson mengukur hubungan linear; p mengasumsikan pasangan pengamatan independen dengan distribusi normal bivariat.'} Koreksi Holm berlaku untuk semua pasangan dalam matriks ini. Korelasi bukan bukti sebab-akibat.</div>`;
+    const pearsonCI=c.method==='pearson'&&c.n>=4;
+    const heads=['Variabel 1','Variabel 2','r',...(pearsonCI?[`Batas bawah CI ${(1-alpha)*100}%`,`Batas atas CI ${(1-alpha)*100}%`]:[]),'p mentah','p Holm','Ket. Holm'];
+    const rows=c.pairs.map(p=>{const ci=pearsonCI?correlationCI(p.r,c.n,alpha):[];return [names[p.i],names[p.j],p.r,...ci,p.p,p.holm,p.holm<alpha?'Nyata':'Tidak nyata'];});
+    html+='<div class="table-caption">Uji korelasi dua sisi</div>'+table(heads,rows);
+    html+=`<div class="analysis-note">${c.method==='spearman'?'Spearman memakai peringkat rata-rata untuk nilai sama. p memakai pendekatan t; sampel kecil memerlukan uji permutasi untuk inferensi yang lebih andal.':`Pearson mengukur hubungan linear; p mengasumsikan pasangan pengamatan independen dengan distribusi normal bivariat.${pearsonCI?` CI ${(1-alpha)*100}% dihitung dengan transformasi Fisher z dan menggambarkan ketidakpastian estimasi r.`:' CI Fisher z memerlukan N ≥ 4 sehingga tidak ditampilkan.'}`} Koreksi Holm berlaku untuk semua pasangan dalam matriks ini. Korelasi bukan bukti sebab-akibat.</div>`;
   }
   return html+'</section>';
 }
