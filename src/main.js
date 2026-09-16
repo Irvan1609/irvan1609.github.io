@@ -1,4 +1,5 @@
 import { installAnalysisFlow } from './analysis-flow.js';
+import {nextColumnName} from './dataset-columns.js';
 import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
@@ -51,7 +52,7 @@ function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length
 async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');state.headers=a[0].map(v=>v.trim()||'Variable');state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
 function newTXT(){let i=1,name='dataset.txt';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.txt`;state.files[name]='';state.active=name;state.headers=[];state.rows=[];persist();loadActive(false);setStatus(`✓ ${name} dibuat.`);}
 function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');state.rows.push(state.headers.map(()=>''));persist();renderGrid();setStatus('✓ Baris baru ditambahkan.');}
-function addColumn(){if(!state.headers.length){state.headers=['Variable1'];state.rows=[];}else state.headers.push(`Variable${state.headers.length+1}`);state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
+function addColumn(){if(!state.headers.length)state.rows=[];state.headers.push(nextColumnName(state.headers));state.rows.forEach(r=>r.push(''));persist();renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
 function clearData(){if(!confirm(`Hapus seluruh isi ${state.active}?`))return;state.headers=[];state.rows=[];persist();renderGrid();setStatus(`✓ Isi ${state.active} dikosongkan.`);}
 function renameDataset() {
   $('#datasetName').value=state.active.replace(/\.txt$/i,'');
