@@ -55,10 +55,14 @@ export function combinedAnovaGlm(rows){
     if(!terms[name].length)continue;const reduced=qrSse(designFromTerms(rows.length,terms,name),y),df=full.rank-reduced.rank,ss=Math.max(0,reduced.sse-full.sse);tests.push(glmTerm(name,ss,df,mse,dfError));
   }
   const grand=mean(y),sst=sum(y.map(v=>sq(v-grand))),blocksByLocation=Object.fromEntries(L.map(l=>[l,unique(rows.filter(r=>String(r[0])===l).map(r=>String(r[2])))]));
-  return {method:'glm-type3',balanced:false,n:rows.length,locations:L,treatments:G,blocksByLocation,grand,rank:full.rank,terms:[...tests,errorTerm('Galat',full.sse,dfError),errorTerm('Total',sst,rows.length-1)],cv:grand===0?null:Math.sqrt(mse)/Math.abs(grand)*100,means:G.map(g=>({label:g,mean:mean(rows.filter(r=>String(r[1])===g).map(r=>r[3])),n:rows.filter(r=>String(r[1])===g).length}))};
+  const means=G.map(g=>{
+    const locationMeans=L.map(l=>mean(rows.filter(r=>String(r[0])===l&&String(r[1])===g).map(r=>r[3]))),pooled=rows.filter(r=>String(r[1])===g).map(r=>r[3]);
+    return {label:g,mean:mean(locationMeans),rawMean:mean(pooled),n:pooled.length,locationMeans};
+  });
+  return {method:'glm-type3',balanced:false,n:rows.length,locations:L,treatments:G,blocksByLocation,grand,rank:full.rank,terms:[...tests,errorTerm('Galat',full.sse,dfError),errorTerm('Total',sst,rows.length-1)],cv:grand===0?null:Math.sqrt(mse)/Math.abs(grand)*100,means,meanMethod:'equal-location-cell-means',warnings:['Pada data tidak seimbang, rataan genotipe dilaporkan sebagai rata-rata rataan sel dengan bobot lokasi sama agar lokasi dengan ulangan lebih banyak tidak mendominasi. Nilai ini bukan LS-mean yang disesuaikan terhadap efek kelompok. Gunakan Mixed Model REML untuk inferensi berbasis efek acak kelompok.']};
 }
 export function combinedAnovaFlexible(rows){
-  try{return {...combinedAnova(rows),method:'classical-balanced',balanced:true};}
+  try{return {...combinedAnova(rows),method:'classical-balanced',balanced:true,warnings:[]};}
   catch(error){
     if(!/seimbang/i.test(error.message))throw error;
     return combinedAnovaGlm(rows);
@@ -93,7 +97,10 @@ export function stabilityAnalysis(rows){
   if(!rows.length||rows.some(r=>r.length!==3||!Number.isFinite(r[2])))throw Error('AMMI/GGE memerlukan Lingkungan/Lokasi, Genotipe, dan Y.');
   const E=unique(rows.map(r=>String(r[0]))),G=unique(rows.map(r=>String(r[1])));if(E.length<2||G.length<2)throw Error('AMMI/GGE memerlukan minimal dua lingkungan dan dua genotipe.');
   const M=E.map(e=>G.map(g=>{const v=rows.filter(r=>String(r[0])===e&&String(r[1])===g).map(r=>r[2]);if(!v.length)throw Error(`Kombinasi ${e} × ${g} tidak memiliki pengamatan. AMMI/GGE membutuhkan setiap sel lingkungan × genotipe terisi.`);return mean(v);}));
-  const counts=E.map(e=>G.map(g=>rows.filter(r=>String(r[0])===e&&String(r[1])===g).length)),inter=interactionMatrix(M),ammiSvd=svdScores(inter.matrix),ammiSS=sum(inter.matrix.flat().map(sq)),ammiComp=ammiSvd.singular.map((s,i)=>({component:`IPCA${i+1}`,singular:s,ss:s*s,percent:ammiSS>0?s*s/ammiSS*100:0}));
+  const counts=E.map(e=>G.map(g=>rows.filter(r=>String(r[0])===e&&String(r[1])===g).length)),flatCounts=counts.flat(),minRep=Math.min(...flatCounts),maxRep=Math.max(...flatCounts),balancedReplication=minRep===maxRep;
+  const inter=interactionMatrix(M),ammiSvd=svdScores(inter.matrix),ammiSS=sum(inter.matrix.flat().map(sq)),ammiComp=ammiSvd.singular.map((s,i)=>({component:`IPCA${i+1}`,singular:s,ss:s*s,percent:ammiSS>0?s*s/ammiSS*100:0}));
   const envMeans=M.map(mean),ggeMatrix=M.map((row,i)=>row.map(v=>v-envMeans[i])),ggeSvd=svdScores(ggeMatrix),ggeSS=sum(ggeMatrix.flat().map(sq)),ggeComp=ggeSvd.singular.map((s,i)=>({component:`PC${i+1}`,singular:s,ss:s*s,percent:ggeSS>0?s*s/ggeSS*100:0}));
-  return {n:rows.length,environments:E,genotypes:G,means:M,counts,grand:inter.grand,environmentMeans:inter.rowMeans,genotypeMeans:inter.colMeans,ammi:{interactionSS:ammiSS,components:ammiComp,genotypes:scoreRows(G,ammiSvd.genotype,'Genotipe'),environments:scoreRows(E,ammiSvd.environment,'Lingkungan')},gge:{totalSS:ggeSS,components:ggeComp,genotypes:scoreRows(G,ggeSvd.genotype,'Genotipe'),environments:scoreRows(E,ggeSvd.environment,'Lingkungan')}};
+  const warnings=[];
+  if(!balancedReplication)warnings.push(`Jumlah ulangan per sel tidak sama (${minRep}–${maxRep}). AMMI/GGE dihitung dari rataan tiap sel dengan bobot sel sama; perbedaan presisi antar sel tidak dibobot dalam dekomposisi.`);
+  return {n:rows.length,environments:E,genotypes:G,means:M,counts,grand:inter.grand,environmentMeans:inter.rowMeans,genotypeMeans:inter.colMeans,replication:{balanced:balancedReplication,min:minRep,max:maxRep},warnings,ammi:{interactionSS:ammiSS,components:ammiComp,genotypes:scoreRows(G,ammiSvd.genotype,'Genotipe'),environments:scoreRows(E,ammiSvd.environment,'Lingkungan'),scaling:'symmetric alpha=0.5'},gge:{totalSS:ggeSS,components:ggeComp,genotypes:scoreRows(G,ggeSvd.genotype,'Genotipe'),environments:scoreRows(E,ggeSvd.environment,'Lingkungan'),centering:'environment-centered',scaling:'symmetric alpha=0.5'}};
 }
