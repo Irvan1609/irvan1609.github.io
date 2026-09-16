@@ -1,3 +1,4 @@
+import {initDisplaySettings} from './display-settings.js';
 const KEY = 'statistical_web_decimal_separator';
 
 function detectedSeparator() {
@@ -40,6 +41,7 @@ export function formatNumber(value, digits = 3) {
 }
 
 export function initNumberSettings() {
+  initDisplaySettings();
   if (document.querySelector('#numberSettings')) return;
   const panel = document.createElement('details');
   panel.id = 'numberSettings';

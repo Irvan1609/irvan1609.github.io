@@ -1,5 +1,6 @@
 // Loaded only when the user exports a report.
 import ExcelJS from 'exceljs';
+import {datasetExcelFilename} from './export-filename.js';
 import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
@@ -90,7 +91,7 @@ export async function downloadReportXlsx(scope,filename) {
   const url=URL.createObjectURL(blob);
   const link=document.createElement('a');
   link.href=url;
-  link.download=(String(filename||'hasil-analisis').replace(/[^a-z0-9._-]+/gi,'-').replace(/^-+|-+$/g,'')||'hasil-analisis')+'.xlsx';
+  link.download=datasetExcelFilename(scope.dataset.datasetName||filename);
   document.body.appendChild(link);
   try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 }
@@ -128,5 +129,5 @@ export async function downloadAllReportsXlsx(scope){
   const book=createCombinedWorkbook(sections);
   for(let i=0;i<sections.length;i++)await addChartImages(book,book.worksheets[i],sections[i]);
   const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-  const a=document.createElement('a');a.href=url;a.download='seluruh-hasil-analisis.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename(scope.dataset.datasetName||sections[0]?.dataset.datasetName);a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }

@@ -7,7 +7,7 @@ import {renderReport,esc,designNames,installChartDownload} from './scientific-re
 import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
-function showResults(reports,container){container.innerHTML='<div class="result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><span role="status" class="export-status"></span></div>'+reports.map(renderReport).join('');}
+function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){container.innerHTML='<div class="result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><span role="status" class="export-status"></span></div>'+reports.map(renderReport).join('');container.dataset.datasetName=datasetName;container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);}
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
 function saveHistory(reports,options){
   const entry={id:crypto.randomUUID(),version:1,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,separator:getDecimalSeparator(),reports};
@@ -18,7 +18,7 @@ function history(){
   if(!entries.length)return;
   $('#historyList').innerHTML=entries.map(e=>`<div class="history-row"><button data-history-open="${esc(e.id)}">${esc(e.dataset)} — ${esc(designNames[e.design])} · ${new Date(e.date).toLocaleString('id-ID')}</button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">Hapus</button></div>`).join('');
   $('#historyList').onclick=event=>{const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');
-    if(open){const entry=entries.find(e=>e.id===open.dataset.historyOpen);try{showResults(entry.reports,$('#historyResult'));}catch{$('#historyResult').textContent='Riwayat tidak dapat dibaca.';}}
+    if(open){const entry=entries.find(e=>e.id===open.dataset.historyOpen);try{showResults(entry.reports,$('#historyResult'),entry.dataset);}catch{$('#historyResult').textContent='Riwayat tidak dapat dibaca.';}}
     if(del&&confirm('Hapus hasil analisis ini dari riwayat?')){try{localStorage.setItem(HISTORY,JSON.stringify(entries.filter(e=>e.id!==del.dataset.historyDelete)));history();}catch{$('#historyResult').textContent='Riwayat tidak dapat dihapus.';}}
   };
 }
@@ -121,6 +121,7 @@ async function analyze(){
           report.notes.push(`${evaluated.nonOrthogonalPairs.length} pasangan kontras tidak ortogonal${preview?`: ${preview}`:''}. Hal ini diperbolehkan untuk planned contrasts, tetapi JK antar-kontras tidak boleh dijumlahkan sebagai dekomposisi JK perlakuan.`);
         }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
       }
+      report.datasetName=data.name;
       finalizeAgronomyFactorial(report);
       reports.push(report);
     }

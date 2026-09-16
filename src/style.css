@@ -1,5 +1,5 @@
 :root{--navy:#17324d;--blue:#215cc5;--border:#d7dee7;--text:#233245;--muted:#566575}
-*{box-sizing:border-box}html{font-size:16px;-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}html{font-size:16px;-webkit-text-size-adjust:100%;--data-font-size:14px}
 body{margin:0;background:#f3f5f8;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
 [hidden]{display:none!important}button,input,select,textarea{font:inherit}button{min-height:42px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;background:white;color:var(--text);cursor:pointer}
 button:hover{background:#edf3fc;border-color:#9ab3d6}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[contenteditable]:focus-visible{outline:3px solid #80adf1;outline-offset:2px}
@@ -109,3 +109,17 @@ table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 #scienceFields select{display:block;width:100%;margin:8px 0}#scienceFields details{margin:14px 0;padding:12px;border:1px solid var(--border);border-radius:6px}#scienceContrastText{width:100%}#scienceContrastFields label{display:flex;justify-content:space-between;gap:12px;margin:8px 0}
 .data-invalid{background:#ffe0df!important;outline:2px solid #b91c1c}.history-row{display:flex;gap:8px;margin-bottom:8px}.history-row button:first-child{flex:1;text-align:left}
 #dataToolBody>select{display:block;width:100%;margin-top:8px}#scienceFields>.form-grid{margin-bottom:12px}.export-status{display:block;flex-basis:100%;font-size:14px}
+/* Compact controls leave more room for observations. */
+button{min-height:32px;padding:5px 9px;font-size:13px}
+.topbar{padding:10px 14px}.nav{padding:0 14px 9px;gap:6px}
+.toolbar{padding:8px 12px;gap:6px;align-items:center}
+.result-actions button{min-height:32px;padding:5px 9px;font-size:13px}
+.dataset-actions button{font-size:13px}
+.design-options{gap:10px}.design-options button{padding:12px}.design-options b{font-size:18px;margin-bottom:4px}
+.font-size-setting{display:flex;align-items:center;gap:6px;font-size:13px;margin-left:auto}
+.font-size-setting select{padding:4px 6px;min-height:32px}
+html[data-data-font="small"]{--data-font-size:12px}
+html[data-data-font="large"]{--data-font-size:17px}
+.data-grid,.analysis-result .result-table{font-size:var(--data-font-size)}
+.data-grid th,.data-grid td{padding:6px 9px;height:auto;min-width:80px}
+@media(pointer:coarse){button,.result-actions button{min-height:40px}}
