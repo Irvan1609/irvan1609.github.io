@@ -12,7 +12,7 @@ assert.throws(()=>nestedAnova(nested.slice(1)),/tidak lengkap|seimbang/i);
 
 const repeated=[];
 for(const [pi,p] of ['P0','P1'].entries())for(const s of [1,2,3])for(const [ti,t] of ['T1','T2','T3'].entries()){
-  const y=10+pi*3+ti*2+pi*ti*.8+(s-2)*.5;
+  const y=10+pi*3+ti*2+pi*ti*.8+(s-2)*.5+(s-2)*ti*.2;
   repeated.push([p,`${p}-S${s}`,t,y]);
 }
 const r=repeatedMeasuresAnova(repeated);
