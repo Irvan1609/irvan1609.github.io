@@ -23,7 +23,7 @@ export function installNavigation(){
   document.getElementById('closeSettings').onclick=close;
   document.getElementById('saveSettings').onclick=()=>{if(decimal.value!==previous.decimal)decimal.dispatchEvent(new Event('settings-save'));font.dispatchEvent(new Event('settings-save'));previous={decimal:decimal.value,font:font.value};close();};
   backdrop.addEventListener('click',e=>{if(e.target===backdrop)close();});
-  document.addEventListener('click',event=>{if(!event.target.closest('.nav,.nav-command-panel'))closeMenus();});
+  document.addEventListener('click',event=>{if(!event.target.closest('.nav,.nav-command-panel,#backScience,[data-back-design]'))closeMenus();});
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenus();close();}if(event.key==='Tab'&&backdrop.classList.contains('open')){const first=decimal,last=document.getElementById('closeSettings');if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}});
 }
