@@ -65,9 +65,11 @@ const flexible=plannedContrastsFlexible(sixItems,[
 assert.equal(flexible.contrasts.length,3);assert.equal(flexible.nonOrthogonalPairs.length,1);near(flexible.contrasts[0].estimate,30);near(flexible.contrasts[0].ss,90);near(flexible.contrasts[0].f,22.5);
 assert.throws(()=>plannedContrastsFlexible(sixItems,[{name:'bad',coefficients:[1,1,1,1,1,1]}],4,12));
 assert.throws(()=>plannedContrastsFlexible(sixItems,[{name:'Kontras A',coefficients:[-1,1,0,0,0,0]},{name:' kontras a ',coefficients:[0,0,-1,1,0,0]}],4,12),/nama setiap kontras harus unik/i);
+const extremeItems=[{label:'A',n:3,mean:-Number.MAX_VALUE},{label:'B',n:3,mean:Number.MAX_VALUE}];
+assert.throws(()=>plannedContrastsFlexible(extremeItems,[{name:'Ekstrem',coefficients:[-1,1]}],4,4),/melampaui rentang numerik/i);
 assert.throws(()=>polynomialContrasts(items,[0,0,1],2,6));assert.equal(normality([1,2,3]).p,null);
 const dataset={headers:['A','B','R','Y'],rows:ref.rows.map(o=>[o.a,o.b,o.rep,o.values[0]])},options={design:'frak',a:0,b:1,rep:2,parameters:[3]};
 assert.equal(validateData(dataset,options,Number).issues.length,0);
 assert.ok(validateData({...dataset,rows:[...dataset.rows,dataset.rows[0]]},options,Number).issues.length>0);
 assert.ok(validateData({...dataset,rows:dataset.rows.slice(1)},options,Number).issues.length>0);
-console.log('Statistics verified: factorial/split-plot SS and df; agronomic factorial interaction-only follow-up; RPT row-column follow-up with separate error strata; normality and Brown–Forsythe; BNT/BNJ/DMRT; planned contrasts including unique-name validation; incomplete/duplicate data.');
+console.log('Statistics verified: factorial/split-plot SS and df; agronomic factorial interaction-only follow-up; RPT row-column follow-up with separate error strata; normality and Brown–Forsythe; BNT/BNJ/DMRT; planned contrasts including unique-name and numeric-overflow validation; incomplete/duplicate data.');
