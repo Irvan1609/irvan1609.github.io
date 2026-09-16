@@ -1,6 +1,7 @@
 import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
+import {installDataEnhancements} from './data-enhancements.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 export function readDataset(){
@@ -18,6 +19,7 @@ export function installDataTools(){
   installDatasetSidebarEnhancements();
   const toolbar=$('.toolbar');
   toolbar.insertAdjacentHTML('beforeend','<button id="importXlsx">Impor Excel</button><button id="dataTemplate">Template data</button><button id="analysisHistory">Riwayat analisis</button>');
+  installDataEnhancements();
   document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head"><strong id="dataToolTitle"></strong><button id="closeDataTool" aria-label="Tutup">✕</button></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
   $('#closeDataTool').onclick=()=>$('#dataToolModal').classList.remove('open');
   $('#importXlsx').onclick=()=>$('#xlsxInput').click();
