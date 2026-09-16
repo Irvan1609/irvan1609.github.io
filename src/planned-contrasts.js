@@ -33,12 +33,16 @@ export function plannedContrastsFlexible(items,matrix,mse,df){
   if(new Set(normalizedNames).size!==normalizedNames.length)throw Error('Nama setiap kontras harus unik agar hasil dan ekspor tidak ambigu.');
   const contrasts=rows.map(row=>{
     const estimate=sum(items.map((item,i)=>row.coefficients[i]*item.mean));
+    if(!Number.isFinite(estimate))throw Error(`${row.name}: estimasi kontras melampaui rentang numerik. Periksa skala data dan koefisien.`);
     const divisor=sum(items.map((item,i)=>row.coefficients[i]**2/item.n));
     if(!Number.isFinite(divisor)||!(divisor>0))throw Error(`${row.name}: ragam kontras tidak dapat dihitung dari jumlah pengamatan yang tersedia.`);
     const variance=mse*divisor;
+    if(!Number.isFinite(variance)||!(variance>0))throw Error(`${row.name}: ragam kontras melampaui rentang numerik. Periksa skala data dan koefisien.`);
     const se=Math.sqrt(variance);
+    const ss=estimate**2/divisor;
     const f=estimate**2/variance;
-    return {...row,estimate,se,ss:estimate**2/divisor,f,df:1,denDf:df,p:fTail(f,1,df)};
+    if(!Number.isFinite(ss)||!Number.isFinite(f))throw Error(`${row.name}: statistik kontras melampaui rentang numerik. Periksa skala data dan koefisien.`);
+    return {...row,estimate,se,ss,f,df:1,denDf:df,p:fTail(f,1,df)};
   });
   const nonOrthogonalPairs=[];
   for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
