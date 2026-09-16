@@ -8,12 +8,16 @@ for(const method of ['pearson','spearman']){
  const c=correlation(a.rows,method);c.pairs.forEach((p,i)=>{near(p.r,a[method][i][0]);near(p.p,a[method][i][1]);assert(p.holm>=p.p&&p.holm<=1);});
 }
 const p=pathAnalysis(a.rows);near(p.r2,a.r2);p.effects.forEach((e,i)=>{near(e.direct,a.beta[i]);near(e.se,a.se[i]);near(e.p,a.p[i]);near(e.vif,a.vif[i]);near(e.direct+e.indirect.reduce((s,v)=>s+v,0),e.total);});
+near(p.residual**2,1-p.r2);
 near(correlationCritical(27,.05),.3809,.00005);near(correlationCritical(27,.01),.4869,.00005);
 assert.throws(()=>correlation([[1,2],[1,3],[1,4]]));assert.throws(()=>correlation([]));
 assert.throws(()=>pathAnalysis(a.rows.map(r=>[r[0],r[1],2*r[1]])));
 assert.throws(()=>numericRows({headers:['X'],rows:[[1]]},[0,0],Number));
 assert.throws(()=>numericRows({headers:['X'],rows:[['bad']]},[0],Number));
 near(correlation([[1,4],[1,4],[2,2],[3,1]],'spearman').matrix[0][1],-1);
-const html=renderAssociation(correlation(a.rows),['Y','X1','X2','X3'],'correlation',.05);
-assert.equal((html.match(/<sup>/g)||[]).length,6);assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));
-console.log('Pearson/Spearman and standardized path coefficients/SE/p/VIF match independent SciPy/NumPy; r critical N=27, ties and invalid data checks passed.');
+const html=renderAssociation(correlation(a.rows),['TiTa','DiBa','BoPa','PaTo'],'correlation',.05);
+assert.equal((html.match(/<sup>/g)||[]).length,10); // 4 diagonal + 6 upper-triangle pairs
+assert(html.includes('segitiga atas'));assert(html.includes('p Holm'));assert(html.includes('0.3809'));assert(html.includes('0.4869'));assert(html.includes('1.00<sup>**</sup>'));
+const pathHtml=renderAssociation(p,['Produksi','TiTa','DiBa','BoPa'],'path',.05);
+assert(pathHtml.includes('Koefisien lintas terstandar'));assert(pathHtml.includes('Dekomposisi korelasi'));assert(pathHtml.includes('koefisien residual'));
+console.log('Pearson/Spearman, agronomy-style matrix notation, r critical N=27, and standardized path coefficients/SE/p/VIF match independent references; path decomposition and residual identity passed.');
