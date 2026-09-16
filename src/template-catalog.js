@@ -13,6 +13,18 @@ function factorial(blockLabel='Ulangan'){
   for(const r of [1,2,3])for(const [ai,a] of ['A0','A1','A2'].entries())for(const [bi,b] of ['B0','B1'].entries())rows.push([a,b,r,round(20+ai*2.1+bi*1.4+ai*bi*.7+r*.25),round(50+ai*4+bi*3+ai*bi*1.6+r*.4)]);
   return {headers,rows};
 }
+function nested(){
+  const headers=['Faktor A','B dalam A','Ulangan','Respons'];
+  const rows=[];
+  for(const [ai,a] of ['A1','A2','A3'].entries())for(const [bi,b] of ['B1','B2','B3'].entries())for(const r of [1,2,3])rows.push([a,`${a}-${b}`,r,round(20+ai*3+bi*1.2+(r-2)*.35)]);
+  return {headers,rows};
+}
+function repeated(){
+  const headers=['Perlakuan','Subjek','Waktu','Tinggi Tanaman'];
+  const rows=[];
+  for(const [pi,p] of ['P0','P1','P2'].entries())for(const s of [1,2,3])for(const [ti,t] of ['2 MST','4 MST','6 MST','8 MST'].entries())rows.push([p,`${p}-U${s}`,t,round(18+pi*2.4+ti*5.2+pi*ti*.55+(s-2)*.4)]);
+  return {headers,rows};
+}
 function multivariate(){
   const headers=['Sampel','TiTa','DiBa','BoPa','PaTo','DiTo','Produksi'];
   const rows=seq(12).map(i=>{
@@ -55,6 +67,8 @@ const defs=[
   ['fral','Rancangan','Faktorial RAL (2 faktor)','Faktor A × Faktor B dengan ulangan dan beberapa parameter numerik.',()=>factorial('Ulangan')],
   ['frak','Rancangan','Faktorial RAK (2 faktor)','Faktor A × Faktor B dalam kelompok/blok.',()=>factorial('Kelompok')],
   ['split','Rancangan','RPT / Split-plot dalam RAK','Faktor A = petak utama, Faktor B = anak petak, dan Kelompok = blok.',()=>factorial('Kelompok')],
+  ['nested','Rancangan','Rancangan Tersarang','Faktor B tersarang di dalam Faktor A, dengan ulangan pada setiap B(A).',nested],
+  ['repeated','Rancangan','Repeated Measures','Perlakuan antar-subjek dan Waktu dalam-subjek; setiap subjek diukur pada seluruh waktu.',repeated],
   ['descriptive','Eksplorasi','Statistik Deskriptif','Satu baris per sampel dan beberapa karakter numerik. Kolom Sampel berfungsi sebagai identitas.',multivariate],
   ['correlation','Eksplorasi','Korelasi','Beberapa karakter numerik untuk matriks korelasi Pearson/Spearman.',multivariate],
   ['path','Eksplorasi','Sidik Lintas','Beberapa karakter X numerik dan satu respons Y; contoh memakai Produksi sebagai Y.',multivariate],
@@ -83,6 +97,8 @@ export function templateHelp(template){
     fral:'Semua kombinasi Faktor A × Faktor B harus tersedia pada setiap ulangan.',
     frak:'Semua kombinasi Faktor A × Faktor B harus tersedia pada setiap kelompok.',
     split:'Faktor A adalah petak utama; Faktor B adalah anak petak; Kelompok adalah blok.',
+    nested:'Setiap taraf Faktor A harus memiliki jumlah B(A) dan ulangan yang sama. Nama B(A) sebaiknya unik di dalam A.',
+    repeated:'Setiap Subjek/Ulangan harus memiliki satu pengamatan pada setiap Waktu. Subjek harus unik di dalam perlakuan.',
     correlation:'Pilih minimal dua karakter numerik; kolom identitas seperti Sampel tidak dianalisis.',
     path:'Tentukan satu variabel sebagai Y/respons dan minimal dua variabel lain sebagai X.',
     regression:'Gunakan X/dosis numerik. Beberapa ulangan pada dosis yang sama memungkinkan pemisahan pure error dan lack-of-fit.',
