@@ -25,9 +25,12 @@ if (!jsFiles.length) fail('no JavaScript bundle was produced');
 if (!cssFiles.length) fail('no CSS bundle was produced');
 
 const js = jsFiles.map(f => fs.readFileSync(path.join(assetDir, f), 'utf8')).join('\n');
-for (const marker of ['pasteBtn','runRal','runRak','Statistical Web']) {
-  if (!js.includes(marker) && marker !== 'Statistical Web') fail(`JavaScript bundle is missing marker ${marker}`);
+// Check markers that belong to the current production entry graph. RAL/RAK are
+// opened through the scientific workflow; the legacy rak-dnd module is
+// intentionally not loaded and therefore must not be required in dist.
+for (const marker of ['pasteBtn','openAnalysis','analysisChoice']) {
+  if (!js.includes(marker)) fail(`JavaScript bundle is missing marker ${marker}`);
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
 
-console.log(`Dist check OK: ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed.`);
+console.log(`Dist check OK: ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production navigation markers present.`);
