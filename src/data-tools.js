@@ -2,6 +2,7 @@ import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
 import {installDataEnhancements} from './data-enhancements.js';
+import {isUniqueColumnName} from './dataset-columns.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 export function readDataset(){
@@ -19,8 +20,7 @@ function normalizedHeaders(headers){return headers.map(h=>String(h??'').trim());
 function validateHeaders(headers){
   const clean=normalizedHeaders(headers);
   if(!clean.length||clean.some(h=>!h))throw Error('Judul kolom harus terisi.');
-  const keys=clean.map(h=>h.toLocaleLowerCase('id-ID'));
-  if(new Set(keys).size!==keys.length)throw Error('Judul kolom harus unik tanpa membedakan huruf besar-kecil (misalnya “Produksi” dan “produksi” dianggap sama).');
+  if(clean.some((header,index)=>!isUniqueColumnName(clean,header,index)))throw Error('Judul kolom harus unik tanpa membedakan huruf besar-kecil atau bentuk Unicode (misalnya “Produksi” dan “produksi” dianggap sama).');
   return clean;
 }
 export function installDataTools(){
