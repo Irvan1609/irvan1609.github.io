@@ -13,5 +13,5 @@ assert.equal(isUniqueColumnName(['Produksi','Tinggi'],' produksi ',0),true);
 assert.equal(isUniqueColumnName(['Produksi','Tinggi'],'   '),false);
 assert.equal(isUniqueColumnName(['Produksi','Tinggi'],'Ｐｒｏｄｕｋｓｉ'),false);
 assert.equal(isUniqueColumnName(['Café','Tinggi'],'Cafe\u0301'),false);
-assert.equal(nextColumnName(['Variable1','Ｖａｒｉａｂｌｅ３']),'Variable3');
+assert.equal(nextColumnName(['Variable1','Ｖａｒｉａｂｌｅ３']),'Variable4');
 console.log('Dataset column naming verified: automatic names and case-insensitive Unicode-normalized rename uniqueness passed.');
