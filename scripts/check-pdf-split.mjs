@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildPdfSplitPlan, compactPageList } from '../src/pdf-split-plan.js';
+import { buildPdfSplitPlan, compactPageList, detectChapterOnePage, scoreChapterOnePageText } from '../src/pdf-split-plan.js';
 
 const plan = buildPdfSplitPlan(74, 12);
 assert.deepEqual(plan.front, Array.from({ length: 12 }, (_, i) => i + 1));
@@ -22,4 +22,14 @@ assert.throws(() => buildPdfSplitPlan(74, 0));
 assert.throws(() => buildPdfSplitPlan(74, 74));
 assert.throws(() => buildPdfSplitPlan(74, 12.5));
 
-console.log('PDF split plan OK: 74-page thesis with cutoff 12 -> 12 front, 31 odd, 31 even pages; parity follows physical PDF page numbers.');
+const pageTexts = Array(15).fill('');
+pageTexts[8] = 'ix DAFTAR ISI Nomor urut Halaman BAB I PENDAHULUAN........................................1 1.1 Latar Belakang........1 BAB II METODE PENELITIAN........6 BAB III PEMBAHASAN........23';
+pageTexts[12] = '1 BAB I PENDAHULUAN 1.1. Latar Belakang Cabai rawit merupakan salah satu komoditas hortikultura strategis di Indonesia.';
+const detected = detectChapterOnePage(pageTexts);
+assert.equal(detected?.page, 13);
+assert.equal(detected?.cutoff, 12);
+assert.equal(detected?.confidence, 'tinggi');
+assert.ok(scoreChapterOnePageText(pageTexts[12]) > scoreChapterOnePageText(pageTexts[8]));
+assert.equal(detectChapterOnePage(['DAFTAR ISI BAB I PENDAHULUAN.....1 BAB II METODE.....7']), null);
+
+console.log('PDF split plan OK: 74-page thesis with cutoff 12 -> 12 front, 31 odd, 31 even pages; BAB I detector selects physical page 13 and ignores the TOC occurrence.');
