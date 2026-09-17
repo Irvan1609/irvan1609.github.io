@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const portfolioHtml = fs.readFileSync('index.html', 'utf8');
 const html = fs.readFileSync('stat/index.html', 'utf8');
+const printHtml = fs.readFileSync('print-skripsi/index.html', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
 const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
@@ -45,6 +46,7 @@ if (html.includes('report-enhancements.js')) {
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
 if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('navigation must contain one Analyze button');
+if(!/href="\/"[^>]*>← Portofolio<\/a>/.test(nav))fail('stat navigation must provide a return-to-portfolio link');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
@@ -76,4 +78,12 @@ for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMea
   if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
 }
 
-console.log(`UI contract OK: portfolio root links to /stat/, statistical data-grid bindings, Analyze navigation, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
+const printIds = [...printHtml.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+for (const id of ['pdfFile','cutoffPage','processPdf','status','summary','results']) {
+  if (!printIds.includes(id)) fail(`print-skripsi missing required element #${id}`);
+}
+for (const marker of ['Print Skripsi','value="12"','pdf-lib@1.17.1','/print-skripsi/app.js','href="/"']) {
+  if (!printHtml.includes(marker)) fail(`print-skripsi missing marker: ${marker}`);
+}
+
+console.log(`UI contract OK: portfolio root, /stat return control and analysis shell, /print-skripsi upload/cutoff controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
