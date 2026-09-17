@@ -33,22 +33,35 @@ function safeBaseName(name) {
 async function createPdf(source, pages) {
   const { PDFDocument } = window.PDFLib || {};
   if (!PDFDocument) throw new Error('Pustaka pemrosesan PDF gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+  if (!pages.length) return null;
   const output = await PDFDocument.create();
-  if (pages.length) {
-    const copied = await output.copyPages(source, pages.map((page) => page - 1));
-    copied.forEach((page) => output.addPage(page));
-  }
+  const copied = await output.copyPages(source, pages.map((page) => page - 1));
+  copied.forEach((page) => output.addPage(page));
   return output.save();
 }
 
 function addDownload(label, description, bytes, filename) {
-  const blob = new Blob([bytes], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  objectUrls.push(url);
   const card = document.createElement('article');
   card.className = 'download-card';
-  card.innerHTML = `<div><strong>${label}</strong><p>${description}</p></div><a class="download-btn" download="${filename}">Unduh PDF</a>`;
-  card.querySelector('a').href = url;
+  const info = document.createElement('div');
+  const title = document.createElement('strong');
+  const detail = document.createElement('p');
+  title.textContent = label;
+  detail.textContent = description;
+  info.append(title, detail);
+  card.appendChild(info);
+
+  if (bytes) {
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    objectUrls.push(url);
+    const link = document.createElement('a');
+    link.className = 'download-btn';
+    link.download = filename;
+    link.href = url;
+    link.textContent = 'Unduh PDF';
+    card.appendChild(link);
+  }
   results.appendChild(card);
 }
 
@@ -121,19 +134,22 @@ processButton.addEventListener('click', async () => {
     const cutoff = Number(cutoffInput.value);
     const plan = buildPdfSplitPlan(loaded.totalPages, cutoff);
     renderPlan(plan);
-    setStatus('Memisahkan PDF… jangan tutup halaman ini.', 'info');
-
-    const [frontBytes, oddBytes, evenBytes] = await Promise.all([
-      createPdf(loaded.doc, plan.front),
-      createPdf(loaded.doc, plan.odd),
-      createPdf(loaded.doc, plan.even),
-    ]);
-
     const base = safeBaseName(loaded.file.name);
+
+    setStatus('Membuat File 1 dari bagian awal…', 'info');
+    const frontBytes = await createPdf(loaded.doc, plan.front);
     addDownload('File 1 - Bagian awal', `Halaman 1-${cutoff}`, frontBytes, `${base}-01-halaman-1-${cutoff}.pdf`);
+
+    setStatus('Membuat File 2 dari halaman ganjil…', 'info');
+    const oddBytes = await createPdf(loaded.doc, plan.odd);
     addDownload('File 2 - Halaman ganjil', compactPageList(plan.odd, 12), oddBytes, `${base}-02-ganjil-setelah-${cutoff}.pdf`);
+
+    setStatus('Membuat File 3 dari halaman genap…', 'info');
+    const evenBytes = await createPdf(loaded.doc, plan.even);
     addDownload('File 3 - Halaman genap', compactPageList(plan.even, 12), evenBytes, `${base}-03-genap-setelah-${cutoff}.pdf`);
-    setStatus('Selesai. Tiga file PDF siap diunduh.', 'success');
+
+    const produced = [frontBytes, oddBytes, evenBytes].filter(Boolean).length;
+    setStatus(`Selesai. ${produced} file PDF siap diunduh.`, 'success');
   } catch (error) {
     setStatus(error?.message || 'Terjadi kesalahan saat memisahkan PDF.', 'error');
   } finally {
