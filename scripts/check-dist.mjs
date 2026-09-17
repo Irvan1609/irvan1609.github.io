@@ -6,15 +6,23 @@ function fail(message) {
   process.exit(1);
 }
 
-const indexPath = 'dist/index.html';
-if (!fs.existsSync(indexPath)) fail('dist/index.html is missing');
-const html = fs.readFileSync(indexPath, 'utf8');
-if (!html.includes('Statistical Web')) fail('built index does not contain application title');
-if (/src\/[^"']+\.js/.test(html)) fail('built index still references source JavaScript under /src/');
-if (/src\/[^"']+\.css/.test(html)) fail('built index still references source CSS under /src/');
+const portfolioPath = 'dist/index.html';
+const statPath = 'dist/stat/index.html';
+if (!fs.existsSync(portfolioPath)) fail('dist/index.html is missing');
+if (!fs.existsSync(statPath)) fail('dist/stat/index.html is missing');
+
+const portfolio = fs.readFileSync(portfolioPath, 'utf8');
+if (!portfolio.includes('Peneliti Agronomi')) fail('built root does not contain portfolio content');
+if (!portfolio.includes('/stat/')) fail('built portfolio does not link to /stat/');
+if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
+
+const html = fs.readFileSync(statPath, 'utf8');
+if (!html.includes('Statistical Web')) fail('built /stat page does not contain application title');
+if (/src\/[^"']+\.js/.test(html)) fail('built /stat page still references source JavaScript under /src/');
+if (/src\/[^"']+\.css/.test(html)) fail('built /stat page still references source CSS under /src/');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);
-if (!assetMatches.length) fail('built index has no bundled assets');
+if (!assetMatches.length) fail('built /stat page has no bundled assets');
 
 const assetDir = 'dist/assets';
 if (!fs.existsSync(assetDir)) fail('dist/assets is missing');
@@ -25,12 +33,9 @@ if (!jsFiles.length) fail('no JavaScript bundle was produced');
 if (!cssFiles.length) fail('no CSS bundle was produced');
 
 const js = jsFiles.map(f => fs.readFileSync(path.join(assetDir, f), 'utf8')).join('\n');
-// Check markers that belong to the current production entry graph. RAL/RAK are
-// opened through the scientific workflow; the legacy rak-dnd module is
-// intentionally not loaded and therefore must not be required in dist.
 for (const marker of ['pasteBtn','openAnalysis','analysisChoice']) {
   if (!js.includes(marker)) fail(`JavaScript bundle is missing marker ${marker}`);
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
 
-console.log(`Dist check OK: ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production navigation markers present.`);
+console.log(`Dist check OK: portfolio root and /stat application built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production navigation markers present.`);
