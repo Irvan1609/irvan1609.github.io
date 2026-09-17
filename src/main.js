@@ -80,4 +80,4 @@ function installDataGrid(){
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;state.active=item.dataset.file;loadActive();});
 }
 
-initNumberSettings();loadStorage();installDataGrid();installNavigation();installDataTools();installAnalysisFlow();installResultExport();
+initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installResultExport();
