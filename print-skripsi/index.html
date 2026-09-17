@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="description" content="Alat pemisah PDF skripsi menjadi bagian awal, halaman ganjil, dan halaman genap untuk kebutuhan pencetakan.">
+  <title>Print Skripsi | Irvan</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#13233a;background:#eef3f8;--navy:#17324d;--blue:#245c8f;--line:#d8e2ec;--muted:#637487;--surface:#fff;--success:#176b45;--error:#a12a2a}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#edf3f8 0,#f8fafc 45%,#eef3f8 100%);min-height:100vh;color:#13233a}.wrap{width:min(960px,calc(100% - 32px));margin:auto}.topbar{padding:18px 0}.back{display:inline-flex;align-items:center;gap:8px;color:var(--navy);font-weight:750;text-decoration:none}.hero{padding:38px 0 24px}.eyebrow{font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:var(--blue)}h1{font-size:clamp(34px,6vw,58px);line-height:1.02;letter-spacing:-.045em;margin:10px 0 16px}.lead{max-width:760px;color:var(--muted);font-size:17px;line-height:1.7;margin:0}.panel{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 18px 55px rgba(23,50,77,.08);margin:24px 0}.grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.field{display:grid;gap:8px}.field label{font-weight:800;font-size:14px}.field small{color:var(--muted);line-height:1.5}.field input[type="file"],.field input[type="number"]{width:100%;border:1px solid #cbd7e3;border-radius:12px;background:#fbfdff;padding:12px 13px;font:inherit;color:#13233a}.field input[type="file"]{padding:10px}.actions{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}.btn{appearance:none;border:0;border-radius:12px;padding:12px 18px;font:inherit;font-weight:800;cursor:pointer;background:var(--navy);color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}.privacy{color:var(--muted);font-size:13px}.status{margin-top:18px;padding:12px 14px;border-radius:12px;background:#eef4f9;color:#40566b;font-size:14px}.status[data-type="success"]{background:#e9f5ef;color:var(--success)}.status[data-type="error"]{background:#faecec;color:var(--error)}.summary{margin-top:18px}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.summary-grid>div{border:1px solid var(--line);border-radius:14px;padding:15px;background:#fbfdff}.summary-grid span,.summary-grid small{display:block;color:var(--muted);font-size:12px;line-height:1.5}.summary-grid b{display:block;margin:5px 0;font-size:18px}.results{display:grid;gap:12px;margin-top:18px}.download-card{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--line);border-radius:14px;padding:15px;background:#fff}.download-card p{margin:4px 0 0;color:var(--muted);font-size:13px}.download-btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap;border-radius:10px;background:var(--blue);color:#fff;padding:10px 13px;font-weight:800;font-size:13px}.note{margin:20px 0 54px;border-left:4px solid var(--blue);padding:14px 16px;background:#f2f7fb;border-radius:0 12px 12px 0;color:#53677a;line-height:1.65;font-size:14px}.note strong{color:#243b52}@media(max-width:700px){.grid,.summary-grid{grid-template-columns:1fr}.panel{padding:18px}.download-card{align-items:flex-start;flex-direction:column}.download-btn{width:100%}.hero{padding-top:20px}}
+  </style>
+</head>
+<body>
+  <div class="wrap topbar"><a class="back" href="/">← Kembali ke portofolio</a></div>
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">PDF utility</div>
+      <h1>Print Skripsi</h1>
+      <p class="lead">Unggah satu PDF skripsi, tentukan halaman terakhir sebelum BAB I Pendahuluan, lalu sistem akan membuat tiga file: bagian awal, halaman ganjil setelah bagian awal, dan halaman genap setelah bagian awal.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="splitTitle">
+      <h2 id="splitTitle" style="margin-top:0">Pisahkan PDF</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="pdfFile">File skripsi (PDF)</label>
+          <input id="pdfFile" type="file" accept="application/pdf,.pdf">
+          <small>PDF diproses langsung di browser dan tidak dikirim ke server.</small>
+        </div>
+        <div class="field">
+          <label for="cutoffPage">Halaman terakhir sebelum Pendahuluan</label>
+          <input id="cutoffPage" type="number" min="1" step="1" value="12" inputmode="numeric">
+          <small>Contoh: isi 12 jika BAB I Pendahuluan dimulai pada halaman PDF ke-13.</small>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="processPdf" class="btn" type="button" disabled>Proses dan pisahkan PDF</button>
+        <span class="privacy">Urutan halaman menggunakan nomor halaman PDF fisik, bukan nomor Romawi/Arab yang tercetak di dokumen.</span>
+      </div>
+      <div id="status" class="status" data-type="info" role="status" aria-live="polite">Pilih satu file PDF untuk mulai.</div>
+      <div id="summary" class="summary" hidden></div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <aside class="note"><strong>Aturan pembagian:</strong> jika nilai yang diisi adalah 12, File 1 berisi halaman 1-12; File 2 berisi 13, 15, 17, 19, …; dan File 3 berisi 14, 16, 18, 20, …. Nilai dapat diubah sesuai letak awal BAB I pada skripsi lain.</aside>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" integrity="sha256-vPU6rV0H3L5z1D8W7Ph6dNYi6CV2byRt1KzpxhJ9SbI=" crossorigin="anonymous"></script>
+  <script type="module" src="/print-skripsi/app.js"></script>
+</body>
+</html>
