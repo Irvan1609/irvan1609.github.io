@@ -4,9 +4,11 @@ import {fTail,compareMeans} from './statistics-engine.js';
 const sum=x=>x.reduce((a,b)=>a+b,0),mean=x=>sum(x)/x.length,sq=x=>x*x,unique=x=>[...new Set(x.map(String))];
 function term(label,ss,df,denMs=null,denDf=null,error=null){const ms=ss/df,f=denMs&&denMs>0?ms/denMs:null;return {label,ss,df,ms,f,p:f===null?null:fTail(f,df,denDf),f05:f===null?null:jStat.centralF.inv(.95,df,denDf),f01:f===null?null:jStat.centralF.inv(.99,df,denDf),error};}
 function noComparison(items,mse,df){return {items:items.map(item=>({...item,letters:[]})),method:'none',critical:[],pairs:[],mse,df};}
+function hasBlankDesignLabel(rows){return rows.some(r=>r.slice(0,3).some(v=>String(v??'').trim()===''));}
 
 export function nestedAnova(rows){
   if(!rows.length||rows.some(r=>r.length!==4||!Number.isFinite(r[3])))throw Error('Nested design memerlukan Faktor A, Faktor B(A), Ulangan, dan Y numerik.');
+  if(hasBlankDesignLabel(rows))throw Error('Faktor A, Faktor B(A), dan Ulangan tidak boleh kosong.');
   const A=unique(rows.map(r=>r[0])),BByA=new Map(),rep=unique(rows.map(r=>r[2]));
   for(const a of A)BByA.set(a,unique(rows.filter(r=>String(r[0])===a).map(r=>r[1])));
   const bCounts=[...BByA.values()].map(x=>x.length);if(A.length<2||Math.min(...bCounts)<2||new Set(bCounts).size!==1||rep.length<2)throw Error('Nested design saat ini memerlukan jumlah B(A) dan ulangan yang seimbang pada setiap A.');
@@ -47,6 +49,7 @@ function centerMatrix(n){return identity(n).map((r,i)=>r.map((v,j)=>v-1/n));}
 
 export function repeatedMeasuresAnova(rows){
   if(!rows.length||rows.some(r=>r.length!==4||!Number.isFinite(r[3])))throw Error('Repeated measures memerlukan Perlakuan, Subjek/Ulangan, Waktu, dan Y numerik.');
+  if(hasBlankDesignLabel(rows))throw Error('Perlakuan, Subjek/Ulangan, dan Waktu tidak boleh kosong.');
   const A=unique(rows.map(r=>r[0])),T=unique(rows.map(r=>r[2]));if(A.length<2||T.length<2)throw Error('Diperlukan minimal 2 perlakuan dan 2 waktu.');
   const subjectsByA=new Map(A.map(a=>[a,unique(rows.filter(r=>String(r[0])===a).map(r=>r[1]))]));const nCounts=[...subjectsByA.values()].map(x=>x.length);if(new Set(nCounts).size!==1||nCounts[0]<2)throw Error('Repeated measures saat ini memerlukan jumlah subjek/ulangan seimbang pada setiap perlakuan.');
   const n=nCounts[0],N=A.length*n,expected=N*T.length;if(rows.length!==expected)throw Error('Setiap subjek harus mempunyai satu pengamatan pada setiap waktu.');
