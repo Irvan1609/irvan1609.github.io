@@ -16,6 +16,7 @@ if (!fs.existsSync(printPath)) fail('dist/print-skripsi/index.html is missing');
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
 if (!portfolio.includes('Peneliti Agronomi')) fail('built root does not contain portfolio content');
 if (!portfolio.includes('/stat/')) fail('built portfolio does not link to /stat/');
+if (!portfolio.includes('/print-skripsi/')) fail('built portfolio does not link to /print-skripsi/');
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
@@ -25,8 +26,9 @@ if (/src\/[^"']+\.js/.test(html)) fail('built /stat page still references source
 if (/src\/[^"']+\.css/.test(html)) fail('built /stat page still references source CSS under /src/');
 
 const printHtml = fs.readFileSync(printPath, 'utf8');
-if (!printHtml.includes('Print Skripsi')) fail('built /print-skripsi page does not contain page title');
-if (!printHtml.includes('pdf-lib@1.17.1')) fail('built /print-skripsi page is missing pinned pdf-lib dependency');
+for (const marker of ['Print Skripsi','pdf-lib@1.17.1','pdf.js/3.11.174','jszip/3.10.1','previewCanvas','downloadAll']) {
+  if (!printHtml.includes(marker)) fail(`built /print-skripsi page is missing marker ${marker}`);
+}
 if (printHtml.includes('/print-skripsi/app.js')) fail('built /print-skripsi page still references source app.js');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);
@@ -41,9 +43,9 @@ if (!jsFiles.length) fail('no JavaScript bundle was produced');
 if (!cssFiles.length) fail('no CSS bundle was produced');
 
 const js = jsFiles.map(f => fs.readFileSync(path.join(assetDir, f), 'utf8')).join('\n');
-for (const marker of ['pasteBtn','openAnalysis','analysisChoice','cutoffPage','processPdf']) {
+for (const marker of ['pasteBtn','openAnalysis','analysisChoice','cutoffPage','processPdf','detectChapterOnePage','previewCanvas','downloadAll']) {
   if (!js.includes(marker)) fail(`JavaScript bundle is missing marker ${marker}`);
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
 
-console.log(`Dist check OK: portfolio root, /stat application, and /print-skripsi PDF utility built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production markers present.`);
+console.log(`Dist check OK: portfolio root, /stat application, and /print-skripsi preview/detection/ZIP utility built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production markers present.`);
