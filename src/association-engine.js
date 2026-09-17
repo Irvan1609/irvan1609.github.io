@@ -27,6 +27,7 @@ function standardized(x){
 }
 function ranks(x){const order=x.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v),out=[];for(let i=0;i<order.length;){let j=i+1;while(j<order.length&&order[j].v===order[i].v)j++;for(let k=i;k<j;k++)out[order[k].i]=(i+j+1)/2;i=j;}return out;}
 export function numericRows(dataset,columns,parse){
+  if(!dataset||!Array.isArray(dataset.headers)||!Array.isArray(dataset.rows)||dataset.rows.some(r=>!Array.isArray(r))||!Array.isArray(columns)||typeof parse!=='function')throw Error('Dataset, kolom, atau parser numerik tidak valid.');
   if(new Set(columns).size!==columns.length||columns.some(i=>!Number.isInteger(i)||i<0||i>=dataset.headers.length))throw Error('Pilih kolom berbeda yang valid.');
   const rows=[];dataset.rows.forEach((row,i)=>{if(row.every(v=>String(v??'').trim()===''))return;const values=columns.map(c=>parse(row[c]));if(values.some(x=>!Number.isFinite(x)))throw Error(`Baris ${i+1}: lengkapi angka pada semua kolom terpilih. Baris tidak dibuang otomatis.`);rows.push(values);});return rows;
 }
