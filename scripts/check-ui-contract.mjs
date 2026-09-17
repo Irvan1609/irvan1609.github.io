@@ -4,6 +4,7 @@ const portfolioHtml = fs.readFileSync('index.html', 'utf8');
 const html = fs.readFileSync('stat/index.html', 'utf8');
 const printHtml = fs.readFileSync('print-skripsi/index.html', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
+const navigation = fs.readFileSync('src/navigation.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
 const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
 const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
@@ -49,6 +50,13 @@ const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearDa
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 
+const toolsInit = main.indexOf('installDataTools();');
+const navInit = main.indexOf('installNavigation();');
+if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so Data/Help commands exist when menus are assembled');
+for (const marker of ["['dataMenu','Data'","['helpMenu','Help'",'validateDataset','dataTemplate','analysisHistory']) {
+  if (!navigation.includes(marker)) fail(`navigation.js missing Data/Help menu contract: ${marker}`);
+}
+
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport')) fail('scientific workflow is not connected to analysis/report engine');
@@ -68,4 +76,4 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
   if (!printApp.includes(marker)) fail(`print-skripsi app missing behavior marker: ${marker}`);
 }
 
-console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat analysis shell, /print-skripsi preview/BAB I detection/ZIP controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
+console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat Data/Help menu initialization and analysis shell, /print-skripsi preview/BAB I detection/ZIP controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
