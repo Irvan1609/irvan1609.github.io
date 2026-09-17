@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
-const html = fs.readFileSync('index.html', 'utf8');
+const portfolioHtml = fs.readFileSync('index.html', 'utf8');
+const html = fs.readFileSync('stat/index.html', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
 const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
@@ -12,6 +13,11 @@ function fail(message) {
   console.error(`UI contract failed: ${message}`);
   process.exit(1);
 }
+
+for (const marker of ['Peneliti Agronomi','href="/stat/"','Statistical Web']) {
+  if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
+}
+if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
@@ -70,4 +76,4 @@ for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMea
   if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
 }
 
-console.log(`UI contract OK: data-grid bindings, Analyze navigation, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
+console.log(`UI contract OK: portfolio root links to /stat/, statistical data-grid bindings, Analyze navigation, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, ${requiredIds.length} required elements, and F-table reporting contract present.`);
