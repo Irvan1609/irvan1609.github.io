@@ -33,10 +33,15 @@ export function parseNumber(value) {
 export function formatNumber(value, digits = 3) {
   if (value === Infinity) return '∞';
   if (!Number.isFinite(value)) return '—';
-  return value.toLocaleString(separator === ',' ? 'id-ID' : 'en-US', {
+  const precision = Number.isInteger(digits) && digits >= 0 ? digits : 3;
+  // Values that round to zero should be displayed as +0, not “-0.000”.
+  // This is display-only normalization; the underlying statistical value is unchanged.
+  const roundedZeroThreshold = 0.5 * 10 ** (-precision);
+  const displayValue = Math.abs(value) < roundedZeroThreshold ? 0 : value;
+  return displayValue.toLocaleString(separator === ',' ? 'id-ID' : 'en-US', {
     useGrouping: false,
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
   });
 }
 
