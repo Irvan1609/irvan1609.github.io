@@ -11,6 +11,7 @@ const n=nestedAnova(nested);
 near(n.grand,5);near(n.terms[0].ss,50);near(n.terms[1].ss,8);near(n.terms[2].ss,2);near(n.terms[3].ss,60);
 assert.deepEqual(n.terms.map(x=>x.df),[1,2,4,7]);near(n.terms[0].f,12.5);near(n.terms[1].f,8);
 assert.throws(()=>nestedAnova(nested.slice(1)),/tidak lengkap|seimbang/i);
+for(const index of [0,1,2]){const bad=nested.map(r=>[...r]);bad[0][index]='   ';assert.throws(()=>nestedAnova(bad),/tidak boleh kosong/i);}
 const post=nestedPosthoc(n,'bnt',.05);
 assert.equal(post.factorA.method,'none');
 assert.equal(post.factorA.error,'B(A)');
@@ -44,8 +45,9 @@ assert.ok(r.terms.find(x=>x.label==='Waktu').f>0);
 assert.ok(r.epsilon>=.5&&r.epsilon<=1);
 for(const label of ['Waktu','Perlakuan × Waktu']){const term=r.terms.find(x=>x.label===label);assert.ok(term.gg);assert.ok(term.gg.df1>0&&term.gg.df2>0);}
 assert.throws(()=>repeatedMeasuresAnova(repeated.slice(1)),/harus mempunyai|tidak lengkap|seimbang/i);
+for(const index of [0,1,2]){const bad=repeated.map(row=>[...row]);bad[0][index]=index===1?null:' ';assert.throws(()=>repeatedMeasuresAnova(bad),/tidak boleh kosong/i);}
 
 const workflow=fs.readFileSync(new URL('../src/design-extensions-workflow.js',import.meta.url),'utf8');
 for(const marker of ["parameterField(data,'nest')","parameterField(data,'repeat')",'data-${prefix}-param','nestPosthoc','nestAlpha','resultActions','backupRawDataset'])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 assert.ok(workflow.includes('Semua kolom numerik dicentang otomatis'));
-console.log('Design extensions verified: balanced nested ANOVA, nested BNT/BNJ/DMRT gating and error strata, multi-parameter UI contract, repeated-measures error strata, Greenhouse–Geisser epsilon, and incomplete-data rejection.');
+console.log('Design extensions verified: balanced nested ANOVA, nested BNT/BNJ/DMRT gating and error strata, multi-parameter UI contract, repeated-measures error strata, Greenhouse–Geisser epsilon, incomplete-data rejection, and blank design-label validation.');
