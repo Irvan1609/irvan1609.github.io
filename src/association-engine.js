@@ -18,7 +18,8 @@ export function coefficientCI(estimate,se,df,alpha=.05){
   return [lower,upper];
 }
 function standardized(x){
-  const scale=Math.max(...x.map(Math.abs));
+  let scale=0;
+  for(const value of x)scale=Math.max(scale,Math.abs(value));
   if(!Number.isFinite(scale)||scale===0)throw Error('Kolom konstan atau hampir konstan tidak dapat dianalisis.');
   const scaled=x.map(v=>v/scale),m=mean(scaled),center=scaled.map(v=>v-m),norm=Math.sqrt(dot(center,center));
   if(!Number.isFinite(norm)||norm<=1e-13*Math.max(Math.abs(m),Number.MIN_VALUE))throw Error('Kolom konstan atau hampir konstan tidak dapat dianalisis.');
