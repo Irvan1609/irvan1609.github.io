@@ -1,4 +1,4 @@
-const normalized=name=>String(name??'').trim().toLowerCase();
+const normalized=name=>String(name??'').normalize('NFKC').trim().toLowerCase();
 
 export function isUniqueColumnName(headers,name,excludeIndex=-1){
   const target=normalized(name);
