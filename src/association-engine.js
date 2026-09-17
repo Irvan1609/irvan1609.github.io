@@ -13,8 +13,9 @@ export function correlationCI(r,n,alpha=.05){
 }
 export function coefficientCI(estimate,se,df,alpha=.05){
   if(!Number.isFinite(estimate)||!Number.isFinite(se)||se<0||!Number.isInteger(df)||df<1||!(alpha>0&&alpha<1))throw Error('CI koefisien memerlukan estimasi dan SE valid, db ≥ 1, serta 0 < alpha < 1.');
-  const critical=jStat.studentt.inv(1-alpha/2,df),margin=critical*se;
-  return [estimate-margin,estimate+margin];
+  const critical=jStat.studentt.inv(1-alpha/2,df),margin=critical*se,lower=estimate-margin,upper=estimate+margin;
+  if(!Number.isFinite(margin)||!Number.isFinite(lower)||!Number.isFinite(upper))throw Error('CI koefisien melampaui rentang numerik yang dapat dihitung. Periksa skala estimasi dan SE.');
+  return [lower,upper];
 }
 function standardized(x){
   const scale=Math.max(...x.map(Math.abs));
