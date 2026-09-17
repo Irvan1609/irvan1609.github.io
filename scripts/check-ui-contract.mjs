@@ -15,7 +15,7 @@ function fail(message) {
   process.exit(1);
 }
 
-for (const marker of ['Peneliti Agronomi','href="/stat/"','Statistical Web']) {
+for (const marker of ['Peneliti Agronomi','href="/stat/"','href="/print-skripsi/"','Statistical Web']) {
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
@@ -86,4 +86,4 @@ for (const marker of ['Print Skripsi','value="12"','pdf-lib@1.17.1','/print-skri
   if (!printHtml.includes(marker)) fail(`print-skripsi missing marker: ${marker}`);
 }
 
-console.log(`UI contract OK: portfolio root, /stat return control and analysis shell, /print-skripsi upload/cutoff controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
+console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat return control and analysis shell, /print-skripsi upload/cutoff controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
