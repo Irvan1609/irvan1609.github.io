@@ -35,6 +35,10 @@ const requiredIds = [
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
+for (const id of ['closeModal','closeDatasetName','closeRak','closeRal']) {
+  if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(html)) fail(`#${id} needs an accessible name`);
+}
+
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
 for (const src of ['/src/main.js','/src/ral.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
@@ -68,6 +72,9 @@ for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMea
 const printIds = [...printHtml.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 for (const id of ['pdfFile','cutoffPage','processPdf','downloadAll','detectionStatus','previewSection','previewCanvas','previewPage','prevPage','nextPage','usePreviewPage','status','summary','results']) {
   if (!printIds.includes(id)) fail(`print-skripsi missing required element #${id}`);
+}
+for (const id of ['prevPage','nextPage']) {
+  if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(printHtml)) fail(`print-skripsi #${id} needs an accessible name`);
 }
 for (const marker of ['Print Skripsi','value="12"','pdf-lib@1.17.1','pdf.js/3.11.174','jszip/3.10.1','/print-skripsi/app.js','href="/"']) {
   if (!printHtml.includes(marker)) fail(`print-skripsi missing marker: ${marker}`);
