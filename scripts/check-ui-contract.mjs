@@ -9,6 +9,7 @@ const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
 const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
 const scientificReport = fs.readFileSync('src/scientific-report.js', 'utf8');
 const report = fs.readFileSync('src/report-utils.js', 'utf8');
+const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 
 function fail(message) {
   console.error(`UI contract failed: ${message}`);
@@ -31,18 +32,11 @@ const requiredIds = [
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
   'status','errorBox','gridWrap'
 ];
-for (const id of requiredIds) {
-  if (!ids.includes(id)) fail(`missing required element #${id}`);
-}
+for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
-for (const src of ['/src/main.js','/src/ral.js']) {
-  if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
-}
-
-if (html.includes('report-enhancements.js')) {
-  fail('report-enhancements.js must not be loaded in production shell');
-}
+for (const src of ['/src/main.js','/src/ral.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
+if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
 if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('navigation must contain one Analyze button');
@@ -51,39 +45,27 @@ if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not b
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
 
-const mainBindings = [
-  'pasteBtn','importBtn','newTxt','addRow','addCol','clearData',
-  'closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset'
-];
-for (const id of mainBindings) {
-  if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
-}
-
-const ralBindings = ['runRal','closeRal','closeRal2'];
-for (const id of ralBindings) {
-  if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
-}
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset'];
+for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
+for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport')) fail('scientific workflow is not connected to analysis/report engine');
 const designMap = scientificReport.match(/export const designNames\s*=\s*\{([^}]*)\}/)?.[1] || '';
-for (const design of ['ral','rak','fral','frak','split']) {
-  if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);
-}
-for (const required of ['F. Hitung','F. Tabel','table-caption']) {
-  if (!scientificReport.includes(required)) fail(`scientific-report.js missing reporting marker: ${required}`);
-}
-for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMeanChart']) {
-  if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
-}
+for (const design of ['ral','rak','fral','frak','split']) if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);
+for (const required of ['F. Hitung','F. Tabel','table-caption']) if (!scientificReport.includes(required)) fail(`scientific-report.js missing reporting marker: ${required}`);
+for (const required of ['centralF.inv','effectLevel','cvPercent','descriptiveMeanChart']) if (!report.includes(required)) fail(`report-utils.js missing ${required}`);
 
 const printIds = [...printHtml.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
-for (const id of ['pdfFile','cutoffPage','processPdf','status','summary','results']) {
+for (const id of ['pdfFile','cutoffPage','processPdf','downloadAll','detectionStatus','previewSection','previewCanvas','previewPage','prevPage','nextPage','usePreviewPage','status','summary','results']) {
   if (!printIds.includes(id)) fail(`print-skripsi missing required element #${id}`);
 }
-for (const marker of ['Print Skripsi','value="12"','pdf-lib@1.17.1','/print-skripsi/app.js','href="/"']) {
+for (const marker of ['Print Skripsi','value="12"','pdf-lib@1.17.1','pdf.js/3.11.174','jszip/3.10.1','/print-skripsi/app.js','href="/"']) {
   if (!printHtml.includes(marker)) fail(`print-skripsi missing marker: ${marker}`);
 }
+for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','new JSZip']) {
+  if (!printApp.includes(marker)) fail(`print-skripsi app missing behavior marker: ${marker}`);
+}
 
-console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat return control and analysis shell, /print-skripsi upload/cutoff controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
+console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat analysis shell, /print-skripsi preview/BAB I detection/ZIP controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
