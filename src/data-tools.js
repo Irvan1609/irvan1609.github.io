@@ -46,7 +46,7 @@ export function installDataTools(){
           else if(value.text!==undefined)value=value.text;
         }
         if(value===null||value===undefined)return '';
-        if(typeof value==='number')return String(value).replace('.',getDecimalSeparator());
+        if(typeof value==='number')return String(value);
         if(typeof value==='string')return value;
         throw Error('Ada nilai tanggal, kesalahan formula, atau tipe sel yang tidak didukung. Ubah menjadi angka atau teks.');
       };
