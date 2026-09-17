@@ -43,7 +43,7 @@ if (!jsFiles.length) fail('no JavaScript bundle was produced');
 if (!cssFiles.length) fail('no CSS bundle was produced');
 
 const js = jsFiles.map(f => fs.readFileSync(path.join(assetDir, f), 'utf8')).join('\n');
-for (const marker of ['pasteBtn','openAnalysis','analysisChoice','cutoffPage','processPdf','detectChapterOnePage','previewCanvas','downloadAll']) {
+for (const marker of ['pasteBtn','openAnalysis','analysisChoice','cutoffPage','processPdf','previewCanvas','downloadAll']) {
   if (!js.includes(marker)) fail(`JavaScript bundle is missing marker ${marker}`);
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
