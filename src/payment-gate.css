@@ -1,0 +1,8 @@
+.payment-dialog{max-width:520px}
+.payment-price{font-size:1.05rem;margin:0 0 12px}
+.payment-message{min-height:24px;margin:10px 0;color:var(--muted)}
+.payment-message.error{color:#8a2424}.payment-message.success{color:#1b6b3a}
+.payment-qr{display:block;width:min(320px,100%);height:auto;margin:16px auto;border:1px solid var(--border);border-radius:8px;background:#fff;padding:8px}
+.payment-order{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere;text-align:center}
+#paymentCreditStatus{margin-left:auto}
+@media(max-width:720px){#paymentCreditStatus{margin-left:0}.payment-dialog{width:100%}}

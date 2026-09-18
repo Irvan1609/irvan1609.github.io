@@ -1,4 +1,5 @@
 import { installAnalysisFlow } from './analysis-flow.js';
+import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName} from './dataset-columns.js';
 import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
@@ -80,4 +81,4 @@ function installDataGrid(){
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;state.active=item.dataset.file;loadActive();});
 }
 
-initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installResultExport();
+initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
