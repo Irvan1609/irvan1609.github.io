@@ -2,7 +2,7 @@ import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
 import {installDataEnhancements} from './data-enhancements.js';
-import {isUniqueColumnName} from './dataset-columns.js';
+import {validateColumnNames} from './dataset-columns.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 export function readDataset(){
@@ -15,13 +15,6 @@ function templateOptions(){
 function templatePreview(template){
   const separator=getDecimalSeparator(),rows=rowsForEditor(template,separator),preview=rows.slice(0,6);
   return `<div class="analysis-note"><b>${esc(template.label)}</b><br>${esc(template.description)}</div><p><b>Kolom:</b> ${template.headers.map(esc).join(' · ')}</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="form-help">Preview ${preview.length} dari ${rows.length} baris contoh. Dataset yang dibuat dapat langsung diedit pada Data Editor.</p>`;
-}
-function normalizedHeaders(headers){return headers.map(h=>String(h??'').trim());}
-function validateHeaders(headers){
-  const clean=normalizedHeaders(headers);
-  if(!clean.length||clean.some(h=>!h))throw Error('Judul kolom harus terisi.');
-  if(clean.some((header,index)=>!isUniqueColumnName(clean,header,index)))throw Error('Judul kolom harus unik tanpa membedakan huruf besar-kecil atau bentuk Unicode (misalnya “Produksi” dan “produksi” dianggap sama).');
-  return clean;
 }
 export function installDataTools(){
   installDatasetSidebarEnhancements();
@@ -60,7 +53,7 @@ export function installDataTools(){
       function preview(){try{const rows=extract();$('#sheetPreview').innerHTML=`<table class="result-table">${rows.slice(0,7).map((r,i)=>`<tr>${r.map(v=>`<${i?'td':'th'}>${esc(v)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table><p>${Math.max(0,rows.length-1)} pengamatan.</p>`;$('#importError').textContent='';}catch(e){$('#importError').textContent=e.message;}}
       $('#importSheet').onchange=preview;preview();
       $('#applyXlsx').onclick=()=>{try{
-        const [headers,...rows]=extract(),cleanHeaders=validateHeaders(headers);
+        const [headers,...rows]=extract(),cleanHeaders=validateColumnNames(headers);
         if(!rows.length)throw Error('Belum ada baris pengamatan.');
         document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:file.name.replace(/\.xlsx$/i,'')+'-'+sheets[Number($('#importSheet').value)].name,headers:cleanHeaders,rows}}));
         $('#dataToolModal').classList.remove('open');

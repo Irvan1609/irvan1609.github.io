@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {nextColumnName,isUniqueColumnName} from '../src/dataset-columns.js';
+import {nextColumnName,isUniqueColumnName,validateColumnNames} from '../src/dataset-columns.js';
 import {parseNumber,formatNumber,getDecimalSeparator} from '../src/number-format.js';
 assert.equal(nextColumnName([]),'Variable1');
 assert.equal(nextColumnName(['Variable1','Variable2']),'Variable3');
@@ -15,6 +15,12 @@ assert.equal(isUniqueColumnName(['Produksi','Tinggi'],'   '),false);
 assert.equal(isUniqueColumnName(['Produksi','Tinggi'],'Ｐｒｏｄｕｋｓｉ'),false);
 assert.equal(isUniqueColumnName(['Café','Tinggi'],'Cafe\u0301'),false);
 assert.equal(nextColumnName(['Variable1','Ｖａｒｉａｂｌｅ３']),'Variable4');
+assert.deepEqual(validateColumnNames([' Perlakuan ','Produksi']),['Perlakuan','Produksi']);
+assert.throws(()=>validateColumnNames(['Perlakuan','perlakuan']),/harus unik/);
+assert.throws(()=>validateColumnNames(['Perlakuan','']),/harus terisi/);
+assert.throws(()=>validateColumnNames(['Café','Cafe\u0301']),/harus unik/);
+const importedHeaders=[' Perlakuan ','Produksi'];
+validateColumnNames(importedHeaders);assert.deepEqual(importedHeaders,[' Perlakuan ','Produksi']);
 
 // Numeric parsing is a statistical input boundary: accept only the configured
 // decimal convention and reject grouping/ambiguous text before analysis.

@@ -11,6 +11,7 @@ const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
 const scientificReport = fs.readFileSync('src/scientific-report.js', 'utf8');
 const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
+const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
 
 function fail(message) {
   console.error(`UI contract failed: ${message}`);
@@ -52,6 +53,8 @@ for(const required of ["data-association=\"correlation\"","data-association=\"pa
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','deleteDataset'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
+if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
+if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
 for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 
 const toolsInit = main.indexOf('installDataTools();');
