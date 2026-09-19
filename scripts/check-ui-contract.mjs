@@ -36,6 +36,12 @@ const requiredIds = [
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
+for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['rakModal','rakModalTitle'],['ralModal','ralModalTitle']]) {
+  const start=html.indexOf(`id="${modalId}"`), end=html.indexOf('</div></div>',start);
+  const fragment=start>=0&&end>start?html.slice(start,end):'';
+  if(!fragment.includes('role="dialog"')||!fragment.includes('aria-modal="true"')||!fragment.includes(`aria-labelledby="${titleId}"`)||!fragment.includes(`id="${titleId}"`))fail(`#${modalId} needs dialog semantics and an accessible title`);
+}
+
 for (const id of ['closeModal','closeDatasetName','closeRak','closeRal']) {
   if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(html)) fail(`#${id} needs an accessible name`);
 }
