@@ -163,8 +163,6 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       }
       return;
     }
-      return;
-    }
     if(table.classList.contains('anova-report-table')&&observationContext){
       const headRows=table.tHead?.rows.length||1,rowByLabel={};
       [...(table.tBodies?.[0]?.rows||[])].forEach((row,i)=>{rowByLabel[textOf(row.cells[0]).toLocaleLowerCase('id-ID')]=start+headRows+i;});
