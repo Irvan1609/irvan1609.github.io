@@ -61,15 +61,15 @@ async function copyScope(scope) {
   area.remove();
 }
 
-async function exportScope(scope, filename) {
+async function exportScope(scope, filename, formulas=false) {
   const snapshot = cleanClone(scope);
   snapshot.dataset.decimalSeparator = getDecimalSeparator();
   const { downloadReportXlsx } = await import('./xlsx-export.js');
-  await downloadReportXlsx(snapshot, filename);
+  await downloadReportXlsx(snapshot, filename, {formulas});
 }
 
 export function resultActions(filename='hasil-analisis') {
-  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
+  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">ƒx Ekspor Excel (formula)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
 export function installResultExport() {
@@ -78,7 +78,8 @@ export function installResultExport() {
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
-    const scope = button.dataset.resultAction==='export-all'?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
+    const action=button.dataset.resultAction,isAll=action==='export-all'||action==='export-all-formula';
+    const scope = isAll?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
     const feedback=button.closest('.result-actions')?.querySelector('.export-status');
@@ -88,16 +89,18 @@ export function installResultExport() {
     button.disabled=true;
     button.textContent='Memproses…';
     try {
-      if(button.dataset.resultAction==='export-all'){
+      if(isAll){
         const snapshot=cleanClone(scope);snapshot.dataset.decimalSeparator=getDecimalSeparator();
-        const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot);
-        message('Seluruh parameter diekspor; satu lembar per parameter.');
+        const formulas=action==='export-all-formula';
+        const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot,{formulas});
+        message(formulas?'Seluruh parameter diekspor dengan formula Excel pada perhitungan yang dapat direkonstruksi.':'Seluruh parameter diekspor; satu lembar per parameter.');
       } else if (button.dataset.resultAction === 'copy') {
         await copyScope(scope);
         message('Hasil disalin. Tempel langsung ke Excel.');
-      } else if (button.dataset.resultAction === 'export') {
-        await exportScope(scope, button.dataset.resultFilename);
-        message('File Excel (.xlsx) siap diunduh.');
+      } else if (action === 'export' || action === 'export-formula') {
+        const formulas=action==='export-formula';
+        await exportScope(scope, button.dataset.resultFilename, formulas);
+        message(formulas?'File Excel formula siap diunduh; Excel akan menghitung ulang saat dibuka.':'File Excel (.xlsx) siap diunduh.');
       }
     } catch (error) {
       console.error(error);
