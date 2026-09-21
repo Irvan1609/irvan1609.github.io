@@ -70,13 +70,13 @@ export function renderReport(report){
   const {name,design,alpha}=report;let num=0;
   const caption=text=>`<div class="table-caption">Tabel ${++num}. ${esc(text)}</div>`;
   const cvText=design==='split'?`KK (a) = ${fmt(report.cvWhole,2)}%; KK (b) = ${fmt(report.cv,2)}%`:`KK = ${fmt(report.cv,2)}%`;
-  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
+  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-design="${esc(design)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
   const multi=['fral','frak','split'].includes(design),grouped=['rak','frak','split'].includes(design);
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));
   const repNames=hasRep?report.replicates:Array.from({length:Math.max(...rawGroups.map(g=>g.length))},(_,i)=>String(i+1));
   const displayGroups=rawGroups.map(g=>repNames.map((rep,i)=>hasRep?g.find(o=>o.rep===rep)?.y:g[i]?.y));
-  const observationRows=report.cells.map((c,i)=>[esc(c.label),...displayGroups[i].map(x=>x===undefined?'':x),rawGroups[i].reduce((s,o)=>s+o.y,0),c.mean]);
+  const observationRows=report.cells.map((c,i)=>[`<span data-factor-a="${esc(c.a)}" data-factor-b="${esc(c.b)}">${esc(c.label)}</span>`,...displayGroups[i].map(x=>x===undefined?'':x),rawGroups[i].reduce((s,o)=>s+o.y,0),c.mean]);
   observationRows.push(['Total',...repNames.map((_,i)=>displayGroups.reduce((s,g)=>s+(g[i]??0),0)),report.observations.reduce((s,o)=>s+o.y,0),report.grand]);
   html+=caption('Data pengamatan')+table(['Perlakuan',...repNames.map(r=>(grouped?'Kelompok ':'Ulangan ')+r),'Total','Rata-rata'],observationRows,'observation-table');
   html+=caption('Sidik ragam')+renderAnova(report);

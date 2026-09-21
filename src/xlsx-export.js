@@ -4,10 +4,66 @@ import {datasetExcelFilename} from './export-filename.js';
 import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
-import {observationFormulaPlan,oneWayAnovaFormulaPlan,excelRef} from './xlsx-formulas.js';
+import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef} from './xlsx-formulas.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
+
+const rawKey=(a,b,rep)=>[a,b,rep].map(value=>String(value??'')).join('\u0000');
+function rawNumber(cell,separator){
+  const raw=cell?.hasAttribute?.('data-number')?cell.dataset.number:cell?.querySelector?.('[data-number]')?.dataset.number;
+  if(raw!==undefined){const n=Number(raw);return Number.isFinite(n)?n:NaN;}
+  const text=textOf(cell),normalized=separator===','?text.replace(',','.'):text;
+  if(separator===','&&text.includes('.'))return NaN;
+  return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)?Number(normalized):NaN;
+}
+function observationMeta(table){
+  const head=[...(table.tHead?.rows||[])];
+  if(!head.length)return {repCount:0,repLabels:[]};
+  if(head.length>1){
+    return {repCount:head[1].cells.length,repLabels:[...head[1].cells].map(cell=>textOf(cell))};
+  }
+  const cells=[...head[0].cells],repCount=Math.max(0,cells.length-3);
+  return {repCount,repLabels:cells.slice(1,1+repCount).map(cell=>textOf(cell).replace(/^(Ulangan|Kelompok)\s+/i,''))};
+}
+function prepareFormulaRawData(book,scopes){
+  const sheet=book.addWorksheet('all data');
+  sheet.columns=[{width:28},{width:20},{width:20},{width:18},{width:16}];
+  sheet.addRow(['Parameter','Faktor A / Perlakuan','Faktor B','Ulangan / Kelompok','Nilai']);
+  const contexts=new Map();let nextRow=2;
+  for(const scope of scopes){
+    const table=scope.querySelector('.observation-table');
+    if(!table)continue;
+    const separator=scope.dataset.decimalSeparator||getDecimalSeparator(),meta=observationMeta(table);
+    if(!meta.repCount)continue;
+    const parameter=scope.dataset.parameter||scope.querySelector('h3')?.textContent||'Parameter';
+    const rows=[...(table.tBodies?.[0]?.rows||[])],context={sheetName:'all data',startRow:nextRow,endRow:nextRow-1,aLevels:[],bLevels:[],reps:[],cellRows:new Map()};
+    for(const row of rows){
+      if(/^Total$/i.test(textOf(row.cells[0])))continue;
+      const marker=row.cells[0]?.querySelector?.('[data-factor-a]');
+      const a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
+      if(!context.aLevels.includes(a))context.aLevels.push(a);
+      if(b&&!context.bLevels.includes(b))context.bLevels.push(b);
+      for(let i=0;i<meta.repCount;i++){
+        const value=rawNumber(row.cells[i+1],separator);
+        if(!Number.isFinite(value))continue;
+        const rep=meta.repLabels[i]||String(i+1);
+        if(!context.reps.includes(rep))context.reps.push(rep);
+        sheet.addRow([parameter,a,b,rep,value]);
+        context.cellRows.set(rawKey(a,b,rep),nextRow++);
+      }
+    }
+    context.endRow=nextRow-1;
+    if(context.endRow>=context.startRow)contexts.set(scope,context);
+  }
+  const header=sheet.getRow(1);
+  header.font={name:'Calibri',size:11,bold:true};
+  header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  header.alignment={horizontal:'center',vertical:'middle'};
+  sheet.views=[{state:'frozen',ySplit:1}];
+  if(nextRow===2)book.removeWorksheet(sheet.id);
+  return contexts;
+}
 
 export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',options={}) {
   const separator=scope.dataset.decimalSeparator||getDecimalSeparator();
@@ -30,7 +86,10 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     if(!text)return;
     sheet.mergeCells(rowNumber,1,rowNumber,width);
     const cell=sheet.getCell(rowNumber,1);
-    cell.value=text;
+    if(formulaMode&&/^KK\s*=/.test(text)&&lastAnovaContext?.errorRow&&observationContext&&scope.dataset.design!=='split'){
+      const formula=`"KK = "&TEXT(SQRT(${excelRef(lastAnovaContext.errorRow,4)}/${excelRef(observationContext.footerRow,observationContext.meanCol)}*100,"0.00")&"%"`;
+      cell.value={formula,result:text};
+    }else cell.value=text;
     cell.font={name:'Calibri',size:11,bold};
     cell.alignment={vertical:'middle',wrapText:true};
     sheet.getRow(rowNumber).height=Math.max(26,18*Math.ceil(text.length/(40+18*(width-1))));
@@ -79,17 +138,31 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       setFormula(item.row,7,`IFERROR(F.INV.RT(0.01,${excelRef(item.row,2,false)},${excelRef(error.row,2)}),"")`,item.f01);
       if(item.tr.cells.length>=8)setFormula(item.row,8,`IF(${excelRef(item.row,5,false)}>${excelRef(item.row,7,false)},"**",IF(${excelRef(item.row,5,false)}>${excelRef(item.row,6,false)},"*","tn"))`,item.mark);
     }
+    if(errors.length===1)lastAnovaContext={errorRow:errors[0].row};
   }
   function applyTableFormulas(table,start){
     if(!formulaMode)return;
     if(table.classList.contains('observation-table')){
-      const headRows=table.tHead?.rows.length||0,body=[...(table.tBodies?.[0]?.rows||[])],repCount=table.tHead?.rows?.[1]?.cells.length||0;
-      if(body.length&&repCount){
-        const dataStartRow=start+headRows,dataEndRow=dataStartRow+body.length-1,repStartCol=2,repEndCol=1+repCount,totalCol=repEndCol+1,meanCol=totalCol+1,footerRow=dataEndRow+(table.tFoot?.rows.length?1:0);
-        const counts=body.map(row=>[...row.cells].slice(1,1+repCount).filter(cell=>Number.isFinite(sourceNumber(cell))).length);
+      const headRows=table.tHead?.rows.length||0,body=[...(table.tBodies?.[0]?.rows||[])],meta=observationMeta(table),repCount=meta.repCount;
+      const totalIndex=body.findIndex(row=>/^Total$/i.test(textOf(row.cells[0]))),dataRows=body.filter((_,i)=>i!==totalIndex);
+      if(dataRows.length&&repCount){
+        const dataStartRow=start+headRows,dataEndRow=dataStartRow+dataRows.length-1,repStartCol=2,repEndCol=1+repCount,totalCol=repEndCol+1,meanCol=totalCol+1;
+        const footerRow=table.tFoot?.rows.length?start+headRows+body.length:totalIndex>=0?start+headRows+totalIndex:dataEndRow+1;
+        const counts=dataRows.map(row=>[...row.cells].slice(1,1+repCount).filter(cell=>Number.isFinite(sourceNumber(cell))).length);
         observationContext={dataStartRow,dataEndRow,repStartCol,repEndCol,totalCol,meanCol,footerRow,equalN:counts.length>0&&counts.every(n=>n===counts[0]),n:counts[0]||0};
+        if(options.rawContext){
+          dataRows.forEach((row,rowIndex)=>{
+            const marker=row.cells[0]?.querySelector?.('[data-factor-a]'),a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
+            for(let i=0;i<repCount;i++){
+              const rawRow=options.rawContext.cellRows?.get(rawKey(a,b,meta.repLabels[i]||String(i+1)));
+              if(rawRow)setFormula(dataStartRow+rowIndex,repStartCol+i,`='all data'!$E$${rawRow}`,sourceNumber(row.cells[i+1]));
+            }
+          });
+        }
         applyPlan(observationFormulaPlan(observationContext));
       }
+      return;
+    }
       return;
     }
     if(table.classList.contains('anova-report-table')&&observationContext){
@@ -101,6 +174,11 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       return;
     }
     if(table.classList.contains('anova-table')){
+      if(options.rawContext&&['fral','frak'].includes(scope.dataset.design)){
+        const headRows=table.tHead?.rows.length||1,rowByLabel={};
+        [...(table.tBodies?.[0]?.rows||[])].forEach((row,i)=>{rowByLabel[textOf(row.cells[0]).toLocaleLowerCase('id-ID')]=start+headRows+i;});
+        applyPlan(factorialAnovaFormulaPlan(scope.dataset.design,rowByLabel,options.rawContext));
+      }
       applyScientificAnovaFormulas(table,start);
       return;
     }
@@ -164,8 +242,17 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
 
 export async function downloadReportXlsx(scope,filename,options={}) {
   // Capture the visible report synchronously, before asynchronous workbook serialization.
-  const book=createReportWorkbook(scope,null,'Hasil analisis',options);
-  await addChartImages(book,book.worksheets[0],scope);
+  let book,reportSheet;
+  if(options.formulas){
+    book=new ExcelJS.Workbook();
+    const contexts=prepareFormulaRawData(book,[scope]);
+    createReportWorkbook(scope,book,'Hasil analisis',{...options,rawContext:contexts.get(scope)});
+    reportSheet=book.getWorksheet('Hasil analisis');
+  }else{
+    book=createReportWorkbook(scope,null,'Hasil analisis',options);
+    reportSheet=book.getWorksheet('Hasil analisis');
+  }
+  await addChartImages(book,reportSheet,scope);
   const buffer=await book.xlsx.writeBuffer();
   const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
@@ -194,11 +281,11 @@ async function addChartImages(book,sheet,scope){
 }
 
 export function createCombinedWorkbook(scopes,options={}){
-  const book=new ExcelJS.Workbook(),used=new Set();
+  const book=new ExcelJS.Workbook(),used=new Set(),contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map();
   scopes.forEach((scope,index)=>{
     const base=String(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`).replace(/[\\/*?:\[\]]/g,'-').replace(/^'+|'+$/g,'').slice(0,31)||`Parameter ${index+1}`;
     let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
-    createReportWorkbook(scope,book,name,options);
+    createReportWorkbook(scope,book,name,{...options,rawContext:contexts.get(scope)});
   });
   return book;
 }
@@ -207,7 +294,8 @@ export async function downloadAllReportsXlsx(scope,options={}){
   if(!sections.length)throw Error('Belum ada hasil untuk diekspor.');
   sections.forEach(section=>section.dataset.decimalSeparator=scope.dataset.decimalSeparator||getDecimalSeparator());
   const book=createCombinedWorkbook(sections,options);
-  for(let i=0;i<sections.length;i++)await addChartImages(book,book.worksheets[i],sections[i]);
+  const reportSheets=book.worksheets.filter(sheet=>sheet.name!=='all data');
+  for(let i=0;i<sections.length;i++)await addChartImages(book,reportSheets[i],sections[i]);
   const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename((scope.dataset.datasetName||sections[0]?.dataset.datasetName)+(options.formulas?'-formula':''));a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }

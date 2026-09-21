@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelColumn,excelRef,observationFormulaPlan,oneWayAnovaFormulaPlan} from '../src/xlsx-formulas.js';
+import {excelColumn,excelRef,observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan} from '../src/xlsx-formulas.js';
 
 assert.equal(excelColumn(1),'A');
 assert.equal(excelColumn(26),'Z');
@@ -29,3 +29,20 @@ assert.equal(formula(rak,14,2),'B15-B13-B12');
 assert.equal(formula(rak,13,7),'IFERROR(F.INV.RT(0.01,B13,$B$14),"")');
 
 console.log('Excel formula export plan verified for observation tables and RAL/RAK ANOVA.');
+
+const factorialRaw={sheetName:'all data',startRow:2,endRow:28,aLevels:['B0','B1','B2'],bLevels:['M0','M1','M2'],reps:['1','2','3']};
+const frak=factorialAnovaFormulaPlan('frak',{
+  kelompok:25,perlakuan:26,'faktor a':27,'faktor b':28,'interaksi (a × b)':29,acak:30,total:31
+},factorialRaw);
+assert.ok(formula(frak,25,3).includes("SUMIFS('all data'!$E$2:$E$28,'all data'!$D$2:$D$28,\"1\")^2"));
+assert.ok(formula(frak,26,3).includes("COUNTIFS('all data'!$B$2:$B$28,\"B0\",'all data'!$C$2:$C$28,\"M0\")"));
+assert.ok(formula(frak,27,3).includes("SUMIFS('all data'!$E$2:$E$28,'all data'!$B$2:$B$28,\"B0\")^2"));
+assert.equal(formula(frak,29,3),'C26-C27-C28');
+assert.equal(formula(frak,30,3),'C31-C25-C26');
+assert.ok(formula(frak,31,3).startsWith("SUMSQ('all data'!$E$2:$E$28)-"));
+
+const fral=factorialAnovaFormulaPlan('fral',{
+  perlakuan:20,'faktor a':21,'faktor b':22,'interaksi (a × b)':23,acak:24,total:25
+},factorialRaw);
+assert.equal(formula(fral,24,3),'C25-C20');
+console.log('Factorial formula export references raw all data and reconstructs JK components.');

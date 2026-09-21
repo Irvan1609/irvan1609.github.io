@@ -87,3 +87,55 @@ export function oneWayAnovaFormulaPlan(design,rowByLabel,observation){
   }
   return cells;
 }
+
+function excelString(value){
+  return '"' + String(value ?? '').replace(/"/g,'""') + '"';
+}
+function sheetRange(sheetName,startRow,col,endRow=startRow){
+  const sheet="'"+String(sheetName||'all data').replace(/'/g,"''")+"'";
+  return `${sheet}!${excelRange(startRow,col,endRow,col)}`;
+}
+function groupedSquareTerm(yRange,criteria){
+  const args=criteria.flatMap(([range,value])=>[range,excelString(value)]);
+  return `SUMIFS(${[yRange,...args].join(',')})^2/COUNTIFS(${args.join(',')})`;
+}
+
+export function factorialAnovaFormulaPlan(design,rowByLabel,raw){
+  if(!['fral','frak'].includes(design))throw new Error('Formula JK faktorial hanya mendukung Faktorial RAL/RAK.');
+  const treatment=rowByLabel.perlakuan;
+  const factorA=rowByLabel['faktor a'];
+  const factorB=rowByLabel['faktor b'];
+  const interaction=rowByLabel['interaksi (a × b)']??rowByLabel['a × b'];
+  const error=rowByLabel.acak??rowByLabel.galat;
+  const total=rowByLabel.total;
+  const block=rowByLabel.kelompok??rowByLabel.ulangan;
+  if(!treatment||!factorA||!factorB||!interaction||!error||!total||(design==='frak'&&!block))return [];
+  const {sheetName='all data',startRow,endRow,aLevels=[],bLevels=[],reps=[]}=raw||{};
+  if(!startRow||!endRow||!aLevels.length||!bLevels.length)return [];
+  const aRange=sheetRange(sheetName,startRow,2,endRow);
+  const bRange=sheetRange(sheetName,startRow,3,endRow);
+  const repRange=sheetRange(sheetName,startRow,4,endRow);
+  const yRange=sheetRange(sheetName,startRow,5,endRow);
+  const cf=`(SUM(${yRange})^2/COUNT(${yRange}))`;
+  const ssA=`${aLevels.map(level=>groupedSquareTerm(yRange,[[aRange,level]])).join('+')}-${cf}`;
+  const ssB=`${bLevels.map(level=>groupedSquareTerm(yRange,[[bRange,level]])).join('+')}-${cf}`;
+  const ssTreatment=`${aLevels.flatMap(a=>bLevels.map(b=>groupedSquareTerm(yRange,[[aRange,a],[bRange,b]]))).join('+')}-${cf}`;
+  const cells=[
+    {row:treatment,col:3,formula:ssTreatment},
+    {row:factorA,col:3,formula:ssA},
+    {row:factorB,col:3,formula:ssB},
+    {row:interaction,col:3,formula:`${excelRef(treatment,3,false)}-${excelRef(factorA,3,false)}-${excelRef(factorB,3,false)}`},
+    {row:total,col:3,formula:`SUMSQ(${yRange})-${cf}`}
+  ];
+  if(design==='frak'){
+    if(!reps.length)return [];
+    const ssBlock=`${reps.map(rep=>groupedSquareTerm(yRange,[[repRange,rep]])).join('+')}-${cf}`;
+    cells.push(
+      {row:block,col:3,formula:ssBlock},
+      {row:error,col:3,formula:`${excelRef(total,3,false)}-${excelRef(block,3,false)}-${excelRef(treatment,3,false)}`}
+    );
+  }else{
+    cells.push({row:error,col:3,formula:`${excelRef(total,3,false)}-${excelRef(treatment,3,false)}`});
+  }
+  return cells;
+}
