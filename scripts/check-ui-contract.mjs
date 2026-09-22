@@ -36,6 +36,11 @@ const requiredIds = [
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
+const pasteAreaTag = html.match(/<textarea\b[^>]*\bid="pasteArea"[^>]*>/)?.[0] || '';
+if (!/\baria-label="Data tabel dari Excel"/.test(pasteAreaTag)) {
+  fail('paste area needs a persistent accessible name, independent of its placeholder');
+}
+
 for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['rakModal','rakModalTitle'],['ralModal','ralModalTitle']]) {
   const start=html.indexOf(`id="${modalId}"`), end=html.indexOf('</div></div>',start);
   const fragment=start>=0&&end>start?html.slice(start,end):'';
