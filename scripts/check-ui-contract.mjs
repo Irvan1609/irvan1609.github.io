@@ -41,6 +41,13 @@ if (!/\baria-label="Data tabel dari Excel"/.test(pasteAreaTag)) {
   fail('paste area needs a persistent accessible name, independent of its placeholder');
 }
 
+const statusTag = html.match(/<div\b[^>]*\bid="status"[^>]*>/)?.[0] || '';
+if (!/\brole="status"/.test(statusTag) || !/\baria-live="polite"/.test(statusTag) || !/\baria-atomic="true"/.test(statusTag)) {
+  fail('main status needs a polite, atomic live region for screen-reader updates');
+}
+const errorTag = html.match(/<div\b[^>]*\bid="errorBox"[^>]*>/)?.[0] || '';
+if (!/\brole="alert"/.test(errorTag)) fail('main error box needs alert semantics');
+
 for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['rakModal','rakModalTitle'],['ralModal','ralModalTitle']]) {
   const start=html.indexOf(`id="${modalId}"`), end=html.indexOf('</div></div>',start);
   const fragment=start>=0&&end>start?html.slice(start,end):'';
