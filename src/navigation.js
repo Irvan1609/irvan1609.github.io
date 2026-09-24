@@ -4,7 +4,7 @@ export function installNavigation(){
   if(!nav||!sheet)return;
 
   const clear=document.getElementById('clearData');
-  if(clear){clear.textContent='🗑';clear.setAttribute('aria-label','Hapus seluruh data');clear.title='Hapus seluruh data';clear.classList.add('icon-only');sheet.append(clear);}
+  if(clear){clear.textContent='×';clear.setAttribute('aria-label','Hapus seluruh data');clear.title='Hapus seluruh data';clear.classList.add('icon-only');sheet.append(clear);}
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
