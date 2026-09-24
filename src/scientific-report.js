@@ -5,6 +5,8 @@ import {interpretReport} from './report-insights.js';
 import {renderBab4Table} from './bab4-table.js';
 import {renderDecisionSummary} from './analysis-audit.js';
 import {residualHistogram,renderInfluenceDiagnostics} from './diagnostic-report.js';
+import {parameterLongName,parseParameterHeader} from './parameter-metadata.js';
+import {describeLevel,metadataFactor} from './treatment-metadata.js';
 export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 export const designNames={ral:'RAL',rak:'RAK',fral:'Faktorial RAL',frak:'Faktorial RAK',split:'RPT / petak terbagi dalam RAK'};
 const pv=p=>p===null||!Number.isFinite(p)?'—':p<.001?'&lt;'+fmt(.001):fmt(p);
@@ -75,8 +77,10 @@ export function barChart(items,title){
 }
 export function interactionChart(report){
   const {factorA:A,factorB:B,cells}=report,width=860,height=350,colors=['#215cc5','#bd3b37','#2f824a','#965cb4','#a56c14','#14858d'];
-  const min=Math.min(...cells.map(x=>x.mean)),max=Math.max(...cells.map(x=>x.mean)),span=max-min||1,x=i=>70+i*530/Math.max(1,B.length-1),y=v=>280-(v-min)/span*220;
-  return `<div class="scientific-chart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${Math.max(height,A.length*22+60)}" role="img" aria-label="Interaksi A dan B"><rect width="100%" height="100%" fill="white"/><g font-family="Arial,sans-serif" font-size="12"><text x="25" y="22" font-size="15" font-weight="bold">Interaksi A × B — ${esc(report.name)}</text><path d="M65,45V285H610" stroke="#555" fill="none"/>${[0,.5,1].map(t=>`<text x="5" y="${y(min+t*span)+4}">${esc(fmt(min+t*span,2))}</text>`).join('')}${B.map((b,i)=>`<text x="${x(i)}" y="308" text-anchor="middle">${esc(b)}</text>`).join('')}${A.map((a,i)=>{const values=B.map(b=>cells.find(c=>c.a===a&&c.b===b).mean);return `<polyline points="${values.map((v,j)=>`${x(j)},${y(v)}`).join(' ')}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="2"/>${values.map((v,j)=>`<circle cx="${x(j)}" cy="${y(v)}" r="4" fill="${colors[i%colors.length]}"/>`).join('')}<text x="640" y="${55+i*22}" fill="${colors[i%colors.length]}">${esc(a)}</text>`;}).join('')}<text x="260" y="340">Faktor B</text></g></svg><button data-chart-download>Unduh grafik SVG</button></div>`;
+  const min=Math.min(...cells.map(x=>x.mean)),max=Math.max(...cells.map(x=>x.mean)),span=max-min||1,x=i=>80+i*520/Math.max(1,B.length-1),y=v=>280-(v-min)/span*220;
+  const response=parameterLongName(report.name),aName=metadataFactor(report,'a','Faktor A'),bName=metadataFactor(report,'b','Faktor B');
+  const bLabels=B.map(code=>describeLevel(report,'b',code)),aLabels=A.map(code=>describeLevel(report,'a',code));
+  return `<div class="scientific-chart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${Math.max(height,A.length*22+60)}" role="img" aria-label="Interaksi ${esc(aName)} dan ${esc(bName)}"><rect width="100%" height="100%" fill="white"/><g font-family="Arial,sans-serif" font-size="12"><text x="25" y="22" font-size="15" font-weight="bold">Interaksi ${esc(aName)} × ${esc(bName)} — ${esc(response)}</text><path d="M70,45V285H610" stroke="#555" fill="none"/>${[0,.5,1].map(t=>`<text x="8" y="${y(min+t*span)+4}">${esc(fmt(min+t*span,2))}</text>`).join('')}${bLabels.map((label,i)=>`<text x="${x(i)}" y="308" text-anchor="middle">${labelLines(label,x(i),308)}</text>`).join('')}${A.map((a,i)=>{const values=B.map(b=>cells.find(c=>c.a===a&&c.b===b).mean);return `<polyline points="${values.map((v,j)=>`${x(j)},${y(v)}`).join(' ')}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="2"/>${values.map((v,j)=>`<circle cx="${x(j)}" cy="${y(v)}" r="4" fill="${colors[i%colors.length]}"/>`).join('')}<text x="640" y="${55+i*22}" fill="${colors[i%colors.length]}">${esc(aLabels[i])}</text>`;}).join('')}<text x="275" y="340">${esc(bName)}</text><text x="16" y="175" transform="rotate(-90 16 175)" text-anchor="middle">${esc(response)}</text></g></svg><button data-chart-download>Unduh grafik SVG</button></div>`;
 }
 function diagnosticPlot(values,fitted,qq){
   if(values.length<3)return '';
@@ -86,7 +90,7 @@ function diagnosticPlot(values,fitted,qq){
   return `<div class="scientific-chart"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 300" role="img" aria-label="${title}"><rect width="100%" height="100%" fill="white"/><g font-family="Arial" font-size="12"><text x="30" y="22" font-weight="bold">${title}</text><path d="M55,45V255H600" fill="none" stroke="#666"/>${qq?`<path d="M60,250L590,50" stroke="#999"/>`:`<path d="M60,${y(0)}H590" stroke="#999"/>`}${xs.map((v,i)=>`<circle cx="${x(v)}" cy="${y(ys[i])}" r="2.5" fill="#215cc5"/>`).join('')}<text x="60" y="273">${esc(fmt(xmin,2))}</text><text x="555" y="273">${esc(fmt(xmax,2))}</text><text x="3" y="55">${esc(fmt(ymax,2))}</text><text x="3" y="250">${esc(fmt(ymin,2))}</text><text x="230" y="293">${qq?'Kuantil normal teoretis':'Nilai prediksi'}</text></g></svg><button data-chart-download>Unduh grafik SVG</button></div>`;
 }
 function criticalText(test){return (test.critical||[]).map(x=>`${x.range}: ${fmt(x.value,3)}`).join('; ')||'—';}
-function factorialInteractionTable(report,comparison,name){
+function factorialInteractionTable(report,comparison,displayName){
   const rows=report.factorA.map(a=>[esc(a),...report.factorB.map(b=>{const item=comparison.items.find(x=>x.a===a&&x.b===b),letters=(item?.letters||[]).join('');return item?`${fmt(item.mean,2)}${letters?`<sup>${esc(letters)}</sup>`:''}`:'—';})]);
   return table(['Faktor A \\ Faktor B',...report.factorB],rows,'posthoc-table')+`<div class="analysis-note">${comparison.method==='none'?'Uji lanjut interaksi tidak dipilih.':`${comparison.method.toUpperCase()} ${report.alpha*100}% diterapkan pada seluruh kombinasi A × B menggunakan KT Acak = ${fmt(comparison.mse)} dan db = ${fmt(comparison.df,0)}. Huruf yang sama menunjukkan kombinasi tidak terdeteksi berbeda nyata.`}</div>${comparison.method==='none'?'':table(['Rentang','Nilai kritis '+(comparison.method==='bnt'?'t':'q')],comparison.critical.map(x=>[x.range,x.value]))}`;
 }
@@ -105,10 +109,13 @@ function splitInteractionTable(report,posthoc){
 
 export function renderReport(report){
   const {name,design,alpha}=report;let num=0;
+  const displayName=parameterLongName(name),parameterMeta=parseParameterHeader(name),datasetMeta=report.datasetMeta||{};
+  const context=[datasetMeta.plant,datasetMeta.treatment].map(x=>String(x||'').trim()).filter(Boolean);
+  const reportTitle=context.length?`Analisis ${displayName} — ${context.join(' — ')}`:`${designNames[design]} — ${displayName}`;
   const caption=text=>`<div class="table-caption">Tabel ${++num}. ${esc(text)}</div>`;
   const cvText=design==='split'?`KK (a) = ${fmt(report.cvWhole,2)}%; KK (b) = ${fmt(report.cv,2)}%`:`KK = ${fmt(report.cv,2)}%`;
   const transformType=report.transform?.type||'none',transformLabel=report.transform?.label||'Tanpa transformasi',transformLambda=Number.isFinite(report.transform?.lambda)?String(report.transform.lambda):'';
-  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-design="${esc(design)}" data-transform-type="${esc(transformType)}" data-transform-label="${esc(transformLabel)}" data-transform-lambda="${esc(transformLambda)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
+  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-parameter-code="${esc(parameterMeta.code||'')}" data-parameter-unit="${esc(parameterMeta.unit||'')}" data-design="${esc(design)}" data-transform-type="${esc(transformType)}" data-transform-label="${esc(transformLabel)}" data-transform-lambda="${esc(transformLambda)}"><h3>${esc(reportTitle)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">${esc(designNames[design])}; Parameter: ${esc(displayName)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
   const multi=['fral','frak','split'].includes(design),grouped=['rak','frak','split'].includes(design);
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));
@@ -141,7 +148,7 @@ export function renderReport(report){
   }
   html+=renderDecisionSummary(report);
   const tested=report.terms.filter(t=>t.f!==null);
-  html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(name)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
+  html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(displayName)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
   if(report.interactionPosthoc){
     html+=caption(`Uji lanjut interaksi RPT — ${report.interactionPosthoc.method==='none'?'tanpa uji lanjut':report.interactionPosthoc.method.toUpperCase()}`)+splitInteractionTable(report,report.interactionPosthoc);
   }
@@ -151,7 +158,7 @@ export function renderReport(report){
       html+=caption(`${comparison.title} — ${method}`)+factorialInteractionTable(report,comparison,name);
       continue;
     }
-    html+=caption(`${comparison.title} — ${method}`)+table(['Perlakuan',name,'n','SD','SE'],comparison.items.map(item=>[esc(item.label),`${fmt(item.mean,2)}${item.letters?.length?`<sup>${esc(item.letters.join(comparison.items.length>26?' · ':''))}</sup>`:''}`,item.n,item.sd,item.se]),'posthoc-table');
+    html+=caption(`${comparison.title} — ${method}`)+table(['Perlakuan',displayName,'n','SD','SE'],comparison.items.map(item=>[esc(item.label),`${fmt(item.mean,2)}${item.letters?.length?`<sup>${esc(item.letters.join(comparison.items.length>26?' · ':''))}</sup>`:''}`,item.n,item.sd,item.se]),'posthoc-table');
     if(comparison.method!=='none'){
       html+=`<div class="analysis-note">${method} ${alpha*100}%; KT galat = ${fmt(comparison.mse)}; db galat = ${fmt(comparison.df,2)}. Rataan dengan huruf bersama tidak terdeteksi berbeda nyata. Huruf hanya berlaku di dalam tabel ini.</div>`;
       html+=table(['Rentang','Nilai kritis '+(comparison.method==='bnt'?'t':'q')],comparison.critical.map(x=>[x.range,x.value]));
@@ -159,7 +166,7 @@ export function renderReport(report){
     const high=comparison.items.reduce((a,b)=>a.mean>=b.mean?a:b),low=comparison.items.reduce((a,b)=>a.mean<=b.mean?a:b);
     const same=high.letters?.some(x=>low.letters?.includes(x));
     html+=`<div class="analysis-note">Pada ${esc(comparison.title)}, rataan tertinggi terdapat pada ${esc(high.label)} (${fmt(high.mean,2)} ± ${fmt(high.se,2)} SE), sedangkan terendah pada ${esc(low.label)} (${fmt(low.mean,2)} ± ${fmt(low.se,2)} SE). ${comparison.method==='none'?'Perbandingan ini bersifat deskriptif.':`Kedua rataan ${same?'tidak terdeteksi berbeda nyata':'berbeda nyata'} menurut ${method} pada α = ${fmt(alpha,2)}.`}</div>`;
-    html+=barChart(comparison.items,`${name} — ${comparison.title}`)+`<div class="figure-caption">Rataan ± SE model. Urutan mengikuti data. ${comparison.method==='none'?'Grafik bersifat deskriptif.':''}</div>`;
+    const axis=/Faktor B|Anak Petak|B pada A/i.test(comparison.title)?'b':'a',chartItems=comparison.items.map(item=>({...item,label:describeLevel(report,axis,item.label)}));html+=barChart(chartItems,`${displayName} — ${comparison.title}`)+`<div class="figure-caption">Rataan ± SE model. Urutan mengikuti data. ${comparison.method==='none'?'Grafik bersifat deskriptif.':''}</div>`;
   }
   if(multi)html+=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
   if(report.contrasts.length)html+=renderContrasts(report,caption);

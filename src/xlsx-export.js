@@ -5,6 +5,7 @@ import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
 import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef,excelColumn,transformationExcelFormula,descriptiveFormulaPlan} from './xlsx-formulas.js';
+import {safeSheetNameFromParameter} from './editor-features.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
@@ -427,7 +428,7 @@ export function createCombinedWorkbook(scopes,options={},book=null){
   if(options.formulas)addFormulaSummaryWorksheet(book,contexts);
   const used=new Set(book.worksheets.map(sheet=>sheet.name.toLowerCase()));
   scopes.forEach((scope,index)=>{
-    const base=String(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`).replace(/[\\/*?:\[\]]/g,'-').replace(/^'+|'+$/g,'').slice(0,31)||`Parameter ${index+1}`;
+    const base=safeSheetNameFromParameter(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`,index+1);
     let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
     createReportWorkbook(scope,book,name,{...options,rawContext:contexts.get(scope)});
   });

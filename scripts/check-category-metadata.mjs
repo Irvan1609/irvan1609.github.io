@@ -32,6 +32,12 @@ assert.equal(mod.moveCategoryDataset('Data 1','Jagung'),true);
 assert.deepEqual(mod.readCategoryMetadata('Data 1','P | Perlakuan'),{unit:'',levels:{}});
 assert.equal(mod.readCategoryMetadata('Jagung','P | Perlakuan').unit,'g/tanaman');
 
+assert.equal(mod.copyCategoryDataset('Jagung','Jagung salinan'),true);
+assert.equal(mod.readCategoryMetadata('Jagung salinan','P | Perlakuan').unit,'g/tanaman');
+assert.equal(mod.readCategoryMetadata('Jagung salinan','P | Perlakuan').levels.P3.value,'150');
+assert.equal(mod.saveCategoryLevel('Jagung salinan','P | Perlakuan','P3',{value:'175'}),true);
+assert.equal(mod.readCategoryMetadata('Jagung','P | Perlakuan').levels.P3.value,'150');
+
 assert.equal(mod.removeCategoryColumn('Jagung','P | Perlakuan'),true);
 assert.deepEqual(mod.readCategoryMetadata('Jagung','P | Perlakuan'),{unit:'',levels:{}});
 assert.equal(mod.saveCategoryMetadata('Jagung','Varietas',{unit:'',levels:{V1:{value:'1'}}}),true);

@@ -14,9 +14,15 @@ import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
-  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
+  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
   container.dataset.datasetName=datasetName;
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
+  const printButton=container.querySelector('[data-print-results]');
+  if(printButton)printButton.onclick=()=>{
+    document.body.classList.add('print-analysis-mode');
+    const clean=()=>document.body.classList.remove('print-analysis-mode');
+    window.addEventListener('afterprint',clean,{once:true});window.print();setTimeout(clean,1500);
+  };
   const auditButton=container.querySelector('[data-thesis-check]'),host=container.querySelector('[data-thesis-audit-host]');
   if(auditButton&&host)auditButton.onclick=()=>{
     const audit=auditReports(reports);
@@ -223,6 +229,7 @@ async function analyze(){
         }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
       }
       report.datasetName=data.name;
+      report.datasetMeta={plant:data.plant||'',treatment:data.treatment||''};
       report.factorLabels={a:metadata.factorLabels.a||data.headers[o.a]||'Perlakuan',b:o.b===null?null:(metadata.factorLabels.b||data.headers[o.b]||'Faktor B')};
       report.treatmentMeta=metadata;
       finalizeAgronomyFactorial(report);

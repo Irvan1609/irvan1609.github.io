@@ -89,7 +89,7 @@ assert.equal(formula(descriptive,2,13),"SUMPRODUCT(1/COUNTIF('all data'!$C$2:$C$
 assert.equal(formula(descriptive,2,14),"SUMPRODUCT(1/COUNTIF('all data'!$D$2:$D$28,'all data'!$D$2:$D$28))");
 
 const xlsxExport=fs.readFileSync(new URL('../src/xlsx-export.js',import.meta.url),'utf8');
-for(const marker of ['Formula Ringkas','Nilai Asli','Nilai Analisis','transformationExcelFormula','applyContrastCalculationFormulas','applyContrastDetailFormulas','T.INV.2T','F.DIST.RT']){
+for(const marker of ['Formula Ringkas','Nilai Asli','Nilai Analisis','transformationExcelFormula','applyContrastCalculationFormulas','applyContrastDetailFormulas','T.INV.2T','F.DIST.RT','safeSheetNameFromParameter']){
   assert.ok(xlsxExport.includes(marker),`xlsx-export missing enriched formula marker: ${marker}`);
 }
 console.log('Formula export enriched with transform formulas, descriptive sheet, BNT critical formula, and planned-contrast formulas.');

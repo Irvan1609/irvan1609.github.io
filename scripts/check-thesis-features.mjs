@@ -31,7 +31,7 @@ const options={design:'frak',a:0,b:1,rep:2,parameters:[3],alpha:.05,posthoc:'bnj
 const check=validateData(volume,options,Number);
 assert.deepEqual(check.issues,[]);
 const report=analyzeParameter(check.observations,options,0,volume.headers[3]);
-report.factorLabels=metadata.factorLabels;report.treatmentMeta=metadata;report.datasetName='contoh';
+report.factorLabels=metadata.factorLabels;report.treatmentMeta=metadata;report.datasetName='contoh';report.datasetMeta={plant:'Tanaman uji',treatment:'Dosis kompos × POC'};
 finalizeAgronomyFactorial(report);
 const interpretation=interpretReport(report).join(' ');
 assert.match(interpretation,/50 g\/tanaman/);
@@ -44,6 +44,10 @@ assert.match(table,/bab4-table/);
 assert.match(table,/A0/);
 assert.match(table,/P0/);
 assert.match(table,/Keterangan perlakuan/);
+const contextual=renderReport(report);
+assert.match(contextual,/Analisis Volume akar \(ml\) — Tanaman uji — Dosis kompos × POC/);
+assert.match(contextual,/50 g\/tanaman \(A1\)/);
+assert.match(contextual,/30 mL\/L \(P2\)/);
 
 const transformed=transformObservations(check.observations,0,'sqrt');
 const transformedReport=analyzeParameter(transformed.observations,options,0,volume.headers[3]);

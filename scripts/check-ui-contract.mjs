@@ -42,7 +42,7 @@ const requiredIds = [
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
   'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
-  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels'
+  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -103,6 +103,12 @@ if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main
 if(main.includes('categoryMapMarkup')||main.includes('data-category-value')||main.includes('data-category-unit'))fail('string mapping controls must not be rendered above data columns');
 if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-string-level')||!main.includes('saveCategoryMetadata')||!main.includes('columnStringUnit'))fail('string columns must expose value mapping inside the column editor with one shared unit');
 if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');
+for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','toggleCompactEditor','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
+if(!main.includes('detectColumnType')||!main.includes('columnTooltip'))fail('editor must detect column types and expose metadata tooltips');
+if(!statStyle.includes('position:sticky')||!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing freeze/selection/compact/autosave styles');
+if(!dataTools.includes("plant:$('#plantName')")||!dataTools.includes("treatment:$('#treatmentName')"))fail('analysis dataset must carry plant and treatment metadata');
+if(!scientific.includes('data-print-results')||!scientific.includes('datasetMeta={plant:data.plant'))fail('scientific results must include print mode and dataset context');
+
 if(!statStyle.includes('.data-grid thead th.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must use a subtle header-only distinction and integrated editor section');
 if(main.includes('string-column-badge')||main.includes('>STRING<')||main.includes('string-column-cell')||statStyle.includes('.string-column-badge')||statStyle.includes('.string-column-cell'))fail('string columns must not add badges or body-cell coloring');
 if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]')||!ral.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');

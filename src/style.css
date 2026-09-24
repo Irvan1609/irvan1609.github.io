@@ -225,3 +225,33 @@ button:hover,button.primary:hover{background:#e9e9e9;border-color:#999}
 .column-string-row>span{font-size:12px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.column-string-row input{width:100%;min-width:0}
 @media(max-width:720px){.column-string-head{grid-template-columns:1fr}.column-string-levels{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.column-string-levels{grid-template-columns:1fr}}
+
+/* Spreadsheet-style editor */
+.grid-container{position:relative}
+.data-grid{border-collapse:separate;border-spacing:0}
+.data-grid thead th{position:sticky;top:0;z-index:6;background:#f2f5f8}
+.data-grid thead th:first-child{left:0;z-index:9}
+.data-grid tbody td:first-child{position:sticky;left:0;z-index:5;background:#f7f9fb}
+.data-grid thead th:nth-child(2){left:132px;z-index:8}
+.data-grid tbody td:nth-child(2){position:sticky;left:132px;z-index:4;background:#fff;border-right:1px solid #c8d3de}
+.data-grid tbody tr:nth-child(even) td:nth-child(2){background:#fafbfd}
+.data-grid td.cell-selected{background:#edf5ff!important;box-shadow:inset 0 0 0 1px #9bbbe0}
+.data-grid td.cell-active{box-shadow:inset 0 0 0 2px #4d7eae!important}
+.dataset-search{display:block;width:100%;min-height:34px;margin:4px 0 8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:#fff}
+.dataset-empty-search{padding:8px 6px;color:var(--muted);font-size:12px}
+.dataset-more{margin-top:8px;border-top:1px solid var(--border);padding-top:7px}.dataset-more>summary{cursor:pointer;font-size:12px;font-weight:650;color:var(--muted)}
+.dataset-more-actions{display:grid;grid-template-columns:1fr;gap:5px;margin-top:7px}.dataset-more-actions button{text-align:left}
+.save-indicator{font-size:11px;color:#4f6e5d;opacity:.35;transition:opacity .2s ease}.save-indicator.visible{opacity:1}
+.raw-dataset-preview{display:block;width:100%;min-height:300px;resize:vertical;font:12px ui-monospace,Consolas,monospace;white-space:pre;padding:10px}
+.dataset-view-dialog{max-width:900px}.dataset-view-actions{display:flex;gap:7px;margin-top:8px}.dataset-meta-summary{display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:12px;padding:9px;border:1px solid var(--border);background:#f8fafc}.dataset-meta-summary span{font-size:12px;color:var(--muted)}
+.editor-history-list{display:grid;gap:6px}.editor-history-list button{display:flex;justify-content:space-between;gap:10px;text-align:left}.editor-history-list button span{color:var(--muted);font-size:12px}
+html.compact-data-editor .app-shell{padding:6px}html.compact-data-editor .toolbar{padding:5px 8px}html.compact-data-editor .sheet-header{padding:6px 8px}html.compact-data-editor .data-grid th,html.compact-data-editor .data-grid td{padding:3px 6px;font-size:12px}html.compact-data-editor .project-panel{padding:6px}html.compact-data-editor .dataset-meta-fields label>span{display:none}
+@media(max-width:720px){.data-grid thead th{top:0}.data-grid thead th:nth-child(2),.data-grid tbody td:nth-child(2){left:120px}.dataset-more-actions{grid-template-columns:1fr 1fr}.dataset-view-dialog{width:100%}.editor-history-list button{display:grid}.save-indicator{display:none}}
+@media print{
+  body.print-analysis-mode *{visibility:hidden!important}
+  body.print-analysis-mode [data-all-results],body.print-analysis-mode [data-all-results] *{visibility:visible!important}
+  body.print-analysis-mode [data-all-results]{position:absolute;left:0;top:0;width:100%;background:#fff}
+  body.print-analysis-mode .result-actions,body.print-analysis-mode button,body.print-analysis-mode .master-result-actions{display:none!important}
+  body.print-analysis-mode .analysis-result{break-inside:avoid-page;border:0;margin:0 0 18px}
+  body.print-analysis-mode .scientific-chart{overflow:visible}
+}

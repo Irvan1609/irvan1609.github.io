@@ -19,6 +19,31 @@ export function saveTreatmentMetadata(key,value){
     return true;
   }catch{return false;}
 }
+function rewriteDatasetKeys(oldName,newName,{copy=false}={}){
+  try{
+    const all=JSON.parse(localStorage.getItem(STORE)||'{}'),oldPrefix=clean(oldName)+'::',newPrefix=clean(newName)+'::';
+    let changed=false;
+    for(const [key,value] of Object.entries({...all})){
+      if(!key.startsWith(oldPrefix))continue;
+      all[newPrefix+key.slice(oldPrefix.length)]=JSON.parse(JSON.stringify(value));
+      if(!copy)delete all[key];
+      changed=true;
+    }
+    if(changed)localStorage.setItem(STORE,JSON.stringify(all));
+    return true;
+  }catch{return false;}
+}
+export function moveTreatmentMetadataDataset(oldName,newName){return rewriteDatasetKeys(oldName,newName,{copy:false});}
+export function copyTreatmentMetadataDataset(oldName,newName){return rewriteDatasetKeys(oldName,newName,{copy:true});}
+export function removeTreatmentMetadataDataset(datasetName){
+  try{
+    const all=JSON.parse(localStorage.getItem(STORE)||'{}'),prefix=clean(datasetName)+'::';
+    let changed=false;
+    for(const key of Object.keys(all))if(key.startsWith(prefix)){delete all[key];changed=true;}
+    if(changed)localStorage.setItem(STORE,JSON.stringify(all));
+    return true;
+  }catch{return false;}
+}
 export function metadataLevel(report,axis,code){
   const value=report?.treatmentMeta?.levels?.[axis]?.[code];
   return clean(value);

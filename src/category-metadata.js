@@ -64,6 +64,12 @@ export function moveCategoryDataset(oldName,newName){
   delete all[oldKey];
   return writeAll(all);
 }
+export function copyCategoryDataset(oldName,newName){
+  const oldKey=categoryDatasetKey(oldName),newKey=categoryDatasetKey(newName),all=readAll();
+  if(!all[oldKey])return true;
+  all[newKey]=JSON.parse(JSON.stringify(all[oldKey]));
+  return writeAll(all);
+}
 export function removeCategoryDataset(datasetName){
   const all=readAll(),key=categoryDatasetKey(datasetName);
   if(!(key in all))return true;
