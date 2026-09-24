@@ -110,7 +110,7 @@ function renderTreatmentMetadata(){
   const levelInputs=(axis,index)=>{
     const editor=readCategoryMetadata(data.name,data.headers[index]);
     return levelsForColumn(index).map(level=>{
-      const editorValue=categoryLevelDescription(editor.levels?.[level]),value=editorValue||saved.levels?.[axis]?.[level]||'';
+      const editorValue=categoryLevelDescription(editor.levels?.[level],editor.unit),value=editorValue||saved.levels?.[axis]?.[level]||'';
       return `<label class="treatment-meta-row"><span>${esc(level)}</span><input data-meta-level-axis="${axis}" data-meta-level-code="${esc(level)}" value="${esc(value)}" placeholder="contoh: 50 g/tanaman"></label>`;
     }).join('');
   };

@@ -40,7 +40,7 @@ const requiredIds = [
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
   'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
-  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit'
+  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -82,7 +82,7 @@ if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not b
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
 
-const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','plantName','treatmentName'];
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
 if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
@@ -91,7 +91,10 @@ if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_f
 if(!main.includes('displayDatasetName')||!main.includes("name=base+'.csv'"))fail('dataset editor must hide CSV extension in UI while storing CSV datasets');
 if(!main.includes('data-add-row')||!main.includes('data-add-col'))fail('data grid corner must expose + Baris / + Kolom controls');
 if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main.includes('columnUnit')||!main.includes('buildParameterHeader'))fail('column editor must support separate kode, nama lengkap, and satuan inputs');
-if(!main.includes('categoryMapMarkup')||!main.includes('data-category-value')||!main.includes('data-category-unit')||!main.includes('saveCategoryLevel'))fail('string columns must expose optional value and unit mapping above the column');
+if(main.includes('categoryMapMarkup')||main.includes('data-category-value')||main.includes('data-category-unit'))fail('string mapping controls must not be rendered above data columns');
+if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-string-level')||!main.includes('saveCategoryMetadata')||!main.includes('columnStringUnit'))fail('string columns must expose value mapping inside the column editor with one shared unit');
+if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');
+if(!main.includes('string-column-cell')||!statStyle.includes('.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must have distinct styling and an integrated editor section');
 if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]')||!ral.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');

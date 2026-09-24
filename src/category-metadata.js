@@ -10,30 +10,50 @@ function readAll(){
 function writeAll(all){
   try{localStorage.setItem(STORE,JSON.stringify(all));return true;}catch{return false;}
 }
+function normalize(raw){
+  const source=raw&&typeof raw==='object'?raw:{},levels={},legacyUnits=[];
+  for(const [level,entry] of Object.entries(source.levels||{})){
+    const value=entry&&typeof entry==='object'?clean(entry.value):clean(entry);
+    const legacyUnit=entry&&typeof entry==='object'?clean(entry.unit):'';
+    if(value)levels[clean(level)]={value};
+    if(legacyUnit)legacyUnits.push(legacyUnit);
+  }
+  const unit=clean(source.unit)||legacyUnits[0]||'';
+  return {unit,levels};
+}
 export function categoryDatasetKey(datasetName){
   return clean(datasetName)||'dataset';
 }
 export function readCategoryMetadata(datasetName,columnName){
   const all=readAll(),dataset=all[categoryDatasetKey(datasetName)]||{},value=dataset[clean(columnName)];
-  return value&&typeof value==='object'?value:{levels:{}};
+  return normalize(value);
 }
-export function saveCategoryLevel(datasetName,columnName,level,{value='',unit=''}={}){
-  const datasetKey=categoryDatasetKey(datasetName),columnKey=clean(columnName),levelKey=clean(level);
-  if(!columnKey||!levelKey)return false;
-  const all=readAll(),dataset={...(all[datasetKey]||{})},current=dataset[columnKey]&&typeof dataset[columnKey]==='object'?dataset[columnKey]:{levels:{}};
-  const levels={...(current.levels||{})},entry={value:clean(value),unit:clean(unit)};
-  if(!entry.value&&!entry.unit)delete levels[levelKey];
-  else levels[levelKey]=entry;
-  if(Object.keys(levels).length)dataset[columnKey]={...current,levels};
+export function saveCategoryMetadata(datasetName,columnName,{unit='',levels={}}={}){
+  const datasetKey=categoryDatasetKey(datasetName),columnKey=clean(columnName);
+  if(!columnKey)return false;
+  const all=readAll(),dataset={...(all[datasetKey]||{})},cleanLevels={};
+  for(const [level,entry] of Object.entries(levels||{})){
+    const value=entry&&typeof entry==='object'?clean(entry.value):clean(entry);
+    if(value)cleanLevels[clean(level)]={value};
+  }
+  const normalized={unit:clean(unit),levels:cleanLevels};
+  if(normalized.unit||Object.keys(cleanLevels).length)dataset[columnKey]=normalized;
   else delete dataset[columnKey];
   if(Object.keys(dataset).length)all[datasetKey]=dataset;
   else delete all[datasetKey];
   return writeAll(all);
 }
-export function categoryLevelDescription(entry){
-  const value=clean(entry?.value),unit=clean(entry?.unit);
-  if(!value&&!unit)return '';
-  return [value,unit].filter(Boolean).join(' ');
+export function saveCategoryLevel(datasetName,columnName,level,{value='',unit=''}={}){
+  const current=readCategoryMetadata(datasetName,columnName),levels={...current.levels},levelKey=clean(level),cleanValue=clean(value);
+  if(!levelKey)return false;
+  if(cleanValue)levels[levelKey]={value:cleanValue};
+  else delete levels[levelKey];
+  return saveCategoryMetadata(datasetName,columnName,{unit:clean(unit)||current.unit,levels});
+}
+export function categoryLevelDescription(entry,unit=''){
+  const value=entry&&typeof entry==='object'?clean(entry.value):clean(entry),sharedUnit=clean(unit)||(entry&&typeof entry==='object'?clean(entry.unit):'');
+  if(!value)return '';
+  return [value,sharedUnit].filter(Boolean).join(' ');
 }
 export function moveCategoryDataset(oldName,newName){
   const oldKey=categoryDatasetKey(oldName),newKey=categoryDatasetKey(newName);
