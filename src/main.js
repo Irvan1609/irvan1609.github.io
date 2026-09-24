@@ -19,6 +19,7 @@ const LEGACY_ACTIVE_KEY='statistical_web_active_txt_v2';
 const META_KEY='statistical_web_dataset_meta_v1';
 const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
+const FOCUS_KEY='statistical_web_focus_data_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
 let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0;
 const $=s=>document.querySelector(s);
@@ -106,13 +107,19 @@ function migrateLegacyStorage(){
   return {files,active};
 }
 function activeMeta(){return state.meta[state.active]||{plant:'',treatment:''};}
+function updateDatasetMetaSummary(meta=activeMeta()){
+  if($('#plantNameSummary'))$('#plantNameSummary').textContent=meta.plant||'—';
+  if($('#treatmentNameSummary'))$('#treatmentNameSummary').textContent=meta.treatment||'—';
+}
 function renderDatasetMeta(){
   const meta=activeMeta();
   if($('#plantName'))$('#plantName').value=meta.plant||'';
   if($('#treatmentName'))$('#treatmentName').value=meta.treatment||'';
+  updateDatasetMetaSummary(meta);
 }
 function saveDatasetMeta(){
   state.meta[state.active]={plant:$('#plantName')?.value.trim()||'',treatment:$('#treatmentName')?.value.trim()||''};
+  updateDatasetMetaSummary(state.meta[state.active]);
   try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));indicateSaved();recordEditorHistory('metadata',false);}catch(e){showError('Keterangan tanaman/perlakuan tidak dapat disimpan.',e);}
 }
 function loadStorage(){
@@ -405,6 +412,30 @@ function toggleCompactEditor(){
   document.documentElement.classList.toggle('compact-data-editor',enabled);
   localStorage.setItem(COMPACT_KEY,enabled?'1':'0');$('#compactEditor').textContent=enabled?'Normal':'Ringkas';setStatus(enabled?'Tampilan ringkas aktif.':'Tampilan normal aktif.');
 }
+function toggleDatasetMetaEditor(force){
+  const editor=$('#datasetMetaEditor'),button=$('#toggleDatasetMeta');if(!editor||!button)return;
+  const opening=force===undefined?editor.hidden:Boolean(force);
+  editor.hidden=!opening;
+  button.setAttribute('aria-expanded',String(opening));
+  button.textContent=opening?'Selesai':'Edit informasi';
+  if(opening)$('#plantName')?.focus();
+}
+function applyFocusMode(enabled){
+  document.documentElement.classList.toggle('focus-data-mode',enabled);
+  const button=$('#focusData');
+  if(button){
+    button.setAttribute('aria-pressed',String(enabled));
+    button.textContent=enabled?'Keluar Fokus':'Fokus Data';
+    button.title=enabled?'Tampilkan kembali sidebar dan informasi dataset':'Perluas area tabel';
+  }
+}
+function toggleFocusMode(){
+  const enabled=!document.documentElement.classList.contains('focus-data-mode');
+  applyFocusMode(enabled);
+  try{localStorage.setItem(FOCUS_KEY,enabled?'1':'0');}catch{}
+  setStatus(enabled?'Mode Fokus Data aktif. Sidebar dan informasi dataset disembunyikan.':'Mode Fokus Data dinonaktifkan.');
+}
+
 function installEditorShortcuts(){
   document.addEventListener('keydown',async event=>{
     const key=event.key.toLowerCase(),modifier=event.ctrlKey||event.metaKey;
@@ -455,8 +486,8 @@ function installDataGrid(){
       showError('Gagal membuat dataset.',error);
     }
   });
-  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;$('#plantName').addEventListener('focus',()=>pushUndo('metadata'));$('#treatmentName').addEventListener('focus',()=>pushUndo('metadata'));$('#plantName').oninput=saveDatasetMeta;$('#treatmentName').oninput=saveDatasetMeta;bindColumnFormArrowNavigation();installEditorShortcuts();
-  const rootClassList=document.documentElement?.classList,compactSaved=localStorage.getItem(COMPACT_KEY)==='1';rootClassList?.toggle?.('compact-data-editor',compactSaved);if($('#compactEditor'))$('#compactEditor').textContent=rootClassList?.contains?.('compact-data-editor')?'Normal':'Ringkas';
+  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#focusData').onclick=toggleFocusMode;$('#toggleDatasetMeta').onclick=()=>toggleDatasetMetaEditor();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;$('#plantName').addEventListener('focus',()=>pushUndo('metadata'));$('#treatmentName').addEventListener('focus',()=>pushUndo('metadata'));$('#plantName').oninput=saveDatasetMeta;$('#treatmentName').oninput=saveDatasetMeta;bindColumnFormArrowNavigation();installEditorShortcuts();
+  const rootClassList=document.documentElement?.classList,compactSaved=localStorage.getItem(COMPACT_KEY)==='1',focusSaved=localStorage.getItem(FOCUS_KEY)==='1';rootClassList?.toggle?.('compact-data-editor',compactSaved);if($('#compactEditor'))$('#compactEditor').textContent=rootClassList?.contains?.('compact-data-editor')?'Normal':'Ringkas';applyFocusMode(focusSaved);
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
 
