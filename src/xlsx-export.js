@@ -630,7 +630,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       const layoutFallback=tableLayout(rows);
       for(const {source,row,col,rowSpan,colSpan} of layoutFallback.cells){
         if(source.tagName==='TH'||col===0||rowSpan>1||colSpan>1)continue;
-        const number=sourceNumber(source);if(!Number.isFinite(number))continue;
+        const number=sourceBaseNumber(source);if(!Number.isFinite(number))continue;
         const target=sheet.getCell(start+row,col+1),value=target.value;
         if(value&&typeof value==='object'&&typeof value.formula==='string')continue;
         setFormula(start+row,col+1,`N("hasil algoritme")+${Number(number).toPrecision(15)}`,number);
