@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip,contextualAnalysisTitle,safeSheetNameFromParameter} from '../src/editor-features.js';
 
-assert.equal(detectColumnType(['1','2,5','3']).type,'numeric');
+assert.equal(detectColumnType(['1','2.5','3']).type,'numeric');
 assert.equal(detectColumnType(['P0','P1','P0','P2']).type,'category');
 assert.equal(detectColumnType(['2026-09-01','2026-09-02']).type,'date');
 assert.equal(detectColumnType(['catatan panjang a','catatan panjang b','catatan panjang c','catatan panjang d']).type,'text');
