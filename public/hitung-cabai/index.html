@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hitung Cabai</title>
+<style>body{font:16px system-ui;margin:0;background:#f4f6f8;color:#17202a}header,main{max-width:1100px;margin:auto;padding:20px}header{display:flex;align-items:center;gap:24px}h1{font-size:24px;margin:0}a{color:inherit}.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0}button,input,select{font:inherit;padding:9px;border:1px solid #adb5bd;border-radius:6px;background:white}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}.panel{background:white;padding:18px;border:1px solid #d8dee5;border-radius:10px}#viewport{overflow:auto;max-height:65vh;background:#e5e8ec}canvas{display:block;touch-action:none}#status{min-height:24px}small{display:block;color:#52616c;line-height:1.6}li{margin:8px 0}li button{margin-left:8px}output{font-weight:700;font-size:24px}input[type=file]{max-width:90%}</style></head>
+<body><header><a href="/">← Beranda</a><h1>Hitung Cabai</h1></header><main>
+<div class="panel"><label>Foto cabai di atas alas <input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+<div class="bar"><label>Kode sampel <input id="sample" maxlength="100" placeholder="Sampel 01"></label><output id="count" aria-live="polite">0 buah</output></div>
+<small>Tarik kotak mengelilingi satu buah. Gunakan mode hapus untuk menghapus kotak yang keliru, lalu gambar ulang. Pisahkan buah yang menyatu dengan membuat kotak untuk masing-masing buah.</small>
+<div class="bar"><label>Mode <select id="mode"><option value="add">Tambah kotak</option><option value="delete">Hapus kotak</option></select></label><button id="undo">Urungkan</button><label>Zoom <select id="zoom"><option value="1">Pas layar</option><option value="2">2×</option><option value="3">3×</option></select></label><button id="save">Selesai diperiksa · Simpan koreksi</button></div>
+<div id="viewport"><canvas id="canvas" aria-label="Foto dan kotak penanda cabai"></canvas></div>
+<p id="status" role="status">Pilih foto untuk mulai. Deteksi otomatis belum tersedia; koreksi Anda dikumpulkan untuk pelatihan.</p>
+</div>
+<section class="panel" style="margin-top:18px"><h2>Data pelatihan tersimpan</h2><small>Disimpan pada browser ini. Ekspor mencakup foto dan kotak penanda dalam satu berkas JSON. Menyimpan koreksi belum melatih atau mengubah model. Ekspor cadangan sebelum membersihkan data browser.</small>
+<div class="bar"><button id="export">Ekspor data pelatihan</button><label>Pulihkan cadangan <input id="import" type="file" accept=".json,application/json"></label></div><ul id="records"></ul></section>
+</main><script type="module" src="./app.js"></script></body></html>
