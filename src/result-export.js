@@ -78,7 +78,7 @@ export function installResultExport() {
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
-    const action=button.dataset.resultAction,isAll=action==='export-all'||action==='export-all-formula';
+    const action=button.dataset.resultAction,isAll=['export-all','export-all-formula','export-appendix'].includes(action);
     const scope = isAll?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
@@ -89,7 +89,18 @@ export function installResultExport() {
     button.disabled=true;
     button.textContent='Memproses…';
     try {
-      if(isAll){
+      if(action==='copy-interpretation'){
+        const block=button.closest('[data-chapter-interpretation]');
+        const text=[...(block?.querySelectorAll('.interpretation-paragraph')||[])].map(el=>el.textContent.trim()).filter(Boolean).join('\n\n');
+        if(!text)throw Error('Interpretasi belum tersedia.');
+        await navigator.clipboard.writeText(text);
+        message('Interpretasi BAB IV disalin.');
+      } else if(action==='export-appendix'){
+        const snapshot=cleanClone(scope);snapshot.dataset.decimalSeparator=getDecimalSeparator();
+        const {downloadThesisAppendixXlsx}=await import('./xlsx-export.js');
+        await downloadThesisAppendixXlsx(snapshot);
+        message('Lampiran Skripsi/Tesis diekspor: ringkasan, data mentah, formula, hasil tiap parameter, dan interpretasi.');
+      } else if(isAll){
         const snapshot=cleanClone(scope);snapshot.dataset.decimalSeparator=getDecimalSeparator();
         const formulas=action==='export-all-formula';
         const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot,{formulas});

@@ -4,7 +4,7 @@ import {datasetExcelFilename} from './export-filename.js';
 import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
-import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef} from './xlsx-formulas.js';
+import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef,excelColumn} from './xlsx-formulas.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
@@ -28,8 +28,8 @@ function observationMeta(table){
 }
 function prepareFormulaRawData(book,scopes){
   const sheet=book.addWorksheet('all data');
-  sheet.columns=[{width:28},{width:20},{width:20},{width:18},{width:16}];
-  sheet.addRow(['Parameter','Faktor A / Perlakuan','Faktor B','Ulangan / Kelompok','Nilai']);
+  sheet.columns=[{width:28},{width:20},{width:20},{width:18},{width:16},{width:16}];
+  sheet.addRow(['Parameter','Faktor A / Perlakuan','Faktor B','Ulangan / Kelompok','Nilai','Nilai²']);
   const contexts=new Map();let nextRow=2;
   for(const scope of scopes){
     const table=scope.querySelector('.observation-table');
@@ -49,8 +49,11 @@ function prepareFormulaRawData(book,scopes){
         if(!Number.isFinite(value))continue;
         const rep=meta.repLabels[i]||String(i+1);
         if(!context.reps.includes(rep))context.reps.push(rep);
-        sheet.addRow([parameter,a,b,rep,value]);
-        context.cellRows.set(rawKey(a,b,rep),nextRow++);
+        const rawRow=nextRow;
+        const added=sheet.addRow([parameter,a,b,rep,value]);
+        added.getCell(6).value={formula:`E${rawRow}^2`,result:value*value};
+        context.cellRows.set(rawKey(a,b,rep),rawRow);
+        nextRow++;
       }
     }
     context.endRow=nextRow-1;
@@ -130,7 +133,8 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     const errors=rows.filter(item=>!Number.isFinite(item.f)&&Number.isFinite(item.ms)&&item.df>0&&!/^Total$/i.test(item.label));
     const explicit=parseErrorMap(table);
     for(const item of tested){
-      const wanted=explicit.get(item.label.toLocaleLowerCase('id-ID'));
+      const labelKey=item.label.toLocaleLowerCase('id-ID');
+      const wanted=explicit.get(labelKey)||(labelKey==='kelompok'?explicit.get('ulangan'):null);
       const error=wanted?rows.find(candidate=>candidate.label===wanted):errors.length===1?errors[0]:null;
       if(!error)continue;
       setFormula(item.row,5,`IFERROR(${excelRef(item.row,4,false)}/${excelRef(error.row,4)},"")`,item.f);
@@ -138,7 +142,36 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       setFormula(item.row,7,`IFERROR(F.INV.RT(0.01,${excelRef(item.row,2,false)},${excelRef(error.row,2)}),"")`,item.f01);
       if(item.tr.cells.length>=8)setFormula(item.row,8,`IF(${excelRef(item.row,5,false)}>${excelRef(item.row,7,false)},"**",IF(${excelRef(item.row,5,false)}>${excelRef(item.row,6,false)},"*","tn"))`,item.mark);
     }
-    if(errors.length===1)lastAnovaContext={errorRow:errors[0].row};
+    lastAnovaContext={errorRow:errors.length===1?errors[0].row:null,errorRows:new Map(errors.map(item=>[item.label.toLocaleLowerCase('id-ID'),item.row]))};
+  }
+  function applyPosthocFormulas(table,start){
+    if(!options.rawContext||!lastAnovaContext)return;
+    const headers=[...(table.tHead?.rows||[])].flatMap(row=>[...row.cells].map(textOf));
+    if(!headers.some(x=>/^SD$/i.test(x))||!headers.some(x=>/^SE$/i.test(x)))return;
+    const body=[...(table.tBodies?.[0]?.rows||[])];
+    if(!body.length||body.some(row=>row.cells.length<5))return;
+    const wrapper=table.closest('.table-scroll'),caption=textOf(wrapper?.previousElementSibling||{textContent:''});
+    const lower=caption.toLocaleLowerCase('id-ID');
+    const raw=options.rawContext,sheetName="'"+String(raw.sheetName||'all data').replace(/'/g,"''")+"'";
+    const range=col=>`${sheetName}!${excelColumn(col)}${raw.startRow}:${excelColumn(col)}${raw.endRow}`;
+    const aRange=range(2),bRange=range(3),yRange=range(5),sqRange=range(6);
+    const quote=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
+    const simpleA=caption.match(/Faktor B pada A\s*=\s*([^—]+)/i)?.[1]?.trim()||null;
+    const dimension=/faktor b/i.test(caption)?'b':'a';
+    const errorName=scope.dataset.design==='split'?(dimension==='a'?'galat (a)':'galat (b)'):'galat';
+    const errorRow=lastAnovaContext.errorRows?.get(errorName)||lastAnovaContext.errorRow;
+    for(let i=0;i<body.length;i++){
+      const source=body[i],row=start+(table.tHead?.rows.length||1)+i,label=textOf(source.cells[0]);
+      const criteria=[];
+      if(simpleA)criteria.push([aRange,simpleA]);
+      criteria.push([dimension==='b'?bRange:aRange,label]);
+      const args=criteria.flatMap(([r,v])=>[r,quote(v)]).join(',');
+      const count=`COUNTIFS(${args})`,sum=`SUMIFS(${yRange},${args})`,sumSq=`SUMIFS(${sqRange},${args})`;
+      if(!source.cells[1].querySelector('sup,sub'))setFormula(row,2,`IFERROR(${sum}/${count},"")`,sourceNumber(source.cells[1]));
+      setFormula(row,3,`IFERROR(${count},"")`,sourceNumber(source.cells[2]));
+      setFormula(row,4,`IFERROR(SQRT((${sumSq}-(${sum}^2/${count}))/(${count}-1)),"")`,sourceNumber(source.cells[3]));
+      if(errorRow)setFormula(row,5,`IFERROR(SQRT(${excelRef(errorRow,4)}/${count}),"")`,sourceNumber(source.cells[4]));
+    }
   }
   function applyTableFormulas(table,start){
     if(!formulaMode)return;
@@ -172,14 +205,14 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       return;
     }
     if(table.classList.contains('anova-table')){
-      if(options.rawContext&&['fral','frak'].includes(scope.dataset.design)){
-        const headRows=table.tHead?.rows.length||1,rowByLabel={};
-        [...(table.tBodies?.[0]?.rows||[])].forEach((row,i)=>{rowByLabel[textOf(row.cells[0]).toLocaleLowerCase('id-ID')]=start+headRows+i;});
-        applyPlan(factorialAnovaFormulaPlan(scope.dataset.design,rowByLabel,options.rawContext));
-      }
+      const headRows=table.tHead?.rows.length||1,rowByLabel={};
+      [...(table.tBodies?.[0]?.rows||[])].forEach((row,i)=>{rowByLabel[textOf(row.cells[0]).toLocaleLowerCase('id-ID')]=start+headRows+i;});
+      if(observationContext&&['ral','rak'].includes(scope.dataset.design))applyPlan(oneWayAnovaFormulaPlan(scope.dataset.design,rowByLabel,observationContext));
+      if(options.rawContext&&['fral','frak','split'].includes(scope.dataset.design))applyPlan(factorialAnovaFormulaPlan(scope.dataset.design,rowByLabel,options.rawContext));
       applyScientificAnovaFormulas(table,start);
       return;
     }
+    if(table.classList.contains('posthoc-table'))applyPosthocFormulas(table,start);
     if(table.classList.contains('report-bnj-table')&&observationContext?.equalN&&lastAnovaContext?.errorRow){
       const headRows=table.tHead?.rows.length||1,row=start+headRows,bodyRow=table.tBodies?.[0]?.rows?.[0];
       if(bodyRow&&bodyRow.cells.length>=3&&Number.isFinite(sourceNumber(bodyRow.cells[1]))&&Number.isFinite(sourceNumber(bodyRow.cells[2]))){
@@ -278,8 +311,9 @@ async function addChartImages(book,sheet,scope){
   if(row>sheet.rowCount+2)sheet.pageSetup.printArea=`A1:${sheet.getColumn(sheet.columnCount).letter}${row}`;
 }
 
-export function createCombinedWorkbook(scopes,options={}){
-  const book=new ExcelJS.Workbook(),used=new Set(),contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map();
+export function createCombinedWorkbook(scopes,options={},book=null){
+  book ||= new ExcelJS.Workbook();
+  const contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map(),used=new Set(book.worksheets.map(sheet=>sheet.name.toLowerCase()));
   scopes.forEach((scope,index)=>{
     const base=String(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`).replace(/[\\/*?:\[\]]/g,'-').replace(/^'+|'+$/g,'').slice(0,31)||`Parameter ${index+1}`;
     let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
@@ -292,8 +326,63 @@ export async function downloadAllReportsXlsx(scope,options={}){
   if(!sections.length)throw Error('Belum ada hasil untuk diekspor.');
   sections.forEach(section=>section.dataset.decimalSeparator=scope.dataset.decimalSeparator||getDecimalSeparator());
   const book=createCombinedWorkbook(sections,options);
-  const reportSheets=book.worksheets.filter(sheet=>sheet.name!=='all data');
+  addSummaryWorksheet(book,scope);
+  const reportSheets=book.worksheets.filter(sheet=>!['all data','Ringkasan'].includes(sheet.name));
   for(let i=0;i<sections.length;i++)await addChartImages(book,reportSheets[i],sections[i]);
   const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename((scope.dataset.datasetName||sections[0]?.dataset.datasetName)+(options.formulas?'-formula':''));a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+function addSummaryWorksheet(book,root){
+  const table=root.querySelector('[data-analysis-summary] table');
+  if(!table)return;
+  const sheet=book.addWorksheet('Ringkasan');
+  for(const row of table.rows){
+    const values=[...row.cells].map((cell,index)=>{
+      const raw=cell.hasAttribute?.('data-number')?Number(cell.dataset.number):NaN;
+      return index>0&&Number.isFinite(raw)?raw:textOf(cell);
+    });
+    sheet.addRow(values);
+  }
+  sheet.columns=[{width:30},{width:10},{width:14},{width:12},{width:14},{width:34},{width:20}];
+  sheet.getRow(1).font={bold:true};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  sheet.views=[{state:'frozen',ySplit:1}];
+}
+function addInterpretationWorksheet(book,sections){
+  const base='Interpretasi BAB IV',used=new Set(book.worksheets.map(s=>s.name.toLowerCase()));let name=base,n=2;while(used.has(name.toLowerCase()))name=`${base} (${n++})`;
+  const sheet=book.addWorksheet(name);
+  sheet.columns=[{width:28},{width:100}];
+  sheet.addRow(['Parameter','Interpretasi otomatis']);
+  sheet.getRow(1).font={bold:true};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  for(const section of sections){
+    const parameter=section.dataset.parameter||textOf(section.querySelector('h3')||{textContent:'Parameter'});
+    const paragraphs=[...section.querySelectorAll('.interpretation-paragraph')].map(textOf).filter(Boolean);
+    if(!paragraphs.length)continue;
+    paragraphs.forEach((paragraph,index)=>{
+      const row=sheet.addRow([index===0?parameter:'',paragraph]);
+      row.getCell(2).alignment={wrapText:true,vertical:'top'};
+    });
+  }
+  sheet.views=[{state:'frozen',ySplit:1}];
+}
+export async function downloadThesisAppendixXlsx(root){
+  const sections=[...root.querySelectorAll('[data-export-scope]')];
+  if(!sections.length)throw Error('Belum ada hasil untuk dibuat menjadi lampiran.');
+  sections.forEach(section=>section.dataset.decimalSeparator=root.dataset.decimalSeparator||getDecimalSeparator());
+  const book=new ExcelJS.Workbook();
+  book.creator='Statistical Web';
+  book.calcProperties.fullCalcOnLoad=true;book.calcProperties.forceFullCalc=true;book.calcProperties.calcMode='auto';
+  addSummaryWorksheet(book,root);
+  createCombinedWorkbook(sections,{formulas:true},book);
+  addInterpretationWorksheet(book,sections);
+  const reportSheets=book.worksheets.filter(sheet=>!['Ringkasan','all data'].includes(sheet.name)&&!sheet.name.startsWith('Interpretasi BAB IV'));
+  for(let i=0;i<sections.length;i++)await addChartImages(book,reportSheets[i],sections[i]);
+  const noteName=book.getWorksheet('Petunjuk')?'Petunjuk Lampiran':'Petunjuk';
+  const note=book.addWorksheet(noteName);
+  note.columns=[{width:28},{width:100}];
+  note.addRow(['Mode Lampiran Skripsi/Tesis','Workbook ini memuat ringkasan seluruh parameter, data mentah, hasil tiap parameter, grafik, interpretasi BAB IV, dan formula Excel pada komponen yang dapat direkonstruksi dengan fungsi Excel standar.']);
+  note.addRow(['Formula uji lanjut','Rataan/n/SD/SE dan ANOVA direkonstruksi bila tersedia. Huruf BNJ/DMRT dan nilai kritis studentized-range tetap mengikuti hasil Statistical Web karena Excel standar tidak menyediakan fungsi inverse studentized range yang setara.']);
+  note.getColumn(2).alignment={wrapText:true,vertical:'top'};
+  const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename((root.dataset.datasetName||'hasil-analisis')+'-lampiran-skripsi-tesis');a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }

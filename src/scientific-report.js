@@ -1,6 +1,7 @@
 import {formatNumber as fmt} from './number-format.js';
 import {resultActions} from './result-export.js';
 import jStat from 'jstat';
+import {interpretReport} from './report-insights.js';
 export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 export const designNames={ral:'RAL',rak:'RAK',fral:'Faktorial RAL',frak:'Faktorial RAK',split:'RPT / petak terbagi dalam RAK'};
 const pv=p=>p===null||!Number.isFinite(p)?'—':p<.001?'&lt;'+fmt(.001):fmt(p);
@@ -141,6 +142,8 @@ export function renderReport(report){
     html+=diagnosticPlot(report.residuals,report.fitted,true)+diagnosticPlot(report.residuals,report.fitted,false);
     if(report.wholeResiduals.length)html+=diagnosticPlot(report.wholeResiduals,[],true);
   }
+  const interpretation=interpretReport(report);
+  html+=`<section class="chapter-interpretation" data-chapter-interpretation><div class="chapter-interpretation-head"><div><b>Interpretasi otomatis siap BAB IV</b><small>Periksa kembali konteks biologis, satuan, dan terminologi penelitian sebelum dimasukkan ke naskah.</small></div><button type="button" data-result-action="copy-interpretation">Salin interpretasi</button></div>${interpretation.map(text=>`<div class="analysis-note interpretation-paragraph">${esc(text)}</div>`).join('')}</section>`;
   html+=report.notes.map(note=>`<div class="analysis-note">${esc(note)}</div>`).join('');
   return html+'</section>';
 }

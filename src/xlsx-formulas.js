@@ -101,17 +101,24 @@ function groupedSquareTerm(yRange,criteria){
 }
 
 export function factorialAnovaFormulaPlan(design,rowByLabel,raw){
-  if(!['fral','frak'].includes(design))throw new Error('Formula JK faktorial hanya mendukung Faktorial RAL/RAK.');
+  if(!['fral','frak','split'].includes(design))throw new Error('Formula JK faktorial hanya mendukung Faktorial RAL/RAK dan RPT.');
   const treatment=rowByLabel.perlakuan;
   const factorA=rowByLabel['faktor a'];
   const factorB=rowByLabel['faktor b'];
   const interaction=rowByLabel['interaksi (a × b)']??rowByLabel['a × b'];
-  const error=rowByLabel.acak??rowByLabel.galat;
   const total=rowByLabel.total;
   const block=rowByLabel.kelompok??rowByLabel.ulangan;
-  if(!treatment||!factorA||!factorB||!interaction||!error||!total||(design==='frak'&&!block))return [];
+  const error=rowByLabel.acak??rowByLabel.galat;
+  const errorA=rowByLabel['galat (a)'];
+  const errorB=rowByLabel['galat (b)'];
+  if(!factorA||!factorB||!interaction||!total)return [];
+  if(design!=='split'&&(!treatment||!error))return [];
+  if(['frak','split'].includes(design)&&!block)return [];
+  if(design==='split'&&(!errorA||!errorB))return [];
+
   const {sheetName='all data',startRow,endRow,aLevels=[],bLevels=[],reps=[]}=raw||{};
   if(!startRow||!endRow||!aLevels.length||!bLevels.length)return [];
+  if(['frak','split'].includes(design)&&!reps.length)return [];
   const aRange=sheetRange(sheetName,startRow,2,endRow);
   const bRange=sheetRange(sheetName,startRow,3,endRow);
   const repRange=sheetRange(sheetName,startRow,4,endRow);
@@ -119,23 +126,50 @@ export function factorialAnovaFormulaPlan(design,rowByLabel,raw){
   const cf=`(SUM(${yRange})^2/COUNT(${yRange}))`;
   const ssA=`${aLevels.map(level=>groupedSquareTerm(yRange,[[aRange,level]])).join('+')}-${cf}`;
   const ssB=`${bLevels.map(level=>groupedSquareTerm(yRange,[[bRange,level]])).join('+')}-${cf}`;
-  const ssTreatment=`${aLevels.flatMap(a=>bLevels.map(b=>groupedSquareTerm(yRange,[[aRange,a],[bRange,b]]))).join('+')}-${cf}`;
+  const ssCells=`${aLevels.flatMap(a=>bLevels.map(b=>groupedSquareTerm(yRange,[[aRange,a],[bRange,b]]))).join('+')}-${cf}`;
   const cells=[
-    {row:treatment,col:3,formula:ssTreatment},
+    {row:factorA,col:2,formula:`${aLevels.length}-1`},
     {row:factorA,col:3,formula:ssA},
+    {row:factorB,col:2,formula:`${bLevels.length}-1`},
     {row:factorB,col:3,formula:ssB},
-    {row:interaction,col:3,formula:`${excelRef(treatment,3,false)}-${excelRef(factorA,3,false)}-${excelRef(factorB,3,false)}`},
+    {row:interaction,col:2,formula:`(${aLevels.length}-1)*(${bLevels.length}-1)`},
+    {row:total,col:2,formula:`COUNT(${yRange})-1`},
     {row:total,col:3,formula:`SUMSQ(${yRange})-${cf}`}
   ];
+
+  if(design==='split'){
+    const ssBlock=`${reps.map(rep=>groupedSquareTerm(yRange,[[repRange,rep]])).join('+')}-${cf}`;
+    const ssWhole=`${reps.flatMap(rep=>aLevels.map(a=>groupedSquareTerm(yRange,[[repRange,rep],[aRange,a]]))).join('+')}-${cf}`;
+    cells.push(
+      {row:block,col:2,formula:`${reps.length}-1`},
+      {row:block,col:3,formula:ssBlock},
+      {row:errorA,col:2,formula:`(${reps.length}-1)*(${aLevels.length}-1)`},
+      {row:errorA,col:3,formula:`(${ssWhole})-${excelRef(block,3,false)}-${excelRef(factorA,3,false)}`},
+      {row:interaction,col:3,formula:`(${ssCells})-${excelRef(factorA,3,false)}-${excelRef(factorB,3,false)}`},
+      {row:errorB,col:2,formula:`${aLevels.length}*(${reps.length}-1)*(${bLevels.length}-1)`},
+      {row:errorB,col:3,formula:`${excelRef(total,3,false)}-${excelRef(block,3,false)}-${excelRef(factorA,3,false)}-${excelRef(errorA,3,false)}-${excelRef(factorB,3,false)}-${excelRef(interaction,3,false)}`}
+    );
+    return cells;
+  }
+
+  cells.push(
+    {row:treatment,col:2,formula:`${aLevels.length}*${bLevels.length}-1`},
+    {row:treatment,col:3,formula:ssCells},
+    {row:interaction,col:3,formula:`${excelRef(treatment,3,false)}-${excelRef(factorA,3,false)}-${excelRef(factorB,3,false)}`}
+  );
   if(design==='frak'){
-    if(!reps.length)return [];
     const ssBlock=`${reps.map(rep=>groupedSquareTerm(yRange,[[repRange,rep]])).join('+')}-${cf}`;
     cells.push(
+      {row:block,col:2,formula:`${reps.length}-1`},
       {row:block,col:3,formula:ssBlock},
+      {row:error,col:2,formula:`COUNT(${yRange})-${aLevels.length}*${bLevels.length}-(${reps.length}-1)`},
       {row:error,col:3,formula:`${excelRef(total,3,false)}-${excelRef(block,3,false)}-${excelRef(treatment,3,false)}`}
     );
   }else{
-    cells.push({row:error,col:3,formula:`${excelRef(total,3,false)}-${excelRef(treatment,3,false)}`});
+    cells.push(
+      {row:error,col:2,formula:`COUNT(${yRange})-${aLevels.length}*${bLevels.length}`},
+      {row:error,col:3,formula:`${excelRef(total,3,false)}-${excelRef(treatment,3,false)}`}
+    );
   }
   return cells;
 }

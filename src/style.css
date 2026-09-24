@@ -148,3 +148,19 @@ button:hover,button.primary:hover{background:#e9e9e9;border-color:#999}
 .structure-grid span,.structure-df span{padding:5px 8px;border:1px solid #ccd7e1;border-radius:6px;background:#fff;font-size:12px}
 .structure-df{margin-top:8px;align-items:center}.structure-df>b{margin-right:2px;font-size:12px}
 @media(max-width:600px){.design-structure-head{display:block}.structure-ok,.structure-warn{display:block;margin-top:5px}}
+
+.analysis-summary{margin:12px 0 18px;border:1px solid #9eafbf;background:#fff}
+.summary-head{display:flex;justify-content:space-between;gap:12px;padding:9px 10px;border-bottom:1px solid #c4ced8;background:#f4f7fa}
+.summary-head>div{display:grid;gap:2px}.summary-head small{color:var(--muted);font-size:12px}
+.summary-table{margin:0!important}.summary-table th:first-child,.summary-table td:first-child{min-width:190px}
+.data-quality{margin:12px 0;padding:12px;border:1px solid #b8c4cf;border-radius:8px;background:#fff}
+.data-quality.quality-good{border-left:4px solid #2e7d4f}.data-quality.quality-warn{border-left:4px solid #b7791f}.data-quality.quality-bad{border-left:4px solid #a83232}
+.quality-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.quality-head>div{display:grid;gap:2px}.quality-head small{font-size:12px;color:var(--muted)}
+.quality-head>strong{font-size:13px}.quality-good .quality-head>strong{color:#236640}.quality-warn .quality-head>strong{color:#8a5a12}.quality-bad .quality-head>strong{color:#922c2c}
+.data-quality ul{margin:9px 0 0;padding-left:20px}.data-quality li{margin:4px 0;font-size:13px}.quality-warn{color:#7a5315}.quality-error{color:#8c2727}
+.chapter-interpretation{margin:14px 0 0;border-top:2px solid #6b7e90;padding-top:10px}
+.chapter-interpretation-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px;background:#f6f8fa;border:1px solid #aeb8c2}
+.chapter-interpretation-head>div{display:grid;gap:3px}.chapter-interpretation-head small{font-size:12px;color:var(--muted);font-weight:400}
+.interpretation-paragraph{line-height:1.55!important}
+.master-result-actions{position:sticky;top:0;z-index:3;background:#fff;border:1px solid #c3ccd5;padding:8px}
+@media(max-width:650px){.quality-head,.chapter-interpretation-head{display:block}.chapter-interpretation-head button{margin-top:8px;width:100%}.master-result-actions{position:static}}

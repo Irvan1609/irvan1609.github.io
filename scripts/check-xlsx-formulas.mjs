@@ -46,3 +46,22 @@ const fral=factorialAnovaFormulaPlan('fral',{
 },factorialRaw);
 assert.equal(formula(fral,24,3),'C25-C20');
 console.log('Factorial formula export references raw all data and reconstructs JK components.');
+
+
+assert.equal(formula(frak,27,2),'3-1');
+assert.equal(formula(frak,28,2),'3-1');
+assert.equal(formula(frak,29,2),'(3-1)*(3-1)');
+assert.equal(formula(frak,30,2),"COUNT('all data'!$E$2:$E$28)-3*3-(3-1)");
+
+const split=factorialAnovaFormulaPlan('split',{
+  kelompok:30,'faktor a':31,'galat (a)':32,'faktor b':33,'a × b':34,'galat (b)':35,total:36
+},factorialRaw);
+assert.equal(formula(split,30,2),'3-1');
+assert.equal(formula(split,31,2),'3-1');
+assert.equal(formula(split,32,2),'(3-1)*(3-1)');
+assert.equal(formula(split,33,2),'3-1');
+assert.equal(formula(split,34,2),'(3-1)*(3-1)');
+assert.equal(formula(split,35,2),'3*(3-1)*(3-1)');
+assert.ok(formula(split,32,3).includes("COUNTIFS('all data'!$D$2:$D$28"));
+assert.equal(formula(split,35,3),'C36-C30-C31-C32-C33-C34');
+console.log('Split-plot formula export reconstructs db, JK Galat (a), and JK Galat (b) from raw data.');
