@@ -84,6 +84,49 @@ function prepareFormulaRawData(book,scopes){
   return contexts;
 }
 
+function normalizeFormulaHeader(value){
+  return String(value??'').toLocaleLowerCase('id-ID').normalize('NFKD').replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+function rawDatasetNumber(value,separator){
+  if(typeof value==='number')return Number.isFinite(value)?value:null;
+  const text=String(value??'').trim();
+  if(!text)return null;
+  if(/^[-+]?0\d+$/.test(text))return null;
+  const normalized=separator===','?text.replace(',','.'):text;
+  if(separator===','&&text.includes('.'))return null;
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized))return null;
+  const number=Number(normalized);
+  return Number.isFinite(number)?number:null;
+}
+
+function addRawDatasetWorksheet(book,dataset,separator=getDecimalSeparator()){
+  if(!dataset?.headers?.length||!Array.isArray(dataset.rows))return null;
+  const existing=book.getWorksheet('Data Mentah');
+  if(existing)book.removeWorksheet(existing.id);
+  const sheet=book.addWorksheet('Data Mentah');
+  const headers=dataset.headers.map(value=>String(value??''));
+  sheet.addRow(headers);
+  dataset.rows.forEach(source=>{
+    const row=headers.map((_,i)=>{
+      const raw=source?.[i]??'';
+      const number=rawDatasetNumber(raw,separator);
+      return number===null?String(raw??''):number;
+    });
+    sheet.addRow(row);
+  });
+  sheet.columns=headers.map(header=>({width:Math.max(14,Math.min(28,header.length+4))}));
+  const header=sheet.getRow(1);
+  header.font={bold:true};
+  header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  header.alignment={horizontal:'center',vertical:'middle'};
+  sheet.views=[{state:'frozen',ySplit:1}];
+  if(headers.length)sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:headers.length}};
+  const headerMap=new Map();
+  headers.forEach((header,index)=>headerMap.set(normalizeFormulaHeader(header),index+1));
+  return {sheetName:'Data Mentah',startRow:2,endRow:Math.max(2,dataset.rows.length+1),headers,headerMap,rowCount:dataset.rows.length};
+}
+
 function formulaIndexCachedValue(value){
   if(value===null||value===undefined)return '';
   if(typeof value==='number'||typeof value==='string'||typeof value==='boolean')return value;
@@ -100,7 +143,8 @@ function addFormulaIndexWorksheet(book){
       row.eachCell({includeEmpty:false},cell=>{
         const value=cell.value;
         if(!value||typeof value!=='object'||typeof value.formula!=='string')return;
-        rows.push([source.name,cell.address,`=${value.formula}`,formulaIndexCachedValue(value.result)]);
+        const isStored=/^N\("hasil algoritme"\)\+[-+]?\d/i.test(value.formula);
+        rows.push([source.name,cell.address,`=${value.formula}`,formulaIndexCachedValue(value.result),isStored?'Hasil algoritme':'Dinamis']);
       });
     });
   }
@@ -108,8 +152,8 @@ function addFormulaIndexWorksheet(book){
   if(existing)book.removeWorksheet(existing.id);
   if(!rows.length)return null;
   const sheet=book.addWorksheet('Daftar Formula');
-  sheet.columns=[{width:28},{width:12},{width:72},{width:22}];
-  sheet.addRow(['Lembar','Sel','Formula Excel','Nilai tersimpan']);
+  sheet.columns=[{width:28},{width:12},{width:72},{width:22},{width:18}];
+  sheet.addRow(['Lembar','Sel','Formula Excel','Nilai tersimpan','Jenis']);
   rows.forEach(row=>sheet.addRow(row));
   const header=sheet.getRow(1);
   header.font={bold:true};
@@ -315,8 +359,169 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     });
     return true;
   }
+  function rawColumnRange(col){
+    const raw=options.rawDatasetContext;
+    if(!raw||!col)return null;
+    const name="'"+String(raw.sheetName).replace(/'/g,"''")+"'";
+    return `${name}!${excelRef(raw.startRow,col,false)}:${excelRef(raw.endRow,col,false)}`;
+  }
+  function rawColumnFor(label){
+    const raw=options.rawDatasetContext;
+    if(!raw)return null;
+    const normalized=normalizeFormulaHeader(label);
+    if(raw.headerMap.has(normalized))return raw.headerMap.get(normalized);
+    const synonyms=[
+      ['genotipe','genotip genotype entry galur varietas perlakuan'],
+      ['perlakuan','treatment perlakuan genotip genotype entry'],
+      ['kelompok','ulangan blok block rep replication kelompok'],
+      ['lokasi','location environment lingkungan lokasi'],
+      ['lingkungan','environment location lokasi lingkungan']
+    ];
+    for(const [target,words] of synonyms){
+      if(normalized.includes(target)){
+        for(const word of words.split(' ')){
+          const found=[...raw.headerMap.entries()].find(([key])=>key===word||key.includes(word));
+          if(found)return found[1];
+        }
+      }
+    }
+    return null;
+  }
+  function inferResponseRawColumn(){
+    const raw=options.rawDatasetContext;
+    if(!raw)return null;
+    const candidates=[
+      scope.dataset.parameter,
+      textOf(scope.querySelector('.analysis-lead')||{textContent:''}).match(/Parameter\s*:\s*([^;]+)/i)?.[1],
+      textOf(scope.querySelector('h3')||{textContent:''}).split('—').pop()
+    ].filter(Boolean);
+    for(const value of candidates){
+      const col=rawColumnFor(String(value).trim());
+      if(col)return col;
+    }
+    return null;
+  }
+  function genericDescriptiveFormulas(table,start){
+    const raw=options.rawDatasetContext;if(!raw)return false;
+    const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf),normalized=headers.map(normalizeFormulaHeader);
+    if(!normalized.includes('variabel')||!normalized.some(x=>x==='mean'||x==='rataan')||!normalized.includes('sd'))return false;
+    const idx=name=>normalized.findIndex(x=>x===name);
+    const positions={
+      n:idx('n'),mean:Math.max(idx('mean'),idx('rataan')),median:idx('median'),min:idx('min'),q1:idx('q1'),q3:idx('q3'),
+      max:idx('max'),variance:Math.max(idx('varians'),idx('variance')),sd:idx('sd'),se:idx('se'),cv:normalized.findIndex(x=>x==='cv'||x==='cv'),skew:idx('skewness'),kurt:idx('kurtosis')
+    };
+    const headRows=table.tHead?.rows.length||1;
+    [...(table.tBodies?.[0]?.rows||[])].forEach((source,i)=>{
+      const col=rawColumnFor(textOf(source.cells[0]));if(!col)return;
+      const range=rawColumnRange(col),row=start+headRows+i;
+      const set=(p,formula)=>{if(p>=0)setFormula(row,p+1,formula,sourceNumber(source.cells[p]));};
+      set(positions.n,`COUNT(${range})`);
+      set(positions.mean,`IFERROR(AVERAGE(${range}),"")`);
+      set(positions.median,`IFERROR(MEDIAN(${range}),"")`);
+      set(positions.min,`IFERROR(MIN(${range}),"")`);
+      set(positions.q1,`IFERROR(QUARTILE.INC(${range},1),"")`);
+      set(positions.q3,`IFERROR(QUARTILE.INC(${range},3),"")`);
+      set(positions.max,`IFERROR(MAX(${range}),"")`);
+      set(positions.variance,`IFERROR(VAR.S(${range}),"")`);
+      set(positions.sd,`IFERROR(STDEV.S(${range}),"")`);
+      if(positions.se>=0&&positions.sd>=0&&positions.n>=0)set(positions.se,`IFERROR(${excelRef(row,positions.sd+1,false)}/SQRT(${excelRef(row,positions.n+1,false)}),"")`);
+      if(positions.cv>=0&&positions.sd>=0&&positions.mean>=0)set(positions.cv,`IFERROR(${excelRef(row,positions.sd+1,false)}/ABS(${excelRef(row,positions.mean+1,false)})*100,"")`);
+      set(positions.skew,`IFERROR(SKEW(${range}),"")`);
+      set(positions.kurt,`IFERROR(KURT(${range}),"")`);
+    });
+    return true;
+  }
+  function genericCorrelationFormulas(table,start){
+    const raw=options.rawDatasetContext;if(!raw)return false;
+    const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf);
+    if(headers.length<3||normalizeFormulaHeader(headers[0])!=='variabel')return false;
+    const cols=headers.slice(1).map(rawColumnFor);
+    if(cols.some(col=>!col))return false;
+    const body=[...(table.tBodies?.[0]?.rows||[])];
+    if(body.length!==cols.length)return false;
+    const title=normalizeFormulaHeader(textOf(scope.querySelector('h3')||{textContent:''}));
+    if(!title.includes('korelasi'))return false;
+    const spearman=title.includes('spearman'),headRows=table.tHead?.rows.length||1;
+    body.forEach((source,i)=>{
+      const rowCol=rawColumnFor(textOf(source.cells[0]));if(!rowCol)return;
+      for(let j=0;j<cols.length;j++){
+        const x=rawColumnRange(rowCol),y=rawColumnRange(cols[j]),row=start+headRows+i,col=j+2;
+        let formula;
+        if(i===j)formula='1';
+        else if(spearman)formula=`LET(x,FILTER(${x},ISNUMBER(${x})*ISNUMBER(${y})),y,FILTER(${y},ISNUMBER(${x})*ISNUMBER(${y})),CORREL(MAP(x,LAMBDA(v,RANK.AVG(v,x))),MAP(y,LAMBDA(v,RANK.AVG(v,y)))))`;
+        else formula=`IFERROR(CORREL(FILTER(${x},ISNUMBER(${x})*ISNUMBER(${y})),FILTER(${y},ISNUMBER(${x})*ISNUMBER(${y}))),"")`;
+        setFormula(row,col,formula,sourceNumber(source.cells[j+1]));
+      }
+    });
+    return true;
+  }
+  function genericAnovaFormulas(table,start){
+    const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf),norm=headers.map(normalizeFormulaHeader);
+    const db=norm.indexOf('db'),jk=norm.indexOf('jk'),kt=norm.indexOf('kt');
+    const fIndex=norm.findIndex(x=>x==='f'||x==='f hitung'||x==='wald f');
+    if(db<0||fIndex<0)return false;
+    const headRows=table.tHead?.rows.length||1,body=[...(table.tBodies?.[0]?.rows||[])];
+    if(kt>=0&&jk>=0){
+      body.forEach((source,i)=>{
+        const row=start+headRows+i,df=sourceNumber(source.cells[db]),ss=sourceNumber(source.cells[jk]);
+        if(Number.isFinite(df)&&df>0&&Number.isFinite(ss)&&!/^total$/i.test(textOf(source.cells[0])))setFormula(row,kt+1,`IFERROR(${excelRef(row,jk+1,false)}/${excelRef(row,db+1,false)},"")`,sourceNumber(source.cells[kt]));
+      });
+    }
+    const pIndex=norm.indexOf('p'),df2Index=norm.findIndex(x=>x.includes('db denominator'));
+    if(pIndex>=0&&df2Index>=0){
+      body.forEach((source,i)=>{
+        const row=start+headRows+i,f=sourceNumber(source.cells[fIndex]),df1=sourceNumber(source.cells[db]),df2=sourceNumber(source.cells[df2Index]);
+        if(Number.isFinite(f)&&Number.isFinite(df1)&&Number.isFinite(df2))setFormula(row,pIndex+1,`IFERROR(F.DIST.RT(${excelRef(row,fIndex+1,false)},${excelRef(row,db+1,false)},${excelRef(row,df2Index+1,false)}),"")`,sourceNumber(source.cells[pIndex]));
+      });
+      return true;
+    }
+    if(kt<0)return false;
+    const items=body.map((source,i)=>({source,row:start+headRows+i,label:textOf(source.cells[0]),df:sourceNumber(source.cells[db]),ms:sourceNumber(source.cells[kt]),f:sourceNumber(source.cells[fIndex])}));
+    const f05=norm.findIndex(x=>x.includes('f tabel 0 05')||x==='0 05'),f01=norm.findIndex(x=>x.includes('f tabel 0 01')||x==='0 01'),ket=norm.findIndex(x=>x==='ket');
+    for(const item of items.filter(x=>Number.isFinite(x.f)&&Number.isFinite(x.ms))){
+      const candidates=items.filter(x=>x!==item&&Number.isFinite(x.ms)&&x.ms!==0&&Number.isFinite(x.df)&&x.df>0);
+      candidates.sort((a,b)=>Math.abs(item.ms/a.ms-item.f)-Math.abs(item.ms/b.ms-item.f));
+      const error=candidates[0],diff=error?Math.abs(item.ms/error.ms-item.f):Infinity,tol=Math.max(1e-7,Math.abs(item.f)*1e-5);
+      if(!error||diff>tol)continue;
+      setFormula(item.row,fIndex+1,`IFERROR(${excelRef(item.row,kt+1,false)}/${excelRef(error.row,kt+1)},"")`,item.f);
+      if(f05>=0)setFormula(item.row,f05+1,`IFERROR(F.INV.RT(0.05,${excelRef(item.row,db+1,false)},${excelRef(error.row,db+1)}),"")`,sourceNumber(item.source.cells[f05]));
+      if(f01>=0)setFormula(item.row,f01+1,`IFERROR(F.INV.RT(0.01,${excelRef(item.row,db+1,false)},${excelRef(error.row,db+1)}),"")`,sourceNumber(item.source.cells[f01]));
+      if(ket>=0&&f05>=0&&f01>=0)setFormula(item.row,ket+1,`IF(${excelRef(item.row,fIndex+1,false)}>${excelRef(item.row,f01+1,false)},"**",IF(${excelRef(item.row,fIndex+1,false)}>${excelRef(item.row,f05+1,false)},"*","tn"))`,textOf(item.source.cells[ket]));
+    }
+    return items.some(x=>Number.isFinite(x.f));
+  }
+  function genericGroupMeanFormulas(table,start){
+    const raw=options.rawDatasetContext;if(!raw)return false;
+    const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf),norm=headers.map(normalizeFormulaHeader);
+    if(headers.length<2)return false;
+    const groupCol=rawColumnFor(headers[0]),meanIndex=norm.findIndex(x=>x==='rataan'||x==='mean'||x.includes('ls mean')),nIndex=norm.indexOf('n'),responseCol=inferResponseRawColumn();
+    if(!groupCol||meanIndex<0||!responseCol)return false;
+    const groupRange=rawColumnRange(groupCol),yRange=rawColumnRange(responseCol),headRows=table.tHead?.rows.length||1;
+    [...(table.tBodies?.[0]?.rows||[])].forEach((source,i)=>{
+      const label=textOf(source.cells[0]),row=start+headRows+i,quoted='"'+label.replace(/"/g,'""')+'"';
+      setFormula(row,meanIndex+1,`IFERROR(AVERAGEIF(${groupRange},${quoted},${yRange}),"")`,sourceNumber(source.cells[meanIndex]));
+      if(nIndex>=0)setFormula(row,nIndex+1,`COUNTIF(${groupRange},${quoted})`,sourceNumber(source.cells[nIndex]));
+    });
+    return true;
+  }
+  function formulaizeRemainingNumerics(table,start){
+    if(!formulaMode||table.classList.contains('observation-before-table'))return;
+    const layout=tableLayout([...table.rows].map(row=>[...row.cells]));
+    for(const {source,row,col,rowSpan,colSpan} of layout.cells){
+      if(source.tagName==='TH'||col===0||rowSpan>1||colSpan>1)continue;
+      const number=sourceNumber(source);if(!Number.isFinite(number))continue;
+      const target=sheet.getCell(start+row,col+1),value=target.value;
+      if(value&&typeof value==='object'&&typeof value.formula==='string')continue;
+      setFormula(start+row,col+1,`N("hasil algoritme")+${Number(number).toPrecision(15)}`,number);
+    }
+  }
+
   function applyTableFormulas(table,start){
     if(!formulaMode)return;
+    genericDescriptiveFormulas(table,start);
+    genericCorrelationFormulas(table,start);
+    genericGroupMeanFormulas(table,start);
+    genericAnovaFormulas(table,start);
     if(table.classList.contains('observation-table')){
       const headRows=table.tHead?.rows.length||0,body=[...(table.tBodies?.[0]?.rows||[])],meta=observationMeta(table),repCount=meta.repCount;
       const totalIndex=body.findIndex(row=>/^Total$/i.test(textOf(row.cells[0]))),dataRows=body.filter((_,i)=>i!==totalIndex);
@@ -393,7 +598,19 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
           }
         }
     }
-    if(sourceTable)applyTableFormulas(sourceTable,start);
+    if(sourceTable){
+      applyTableFormulas(sourceTable,start);
+      formulaizeRemainingNumerics(sourceTable,start);
+    }else if(formulaMode){
+      const layoutFallback=tableLayout(rows);
+      for(const {source,row,col,rowSpan,colSpan} of layoutFallback.cells){
+        if(source.tagName==='TH'||col===0||rowSpan>1||colSpan>1)continue;
+        const number=sourceNumber(source);if(!Number.isFinite(number))continue;
+        const target=sheet.getCell(start+row,col+1),value=target.value;
+        if(value&&typeof value==='object'&&typeof value.formula==='string')continue;
+        setFormula(start+row,col+1,`N("hasil algoritme")+${Number(number).toPrecision(15)}`,number);
+      }
+    }
     rows.forEach((cells,i)=>{sheet.getRow(start+i).height=Math.max(24,18*Math.max(1,...cells.map((cell,j)=>Math.ceil(textOf(cell).length/((j===0?42:16)*Math.max(1,cell.colSpan||1))))));});
     rowNumber=start+layout.height+1;
   }
@@ -422,9 +639,10 @@ export async function downloadReportXlsx(scope,filename,options={}) {
   let book,reportSheet;
   if(options.formulas){
     book=new ExcelJS.Workbook();
+    const rawDatasetContext=addRawDatasetWorksheet(book,options.rawDataset,scope.dataset.decimalSeparator||getDecimalSeparator());
     const contexts=prepareFormulaRawData(book,[scope]);
     addFormulaSummaryWorksheet(book,contexts);
-    createReportWorkbook(scope,book,'Hasil analisis',{...options,rawContext:contexts.get(scope)});
+    createReportWorkbook(scope,book,'Hasil analisis',{...options,rawContext:contexts.get(scope),rawDatasetContext});
     reportSheet=book.getWorksheet('Hasil analisis');
   }else{
     book=createReportWorkbook(scope,null,'Hasil analisis',options);
@@ -461,13 +679,14 @@ async function addChartImages(book,sheet,scope){
 
 export function createCombinedWorkbook(scopes,options={},book=null){
   book ||= new ExcelJS.Workbook();
+  const rawDatasetContext=options.formulas?addRawDatasetWorksheet(book,options.rawDataset,scopes[0]?.dataset.decimalSeparator||getDecimalSeparator()):null;
   const contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map();
   if(options.formulas)addFormulaSummaryWorksheet(book,contexts);
   const used=new Set(book.worksheets.map(sheet=>sheet.name.toLowerCase()));
   scopes.forEach((scope,index)=>{
     const base=safeSheetNameFromParameter(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`,index+1);
     let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
-    createReportWorkbook(scope,book,name,{...options,rawContext:contexts.get(scope)});
+    createReportWorkbook(scope,book,name,{...options,rawContext:contexts.get(scope),rawDatasetContext});
   });
   return book;
 }
