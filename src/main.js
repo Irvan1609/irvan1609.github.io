@@ -3,6 +3,7 @@ import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
+import { installReferenceManager } from './reference-manager.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
@@ -118,4 +119,4 @@ function installDataGrid(){
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;state.active=item.dataset.file;loadActive();});
 }
 
-initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
+initNumberSettings();loadStorage();installDataGrid();installDataTools();installReferenceManager();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
