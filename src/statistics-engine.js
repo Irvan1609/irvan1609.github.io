@@ -205,7 +205,7 @@ export function analyzeParameter(observations,options,index,name){
   if(posthoc==='dmrt')notes.push('DMRT memakai rentang peringkat rataan dan α rentang = 1 − (1 − α)^(p − 1); pada ulangan tidak sama digunakan rataan harmonik.');
   if(posthoc==='bnt')notes.push('BNT menggunakan uji t dua sisi tanpa penyesuaian multipel dan dijalankan setelah uji F yang relevan nyata.');
   const residualGroups=A.flatMap(a=>B.map(b=>obs.flatMap((o,i)=>o.a===a&&o.b===b?[residuals[i]]:[])));
-  const assumptions=options.assumptions?[shapiroWilk(residuals),normality(residuals),leveneMean(residualGroups),brownForsythe(residualGroups),bartlett(residualGroups)]:[];
+  const assumptions=options.assumptions?[normality(residuals),brownForsythe(residualGroups),shapiroWilk(residuals),leveneMean(residualGroups),bartlett(residualGroups)]:[];
   const diagnostics=options.assumptions?residualDiagnostics(obs,residuals,mse,design):null;
   let wholeResiduals=[];
   if(split){wholeResiduals=R.flatMap(rep=>A.map((a,i)=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));if(options.assumptions){const wholeTests=[shapiroWilk(wholeResiduals),normality(wholeResiduals)];wholeTests.forEach(test=>test.name+=' — petak utama');assumptions.push(...wholeTests);const groups=A.map((a,i)=>R.map(rep=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));const varianceTests=[leveneMean(groups),brownForsythe(groups),bartlett(groups)];varianceTests.forEach(test=>test.name+=' — petak utama');assumptions.push(...varianceTests);}notes.push('RPT berbasis RAK: A diuji dengan Galat (a); B dan A × B dengan Galat (b). SE rataan kombinasi memperhitungkan kedua galat.');}
