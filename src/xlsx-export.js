@@ -226,6 +226,13 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     const value=raw===undefined?parseNumber(textOf(cell)):Number(raw);
     return Number.isFinite(value)?value:NaN;
   };
+  const sourceBaseNumber=cell=>{
+    const direct=sourceNumber(cell);if(Number.isFinite(direct))return direct;
+    if(!cell?.cloneNode)return NaN;
+    const clone=cell.cloneNode(true);
+    clone.querySelectorAll?.('sup,sub').forEach(node=>node.remove());
+    return parseNumber(textOf(clone));
+  };
   const setFormula=(row,col,formula,result)=>{
     const cell=sheet.getCell(row,col),cached=result!==undefined?result:cell.value;
     cell.value=(typeof cached==='number'&&Number.isFinite(cached))||typeof cached==='string'?{formula,result:cached}:{formula};
@@ -433,24 +440,42 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
   }
   function genericCorrelationFormulas(table,start){
     const raw=options.rawDatasetContext;if(!raw)return false;
-    const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf);
-    if(headers.length<3||normalizeFormulaHeader(headers[0])!=='variabel')return false;
-    const cols=headers.slice(1).map(rawColumnFor);
+    const title=normalizeFormulaHeader(textOf(scope.querySelector('h3')||{textContent:''}));
+    if(!title.includes('korelasi'))return false;
+    const headRows=[...(table.tHead?.rows||[])];
+    const variableHeader=[...headRows].reverse().find(row=>{
+      const cells=[...row.cells],labels=cells.map(textOf);
+      return labels.length>=3&&labels.slice(1).every(label=>rawColumnFor(label));
+    });
+    if(!variableHeader)return false;
+    const headers=[...variableHeader.cells].map(textOf),cols=headers.slice(1).map(rawColumnFor);
     if(cols.some(col=>!col))return false;
     const body=[...(table.tBodies?.[0]?.rows||[])];
     if(body.length!==cols.length)return false;
-    const title=normalizeFormulaHeader(textOf(scope.querySelector('h3')||{textContent:''}));
-    if(!title.includes('korelasi'))return false;
-    const spearman=title.includes('spearman'),headRows=table.tHead?.rows.length||1;
+    const spearman=title.includes('spearman'),headerRowIndex=headRows.indexOf(variableHeader);
+    const tableHeadHeight=headRows.length;
+    const completeCount=`SUMPRODUCT(${cols.map(col=>`--ISNUMBER(${rawColumnRange(col)})`).join(',')})`;
+    if(headRows.length>=3&&/^n$/i.test(textOf(headRows[0].cells[0]||{textContent:''}))){
+      const nCell=sheet.getCell(start,3);
+      nCell.value={formula:completeCount,result:Number(textOf(headRows[0].cells[2]||{textContent:''}))||undefined};
+      for(let h=1;h<Math.min(3,headRows.length);h++){
+        const alpha=sourceBaseNumber(headRows[h].cells[0]);const cached=sourceBaseNumber(headRows[h].cells[2]);
+        if(Number.isFinite(alpha)){
+          const nRef=excelRef(start,3);
+          setFormula(start+h,3,`IFERROR(LET(t,T.INV.2T(${alpha},${nRef}-2),t/SQRT(t^2+${nRef}-2)),"")`,cached);
+        }
+      }
+    }
     body.forEach((source,i)=>{
       const rowCol=rawColumnFor(textOf(source.cells[0]));if(!rowCol)return;
       for(let j=0;j<cols.length;j++){
-        const x=rawColumnRange(rowCol),y=rawColumnRange(cols[j]),row=start+headRows+i,col=j+2;
+        if(j<i)continue;
+        const x=rawColumnRange(rowCol),y=rawColumnRange(cols[j]),row=start+tableHeadHeight+i,col=j+2;
         let formula;
         if(i===j)formula='1';
         else if(spearman)formula=`LET(x,FILTER(${x},ISNUMBER(${x})*ISNUMBER(${y})),y,FILTER(${y},ISNUMBER(${x})*ISNUMBER(${y})),CORREL(MAP(x,LAMBDA(v,RANK.AVG(v,x))),MAP(y,LAMBDA(v,RANK.AVG(v,y)))))`;
         else formula=`IFERROR(CORREL(FILTER(${x},ISNUMBER(${x})*ISNUMBER(${y})),FILTER(${y},ISNUMBER(${x})*ISNUMBER(${y}))),"")`;
-        setFormula(row,col,formula,sourceNumber(source.cells[j+1]));
+        setFormula(row,col,formula,sourceBaseNumber(source.cells[j+1]));
       }
     });
     return true;
@@ -493,8 +518,8 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
   function genericGroupMeanFormulas(table,start){
     const raw=options.rawDatasetContext;if(!raw)return false;
     const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf),norm=headers.map(normalizeFormulaHeader);
-    if(headers.length<2)return false;
-    const groupCol=rawColumnFor(headers[0]),meanIndex=norm.findIndex(x=>x==='rataan'||x==='mean'||x.includes('ls mean')),nIndex=norm.indexOf('n'),responseCol=inferResponseRawColumn();
+    if(headers.length<2||headers.length>3)return false;
+    const groupCol=rawColumnFor(headers[0]),meanIndex=norm.findIndex(x=>x==='rataan'||x==='mean'),nIndex=norm.indexOf('n'),responseCol=inferResponseRawColumn();
     if(!groupCol||meanIndex<0||!responseCol)return false;
     const groupRange=rawColumnRange(groupCol),yRange=rawColumnRange(responseCol),headRows=table.tHead?.rows.length||1;
     [...(table.tBodies?.[0]?.rows||[])].forEach((source,i)=>{
@@ -509,7 +534,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     const layout=tableLayout([...table.rows].map(row=>[...row.cells]));
     for(const {source,row,col,rowSpan,colSpan} of layout.cells){
       if(source.tagName==='TH'||col===0||rowSpan>1||colSpan>1)continue;
-      const number=sourceNumber(source);if(!Number.isFinite(number))continue;
+      const number=sourceBaseNumber(source);if(!Number.isFinite(number))continue;
       const target=sheet.getCell(start+row,col+1),value=target.value;
       if(value&&typeof value==='object'&&typeof value.formula==='string')continue;
       setFormula(start+row,col+1,`N("hasil algoritme")+${Number(number).toPrecision(15)}`,number);
