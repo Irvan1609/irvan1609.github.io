@@ -1,7 +1,9 @@
+import {detectChiliBoxesFromImageData} from './detector.js';
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 let image=null,photo='',boxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
-let cameraStream=null,facingMode='environment',torchOn=false;
+let cameraStream=null,facingMode='environment',torchOn=false,detecting=false;
+const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
 
 const status=message=>$('status').textContent=message;
 const cloneBoxes=()=>boxes.map(box=>[...box]);
@@ -61,12 +63,59 @@ async function optimizePhoto(dataURL){
   const url=temp.toDataURL('image/jpeg',.92);
   return {url,image:await decodeImage(url)};
 }
+
+function readDetectSettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(DETECT_SETTINGS_KEY)||'{}');
+    return {
+      target:['all','red','green'].includes(saved.target)?saved.target:'all',
+      sensitivity:['strict','normal','sensitive'].includes(saved.sensitivity)?saved.sensitivity:'normal',
+      onLoad:saved.onLoad!==false
+    };
+  }catch{return {target:'all',sensitivity:'normal',onLoad:true};}
+}
+function applyDetectSettings(){
+  const saved=readDetectSettings();
+  $('detectColor').value=saved.target;$('detectSensitivity').value=saved.sensitivity;$('detectOnLoad').checked=saved.onLoad;
+}
+function saveDetectSettings(){
+  try{localStorage.setItem(DETECT_SETTINGS_KEY,JSON.stringify({target:$('detectColor').value,sensitivity:$('detectSensitivity').value,onLoad:$('detectOnLoad').checked}));}catch{}
+}
+function detectionImageData(){
+  const maxSide=1000,scale=Math.min(1,maxSide/Math.max(image.naturalWidth,image.naturalHeight));
+  const temp=document.createElement('canvas');
+  temp.width=Math.max(1,Math.round(image.naturalWidth*scale));temp.height=Math.max(1,Math.round(image.naturalHeight*scale));
+  const tctx=temp.getContext('2d',{alpha:false,willReadFrequently:true});
+  tctx.drawImage(image,0,0,temp.width,temp.height);
+  return tctx.getImageData(0,0,temp.width,temp.height);
+}
+async function autoDetectChilies({automatic=false}={}){
+  if(!image||detecting)return;
+  if(boxes.length&&!automatic&&!confirm('Deteksi ulang akan mengganti kotak yang ada. Lanjutkan?'))return;
+  detecting=true;$('autoDetect').disabled=true;$('autoDetect').textContent='Mendeteksi…';
+  status('Mendeteksi cabai pada foto…');
+  try{
+    await new Promise(resolve=>setTimeout(resolve,20));
+    const result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
+    checkpoint();boxes=result.boxes;paint();
+    if(boxes.length){
+      status(`Deteksi otomatis menemukan ${boxes.length} calon cabai. Periksa kotaknya; tambahkan atau hapus jika ada yang kurang tepat.`);
+    }else{
+      status('Belum ada cabai yang terdeteksi. Coba pilih warna yang sesuai atau ubah kepekaan menjadi “Lebih peka”.');
+    }
+  }catch(error){
+    status(error.message||'Deteksi otomatis gagal.');
+  }finally{
+    detecting=false;$('autoDetect').disabled=false;$('autoDetect').textContent='Deteksi otomatis';
+  }
+}
 async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
   image=prepared.image;photo=prepared.url;boxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;
   $('sample').value=name||nowName();
   $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);
-  status('Foto siap. Buat satu kotak untuk setiap buah cabai.');
+  if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
+  else status('Foto siap. Tekan “Deteksi otomatis” atau tambahkan kotak secara manual.');
 }
 async function loadPhotoFile(file,name){
   if(!file)return;
@@ -175,6 +224,10 @@ function undo(){
   boxes=history.pop();dirty=true;paint();
 }
 $('undo').onclick=undo;$('mobileUndo').onclick=undo;
+$('autoDetect').onclick=()=>autoDetectChilies();
+$('detectColor').onchange=saveDetectSettings;
+$('detectSensitivity').onchange=saveDetectSettings;
+$('detectOnLoad').onchange=saveDetectSettings;
 $('zoom').onchange=()=>redraw(true);
 $('mode').onchange=updateInteractionMode;
 $('sample').oninput=()=>dirty=true;
@@ -332,6 +385,7 @@ window.addEventListener('beforeunload',event=>{stopCamera();if(dirty){event.prev
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStream)stopCamera();});
 
 try{
+  applyDetectSettings();
   db=await openDB();await list();updateInteractionMode();
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch{
