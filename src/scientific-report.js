@@ -2,6 +2,7 @@ import {formatNumber as fmt} from './number-format.js';
 import {resultActions} from './result-export.js';
 import jStat from 'jstat';
 import {interpretReport} from './report-insights.js';
+import {renderBab4Table} from './bab4-table.js';
 export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 export const designNames={ral:'RAL',rak:'RAK',fral:'Faktorial RAL',frak:'Faktorial RAK',split:'RPT / petak terbagi dalam RAK'};
 const pv=p=>p===null||!Number.isFinite(p)?'—':p<.001?'&lt;'+fmt(.001):fmt(p);
@@ -109,11 +110,32 @@ export function renderReport(report){
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));
   const repNames=hasRep?report.replicates:Array.from({length:Math.max(...rawGroups.map(g=>g.length))},(_,i)=>String(i+1));
-  const displayGroups=rawGroups.map(g=>repNames.map((rep,i)=>hasRep?g.find(o=>o.rep===rep)?.y:g[i]?.y));
-  const observationRows=report.cells.map((c,i)=>[`<span data-factor-a="${esc(c.a)}" data-factor-b="${esc(c.b)}">${esc(c.label)}</span>`,...displayGroups[i].map(x=>x===undefined?'':x),rawGroups[i].reduce((s,o)=>s+o.y,0),c.mean]);
-  observationRows.push(['Total',...repNames.map((_,i)=>displayGroups.reduce((s,g)=>s+(g[i]??0),0)),report.observations.reduce((s,o)=>s+o.y,0),report.grand]);
-  html+=caption('Data pengamatan')+table(['Perlakuan',...repNames.map(r=>(grouped?'Kelompok ':'Ulangan ')+r),'Total','Rata-rata'],observationRows,'observation-table');
-  html+=caption('Sidik ragam')+renderAnova(report);
+  const observationTable=(observations,cls='observation-table')=>{
+    const groups=report.cells.map(c=>observations.filter(o=>o.a===c.a&&o.b===c.b));
+    const display=groups.map(g=>repNames.map((rep,i)=>hasRep?g.find(o=>o.rep===rep)?.y:g[i]?.y));
+    const rows=report.cells.map((cell,i)=>{
+      const values=groups[i].map(o=>o.y),total=values.reduce((s,v)=>s+v,0),avg=values.length?total/values.length:NaN;
+      return [`<span data-factor-a="${esc(cell.a)}" data-factor-b="${esc(cell.b)}">${esc(cell.label)}</span>`,...display[i].map(x=>x===undefined?'':x),total,avg];
+    });
+    const all=observations.map(o=>o.y),grand=all.length?all.reduce((s,v)=>s+v,0)/all.length:NaN;
+    rows.push(['Total',...repNames.map((_,i)=>display.reduce((s,g)=>s+(g[i]??0),0)),all.reduce((s,v)=>s+v,0),grand]);
+    return table(['Perlakuan',...repNames.map(r=>(grouped?'Kelompok ':'Ulangan ')+r),'Total','Rata-rata'],rows,cls);
+  };
+  const transformed=report.transform?.type&&report.transform.type!=='none';
+  if(transformed){
+    const detail=report.transform.type==='boxcox'&&Number.isFinite(report.transform.lambda)?`${report.transform.label}; λ = ${fmt(report.transform.lambda,2)}`:report.transform.label;
+    html+=`<div class="analysis-note transform-note"><b>Transformasi data:</b> ${esc(detail)}. Analisis utama dan uji lanjut menggunakan data setelah transformasi; data sebelum transformasi tetap ditampilkan sebagai pembanding.</div>`;
+    if(report.originalObservations?.length){
+      html+=caption('Data sebelum transformasi')+observationTable(report.originalObservations,'observation-before-table');
+      if(report.beforeTransform)html+=caption('Sidik ragam sebelum transformasi')+renderAnova({...report,terms:report.beforeTransform.terms,cv:report.beforeTransform.cv,cvWhole:report.beforeTransform.cvWhole,grand:report.beforeTransform.grand,contrasts:[]});
+      else if(report.beforeTransformError)html+=`<div class="analysis-note">Sidik ragam sebelum transformasi tidak dapat dihitung: ${esc(report.beforeTransformError)}</div>`;
+    }
+    html+=caption(`Data setelah transformasi ${report.transform.label}`)+observationTable(report.observations,'observation-table');
+    html+=caption(`Sidik ragam setelah transformasi ${report.transform.label}`)+renderAnova(report);
+  }else{
+    html+=caption('Data pengamatan')+observationTable(report.observations,'observation-table');
+    html+=caption('Sidik ragam')+renderAnova(report);
+  }
   const tested=report.terms.filter(t=>t.f!==null);
   html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(name)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
   if(report.interactionPosthoc){
@@ -137,6 +159,7 @@ export function renderReport(report){
   }
   if(multi)html+=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
   if(report.contrasts.length)html+=renderContrasts(report,caption);
+  html+=renderBab4Table(report);
   if(report.assumptions.length){
     html+=caption('Pemeriksaan asumsi')+table(['Pemeriksaan','Statistik','p','Keterangan'],report.assumptions.map(a=>[esc(a.name),a.stat,pv(a.p),esc(a.p===null?a.note:a.p<alpha?'Ada bukti penyimpangan pada taraf yang dipilih.':'Belum ada bukti penyimpangan pada taraf yang dipilih.')]));
     html+=diagnosticPlot(report.residuals,report.fitted,true)+diagnosticPlot(report.residuals,report.fitted,false);

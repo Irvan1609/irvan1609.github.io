@@ -1,4 +1,5 @@
 import {formatNumber as fmt} from './number-format.js';
+import {metadataFactor,describeLevel} from './treatment-metadata.js';
 
 const html=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const significant=(term,alpha)=>Number.isFinite(term?.p)&&term.p<alpha;
@@ -12,9 +13,9 @@ function extreme(items,mode='high'){
   if(!items?.length)return null;
   return items.reduce((best,item)=>mode==='high'?(item.mean>best.mean?item:best):(item.mean<best.mean?item:best));
 }
-function parameterParts(name){
-  const text=String(name||'parameter').trim(),match=text.match(/\(([^()]+)\)\s*$/);
-  return {measure:(match?text.slice(0,match.index):text).trim().toLowerCase(),unit:match?match[1].trim():''};
+function parameterParts(report){
+  const text=String(report?.name||'parameter').trim(),match=text.match(/\(([^()]+)\)\s*$/),base=(match?text.slice(0,match.index):text).trim().toLowerCase();
+  return {measure:report?.transform?.type&&report.transform.type!=='none'?`setelah transformasi ${base}`:base,unit:match?match[1].trim():''};
 }
 function valueText(value,unit){
   return `${fmt(value,2)}${unit?' '+unit:''}`;
@@ -27,7 +28,7 @@ function readableFactor(value,fallback){
   return text||fallback;
 }
 function listLabels(items){
-  const labels=items.map(item=>item.label);
+  const labels=items.map(item=>item.a&&item.b?`${item.a}${item.b}`:item.label);
   if(labels.length<=1)return labels[0]||'';
   if(labels.length===2)return labels.join(' dan ');
   return labels.slice(0,-1).join(', ')+', dan '+labels.at(-1);
@@ -40,26 +41,40 @@ function relationClause(high,comparison){
   if(same.length)return ` yang tidak berbeda nyata dengan ${listLabels(same)}`;
   return '';
 }
-function comparisonSubject(comparison,report,label){
-  const aName=readableFactor(report.factorLabels?.a,'Faktor A'),bName=readableFactor(report.factorLabels?.b,'Faktor B');
-  if(comparison.layout==='factorial-interaction'||/interaksi/i.test(comparison.title))return `kombinasi perlakuan ${label}`;
-  if(/petak utama|faktor a/i.test(comparison.title))return `taraf ${label} pada ${aName}`;
-  if(/anak petak|faktor b/i.test(comparison.title))return `taraf ${label} pada ${bName}`;
-  return `perlakuan ${label}`;
+function comparisonSubject(comparison,report,item){
+  const aName=metadataFactor(report,'a',readableFactor(report.factorLabels?.a,'Faktor A')),bName=metadataFactor(report,'b',readableFactor(report.factorLabels?.b,'Faktor B'));
+  if(comparison.layout==='factorial-interaction'||/interaksi/i.test(comparison.title)){
+    if(item?.a&&item?.b){
+      const aDesc=describeLevel(report,'a',item.a,{withCode:false}),bDesc=describeLevel(report,'b',item.b,{withCode:false});
+      const hasMeta=aDesc!==item.a||bDesc!==item.b;
+      return hasMeta?`kombinasi ${aName} ${aDesc} dan ${bName} ${bDesc} (${item.a}${item.b})`:`kombinasi perlakuan ${item.a}${item.b}`;
+    }
+    return `kombinasi perlakuan ${item?.label||''}`;
+  }
+  if(/petak utama|faktor a/i.test(comparison.title)){
+    const desc=describeLevel(report,'a',item.label,{withCode:false});
+    return desc!==item.label?`${aName} ${desc} (${item.label})`:`taraf ${item.label} pada ${aName}`;
+  }
+  if(/anak petak|faktor b/i.test(comparison.title)){
+    const desc=describeLevel(report,'b',item.label,{withCode:false});
+    return desc!==item.label?`${bName} ${desc} (${item.label})`:`taraf ${item.label} pada ${bName}`;
+  }
+  const desc=describeLevel(report,'a',item.label,{withCode:false});
+  return desc!==item.label?`perlakuan ${desc} (${item.label})`:`perlakuan ${item.label}`;
 }
 function comparisonNarrative(comparison,report){
   if(!comparison?.items?.length)return '';
-  const {measure,unit}=parameterParts(report.name),high=extreme(comparison.items,'high'),low=extreme(comparison.items,'low');
+  const {measure,unit}=parameterParts(report),high=extreme(comparison.items,'high'),low=extreme(comparison.items,'low');
   if(!high||!low)return '';
   if(comparison.method==='none'){
-    return `Secara deskriptif, ${comparisonSubject(comparison,report,high.label)} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}, sedangkan rata-rata ${measure} terendah ditemukan pada ${comparisonSubject(comparison,report,low.label)} yaitu ${valueText(low.mean,unit)}. Karena pengaruh yang relevan tidak nyata atau uji lanjut tidak dipilih, perbedaan rataan tersebut tidak dinyatakan sebagai perbedaan nyata.`;
+    return `Secara deskriptif, ${comparisonSubject(comparison,report,high)} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}, sedangkan rata-rata ${measure} terendah ditemukan pada ${comparisonSubject(comparison,report,low)} yaitu ${valueText(low.mean,unit)}. Karena pengaruh yang relevan tidak nyata atau uji lanjut tidak dipilih, perbedaan rataan tersebut tidak dinyatakan sebagai perbedaan nyata.`;
   }
   const method=comparison.method.toUpperCase(),level=fmt((report.alpha??.05)*100,0);
-  return `Berdasarkan hasil uji lanjut ${method} ${level}%, ${comparisonSubject(comparison,report,high.label)} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}${relationClause(high,comparison)}. Sementara itu, rata-rata ${measure} terendah ditemukan pada ${comparisonSubject(comparison,report,low.label)} yaitu ${valueText(low.mean,unit)}.`;
+  return `Berdasarkan hasil uji lanjut ${method} ${level}%, ${comparisonSubject(comparison,report,high)} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}${relationClause(high,comparison)}. Sementara itu, rata-rata ${measure} terendah ditemukan pada ${comparisonSubject(comparison,report,low)} yaitu ${valueText(low.mean,unit)}.`;
 }
 
 function factorialAnovaNarrative(report,alpha){
-  const aName=readableFactor(report.factorLabels?.a,'Faktor A'),bName=readableFactor(report.factorLabels?.b,'Faktor B');
+  const aName=metadataFactor(report,'a',readableFactor(report.factorLabels?.a,'Faktor A')),bName=metadataFactor(report,'b',readableFactor(report.factorLabels?.b,'Faktor B'));
   const interaction=termBy(report,[/^A\s*×\s*B$/i,/interaksi.*A.*B/i]);
   const aTerm=termBy(report,[/^Faktor A$/i,/Petak Utama \(A\)/i]);
   const bTerm=termBy(report,[/^Faktor B$/i,/Anak Petak \(B\)/i]);
@@ -75,7 +90,7 @@ function factorialAnovaNarrative(report,alpha){
 function oneFactorAnovaNarrative(report,alpha){
   const treatment=termBy(report,[/^Perlakuan$/i]);
   if(!treatment)return '';
-  const factor=readableFactor(report.factorLabels?.a,'perlakuan');
+  const factor=metadataFactor(report,'a',readableFactor(report.factorLabels?.a,'perlakuan'));
   return `Sidik ragam menunjukkan bahwa ${factor} ${statusText(treatment,alpha)} terhadap ${report.name}.`;
 }
 
@@ -97,10 +112,10 @@ export function interpretReport(report){
   }
 
   if(report.interactionPosthoc?.cells?.length){
-    const {measure,unit}=parameterParts(report.name),cells=report.interactionPosthoc.cells,high=extreme(cells,'high'),low=extreme(cells,'low'),method=String(report.interactionPosthoc.method||report.posthoc||'').toUpperCase();
+    const {measure,unit}=parameterParts(report),cells=report.interactionPosthoc.cells,high=extreme(cells,'high'),low=extreme(cells,'low'),method=String(report.interactionPosthoc.method||report.posthoc||'').toUpperCase();
     if(high&&low){
       const prefix=method&&method!=='NONE'?`Berdasarkan hasil uji lanjut ${method} ${fmt(alpha*100,0)}%, `:'Secara deskriptif, ';
-      paragraphs.push(`${prefix}kombinasi perlakuan ${high.a} × ${high.b} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}, sedangkan rata-rata ${measure} terendah ditemukan pada kombinasi perlakuan ${low.a} × ${low.b} yaitu ${valueText(low.mean,unit)}. Pada RPT, keputusan berbeda nyata tetap mengikuti arah perbandingan baris dan kolom pada tabel uji lanjut.`);
+      paragraphs.push(`${prefix}${comparisonSubject({layout:'factorial-interaction',title:'Interaksi'},report,high)} menghasilkan rata-rata ${measure} tertinggi yaitu ${valueText(high.mean,unit)}, sedangkan rata-rata ${measure} terendah ditemukan pada ${comparisonSubject({layout:'factorial-interaction',title:'Interaksi'},report,low)} yaitu ${valueText(low.mean,unit)}. Pada RPT, keputusan berbeda nyata tetap mengikuti arah perbandingan baris dan kolom pada tabel uji lanjut.`);
     }
   }
 
