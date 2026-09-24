@@ -43,10 +43,10 @@ assert.ok(report.diagnostics?.items?.length===12);
 const audit=auditReport(report);
 assert.equal(audit.errors,0);
 assert.ok(audit.decisions.length>=1);
-assert.match(renderDecisionSummary(report),/Keputusan uji lanjut/);
+assert.match(renderDecisionSummary(report),/Ringkasan uji lanjut/);
 const full=auditReports([report]);
 assert.equal(full.errors,0);
-assert.match(renderAudit(full),/Cek sebelum skripsi/);
+assert.match(renderAudit(full),/Periksa hasil/);
 
 const bad=structuredClone(report);
 const tested=bad.comparisons.find(item=>item.method!=='none');
@@ -60,7 +60,7 @@ if(tested&&tested.pairs?.length){
 }
 
 const html=renderReport(report);
-assert.match(html,/Keputusan uji lanjut/);
+assert.match(html,/Ringkasan uji lanjut/);
 assert.match(html,/Histogram residual/);
 assert.match(html,/Cook's distance/);
 assert.match(html,/Shapiro/);

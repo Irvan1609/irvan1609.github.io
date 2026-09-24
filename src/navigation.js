@@ -11,7 +11,7 @@ export function installNavigation(){
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
     ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
-    ['helpMenu','Help',['dataTemplate','analysisHistory','configureDriveBackup']]
+    ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
   ]){
     const button=document.createElement('button');
     button.id=id+'Button';

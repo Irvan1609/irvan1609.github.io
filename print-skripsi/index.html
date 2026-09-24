@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#17324d">
-  <meta name="description" content="Alat pemisah PDF skripsi menjadi bagian awal, halaman ganjil, dan halaman genap dengan preview dan deteksi otomatis BAB I.">
+  <meta name="description" content="Halaman yang saya pakai untuk memisahkan PDF skripsi menjadi bagian awal, halaman ganjil, dan halaman genap sebelum dicetak.">
   <title>Print Skripsi | Irvan</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <style>
@@ -18,9 +18,9 @@
   <header class="subweb-header"><div class="subweb-header-inner"><a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Print Skripsi</span></a><nav class="subweb-nav" aria-label="Navigasi situs"><a href="/">Portofolio</a><a href="/stat/">Statistik</a><a href="/print-skripsi/" aria-current="page">Print</a><a href="/mendeley/">Mendeley</a></nav></div></header>
   <main class="wrap">
     <section class="hero">
-      <div class="eyebrow">PDF utility</div>
+      <div class="eyebrow">Alat PDF</div>
       <h1>Print Skripsi</h1>
-      <p class="lead">Unggah PDF skripsi. Sistem akan mencoba mendeteksi halaman awal BAB I Pendahuluan, menampilkan preview untuk verifikasi, lalu memisahkan PDF menjadi bagian awal, halaman ganjil, dan halaman genap.</p>
+      <p class="lead">Saya pakai halaman ini untuk menyiapkan file skripsi sebelum dicetak. Pilih PDF, cek halaman awal BAB I lewat preview, lalu pisahkan menjadi bagian awal, halaman ganjil, dan halaman genap.</p>
     </section>
 
     <section class="panel" aria-labelledby="splitTitle">
@@ -29,7 +29,7 @@
         <div class="field">
           <label for="pdfFile">File skripsi (PDF)</label>
           <input id="pdfFile" type="file" accept="application/pdf,.pdf">
-          <small>PDF diproses langsung di browser dan tidak dikirim ke server.</small>
+          <small>PDF diproses di browser ini dan tidak saya unggah ke server.</small>
         </div>
         <div class="field">
           <label for="cutoffPage">Halaman terakhir sebelum Pendahuluan</label>
@@ -42,7 +42,7 @@
 
       <section id="previewSection" class="preview" hidden aria-labelledby="previewTitle">
         <div class="preview-head">
-          <div><strong id="previewTitle">Preview halaman PDF</strong><small id="previewInfo">Gunakan preview untuk memastikan lokasi BAB I.</small></div>
+          <div><strong id="previewTitle">Lihat halaman PDF</strong><small id="previewInfo">Cek halaman ini sebelum menentukan awal BAB I.</small></div>
           <div class="preview-controls">
             <button id="prevPage" class="btn secondary" type="button" aria-label="Halaman PDF sebelumnya" title="Halaman sebelumnya">←</button>
             <label for="previewPage">Halaman</label>
@@ -64,7 +64,7 @@
       <div id="results" class="results"></div>
     </section>
 
-    <aside class="note"><strong>Aturan pembagian:</strong> jika batasnya 12, File 1 berisi halaman 1-12; File 2 berisi 13, 15, 17, 19, …; dan File 3 berisi 14, 16, 18, 20, …. Deteksi otomatis hanya rekomendasi; selalu verifikasi melalui preview sebelum memproses.</aside>
+    <aside class="note"><strong>Cara pembagian:</strong> kalau batasnya 12, File 1 berisi halaman 1-12; File 2 berisi 13, 15, 17, 19, …; dan File 3 berisi 14, 16, 18, 20, …. Hasil pencarian awal BAB I tetap saya cek lewat preview sebelum diproses.</aside>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>

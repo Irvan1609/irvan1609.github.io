@@ -28,7 +28,7 @@ for (const marker of ['Mahasiswa Agronomi','href="/stat/"','href="/print-skripsi
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
 if (main.includes('installReferenceManager') || navigation.includes("['referencesMenu','Referensi'")) fail('Mendeley helper must not be embedded in /stat');
-for (const marker of ['Mendeley Helper','referenceQuery','referenceExportRis','referenceLibrary','/mendeley/app.js']) if (!mendeleyHtml.includes(marker)) fail(`/mendeley missing marker: ${marker}`);
+for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary','/mendeley/app.js']) if (!mendeleyHtml.includes(marker)) fail(`/mendeley missing marker: ${marker}`);
 for (const marker of ['api.crossref.org','toRis','toBibtex','statistical_web_reference_library_v1']) if (!mendeleyApp.includes(marker)) fail(`/mendeley app missing marker: ${marker}`);
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
@@ -71,16 +71,16 @@ for (const src of ['/src/main.js','/src/ral.js']) if (!moduleScripts.includes(sr
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('analysis navigation must contain Analyze and hidden project controls');
+if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!/>Analisis<\/button>/.test(nav))fail('analysis navigation must contain Analisis and hidden project controls');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
 }
-if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use ← Statistical Web brand link back to portfolio');
+if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistik Irvan'))fail('stat header must use personal Statistics brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
-for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
+for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analisis'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
@@ -100,13 +100,19 @@ if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-hea
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');
 if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanyaan agronomi yang diuji secara mekanistik'))fail('portfolio tone must remain student-oriented');
+for(const [name,page] of [['portfolio',portfolioHtml],['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
+  for(const phrase of ['Interpretasi otomatis siap BAB IV','Reference workflow','PDF utility','>Analyze<'])if(page.includes(phrase))fail(`${name} still contains overly generic/generated UI phrase: ${phrase}`);
+}
+if(!portfolioHtml.includes('Saya Irvan')||!portfolioHtml.includes('Alat yang saya buat'))fail('portfolio should read as a personal student site');
+if(!mendeleyHtml.includes('Saya buat halaman ini')||!printHtml.includes('Saya pakai halaman ini'))fail('sub-web introductions should use the owner’s direct voice');
+
 
 for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so Data/Help commands exist when menus are assembled');
-for (const marker of ["['dataMenu','Data'","['helpMenu','Help'",'validateDataset','dataTemplate','analysisHistory']) {
+for (const marker of ["['dataMenu','Data'","['helpMenu','Bantuan'",'validateDataset','dataTemplate','analysisHistory']) {
   if (!navigation.includes(marker)) fail(`navigation.js missing Data/Help menu contract: ${marker}`);
 }
 
@@ -114,7 +120,7 @@ if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('mai
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
 for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','scienceTreatmentFields','data-transform.js','treatment-metadata.js','category-metadata.js','readCategoryMetadata','categoryLevelDescription','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
-for (const marker of ['Interpretasi otomatis siap BAB IV','copy-interpretation','renderBab4Table','Data sebelum transformasi','Sidik ragam sebelum transformasi','renderDecisionSummary','residualHistogram','renderInfluenceDiagnostics']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
+for (const marker of ['Catatan interpretasi','copy-interpretation','renderBab4Table','Data sebelum transformasi','Sidik ragam sebelum transformasi','renderDecisionSummary','residualHistogram','renderInfluenceDiagnostics']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
 const designMap = scientificReport.match(/export const designNames\s*=\s*\{([^}]*)\}/)?.[1] || '';
 for (const design of ['ral','rak','fral','frak','split']) if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);
 for (const required of ['F. Hitung','F. Tabel','table-caption']) if (!scientificReport.includes(required)) fail(`scientific-report.js missing reporting marker: ${required}`);

@@ -23,7 +23,7 @@ if (!portfolio.includes('/mendeley/')) fail('built portfolio does not link to /m
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
-if (!html.includes('Statistical Web')) fail('built /stat page does not contain application title');
+if (!html.includes('Statistik Irvan')) fail('built /stat page does not contain personal application title');
 if (!html.includes('subweb-brand') || !html.includes('subweb-brand-arrow') || !html.includes('href="/"')) fail('built /stat page is missing shared return-to-portfolio header');
 if (/src\/[^"']+\.js/.test(html)) fail('built /stat page still references source JavaScript under /src/');
 if (/src\/[^"']+\.css/.test(html)) fail('built /stat page still references source CSS under /src/');
@@ -34,7 +34,7 @@ for (const marker of ['Print Skripsi','pdf-lib@1.17.1','pdf.js/3.11.174','jszip/
 }
 if (printHtml.includes('/print-skripsi/app.js')) fail('built /print-skripsi page still references source app.js');
 const mendeleyHtml = fs.readFileSync(mendeleyPath, 'utf8');
-for (const marker of ['Mendeley Helper','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
+for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
 if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
 for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]) if(!page.includes('/subweb-header.css')||!page.includes('subweb-nav')) fail(`built /${name} page is missing shared sub-web header`);
 

@@ -171,7 +171,7 @@ export function renderReport(report){
     if(report.wholeResiduals.length)html+=diagnosticPlot(report.wholeResiduals,[],true)+residualHistogram(report.wholeResiduals,'Histogram residual petak utama');
   }
   const interpretation=interpretReport(report);
-  html+=`<section class="chapter-interpretation" data-chapter-interpretation><div class="chapter-interpretation-head"><div><b>Interpretasi otomatis siap BAB IV</b><small>Periksa kembali konteks biologis, satuan, dan terminologi penelitian sebelum dimasukkan ke naskah.</small></div><button type="button" data-result-action="copy-interpretation">Salin interpretasi</button></div>${interpretation.map(text=>`<div class="analysis-note interpretation-paragraph">${esc(text)}</div>`).join('')}</section>`;
+  html+=`<section class="chapter-interpretation" data-chapter-interpretation><div class="chapter-interpretation-head"><div><b>Catatan interpretasi</b><small>Bagian ini saya gunakan sebagai draf awal. Konteks biologis, satuan, dan istilah penelitian tetap perlu saya cek lagi.</small></div><button type="button" data-result-action="copy-interpretation">Salin catatan</button></div>${interpretation.map(text=>`<div class="analysis-note interpretation-paragraph">${esc(text)}</div>`).join('')}</section>`;
   html+=report.notes.map(note=>`<div class="analysis-note">${esc(note)}</div>`).join('');
   return html+'</section>';
 }

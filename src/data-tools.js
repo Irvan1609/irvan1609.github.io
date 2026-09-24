@@ -18,19 +18,19 @@ function templateOptions(){
 }
 function templatePreview(template){
   const separator=getDecimalSeparator(),rows=rowsForEditor(template,separator),preview=rows.slice(0,6);
-  return `<div class="analysis-note"><b>${esc(template.label)}</b><br>${esc(template.description)}</div><p><b>Kolom:</b> ${template.headers.map(esc).join(' · ')}</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="form-help">Preview ${preview.length} dari ${rows.length} baris contoh. Dataset yang dibuat dapat langsung diedit pada Data Editor.</p>`;
+  return `<div class="analysis-note"><b>${esc(template.label)}</b><br>${esc(template.description)}</div><p><b>Kolom:</b> ${template.headers.map(esc).join(' · ')}</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${preview.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="form-help">Menampilkan ${preview.length} dari ${rows.length} baris contoh. Setelah dibuat, datanya bisa langsung diedit.</p>`;
 }
 function installExampleDatasets(){
   const tree=$('#fileTree');if(!tree||$('#exampleDatasets'))return;
   const section=document.createElement('details');section.id='exampleDatasets';
   section.style.cssText='margin-top:12px;border-top:1px solid #d8dee8;padding-top:10px';
-  section.innerHTML='<summary style="cursor:pointer;font-weight:600">Contoh dataset</summary><p class="form-help">Contoh bawaan hanya dapat dibaca. Buat salinan untuk mengedit dan menganalisis.</p>'+
+  section.innerHTML='<summary style="cursor:pointer;font-weight:600">Contoh dataset</summary><p class="form-help">Saya sediakan beberapa contoh untuk melihat format data. Buat salinan kalau ingin diedit atau dianalisis.</p>'+
     templateCatalog.map(item=>`<button type="button" class="tree-item" data-example-id="${esc(item.id)}" style="display:block;width:100%;text-align:left;margin-top:4px">${esc(item.label)}</button>`).join('');
   tree.after(section);
   section.addEventListener('click',event=>{
     const button=event.target.closest('[data-example-id]');if(!button)return;
     const template=getDataTemplate(button.dataset.exampleId),rows=rowsForEditor(template,getDecimalSeparator());
-    openTool(`Contoh dataset — ${template.label}`,`<p>${esc(template.description)}</p><p class="analysis-note">Hanya baca — contoh bawaan tidak dapat diubah atau dihapus. Dataset Anda tetap tersimpan.</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(value=>`<td>${esc(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p>${rows.length} baris × ${template.headers.length} kolom</p><button type="button" id="copyExampleDataset">Buat salinan untuk analisis</button><p id="exampleDatasetStatus" role="status"></p>`);
+    openTool(`Contoh dataset — ${template.label}`,`<p>${esc(template.description)}</p><p class="analysis-note">Contoh ini hanya untuk dilihat. Buat salinan kalau ingin mengubah datanya.</p><div class="table-scroll"><table class="result-table"><thead><tr>${template.headers.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(value=>`<td>${esc(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p>${rows.length} baris × ${template.headers.length} kolom</p><button type="button" id="copyExampleDataset">Buat salinan untuk analisis</button><p id="exampleDatasetStatus" role="status"></p>`);
     $('#copyExampleDataset').onclick=()=>{
       try{
         importDataset({name:template.name,headers:[...template.headers],rows:rows.map(row=>[...row])});

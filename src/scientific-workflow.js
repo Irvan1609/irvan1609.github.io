@@ -14,14 +14,14 @@ import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
-  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-thesis-check>Cek sebelum skripsi</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
+  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
   container.dataset.datasetName=datasetName;
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   const auditButton=container.querySelector('[data-thesis-check]'),host=container.querySelector('[data-thesis-audit-host]');
   if(auditButton&&host)auditButton.onclick=()=>{
     const audit=auditReports(reports);
     host.innerHTML=renderAudit(audit);
-    auditButton.textContent=audit.status==='Siap digunakan'?'✓ Cek sebelum skripsi: siap':audit.status==='Perlu diperiksa'?'! Cek sebelum skripsi: periksa':'✕ Cek sebelum skripsi: ada masalah';
+    auditButton.textContent=audit.status==='Siap digunakan'?'✓ Periksa hasil: aman':audit.status==='Perlu diperiksa'?'! Periksa hasil: cek lagi':'✕ Periksa hasil: ada masalah';
     host.scrollIntoView({behavior:'smooth',block:'start'});
   };
 }
@@ -31,7 +31,7 @@ function saveHistory(reports,options){
   try{localStorage.setItem(HISTORY,JSON.stringify([entry,...getHistory()].slice(0,20)));return true;}catch{return false;}
 }
 function history(){
-  const entries=getHistory();openTool('Riwayat analisis',entries.length?'<p>Hingga 20 analisis terakhir tersimpan pada browser ini. Ekspor hasil untuk menyimpan salinan di perangkat lain.</p><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
+  const entries=getHistory();openTool('Riwayat analisis',entries.length?'<p>Saya simpan sampai 20 analisis terakhir di browser ini. Kalau perlu dipindahkan ke perangkat lain, hasilnya bisa diekspor.</p><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
   if(!entries.length)return;
   $('#historyList').innerHTML=entries.map(e=>`<div class="history-row"><button data-history-open="${esc(e.id)}">${esc(e.dataset)} — ${esc(designNames[e.design])} · ${new Date(e.date).toLocaleString('id-ID')}</button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">Hapus</button></div>`).join('');
   $('#historyList').onclick=event=>{const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');

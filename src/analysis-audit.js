@@ -113,13 +113,13 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 export function renderDecisionSummary(report){
   const rows=decisionRows(report);
   if(!rows.length)return '';
-  return `<section class="decision-summary" data-decision-summary><div class="summary-head"><div><b>Keputusan uji lanjut</b><small>Ringkasan arah interpretasi berdasarkan sidik ragam</small></div></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Sumber</th><th>Status</th><th>Tindak lanjut</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(row.source)}</td><td>${esc(row.status)}</td><td>${esc(row.action)}</td></tr>`).join('')}</tbody></table></div></section>`;
+  return `<section class="decision-summary" data-decision-summary><div class="summary-head"><div><b>Ringkasan uji lanjut</b><small>Arah pembacaan hasil berdasarkan sidik ragam</small></div></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Sumber</th><th>Status</th><th>Tindak lanjut</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(row.source)}</td><td>${esc(row.status)}</td><td>${esc(row.action)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 export function renderAudit(audit){
   const cls=audit.errors?'audit-bad':audit.warnings?'audit-warn':'audit-good';
   const cards=audit.items.map(item=>{
-    const findings=item.issues.length?`<ul>${item.issues.map(entry=>`<li class="audit-${entry.level}">${esc(entry.message)}</li>`).join('')}</ul>`:'<p>Tidak ditemukan inkonsistensi utama pada hasil, tabel, uji lanjut, dan narasi.</p>';
+    const findings=item.issues.length?`<ul>${item.issues.map(entry=>`<li class="audit-${entry.level}">${esc(entry.message)}</li>`).join('')}</ul>`:'<p>Tidak ada masalah utama yang terlihat pada hasil, tabel, uji lanjut, dan catatan interpretasi.</p>';
     return `<div class="audit-card"><div class="audit-card-head"><b>${esc(item.parameter)}</b><strong>${esc(item.status)}</strong></div>${findings}</div>`;
   }).join('');
-  return `<section class="thesis-audit ${cls}" data-thesis-audit><div class="audit-head"><div><b>Cek sebelum skripsi</b><small>Audit konsistensi hasil, uji lanjut, superscript, transformasi, metadata, satuan, dan diagnostik residual.</small></div><strong>${esc(audit.status)}</strong></div>${cards}</section>`;
+  return `<section class="thesis-audit ${cls}" data-thesis-audit><div class="audit-head"><div><b>Periksa hasil</b><small>Saya pakai bagian ini untuk mengecek hasil, uji lanjut, huruf pembeda, transformasi, satuan, dan residual sebelum menyalinnya ke naskah.</small></div><strong>${esc(audit.status)}</strong></div>${cards}</section>`;
 }

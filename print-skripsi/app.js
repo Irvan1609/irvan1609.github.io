@@ -189,27 +189,27 @@ fileInput.addEventListener('change', async () => {
 
     if (pdfjsDoc) {
       previewSection.hidden = false;
-      setStatus(`PDF siap: ${totalPages} halaman. Mendeteksi BAB I Pendahuluan…`, 'info');
+      setStatus(`PDF siap: ${totalPages} halaman. Mencari awal BAB I Pendahuluan…`, 'info');
       try {
         const detected = await detectChapterOne(pdfjsDoc, totalPages);
         if (detected) {
           cutoff = detected.cutoff;
           cutoffInput.value = String(cutoff);
-          setDetection(`BAB I Pendahuluan terdeteksi pada halaman PDF ${detected.page} (keyakinan ${detected.confidence}). Batas otomatis diatur ke halaman ${cutoff}. Silakan verifikasi preview.`, 'success');
+          setDetection(`Awal BAB I ditemukan pada halaman PDF ${detected.page}. Batas sementara diisi sampai halaman ${cutoff}. Cek lagi lewat preview sebelum diproses.`, 'success');
           await renderPreview(detected.page);
         } else {
           cutoffInput.value = String(cutoff);
-          setDetection('BAB I belum dapat dideteksi dengan yakin. Gunakan preview, buka halaman awal BAB I, lalu klik “Jadikan awal BAB I”.', 'warning');
+          setDetection('Awal BAB I belum ditemukan dengan cukup jelas. Buka halaman awal BAB I lewat preview, lalu klik “Jadikan awal BAB I”.', 'warning');
           await renderPreview(Math.min(totalPages, cutoff + 1));
         }
       } catch (error) {
         cutoffInput.value = String(cutoff);
-        setDetection(`Deteksi otomatis tidak selesai: ${error?.message || 'teks PDF tidak dapat dibaca'}. Tentukan batas melalui preview.`, 'warning');
+        setDetection(`Pencarian awal BAB I tidak selesai: ${error?.message || 'teks PDF tidak dapat dibaca'}. Tentukan batas lewat preview.`, 'warning');
         await renderPreview(Math.min(totalPages, cutoff + 1));
       }
     } else {
       cutoffInput.value = String(cutoff);
-      setDetection('Preview dan deteksi otomatis tidak tersedia karena pustaka PDF preview gagal dimuat. Anda masih dapat mengisi batas secara manual.', 'warning');
+      setDetection('Preview dan pencarian awal BAB I tidak tersedia karena komponen PDF gagal dimuat. Batas masih bisa diisi manual.', 'warning');
     }
 
     renderPlan(currentCutoffPlan());

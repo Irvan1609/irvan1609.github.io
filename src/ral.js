@@ -77,7 +77,7 @@ import jStat from 'jstat';
     box.id = 'ralBnjOptions';
     box.className = 'analysis-note';
     box.style.cssText = 'margin:14px 0;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end';
-    box.innerHTML = '<div><label for="ralPosthoc">Uji lanjut (post hoc)</label><select id="ralPosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option></select></div><div><label for="ralAlpha" style="display:block;font-weight:700;margin-bottom:5px">Taraf nyata (α)</label><select id="ralAlpha"><option value="0.05">0.05 (5%)</option><option value="0.01">0.01 (1%)</option></select></div><div style="font-size:13px;color:#526171">Nilai kritis BNT/BNJ dihitung otomatis. Uji lanjut dilakukan jika ANOVA nyata pada taraf yang dipilih. Urutan hasil mengikuti dataset.</div>';
+    box.innerHTML = '<div><label for="ralPosthoc">Uji lanjut (post hoc)</label><select id="ralPosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option></select></div><div><label for="ralAlpha" style="display:block;font-weight:700;margin-bottom:5px">Taraf nyata (α)</label><select id="ralAlpha"><option value="0.05">0.05 (5%)</option><option value="0.01">0.01 (1%)</option></select></div><div style="font-size:13px;color:#526171">Nilai kritis BNT/BNJ dihitung dari taraf nyata yang dipilih. Uji lanjut dijalankan jika ANOVA nyata. Urutan hasil tetap mengikuti dataset.</div>';
     box.querySelector('select').addEventListener('change',()=>{ result.innerHTML = ''; });
     result.parentNode.insertBefore(box,result);
   }
