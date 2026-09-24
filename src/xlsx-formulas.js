@@ -25,6 +25,51 @@ export function excelRange(row1,col1,row2,col2,absolute=true){
   return `${excelRef(row1,col1,absolute)}:${excelRef(row2,col2,absolute)}`;
 }
 
+export function transformationExcelFormula(type,sourceRef,lambda=null){
+  const ref=String(sourceRef||'').trim();
+  if(!ref)throw new Error('Referensi sumber transformasi wajib diisi.');
+  switch(type||'none'){
+    case 'none': return `=${ref}`;
+    case 'sqrt': return `=IFERROR(SQRT(${ref}),"")`;
+    case 'sqrt05': return `=IFERROR(SQRT(${ref}+0.5),"")`;
+    case 'log10': return `=IFERROR(LOG10(${ref}),"")`;
+    case 'ln': return `=IFERROR(LN(${ref}),"")`;
+    case 'asinprop': return `=IFERROR(ASIN(SQRT(${ref})),"")`;
+    case 'asinpercent': return `=IFERROR(ASIN(SQRT(${ref}/100)),"")`;
+    case 'boxcox': {
+      if(!Number.isFinite(lambda))throw new Error('Lambda Box–Cox harus tersedia.');
+      return Math.abs(lambda)<1e-10?`=IFERROR(LN(${ref}),"")`:`=IFERROR((${ref}^${lambda}-1)/${lambda},"")`;
+    }
+    default: throw new Error('Jenis transformasi Excel tidak dikenali.');
+  }
+}
+export function descriptiveFormulaPlan({row,startRow,endRow,valueCol=7,aCol=2,bCol=3,repCol=4,multi=false,sheetName=''}){
+  [row,startRow,endRow,valueCol,aCol,repCol].forEach((value,index)=>positiveInteger(value,`Konteks deskriptif ${index+1}`));
+  const qualify=range=>sheetName?`'${String(sheetName).replace(/'/g,"''")}'!${range}`:range;
+  const values=qualify(excelRange(startRow,valueCol,endRow,valueCol));
+  const a=qualify(excelRange(startRow,aCol,endRow,aCol));
+  const rep=qualify(excelRange(startRow,repCol,endRow,repCol));
+  const cells=[
+    {row,col:3,formula:`COUNT(${values})`},
+    {row,col:4,formula:`SUM(${values})`},
+    {row,col:5,formula:`AVERAGE(${values})`},
+    {row,col:6,formula:`MIN(${values})`},
+    {row,col:7,formula:`MAX(${values})`},
+    {row,col:8,formula:`IFERROR(VAR.S(${values}),"")`},
+    {row,col:9,formula:`IFERROR(STDEV.S(${values}),"")`},
+    {row,col:10,formula:`IFERROR(STDEV.S(${values})/ABS(AVERAGE(${values}))*100,"")`},
+    {row,col:11,formula:`SUMSQ(${values})`},
+    {row,col:12,formula:`SUMPRODUCT(1/COUNTIF(${a},${a}))`},
+    {row,col:14,formula:`SUMPRODUCT(1/COUNTIF(${rep},${rep}))`}
+  ];
+  if(multi){
+    positiveInteger(bCol,'Kolom Faktor B');
+    const b=qualify(excelRange(startRow,bCol,endRow,bCol));
+    cells.push({row,col:13,formula:`SUMPRODUCT(1/COUNTIF(${b},${b}))`});
+  }
+  return cells;
+}
+
 export function observationFormulaPlan(context){
   const {dataStartRow,dataEndRow,repStartCol,repEndCol,totalCol,meanCol,footerRow}=context;
   [dataStartRow,dataEndRow,repStartCol,repEndCol,totalCol,meanCol,footerRow].forEach((value,index)=>positiveInteger(value,`Konteks ${index+1}`));
@@ -116,13 +161,13 @@ export function factorialAnovaFormulaPlan(design,rowByLabel,raw){
   if(['frak','split'].includes(design)&&!block)return [];
   if(design==='split'&&(!errorA||!errorB))return [];
 
-  const {sheetName='all data',startRow,endRow,aLevels=[],bLevels=[],reps=[]}=raw||{};
+  const {sheetName='all data',startRow,endRow,aLevels=[],bLevels=[],reps=[],valueCol=7}=raw||{};
   if(!startRow||!endRow||!aLevels.length||!bLevels.length)return [];
   if(['frak','split'].includes(design)&&!reps.length)return [];
   const aRange=sheetRange(sheetName,startRow,2,endRow);
   const bRange=sheetRange(sheetName,startRow,3,endRow);
   const repRange=sheetRange(sheetName,startRow,4,endRow);
-  const yRange=sheetRange(sheetName,startRow,5,endRow);
+  const yRange=sheetRange(sheetName,startRow,valueCol,endRow);
   const cf=`(SUM(${yRange})^2/COUNT(${yRange}))`;
   const ssA=`${aLevels.map(level=>groupedSquareTerm(yRange,[[aRange,level]])).join('+')}-${cf}`;
   const ssB=`${bLevels.map(level=>groupedSquareTerm(yRange,[[bRange,level]])).join('+')}-${cf}`;

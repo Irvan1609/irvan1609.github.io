@@ -107,7 +107,8 @@ export function renderReport(report){
   const {name,design,alpha}=report;let num=0;
   const caption=text=>`<div class="table-caption">Tabel ${++num}. ${esc(text)}</div>`;
   const cvText=design==='split'?`KK (a) = ${fmt(report.cvWhole,2)}%; KK (b) = ${fmt(report.cv,2)}%`:`KK = ${fmt(report.cv,2)}%`;
-  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-design="${esc(design)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
+  const transformType=report.transform?.type||'none',transformLabel=report.transform?.label||'Tanpa transformasi',transformLambda=Number.isFinite(report.transform?.lambda)?String(report.transform.lambda):'';
+  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-design="${esc(design)}" data-transform-type="${esc(transformType)}" data-transform-label="${esc(transformLabel)}" data-transform-lambda="${esc(transformLambda)}"><h3>${esc(designNames[design])} — ${esc(name)}</h3>${resultActions(`${design}-${name}`)}<div class="analysis-lead">Parameter: ${esc(name)}; N = ${report.N}; α = ${fmt(alpha,2)}. Rataan = ${fmt(report.grand,2)}; ${cvText}.</div>`;
   const multi=['fral','frak','split'].includes(design),grouped=['rak','frak','split'].includes(design);
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));

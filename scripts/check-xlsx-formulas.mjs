@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {excelColumn,excelRef,observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan} from '../src/xlsx-formulas.js';
+import fs from 'node:fs';
+import {excelColumn,excelRef,observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,transformationExcelFormula,descriptiveFormulaPlan} from '../src/xlsx-formulas.js';
 
 assert.equal(excelColumn(1),'A');
 assert.equal(excelColumn(26),'Z');
@@ -34,12 +35,12 @@ const factorialRaw={sheetName:'all data',startRow:2,endRow:28,aLevels:['B0','B1'
 const frak=factorialAnovaFormulaPlan('frak',{
   kelompok:25,perlakuan:26,'faktor a':27,'faktor b':28,'interaksi (a × b)':29,acak:30,total:31
 },factorialRaw);
-assert.ok(formula(frak,25,3).includes("SUMIFS('all data'!$E$2:$E$28,'all data'!$D$2:$D$28,\"1\")^2"));
+assert.ok(formula(frak,25,3).includes("SUMIFS('all data'!$G$2:$G$28,'all data'!$D$2:$D$28,\"1\")^2"));
 assert.ok(formula(frak,26,3).includes("COUNTIFS('all data'!$B$2:$B$28,\"B0\",'all data'!$C$2:$C$28,\"M0\")"));
-assert.ok(formula(frak,27,3).includes("SUMIFS('all data'!$E$2:$E$28,'all data'!$B$2:$B$28,\"B0\")^2"));
+assert.ok(formula(frak,27,3).includes("SUMIFS('all data'!$G$2:$G$28,'all data'!$B$2:$B$28,\"B0\")^2"));
 assert.equal(formula(frak,29,3),'C26-C27-C28');
 assert.equal(formula(frak,30,3),'C31-C25-C26');
-assert.ok(formula(frak,31,3).startsWith("SUMSQ('all data'!$E$2:$E$28)-"));
+assert.ok(formula(frak,31,3).startsWith("SUMSQ('all data'!$G$2:$G$28)-"));
 
 const fral=factorialAnovaFormulaPlan('fral',{
   perlakuan:20,'faktor a':21,'faktor b':22,'interaksi (a × b)':23,acak:24,total:25
@@ -51,7 +52,7 @@ console.log('Factorial formula export references raw all data and reconstructs J
 assert.equal(formula(frak,27,2),'3-1');
 assert.equal(formula(frak,28,2),'3-1');
 assert.equal(formula(frak,29,2),'(3-1)*(3-1)');
-assert.equal(formula(frak,30,2),"COUNT('all data'!$E$2:$E$28)-3*3-(3-1)");
+assert.equal(formula(frak,30,2),"COUNT('all data'!$G$2:$G$28)-3*3-(3-1)");
 
 const split=factorialAnovaFormulaPlan('split',{
   kelompok:30,'faktor a':31,'galat (a)':32,'faktor b':33,'a × b':34,'galat (b)':35,total:36
@@ -65,3 +66,30 @@ assert.equal(formula(split,35,2),'3*(3-1)*(3-1)');
 assert.ok(formula(split,32,3).includes("COUNTIFS('all data'!$D$2:$D$28"));
 assert.equal(formula(split,35,3),'C36-C30-C31-C32-C33-C34');
 console.log('Split-plot formula export reconstructs db, JK Galat (a), and JK Galat (b) from raw data.');
+
+
+assert.equal(transformationExcelFormula('none','E2'),'=E2');
+assert.equal(transformationExcelFormula('sqrt','E2'),'=IFERROR(SQRT(E2),"")');
+assert.equal(transformationExcelFormula('sqrt05','E2'),'=IFERROR(SQRT(E2+0.5),"")');
+assert.equal(transformationExcelFormula('log10','E2'),'=IFERROR(LOG10(E2),"")');
+assert.equal(transformationExcelFormula('ln','E2'),'=IFERROR(LN(E2),"")');
+assert.equal(transformationExcelFormula('asinprop','E2'),'=IFERROR(ASIN(SQRT(E2)),"")');
+assert.equal(transformationExcelFormula('asinpercent','E2'),'=IFERROR(ASIN(SQRT(E2/100)),"")');
+assert.match(transformationExcelFormula('boxcox','E2',.5),/E2\^0\.5/);
+assert.equal(transformationExcelFormula('boxcox','E2',0),'=IFERROR(LN(E2),"")');
+
+const descriptive=descriptiveFormulaPlan({row:2,startRow:2,endRow:28,valueCol:7,aCol:2,bCol:3,repCol:4,multi:true,sheetName:'all data'});
+assert.equal(formula(descriptive,2,3),'COUNT('all data'!$G$2:$G$28)');
+assert.equal(formula(descriptive,2,5),'AVERAGE('all data'!$G$2:$G$28)');
+assert.equal(formula(descriptive,2,9),'IFERROR(STDEV.S('all data'!$G$2:$G$28),"")');
+assert.equal(formula(descriptive,2,10),'IFERROR(STDEV.S('all data'!$G$2:$G$28)/ABS(AVERAGE('all data'!$G$2:$G$28))*100,"")');
+assert.equal(formula(descriptive,2,11),'SUMSQ('all data'!$G$2:$G$28)');
+assert.equal(formula(descriptive,2,12),'SUMPRODUCT(1/COUNTIF('all data'!$B$2:$B$28,'all data'!$B$2:$B$28))');
+assert.equal(formula(descriptive,2,13),'SUMPRODUCT(1/COUNTIF('all data'!$C$2:$C$28,'all data'!$C$2:$C$28))');
+assert.equal(formula(descriptive,2,14),'SUMPRODUCT(1/COUNTIF('all data'!$D$2:$D$28,'all data'!$D$2:$D$28))');
+
+const xlsxExport=fs.readFileSync(new URL('../src/xlsx-export.js',import.meta.url),'utf8');
+for(const marker of ['Formula Ringkas','Nilai Asli','Nilai Analisis','transformationExcelFormula','applyContrastCalculationFormulas','applyContrastDetailFormulas','T.INV.2T','F.DIST.RT']){
+  assert.ok(xlsxExport.includes(marker),`xlsx-export missing enriched formula marker: ${marker}`);
+}
+console.log('Formula export enriched with transform formulas, descriptive sheet, BNT critical formula, and planned-contrast formulas.');

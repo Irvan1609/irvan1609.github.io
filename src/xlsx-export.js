@@ -4,7 +4,7 @@ import {datasetExcelFilename} from './export-filename.js';
 import {excelRichText} from './excel-rich-text.js';
 import { getDecimalSeparator } from './number-format.js';
 import {tableLayout} from './table-layout.js';
-import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef,excelColumn} from './xlsx-formulas.js';
+import {observationFormulaPlan,oneWayAnovaFormulaPlan,factorialAnovaFormulaPlan,excelRef,excelColumn,transformationExcelFormula,descriptiveFormulaPlan} from './xlsx-formulas.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
@@ -28,31 +28,46 @@ function observationMeta(table){
 }
 function prepareFormulaRawData(book,scopes){
   const sheet=book.addWorksheet('all data');
-  sheet.columns=[{width:28},{width:20},{width:20},{width:18},{width:16},{width:16}];
-  sheet.addRow(['Parameter','Faktor A / Perlakuan','Faktor B','Ulangan / Kelompok','Nilai','Nilai²']);
+  sheet.columns=[{width:28},{width:20},{width:20},{width:18},{width:16},{width:24},{width:18},{width:18}];
+  sheet.addRow(['Parameter','Faktor A / Perlakuan','Faktor B','Ulangan / Kelompok','Nilai Asli','Transformasi','Nilai Analisis','Nilai Analisis²']);
   const contexts=new Map();let nextRow=2;
   for(const scope of scopes){
-    const table=scope.querySelector('.observation-table');
-    if(!table)continue;
-    const separator=scope.dataset.decimalSeparator||getDecimalSeparator(),meta=observationMeta(table);
+    const analysisTable=scope.querySelector('.observation-table');
+    if(!analysisTable)continue;
+    const originalTable=scope.querySelector('.observation-before-table')||analysisTable;
+    const separator=scope.dataset.decimalSeparator||getDecimalSeparator(),meta=observationMeta(analysisTable),originalMeta=observationMeta(originalTable);
     if(!meta.repCount)continue;
     const parameter=scope.dataset.parameter||scope.querySelector('h3')?.textContent||'Parameter';
-    const rows=[...(table.tBodies?.[0]?.rows||[])],context={sheetName:'all data',startRow:nextRow,endRow:nextRow-1,aLevels:[],bLevels:[],reps:[],cellRows:new Map()};
+    const transformType=scope.dataset.transformType||'none',lambdaRaw=Number(scope.dataset.transformLambda),lambda=Number.isFinite(lambdaRaw)?lambdaRaw:null;
+    const rows=[...(analysisTable.tBodies?.[0]?.rows||[])],originalRows=[...(originalTable.tBodies?.[0]?.rows||[])];
+    const originalByKey=new Map();
+    for(const row of originalRows){
+      if(/^Total$/i.test(textOf(row.cells[0])))continue;
+      const marker=row.cells[0]?.querySelector?.('[data-factor-a]'),a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
+      for(let i=0;i<originalMeta.repCount;i++){
+        const rep=originalMeta.repLabels[i]||String(i+1),value=rawNumber(row.cells[i+1],separator);
+        if(Number.isFinite(value))originalByKey.set(rawKey(a,b,rep),value);
+      }
+    }
+    const context={sheetName:'all data',startRow:nextRow,endRow:nextRow-1,aLevels:[],bLevels:[],reps:[],cellRows:new Map(),valueCol:7,squareCol:8,originalCol:5,transformType,lambda};
     for(const row of rows){
       if(/^Total$/i.test(textOf(row.cells[0])))continue;
-      const marker=row.cells[0]?.querySelector?.('[data-factor-a]');
-      const a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
+      const marker=row.cells[0]?.querySelector?.('[data-factor-a]'),a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
       if(!context.aLevels.includes(a))context.aLevels.push(a);
       if(b&&!context.bLevels.includes(b))context.bLevels.push(b);
       for(let i=0;i<meta.repCount;i++){
-        const value=rawNumber(row.cells[i+1],separator);
-        if(!Number.isFinite(value))continue;
+        const analyzed=rawNumber(row.cells[i+1],separator);
+        if(!Number.isFinite(analyzed))continue;
         const rep=meta.repLabels[i]||String(i+1);
         if(!context.reps.includes(rep))context.reps.push(rep);
-        const rawRow=nextRow;
-        const added=sheet.addRow([parameter,a,b,rep,value]);
-        added.getCell(6).value={formula:`E${rawRow}^2`,result:value*value};
-        context.cellRows.set(rawKey(a,b,rep),rawRow);
+        const sourceKey=rawKey(a,b,rep),original=originalByKey.get(sourceKey);
+        const rawRow=nextRow,sourceValue=Number.isFinite(original)?original:analyzed;
+        const transformLabel=transformType==='none'?'Tanpa transformasi':scope.dataset.transformLabel||transformType;
+        const added=sheet.addRow([parameter,a,b,rep,sourceValue,transformLabel,analyzed,analyzed*analyzed]);
+        const transformation=transformationExcelFormula(transformType,`E${rawRow}`,lambda).replace(/^=/,'');
+        added.getCell(7).value={formula:transformation,result:analyzed};
+        added.getCell(8).value={formula:`G${rawRow}^2`,result:analyzed*analyzed};
+        context.cellRows.set(sourceKey,rawRow);
         nextRow++;
       }
     }
@@ -66,6 +81,32 @@ function prepareFormulaRawData(book,scopes){
   sheet.views=[{state:'frozen',ySplit:1}];
   if(nextRow===2)book.removeWorksheet(sheet.id);
   return contexts;
+}
+
+function addFormulaSummaryWorksheet(book,contexts){
+  if(!contexts?.size)return null;
+  const sheet=book.addWorksheet('Formula Ringkas');
+  sheet.columns=[
+    {width:28},{width:24},{width:10},{width:15},{width:15},{width:15},{width:15},
+    {width:15},{width:15},{width:13},{width:16},{width:13},{width:13},{width:13}
+  ];
+  sheet.addRow(['Parameter','Transformasi','N','Total','Rataan','Minimum','Maksimum','Varians','SD','CV (%)','Σx²','Taraf A','Taraf B','Ulangan/Kelompok']);
+  let row=2;
+  for(const [scope,context] of contexts){
+    const parameter=scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${row-1}`;
+    const transform=context.transformType==='none'?'Tanpa transformasi':scope.dataset.transformLabel||context.transformType;
+    sheet.addRow([parameter,transform]);
+    for(const item of descriptiveFormulaPlan({row,startRow:context.startRow,endRow:context.endRow,valueCol:context.valueCol,aCol:2,bCol:3,repCol:4,multi:context.bLevels.length>0,sheetName:context.sheetName})){
+      const cell=sheet.getCell(item.row,item.col),cached=cell.value;
+      cell.value={formula:item.formula,...(cached!==null&&cached!==undefined?{result:cached}:{})};
+    }
+    if(!context.bLevels.length)sheet.getCell(row,13).value='—';
+    row++;
+  }
+  const header=sheet.getRow(1);header.font={bold:true};header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  sheet.views=[{state:'frozen',ySplit:1}];
+  for(let r=2;r<row;r++)for(let col=3;col<=14;col++)sheet.getCell(r,col).numFmt=col===3||col>=12?'0':'0.0000';
+  return sheet;
 }
 
 export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',options={}) {
@@ -98,7 +139,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     sheet.getRow(rowNumber).height=Math.max(26,18*Math.ceil(text.length/(40+18*(width-1))));
     rowNumber++;
   }
-  let observationContext=null,lastAnovaContext=null;
+  let observationContext=null,lastAnovaContext=null,lastContrastContext=null;
   const sourceNumber=cell=>{
     const raw=cell?.hasAttribute?.('data-number')?cell.dataset.number:cell?.querySelector?.('[data-number]')?.dataset.number;
     const value=raw===undefined?parseNumber(textOf(cell)):Number(raw);
@@ -154,7 +195,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     const lower=caption.toLocaleLowerCase('id-ID');
     const raw=options.rawContext,sheetName="'"+String(raw.sheetName||'all data').replace(/'/g,"''")+"'";
     const range=col=>`${sheetName}!${excelColumn(col)}${raw.startRow}:${excelColumn(col)}${raw.endRow}`;
-    const aRange=range(2),bRange=range(3),yRange=range(5),sqRange=range(6);
+    const aRange=range(2),bRange=range(3),yRange=range(raw.valueCol||7),sqRange=range(raw.squareCol||8);
     const quote=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
     const simpleA=caption.match(/Faktor B pada A\s*=\s*([^—]+)/i)?.[1]?.trim()||null;
     const dimension=/faktor b/i.test(caption)?'b':'a';
@@ -173,6 +214,70 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       if(errorRow)setFormula(row,5,`IFERROR(SQRT(${excelRef(errorRow,4)}/${count}),"")`,sourceNumber(source.cells[4]));
     }
   }
+  function reportAlpha(){
+    const text=textOf(scope.querySelector('.analysis-lead')||{textContent:''}),match=text.match(/α\s*=\s*([0-9.,]+)/i);
+    if(!match)return .05;
+    const parsed=Number(match[1].replace(',','.'));
+    return Number.isFinite(parsed)&&parsed>0&&parsed<1?parsed:.05;
+  }
+  function applyContrastCalculationFormulas(table,start){
+    if(!observationContext||!lastAnovaContext?.errorRow)return;
+    const headRows=table.tHead?.rows.length||1,body=[...(table.tBodies?.[0]?.rows||[])],labels=body.map(row=>textOf(row.cells[0]));
+    const qIndex=labels.findIndex(label=>/^Q$/i.test(label)),jkIndex=labels.findIndex(label=>/^JK$/i.test(label)),fIndex=labels.findIndex(label=>/^F\.\s*Hitung$/i.test(label)),mean1Index=labels.findIndex(label=>/^Rata-rata 1$/i.test(label)),mean2Index=labels.findIndex(label=>/^Rata-rata 2$/i.test(label));
+    if(qIndex<1||jkIndex<0||fIndex<0||mean1Index<0||mean2Index<0)return;
+    const treatmentCount=qIndex,treatmentStart=start+headRows,treatmentEnd=treatmentStart+treatmentCount-1;
+    const obsTotalRange=excelRef(observationContext.dataStartRow,observationContext.totalCol,false)+':'+excelRef(observationContext.dataEndRow,observationContext.totalCol,false);
+    const obsMeanRange=excelRef(observationContext.dataStartRow,observationContext.meanCol,false)+':'+excelRef(observationContext.dataEndRow,observationContext.meanCol,false);
+    for(let i=0;i<treatmentCount;i++)setFormula(treatmentStart+i,2,`=${excelRef(observationContext.dataStartRow+i,observationContext.totalCol,false)}`.replace(/^=/,''),sourceNumber(body[i].cells[1]));
+    const contexts=[];
+    const contrastCount=Math.max(0,(body[0]?.cells.length||2)-2);
+    for(let j=0;j<contrastCount;j++){
+      const col=3+j,coeffRange=excelRef(treatmentStart,col,false)+':'+excelRef(treatmentEnd,col,false),qRow=start+headRows+qIndex,jkRow=start+headRows+jkIndex,fRow=start+headRows+fIndex,m1Row=start+headRows+mean1Index,m2Row=start+headRows+mean2Index;
+      setFormula(qRow,col,`SUMPRODUCT(${obsTotalRange},${coeffRange})`,sourceNumber(body[qIndex].cells[col-1]));
+      if(observationContext.equalN&&observationContext.n>0)setFormula(jkRow,col,`IFERROR(${excelRef(qRow,col,false)}^2/(${observationContext.n}*SUMSQ(${coeffRange})),"")`,sourceNumber(body[jkIndex].cells[col-1]));
+      setFormula(fRow,col,`IFERROR(${excelRef(jkRow,col,false)}/${excelRef(lastAnovaContext.errorRow,4)},"")`,sourceNumber(body[fIndex].cells[col-1]));
+      const coeffs=body.slice(0,treatmentCount).map(row=>sourceNumber(row.cells[col-1])),first=coeffs.find(value=>Number.isFinite(value)&&value!==0),sign=first>=0?'>0':'<0',opposite=first>=0?'<0':'>0';
+      setFormula(m1Row,col,`IFERROR(SUMPRODUCT(--(${coeffRange}${sign}),ABS(${coeffRange}),${obsMeanRange})/SUMPRODUCT(--(${coeffRange}${sign}),ABS(${coeffRange})),"")`,sourceNumber(body[mean1Index].cells[col-1]));
+      setFormula(m2Row,col,`IFERROR(SUMPRODUCT(--(${coeffRange}${opposite}),ABS(${coeffRange}),${obsMeanRange})/SUMPRODUCT(--(${coeffRange}${opposite}),ABS(${coeffRange})),"")`,sourceNumber(body[mean2Index].cells[col-1]));
+      contexts.push({col,coeffRange,qRow,jkRow,fRow,m1Row,m2Row});
+    }
+    lastContrastContext={contexts,treatmentStart,treatmentEnd,obsMeanRange,errorRow:lastAnovaContext.errorRow,n:observationContext.n,equalN:observationContext.equalN};
+  }
+  function applyContrastSummaryFormulas(table,start){
+    if(!lastContrastContext)return;
+    const headRows=table.tHead?.rows.length||1,body=[...(table.tBodies?.[0]?.rows||[])];
+    body.forEach((source,i)=>{
+      const ctx=lastContrastContext.contexts[i];if(!ctx)return;
+      const row=start+headRows+i;
+      setFormula(row,2,`TEXT(${excelRef(ctx.m1Row,ctx.col,false)},"0.00")&" vs "&TEXT(${excelRef(ctx.m2Row,ctx.col,false)},"0.00")`,textOf(source.cells[1]));
+    });
+  }
+  function applyContrastDetailFormulas(table,start){
+    if(!lastContrastContext)return false;
+    const headers=[...(table.tHead?.rows||[])].flatMap(row=>[...row.cells].map(textOf));
+    if(headers.length<6||!/estimasi/i.test(headers[1]||'')||!/^SE$/i.test(headers[2]||'')||!/^JK$/i.test(headers[3]||'')||!/^F$/i.test(headers[4]||'')||!/^p$/i.test(headers[5]||''))return false;
+    const headRows=table.tHead?.rows.length||1,body=[...(table.tBodies?.[0]?.rows||[])];
+    body.forEach((source,i)=>{
+      const ctx=lastContrastContext.contexts[i];if(!ctx)return;
+      const row=start+headRows+i,estimate=`SUMPRODUCT(${ctx.coeffRange},${lastContrastContext.obsMeanRange})`;
+      setFormula(row,2,estimate,sourceNumber(source.cells[1]));
+      if(lastContrastContext.equalN&&lastContrastContext.n>0)setFormula(row,3,`IFERROR(SQRT(${excelRef(lastContrastContext.errorRow,4)}*SUMSQ(${ctx.coeffRange})/${lastContrastContext.n}),"")`,sourceNumber(source.cells[2]));
+      setFormula(row,4,`${excelRef(ctx.jkRow,ctx.col,false)}`,sourceNumber(source.cells[3]));
+      setFormula(row,5,`${excelRef(ctx.fRow,ctx.col,false)}`,sourceNumber(source.cells[4]));
+      setFormula(row,6,`IFERROR(F.DIST.RT(${excelRef(row,5,false)},1,${excelRef(lastContrastContext.errorRow,2)}),"")`,sourceNumber(source.cells[5]));
+    });
+    return true;
+  }
+  function applyCriticalValueFormulas(table,start){
+    const headers=[...(table.tHead?.rows||[])].flatMap(row=>[...row.cells].map(textOf));
+    if(headers.length<2||!/^Rentang$/i.test(headers[0]||'')||!/Nilai kritis t/i.test(headers[1]||'')||!lastAnovaContext?.errorRow)return false;
+    const headRows=table.tHead?.rows.length||1,alpha=reportAlpha();
+    [...(table.tBodies?.[0]?.rows||[])].forEach((source,i)=>{
+      const row=start+headRows+i;
+      setFormula(row,2,`IFERROR(T.INV.2T(${alpha},${excelRef(lastAnovaContext.errorRow,2)}),"")`,sourceNumber(source.cells[1]));
+    });
+    return true;
+  }
   function applyTableFormulas(table,start){
     if(!formulaMode)return;
     if(table.classList.contains('observation-table')){
@@ -188,7 +293,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
             const marker=row.cells[0]?.querySelector?.('[data-factor-a]'),a=marker?.dataset.factorA??textOf(row.cells[0]),b=marker?.dataset.factorB??'';
             for(let i=0;i<repCount;i++){
               const rawRow=options.rawContext.cellRows?.get(rawKey(a,b,meta.repLabels[i]||String(i+1)));
-              if(rawRow)setFormula(dataStartRow+rowIndex,repStartCol+i,`='all data'!$E$${rawRow}`,sourceNumber(row.cells[i+1]));
+              if(rawRow)setFormula(dataStartRow+rowIndex,repStartCol+i,`='all data'!${excelColumn(options.rawContext.valueCol||7)}${rawRow}`,sourceNumber(row.cells[i+1]));
             }
           });
         }
@@ -212,6 +317,10 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       applyScientificAnovaFormulas(table,start);
       return;
     }
+    if(table.classList.contains('contrast-calculation-table')){applyContrastCalculationFormulas(table,start);return;}
+    if(table.classList.contains('contrast-summary-table')){applyContrastSummaryFormulas(table,start);return;}
+    if(applyContrastDetailFormulas(table,start))return;
+    if(applyCriticalValueFormulas(table,start))return;
     if(table.classList.contains('posthoc-table'))applyPosthocFormulas(table,start);
     if(table.classList.contains('report-bnj-table')&&observationContext?.equalN&&lastAnovaContext?.errorRow){
       const headRows=table.tHead?.rows.length||1,row=start+headRows,bodyRow=table.tBodies?.[0]?.rows?.[0];
@@ -277,6 +386,7 @@ export async function downloadReportXlsx(scope,filename,options={}) {
   if(options.formulas){
     book=new ExcelJS.Workbook();
     const contexts=prepareFormulaRawData(book,[scope]);
+    addFormulaSummaryWorksheet(book,contexts);
     createReportWorkbook(scope,book,'Hasil analisis',{...options,rawContext:contexts.get(scope)});
     reportSheet=book.getWorksheet('Hasil analisis');
   }else{
@@ -313,7 +423,9 @@ async function addChartImages(book,sheet,scope){
 
 export function createCombinedWorkbook(scopes,options={},book=null){
   book ||= new ExcelJS.Workbook();
-  const contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map(),used=new Set(book.worksheets.map(sheet=>sheet.name.toLowerCase()));
+  const contexts=options.formulas?prepareFormulaRawData(book,scopes):new Map();
+  if(options.formulas)addFormulaSummaryWorksheet(book,contexts);
+  const used=new Set(book.worksheets.map(sheet=>sheet.name.toLowerCase()));
   scopes.forEach((scope,index)=>{
     const base=String(scope.dataset.parameter||scope.querySelector('h3')?.textContent||`Parameter ${index+1}`).replace(/[\\/*?:\[\]]/g,'-').replace(/^'+|'+$/g,'').slice(0,31)||`Parameter ${index+1}`;
     let name=base,n=2;while(used.has(name.toLowerCase())){const suffix=` (${n++})`;name=base.slice(0,31-suffix.length)+suffix;}used.add(name.toLowerCase());
@@ -327,7 +439,7 @@ export async function downloadAllReportsXlsx(scope,options={}){
   sections.forEach(section=>section.dataset.decimalSeparator=scope.dataset.decimalSeparator||getDecimalSeparator());
   const book=createCombinedWorkbook(sections,options);
   addSummaryWorksheet(book,scope);
-  const reportSheets=book.worksheets.filter(sheet=>!['all data','Ringkasan'].includes(sheet.name));
+  const reportSheets=book.worksheets.filter(sheet=>!['all data','Formula Ringkas','Ringkasan'].includes(sheet.name));
   for(let i=0;i<sections.length;i++)await addChartImages(book,reportSheets[i],sections[i]);
   const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename((scope.dataset.datasetName||sections[0]?.dataset.datasetName)+(options.formulas?'-formula':''));a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
