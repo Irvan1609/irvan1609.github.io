@@ -106,13 +106,13 @@ export function formatApa(reference){
   const year=reference.year||'n.d.';
   const journal=reference.journal?' '+reference.journal+(reference.volume?', '+reference.volume:'')+(reference.issue?'('+reference.issue+')':'')+(reference.pages?', '+reference.pages:'')+'.':'';
   const doi=normalizeDoi(reference.doi);
-  return (authors+' ('+year+.'). '+reference.title+'.'+journal+(doi?' https://doi.org/'+doi:'')).replace(/\s+/g,' ').trim();
+  return (authors+' ('+year+'). '+reference.title+'.'+journal+(doi?' https://doi.org/'+doi:'')).replace(/\s+/g,' ').trim();
 }
 
 export function formatHarvard(reference){
   const authors=joinAuthors(reference.authors,harvardAuthor);
   const year=reference.year||'n.d.';
-  const journal=reference.journal?' '+reference.journal++reference.volume?', '+reference.volume:'')+(reference.issue?'('+reference.issue+')':'')+(reference.pages?', pp. '+reference.pages:'')+'.':'';
+  const journal=reference.journal?' '+reference.journal+(reference.volume?', '+reference.volume:'')+(reference.issue?'('+reference.issue+')':'')+(reference.pages?', pp. '+reference.pages:'')+'.':'';
   const doi=normalizeDoi(reference.doi);
   return (authors+' ('+year+') "'+reference.title+"'. "+journal+(doi?' doi: '+doi+'.':'')).replace(/\s+/g,' ').trim();
 }
