@@ -90,7 +90,7 @@ for (const marker of ["['dataMenu','Data'","['helpMenu','Help'",'validateDataset
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
-if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport')) fail('scientific workflow is not connected to analysis/report engine');
+if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
 const designMap = scientificReport.match(/export const designNames\s*=\s*\{([^}]*)\}/)?.[1] || '';
 for (const design of ['ral','rak','fral','frak','split']) if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);
 for (const required of ['F. Hitung','F. Tabel','table-caption']) if (!scientificReport.includes(required)) fail(`scientific-report.js missing reporting marker: ${required}`);

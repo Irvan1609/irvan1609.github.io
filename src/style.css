@@ -139,3 +139,12 @@ button:hover,button.primary:hover{background:#e9e9e9;border-color:#999}
 .data-grid .grid-delete:hover{background:#eee;border-color:#aaa}
 .data-grid .row-number{white-space:nowrap}.row-number .grid-delete{margin-left:5px}
 #analysisMenu button{text-align:left}#analysisMenu b,#analysisMenu span{display:block}#analysisMenu span{font-size:12px;color:var(--muted)}
+
+.design-structure{margin:12px 0;padding:12px;border:1px solid #aebdcb;border-radius:8px;background:#f8fbfe}
+.design-structure-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.design-structure-head>div{display:grid;gap:2px}.design-structure-head small{color:var(--muted)}
+.structure-ok{color:#17683b;font-size:13px}.structure-warn{color:#9a5a00;font-size:13px}
+.structure-grid,.structure-df{display:flex;flex-wrap:wrap;gap:6px}
+.structure-grid span,.structure-df span{padding:5px 8px;border:1px solid #ccd7e1;border-radius:6px;background:#fff;font-size:12px}
+.structure-df{margin-top:8px;align-items:center}.structure-df>b{margin-right:2px;font-size:12px}
+@media(max-width:600px){.design-structure-head{display:block}.structure-ok,.structure-warn{display:block;margin-top:5px}}

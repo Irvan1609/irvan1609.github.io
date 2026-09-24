@@ -74,16 +74,22 @@ function regression(){
 function multilocation(unbalanced=false){
   const headers=['Lokasi','Genotipe','Kelompok','Produksi','Tinggi Tanaman'];
   const rows=[];
+  const residual=[[-.06,.04,.02],[.03,-.05,.02],[.03,.01,-.04]];
   for(const [li,l] of ['L1','L2'].entries())for(const [gi,g] of ['G1','G2','G3'].entries())for(const b of [1,2,3]){
     if(unbalanced&&((l==='L1'&&g==='G2'&&b===3)||(l==='L2'&&g==='G1'&&b===2)))continue;
-    rows.push([l,g,b,round(6.2+li*.8+gi*.65+li*gi*.22+(b-2)*.11),round(165+li*5+gi*4+li*gi*1.5+(b-2)*.8)]);
+    const e=residual[gi][b-1]*(li?1.1:1);
+    rows.push([l,g,b,round(6.2+li*.8+gi*.65+li*gi*.22+(b-2)*.11+e),round(165+li*5+gi*4+li*gi*1.5+(b-2)*.8+e*7)]);
   }
   return {headers,rows};
 }
 function genetic(){
   const headers=['Genotipe','Kelompok','Produksi','Tinggi Tanaman'];
   const rows=[];
-  for(const [gi,g] of ['G1','G2','G3','G4'].entries())for(const b of [1,2,3])rows.push([g,b,round(5.5+gi*.85+(b-2)*.18),round(155+gi*7+(b-2)*1.5)]);
+  const residual=[[.06,-.04,-.02],[-.03,.05,-.02],[-.02,-.01,.03],[-.01,0,.01]];
+  for(const [gi,g] of ['G1','G2','G3','G4'].entries())for(const b of [1,2,3]){
+    const e=residual[gi][b-1];
+    rows.push([g,b,round(5.5+gi*.85+(b-2)*.18+e),round(155+gi*7+(b-2)*1.5+e*8)]);
+  }
   return {headers,rows};
 }
 function stability(){

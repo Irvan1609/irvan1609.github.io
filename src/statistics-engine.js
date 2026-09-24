@@ -120,6 +120,48 @@ export function validateData(dataset,options,parse){
   return {issues,warnings,observations};
 }
 
+export function designStructure(observations,options){
+  const {design}=options||{},multi=['fral','frak','split'].includes(design),blocked=['rak','frak','split'].includes(design);
+  const A=unique((observations||[]).map(o=>String(o.a??'')).filter(Boolean));
+  const B=multi?unique((observations||[]).map(o=>String(o.b??'')).filter(Boolean)):[''];
+  const R=unique((observations||[]).map(o=>String(o.rep??'')).filter(Boolean));
+  const N=(observations||[]).length,k=A.length,l=B.length,cells=k*l;
+  const counts=A.flatMap(a=>B.map(b=>observations.filter(o=>String(o.a??'')===a&&(!multi||String(o.b??'')===b)).length));
+  const balanced=counts.length>0&&counts.every(n=>n===counts[0]&&n>0);
+  const r=R.length||((balanced&&cells)?counts[0]:0);
+  const terms=[];
+  if(design==='ral'){
+    terms.push({label:'Perlakuan',df:k-1},{label:'Galat',df:N-k},{label:'Total',df:N-1});
+  }else if(design==='rak'){
+    terms.push({label:'Kelompok',df:R.length-1},{label:'Perlakuan',df:k-1},{label:'Galat',df:N-k-(R.length-1)},{label:'Total',df:N-1});
+  }else if(design==='fral'){
+    terms.push({label:'Faktor A',df:k-1},{label:'Faktor B',df:l-1},{label:'A × B',df:(k-1)*(l-1)},{label:'Galat',df:N-k*l},{label:'Total',df:N-1});
+  }else if(design==='frak'){
+    terms.push({label:'Kelompok',df:R.length-1},{label:'Faktor A',df:k-1},{label:'Faktor B',df:l-1},{label:'A × B',df:(k-1)*(l-1)},{label:'Galat',df:N-k*l-(R.length-1)},{label:'Total',df:N-1});
+  }else if(design==='split'){
+    terms.push({label:'Kelompok',df:R.length-1},{label:'Faktor A',df:k-1},{label:'Galat (a)',df:(r-1)*(k-1)},{label:'Faktor B',df:l-1},{label:'A × B',df:(k-1)*(l-1)},{label:'Galat (b)',df:k*(r-1)*(l-1)},{label:'Total',df:N-1});
+  }
+  const errorTerms=terms.filter(t=>/^Galat/.test(t.label));
+  const expectedN=blocked&&R.length?k*l*R.length:null;
+  const ready=!!terms.length&&k>=2&&(!multi||l>=2)&&balanced&&errorTerms.length>0&&errorTerms.every(t=>t.df>=1)&&(!blocked||R.length>=2)&&(!expectedN||expectedN===N);
+  return {design,N,factorA:k,factorB:multi?l:null,replicates:R.length||r,cells,balanced,expectedN,terms,ready};
+}
+
+function compactDiagnosticNumber(value){
+  if(!Number.isFinite(value))return String(value);
+  if(Math.abs(value)<1e-12)return '0';
+  if(Math.abs(value)>=1e6||Math.abs(value)<1e-4)return value.toExponential(4);
+  return Number(value.toPrecision(6)).toString();
+}
+function errorVarianceMessage(name,{split,dfE,ssE,mse,dfEa,ssEa,msea}){
+  if(dfE<1)return `${name}: db ${split?'Galat (b)':'Galat'} = ${dfE}. Tambahkan ulangan/unit percobaan agar galat dapat diestimasi.`;
+  if(!Number.isFinite(mse))return `${name}: KT ${split?'Galat (b)':'Galat'} tidak dapat dihitung (JK = ${compactDiagnosticNumber(ssE)}, db = ${dfE}). Periksa kelengkapan dan format data.`;
+  if(mse<=1e-20)return `${name}: db ${split?'Galat (b)':'Galat'} = ${dfE}, tetapi JK ${split?'Galat (b)':'Galat'} = ${compactDiagnosticNumber(ssE)} dan KT ${split?'Galat (b)':'Galat'} = ${compactDiagnosticNumber(mse)}. Variasi residual nol; nilai pengamatan terlalu mengikuti pola faktor/blok secara sempurna untuk mengestimasi galat percobaan.`;
+  if(split&&dfEa<1)return `${name}: db Galat (a) = ${dfEa}. RPT memerlukan cukup kelompok dan taraf Faktor A untuk mengestimasi galat petak utama.`;
+  if(split&&(!Number.isFinite(msea)||msea<=1e-20))return `${name}: db Galat (a) = ${dfEa}, JK Galat (a) = ${compactDiagnosticNumber(ssEa)}, dan KT Galat (a) = ${compactDiagnosticNumber(msea)}. Variasi petak utama nol sehingga Faktor A tidak memiliki galat pembanding yang dapat diestimasi.`;
+  return '';
+}
+
 export function analyzeParameter(observations,options,index,name){
   const obs=observations.map(o=>({...o,y:o.values[index]})),{design,alpha,posthoc}=options;
   const multi=['fral','frak','split'].includes(design),blocked=['rak','frak','split'].includes(design),split=design==='split';
@@ -134,7 +176,8 @@ export function analyzeParameter(observations,options,index,name){
   const ssEa=split?Math.max(0,ssWhole-ssR-ssA):null,dfEa=split?(r-1)*(k-1):null;
   const fitted=obs.map(o=>split?wholeMean.get(key(o.rep,o.a))+cellMean.get(key(o.a,o.b))-aMean[A.indexOf(o.a)]:cellMean.get(key(o.a,o.b))+(blocked?rMean.get(o.rep)-grand:0));
   const residuals=obs.map((o,i)=>o.y-fitted[i]),ssE=sum(residuals.map(x=>x*x)),dfE=split?k*(r-1)*(l-1):N-k*l-(blocked?R.length-1:0),mse=ssE/dfE,msea=split?ssEa/dfEa:mse;
-  if(dfE<1||!Number.isFinite(mse)||mse<=1e-20||split&&(!(msea>1e-20)||dfEa<1))throw Error(`${name}: db galat atau variasi galat tidak cukup.`);
+  const varianceProblem=errorVarianceMessage(name,{split,dfE,ssE,mse,dfEa,ssEa,msea});
+  if(varianceProblem)throw Error(varianceProblem);
   const terms=[];if(blocked)terms.push(term('Ulangan',ssR,R.length-1,split?msea:mse,split?dfEa:dfE,split?'Galat (a)':'Galat'));
   terms.push(term(multi?'Faktor A':'Perlakuan',ssA,k-1,split?msea:mse,split?dfEa:dfE,split?'Galat (a)':'Galat'));
   if(split)terms.push(errorTerm('Galat (a)',ssEa,dfEa));

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from '../src/template-catalog.js';
-import {analyzeParameter,validateData} from '../src/statistics-engine.js';
+import {analyzeParameter,validateData,designStructure} from '../src/statistics-engine.js';
+import {nestedAnova,repeatedMeasuresAnova} from '../src/design-extensions-engine.js';
+import {descriptiveStatistics,polynomialRegression,pca,combinedAnova,geneticParameters} from '../src/advanced-engine.js';
+import {correlation,pathAnalysis} from '../src/association-engine.js';
+import {friedman} from '../src/nonparametric-engine.js';
+import {mixedCombinedReml} from '../src/mixed-model-engine.js';
+import {stabilityAnalysis} from '../src/stability-engine.js';
+import {stabilityIndices} from '../src/stability-indices-engine.js';
 
 const expected=['ral','rak','fral','frak','split','nested','repeated','nonparametric','descriptive','correlation','path','regression','pca','combined','mixed','genetic','stability'];
 assert.deepEqual(templateCatalog.map(x=>x.id),expected);
@@ -49,5 +56,71 @@ verifyAnovaTemplate('rak',{design:'rak',a:0,b:null,rep:1,parameters:[2,3],alpha:
 verifyAnovaTemplate('frak',{design:'frak',a:0,b:1,rep:2,parameters:[3,4],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]});
 verifyAnovaTemplate('split',{design:'split',a:0,b:1,rep:2,parameters:[3,4],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]});
 
+
+// Full template smoke test: every catalog entry must reach its intended analysis engine.
+const coreConfigs={
+  ral:{design:'ral',a:0,b:null,rep:1,parameters:[2,3]},
+  rak:{design:'rak',a:0,b:null,rep:1,parameters:[2,3]},
+  fral:{design:'fral',a:0,b:1,rep:2,parameters:[3,4]},
+  frak:{design:'frak',a:0,b:1,rep:2,parameters:[3,4]},
+  split:{design:'split',a:0,b:1,rep:2,parameters:[3,4]}
+};
+for(const [id,base] of Object.entries(coreConfigs)){
+  const t=getDataTemplate(id),o={...base,alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]};
+  const check=validateData({headers:t.headers,rows:t.rows},o,Number);
+  assert.deepEqual(check.issues,[],id+': validation issues');
+  const structure=designStructure(check.observations,o);
+  assert.equal(structure.ready,true,id+': structure should be ready');
+  for(let i=0;i<o.parameters.length;i++){
+    const report=analyzeParameter(check.observations,o,i,t.headers[o.parameters[i]]);
+    for(const error of report.terms.filter(term=>/^Galat/.test(term.label)))assert.ok(error.df>0&&error.ms>0,id+': '+error.label+' must have positive db and KT');
+  }
+}
+{
+  const t=getDataTemplate('nested');const out=nestedAnova(t.rows.map(r=>[r[0],r[1],String(r[2]),r[3]]));assert.ok(out.terms.find(x=>x.label==='Galat').ms>0);
+}
+{
+  const t=getDataTemplate('repeated');const out=repeatedMeasuresAnova(t.rows.map(r=>[r[0],r[1],r[2],r[3]]));assert.ok(out.terms.length>3);
+}
+{
+  const t=getDataTemplate('nonparametric');const out=friedman(t.rows.map(r=>[r[0],String(r[1]),r[2]]));assert.ok(Number.isFinite(out.Q));
+}
+{
+  const t=getDataTemplate('descriptive');assert.equal(descriptiveStatistics(t.rows.map(r=>r.slice(1))).length,t.headers.length-1);
+}
+{
+  const t=getDataTemplate('correlation');assert.equal(correlation(t.rows.map(r=>r.slice(1))).matrix.length,t.headers.length-1);
+}
+{
+  const t=getDataTemplate('path');const out=pathAnalysis(t.rows.map(r=>[r[6],...r.slice(1,6)]));assert.ok(out.r2>=0&&out.r2<=1);
+}
+{
+  const t=getDataTemplate('regression');const out=polynomialRegression(t.rows.map(r=>[r[0],r[2]]),3);assert.ok(out.models.length>=1);
+}
+{
+  const t=getDataTemplate('pca');const out=pca(t.rows.map(r=>r.slice(1)));assert.equal(out.n,t.rows.length);
+}
+{
+  const t=getDataTemplate('combined');for(const p of [3,4]){const out=combinedAnova(t.rows.map(r=>[r[0],r[1],String(r[2]),r[p]]));assert.ok(out.terms.find(x=>x.label==='Galat').ms>0);}
+}
+{
+  const t=getDataTemplate('mixed');for(const p of [3,4]){const out=mixedCombinedReml(t.rows.map(r=>[r[0],r[1],String(r[2]),r[p]]));assert.ok(out.variance.residual>0);}
+}
+{
+  const t=getDataTemplate('genetic');for(const p of [2,3]){const out=geneticParameters(t.rows.map(r=>[r[0],String(r[1]),r[p]]));assert.ok(out.terms.find(x=>x.label==='Galat').ms>0);}
+}
+{
+  const t=getDataTemplate('stability'),rows=t.rows.map(r=>[r[0],r[1],r[3]]);assert.ok(stabilityAnalysis(rows).ammi.components.length>=1);assert.equal(stabilityIndices(rows).genotypes.length,4);
+}
+
+// The engine should explain zero error variance instead of returning a generic message.
+{
+  const t={headers:['Perlakuan','Kelompok','Y'],rows:[]};
+  for(const r of [1,2,3])for(const [i,p] of ['P0','P1','P2','P3'].entries())t.rows.push([p,r,10+i*2+r*.5]);
+  const o={design:'rak',a:0,b:null,rep:1,parameters:[2],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]};
+  const check=validateData(t,o,Number);
+  assert.throws(()=>analyzeParameter(check.observations,o,0,'Y'),/db Galat = 6, tetapi JK Galat = 0 dan KT Galat = 0/i);
+}
+
 assert.throws(()=>getDataTemplate('does-not-exist'));
-console.log(`Templates verified: ${expected.length} analysis/rancangan templates, direct editor rows, positive RAK/FRak/RPT error variance, decimal conversion, repeated/nonparametric completeness, and multilocation cell coverage.`);
+console.log(`Templates verified: ${expected.length} analysis/rancangan templates, direct editor rows, all template engines smoke-tested, positive model error variance, detailed zero-error diagnostics, decimal conversion, repeated/nonparametric completeness, and multilocation cell coverage.`);
