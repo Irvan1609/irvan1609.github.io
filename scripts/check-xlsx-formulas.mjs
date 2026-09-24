@@ -79,14 +79,14 @@ assert.match(transformationExcelFormula('boxcox','E2',.5),/E2\^0\.5/);
 assert.equal(transformationExcelFormula('boxcox','E2',0),'=IFERROR(LN(E2),"")');
 
 const descriptive=descriptiveFormulaPlan({row:2,startRow:2,endRow:28,valueCol:7,aCol:2,bCol:3,repCol:4,multi:true,sheetName:'all data'});
-assert.equal(formula(descriptive,2,3),'COUNT('all data'!$G$2:$G$28)');
-assert.equal(formula(descriptive,2,5),'AVERAGE('all data'!$G$2:$G$28)');
-assert.equal(formula(descriptive,2,9),'IFERROR(STDEV.S('all data'!$G$2:$G$28),"")');
-assert.equal(formula(descriptive,2,10),'IFERROR(STDEV.S('all data'!$G$2:$G$28)/ABS(AVERAGE('all data'!$G$2:$G$28))*100,"")');
-assert.equal(formula(descriptive,2,11),'SUMSQ('all data'!$G$2:$G$28)');
-assert.equal(formula(descriptive,2,12),'SUMPRODUCT(1/COUNTIF('all data'!$B$2:$B$28,'all data'!$B$2:$B$28))');
-assert.equal(formula(descriptive,2,13),'SUMPRODUCT(1/COUNTIF('all data'!$C$2:$C$28,'all data'!$C$2:$C$28))');
-assert.equal(formula(descriptive,2,14),'SUMPRODUCT(1/COUNTIF('all data'!$D$2:$D$28,'all data'!$D$2:$D$28))');
+assert.equal(formula(descriptive,2,3),"COUNT('all data'!$G$2:$G$28)");
+assert.equal(formula(descriptive,2,5),"AVERAGE('all data'!$G$2:$G$28)");
+assert.equal(formula(descriptive,2,9),"IFERROR(STDEV.S('all data'!$G$2:$G$28),\"\")");
+assert.equal(formula(descriptive,2,10),"IFERROR(STDEV.S('all data'!$G$2:$G$28)/ABS(AVERAGE('all data'!$G$2:$G$28))*100,\"\")");
+assert.equal(formula(descriptive,2,11),"SUMSQ('all data'!$G$2:$G$28)");
+assert.equal(formula(descriptive,2,12),"SUMPRODUCT(1/COUNTIF('all data'!$B$2:$B$28,'all data'!$B$2:$B$28))");
+assert.equal(formula(descriptive,2,13),"SUMPRODUCT(1/COUNTIF('all data'!$C$2:$C$28,'all data'!$C$2:$C$28))");
+assert.equal(formula(descriptive,2,14),"SUMPRODUCT(1/COUNTIF('all data'!$D$2:$D$28,'all data'!$D$2:$D$28))");
 
 const xlsxExport=fs.readFileSync(new URL('../src/xlsx-export.js',import.meta.url),'utf8');
 for(const marker of ['Formula Ringkas','Nilai Asli','Nilai Analisis','transformationExcelFormula','applyContrastCalculationFormulas','applyContrastDetailFormulas','T.INV.2T','F.DIST.RT']){
