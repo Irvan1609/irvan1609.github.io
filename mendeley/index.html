@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="description" content="Pengelola referensi sederhana untuk mencari DOI, menyimpan metadata, dan mengekspor RIS/BibTeX ke Mendeley.">
+  <title>Mendeley Helper | Irvan</title>
+  <link rel="stylesheet" href="/mendeley/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div><a class="brand" href="/">Irvan · Research Tools</a><div class="subtitle">Mendeley Helper</div></div>
+      <nav class="header-links" aria-label="Navigasi"><a href="/">Portofolio</a><a href="/stat/">Statistical Web</a></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <span class="eyebrow">Reference workflow</span>
+      <h1>Siapkan referensi untuk Mendeley dengan lebih cepat.</h1>
+      <p>Cari metadata dari DOI atau judul artikel, simpan pustaka sementara di browser, lalu ekspor RIS atau BibTeX. Tidak ada login Mendeley dan tidak ada kredensial akun yang disimpan.</p>
+    </section>
+    <section class="panel" aria-labelledby="searchTitle">
+      <div class="section-head"><div><span class="step">01</span><h2 id="searchTitle">Cari metadata</h2></div><p>Gunakan DOI untuk hasil paling presisi. Pencarian judul menampilkan beberapa kandidat dari Crossref.</p></div>
+      <div class="search-row"><label for="referenceQuery">DOI atau judul artikel</label><div class="search-controls"><input id="referenceQuery" autocomplete="off" placeholder="Contoh: 10.1000/xyz atau judul artikel"><button id="referenceSearch" class="primary" type="button">Cari metadata</button></div></div>
+      <div id="referenceStatus" class="status" role="status" aria-live="polite"></div>
+      <div id="referenceSearchResults" class="cards"></div>
+      <details class="bulk"><summary>Tambahkan banyak DOI sekaligus</summary><p>Satu DOI per baris. Maksimal 50 DOI dalam satu proses.</p><textarea id="referenceBulk" placeholder="10.xxxx/xxxxx&#10;https://doi.org/10.xxxx/yyyyy"></textarea><button id="referenceBulkAdd" type="button">Ambil semua DOI</button></details>
+    </section>
+    <section class="panel" aria-labelledby="libraryTitle">
+      <div class="section-head"><div><span class="step">02</span><h2 id="libraryTitle">Pustaka referensi</h2></div><p>Referensi disimpan di localStorage pada browser ini dan tetap tersedia selama data situs tidak dihapus.</p></div>
+      <div class="toolbar">
+        <button id="referenceSelectAll" type="button">Pilih semua</button>
+        <button id="referenceExportRis" class="primary" type="button">Ekspor RIS untuk Mendeley</button>
+        <button id="referenceExportBib" type="button">Ekspor BibTeX</button>
+        <button id="referenceCopyApa" type="button">Salin APA</button>
+        <button id="referenceCopyHarvard" type="button">Salin Harvard</button>
+        <span class="toolbar-spacer"></span>
+        <button id="referenceDelete" class="danger" type="button">Hapus dipilih</button>
+      </div>
+      <div id="referenceCount" class="count"></div>
+      <div id="referenceLibrary" class="cards"></div>
+      <div class="help"><b>Cara masuk ke Mendeley:</b> klik <b>Ekspor RIS untuk Mendeley</b>, lalu di Mendeley Reference Manager pilih <b>Add new → Import library</b> dan pilih file <code>.ris</code> yang diunduh. Jika tidak ada referensi yang dicentang, ekspor menggunakan seluruh pustaka.</div>
+    </section>
+  </main>
+  <footer class="wrap footer">irvan1609.github.io/mendeley · metadata: Crossref</footer>
+  <script type="module" src="/mendeley/app.js"></script>
+</body>
+</html>

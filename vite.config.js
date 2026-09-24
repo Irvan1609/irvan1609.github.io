@@ -9,6 +9,7 @@ export default defineConfig({
         portfolio: resolve(process.cwd(), 'index.html'),
         stat: resolve(process.cwd(), 'stat/index.html'),
         printSkripsi: resolve(process.cwd(), 'print-skripsi/index.html'),
+        mendeley: resolve(process.cwd(), 'mendeley/index.html'),
       },
     },
   },

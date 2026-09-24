@@ -28,3 +28,9 @@ const merged=mergeUniqueReferences([ref],[{...ref,title:'Duplikat'}]);
 assert.equal(merged.references.length,1);
 assert.equal(merged.duplicates.length,1);
 console.log('Reference manager core verified: DOI normalization/extraction, Crossref mapping, dedupe, RIS/BibTeX and citation formatting.');
+
+import fs from 'node:fs';
+const mendeleyHtml=fs.readFileSync('mendeley/index.html','utf8');
+const mendeleyApp=fs.readFileSync('mendeley/app.js','utf8');
+for(const marker of ['referenceQuery','referenceExportRis','referenceExportBib','referenceLibrary']) assert.ok(mendeleyHtml.includes(marker));
+for(const marker of ['api.crossref.org','mergeUniqueReferences','toRis','toBibtex']) assert.ok(mendeleyApp.includes(marker));

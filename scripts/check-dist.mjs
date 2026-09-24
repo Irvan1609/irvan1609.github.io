@@ -9,14 +9,17 @@ function fail(message) {
 const portfolioPath = 'dist/index.html';
 const statPath = 'dist/stat/index.html';
 const printPath = 'dist/print-skripsi/index.html';
+const mendeleyPath = 'dist/mendeley/index.html';
 if (!fs.existsSync(portfolioPath)) fail('dist/index.html is missing');
 if (!fs.existsSync(statPath)) fail('dist/stat/index.html is missing');
 if (!fs.existsSync(printPath)) fail('dist/print-skripsi/index.html is missing');
+if (!fs.existsSync(mendeleyPath)) fail('dist/mendeley/index.html is missing');
 
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
 if (!portfolio.includes('Peneliti Agronomi')) fail('built root does not contain portfolio content');
 if (!portfolio.includes('/stat/')) fail('built portfolio does not link to /stat/');
 if (!portfolio.includes('/print-skripsi/')) fail('built portfolio does not link to /print-skripsi/');
+if (!portfolio.includes('/mendeley/')) fail('built portfolio does not link to /mendeley/');
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
@@ -30,6 +33,9 @@ for (const marker of ['Print Skripsi','pdf-lib@1.17.1','pdf.js/3.11.174','jszip/
   if (!printHtml.includes(marker)) fail(`built /print-skripsi page is missing marker ${marker}`);
 }
 if (printHtml.includes('/print-skripsi/app.js')) fail('built /print-skripsi page still references source app.js');
+const mendeleyHtml = fs.readFileSync(mendeleyPath, 'utf8');
+for (const marker of ['Mendeley Helper','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
+if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);
 if (!assetMatches.length) fail('built /stat page has no bundled assets');
@@ -48,4 +54,4 @@ for (const marker of ['pasteBtn','openAnalysis','analysisChoice','cutoffPage','p
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
 
-console.log(`Dist check OK: portfolio root, /stat application, and /print-skripsi preview/detection/ZIP utility built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production markers present.`);
+console.log(`Dist check OK: portfolio root, /stat, /mendeley, and /print-skripsi built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), source paths removed, production markers present.`);

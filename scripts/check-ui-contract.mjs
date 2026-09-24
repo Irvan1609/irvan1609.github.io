@@ -4,6 +4,8 @@ import './check-dataset-import.mjs';
 const portfolioHtml = fs.readFileSync('index.html', 'utf8');
 const html = fs.readFileSync('stat/index.html', 'utf8');
 const printHtml = fs.readFileSync('print-skripsi/index.html', 'utf8');
+const mendeleyHtml = fs.readFileSync('mendeley/index.html', 'utf8');
+const mendeleyApp = fs.readFileSync('mendeley/app.js', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const navigation = fs.readFileSync('src/navigation.js', 'utf8');
 const ral = fs.readFileSync('src/ral.js', 'utf8');
@@ -19,10 +21,13 @@ function fail(message) {
   process.exit(1);
 }
 
-for (const marker of ['Peneliti Agronomi','href="/stat/"','href="/print-skripsi/"','Statistical Web']) {
+for (const marker of ['Peneliti Agronomi','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"','Statistical Web']) {
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
+if (main.includes('installReferenceManager') || navigation.includes("['referencesMenu','Referensi'")) fail('Mendeley helper must not be embedded in /stat');
+for (const marker of ['Mendeley Helper','referenceQuery','referenceExportRis','referenceLibrary','/mendeley/app.js']) if (!mendeleyHtml.includes(marker)) fail(`/mendeley missing marker: ${marker}`);
+for (const marker of ['api.crossref.org','toRis','toBibtex','statistical_web_reference_library_v1']) if (!mendeleyApp.includes(marker)) fail(`/mendeley app missing marker: ${marker}`);
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
