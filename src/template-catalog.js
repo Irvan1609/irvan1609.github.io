@@ -4,13 +4,38 @@ const round=x=>Math.round(x*100)/100;
 function oneFactor(blockLabel='Ulangan'){
   const headers=['Perlakuan',blockLabel,'Tinggi Tanaman','Bobot Panen'];
   const rows=[];
-  for(const r of [1,2,3])for(const [i,p] of ['P0','P1','P2','P3'].entries())rows.push([p,r,round(18+i*2.3+r*.35),round(42+i*4.1+r*.55)]);
+  // Sisipkan variasi unit yang kecil dan terkontrol agar template RAK memiliki KT galat > 0.
+  // Matriks residual memiliki jumlah baris dan kolom = 0, sehingga pola perlakuan/blok tetap mudah dipahami.
+  const residual=[
+    [ .12,-.08,-.04],
+    [-.06, .10,-.04],
+    [ .02,-.07, .05],
+    [-.08, .05, .03]
+  ];
+  for(const r of [1,2,3])for(const [i,p] of ['P0','P1','P2','P3'].entries()){
+    const e=residual[i][r-1];
+    rows.push([p,r,round(18+i*2.3+r*.35+e),round(42+i*4.1+r*.55+e*1.6)]);
+  }
   return {headers,rows};
 }
 function factorial(blockLabel='Ulangan'){
   const headers=['Faktor A','Faktor B',blockLabel,'Tinggi Tanaman','Bobot Panen'];
   const rows=[];
-  for(const r of [1,2,3])for(const [ai,a] of ['A0','A1','A2'].entries())for(const [bi,b] of ['B0','B1'].entries())rows.push([a,b,r,round(20+ai*2.1+bi*1.4+ai*bi*.7+r*.25),round(50+ai*4+bi*3+ai*bi*1.6+r*.4)]);
+  // Error petak utama memberi Galat (a) untuk RPT; deviasi berlawanan antar-B memberi Galat (b).
+  const wholeResidual=[
+    [ .15,-.10,-.05],
+    [-.08, .13,-.05],
+    [-.07,-.03, .10]
+  ];
+  for(const r of [1,2,3])for(const [ai,a] of ['A0','A1','A2'].entries())for(const [bi,b] of ['B0','B1'].entries()){
+    const whole=wholeResidual[ai][r-1];
+    const delta=(((ai+r)%3)-1)*.06*(bi===0?1:-1);
+    rows.push([
+      a,b,r,
+      round(20+ai*2.1+bi*1.4+ai*bi*.7+r*.25+whole+delta),
+      round(50+ai*4+bi*3+ai*bi*1.6+r*.4+whole*1.7+delta*1.4)
+    ]);
+  }
   return {headers,rows};
 }
 function nested(){

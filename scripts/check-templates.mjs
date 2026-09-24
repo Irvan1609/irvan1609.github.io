@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from '../src/template-catalog.js';
+import {analyzeParameter,validateData} from '../src/statistics-engine.js';
 
 const expected=['ral','rak','fral','frak','split','nested','repeated','nonparametric','descriptive','correlation','path','regression','pca','combined','mixed','genetic','stability'];
 assert.deepEqual(templateCatalog.map(x=>x.id),expected);
@@ -33,5 +34,20 @@ const repeated=getDataTemplate('repeated'),subjects=[...new Set(repeated.rows.ma
 for(const s of subjects)assert.equal(repeated.rows.filter(r=>`${r[0]}|${r[1]}`===s).length,times.length,'repeated subject missing time');
 const np=getDataTemplate('nonparametric'),npGroups=[...new Set(np.rows.map(r=>r[0]))],npBlocks=[...new Set(np.rows.map(r=>r[1]))];for(const g of npGroups)assert.equal(np.rows.filter(r=>r[0]===g).length,npBlocks.length,'nonparametric Friedman template incomplete');
 const decimal=rowsForEditor(getDataTemplate('regression'),',').find(r=>r[2].includes(','));assert.ok(decimal,'comma decimal conversion missing');
+
+function verifyAnovaTemplate(id,options){
+  const t=getDataTemplate(id),check=validateData({headers:t.headers,rows:t.rows},options,Number);
+  assert.deepEqual(check.issues,[],id+': template must validate');
+  for(let i=0;i<options.parameters.length;i++){
+    const report=analyzeParameter(check.observations,options,i,t.headers[options.parameters[i]]);
+    const errors=report.terms.filter(term=>/^Galat/.test(term.label));
+    assert.ok(errors.length,id+': error term missing');
+    for(const error of errors)assert.ok(Number.isFinite(error.ms)&&error.ms>0,id+': '+error.label+' must have positive variance');
+  }
+}
+verifyAnovaTemplate('rak',{design:'rak',a:0,b:null,rep:1,parameters:[2,3],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]});
+verifyAnovaTemplate('frak',{design:'frak',a:0,b:1,rep:2,parameters:[3,4],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]});
+verifyAnovaTemplate('split',{design:'split',a:0,b:1,rep:2,parameters:[3,4],alpha:.05,posthoc:'none',assumptions:false,contrastMode:'none',contrasts:[],levels:[]});
+
 assert.throws(()=>getDataTemplate('does-not-exist'));
-console.log(`Templates verified: ${expected.length} analysis/rancangan templates, direct editor rows, decimal conversion, repeated/nonparametric completeness, and multilocation cell coverage.`);
+console.log(`Templates verified: ${expected.length} analysis/rancangan templates, direct editor rows, positive RAK/FRak/RPT error variance, decimal conversion, repeated/nonparametric completeness, and multilocation cell coverage.`);
