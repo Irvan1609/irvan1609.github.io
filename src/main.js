@@ -421,7 +421,7 @@ function toggleDatasetMetaEditor(force){
   if(opening)$('#plantName')?.focus();
 }
 function applyFocusMode(enabled){
-  document.documentElement.classList.toggle('focus-data-mode',enabled);
+  document.documentElement?.classList?.toggle?.('focus-data-mode',enabled);
   const button=$('#focusData');
   if(button){
     button.setAttribute('aria-pressed',String(enabled));
