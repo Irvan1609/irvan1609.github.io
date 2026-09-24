@@ -91,7 +91,7 @@ for (const marker of ["['dataMenu','Data'","['helpMenu','Help'",'validateDataset
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
-for (const marker of ['renderAnalysisSummary','inspectDataQuality','export-appendix','scienceQuality']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
+for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
 for (const marker of ['Interpretasi otomatis siap BAB IV','copy-interpretation']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
 const designMap = scientificReport.match(/export const designNames\s*=\s*\{([^}]*)\}/)?.[1] || '';
 for (const design of ['ral','rak','fral','frak','split']) if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);
@@ -113,3 +113,5 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
 }
 
 console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat Data/Help menu initialization and analysis shell, /print-skripsi preview/BAB I detection/ZIP controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
+
+if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
