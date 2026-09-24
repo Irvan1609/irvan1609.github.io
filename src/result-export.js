@@ -90,9 +90,42 @@ export function resultActions(filename='hasil-analisis') {
   return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">ƒx Ekspor Excel (formula)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
+function decorateCollapsibleResults(root=document){
+  const sections=[];
+  if(root.matches?.('.analysis-result'))sections.push(root);
+  root.querySelectorAll?.('.analysis-result').forEach(section=>sections.push(section));
+  sections.forEach(section=>{
+    if(section.dataset.collapseBound==='1')return;
+    const heading=section.querySelector(':scope > h3, :scope > h4');if(!heading)return;
+    section.dataset.collapseBound='1';
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='result-collapse-toggle';
+    toggle.textContent='Ciutkan';
+    toggle.setAttribute('aria-expanded','true');
+    toggle.title='Buka/tutup hasil parameter';
+    toggle.addEventListener('click',event=>{
+      event.preventDefault();event.stopPropagation();
+      const collapsed=section.classList.toggle('result-collapsed');
+      toggle.textContent=collapsed?'Buka':'Ciutkan';
+      toggle.setAttribute('aria-expanded',String(!collapsed));
+    });
+    heading.append(toggle);
+  });
+}
+
+function installResultCollapseObserver(){
+  decorateCollapsibleResults();
+  const observer=new MutationObserver(records=>{
+    for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)decorateCollapsibleResults(node);
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+}
+
 export function installResultExport() {
   if (document.documentElement.dataset.resultExportBound) return;
   document.documentElement.dataset.resultExportBound = '1';
+  installResultCollapseObserver();
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
