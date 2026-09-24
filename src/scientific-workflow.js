@@ -150,6 +150,7 @@ async function analyze(){
         }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
       }
       report.datasetName=data.name;
+      report.factorLabels={a:data.headers[o.a]||'Perlakuan',b:o.b===null?null:(data.headers[o.b]||'Faktor B')};
       finalizeAgronomyFactorial(report);
       reports.push(report);
     }
