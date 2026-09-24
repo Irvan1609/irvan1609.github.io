@@ -5,6 +5,7 @@ import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
+import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import jStat from 'jstat';
 
@@ -82,26 +83,30 @@ function renderTree(){
   tree.querySelectorAll('[data-file]').forEach(btn=>btn.addEventListener('click',()=>{clearError();state.active=btn.dataset.file;loadActive();setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);}));
 }
 function columnHeaderMarkup(header){
-  const parts=String(header??'').split('|'),code=parts.shift()?.trim()||'',description=parts.join('|').trim();
-  return description?`<span class="parameter-code">${esc(code)}</span><span class="parameter-divider">|</span><span class="parameter-description">${esc(description)}</span>`:`<span class="parameter-code">${esc(code)}</span>`;
+  const meta=parseParameterHeader(header);
+  if(meta.name){
+    return `<span class="parameter-code">${esc(meta.code)}</span><span class="parameter-divider">|</span><span class="parameter-description">${esc(meta.name)}</span>${meta.unit?`<span class="parameter-unit">(${esc(meta.unit)})</span>`:''}`;
+  }
+  return `<span class="parameter-code">${esc(meta.code)}</span>${meta.unit?`<span class="parameter-unit">(${esc(meta.unit)})</span>`:''}`;
 }
 function openColumnName(index){
   editingColumnIndex=index;
-  const current=state.headers[index]||'',parts=current.split('|');
-  $('#columnCode').value=(parts.shift()||'').trim();
-  $('#columnDescription').value=parts.join('|').trim();
+  const meta=parseParameterHeader(state.headers[index]||'');
+  $('#columnCode').value=meta.code;
+  $('#columnFullName').value=meta.name;
+  $('#columnUnit').value=meta.unit;
   $('#columnNameError').hidden=true;
   $('#columnNameModal').classList.add('open');
   $('#columnCode').focus();
 }
 function saveColumnName(event){
   event.preventDefault();
-  const code=$('#columnCode').value.trim(),description=$('#columnDescription').value.trim(),box=$('#columnNameError');
-  const name=description?`${code} | ${description}`:code;
+  const code=$('#columnCode').value.trim(),fullName=$('#columnFullName').value.trim(),unit=$('#columnUnit').value.trim(),box=$('#columnNameError');
+  const name=buildParameterHeader({code,name:fullName,unit});
   if(editingColumnIndex===null||!code||/[\t\r\n]/.test(name)||!isUniqueColumnName(state.headers,name,editingColumnIndex)){
-    box.hidden=false;box.textContent='Nama harus terisi, unik, dan tanpa tab/baris baru.';return;
+    box.hidden=false;box.textContent='Kode harus terisi. Kode, nama lengkap, dan satuan tidak boleh mengandung tab/baris baru; judul akhirnya juga harus unik.';return;
   }
-  state.headers[editingColumnIndex]=name;persist();renderGrid();$('#columnNameModal').classList.remove('open');setStatus('Nama kolom disimpan.');
+  state.headers[editingColumnIndex]=name;persist();renderGrid();$('#columnNameModal').classList.remove('open');setStatus('Nama parameter dan satuan disimpan.');
 }
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;

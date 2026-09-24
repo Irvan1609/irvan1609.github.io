@@ -40,7 +40,7 @@ const requiredIds = [
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
   'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
-  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnDescription'
+  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -82,7 +82,7 @@ if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not b
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
 
-const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','plantName','treatmentName'];
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','plantName','treatmentName'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
 if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
@@ -90,7 +90,7 @@ if(!main.includes("statistical_web_csv_files_v1")||!main.includes("statistical_w
 if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_files_v2'))fail('CSV storage must retain legacy TXT migration');
 if(!main.includes('displayDatasetName')||!main.includes("name=base+'.csv'"))fail('dataset editor must hide CSV extension in UI while storing CSV datasets');
 if(!main.includes('data-add-row')||!main.includes('data-add-col'))fail('data grid corner must expose + Baris / + Kolom controls');
-if(!main.includes('columnHeaderMarkup')||!main.includes('columnDescription'))fail('column editor must support kode | kepanjangan parameter');
+if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main.includes('columnUnit')||!main.includes('buildParameterHeader'))fail('column editor must support separate kode, nama lengkap, and satuan inputs');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');
 if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanyaan agronomi yang diuji secara mekanistik'))fail('portfolio tone must remain student-oriented');

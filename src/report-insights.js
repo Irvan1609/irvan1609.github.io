@@ -1,5 +1,6 @@
 import {formatNumber as fmt} from './number-format.js';
 import {metadataFactor,describeLevel} from './treatment-metadata.js';
+import {parseParameterHeader,parameterLongName} from './parameter-metadata.js';
 
 const html=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const significant=(term,alpha)=>Number.isFinite(term?.p)&&term.p<alpha;
@@ -14,8 +15,8 @@ function extreme(items,mode='high'){
   return items.reduce((best,item)=>mode==='high'?(item.mean>best.mean?item:best):(item.mean<best.mean?item:best));
 }
 function parameterParts(report){
-  const text=String(report?.name||'parameter').trim(),match=text.match(/\(([^()]+)\)\s*$/),base=(match?text.slice(0,match.index):text).trim().toLowerCase();
-  return {measure:report?.transform?.type&&report.transform.type!=='none'?`setelah transformasi ${base}`:base,unit:match?match[1].trim():''};
+  const meta=parseParameterHeader(report?.name||'parameter'),base=(meta.name||meta.code||'parameter').trim().toLowerCase();
+  return {measure:report?.transform?.type&&report.transform.type!=='none'?`setelah transformasi ${base}`:base,unit:meta.unit};
 }
 function valueText(value,unit){
   return `${fmt(value,2)}${unit?' '+unit:''}`;
@@ -80,18 +81,18 @@ function factorialAnovaNarrative(report,alpha){
   const bTerm=termBy(report,[/^Faktor B$/i,/Anak Petak \(B\)/i]);
   if(!interaction)return '';
   if(significant(interaction,alpha)){
-    return `Sidik ragam menunjukkan bahwa pengaruh interaksi antara ${aName} dan ${bName} ${statusText(interaction,alpha)} terhadap ${report.name}.`;
+    return `Sidik ragam menunjukkan bahwa pengaruh interaksi antara ${aName} dan ${bName} ${statusText(interaction,alpha)} terhadap ${parameterLongName(report.name)}.`;
   }
   const parts=[`pengaruh interaksi antara ${aName} dan ${bName} ${statusText(interaction,alpha)}`];
   if(aTerm)parts.push(`pengaruh tunggal ${aName} ${statusText(aTerm,alpha)}`);
   if(bTerm)parts.push(`pengaruh tunggal ${bName} ${statusText(bTerm,alpha)}`);
-  return `Sidik ragam menunjukkan bahwa ${parts.join(', ')} terhadap ${report.name}.`;
+  return `Sidik ragam menunjukkan bahwa ${parts.join(', ')} terhadap ${parameterLongName(report.name)}.`;
 }
 function oneFactorAnovaNarrative(report,alpha){
   const treatment=termBy(report,[/^Perlakuan$/i]);
   if(!treatment)return '';
   const factor=metadataFactor(report,'a',readableFactor(report.factorLabels?.a,'perlakuan'));
-  return `Sidik ragam menunjukkan bahwa ${factor} ${statusText(treatment,alpha)} terhadap ${report.name}.`;
+  return `Sidik ragam menunjukkan bahwa ${factor} ${statusText(treatment,alpha)} terhadap ${parameterLongName(report.name)}.`;
 }
 
 export function interpretReport(report){
@@ -119,7 +120,7 @@ export function interpretReport(report){
     }
   }
 
-  if(!paragraphs.length)paragraphs.push(`Hasil analisis ${report.name} belum memiliki informasi inferensial yang cukup untuk disusun menjadi interpretasi hasil.`);
+  if(!paragraphs.length)paragraphs.push(`Hasil analisis ${parameterLongName(report.name)} belum memiliki informasi inferensial yang cukup untuk disusun menjadi interpretasi hasil.`);
   return paragraphs;
 }
 
@@ -130,7 +131,7 @@ export function analysisSummaryRows(reports){
     const minP=tested.length?Math.min(...tested.map(t=>t.p)):null;
     const posthoc=(report.comparisons||[]).map(c=>c.method).filter(m=>m&&m!=='none');
     return {
-      parameter:report.name,
+      parameter:parameterLongName(report.name),
       n:report.N,
       mean:report.grand,
       cv:report.cv,

@@ -1,5 +1,6 @@
 import {formatNumber as fmt} from './number-format.js';
 import {metadataFactor,describeLevel} from './treatment-metadata.js';
+import {parameterLongName} from './parameter-metadata.js';
 
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mean=values=>values.reduce((a,b)=>a+b,0)/values.length;
@@ -22,7 +23,8 @@ function metadataNote(report){
   return chunks.length?`Keterangan perlakuan: ${chunks.join('. ')}.`:'';
 }
 function measureName(report){
-  return report.transform?.type&&report.transform.type!=='none'?`setelah transformasi ${report.name}`:report.name;
+  const name=parameterLongName(report.name);
+  return report.transform?.type&&report.transform.type!=='none'?`setelah transformasi ${name}`:name;
 }
 function factorialHtml(report){
   const A=report.factorA||[],B=report.factorB||[];

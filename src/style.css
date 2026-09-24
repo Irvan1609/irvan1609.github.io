@@ -200,7 +200,7 @@ button:hover,button.primary:hover{background:#e9e9e9;border-color:#999}
 .grid-add-controls{display:flex;gap:3px;justify-content:center}.grid-add-controls button{min-height:26px;padding:3px 6px;font-size:11px;font-weight:750;white-space:nowrap}
 .empty-add-column{margin-top:8px}
 .data-grid .row-number{min-width:68px}.data-grid tbody .row-number{display:table-cell}.data-grid tbody .row-number>span{display:inline-block;min-width:22px}
-.data-grid .header-name{display:flex!important;align-items:center;gap:6px;min-width:0}.parameter-code{font-weight:750}.parameter-divider{color:#8b99a7;font-weight:400}.parameter-description{color:#536578;font-weight:500}
+.data-grid .header-name{display:flex!important;align-items:center;gap:6px;min-width:0}.parameter-code{font-weight:750}.parameter-divider{color:#8b99a7;font-weight:400}.parameter-description{color:#536578;font-weight:500}.parameter-unit{color:#6f7f90;font-weight:500}
 .data-grid .grid-delete{display:inline-grid;place-items:center}.grid-delete::before{line-height:1}
-#columnNameForm .form-grid{margin-top:4px}
-@media(max-width:720px){.dataset-meta-fields{min-width:100%;justify-content:flex-start;flex-wrap:wrap}.dataset-meta-fields label{flex:1 1 220px}.dataset-meta-fields input{width:100%;min-width:0}.grid-corner{min-width:120px!important;width:120px!important}.grid-add-controls{flex-direction:column}.grid-add-controls button{width:100%}}
+#columnNameForm .form-grid{margin-top:4px}.parameter-definition-grid{display:grid;grid-template-columns:minmax(120px,.65fr) minmax(220px,1.5fr) minmax(100px,.6fr);gap:12px;margin-top:4px}
+@media(max-width:720px){.dataset-meta-fields{min-width:100%;justify-content:flex-start;flex-wrap:wrap}.dataset-meta-fields label{flex:1 1 220px}.dataset-meta-fields input{width:100%;min-width:0}.grid-corner{min-width:120px!important;width:120px!important}.grid-add-controls{flex-direction:column}.grid-add-controls button{width:100%}.parameter-definition-grid{grid-template-columns:1fr}}
