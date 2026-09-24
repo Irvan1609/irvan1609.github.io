@@ -613,3 +613,13 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .dataset-title{overflow:hidden}
   #activeFile{max-width:45vw}
 }
+
+#projectToggle{display:none}
+@media(max-width:720px){
+  #projectToggle{display:inline-flex}
+  .project-panel{display:none}
+  html.mobile-project-open .project-panel{display:block}
+  html.mobile-project-open .main{grid-template-columns:1fr}
+  html.mobile-project-open .project-panel{position:relative;top:auto;max-height:46dvh;overflow:auto}
+  html.focus-data-mode #projectToggle{display:none}
+}
