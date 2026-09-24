@@ -3,9 +3,25 @@ const escAttr = value => String(value ?? '').replace(/[&<>"']/g, m => ({'&':'&am
 
 function cleanClone(scope) {
   const clone = scope.cloneNode(true);
+  const annotate=section=>{
+    const button=section.querySelector?.('[data-result-action="export-formula"],[data-result-action="export"]');
+    const key=button?.dataset?.resultFilename;
+    if(key&&!section.dataset.analysisKey)section.dataset.analysisKey=key;
+  };
+  if(clone.matches?.('[data-export-scope]'))annotate(clone);
+  clone.querySelectorAll?.('[data-export-scope]').forEach(annotate);
   clone.querySelectorAll('.result-actions, button, input, select, textarea').forEach(el => el.remove());
   clone.querySelectorAll('[hidden]').forEach(el => el.remove());
   return clone;
+}
+
+async function formulaRawDataset(){
+  try{
+    const {readDataset}=await import('./data-tools.js');
+    return readDataset();
+  }catch{
+    return null;
+  }
 }
 
 export function tableToTsv(table) {
@@ -64,8 +80,10 @@ async function copyScope(scope) {
 async function exportScope(scope, filename, formulas=false) {
   const snapshot = cleanClone(scope);
   snapshot.dataset.decimalSeparator = getDecimalSeparator();
+  if(filename&&!snapshot.dataset.analysisKey)snapshot.dataset.analysisKey=filename;
+  const rawDataset=formulas?await formulaRawDataset():null;
   const { downloadReportXlsx } = await import('./xlsx-export.js');
-  await downloadReportXlsx(snapshot, filename, {formulas});
+  await downloadReportXlsx(snapshot, filename, {formulas,rawDataset});
 }
 
 export function resultActions(filename='hasil-analisis') {
@@ -97,16 +115,16 @@ export function installResultExport() {
         message('Interpretasi BAB IV disalin.');
       } else if(isAll){
         const snapshot=cleanClone(scope);snapshot.dataset.decimalSeparator=getDecimalSeparator();
-        const formulas=action==='export-all-formula';
-        const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot,{formulas});
-        message(formulas?'Seluruh parameter diekspor dengan formula Excel pada perhitungan yang dapat direkonstruksi.':'Seluruh parameter diekspor; satu lembar per parameter.');
+        const formulas=action==='export-all-formula',rawDataset=formulas?await formulaRawDataset():null;
+        const {downloadAllReportsXlsx}=await import('./xlsx-export.js');await downloadAllReportsXlsx(snapshot,{formulas,rawDataset});
+        message(formulas?'Seluruh parameter diekspor: data mentah tetap berupa nilai, sedangkan keluaran numerik disimpan sebagai formula Excel.':'Seluruh parameter diekspor; satu lembar per parameter.');
       } else if (button.dataset.resultAction === 'copy') {
         await copyScope(scope);
         message('Hasil disalin. Tempel langsung ke Excel.');
       } else if (action === 'export' || action === 'export-formula') {
         const formulas=action==='export-formula';
         await exportScope(scope, button.dataset.resultFilename, formulas);
-        message(formulas?'File Excel formula siap diunduh; Excel akan menghitung ulang saat dibuka.':'File Excel (.xlsx) siap diunduh.');
+        message(formulas?'File formula siap: data mentah berupa nilai, hasil analisis berupa formula Excel dan dihitung ulang saat dibuka.':'File Excel (.xlsx) siap diunduh.');
       }
     } catch (error) {
       console.error(error);
