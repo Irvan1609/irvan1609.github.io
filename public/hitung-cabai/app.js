@@ -1,4 +1,5 @@
 import {detectChiliBoxesFromImageData} from './detector.js';
+import {upsertChiliCountToStatistics} from './stat-sync.js';
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 let image=null,photo='',boxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
@@ -301,6 +302,15 @@ $('snapPhoto').onclick=async()=>{
   }catch(error){status(error.message||'Foto tidak dapat diambil.');}
 };
 
+function sendCurrentToStatistics({quiet=false}={}){
+  if(!image){if(!quiet)status('Ambil foto atau pilih foto terlebih dahulu.');return null;}
+  const sample=$('sample').value.trim();
+  try{
+    const result=upsertChiliCountToStatistics(localStorage,{sample,count:boxes.length});
+    if(!quiet)status(`Masuk ke Statistical Web → ${result.dataset}: ${sample} = ${boxes.length} buah.`);
+    return result;
+  }catch(error){if(!quiet)status(error.message||'Data belum dapat dikirim ke Statistical Web.');return null;}
+}
 async function saveCurrent(){
   if(!image)return status('Ambil foto atau pilih foto terlebih dahulu.');
   const name=$('sample').value.trim();
@@ -312,10 +322,12 @@ async function saveCurrent(){
       boxes:cloneBoxes(),reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
-    status(`Tersimpan: ${boxes.length} buah.`);
+    const synced=sendCurrentToStatistics({quiet:true});
+    status(synced?`Tersimpan: ${boxes.length} buah. Data juga masuk ke Statistical Web → ${synced.dataset}.`:`Tersimpan: ${boxes.length} buah. Data Statistical Web belum tersinkron.`);
   }catch{status('Penyimpanan gagal. Periksa ruang penyimpanan browser; hasil di layar belum hilang.');}
 }
 $('save').onclick=saveCurrent;$('mobileSave').onclick=saveCurrent;
+$('sendToStat').onclick=()=>sendCurrentToStatistics();
 
 async function openRecord(row){
   if(!canDiscard())return;

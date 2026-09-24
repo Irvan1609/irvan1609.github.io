@@ -13,6 +13,7 @@ const mendeleyPath = 'dist/mendeley/index.html';
 const chiliPath = 'dist/hitung-cabai/index.html';
 const chiliAppPath = 'dist/hitung-cabai/app.js';
 const chiliDetectorPath = 'dist/hitung-cabai/detector.js';
+const chiliSyncPath = 'dist/hitung-cabai/stat-sync.js';
 if (!fs.existsSync(portfolioPath)) fail('dist/index.html is missing');
 if (!fs.existsSync(statPath)) fail('dist/stat/index.html is missing');
 if (!fs.existsSync(printPath)) fail('dist/print-skripsi/index.html is missing');
@@ -20,6 +21,7 @@ if (!fs.existsSync(mendeleyPath)) fail('dist/mendeley/index.html is missing');
 if (!fs.existsSync(chiliPath)) fail('dist/hitung-cabai/index.html is missing');
 if (!fs.existsSync(chiliAppPath)) fail('dist/hitung-cabai/app.js is missing');
 if (!fs.existsSync(chiliDetectorPath)) fail('dist/hitung-cabai/detector.js is missing');
+if (!fs.existsSync(chiliSyncPath)) fail('dist/hitung-cabai/stat-sync.js is missing');
 
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
 if (!portfolio.includes('Mahasiswa Agronomi')) fail('built root does not contain student-oriented portfolio content');
@@ -43,10 +45,11 @@ if (printHtml.includes('/print-skripsi/app.js')) fail('built /print-skripsi page
 const mendeleyHtml = fs.readFileSync(mendeleyPath, 'utf8');
 for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
 if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
-const chiliHtml=fs.readFileSync(chiliPath,'utf8'),chiliApp=fs.readFileSync(chiliAppPath,'utf8'),chiliDetector=fs.readFileSync(chiliDetectorPath,'utf8');
-for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','autoDetect','detectSensitivity','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
-for(const marker of ['getUserMedia','facingMode','optimizePhoto','indexedDB','autoDetectChilies','detector.js'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
+const chiliHtml=fs.readFileSync(chiliPath,'utf8'),chiliApp=fs.readFileSync(chiliAppPath,'utf8'),chiliDetector=fs.readFileSync(chiliDetectorPath,'utf8'),chiliSync=fs.readFileSync(chiliSyncPath,'utf8');
+for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','autoDetect','detectSensitivity','sendToStat','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
+for(const marker of ['getUserMedia','facingMode','optimizePhoto','indexedDB','autoDetectChilies','detector.js','stat-sync.js','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
 if(!chiliDetector.includes('detectChiliBoxesFromImageData'))fail('built /hitung-cabai detector is missing detection engine');
+if(!chiliSync.includes('upsertChiliCountToStatistics')||!chiliSync.includes('statistical_web_csv_files_v1'))fail('built /hitung-cabai sync bridge is missing Statistical Web integration');
 
 for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]) if(!page.includes('/subweb-header.css')||!page.includes('subweb-nav')) fail(`built /${name} page is missing shared sub-web header`);
 
