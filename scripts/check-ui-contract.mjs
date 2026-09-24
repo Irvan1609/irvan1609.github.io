@@ -15,13 +15,15 @@ const scientificReport = fs.readFileSync('src/scientific-report.js', 'utf8');
 const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
+const statStyle = fs.readFileSync('src/style.css', 'utf8');
+const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
 
 function fail(message) {
   console.error(`UI contract failed: ${message}`);
   process.exit(1);
 }
 
-for (const marker of ['Peneliti Agronomi','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"','Statistical Web']) {
+for (const marker of ['Mahasiswa Agronomi','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"','Statistical Web']) {
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
@@ -38,7 +40,7 @@ const requiredIds = [
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
   'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
   'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
-  'status','errorBox','gridWrap'
+  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnDescription'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -69,16 +71,30 @@ for (const src of ['/src/main.js','/src/ral.js']) if (!moduleScripts.includes(sr
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==1||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('navigation must contain one Analyze button');
-if(!/href="\/"[^>]*>← Portofolio<\/a>/.test(nav))fail('stat navigation must provide a return-to-portfolio link');
+if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!/>Analyze<\/button>/.test(nav))fail('analysis navigation must contain Analyze and hidden project controls');
+for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
+  for(const href of ['href="/"','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
+  if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
+}
+if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use ← Statistical Web brand link back to portfolio');
+if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analyze'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
 
-const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset'];
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','plantName','treatmentName'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
 if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
+if(!main.includes("statistical_web_csv_files_v1")||!main.includes("statistical_web_active_csv_v1"))fail('dataset editor must use CSV-backed storage');
+if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_files_v2'))fail('CSV storage must retain legacy TXT migration');
+if(!main.includes('displayDatasetName')||!main.includes("name=base+'.csv'"))fail('dataset editor must hide CSV extension in UI while storing CSV datasets');
+if(!main.includes('data-add-row')||!main.includes('data-add-col'))fail('data grid corner must expose + Baris / + Kolom controls');
+if(!main.includes('columnHeaderMarkup')||!main.includes('columnDescription'))fail('column editor must support kode | kepanjangan parameter');
+if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
+if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');
+if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanyaan agronomi yang diuji secara mekanistik'))fail('portfolio tone must remain student-oriented');
+
 for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
 
 const toolsInit = main.indexOf('installDataTools();');

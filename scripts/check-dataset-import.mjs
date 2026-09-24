@@ -35,15 +35,22 @@ sheet.addRows([['Perlakuan','Y'],['M0',15.89],['M1',20.97]]);
 const loaded=new ExcelJS.Workbook();await loaded.xlsx.load(await book.xlsx.writeBuffer());
 const decoded=[];loaded.worksheets[0].eachRow(row=>decoded.push(row.values.slice(1).map(String)));
 const [headers,...rows]=decoded;
-assert.equal(send({name:'Excel',headers,rows}).name,'Excel.txt');
-assert.equal(send({name:'excel',headers,rows}).name,'excel (2).txt');
+assert.equal(send({name:'Excel',headers,rows}).name,'Excel.csv');
+assert.equal(send({name:'excel',headers,rows}).name,'excel (2).csv');
+const csvState=JSON.parse(snapshot()),csvText=csvState.files[csvState.active];
+assert.ok(csvState.active.endsWith('.csv'));
+assert.match(csvText,/^Perlakuan,Y\nM0,15\.89\nM1,20\.97$/);
+assert.equal(csvText.includes('\t'),false);
+assert.equal(send({name:'Meta',headers,rows,plant:'Jagung',treatment:'Dosis N'}).name,'Meta.csv');
+const metaState=JSON.parse(snapshot());
+assert.deepEqual(metaState.meta['Meta.csv'],{plant:'Jagung',treatment:'Dosis N'});
 const valid=snapshot(),persisted=JSON.stringify([...storage]);
 for(const detail of [
   {headers:['A'],rows:[]},{headers:['A'],rows:[[1,2]]},
   {headers:['A'],rows:[[Infinity]]},{headers:['A'],rows:[['line\nbreak']]},
   {headers:['A\tB'],rows:[[1]]}
 ]){assert.equal(send(detail).ok,false);assert.equal(snapshot(),valid);}
-for(const key of ['statistical_web_txt_files_v2','statistical_web_active_txt_v2']){
+for(const key of ['statistical_web_csv_files_v1','statistical_web_active_csv_v1','statistical_web_dataset_meta_v1']){
   failKey=key;assert.equal(send({name:'Full',headers,rows}).ok,false);
   assert.equal(snapshot(),valid);assert.equal(JSON.stringify([...storage]),persisted);
 }

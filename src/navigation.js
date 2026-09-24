@@ -3,15 +3,8 @@ export function installNavigation(){
   const sheet=document.querySelector('.sheet-header');
   if(!nav||!sheet)return;
 
-  const add=document.createElement('div');
-  add.className='sheet-add-actions';
-  const addRow=document.getElementById('addRow'),addCol=document.getElementById('addCol'),activeFile=document.getElementById('activeFile');
-  if(addRow)add.append(addRow);
-  if(addCol)add.append(addCol);
-  if(activeFile)activeFile.after(add);
-
   const clear=document.getElementById('clearData');
-  if(clear){clear.textContent='Hapus data';sheet.append(clear);}
+  if(clear){clear.textContent='🗑';clear.setAttribute('aria-label','Hapus seluruh data');clear.title='Hapus seluruh data';clear.classList.add('icon-only');sheet.append(clear);}
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
