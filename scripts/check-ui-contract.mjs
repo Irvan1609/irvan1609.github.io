@@ -8,7 +8,6 @@ const mendeleyHtml = fs.readFileSync('mendeley/index.html', 'utf8');
 const mendeleyApp = fs.readFileSync('mendeley/app.js', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
 const navigation = fs.readFileSync('src/navigation.js', 'utf8');
-const ral = fs.readFileSync('src/ral.js', 'utf8');
 const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
 const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
 const scientificReport = fs.readFileSync('src/scientific-report.js', 'utf8');
@@ -41,9 +40,10 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
-  'openAnalysis','analysisChoice','renameDataset','deleteDataset','datasetNameForm','rakParameters','rakPosthoc','ralReplicate','rakModal','runRak','closeRak','closeRak2',
-  'ralModal','runRal','closeRal','closeRal2','ralResponses','ralTreatment',
-  'status','errorBox','gridWrap','plantName','treatmentName','columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
+  'openAnalysis','focusData','renameDataset','deleteDataset','datasetNameForm',
+  'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','toggleDatasetMeta','datasetMetaEditor',
+  'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels',
+  'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -59,18 +59,19 @@ if (!/\brole="status"/.test(statusTag) || !/\baria-live="polite"/.test(statusTag
 const errorTag = html.match(/<div\b[^>]*\bid="errorBox"[^>]*>/)?.[0] || '';
 if (!/\brole="alert"/.test(errorTag)) fail('main error box needs alert semantics');
 
-for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['rakModal','rakModalTitle'],['ralModal','ralModalTitle']]) {
+for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['datasetNameModal','datasetNameTitle'],['datasetViewModal','datasetViewTitle'],['columnNameModal','columnNameTitle']]) {
   const start=html.indexOf(`id="${modalId}"`), end=html.indexOf('</div></div>',start);
   const fragment=start>=0&&end>start?html.slice(start,end):'';
   if(!fragment.includes('role="dialog"')||!fragment.includes('aria-modal="true"')||!fragment.includes(`aria-labelledby="${titleId}"`)||!fragment.includes(`id="${titleId}"`))fail(`#${modalId} needs dialog semantics and an accessible title`);
 }
 
-for (const id of ['closeModal','closeDatasetName','closeRak','closeRal']) {
+for (const id of ['closeModal','closeDatasetName','closeDatasetView','closeColumnName']) {
   if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(html)) fail(`#${id} needs an accessible name`);
 }
 
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
-for (const src of ['/src/main.js','/src/ral.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
+for (const src of ['/src/main.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
+if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loaded in production shell');
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
@@ -90,10 +91,10 @@ for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','me
 if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
-for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
-for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analisis'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);
+for(const id of ['openAnalysis','analysisMenu','analysisSearch'])if(!flow.includes(id))fail('analysis flow missing '+id);
+for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
-const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName'];
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','focusData','toggleDatasetMeta','plantNameSummary','treatmentNameSummary'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
 if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
@@ -113,7 +114,7 @@ if(!scientific.includes('data-print-results')||!scientific.includes('datasetMeta
 
 if(!statStyle.includes('.data-grid thead th.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must use a subtle header-only distinction and integrated editor section');
 if(main.includes('string-column-badge')||main.includes('>STRING<')||main.includes('string-column-cell')||statStyle.includes('.string-column-badge')||statStyle.includes('.string-column-cell'))fail('string columns must not add badges or body-cell coloring');
-if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]')||!ral.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
+if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'×'"))fail('row/column delete affordance must use × rather than a trash icon');
 if(html.includes('🗑')||main.includes('🗑')||navigation.includes('🗑'))fail('Statistical Web delete controls must not use trash emoji');
@@ -124,8 +125,6 @@ for(const [name,page] of [['portfolio',portfolioHtml],['stat',html],['mendeley',
 if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statistik Irvan'))fail('portfolio and sub-web branding must stay modest and student-oriented');
 
 
-for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
-
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so Data/Help commands exist when menus are assembled');
@@ -134,7 +133,6 @@ for (const marker of ["['dataMenu','Data'","['helpMenu','Bantuan'",'validateData
 }
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
-if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
 for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','scienceTreatmentFields','data-transform.js','treatment-metadata.js','category-metadata.js','readCategoryMetadata','categoryLevelDescription','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
 for (const marker of ['Catatan interpretasi','copy-interpretation','renderBab4Table','Data sebelum transformasi','Sidik ragam sebelum transformasi','renderDecisionSummary','residualHistogram','renderInfluenceDiagnostics']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
@@ -157,6 +155,8 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
   if (!printApp.includes(marker)) fail(`print-skripsi app missing behavior marker: ${marker}`);
 }
 
-console.log(`UI contract OK: portfolio links to /stat/ and /print-skripsi/, /stat Data/Help menu initialization and analysis shell, /print-skripsi preview/BAB I detection/ZIP controls, scientific RAL/RAK/factorial/RPT workflow, correlation/path menu, and F-table reporting contract present.`);
+if(!main.includes('toggleFocusMode')||!main.includes('toggleDatasetMetaEditor'))fail('responsive focus/metadata controls are missing');
+if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.focus-data-mode')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/focus/collapse styles are missing');
+console.log(`UI contract OK: simplified /stat shell, grouped analysis menu, focus data mode, compact metadata, mobile layout, and scientific analysis workflow are present.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
