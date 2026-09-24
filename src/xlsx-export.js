@@ -84,6 +84,42 @@ function prepareFormulaRawData(book,scopes){
   return contexts;
 }
 
+function formulaIndexCachedValue(value){
+  if(value===null||value===undefined)return '';
+  if(typeof value==='number'||typeof value==='string'||typeof value==='boolean')return value;
+  if(value instanceof Date)return value.toISOString();
+  if(Array.isArray(value?.richText))return value.richText.map(run=>run?.text??'').join('');
+  return String(value);
+}
+
+function addFormulaIndexWorksheet(book){
+  const rows=[];
+  for(const source of book.worksheets){
+    if(source.name==='Daftar Formula')continue;
+    source.eachRow({includeEmpty:false},row=>{
+      row.eachCell({includeEmpty:false},cell=>{
+        const value=cell.value;
+        if(!value||typeof value!=='object'||typeof value.formula!=='string')return;
+        rows.push([source.name,cell.address,`=${value.formula}`,formulaIndexCachedValue(value.result)]);
+      });
+    });
+  }
+  const existing=book.getWorksheet('Daftar Formula');
+  if(existing)book.removeWorksheet(existing.id);
+  if(!rows.length)return null;
+  const sheet=book.addWorksheet('Daftar Formula');
+  sheet.columns=[{width:28},{width:12},{width:72},{width:22}];
+  sheet.addRow(['Lembar','Sel','Formula Excel','Nilai tersimpan']);
+  rows.forEach(row=>sheet.addRow(row));
+  const header=sheet.getRow(1);
+  header.font={bold:true};
+  header.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEAF0F7'}};
+  header.alignment={horizontal:'center',vertical:'middle'};
+  sheet.views=[{state:'frozen',ySplit:1}];
+  sheet.getColumn(3).alignment={wrapText:true,vertical:'top'};
+  return sheet;
+}
+
 function addFormulaSummaryWorksheet(book,contexts){
   if(!contexts?.size)return null;
   const sheet=book.addWorksheet('Formula Ringkas');
@@ -395,6 +431,7 @@ export async function downloadReportXlsx(scope,filename,options={}) {
     reportSheet=book.getWorksheet('Hasil analisis');
   }
   await addChartImages(book,reportSheet,scope);
+  if(options.formulas)addFormulaIndexWorksheet(book);
   const buffer=await book.xlsx.writeBuffer();
   const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
@@ -442,6 +479,7 @@ export async function downloadAllReportsXlsx(scope,options={}){
   addSummaryWorksheet(book,scope);
   const reportSheets=book.worksheets.filter(sheet=>!['all data','Formula Ringkas','Ringkasan'].includes(sheet.name));
   for(let i=0;i<sections.length;i++)await addChartImages(book,reportSheets[i],sections[i]);
+  if(options.formulas)addFormulaIndexWorksheet(book);
   const buffer=await book.xlsx.writeBuffer(),url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const a=document.createElement('a');a.href=url;a.download=datasetExcelFilename((scope.dataset.datasetName||sections[0]?.dataset.datasetName)+(options.formulas?'-formula':''));a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
