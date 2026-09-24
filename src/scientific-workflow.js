@@ -9,6 +9,7 @@ import {inspectDataQuality,renderDataQuality} from './data-quality.js';
 import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
+import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
@@ -106,7 +107,13 @@ function renderTreatmentMetadata(){
   if(a===null){target.innerHTML='<p class="form-help">Pilih kolom perlakuan/Faktor A terlebih dahulu.</p>';return;}
   const saved=readTreatmentMetadata(metadataStoreKey())||{};
   const factorInput=(axis,index,label)=>`<label>${label} untuk narasi<input data-meta-factor="${axis}" value="${esc(saved.factorLabels?.[axis]||data.headers[index]||'')}" placeholder="${esc(data.headers[index]||label)}"></label>`;
-  const levelInputs=(axis,index)=>levelsForColumn(index).map(level=>`<label class="treatment-meta-row"><span>${esc(level)}</span><input data-meta-level-axis="${axis}" data-meta-level-code="${esc(level)}" value="${esc(saved.levels?.[axis]?.[level]||'')}" placeholder="contoh: 50 g/tanaman"></label>`).join('');
+  const levelInputs=(axis,index)=>{
+    const editor=readCategoryMetadata(data.name,data.headers[index]);
+    return levelsForColumn(index).map(level=>{
+      const editorValue=categoryLevelDescription(editor.levels?.[level]),value=editorValue||saved.levels?.[axis]?.[level]||'';
+      return `<label class="treatment-meta-row"><span>${esc(level)}</span><input data-meta-level-axis="${axis}" data-meta-level-code="${esc(level)}" value="${esc(value)}" placeholder="contoh: 50 g/tanaman"></label>`;
+    }).join('');
+  };
   let html='<p class="form-help">Isi arti kode perlakuan agar interpretasi menulis dosis/perlakuan lengkap, misalnya A1 = 50 g/tanaman. Kosongkan jika cukup memakai kode.</p>';
   html+=`<div class="form-grid">${factorInput('a',a,'Nama Faktor A')}${b!==null?factorInput('b',b,'Nama Faktor B'):''}</div><div class="treatment-meta-grid"><div><b>Taraf A / Perlakuan</b>${levelInputs('a',a)}</div>`;
   if(b!==null)html+=`<div><b>Taraf B</b>${levelInputs('b',b)}</div>`;

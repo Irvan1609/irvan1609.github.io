@@ -11,7 +11,7 @@ import jStat from 'jstat';
   const fmt = formatNumber;
 
   function dataset() {
-    const headers = [...document.querySelectorAll('#gridWrap .data-grid thead th')].slice(1).map(x => x.textContent.trim());
+    const headers = [...document.querySelectorAll('#gridWrap .data-grid thead th[data-column-header]')].map(x => x.dataset.columnHeader || x.textContent.trim());
     const rows = [...document.querySelectorAll('#gridWrap .data-grid tbody tr')].map(tr => [...tr.querySelectorAll('td')].slice(1).map(td => td.textContent));
     return { headers, rows };
   }

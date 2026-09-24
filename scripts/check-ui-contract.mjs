@@ -91,6 +91,8 @@ if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_f
 if(!main.includes('displayDatasetName')||!main.includes("name=base+'.csv'"))fail('dataset editor must hide CSV extension in UI while storing CSV datasets');
 if(!main.includes('data-add-row')||!main.includes('data-add-col'))fail('data grid corner must expose + Baris / + Kolom controls');
 if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main.includes('columnUnit')||!main.includes('buildParameterHeader'))fail('column editor must support separate kode, nama lengkap, and satuan inputs');
+if(!main.includes('categoryMapMarkup')||!main.includes('data-category-value')||!main.includes('data-category-unit')||!main.includes('saveCategoryLevel'))fail('string columns must expose optional value and unit mapping above the column');
+if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]')||!ral.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');
 if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanyaan agronomi yang diuji secara mekanistik'))fail('portfolio tone must remain student-oriented');
@@ -107,7 +109,7 @@ for (const marker of ["['dataMenu','Data'","['helpMenu','Help'",'validateDataset
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!ral.includes('addEventListener')) fail('ral.js contains no event listeners');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
-for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','scienceTreatmentFields','data-transform.js','treatment-metadata.js','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
+for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','scienceTreatmentFields','data-transform.js','treatment-metadata.js','category-metadata.js','readCategoryMetadata','categoryLevelDescription','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
 for (const marker of ['Interpretasi otomatis siap BAB IV','copy-interpretation','renderBab4Table','Data sebelum transformasi','Sidik ragam sebelum transformasi','renderDecisionSummary','residualHistogram','renderInfluenceDiagnostics']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
 const designMap = scientificReport.match(/export const designNames\s*=\s*\{([^}]*)\}/)?.[1] || '';
 for (const design of ['ral','rak','fral','frak','split']) if (!new RegExp(`(?:^|[,\\s])${design}\\s*:`).test(designMap)) fail(`scientific report missing design ${design}`);

@@ -6,6 +6,7 @@ import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
+import {readCategoryMetadata,saveCategoryLevel,moveCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import jStat from 'jstat';
 
@@ -89,6 +90,28 @@ function columnHeaderMarkup(header){
   }
   return `<span class="parameter-code">${esc(meta.code)}</span>${meta.unit?`<span class="parameter-unit">(${esc(meta.unit)})</span>`:''}`;
 }
+function stringLevels(index){
+  const values=state.rows.map(row=>String(row[index]??'').trim()).filter(Boolean);
+  if(!values.length||!values.every(value=>!Number.isFinite(parseNumber(value))))return [];
+  return [...new Set(values)];
+}
+function categoryMapMarkup(index,header){
+  const levels=stringLevels(index);
+  if(!levels.length)return '';
+  const stored=readCategoryMetadata(displayDatasetName(state.active),header);
+  const rows=levels.map(level=>{
+    const entry=stored.levels?.[level]||{};
+    return `<div class="category-level-row" data-category-level-row><span class="category-level-code" title="${esc(level)}">${esc(level)}</span><input data-category-value data-category-column="${index}" data-category-level="${esc(level)}" value="${esc(entry.value||'')}" placeholder="nilai" inputmode="decimal" aria-label="Nilai untuk ${esc(level)}"><span class="category-map-divider">|</span><input data-category-unit data-category-column="${index}" data-category-level="${esc(level)}" value="${esc(entry.unit||'')}" placeholder="satuan" aria-label="Satuan untuk ${esc(level)}"></div>`;
+  }).join('');
+  return `<details class="category-map"><summary>Isi nilai string</summary><div class="category-map-body"><small>Opsional: kode = nilai | satuan</small>${rows}</div></details>`;
+}
+function bindCategoryMappings(wrap){
+  wrap.querySelectorAll('[data-category-value],[data-category-unit]').forEach(input=>input.addEventListener('input',()=>{
+    const index=Number(input.dataset.categoryColumn),level=input.dataset.categoryLevel,row=input.closest('[data-category-level-row]');
+    const value=row?.querySelector('[data-category-value]')?.value??'',unit=row?.querySelector('[data-category-unit]')?.value??'',header=state.headers[index];
+    saveCategoryLevel(displayDatasetName(state.active),header,level,{value,unit});
+  }));
+}
 function openColumnName(index){
   editingColumnIndex=index;
   const meta=parseParameterHeader(state.headers[index]||'');
@@ -106,17 +129,21 @@ function saveColumnName(event){
   if(editingColumnIndex===null||!code||/[\t\r\n]/.test(name)||!isUniqueColumnName(state.headers,name,editingColumnIndex)){
     box.hidden=false;box.textContent='Kode harus terisi. Kode, nama lengkap, dan satuan tidak boleh mengandung tab/baris baru; judul akhirnya juga harus unik.';return;
   }
-  state.headers[editingColumnIndex]=name;persist();renderGrid();$('#columnNameModal').classList.remove('open');setStatus('Nama parameter dan satuan disimpan.');
+  const previous=state.headers[editingColumnIndex];
+  state.headers[editingColumnIndex]=name;
+  moveCategoryColumn(displayDatasetName(state.active),previous,name);
+  persist();renderGrid();$('#columnNameModal').classList.remove('open');setStatus('Nama parameter dan satuan disimpan.');
 }
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;
   if(!state.headers.length){
     wrap.innerHTML=`<div class="empty-state"><h3>${esc(displayDatasetName(state.active))}</h3><p>Tempel/impor data atau mulai dengan kolom baru.</p><button type="button" class="empty-add-column" data-add-col>+ Kolom</button></div>`;
   }else{
-    wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>${state.headers.map((h,j)=>`<th><div class="header-controls"><button class="header-name" data-rename-column="${j}" title="Ubah nama/keterangan kolom" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span>${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>${state.headers.map((h,j)=>`<th data-column-header="${esc(h)}">${categoryMapMarkup(j,h)}<div class="header-controls"><button class="header-name" data-rename-column="${j}" title="Ubah nama/keterangan kolom" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span>${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>`<td contenteditable="true" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     wrap.querySelectorAll('[contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{state.rows[Number(cell.dataset.r)][Number(cell.dataset.c)]=cell.textContent;persist();}));
+    bindCategoryMappings(wrap);
     wrap.querySelectorAll('[data-rename-column]').forEach(button=>button.onclick=()=>openColumnName(Number(button.dataset.renameColumn)));
-    wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>{const j=Number(button.dataset.deleteColumn);if(!confirm(`Hapus kolom ${state.headers[j]} beserta datanya?`))return;state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];persist();renderGrid();setStatus('Kolom dihapus.');});
+    wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>{const j=Number(button.dataset.deleteColumn),header=state.headers[j];if(!confirm(`Hapus kolom ${header} beserta datanya?`))return;removeCategoryColumn(displayDatasetName(state.active),header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];persist();renderGrid();setStatus('Kolom dihapus.');});
     wrap.querySelectorAll('[data-delete-row]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.deleteRow);if(!confirm(`Hapus baris ${i+1}?`))return;state.rows.splice(i,1);persist();renderGrid();setStatus('Baris dihapus.');});
   }
   wrap.querySelectorAll('[data-add-row]').forEach(button=>button.onclick=addRow);
@@ -150,13 +177,13 @@ function saveDatasetName(event) {
   const files=Object.fromEntries(Object.entries(state.files).map(([key,value])=>[key===state.active?target:key,key===state.active?serialize():value]));
   try{
     localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);
-    const previous=state.active,meta={...state.meta};if(previous!==target){meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];}
+    const previous=state.active,meta={...state.meta};if(previous!==target){meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];moveCategoryDataset(displayDatasetName(previous),displayDatasetName(target));}
     localStorage.setItem(META_KEY,JSON.stringify(meta));
     state.files=files;state.active=target;state.meta=meta;
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
 }
-function deleteDataset(){if(!confirm(`Hapus ${displayDatasetName(state.active)}? Tindakan ini tidak dapat dibatalkan.`))return;const removed=state.active;delete state.files[removed];delete state.meta[removed];state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}persist();loadActive(false);setStatus('✓ Dataset dihapus.');}
+function deleteDataset(){if(!confirm(`Hapus ${displayDatasetName(state.active)}? Tindakan ini tidak dapat dibatalkan.`))return;const removed=state.active;removeCategoryDataset(displayDatasetName(removed));delete state.files[removed];delete state.meta[removed];state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}persist();loadActive(false);setStatus('✓ Dataset dihapus.');}
 function downloadDataset(){const blob=new Blob([serialize()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=state.active;a.click();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus(`✓ ${displayDatasetName(state.active)} diunduh.`);}
 function installDataGrid(){
   document.addEventListener('dataset-import',event=>{
