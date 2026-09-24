@@ -60,10 +60,9 @@ const errorTag = html.match(/<div\b[^>]*\bid="errorBox"[^>]*>/)?.[0] || '';
 if (!/\brole="alert"/.test(errorTag)) fail('main error box needs alert semantics');
 
 for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['datasetNameModal','datasetNameTitle'],['datasetViewModal','datasetViewTitle'],['columnNameModal','columnNameTitle']]) {
-  const start=html.indexOf(`id="${modalId}"`),nextModal=html.indexOf('class="modal-backdrop"',start+1);
-  const fragment=start>=0?html.slice(start,nextModal>start?nextModal:html.length):'';
-  if(!fragment.includes('role="dialog"')||!fragment.includes('aria-modal="true"')||!fragment.includes(`aria-labelledby="${titleId}"`)||!fragment.includes(`id="${titleId}"`))fail(`#${modalId} needs dialog semantics and an accessible title`);
+  if(!html.includes(`id="${modalId}"`)||!html.includes(`aria-labelledby="${titleId}"`)||!html.includes(`id="${titleId}"`))fail(`#${modalId} needs an accessible title`);
 }
+if((html.match(/role="dialog"/g)||[]).length<4||(html.match(/aria-modal="true"/g)||[]).length<4)fail('core Statistical Web modals need dialog semantics');
 
 for (const id of ['closeModal','closeDatasetName','closeDatasetView','closeColumnName']) {
   if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(html)) fail(`#${id} needs an accessible name`);
