@@ -11,11 +11,11 @@ function ensureStyles(){
     html[data-ui-font="medium"]{--ui-scale:1}
     html[data-ui-font="large"]{--ui-scale:1.15}
     #app{zoom:var(--ui-scale)}
-    .topbar{display:flex;align-items:center;gap:8px;position:relative}
-    .app-title{margin-right:auto}
-    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;font-size:18px;line-height:1;margin-left:auto}
+    .app-header{position:relative}
+    .nav{position:relative}
+    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border-radius:9px;font-size:17px;line-height:1;margin-left:auto}
     #appSettingsToggle[aria-expanded="true"]{background:#eaf1fd;border-color:#9ab3d6;color:#194caa}
-    #appSettingsPanel{position:absolute;right:14px;top:calc(100% + 6px);z-index:120;width:min(360px,calc(100vw / var(--ui-scale) - 28px));padding:14px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px #15233426}
+    #appSettingsPanel{position:absolute;right:10px;top:calc(100% + 8px);z-index:120;width:min(360px,calc(100vw / var(--ui-scale) - 28px));padding:14px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px #15233426}
     #appSettingsPanel[hidden]{display:none!important}
     .settings-panel-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-weight:700}
     .settings-section{padding:10px 0;border-top:1px solid #e5eaf0}
@@ -30,8 +30,9 @@ function ensureStyles(){
 }
 
 function ensureSettingsUi(){
-  const topbar=document.querySelector('.topbar');
-  if(!topbar)return null;
+  const topbar=document.querySelector('.app-header');
+  const nav=document.querySelector('.nav');
+  if(!topbar||!nav)return null;
   let toggle=document.getElementById('appSettingsToggle');
   let panel=document.getElementById('appSettingsPanel');
   if(!toggle){
@@ -43,7 +44,7 @@ function ensureSettingsUi(){
     toggle.setAttribute('aria-label','Pengaturan');
     toggle.setAttribute('aria-haspopup','true');
     toggle.setAttribute('aria-expanded','false');
-    topbar.append(toggle);
+    nav.append(toggle);
   }
   if(!panel){
     panel=document.createElement('div');
