@@ -94,7 +94,8 @@ if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main
 if(main.includes('categoryMapMarkup')||main.includes('data-category-value')||main.includes('data-category-unit'))fail('string mapping controls must not be rendered above data columns');
 if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-string-level')||!main.includes('saveCategoryMetadata')||!main.includes('columnStringUnit'))fail('string columns must expose value mapping inside the column editor with one shared unit');
 if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');
-if(!main.includes('string-column-cell')||!statStyle.includes('.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must have distinct styling and an integrated editor section');
+if(!statStyle.includes('.data-grid thead th.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must use a subtle header-only distinction and integrated editor section');
+if(main.includes('string-column-badge')||main.includes('>STRING<')||main.includes('string-column-cell')||statStyle.includes('.string-column-badge')||statStyle.includes('.string-column-cell'))fail('string columns must not add badges or body-cell coloring');
 if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]')||!ral.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'🗑'"))fail('row/column delete affordance must use trash icon rather than ×');
