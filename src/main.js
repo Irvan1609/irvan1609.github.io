@@ -424,7 +424,7 @@ function applyFocusMode(enabled){
   document.documentElement?.classList?.toggle?.('focus-data-mode',enabled);
   const button=$('#focusData');
   if(button){
-    button.setAttribute('aria-pressed',String(enabled));
+    button.setAttribute?.('aria-pressed',String(enabled));
     button.textContent=enabled?'Keluar Fokus':'Fokus Data';
     button.title=enabled?'Tampilkan kembali sidebar dan informasi dataset':'Perluas area tabel';
   }
