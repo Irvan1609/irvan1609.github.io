@@ -8,6 +8,35 @@ function cell(x){return typeof x==='number'?`<td data-number="${x}">${fmt(x)}</t
 function table(headers,rows,cls=''){return `<div class="table-scroll"><table class="result-table ${cls}"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;}
 const labelLines=(label,x,y)=>String(label).match(/.{1,35}(?:\s|$)|.{1,35}/g)?.map((text,i)=>`<tspan x="${x}" dy="${i?14:0}">${esc(text)}</tspan>`).join('')||'';
 
+export function contrastDisplayRows(report){
+  return (report.contrasts||[]).map(c=>{
+    const firstSign=Math.sign(c.coefficients.find(x=>x!==0));
+    const groupMean=sign=>{
+      const weight=c.coefficients.reduce((s,x)=>s+(Math.sign(x)===sign?Math.abs(x):0),0);
+      return c.coefficients.reduce((s,x,i)=>s+(Math.sign(x)===sign?Math.abs(x)*report.cells[i].mean:0),0)/weight;
+    };
+    return {...c,q:c.coefficients.reduce((s,x,i)=>s+x*report.cells[i].mean*report.cells[i].n,0),
+      leftMean:groupMean(firstSign),rightMean:groupMean(-firstSign),
+      mark:c.p<.01?'**':c.p<.05?'*':'tn',
+      f05:jStat.centralF.inv(.95,1,c.denDf),f01:jStat.centralF.inv(.99,1,c.denDf)};
+  });
+}
+
+export function renderContrasts(report,caption){
+  const contrasts=contrastDisplayRows(report);
+  const value=x=>`<span data-number="${x}">${fmt(x,2)}</span>`;
+  const marked=c=>`${value(c.f)}<sup>${c.mark}</sup>`;
+  const rows=report.cells.map((item,i)=>[esc(item.label),item.mean*item.n,...contrasts.map(c=>c.coefficients[i])]);
+  rows.push(['Q','',...contrasts.map(c=>c.q)],['JK','',...contrasts.map(c=>c.ss)],
+    ['F. Hitung','',...contrasts.map(marked)],['Rata-rata 1','',...contrasts.map(c=>value(c.leftMean))],
+    ['Rata-rata 2','',...contrasts.map(c=>value(c.rightMean))]);
+  return caption('Perhitungan uji kontras — '+report.name)+table(['Perlakuan','Total perlakuan',...contrasts.map(c=>c.name)],rows,'contrast-calculation-table')+
+    '<div class="analysis-note">Q = Σ(cᵢTᵢ). Untuk ulangan sama, JK = Q²/(rΣcᵢ²). Untuk ulangan tidak sama, JK = (Σcᵢȳᵢ)²/Σ(cᵢ²/nᵢ). Rata-rata kelompok dibobot menurut nilai absolut koefisien; kelompok 1 mengikuti tanda koefisien pertama yang tidak nol. Pembalikan seluruh tanda koefisien tidak mengubah JK atau F.</div>'+
+    caption('Uji kontras — '+report.name)+table(['Kontras','Rata-Rata','F. Hitung'],contrasts.map(c=>[esc(c.name),`${value(c.leftMean)} vs ${value(c.rightMean)}`,marked(c)]),'contrast-summary-table')+
+    '<div class="analysis-note">tn = tidak nyata; * = p &lt; 0,05; ** = p &lt; 0,01. Nilai p merupakan pengujian individual, tanpa penyesuaian pengujian multipel. Baris kontras merupakan rincian perbandingan perlakuan, bukan sumber keragaman tambahan yang dijumlahkan kembali.</div>'+
+    '<details><summary>Estimasi, SE, dan nilai p kontras</summary>'+table(['Kontras','Estimasi','SE','JK','F','p'],contrasts.map(c=>[esc(c.name),c.estimate,c.se,c.ss,c.f,pv(c.p)]))+'</details>';
+}
+
 export function renderAnova(report){
   const terms=report.terms.map(t=>({...t}));
   // The combined treatment row is meaningful only for factorial designs with one error stratum.
@@ -17,6 +46,10 @@ export function renderAnova(report){
       const ss=effects.reduce((s,t)=>s+t.ss,0),df=effects.reduce((s,t)=>s+t.df,0),ms=ss/df,f=ms/error.ms;
       terms.splice(terms.findIndex(t=>t.label==='Faktor A'),0,{label:'Perlakuan',ss,df,ms,f,f05:jStat.centralF.inv(.95,df,error.df),f01:jStat.centralF.inv(.99,df,error.df),error:'Galat'});
     }
+  }
+  if(['ral','rak'].includes(report.design)&&(report.contrasts||[]).length){
+    const at=terms.findIndex(t=>t.label==='Perlakuan');
+    if(at>=0)terms.splice(at+1,0,...contrastDisplayRows(report).map(c=>({label:c.name,df:1,ss:c.ss,ms:c.ss,f:c.f,f05:c.f05,f01:c.f01,error:'Galat'})));
   }
   const numeric=(x,digits=2)=>x===null||x===undefined?'':`<span data-number="${x}">${fmt(x,digits)}</span>`;
   const numCell=(x,digits=2)=>x===null||x===undefined?'<td></td>':`<td data-number="${x}">${fmt(x,digits)}</td>`;
@@ -102,7 +135,7 @@ export function renderReport(report){
     html+=barChart(comparison.items,`${name} — ${comparison.title}`)+`<div class="figure-caption">Rataan ± SE model. Urutan mengikuti data. ${comparison.method==='none'?'Grafik bersifat deskriptif.':''}</div>`;
   }
   if(multi)html+=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
-  if(report.contrasts.length)html+=caption('Kontras terencana / polinomial ortogonal')+table(['Kontras','Estimasi','SE','JK','F','p'],report.contrasts.map(c=>[esc(c.name),c.estimate,c.se,c.ss,c.f,pv(c.p)]))+table(['Kontras','Koefisien sesuai urutan perlakuan'],report.contrasts.map(c=>[esc(c.name),c.coefficients.map(x=>fmt(x,5)).join('; ')]));
+  if(report.contrasts.length)html+=renderContrasts(report,caption);
   if(report.assumptions.length){
     html+=caption('Pemeriksaan asumsi')+table(['Pemeriksaan','Statistik','p','Keterangan'],report.assumptions.map(a=>[esc(a.name),a.stat,pv(a.p),esc(a.p===null?a.note:a.p<alpha?'Ada bukti penyimpangan pada taraf yang dipilih.':'Belum ada bukti penyimpangan pada taraf yang dipilih.')]));
     html+=diagnosticPlot(report.residuals,report.fitted,true)+diagnosticPlot(report.residuals,report.fitted,false);
