@@ -23,7 +23,7 @@ if (!portfolio.includes('/mendeley/')) fail('built portfolio does not link to /m
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
-if (!html.includes('Statistik Irvan')) fail('built /stat page does not contain personal application title');
+if (!html.includes('Statistical Web')) fail('built /stat page does not contain application title');
 if (!html.includes('subweb-brand') || !html.includes('subweb-brand-arrow') || !html.includes('href="/"')) fail('built /stat page is missing shared return-to-portfolio header');
 if (/src\/[^"']+\.js/.test(html)) fail('built /stat page still references source JavaScript under /src/');
 if (/src\/[^"']+\.css/.test(html)) fail('built /stat page still references source CSS under /src/');

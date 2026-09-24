@@ -76,7 +76,7 @@ for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',print
   for(const href of ['href="/"','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
 }
-if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistik Irvan'))fail('stat header must use personal Statistics brand link back to portfolio');
+if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
@@ -103,8 +103,7 @@ if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanya
 for(const [name,page] of [['portfolio',portfolioHtml],['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
   for(const phrase of ['Interpretasi otomatis siap BAB IV','Reference workflow','PDF utility','>Analyze<'])if(page.includes(phrase))fail(`${name} still contains overly generic/generated UI phrase: ${phrase}`);
 }
-if(!portfolioHtml.includes('Saya Irvan')||!portfolioHtml.includes('Alat yang saya buat'))fail('portfolio should read as a personal student site');
-if(!mendeleyHtml.includes('Saya buat halaman ini')||!printHtml.includes('Saya pakai halaman ini'))fail('sub-web introductions should use the owner’s direct voice');
+if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statistik Irvan'))fail('portfolio and sub-web branding must stay modest and student-oriented');
 
 
 for (const id of ['runRal','closeRal','closeRal2']) if (!ral.includes(`#${id}`)) fail(`ral.js does not reference #${id}`);
