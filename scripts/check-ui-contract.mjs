@@ -60,8 +60,8 @@ const errorTag = html.match(/<div\b[^>]*\bid="errorBox"[^>]*>/)?.[0] || '';
 if (!/\brole="alert"/.test(errorTag)) fail('main error box needs alert semantics');
 
 for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['datasetNameModal','datasetNameTitle'],['datasetViewModal','datasetViewTitle'],['columnNameModal','columnNameTitle']]) {
-  const start=html.indexOf(`id="${modalId}"`), end=html.indexOf('</div></div>',start);
-  const fragment=start>=0&&end>start?html.slice(start,end):'';
+  const start=html.indexOf(`id="${modalId}"`),nextModal=html.indexOf('class="modal-backdrop"',start+1);
+  const fragment=start>=0?html.slice(start,nextModal>start?nextModal:html.length):'';
   if(!fragment.includes('role="dialog"')||!fragment.includes('aria-modal="true"')||!fragment.includes(`aria-labelledby="${titleId}"`)||!fragment.includes(`id="${titleId}"`))fail(`#${modalId} needs dialog semantics and an accessible title`);
 }
 
