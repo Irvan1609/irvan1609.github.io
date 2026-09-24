@@ -1,0 +1,519 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+<rect width="210" height="297" fill="white"/>
+<g font-family="Arial,sans-serif" fill="black">
+<text x="105" y="8" text-anchor="middle" font-size="3.5">KAMERA PENGUKUR · A4 · CETAK 100%</text>
+<rect x="11" y="11" width="8" height="8" fill="#d000d0"/>
+<path d="M 14 15 h 2 M 15 14 v 2" stroke="black" stroke-width=".2"/>
+<text x="15" y="22" font-size="3" text-anchor="middle">1</text>
+<rect x="191" y="11" width="8" height="8" fill="#d000d0"/>
+<path d="M 194 15 h 2 M 195 14 v 2" stroke="black" stroke-width=".2"/>
+<text x="195" y="22" font-size="3" text-anchor="middle">2</text>
+<rect x="191" y="278" width="8" height="8" fill="#d000d0"/>
+<path d="M 194 282 h 2 M 195 281 v 2" stroke="black" stroke-width=".2"/>
+<text x="195" y="289" font-size="3" text-anchor="middle">3</text>
+<rect x="11" y="278" width="8" height="8" fill="#d000d0"/>
+<path d="M 14 282 h 2 M 15 281 v 2" stroke="black" stroke-width=".2"/>
+<text x="15" y="289" font-size="3" text-anchor="middle">4</text>
+<path d="M 15 26 H 195 M 26 15 V 282" fill="none" stroke="black" stroke-width=".2"/>
+<path d="M15 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="15" y="32" font-size="2.5" text-anchor="middle">0</text>
+<path d="M16 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M17 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M18 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M19 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M20 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M21 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M22 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M23 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M24 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M25 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="25" y="32" font-size="2.5" text-anchor="middle">10</text>
+<path d="M26 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M27 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M28 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M29 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M30 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M31 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M32 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M33 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M34 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M35 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="35" y="32" font-size="2.5" text-anchor="middle">20</text>
+<path d="M36 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M37 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M38 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M39 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M40 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M41 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M42 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M43 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M44 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M45 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="45" y="32" font-size="2.5" text-anchor="middle">30</text>
+<path d="M46 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M47 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M48 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M49 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M50 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M51 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M52 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M53 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M54 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M55 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="55" y="32" font-size="2.5" text-anchor="middle">40</text>
+<path d="M56 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M57 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M58 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M59 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M60 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M61 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M62 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M63 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M64 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M65 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="65" y="32" font-size="2.5" text-anchor="middle">50</text>
+<path d="M66 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M67 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M68 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M69 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M70 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M71 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M72 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M73 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M74 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M75 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="75" y="32" font-size="2.5" text-anchor="middle">60</text>
+<path d="M76 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M77 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M78 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M79 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M80 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M81 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M82 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M83 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M84 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M85 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="85" y="32" font-size="2.5" text-anchor="middle">70</text>
+<path d="M86 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M87 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M88 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M89 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M90 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M91 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M92 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M93 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M94 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M95 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="95" y="32" font-size="2.5" text-anchor="middle">80</text>
+<path d="M96 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M97 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M98 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M99 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M100 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M101 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M102 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M103 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M104 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M105 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="105" y="32" font-size="2.5" text-anchor="middle">90</text>
+<path d="M106 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M107 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M108 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M109 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M110 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M111 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M112 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M113 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M114 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M115 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="115" y="32" font-size="2.5" text-anchor="middle">100</text>
+<path d="M116 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M117 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M118 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M119 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M120 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M121 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M122 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M123 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M124 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M125 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="125" y="32" font-size="2.5" text-anchor="middle">110</text>
+<path d="M126 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M127 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M128 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M129 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M130 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M131 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M132 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M133 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M134 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M135 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="135" y="32" font-size="2.5" text-anchor="middle">120</text>
+<path d="M136 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M137 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M138 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M139 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M140 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M141 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M142 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M143 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M144 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M145 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="145" y="32" font-size="2.5" text-anchor="middle">130</text>
+<path d="M146 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M147 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M148 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M149 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M150 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M151 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M152 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M153 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M154 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M155 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="155" y="32" font-size="2.5" text-anchor="middle">140</text>
+<path d="M156 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M157 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M158 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M159 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M160 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M161 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M162 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M163 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M164 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M165 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="165" y="32" font-size="2.5" text-anchor="middle">150</text>
+<path d="M166 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M167 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M168 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M169 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M170 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M171 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M172 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M173 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M174 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M175 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="175" y="32" font-size="2.5" text-anchor="middle">160</text>
+<path d="M176 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M177 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M178 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M179 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M180 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M181 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M182 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M183 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M184 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M185 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="185" y="32" font-size="2.5" text-anchor="middle">170</text>
+<path d="M186 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M187 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M188 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M189 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M190 26 v 2" stroke="black" stroke-width=".15"/>
+<path d="M191 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M192 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M193 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M194 26 v 1" stroke="black" stroke-width=".15"/>
+<path d="M195 26 v 3" stroke="black" stroke-width=".15"/>
+<text x="195" y="32" font-size="2.5" text-anchor="middle">180</text>
+<path d="M26 15 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="15.9" font-size="2.5">0</text>
+<path d="M26 16 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 17 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 18 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 19 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 20 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 21 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 22 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 23 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 24 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 25 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="25.9" font-size="2.5">10</text>
+<path d="M26 26 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 27 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 28 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 29 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 30 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 31 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 32 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 33 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 34 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 35 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="35.9" font-size="2.5">20</text>
+<path d="M26 36 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 37 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 38 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 39 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 40 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 41 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 42 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 43 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 44 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 45 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="45.9" font-size="2.5">30</text>
+<path d="M26 46 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 47 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 48 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 49 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 50 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 51 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 52 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 53 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 54 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 55 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="55.9" font-size="2.5">40</text>
+<path d="M26 56 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 57 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 58 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 59 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 60 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 61 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 62 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 63 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 64 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 65 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="65.9" font-size="2.5">50</text>
+<path d="M26 66 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 67 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 68 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 69 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 70 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 71 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 72 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 73 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 74 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 75 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="75.9" font-size="2.5">60</text>
+<path d="M26 76 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 77 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 78 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 79 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 80 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 81 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 82 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 83 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 84 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 85 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="85.9" font-size="2.5">70</text>
+<path d="M26 86 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 87 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 88 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 89 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 90 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 91 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 92 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 93 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 94 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 95 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="95.9" font-size="2.5">80</text>
+<path d="M26 96 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 97 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 98 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 99 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 100 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 101 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 102 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 103 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 104 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 105 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="105.9" font-size="2.5">90</text>
+<path d="M26 106 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 107 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 108 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 109 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 110 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 111 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 112 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 113 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 114 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 115 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="115.9" font-size="2.5">100</text>
+<path d="M26 116 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 117 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 118 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 119 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 120 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 121 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 122 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 123 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 124 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 125 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="125.9" font-size="2.5">110</text>
+<path d="M26 126 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 127 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 128 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 129 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 130 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 131 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 132 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 133 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 134 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 135 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="135.9" font-size="2.5">120</text>
+<path d="M26 136 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 137 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 138 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 139 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 140 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 141 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 142 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 143 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 144 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 145 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="145.9" font-size="2.5">130</text>
+<path d="M26 146 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 147 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 148 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 149 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 150 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 151 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 152 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 153 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 154 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 155 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="155.9" font-size="2.5">140</text>
+<path d="M26 156 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 157 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 158 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 159 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 160 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 161 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 162 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 163 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 164 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 165 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="165.9" font-size="2.5">150</text>
+<path d="M26 166 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 167 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 168 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 169 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 170 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 171 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 172 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 173 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 174 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 175 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="175.9" font-size="2.5">160</text>
+<path d="M26 176 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 177 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 178 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 179 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 180 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 181 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 182 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 183 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 184 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 185 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="185.9" font-size="2.5">170</text>
+<path d="M26 186 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 187 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 188 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 189 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 190 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 191 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 192 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 193 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 194 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 195 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="195.9" font-size="2.5">180</text>
+<path d="M26 196 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 197 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 198 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 199 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 200 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 201 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 202 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 203 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 204 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 205 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="205.9" font-size="2.5">190</text>
+<path d="M26 206 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 207 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 208 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 209 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 210 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 211 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 212 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 213 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 214 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 215 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="215.9" font-size="2.5">200</text>
+<path d="M26 216 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 217 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 218 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 219 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 220 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 221 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 222 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 223 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 224 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 225 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="225.9" font-size="2.5">210</text>
+<path d="M26 226 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 227 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 228 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 229 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 230 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 231 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 232 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 233 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 234 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 235 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="235.9" font-size="2.5">220</text>
+<path d="M26 236 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 237 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 238 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 239 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 240 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 241 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 242 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 243 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 244 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 245 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="245.9" font-size="2.5">230</text>
+<path d="M26 246 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 247 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 248 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 249 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 250 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 251 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 252 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 253 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 254 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 255 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="255.9" font-size="2.5">240</text>
+<path d="M26 256 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 257 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 258 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 259 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 260 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 261 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 262 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 263 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 264 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 265 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="265.9" font-size="2.5">250</text>
+<path d="M26 266 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 267 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 268 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 269 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 270 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 271 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 272 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 273 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 274 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 275 h 3" stroke="black" stroke-width=".15"/>
+<text x="30" y="275.9" font-size="2.5">260</text>
+<path d="M26 276 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 277 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 278 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 279 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 280 h 2" stroke="black" stroke-width=".15"/>
+<path d="M26 281 h 1" stroke="black" stroke-width=".15"/>
+<path d="M26 282 h 1" stroke="black" stroke-width=".15"/>
+<text x="184" y="36" font-size="2.5">mm</text>
+<rect x="38" y="40" width="147" height="218" fill="none" stroke="#aaa" stroke-width=".2" stroke-dasharray="2 2"/>
+<text x="111" y="263" text-anchor="middle" font-size="3">Letakkan objek di area tengah. Jangan tutupi penanda.</text>
+<path d="M55 271 H155 M55 268 V274 M155 268 V274" stroke="black" stroke-width=".3"/>
+<text x="105" y="279" font-size="3" text-anchor="middle">CEK CETAK: garis ini harus 100 mm</text>
+<text x="105" y="291" font-size="2.5" text-anchor="middle">Jarak pusat penanda: horizontal 180 mm · vertikal 267 mm</text>
+</g></svg>
