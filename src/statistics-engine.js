@@ -1,4 +1,5 @@
 import jStat from 'jstat';
+import {shapiroWilk,leveneMean,bartlett,residualDiagnostics} from './assumption-diagnostics.js';
 export const sum=x=>x.reduce((s,v)=>s+v,0);
 export const mean=x=>sum(x)/x.length;
 const unique=x=>[...new Set(x)];
@@ -204,15 +205,16 @@ export function analyzeParameter(observations,options,index,name){
   if(posthoc==='dmrt')notes.push('DMRT memakai rentang peringkat rataan dan α rentang = 1 − (1 − α)^(p − 1); pada ulangan tidak sama digunakan rataan harmonik.');
   if(posthoc==='bnt')notes.push('BNT menggunakan uji t dua sisi tanpa penyesuaian multipel dan dijalankan setelah uji F yang relevan nyata.');
   const residualGroups=A.flatMap(a=>B.map(b=>obs.flatMap((o,i)=>o.a===a&&o.b===b?[residuals[i]]:[])));
-  const assumptions=options.assumptions?[normality(residuals),brownForsythe(residualGroups)]:[];
+  const assumptions=options.assumptions?[shapiroWilk(residuals),normality(residuals),leveneMean(residualGroups),brownForsythe(residualGroups),bartlett(residualGroups)]:[];
+  const diagnostics=options.assumptions?residualDiagnostics(obs,residuals,mse,design):null;
   let wholeResiduals=[];
-  if(split){wholeResiduals=R.flatMap(rep=>A.map((a,i)=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));if(options.assumptions){const normal=normality(wholeResiduals);normal.name+=' — petak utama';assumptions.push(normal);const groups=A.map((a,i)=>R.map(rep=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));const bf=brownForsythe(groups);bf.name+=' — petak utama';assumptions.push(bf);}notes.push('RPT berbasis RAK: A diuji dengan Galat (a); B dan A × B dengan Galat (b). SE rataan kombinasi memperhitungkan kedua galat.');}
-  if(options.assumptions)notes.push('Pemeriksaan asumsi pada residual bersifat diagnostik. p ≥ α tidak membuktikan asumsi terpenuhi; independensi harus dijamin melalui rancangan dan randomisasi.');
+  if(split){wholeResiduals=R.flatMap(rep=>A.map((a,i)=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));if(options.assumptions){const wholeTests=[shapiroWilk(wholeResiduals),normality(wholeResiduals)];wholeTests.forEach(test=>test.name+=' — petak utama');assumptions.push(...wholeTests);const groups=A.map((a,i)=>R.map(rep=>wholeMean.get(key(rep,a))-rMean.get(rep)-aMean[i]+grand));const varianceTests=[leveneMean(groups),brownForsythe(groups),bartlett(groups)];varianceTests.forEach(test=>test.name+=' — petak utama');assumptions.push(...varianceTests);}notes.push('RPT berbasis RAK: A diuji dengan Galat (a); B dan A × B dengan Galat (b). SE rataan kombinasi memperhitungkan kedua galat.');}
+  if(options.assumptions)notes.push('Pemeriksaan asumsi pada residual bersifat diagnostik. p ≥ α tidak membuktikan asumsi terpenuhi; independensi harus dijamin melalui rancangan dan randomisasi. Shapiro–Wilk menggunakan aproksimasi Royston; Bartlett dibaca bersama uji robust dan grafik residual.');
   let contrasts=[];
   if(options.contrastMode!=='none'){
     if(multi)throw Error('Kontras/polinomial saat ini diterapkan pada satu faktor RAL atau RAK.');
     contrasts=options.contrastMode==='polynomial'?polynomialContrasts(cells,options.levels,mse,dfE):plannedContrasts(cells,options.contrasts,mse,dfE);
     notes.push('Kontras terencana diuji dengan galat model tanpa mensyaratkan F keseluruhan nyata; p yang ditampilkan belum disesuaikan untuk pengujian multipel.');
   }
-  return {name,design,alpha,posthoc,N,grand,cv:Math.sqrt(mse)/Math.abs(grand)*100,cvWhole:split?Math.sqrt(msea)/Math.abs(grand)*100:null,terms,cells,comparisons,contrasts,assumptions,residuals,fitted,wholeResiduals,observations:obs.map(o=>({a:o.a,b:o.b,rep:o.rep,y:o.y})),notes,factorA:A,factorB:B,replicates:R};
+  return {name,design,alpha,posthoc,N,grand,cv:Math.sqrt(mse)/Math.abs(grand)*100,cvWhole:split?Math.sqrt(msea)/Math.abs(grand)*100:null,terms,cells,comparisons,contrasts,assumptions,diagnostics,residuals,fitted,wholeResiduals,observations:obs.map(o=>({a:o.a,b:o.b,rep:o.rep,y:o.y})),notes,factorA:A,factorB:B,replicates:R};
 }

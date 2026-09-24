@@ -175,3 +175,16 @@ button:hover,button.primary:hover{background:#e9e9e9;border-color:#999}
 .bab4-result{margin:16px 0;border-top:2px solid #60788e;padding-top:10px}.bab4-table th,.bab4-table td{text-align:center}
 .bab4-table th:first-child,.bab4-table td:first-child{text-align:left}.bab4-result .table-caption{font-weight:700}
 @media(max-width:720px){.parameter-row{grid-template-columns:1fr}.treatment-meta-grid{grid-template-columns:1fr}}
+
+.decision-summary{margin:10px 0 14px;border:1px solid #aab7c3;background:#fff}.decision-summary .summary-head{background:#f6f8fa}
+.decision-summary .result-table td:last-child{text-align:left}
+.thesis-audit{margin:12px 0 18px;border:1px solid #a9b4bf;background:#fff;scroll-margin-top:60px}
+.audit-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px;border-bottom:1px solid #c3ccd4;background:#f5f7f9}
+.audit-head>div{display:grid;gap:2px}.audit-head small{font-size:12px;color:var(--muted)}
+.audit-good{border-left:4px solid #2e7d4f}.audit-warn{border-left:4px solid #b7791f}.audit-bad{border-left:4px solid #a83232}
+.audit-good .audit-head>strong{color:#236640}.audit-warn .audit-head>strong{color:#8a5a12}.audit-bad .audit-head>strong{color:#922c2c}
+.audit-card{padding:10px;border-top:1px solid #d5dce3}.audit-card:first-of-type{border-top:0}
+.audit-card-head{display:flex;justify-content:space-between;gap:10px}.audit-card ul{margin:8px 0 0;padding-left:20px}.audit-card li{margin:4px 0;font-size:13px}
+.audit-error{color:#922c2c}.audit-warn{color:#835a18}.audit-info{color:#465869}
+.diagnostic-influence{margin-top:10px}.diagnostic-table td:last-child{text-align:center}.diagnostic-histogram{margin-top:10px}
+@media(max-width:650px){.audit-head,.audit-card-head{display:block}.audit-head>strong,.audit-card-head>strong{display:block;margin-top:5px}}

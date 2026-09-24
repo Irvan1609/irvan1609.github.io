@@ -9,9 +9,21 @@ import {inspectDataQuality,renderDataQuality} from './data-quality.js';
 import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
+import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
-function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><span role="status" class="export-status"></span></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');container.dataset.datasetName=datasetName;container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);}
+function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
+  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-thesis-check>Cek sebelum skripsi</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
+  container.dataset.datasetName=datasetName;
+  container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
+  const auditButton=container.querySelector('[data-thesis-check]'),host=container.querySelector('[data-thesis-audit-host]');
+  if(auditButton&&host)auditButton.onclick=()=>{
+    const audit=auditReports(reports);
+    host.innerHTML=renderAudit(audit);
+    auditButton.textContent=audit.status==='Siap digunakan'?'✓ Cek sebelum skripsi: siap':audit.status==='Perlu diperiksa'?'! Cek sebelum skripsi: periksa':'✕ Cek sebelum skripsi: ada masalah';
+    host.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+}
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
 function saveHistory(reports,options){
   const entry={id:crypto.randomUUID(),version:1,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,separator:getDecimalSeparator(),reports};
