@@ -5,11 +5,12 @@ function ensureStyle(){
   const style=document.createElement('style');
   style.id='datasetSidebarEnhancementStyle';
   style.textContent=`
-    #fileTree .dataset-tree-row{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:5px;align-items:stretch;margin-bottom:6px}
+    #fileTree .dataset-tree-row{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:5px;align-items:stretch;margin-bottom:6px}
     #fileTree .dataset-tree-row .tree-item{min-width:0;width:100%;margin:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:normal;word-break:break-word}
-    #fileTree .dataset-delete-shortcut{display:flex;align-items:center;justify-content:center;margin:0;padding:0;border:1px solid #d8dee8;border-radius:7px;background:#fff;color:#dc2626;font-size:24px;line-height:1;cursor:pointer}
-    #fileTree .dataset-delete-shortcut:hover{background:#fff1f2;border-color:#fecaca}
-    #fileTree .dataset-delete-shortcut:focus-visible{outline:2px solid #60a5fa;outline-offset:1px}
+    #fileTree .dataset-delete-shortcut{display:flex;align-items:center;justify-content:center;margin:0;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:#8a96a3;font-size:20px;font-weight:750;line-height:1;cursor:pointer;opacity:.7;transition:background .15s ease,border-color .15s ease,color .15s ease,opacity .15s ease}
+    #fileTree .dataset-tree-row:hover .dataset-delete-shortcut{opacity:1}
+    #fileTree .dataset-delete-shortcut:hover{background:#fff1f0;border-color:#efc2bd;color:#b42318}
+    #fileTree .dataset-delete-shortcut:focus-visible{outline:2px solid #7da2c7;outline-offset:1px;opacity:1}
     #projectPanel>.dataset-actions{display:none!important}
   `;
   document.head.appendChild(style);
