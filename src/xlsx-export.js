@@ -482,7 +482,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
   }
   function genericAnovaFormulas(table,start){
     const headers=[...(table.tHead?.rows?.[0]?.cells||[])].map(textOf),norm=headers.map(normalizeFormulaHeader);
-    const db=norm.indexOf('db'),jk=norm.indexOf('jk'),kt=norm.indexOf('kt');
+    const db=norm.findIndex(x=>x==='db'||x.includes('db pembilang')),jk=norm.indexOf('jk'),kt=norm.indexOf('kt');
     const fIndex=norm.findIndex(x=>x==='f'||x==='f hitung'||x==='wald f');
     if(db<0||fIndex<0)return false;
     const headRows=table.tHead?.rows.length||1,body=[...(table.tBodies?.[0]?.rows||[])];
@@ -492,11 +492,14 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
         if(Number.isFinite(df)&&df>0&&Number.isFinite(ss)&&!/^total$/i.test(textOf(source.cells[0])))setFormula(row,kt+1,`IFERROR(${excelRef(row,jk+1,false)}/${excelRef(row,db+1,false)},"")`,sourceNumber(source.cells[kt]));
       });
     }
-    const pIndex=norm.indexOf('p'),df2Index=norm.findIndex(x=>x.includes('db denominator'));
+    const pIndex=norm.indexOf('p'),df2Index=norm.findIndex(x=>x.includes('db denominator')),ketIndex=norm.findIndex(x=>x==='ket');
     if(pIndex>=0&&df2Index>=0){
       body.forEach((source,i)=>{
         const row=start+headRows+i,f=sourceNumber(source.cells[fIndex]),df1=sourceNumber(source.cells[db]),df2=sourceNumber(source.cells[df2Index]);
-        if(Number.isFinite(f)&&Number.isFinite(df1)&&Number.isFinite(df2))setFormula(row,pIndex+1,`IFERROR(F.DIST.RT(${excelRef(row,fIndex+1,false)},${excelRef(row,db+1,false)},${excelRef(row,df2Index+1,false)}),"")`,sourceNumber(source.cells[pIndex]));
+        if(Number.isFinite(f)&&Number.isFinite(df1)&&Number.isFinite(df2)){
+          setFormula(row,pIndex+1,`IFERROR(F.DIST.RT(${excelRef(row,fIndex+1,false)},${excelRef(row,db+1,false)},${excelRef(row,df2Index+1,false)}),"")`,sourceNumber(source.cells[pIndex]));
+          if(ketIndex>=0)setFormula(row,ketIndex+1,`IF(${excelRef(row,pIndex+1,false)}<0.01,"**",IF(${excelRef(row,pIndex+1,false)}<0.05,"*","tn"))`,textOf(source.cells[ketIndex]));
+        }
       });
       return true;
     }
@@ -511,7 +514,9 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
       setFormula(item.row,fIndex+1,`IFERROR(${excelRef(item.row,kt+1,false)}/${excelRef(error.row,kt+1)},"")`,item.f);
       if(f05>=0)setFormula(item.row,f05+1,`IFERROR(F.INV.RT(0.05,${excelRef(item.row,db+1,false)},${excelRef(error.row,db+1)}),"")`,sourceNumber(item.source.cells[f05]));
       if(f01>=0)setFormula(item.row,f01+1,`IFERROR(F.INV.RT(0.01,${excelRef(item.row,db+1,false)},${excelRef(error.row,db+1)}),"")`,sourceNumber(item.source.cells[f01]));
+      if(pIndex>=0)setFormula(item.row,pIndex+1,`IFERROR(F.DIST.RT(${excelRef(item.row,fIndex+1,false)},${excelRef(item.row,db+1,false)},${excelRef(error.row,db+1)}),"")`,sourceNumber(item.source.cells[pIndex]));
       if(ket>=0&&f05>=0&&f01>=0)setFormula(item.row,ket+1,`IF(${excelRef(item.row,fIndex+1,false)}>${excelRef(item.row,f01+1,false)},"**",IF(${excelRef(item.row,fIndex+1,false)}>${excelRef(item.row,f05+1,false)},"*","tn"))`,textOf(item.source.cells[ket]));
+      else if(ket>=0&&pIndex>=0)setFormula(item.row,ket+1,`IF(${excelRef(item.row,pIndex+1,false)}<0.01,"**",IF(${excelRef(item.row,pIndex+1,false)}<0.05,"*","tn"))`,textOf(item.source.cells[ket]));
     }
     return items.some(x=>Number.isFinite(x.f));
   }
