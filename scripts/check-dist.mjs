@@ -10,16 +10,21 @@ const portfolioPath = 'dist/index.html';
 const statPath = 'dist/stat/index.html';
 const printPath = 'dist/print-skripsi/index.html';
 const mendeleyPath = 'dist/mendeley/index.html';
+const chiliPath = 'dist/hitung-cabai/index.html';
+const chiliAppPath = 'dist/hitung-cabai/app.js';
 if (!fs.existsSync(portfolioPath)) fail('dist/index.html is missing');
 if (!fs.existsSync(statPath)) fail('dist/stat/index.html is missing');
 if (!fs.existsSync(printPath)) fail('dist/print-skripsi/index.html is missing');
 if (!fs.existsSync(mendeleyPath)) fail('dist/mendeley/index.html is missing');
+if (!fs.existsSync(chiliPath)) fail('dist/hitung-cabai/index.html is missing');
+if (!fs.existsSync(chiliAppPath)) fail('dist/hitung-cabai/app.js is missing');
 
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
 if (!portfolio.includes('Mahasiswa Agronomi')) fail('built root does not contain student-oriented portfolio content');
 if (!portfolio.includes('/stat/')) fail('built portfolio does not link to /stat/');
 if (!portfolio.includes('/print-skripsi/')) fail('built portfolio does not link to /print-skripsi/');
 if (!portfolio.includes('/mendeley/')) fail('built portfolio does not link to /mendeley/');
+if (!portfolio.includes('/hitung-cabai/')) fail('built portfolio does not link to /hitung-cabai/');
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
@@ -36,7 +41,11 @@ if (printHtml.includes('/print-skripsi/app.js')) fail('built /print-skripsi page
 const mendeleyHtml = fs.readFileSync(mendeleyPath, 'utf8');
 for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
 if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
-for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]) if(!page.includes('/subweb-header.css')||!page.includes('subweb-nav')) fail(`built /${name} page is missing shared sub-web header`);
+const chiliHtml=fs.readFileSync(chiliPath,'utf8'),chiliApp=fs.readFileSync(chiliAppPath,'utf8');
+for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
+for(const marker of ['getUserMedia','facingMode','optimizePhoto','indexedDB'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
+
+for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]) if(!page.includes('/subweb-header.css')||!page.includes('subweb-nav')) fail(`built /${name} page is missing shared sub-web header`);
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);
 if (!assetMatches.length) fail('built /stat page has no bundled assets');

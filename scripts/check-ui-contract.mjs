@@ -17,6 +17,8 @@ const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
 const statStyle = fs.readFileSync('src/style.css', 'utf8');
 const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
+const chiliHtml = fs.readFileSync('public/hitung-cabai/index.html', 'utf8');
+const chiliApp = fs.readFileSync('public/hitung-cabai/app.js', 'utf8');
 
 function fail(message) {
   console.error(`UI contract failed: ${message}`);
@@ -72,12 +74,19 @@ if (html.includes('report-enhancements.js')) fail('report-enhancements.js must n
 
 const nav=html.match(/<nav class="nav">([\s\S]*?)<\/nav>/)?.[1]||'';
 if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!/>Analisis<\/button>/.test(nav))fail('analysis navigation must contain Analisis and hidden project controls');
-for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
-  for(const href of ['href="/"','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
+for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
+  for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
 }
 if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
+for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','mode','zoom','undo','save','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
+  if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
+}
+for(const marker of ['capture="environment"','playsinline','mobile-actionbar','Geser foto'])if(!chiliHtml.includes(marker))fail(`hitung-cabai mobile UI missing ${marker}`);
+for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizePhoto','indexedDB','beforeunload'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
+if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
+
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisChoice'])if(!flow.includes('#'+id))fail('analysis flow missing '+id);
 for(const required of ["data-association=\"correlation\"","data-association=\"path\"","textContent='Analisis'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing '+required);

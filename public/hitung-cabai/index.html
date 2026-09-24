@@ -1,14 +1,91 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hitung Cabai</title>
-<style>body{font:16px system-ui;margin:0;background:#f4f6f8;color:#17202a}header,main{max-width:1100px;margin:auto;padding:20px}header{display:flex;align-items:center;gap:24px}h1{font-size:24px;margin:0}a{color:inherit}.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0}button,input,select{font:inherit;padding:9px;border:1px solid #adb5bd;border-radius:6px;background:white}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}.panel{background:white;padding:18px;border:1px solid #d8dee5;border-radius:10px}#viewport{overflow:auto;max-height:65vh;background:#e5e8ec}canvas{display:block;touch-action:none}#status{min-height:24px}small{display:block;color:#52616c;line-height:1.6}li{margin:8px 0}li button{margin-left:8px}output{font-weight:700;font-size:24px}input[type=file]{max-width:90%}</style></head>
-<body><header><a href="/">← Beranda</a><h1>Hitung Cabai</h1></header><main>
-<div class="panel"><label>Foto cabai di atas alas <input id="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
-<div class="bar"><label>Kode sampel <input id="sample" maxlength="100" placeholder="Sampel 01"></label><output id="count" aria-live="polite">0 buah</output></div>
-<small>Tarik kotak mengelilingi satu buah. Gunakan mode hapus untuk menghapus kotak yang keliru, lalu gambar ulang. Pisahkan buah yang menyatu dengan membuat kotak untuk masing-masing buah.</small>
-<div class="bar"><label>Mode <select id="mode"><option value="add">Tambah kotak</option><option value="delete">Hapus kotak</option></select></label><button id="undo">Urungkan</button><label>Zoom <select id="zoom"><option value="1">Pas layar</option><option value="2">2×</option><option value="3">3×</option></select></label><button id="save">Selesai diperiksa · Simpan koreksi</button></div>
-<div id="viewport"><canvas id="canvas" aria-label="Foto dan kotak penanda cabai"></canvas></div>
-<p id="status" role="status">Pilih foto untuk mulai. Deteksi otomatis belum tersedia; koreksi Anda dikumpulkan untuk pelatihan.</p>
-</div>
-<section class="panel" style="margin-top:18px"><h2>Data pelatihan tersimpan</h2><small>Disimpan pada browser ini. Ekspor mencakup foto dan kotak penanda dalam satu berkas JSON. Menyimpan koreksi belum melatih atau mengubah model. Ekspor cadangan sebelum membersihkan data browser.</small>
-<div class="bar"><button id="export">Ekspor data pelatihan</button><label>Pulihkan cadangan <input id="import" type="file" accept=".json,application/json"></label></div><ul id="records"></ul></section>
-</main><script type="module" src="./app.js"></script></body></html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="description" content="Alat sederhana untuk menghitung dan memberi kotak penanda pada buah cabai dari foto.">
+  <title>Hitung Cabai</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <style>
+    :root{font-family:"Segoe UI",Arial,sans-serif;color:#17202a;background:#f4f6f8;--line:#d7dee6;--muted:#617180;--blue:#1f5f8b;--blue-soft:#eaf3f9;--danger:#9d3d3d}
+    *{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a}button,input,select{font:inherit}button{cursor:pointer}
+    .subweb-nav a[href="/hitung-cabai/"]{background:var(--subweb-header-active);color:var(--subweb-header-ink)}
+    main{width:min(1080px,calc(100% - 28px));margin:18px auto 52px}.intro{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:14px}.intro h1{margin:0;font-size:26px}.intro p{margin:5px 0 0;color:var(--muted);font-size:14px}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}.capture-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.btn,.file-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:9px 13px;border:1px solid #afbbc7;border-radius:8px;background:#fff;color:#17202a;font-weight:650;text-decoration:none}.btn.primary,.file-button.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.danger{color:var(--danger)}.btn:disabled{opacity:.5;cursor:default}.file-button input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+    .camera-panel{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#111}.camera-panel[hidden]{display:none}.camera-video-wrap{position:relative;min-height:240px;display:grid;place-items:center;background:#111}.camera-panel video{display:block;width:100%;max-height:68vh;object-fit:contain;background:#111}.camera-controls{display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff}.camera-controls .btn.primary{flex:1;min-width:150px}.camera-hint{margin:0;padding:8px 10px;background:#f7f9fb;color:#5e6d79;font-size:12px}
+    .sample-row{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:end;margin-top:14px}.field{display:grid;gap:5px}.field label{font-size:12px;font-weight:700;color:#4c5d6d}.field input,.field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid #b8c2cc;border-radius:7px;background:#fff}.count-card{display:flex;align-items:baseline;gap:6px;justify-content:center;min-width:120px;padding:8px 12px;border:1px solid #c7d8e6;border-radius:9px;background:var(--blue-soft)}#count{font-size:26px;font-weight:800;color:#174e74}.count-card span{font-size:12px;color:#526574}
+    .editor-tools{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:14px 0 10px}.editor-tools .field{min-width:132px}.editor-tools .btn{min-height:40px}.editor-tools .save{margin-left:auto;background:#17324d;color:#fff;border-color:#17324d}
+    #viewport{overflow:auto;max-height:68vh;min-height:220px;border:1px solid #ccd5de;border-radius:8px;background:#dfe4e8;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}canvas{display:block;max-width:none;touch-action:none;background:#dfe4e8}.help{margin:10px 0 0;color:#5d6b77;font-size:13px;line-height:1.5}#status{min-height:22px;margin:10px 0 0;color:#304b61;font-size:13px}
+    details.data-panel{margin-top:14px}details.data-panel>summary{cursor:pointer;font-weight:750;list-style:none}details.data-panel>summary::-webkit-details-marker{display:none}details.data-panel>summary::after{content:"+";float:right}details.data-panel[open]>summary::after{content:"−"}.backup-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.records{list-style:none;padding:0;margin:8px 0 0}.records li{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #edf0f3}.records li:first-child{border-top:0}.record-main{min-width:0;flex:1}.record-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.record-main small{color:#647584}.record-actions{display:flex;gap:5px}.record-actions button{min-height:34px;padding:6px 9px;border:1px solid #c1cbd4;border-radius:6px;background:#fff}
+    .mobile-actionbar{display:none}
+    @media(max-width:680px){
+      main{width:min(100% - 18px,1080px);margin-top:10px;margin-bottom:88px}.intro{display:block}.intro h1{font-size:22px}.panel{padding:11px;border-radius:10px}.capture-actions{display:grid;grid-template-columns:1fr 1fr}.capture-actions .btn,.capture-actions .file-button{width:100%;min-height:48px}.sample-row{grid-template-columns:1fr auto;gap:8px}.count-card{min-width:96px}.editor-tools{display:grid;grid-template-columns:1fr 1fr auto;gap:7px;align-items:end}.editor-tools .field{min-width:0}.editor-tools .save{display:none}.editor-tools #undo{min-width:44px;padding:8px}#viewport{max-height:64vh;min-height:300px;border-radius:6px}.help{font-size:12px}.camera-video-wrap{min-height:52vh}.camera-controls .btn{min-height:46px}.mobile-actionbar{position:fixed;display:grid;grid-template-columns:auto 1fr;gap:8px;left:0;right:0;bottom:0;z-index:45;padding:9px max(9px,env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(9px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-top:1px solid var(--line);backdrop-filter:blur(8px)}.mobile-actionbar .btn{min-height:48px}.mobile-actionbar .primary{background:#17324d;color:#fff;border-color:#17324d}.record-actions{flex-shrink:0}
+    }
+    @media(max-width:420px){.editor-tools{grid-template-columns:1fr 1fr}.editor-tools #undo{grid-column:1/-1}.sample-row{grid-template-columns:1fr}.count-card{justify-content:flex-start}.camera-controls{display:grid;grid-template-columns:1fr 1fr}.camera-controls .btn.primary{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Hitung Cabai</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi situs">
+        <a href="/">Portofolio</a><a href="/stat/">Statistik</a><a href="/hitung-cabai/" aria-current="page">Hitung Cabai</a><a href="/print-skripsi/">Print</a><a href="/mendeley/">Mendeley</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="intro"><div><h1>Hitung Cabai</h1><p>Ambil foto, beri satu kotak untuk setiap buah, lalu simpan hasilnya.</p></div></div>
+
+    <section class="panel">
+      <div class="capture-actions">
+        <button id="openCamera" class="btn primary" type="button">📷 Buka kamera</button>
+        <label class="file-button">🖼 Pilih dari galeri<input id="photo" type="file" accept="image/*"></label>
+        <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
+      </div>
+
+      <section id="cameraPanel" class="camera-panel" hidden aria-label="Kamera">
+        <div class="camera-video-wrap"><video id="cameraVideo" autoplay muted playsinline></video></div>
+        <p id="cameraHint" class="camera-hint">Arahkan kamera ke cabai dan usahakan seluruh buah terlihat jelas.</p>
+        <div class="camera-controls">
+          <button id="snapPhoto" class="btn primary" type="button">Ambil foto</button>
+          <button id="flipCamera" class="btn" type="button">Balik kamera</button>
+          <button id="torchCamera" class="btn" type="button" hidden>Flash</button>
+          <button id="closeCamera" class="btn" type="button">Tutup</button>
+        </div>
+      </section>
+
+      <div class="sample-row">
+        <div class="field"><label for="sample">Kode sampel</label><input id="sample" maxlength="100" placeholder="Sampel 01" autocomplete="off"></div>
+        <div class="count-card"><output id="count" aria-live="polite">0</output><span>buah</span></div>
+      </div>
+
+      <div class="editor-tools">
+        <div class="field"><label for="mode">Mode</label><select id="mode"><option value="add">Tambah kotak</option><option value="delete">Hapus kotak</option><option value="pan">Geser foto</option></select></div>
+        <div class="field"><label for="zoom">Zoom</label><select id="zoom"><option value="1">Pas layar</option><option value="1.5">1,5×</option><option value="2">2×</option><option value="3">3×</option></select></div>
+        <button id="undo" class="btn" type="button" title="Urungkan kotak terakhir">↶ Urungkan</button>
+        <button id="save" class="btn save" type="button">Simpan hasil</button>
+      </div>
+
+      <div id="viewport"><canvas id="canvas" aria-label="Foto dan kotak penanda cabai"></canvas></div>
+      <p class="help">Mode <b>Tambah kotak</b>: tarik kotak mengelilingi satu buah. Mode <b>Hapus kotak</b>: ketuk kotak yang salah. Saat diperbesar, gunakan <b>Geser foto</b> untuk memindahkan tampilan.</p>
+      <p id="status" role="status" aria-live="polite">Ambil foto atau pilih foto dari galeri untuk mulai.</p>
+    </section>
+
+    <details class="panel data-panel">
+      <summary>Data tersimpan dan cadangan</summary>
+      <p class="help">Data disimpan di browser perangkat ini. Ekspor cadangan jika foto dan kotak penanda perlu dipindahkan atau diamankan.</p>
+      <div class="backup-actions"><button id="export" class="btn" type="button">Ekspor cadangan</button><label class="file-button">Pulihkan cadangan<input id="import" type="file" accept=".json,application/json"></label></div>
+      <ul id="records" class="records"></ul>
+    </details>
+  </main>
+
+  <div class="mobile-actionbar" aria-label="Aksi cepat">
+    <button id="mobileUndo" class="btn" type="button" aria-label="Urungkan">↶</button>
+    <button id="mobileSave" class="btn primary" type="button">Simpan hasil</button>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
