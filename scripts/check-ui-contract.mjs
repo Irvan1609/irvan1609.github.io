@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import './check-dataset-import.mjs';
 
 const portfolioHtml = fs.readFileSync('index.html', 'utf8');
 const html = fs.readFileSync('stat/index.html', 'utf8');

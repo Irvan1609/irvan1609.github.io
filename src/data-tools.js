@@ -5,6 +5,10 @@ import {installDataEnhancements} from './data-enhancements.js';
 import {validateColumnNames} from './dataset-columns.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
+function importDataset(detail){
+  document.dispatchEvent(new CustomEvent('dataset-import',{detail}));
+  if(!detail.importResult?.ok)throw Error(detail.importResult?.error||'Editor belum siap menerima dataset. Muat ulang halaman lalu coba lagi.');
+}
 export function readDataset(){
   return {name:$('#activeFile')?.textContent||'Dataset',headers:[...document.querySelectorAll('.data-grid thead th')].slice(1).map(x=>x.textContent.trim()),rows:[...document.querySelectorAll('.data-grid tbody tr')].map(tr=>[...tr.cells].slice(1).map(td=>td.textContent))};
 }
@@ -55,7 +59,7 @@ export function installDataTools(){
       $('#applyXlsx').onclick=()=>{try{
         const [headers,...rows]=extract(),cleanHeaders=validateColumnNames(headers);
         if(!rows.length)throw Error('Belum ada baris pengamatan.');
-        document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:file.name.replace(/\.xlsx$/i,'')+'-'+sheets[Number($('#importSheet').value)].name,headers:cleanHeaders,rows}}));
+        importDataset({name:file.name.replace(/\.xlsx$/i,'')+'-'+sheets[Number($('#importSheet').value)].name,headers:cleanHeaders,rows});
         $('#dataToolModal').classList.remove('open');
       }catch(e){$('#importError').textContent=e.message;}};
     }catch(e){$('#dataToolBody').innerHTML=`<p role="alert">${esc(e.message)}</p>`;}
@@ -66,7 +70,7 @@ export function installDataTools(){
     $('#templateDesign').onchange=updateInfo;updateInfo();
     $('#createTemplateDataset').onclick=()=>{try{
       const template=getDataTemplate($('#templateDesign').value),rows=rowsForEditor(template,getDecimalSeparator());
-      document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:template.name,headers:template.headers,rows}}));
+      importDataset({name:template.name,headers:template.headers,rows});
       const status=$('#status');if(status)status.textContent=`✓ Dataset ${template.label} dibuat dari template dan siap diedit.`;
       $('#dataToolModal').classList.remove('open');
     }catch(e){$('#templateStatus').textContent=e.message;}};
