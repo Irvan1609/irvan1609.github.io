@@ -83,10 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
-            node <<'NODE'
-            const fs=require('fs');
-            fs.writeFileSync('/tmp/worker-secrets.json',JSON.stringify({MIDTRANS_SERVER_KEY:process.env.MIDTRANS_SERVER_KEY}));
-            NODE
+            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
             echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
           else
             echo "args=" >> "$GITHUB_OUTPUT"
