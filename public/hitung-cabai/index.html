@@ -25,22 +25,52 @@
     }
     @media(max-width:420px){.editor-tools{grid-template-columns:1fr 1fr}.editor-tools #undo{grid-column:1/-1}.sample-row{grid-template-columns:1fr}.count-card{justify-content:flex-start}.camera-controls{display:grid;grid-template-columns:1fr 1fr}.camera-controls .btn.primary{grid-column:1/-1}}
   </style>
-  <link rel="stylesheet" href="/account.css?v=20260925-1">
+
+  <style>
+    /* UX OVERHAUL 2026-09-26 */
+    body{background:#eef3f6}
+    main{width:min(1160px,calc(100% - 32px));margin:24px auto 56px}
+    .intro{margin:0 0 16px}.page-kicker{display:block;margin-bottom:4px;color:#1f5f8b;font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+    .intro h1{font-size:30px;letter-spacing:-.035em}.intro p{max-width:720px;font-size:14px}
+    .mini-flow{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.mini-flow span{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #d6e1e8;border-radius:999px;background:#fff;color:#536777;font-size:11px;font-weight:700}.mini-flow b{width:20px;height:20px;display:grid;place-items:center;border-radius:7px;background:#e7f0f6;color:#1f5f8b;font-size:10px}
+    .panel{border-color:#d9e3e9;border-radius:16px;padding:18px;box-shadow:0 8px 26px rgba(26,52,73,.055)}
+    .section-heading{display:flex;align-items:center;gap:10px;margin:0 0 12px}.section-heading>span{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:9px;background:#17324d;color:#fff;font-size:11px;font-weight:850}.section-heading strong{display:block;font-size:14px}.section-heading small{display:block;margin-top:1px;color:#657685;font-size:11.5px}.section-heading.compact{margin-top:18px;padding-top:16px;border-top:1px solid #e8edf1}.section-heading.save-step{width:min(1160px,calc(100% - 32px));margin:18px auto 8px}
+    .capture-actions{padding:12px;border:1px solid #e2e8ed;border-radius:12px;background:#fafcfd}.capture-actions .primary{box-shadow:0 5px 14px rgba(31,95,139,.16)}
+    .sample-row{padding:12px;border:1px solid #e2e8ed;border-radius:12px;background:#fafcfd}
+    .count-card{min-height:58px;border-radius:12px}
+    .editor-tools{padding:12px;border:1px solid #dbe4ea;border-radius:12px;background:#f6f9fb}.editor-tools .save{box-shadow:0 5px 14px rgba(23,50,77,.15)}
+    .detect-settings{border-radius:11px;background:#fbfcfd}.detect-settings>summary{min-height:40px;display:flex;align-items:center}
+    .training-action{border-radius:11px}
+    #viewport{height:min(64vh,720px);min-height:320px;border-radius:12px;background:#dbe2e7}
+    canvas{max-width:100%;max-height:100%;object-fit:contain}
+    #status{padding:9px 11px;border:1px solid #dae4eb;border-radius:10px;background:#f7fafc}
+    details.data-panel{margin-top:0}
+    @media(max-width:680px){
+      main{width:min(100% - 18px,1160px);margin-top:12px;margin-bottom:94px}.intro h1{font-size:25px}.mini-flow{gap:5px}
+      .panel{padding:11px;border-radius:12px}.section-heading{margin-bottom:9px}.section-heading.compact{margin-top:13px;padding-top:12px}.section-heading.save-step{width:min(100% - 18px,1160px);margin-top:14px}
+      .capture-actions,.sample-row,.editor-tools{padding:9px;border-radius:10px}
+      #viewport{height:min(58vh,620px);min-height:240px}
+      #status{font-size:12px}.help{line-height:1.45}
+    }
+    @media(max-width:420px){.mini-flow span{font-size:10px}.section-heading small{font-size:11px}#viewport{min-height:210px}}
+  </style>
+  <link rel="stylesheet" href="/account.css?v=20260926-1">
 </head>
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
-      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Hitung Cabai</span></a>
+      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Hitung Cabai</span></a>
       <nav class="subweb-nav" aria-label="Navigasi situs">
-        <a href="/">Portofolio</a><a href="/stat/">Statistik</a><a href="/hitung-cabai/" aria-current="page">Hitung Cabai</a><a href="/print-skripsi/">Print</a><a href="/mendeley/">Mendeley</a>
+        <a href="/">Beranda</a><a href="/stat/">Statistik</a><a href="/hitung-cabai/" aria-current="page">Hitung Cabai</a><a href="/print-skripsi/">Print</a><a href="/mendeley/">Mendeley</a>
       </nav>
     </div>
   </header>
 
   <main>
-    <div class="intro"><div><h1>Hitung Cabai</h1><p>Ambil foto, deteksi cabai secara otomatis, koreksi bila perlu, lalu simpan hasilnya.</p></div></div>
+    <div class="intro"><div><span class="page-kicker">Analisis citra</span><h1>Hitung Cabai</h1><p>Ambil foto, deteksi cabai secara otomatis, koreksi bila perlu, lalu simpan hasilnya.</p><div class="mini-flow" aria-label="Alur kerja"><span><b>1</b> Foto</span><span><b>2</b> Periksa</span><span><b>3</b> Simpan</span></div></div></div>
 
     <section class="panel">
+      <div class="section-heading"><span>1</span><div><strong>Masukkan foto</strong><small>Gunakan kamera atau pilih foto yang sudah ada.</small></div></div>
       <div class="capture-actions">
         <button id="openCamera" class="btn primary" type="button">📷 Buka kamera</button>
         <label class="file-button">🖼 Pilih dari galeri<input id="photo" type="file" accept="image/*"></label>
@@ -58,6 +88,7 @@
         </div>
       </section>
 
+      <div class="section-heading compact"><span>2</span><div><strong>Periksa hasil deteksi</strong><small>Isi kode sampel, jalankan deteksi, lalu koreksi kotak bila diperlukan.</small></div></div>
       <div class="sample-row">
         <div class="field"><label for="sample">Kode sampel</label><input id="sample" maxlength="100" placeholder="Sampel 01" autocomplete="off"></div>
         <div class="count-card"><output id="count" aria-live="polite">0</output><span>buah</span></div>
@@ -93,6 +124,7 @@
       <p id="status" role="status" aria-live="polite">Ambil foto atau pilih foto dari galeri untuk mulai.</p>
     </section>
 
+    <div class="section-heading save-step"><span>3</span><div><strong>Simpan dan gunakan data</strong><small>Hasil yang disimpan dapat diteruskan ke Statistical Web.</small></div></div>
     <details class="panel data-panel">
       <summary>Data tersimpan dan cadangan</summary>
       <p class="help">Data disimpan di browser perangkat ini. Ekspor cadangan jika foto dan kotak penanda perlu dipindahkan atau diamankan.</p>
