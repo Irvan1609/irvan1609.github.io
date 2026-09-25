@@ -94,15 +94,15 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
-for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','runSelected','resetSelection','phoneGuardMode','else openButton(button)'])if(!flow.includes(marker))fail('phone-only safe analysis selection missing '+marker);
+for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','resetSelection','phoneGuardMode','openButton(selectedButton)'])if(!flow.includes(marker))fail('phone-only safe analysis selection missing '+marker);
 if(!statStyle.includes('/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('phone-only safe analysis styles missing');
 if(!statStyle.includes('.analysis-menu-foot{display:none}'))fail('desktop analysis confirmation footer must stay hidden');
 if(!flow.includes('class="analysis-item-arrow"')||flow.includes('class="analysis-item-check"'))fail('desktop analysis cards must keep original arrow markup');
 for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','/* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */','@media(min-width:901px)','grid-template-columns:repeat(5,minmax(0,1fr))!important','.analysis-group-items[hidden]','grid-template-columns:1fr!important'])if(!statStyle.includes(marker))fail('desktop all-column analysis panel missing '+marker);
-for(const marker of ["if(phoneGuardMode())resetSelection();","if(body)body.hidden=false","aria-expanded','true","if(!phoneGuardMode())return"])if(!flow.includes(marker))fail('desktop all-open analysis categories missing '+marker);
+for(const marker of ["FAVORITES='statistical_web_analysis_favorites_v1'","RECENT='statistical_web_analysis_recent_v1'","USAGE='statistical_web_analysis_usage_v1'","data-auto-detect","data-quick-run","data-favorite-key","groupUseScore","applyGroupCollapse"])if(!flow.includes(marker))fail('analysis favorite/recent/auto-collapse workflow missing '+marker);
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
-if(!flow.includes("openScientificLazy(button.dataset.design)")&&!flow.includes("openScientific(button.dataset.design)"))fail('analysis flow must open the selected scientific design, directly or lazily');
+if(!flow.includes("openScientificLazy(value)")&&!flow.includes("openScientific(button.dataset.design)"))fail('analysis flow must open the selected scientific design, directly or lazily');
 for(const marker of ["import('./scientific-workflow.js')","import('./association-workflow.js')","import('./advanced-workflow.js')","import('./nextgen-workflow.js')"])if(!flow.includes(marker))fail('analysis flow must lazy-load heavy analysis modules: '+marker);
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','plantNameSummary','treatmentNameSummary'];
@@ -176,9 +176,14 @@ if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')|
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!scientific.includes('data-thesis-table-mode')||!scientific.includes('thesis-table-mode')||!scientific.includes('data-summary-parameter'))fail('compact analysis results must provide thesis-table mode and summary-to-parameter navigation');
 for(const marker of ['data-result-filter','data-result-focus','data-compare-mode','data-publication-mode','data-result-prev','data-result-next','RESULT_ORDER','persistResultOrder','CONFIG','saveAnalysisConfig','restoreAnalysisConfig','sciencePreset','PRESETS'])if(!scientific.includes(marker))fail('analysis powerup missing '+marker);
+for(const marker of ['detectScientificDesign','quickRunLastScientific','hasSavedScientificConfig','datasetFingerprint','snapshotActiveDataset','data-stale-banner','data-presentation-mode','data-rerun-stale','resultVersion','compareHistoryEntries','data-history-compare','data-focus-error-row'])if(!scientific.includes(marker)&&!main.includes(marker))fail('analysis productivity feature missing '+marker);
+for(const marker of ['export-bab4','exportBab4Doc','application/msword','copy-publication'])if(!resultExport.includes(marker))fail('BAB IV/Word export workflow missing '+marker);
+for(const marker of ['focusCell','snapshotActiveDataset',"key==='/'","simpan manual"])if(!main.includes(marker))fail('editor analysis integration missing '+marker);
+if(!html.includes('class="header-icon-button"')||!html.includes('title="Cari (/)"'))fail('secondary header controls must stay compact and shortcut-aware');
 for(const marker of ['data-overall-significance','overallSignificance','analysis-smart-warning','smartPosthocWarning'])if(!scientificReport.includes(marker))fail('result significance/warning behavior missing '+marker);
 if(!scientificReport.includes("if(interaction&&Number.isFinite(interaction.p)&&interaction.p<.05)html+=interactionHtml"))fail('irrelevant interaction graphs must stay hidden');
 if(!statStyle.includes('.analysis-result-toolbar')||!statStyle.includes('.publication-table-mode')||!statStyle.includes('.mobile-result-nav')||!statStyle.includes('.result-drag-handle'))fail('analysis filter/publication/mobile/drag styles are missing');
+for(const marker of ['.analysis-quick-area','.analysis-favorite','.analysis-stale-banner','.presentation-results-mode','.analysis-version-compare','.validation-cell-link','.header-icon-button'])if(!statStyle.includes(marker))fail('analysis productivity styles missing '+marker);
 if(!bab4.includes('copy-publication')||!resultExport.includes("action==='copy-publication'"))fail('publication table copy workflow is missing');
 if(!scientificReport.includes('analysis-result-meta')||!scientificReport.includes('result-technical-details')||!scientificReport.includes('compactStatus'))fail('scientific report must expose compact status and collapsible technical details');
 if(!statStyle.includes('.thesis-table-mode')||!statStyle.includes('.result-status-chip')||!statStyle.includes('.summary-parameter-link'))fail('compact result/thesis mode styles are missing');
@@ -198,7 +203,7 @@ if(!statStyle.includes('.virtual-spacer'))fail('virtual grid spacer styling miss
 for(const marker of ['/* MOBILE-FIRST FINAL OVERRIDES 2026-09-26 */','.mobile-dataset-backdrop','#mobileMoreButton','.analysis-result-dock','.app-header .nav>button']){
   if(!statStyle.includes(marker))fail('final mobile Statistical Web styling missing '+marker);
 }
-for(const marker of ['ensureMobileDatasetBackdrop','mobileDatasetBackdrop',"button.textContent=opening?'Tutup':'Dataset'"]){
+for(const marker of ['ensureMobileDatasetBackdrop','mobileDatasetBackdrop',"button.textContent=opening?'✕':'☰'"]){
   if(!main.includes(marker))fail('mobile dataset drawer behavior missing '+marker);
 }
 for(const marker of ['mobileMoreButton','mobileMorePanel','data-open-command']){
