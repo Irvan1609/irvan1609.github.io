@@ -5,6 +5,7 @@ const CATEGORY_KEY='statistical_web_category_metadata_v1';
 const TREATMENT_KEY='statistical_web_treatment_metadata_v1';
 const SYNC_PREFIX='statistical_web_cloud_sync_v1:';
 const OWNER_KEY='statistical_web_cloud_owner_v1';
+const CONFLICT_PREFIX='statistical_web_cloud_conflicts_v1:';
 const endpoint='https://hitung-cabai-api.andyirvan1609.workers.dev';
 const encoder=new TextEncoder();
 
@@ -115,6 +116,49 @@ function loadSyncState(userId){
 }
 function saveSyncState(userId,state){
   localStorage.setItem(SYNC_PREFIX+userId,JSON.stringify(state));
+}
+function conflictStore(userId){
+  try{
+    const value=JSON.parse(localStorage.getItem(CONFLICT_PREFIX+userId)||'[]');
+    return Array.isArray(value)?value:[];
+  }catch{return [];}
+}
+function archiveConflict(item,{reason='konflik sinkronisasi',source='lokal'}={}){
+  if(!currentUser||!item)return;
+  try{
+    const list=conflictStore(currentUser.id);
+    list.unshift({
+      id:crypto.randomUUID(),
+      date:new Date().toISOString(),
+      reason,
+      source,
+      name:item.name,
+      content:String(item.content??''),
+      meta:clone(item.meta||{})
+    });
+    localStorage.setItem(CONFLICT_PREFIX+currentUser.id,JSON.stringify(list.slice(0,20)));
+  }catch{}
+}
+function legacyLocalConflictBase(name){
+  const match=String(name||'').match(/^(.*) - Lokal \d{12}(?: \(\d+\))?\.csv$/i);
+  return match?normalizeFileName(match[1]):'';
+}
+function cleanupLegacyLocalLabels(stores,sync,counters){
+  for(const name of Object.keys(stores.files)){
+    const base=legacyLocalConflictBase(name);
+    if(!base)continue;
+    if(Object.prototype.hasOwnProperty.call(stores.files,base)){
+      archiveConflict(localItem(stores,name),{reason:'duplikat lama berlabel Lokal',source:'lokal'});
+      removeLocal(stores,name);
+      counters.conflicts++;counters.localChanged=true;
+      continue;
+    }
+    renameLocal(stores,name,base);
+    for(const item of Object.values(sync.items)){
+      if(!item.deleted&&item.name===name)item.name=base;
+    }
+    counters.localChanged=true;
+  }
 }
 function token(){
   return window.IrvanAccount?.getToken?.()||'';
@@ -257,8 +301,8 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
     const full=await getCloud(id);
     let target=normalizeFileName(full.name);
     if(target!==track.name&&Object.prototype.hasOwnProperty.call(stores.files,target)){
-      const preserved=uniqueName(stores,target,'Lokal');
-      renameLocal(stores,target,preserved);
+      archiveConflict(localItem(stores,target),{reason:'nama dataset bentrok saat menerima versi cloud',source:'lokal'});
+      removeLocal(stores,target);
       counters.conflicts++;
     }
     if(target!==track.name)removeLocal(stores,track.name);
@@ -282,10 +326,13 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 
   if(localChanged&&remoteChanged){
     const full=await getCloud(id);
-    const localConflict=uniqueName(stores,track.name,'Lokal');
-    renameLocal(stores,track.name,localConflict);
+    archiveConflict(local,{reason:'perubahan lokal dan cloud terjadi bersamaan',source:'lokal'});
+    removeLocal(stores,track.name);
     let remoteName=normalizeFileName(full.name);
-    if(Object.prototype.hasOwnProperty.call(stores.files,remoteName))remoteName=uniqueName(stores,remoteName,'Cloud');
+    if(Object.prototype.hasOwnProperty.call(stores.files,remoteName)){
+      archiveConflict(localItem(stores,remoteName),{reason:'nama dataset bentrok saat menerima konflik cloud',source:'lokal'});
+      removeLocal(stores,remoteName);
+    }
     putLocal(stores,remoteName,full.content,full.meta);
     sync.items[id]={name:remoteName,revision:full.revision,hash:await hashItem(localItem(stores,remoteName)),deleted:false};
     counters.conflicts++;counters.downloaded++;counters.localChanged=true;
@@ -301,6 +348,7 @@ async function syncNow({manual=false}={}){
     const rows=await cloudRows(),remoteById=new Map(rows.map(row=>[row.id,row]));
     const stores=readStores(),sync=loadSyncState(currentUser.id);
     const counters={uploaded:0,downloaded:0,deleted:0,conflicts:0,localChanged:false};
+    cleanupLegacyLocalLabels(stores,sync,counters);
 
     for(const [id,track] of Object.entries({...sync.items})){
       await resolveTracked({id,track,remote:remoteById.get(id),stores,sync,counters});
@@ -321,8 +369,8 @@ async function syncNow({manual=false}={}){
           removeLocal(stores,target);
           counters.localChanged=true;
         }else{
-          const preserved=uniqueName(stores,target,'Lokal');
-          renameLocal(stores,target,preserved);
+          archiveConflict(existingLocal,{reason:'dataset lokal berbeda dari versi cloud pertama',source:'lokal'});
+          removeLocal(stores,target);
           counters.conflicts++;counters.localChanged=true;
         }
       }
@@ -342,12 +390,8 @@ async function syncNow({manual=false}={}){
         counters.uploaded++;mapped.add(name);
       }catch(error){
         if(error.status===409&&error.payload?.error==='name_conflict'){
-          const renamed=uniqueName(stores,name,'Lokal');
-          renameLocal(stores,name,renamed);
-          counters.conflicts++;counters.localChanged=true;
-          const renamedItem=localItem(stores,renamed),saved=await putCloud(id,renamedItem,null);
-          sync.items[id]={name:saved.name,revision:saved.revision,hash:await hashItem(renamedItem),deleted:false};
-          counters.uploaded++;mapped.add(renamed);
+          archiveConflict(item,{reason:'nama dataset sudah ada di cloud',source:'lokal'});
+          counters.conflicts++;
         }else throw error;
       }
     }
