@@ -167,6 +167,9 @@ for(const marker of ['bindInlineDatasetMeta','data-meta-field','refreshColumnTyp
 if(html.includes('id="focusData"')||html.includes('id="toggleDatasetMeta"'))fail('obsolete focus/edit-information controls must be removed');
 if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')||!html.includes('contenteditable="true" role="textbox" aria-label="Perlakuan"'))fail('plant and treatment metadata must be directly editable');
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
+if(!scientific.includes('data-thesis-table-mode')||!scientific.includes('thesis-table-mode')||!scientific.includes('data-summary-parameter'))fail('compact analysis results must provide thesis-table mode and summary-to-parameter navigation');
+if(!scientificReport.includes('analysis-result-meta')||!scientificReport.includes('result-technical-details')||!scientificReport.includes('compactStatus'))fail('scientific report must expose compact status and collapsible technical details');
+if(!statStyle.includes('.thesis-table-mode')||!statStyle.includes('.result-status-chip')||!statStyle.includes('.summary-parameter-link'))fail('compact result/thesis mode styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
 if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
 for(const feature of ['bindColumnResize','autoSizeColumn','installFillHandle','openGridFind','openColumnContextMenu','installPanelResize','gridQualityModel','COLUMN_WIDTHS_KEY'])

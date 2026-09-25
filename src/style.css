@@ -2309,3 +2309,133 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
     color:#8a969f!important;
   }
 }
+
+
+/* COMPACT ANALYSIS RESULTS 2026-09-26 */
+.analysis-result-meta{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:5px;
+  padding:6px 8px;
+  border-bottom:1px solid #d6d6d6;
+  background:#fafafa;
+  font:600 11px/1.25 system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:#576675;
+}
+.analysis-result-meta>span:not(.analysis-result-significance){
+  padding:3px 6px;
+  border:1px solid #dde3e8;
+  border-radius:6px;
+  background:#fff;
+}
+.analysis-result-significance{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+.result-status-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 7px;
+  border:1px solid #d5dde4;
+  border-radius:999px;
+  background:#fff;
+  color:#526171;
+  white-space:nowrap;
+}
+.result-status-ss{font-weight:800;color:#24384a;border-color:#aebdca;background:#f3f7fa}
+.result-status-s{font-weight:750;color:#354c60}
+.result-status-tn{font-weight:600;color:#87929c;background:#fafafa}
+.result-technical-details{
+  margin:7px 8px;
+  border:1px solid #dbe1e6;
+  border-radius:7px;
+  background:#fff;
+  overflow:hidden;
+}
+.result-technical-details>summary{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  padding:6px 9px;
+  cursor:pointer;
+  color:#566675;
+  background:#fafbfc;
+  font:700 11px/1.25 system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+.result-technical-details[open]>summary{border-bottom:1px solid #e1e5e9}
+.result-technical-details>.table-caption,
+.result-technical-details>.table-scroll,
+.result-technical-details>.decision-summary,
+.result-technical-details>.analysis-note{margin-left:8px;margin-right:8px}
+.summary-parameter-link{
+  width:100%;
+  min-height:26px!important;
+  padding:2px 4px!important;
+  border:0!important;
+  border-radius:4px!important;
+  background:transparent!important;
+  color:inherit!important;
+  text-align:left;
+  font:inherit;
+}
+.summary-parameter-link:hover{text-decoration:underline;background:#f2f5f7!important}
+.result-more-actions{position:relative}
+.result-more-actions>summary{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  padding:5px 9px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:#fff;
+  cursor:pointer;
+  font-size:.84rem;
+  list-style:none;
+}
+.result-more-actions>summary::-webkit-details-marker{display:none}
+.result-more-actions[open]>button{margin-top:5px;width:100%}
+.analysis-dock-body .analysis-result>h3{
+  position:sticky;
+  top:38px;
+  z-index:3;
+  background:#fff!important;
+}
+
+/* One-click thesis table view */
+[data-all-results].thesis-table-mode{
+  background:#fff;
+}
+.thesis-table-mode [data-thesis-audit-host],
+.thesis-table-mode .analysis-summary,
+.thesis-table-mode .analysis-result>:not(h3):not([data-bab4-table]){
+  display:none!important;
+}
+.thesis-table-mode .analysis-result{
+  border:0;
+  margin:0 0 24px!important;
+  overflow:visible;
+  box-shadow:none;
+}
+.thesis-table-mode .analysis-result>h3{
+  position:static;
+  padding:7px 0!important;
+  border:0!important;
+  border-bottom:1px solid #888!important;
+}
+.thesis-table-mode .result-collapse-toggle{display:none!important}
+.thesis-table-mode [data-bab4-table]{
+  display:block!important;
+  margin:0;
+  padding:0;
+  border:0;
+}
+.thesis-table-mode [data-bab4-table] .table-caption{margin-top:7px}
+.thesis-table-mode [data-bab4-table] .analysis-note{margin:5px 0 0}
+.thesis-table-mode [data-bab4-table] .table-scroll{margin:0}
+
+@media(max-width:720px){
+  .analysis-result-meta{gap:4px;padding:5px 6px}
+  .analysis-result-significance{margin-left:0;width:100%}
+  .result-technical-details{margin:6px}
+  .analysis-dock-body .analysis-result>h3{top:36px}
+  .result-more-actions{grid-column:span 1}
+}

@@ -132,6 +132,7 @@ export function analysisSummaryRows(reports){
     const minP=tested.length?Math.min(...tested.map(t=>t.p)):null;
     const posthoc=(report.comparisons||[]).map(c=>c.method).filter(m=>m&&m!=='none');
     return {
+      key:String(report.name||''),
       parameter:parameterLongName(report.name),
       n:report.N,
       mean:report.grand,
@@ -147,6 +148,6 @@ export function analysisSummaryRows(reports){
 export function renderAnalysisSummary(reports){
   const rows=analysisSummaryRows(reports);
   if(!rows.length)return '';
-  const body=rows.map(row=>`<tr><td>${html(row.parameter)}</td><td data-number="${row.n}">${row.n}</td><td data-number="${row.mean}">${fmt(row.mean,2)}</td><td data-number="${row.cv}">${fmt(row.cv,2)}%</td><td class="summary-significance"><b>${row.significance}</b></td><td>${html(row.significant)}</td><td>${html(row.posthoc)}</td></tr>`).join('');
+  const body=rows.map(row=>`<tr><td><button type="button" class="summary-parameter-link" data-summary-parameter="${html(row.key)}">${html(row.parameter)}</button></td><td data-number="${row.n}">${row.n}</td><td data-number="${row.mean}">${fmt(row.mean,2)}</td><td data-number="${row.cv}">${fmt(row.cv,2)}%</td><td class="summary-significance"><b>${row.significance}</b></td><td>${html(row.significant)}</td><td>${html(row.posthoc)}</td></tr>`).join('');
   return `<section class="analysis-summary" data-analysis-summary><div class="summary-head"><div><b>Ringkasan semua parameter</b><small>${rows.length} parameter dianalisis</small></div></div><div class="table-scroll"><table class="result-table summary-table"><thead><tr><th>Parameter</th><th>N</th><th>Rataan</th><th>KK</th><th>Ket.</th><th>Sumber nyata</th><th>Uji lanjut</th></tr></thead><tbody>${body}</tbody></table></div><div class="analysis-note">tn = tidak nyata; * = nyata pada taraf 5%; ** = sangat nyata pada taraf 1%.</div></section>`;
 }
