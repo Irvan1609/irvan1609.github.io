@@ -984,23 +984,30 @@ async function handleDevelopOverview(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error)return json(request,env,{error:'admin_required'},403);
-  await ensureDatasetSchema(env);
+  await ensureDatasetSchema(env);await ensureMembershipSchema(env);await ensureOperationsSchema(env);
   const now=new Date(),nowIso=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString(),weekAgo=new Date(now.getTime()-7*86400000).toISOString();
-  const [users,members,datasets,contributions,sessions,newUsers]=await Promise.all([
+  const [users,members,datasets,contributions,sessions,newUsers,payments,lastBackup]=await Promise.all([
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role='admin' OR (membership_status='active' AND (membership_expires_at IS NULL OR membership_expires_at>?))`).bind(nowIso).first(),
-    env.DB.prepare('SELECT COUNT(*) AS n FROM user_datasets WHERE deleted_at IS NULL').first(),
+    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(content)+length(meta_json)),0) AS bytes FROM user_datasets WHERE deleted_at IS NULL').first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM contributions').first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM sessions WHERE revoked_at IS NULL AND expires_at>? AND last_seen_at>?').bind(nowIso,dayAgo).first(),
-    env.DB.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at>?').bind(weekAgo).first()
+    env.DB.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at>?').bind(weekAgo).first(),
+    env.DB.prepare("SELECT COUNT(*) AS n,COALESCE(SUM(amount),0) AS revenue FROM membership_payments WHERE status='settlement'").first(),
+    env.DB.prepare("SELECT created_at,status,size_bytes FROM backup_runs WHERE status='success' ORDER BY created_at DESC LIMIT 1").first()
   ]);
   return json(request,env,{ok:true,stats:{
     users:Number(users?.n||0),
     entitledUsers:Number(members?.n||0),
     datasets:Number(datasets?.n||0),
+    datasetBytes:Number(datasets?.bytes||0),
     contributions:Number(contributions?.n||0),
     activeSessions24h:Number(sessions?.n||0),
-    newUsers7d:Number(newUsers?.n||0)
+    newUsers7d:Number(newUsers?.n||0),
+    settledPayments:Number(payments?.n||0),
+    membershipRevenueIdr:Number(payments?.revenue||0),
+    lastBackupAt:lastBackup?.created_at||null,
+    lastBackupBytes:Number(lastBackup?.size_bytes||0)
   },generatedAt:nowIso});
 }
 async function handleDevelopUsers(request,env,url){
