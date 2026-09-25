@@ -22,7 +22,7 @@ for(const marker of [
   "/v1/membership/plans",
   "membership_required",
   "SESSION_TOUCH_MINUTES=15",
-  "apiVersion:'2026-09-26.2'"
+  "apiVersion:'2026-09-26.3'"
 ]) if(!worker.includes(marker))fail('Worker missing '+marker);
 
 for(const marker of ['features:{','datasetSync:syncAccess','analysisIncluded:analysisIncluded','develop:row.role'])if(!worker.includes(marker))fail('Public entitlements missing '+marker);
