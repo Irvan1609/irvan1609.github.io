@@ -14,7 +14,7 @@ import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
-  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
+  container.innerHTML='<details class="result-actions-menu master-result-actions"><summary>Aksi hasil</summary><div class="result-actions"><button data-result-action="export-all">Excel semua parameter</button><button data-result-action="export-all-formula">Excel semua + formula</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div></details><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
   container.dataset.datasetName=datasetName;
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   const printButton=container.querySelector('[data-print-results]');
