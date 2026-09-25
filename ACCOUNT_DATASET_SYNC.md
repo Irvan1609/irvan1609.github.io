@@ -30,9 +30,10 @@ Riwayat editor lokal tidak disinkronkan pada tahap ini.
 
 ## API Worker
 
-- `GET /v1/datasets?include_deleted=1` — daftar metadata dataset milik user.
-- `GET /v1/datasets/:id` — ambil isi satu dataset.
-- `PUT /v1/datasets/:id` — buat/perbarui dataset.
+- `GET /v1/datasets?include_deleted=1&known_version=…` — daftar ringkas; isi tidak dikirim bila versinya sama.
+- `GET /v1/datasets/:id` — ambil isi lengkap hanya saat diperlukan.
+- `PATCH /v1/datasets/:id` — kirim delta edit sel/baris/kolom dengan operation ID idempoten.
+- `PUT /v1/datasets/:id` — fallback untuk perubahan struktur besar atau metadata.
 - `DELETE /v1/datasets/:id` — tombstone dataset.
 
 Semua endpoint membutuhkan Bearer session token dari login Google.
