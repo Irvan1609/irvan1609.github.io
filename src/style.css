@@ -640,3 +640,316 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .global-search-results{max-height:60dvh}
   .global-search-item{min-height:46px}
 }
+
+
+/* Responsive polish: desktop layout stays unchanged; phone/tablet adapt to viewport */
+@media (min-width:721px) and (max-width:1100px){
+  .app-shell{max-width:100%;padding:14px}
+  .main{grid-template-columns:180px minmax(0,1fr);gap:12px}
+  .project-panel{padding:9px}
+  .sheet-header{padding:11px 12px}
+  .data-grid th,.data-grid td{min-width:76px;padding:6px 8px}
+  .nav{gap:5px}
+  .nav>button{padding-left:8px;padding-right:8px}
+  .modal-backdrop>.modal{width:min(96vw,1000px)}
+}
+
+@media (max-width:720px){
+  html,body{max-width:100%;overflow-x:hidden}
+  body{padding-bottom:env(safe-area-inset-bottom)}
+  button{touch-action:manipulation}
+  .app-shell{width:100%;max-width:none;padding:6px}
+
+  .app-header{
+    position:sticky;
+    top:56px;
+    z-index:36;
+    border-radius:10px;
+    overflow:visible;
+  }
+  .nav{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:5px!important;
+    padding:7px!important;
+    overflow:visible!important;
+  }
+  .nav>button{
+    width:100%;
+    min-width:0;
+    min-height:40px;
+    padding:5px 6px!important;
+    font-size:11.5px!important;
+    line-height:1.15;
+    white-space:normal!important;
+    text-align:center!important;
+  }
+  #appSettingsToggle{
+    width:auto!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:40px!important;
+    margin-left:0!important;
+    border-radius:7px!important;
+  }
+
+  .nav-command-panel{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+    width:100%;
+    padding:7px!important;
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    border-radius:0 0 10px 10px;
+    max-height:42dvh;
+    overflow:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .nav-command-panel>button{
+    width:100%;
+    min-width:0;
+    min-height:40px;
+    padding:6px 8px;
+    white-space:normal;
+  }
+
+  .analysis-command-panel{
+    display:block!important;
+    width:100%;
+    margin:5px 0 7px!important;
+    max-height:68dvh;
+    border-radius:10px;
+    overflow:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .analysis-menu-head{
+    position:sticky;
+    top:0;
+    z-index:3;
+    padding:9px 10px!important;
+    background:#fff;
+  }
+  .analysis-menu-head>div>span{display:none}
+  .analysis-menu-groups{display:block!important}
+  .analysis-menu-group{border-right:0!important}
+  .analysis-group-toggle{min-height:46px!important;padding:7px 9px!important}
+  .analysis-group-items{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:6px!important}
+  .analysis-menu-item{min-height:48px!important;padding:7px!important}
+
+  .main{grid-template-columns:minmax(0,1fr)!important;gap:7px!important;margin-top:7px!important}
+  .workspace{width:100%;min-width:0;border-radius:10px!important}
+  .project-panel{
+    display:none!important;
+    width:100%;
+    min-width:0;
+    padding:8px!important;
+    border-radius:10px!important;
+  }
+  html.mobile-project-open .project-panel{
+    display:block!important;
+    position:relative!important;
+    top:auto!important;
+    max-height:40dvh!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  #fileTree{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px!important}
+  .tree-item{
+    width:100%!important;
+    min-width:0;
+    margin:0!important;
+    padding:6px 7px!important;
+    font-size:11.5px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .dataset-search{width:100%;min-height:38px}
+  .dataset-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px!important}
+  .dataset-actions button{min-width:0;min-height:38px;padding:5px 4px;font-size:11px}
+
+  .sheet-header{
+    gap:6px!important;
+    padding:8px!important;
+    align-items:flex-start!important;
+  }
+  .dataset-title{
+    width:100%;
+    min-width:0;
+    overflow:hidden;
+    font-size:11.5px;
+  }
+  #activeFile{
+    min-width:0;
+    max-width:52vw!important;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .save-indicator{margin-left:auto;font-size:10px}
+  .dataset-meta-compact{
+    width:100%;
+    flex-basis:100%!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start!important;
+    gap:6px!important;
+  }
+  .dataset-meta-summaryline{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px!important;
+    justify-content:stretch!important;
+  }
+  .dataset-meta-summaryline>span{
+    width:100%;
+    max-width:none!important;
+    min-width:0;
+    padding:5px 6px!important;
+    overflow:hidden;
+  }
+  .dataset-meta-summaryline span span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #toggleDatasetMeta{min-height:34px!important}
+  #datasetMetaEditor{
+    width:100%;
+    min-width:0!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:5px!important;
+  }
+  #datasetMetaEditor[hidden]{display:none!important}
+  #datasetMetaEditor label{width:100%;min-width:0}
+
+  .grid-container{
+    width:100%;
+    max-width:100%;
+    min-height:min(330px,48dvh);
+    max-height:calc(100dvh - 245px)!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  .data-grid{font-size:12px!important}
+  .data-grid th,.data-grid td{
+    min-width:72px!important;
+    height:36px!important;
+    padding:5px 6px!important;
+  }
+  .data-grid thead th{top:0;z-index:4}
+  .data-grid .row-number{
+    position:sticky;
+    left:0;
+    z-index:3;
+    min-width:42px!important;
+    width:42px;
+    padding-left:4px!important;
+    padding-right:4px!important;
+    background:#f5f7fa!important;
+    box-shadow:1px 0 0 #d7dee7;
+  }
+  .data-grid thead .row-number{z-index:6;background:#edf2f8!important}
+  .data-grid .grid-delete{min-width:22px;min-height:22px}
+
+  .status{padding:6px 9px!important;font-size:10.5px!important}
+
+  .modal-backdrop{
+    padding:6px!important;
+    padding-top:max(6px,env(safe-area-inset-top))!important;
+    padding-bottom:max(6px,env(safe-area-inset-bottom))!important;
+    backdrop-filter:none!important;
+  }
+  .modal-backdrop>.modal{
+    width:100%!important;
+    max-width:100%!important;
+    max-height:calc(100dvh - 12px)!important;
+    border-radius:12px!important;
+  }
+  .modal-head,.modal-foot{padding:10px 11px!important}
+  .modal-body{padding:11px!important}
+  .modal-foot{gap:6px!important}
+  .modal-foot>button{flex:1 1 120px;min-height:42px}
+  input:not([type=checkbox]),select,textarea{font-size:16px}
+  #pasteArea{min-height:38dvh}
+  .form-grid,.ral-grid,.parameter-definition-grid{grid-template-columns:1fr!important;gap:9px!important}
+  .design-options{grid-template-columns:1fr!important}
+  #rakBnjOptions,.bnj-options{grid-template-columns:1fr!important}
+
+  .analysis-result{
+    width:100%;
+    margin:8px 0!important;
+    overflow-x:auto!important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    border-radius:8px!important;
+  }
+  .analysis-result>h3,.analysis-result>h4{font-size:12.5px!important;padding:7px 8px!important}
+  .analysis-result .result-table{
+    min-width:600px!important;
+    font-size:11.5px!important;
+  }
+  .analysis-result .anova-table{min-width:700px!important}
+  .analysis-result .result-table th,.analysis-result .result-table td{padding:4px 5px!important}
+  .analysis-result .analysis-note{margin:7px!important;font-size:11.5px!important}
+  .result-actions,.master-result-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px!important;
+  }
+  .result-actions button,.master-result-actions button{
+    width:100%;
+    min-width:0;
+    min-height:40px!important;
+    white-space:normal;
+  }
+  .export-status{grid-column:1/-1}
+  .scientific-chart{margin:7px!important;padding:7px!important}
+  .scientific-chart svg{min-width:520px!important}
+  .summary-head,.quality-head,.audit-head,.audit-card-head,.chapter-interpretation-head{gap:6px}
+  .result-collapse-toggle{min-height:32px!important}
+
+  .global-search-dialog{width:100%!important}
+  #globalSearch{min-height:46px!important;font-size:16px!important}
+  .global-search-results{max-height:58dvh!important}
+  .global-search-item{min-height:46px!important}
+}
+
+@media (max-width:480px){
+  .nav{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .nav>button{font-size:11px!important;padding:5px 4px!important}
+  .nav-command-panel{grid-template-columns:1fr 1fr}
+  #fileTree{grid-template-columns:1fr!important}
+  .dataset-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .dataset-meta-summaryline{grid-template-columns:1fr!important}
+  #activeFile{max-width:44vw!important}
+  .analysis-group-items{grid-template-columns:1fr!important}
+  .grid-container{
+    min-height:min(300px,46dvh);
+    max-height:calc(100dvh - 270px)!important;
+  }
+  .data-grid th,.data-grid td{min-width:68px!important;padding:5px!important}
+  .result-actions,.master-result-actions{grid-template-columns:1fr 1fr!important}
+}
+
+@media (max-width:360px){
+  .nav{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .nav-command-panel{grid-template-columns:1fr!important}
+  .result-actions,.master-result-actions{grid-template-columns:1fr!important}
+  .dataset-actions{grid-template-columns:1fr!important}
+  .grid-container{max-height:calc(100dvh - 300px)!important}
+}
+
+@media (max-height:520px) and (orientation:landscape) and (max-width:920px){
+  .app-header{position:static!important}
+  .nav{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+  .grid-container{min-height:190px!important;max-height:calc(100dvh - 145px)!important}
+  .modal-backdrop>.modal{max-height:calc(100dvh - 8px)!important}
+}
