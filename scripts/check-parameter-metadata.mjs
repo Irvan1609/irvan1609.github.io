@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {parseParameterHeader,buildParameterHeader,parameterLongName,parameterReportTitle,normalizeParameterUnit} from '../src/parameter-metadata.js';
+import {parseParameterHeader,buildParameterHeader,parameterLongName,parameterReportTitle,normalizeParameterUnit,detectParameterHeader} from '../src/parameter-metadata.js';
 import {interpretReport} from '../src/report-insights.js';
 import {renderBab4Table} from '../src/bab4-table.js';
 
@@ -7,8 +7,15 @@ assert.deepEqual(parseParameterHeader('TT | Tinggi Tanaman (cm)'),{
   raw:'TT | Tinggi Tanaman (cm)',code:'TT',name:'Tinggi Tanaman',unit:'cm'
 });
 assert.deepEqual(parseParameterHeader('Tinggi Tanaman (cm)'),{
-  raw:'Tinggi Tanaman (cm)',code:'Tinggi Tanaman',name:'',unit:'cm'
+  raw:'Tinggi Tanaman (cm)',code:'TT',name:'Tinggi Tanaman',unit:'cm'
 });
+assert.deepEqual(parseParameterHeader('tt'),{
+  raw:'tt',code:'TT',name:'Tinggi Tanaman',unit:'cm'
+});
+assert.deepEqual(parseParameterHeader('tt_42HST'),{
+  raw:'tt_42HST',code:'TT_42HST',name:'Tinggi Tanaman 42 HST',unit:'cm'
+});
+assert.equal(detectParameterHeader('tinggi tanaman')?.source,'builtin');
 assert.deepEqual(parseParameterHeader('Perlakuan'),{
   raw:'Perlakuan',code:'Perlakuan',name:'',unit:''
 });
