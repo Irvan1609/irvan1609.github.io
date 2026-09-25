@@ -10,7 +10,7 @@ function cleanClone(scope) {
   };
   if(clone.matches?.('[data-export-scope]'))annotate(clone);
   clone.querySelectorAll?.('[data-export-scope]').forEach(annotate);
-  clone.querySelectorAll('.result-actions-menu, .result-actions, button, input, select, textarea').forEach(el => el.remove());
+  clone.querySelectorAll('.result-actions, button, input, select, textarea').forEach(el => el.remove());
   clone.querySelectorAll('[hidden]').forEach(el => el.remove());
   return clone;
 }
@@ -87,7 +87,7 @@ async function exportScope(scope, filename, formulas=false) {
 }
 
 export function resultActions(filename='hasil-analisis') {
-  return `<details class="result-actions-menu"><summary>Aksi</summary><div class="result-actions"><button type="button" data-result-action="copy">Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">Excel + formula</button><span class="export-status" role="status" aria-live="polite"></span></div></details>`;
+  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">ƒx Ekspor Excel (formula)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
 function decorateCollapsibleResults(root=document){
