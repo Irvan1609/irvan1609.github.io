@@ -255,14 +255,14 @@ canvas.addEventListener('pointerup',event=>{
     const box=boxFromPoints(origin,end);
     if(box[2]*image.naturalWidth>=5&&box[3]*image.naturalHeight>=5){checkpoint();boxes.push(box);}
   }
-  paint();
+  paint();updateWorkflowState();
 });
 canvas.addEventListener('pointercancel',()=>{start=null;draft=null;paint();});
 canvas.addEventListener('contextmenu',event=>event.preventDefault());
 
 function undo(){
   if(!history.length)return;
-  boxes=history.pop();dirty=true;paint();
+  boxes=history.pop();dirty=true;paint();updateWorkflowState();
 }
 $('undo').onclick=undo;$('mobileUndo').onclick=undo;
 $('autoDetect').onclick=()=>autoDetectChilies();
@@ -391,7 +391,7 @@ async function contributeCurrent(){
   }catch(error){
     status(error.message||'Kontribusi belum dapat dikirim.');
   }finally{
-    contributing=false;$('contribute').disabled=!cloudContributionReady();$('contribute').textContent='Kirim untuk melatih AI';
+    contributing=false;$('contribute').textContent='Kirim untuk melatih AI';updateWorkflowState();
   }
 }
 $('contribute').onclick=contributeCurrent;
