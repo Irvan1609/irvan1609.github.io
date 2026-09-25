@@ -1,11 +1,6 @@
 const SW_URL='/sw.js';
 let deferredInstall=null;
 
-function sendWarm(registration){
-  const worker=navigator.serviceWorker.controller||registration?.active||registration?.waiting;
-  worker?.postMessage({type:'WARM_ROUTE',url:location.pathname+location.search});
-  if(location.pathname.startsWith('/hitung-cabai/'))worker?.postMessage({type:'WARM_CHILI'});
-}
 function installStyles(){
   if(document.getElementById('agrotikPwaStyle'))return;
   const style=document.createElement('style');style.id='agrotikPwaStyle';
@@ -44,10 +39,7 @@ updateNetworkBadge();
 if('serviceWorker'in navigator){
   window.addEventListener('load',async()=>{
     try{
-      const registration=await navigator.serviceWorker.register(SW_URL,{scope:'/',updateViaCache:'none'});
-      sendWarm(registration);
-      navigator.serviceWorker.addEventListener('controllerchange',()=>sendWarm(registration),{once:true});
-      void registration.update();
+      await navigator.serviceWorker.register(SW_URL,{scope:'/',updateViaCache:'imports'});
     }catch(error){console.warn('PWA registration skipped',error);}
   });
 }
