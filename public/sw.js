@@ -1,4 +1,4 @@
-const VERSION='20260926-light-1';
+const VERSION='20260926-light-2';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -71,13 +71,13 @@ async function matchIgnoreSearch(request){
   return caches.match(url.href,{ignoreSearch:true});
 }
 async function navigationResponse(request){
-  try{
-    const response=await fetch(request);
+  const cached=await matchIgnoreSearch(request);
+  const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
-  }catch{
-    return await matchIgnoreSearch(request)||await caches.match('/offline.html')||await caches.match('/');
-  }
+  }).catch(()=>null);
+  if(cached){void refresh;return cached;}
+  return await refresh||await caches.match('/offline.html')||await caches.match('/');
 }
 async function staticResponse(request){
   const cached=await matchIgnoreSearch(request);
