@@ -1,9 +1,12 @@
 const MAX_IMAGE_BYTES=850000;
 const MAX_BOXES=1500;
+const MAX_DATASET_BYTES=2_000_000;
+const MAX_DATASETS_PER_USER=120;
 const SESSION_DAYS=30;
 const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
 let AUTH_SCHEMA_READY=false;
+let DATASET_SCHEMA_READY=false;
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io').split(',').map(v=>v.trim()).filter(Boolean));
@@ -134,6 +137,138 @@ async function ensureAuthSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
   ]);
   AUTH_SCHEMA_READY=true;
+}
+
+async function ensureDatasetSchema(env){
+  if(DATASET_SCHEMA_READY)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_datasets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      meta_json TEXT NOT NULL DEFAULT '{}',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_updated ON user_datasets(user_id,updated_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted ON user_datasets(user_id,deleted_at)'),
+    env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_user_datasets_active_name ON user_datasets(user_id,name) WHERE deleted_at IS NULL')
+  ]);
+  DATASET_SCHEMA_READY=true;
+}
+function validDatasetId(value){
+  return /^[0-9a-f-]{36}$/i.test(String(value||''));
+}
+function normalizeDatasetName(value){
+  const name=String(value||'').trim().replace(/\.(?:txt|csv)$/i,'')+'.csv';
+  if(!name||name.length>180||/[\\/\u0000-\u001f]/.test(name))return '';
+  return name;
+}
+function parseDatasetMeta(value){
+  const meta=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  const json=JSON.stringify(meta);
+  if(new TextEncoder().encode(json).byteLength>40_000)throw Error('Metadata dataset terlalu besar.');
+  return json;
+}
+function datasetPayload(row){
+  let meta={};
+  try{meta=JSON.parse(row.meta_json||'{}')||{};}catch{}
+  return {
+    id:row.id,
+    name:row.name,
+    content:row.content,
+    meta,
+    revision:Number(row.revision)||1,
+    createdAt:row.created_at,
+    updatedAt:row.updated_at,
+    deletedAt:row.deleted_at||null
+  };
+}
+async function requireUser(request,env){
+  const user=await userFromSession(request,env);
+  return user||null;
+}
+async function handleDatasetList(request,env,url){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureDatasetSchema(env);
+  const includeDeleted=url.searchParams.get('include_deleted')==='1';
+  const result=await env.DB.prepare(`SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at
+    FROM user_datasets WHERE user_id=? ${includeDeleted?'':'AND deleted_at IS NULL'} ORDER BY updated_at ASC`)
+    .bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(datasetPayload)});
+}
+async function handleDatasetPut(request,env,id){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
+  await ensureDatasetSchema(env);
+
+  const body=await request.json().catch(()=>null);
+  const name=normalizeDatasetName(body?.name);
+  const content=typeof body?.content==='string'?body.content:null;
+  const expectedRevision=body?.expectedRevision===null||body?.expectedRevision===undefined?null:Number(body.expectedRevision);
+  if(!name||content===null)return json(request,env,{error:'Nama atau isi dataset tidak valid.'},400);
+  if(new TextEncoder().encode(content).byteLength>MAX_DATASET_BYTES)return json(request,env,{error:'Dataset terlalu besar untuk sinkronisasi akun.'},413);
+
+  let metaJson;
+  try{metaJson=parseDatasetMeta(body?.meta);}catch(error){return json(request,env,{error:error.message},413);}
+  const now=new Date().toISOString();
+  const existing=await env.DB.prepare('SELECT id,user_id,revision FROM user_datasets WHERE id=? LIMIT 1').bind(id).first();
+
+  if(existing){
+    if(existing.user_id!==user.id)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
+    if(expectedRevision===null||Number(existing.revision)!==expectedRevision){
+      const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+      return json(request,env,{error:'revision_conflict',current:current?datasetPayload(current):null},409);
+    }
+    try{
+      await env.DB.prepare(`UPDATE user_datasets SET name=?,content=?,meta_json=?,revision=revision+1,updated_at=?,deleted_at=NULL WHERE id=? AND user_id=?`)
+        .bind(name,content,metaJson,now,id,user.id).run();
+    }catch(error){
+      if(String(error?.message||'').toLowerCase().includes('unique'))return json(request,env,{error:'name_conflict'},409);
+      throw error;
+    }
+  }else{
+    const countRow=await env.DB.prepare('SELECT COUNT(*) AS n FROM user_datasets WHERE user_id=? AND deleted_at IS NULL').bind(user.id).first();
+    if(Number(countRow?.n||0)>=MAX_DATASETS_PER_USER)return json(request,env,{error:'Batas dataset akun tercapai.'},429);
+    try{
+      await env.DB.prepare(`INSERT INTO user_datasets (id,user_id,name,content,meta_json,revision,created_at,updated_at,deleted_at)
+        VALUES (?,?,?,?,?,1,?,?,NULL)`).bind(id,user.id,name,content,metaJson,now,now).run();
+    }catch(error){
+      if(String(error?.message||'').toLowerCase().includes('unique'))return json(request,env,{error:'name_conflict'},409);
+      throw error;
+    }
+  }
+
+  const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  return json(request,env,{ok:true,item:datasetPayload(row)});
+}
+async function handleDatasetDelete(request,env,id){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
+  await ensureDatasetSchema(env);
+
+  const body=await request.json().catch(()=>({}));
+  const expectedRevision=Number(body?.expectedRevision);
+  const row=await env.DB.prepare('SELECT revision,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  if(!row)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
+  if(!Number.isFinite(expectedRevision)||Number(row.revision)!==expectedRevision){
+    const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+    return json(request,env,{error:'revision_conflict',current:current?datasetPayload(current):null},409);
+  }
+  if(!row.deleted_at){
+    const now=new Date().toISOString();
+    await env.DB.prepare('UPDATE user_datasets SET revision=revision+1,updated_at=?,deleted_at=? WHERE id=? AND user_id=?')
+      .bind(now,now,id,user.id).run();
+  }
+  const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  return json(request,env,{ok:true,item:datasetPayload(current)});
 }
 
 function publicUser(row){
@@ -344,6 +479,10 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/auth/session')return await handleAuthSession(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/profile')return await handleAuthProfile(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/datasets')return await handleDatasetList(request,env,url);
+      const datasetMatch=url.pathname.match(/^\/v1\/datasets\/([0-9a-f-]{36})$/i);
+      if(request.method==='PUT'&&datasetMatch)return await handleDatasetPut(request,env,datasetMatch[1]);
+      if(request.method==='DELETE'&&datasetMatch)return await handleDatasetDelete(request,env,datasetMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/contributions')return await handleContribution(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/admin/manifest')return await handleManifest(request,env,url);
       const imageMatch=url.pathname.match(/^\/v1\/admin\/image\/([0-9a-f-]+)$/i);
