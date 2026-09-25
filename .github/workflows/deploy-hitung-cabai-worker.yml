@@ -72,7 +72,7 @@ jobs:
           };
           const backup=(process.env.BACKUP_BUCKET||'').trim();
           if(backup)config.r2_buckets=[{binding:'BACKUPS',bucket_name:backup}];
-          fs.writeFileSync('/tmp/hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
+          fs.writeFileSync('hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
           NODE
 
       - name: Deploy Worker
@@ -80,7 +80,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config /tmp/hitung-cabai-wrangler.json
+          command: deploy --config ./hitung-cabai-wrangler.json
 
       - name: Verify production health
         shell: bash
