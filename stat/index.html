@@ -27,7 +27,6 @@
       <header class="app-header">
         <nav class="nav" aria-label="Perintah Statistical Web">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
-          <button id="focusData" type="button" aria-pressed="false" title="Perluas area tabel">Fokus Data</button>
           <button id="projectToggle" type="button" aria-expanded="false">☰ Dataset</button>
         </nav>
       </header>
@@ -49,17 +48,15 @@
           <div class="panel-title">Dataset</div>
           <input id="datasetSearch" class="dataset-search" type="search" autocomplete="off" placeholder="Cari dataset…" aria-label="Cari dataset">
           <div id="fileTree"></div>
-          <div class="dataset-actions">
-            <button id="renameDataset" type="button">Ubah nama</button>
-            <button id="duplicateDataset" type="button">Buat salinan</button>
-            <button id="deleteDataset" type="button" aria-label="Hapus dataset" title="Hapus dataset">×</button>
-          </div>
-          <details class="dataset-more">
-            <summary>Lainnya</summary>
+          <details class="dataset-more dataset-manage">
+            <summary>Kelola dataset</summary>
             <div class="dataset-more-actions">
+              <button id="renameDataset" type="button">Ubah nama</button>
+              <button id="duplicateDataset" type="button">Buat salinan</button>
               <button id="viewRawDataset" type="button">Data mentah</button>
               <button id="viewDatasetMeta" type="button">Metadata</button>
               <button id="datasetHistory" type="button">Riwayat perubahan</button>
+              <button id="deleteDataset" type="button" aria-label="Hapus dataset" title="Hapus dataset">Hapus dataset</button>
             </div>
           </details>
           <button id="outputBtn" hidden>Output</button>
