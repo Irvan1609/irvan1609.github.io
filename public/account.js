@@ -110,16 +110,14 @@ function render(){
   menu=document.createElement('div');
   menu.className='account-menu';menu.hidden=true;
   const developButton=currentUser.features?.develop?'<button type="button" data-account-develop>Develop</button>':'';
-  menu.innerHTML=`<div class="account-profile">${avatarMarkup(currentUser,true)}<div><strong>${escapeHtml(currentUser.name||'Pengguna')}</strong><small>${escapeHtml(currentUser.email||'')}</small><span class="account-access-badge ${accessClass(currentUser)}">${accessLabel(currentUser)}</span></div></div><div class="account-menu-separator"></div><button type="button" data-account-profile>Profil akun</button>${developButton}<button type="button" class="account-logout" data-account-logout>Keluar</button>`;
+  const membershipButton=currentUser.role==='admin'?'':'<button type="button" data-account-membership>Membership</button>';
+  menu.innerHTML=`<div class="account-profile">${avatarMarkup(currentUser,true)}<div><strong>${escapeHtml(currentUser.name||'Pengguna')}</strong><small>${escapeHtml(currentUser.email||'')}</small><span class="account-access-badge ${accessClass(currentUser)}">${accessLabel(currentUser)}</span></div></div><div class="account-menu-separator"></div><button type="button" data-account-profile>Profil akun</button>${membershipButton}${developButton}<button type="button" class="account-logout" data-account-logout>Keluar</button>`;
 
   trigger.onclick=()=>{
     const opening=menu.hidden;menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
   };
-  menu.querySelector('[data-account-profile]').onclick=()=>{
-    closeMenu();
-    const suffix=currentUser.role==='admin'?'Admin':(currentUser.membership?.active?'Membership aktif':'Akun gratis');
-    status(`${currentUser.name||currentUser.email} · ${suffix}`);
-  };
+  menu.querySelector('[data-account-profile]').onclick=()=>{location.assign('/account/');};
+  menu.querySelector('[data-account-membership]')?.addEventListener('click',()=>{location.assign('/membership/');});
   menu.querySelector('[data-account-develop]')?.addEventListener('click',()=>{location.assign('/develop/');});
   menu.querySelector('[data-account-logout]').onclick=logout;
   mount.append(trigger,menu);
