@@ -95,7 +95,7 @@ export function installAnalysisFlow() {
   panel.innerHTML=panelMarkup();
   nav.parentElement.append(panel);
 
-  open.textContent='Analisis';
+  open.textContent='Pilih analisis';
   open.setAttribute('aria-controls','analysisMenu');
   open.setAttribute('aria-expanded','false');
 
