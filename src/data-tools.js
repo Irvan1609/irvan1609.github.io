@@ -10,12 +10,18 @@ function importDataset(detail){
   if(!detail.importResult?.ok)throw Error(detail.importResult?.error||'Editor belum siap menerima dataset. Muat ulang halaman lalu coba lagi.');
 }
 export function readDataset(){
+  const source=globalThis.StatisticalWebData?.readActiveDataset?.();
+  if(source?.headers&&source?.rows)return {
+    name:source.name||$('#activeFile')?.textContent||'Dataset',
+    plant:source.plant||'',treatment:source.treatment||'',
+    headers:source.headers.map(String),rows:source.rows.map(row=>row.map(value=>String(value??'')))
+  };
   return {
     name:$('#activeFile')?.textContent||'Dataset',
     plant:$('#plantName')?.value.trim()||'',
     treatment:$('#treatmentName')?.value.trim()||'',
     headers:[...document.querySelectorAll('.data-grid thead th[data-column-header]')].map(x=>x.dataset.columnHeader||x.textContent.trim()),
-    rows:[...document.querySelectorAll('.data-grid tbody tr')].map(tr=>[...tr.cells].slice(1).map(td=>td.textContent))
+    rows:[...document.querySelectorAll('.data-grid tbody tr:not(.virtual-spacer)')].map(tr=>[...tr.cells].slice(1).map(td=>td.textContent))
   };
 }
 function templateOptions(){
