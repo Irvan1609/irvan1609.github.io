@@ -95,8 +95,11 @@
 
       <section class="dev-view" data-view="ai">
         <div class="dev-panel">
-          <div class="panel-head"><div><h2>Kontribusi Hitung Cabai / AI</h2><p>Ringkasan kandidat data training tanpa membuka gambar secara otomatis.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Sampel</th><th>Final</th><th>Prediksi</th><th>Koreksi</th><th>Quality</th><th>Model</th><th>Status</th><th>Waktu</th></tr></thead><tbody id="aiBody"></tbody></table></div>
+          <div class="panel-head"><div><h2>Kontribusi Hitung Cabai / AI</h2><p>Active-learning queue diprioritaskan dari koreksi dan quality score; gambar tidak dibuka otomatis.</p></div></div>
+          <h3>Evaluasi per versi model</h3>
+          <div class="table-wrap"><table><thead><tr><th>Model</th><th>N</th><th>Quality rata-rata</th><th>Koreksi</th><th>|Final − Prediksi|</th></tr></thead><tbody id="aiModelBody"></tbody></table></div>
+          <h3>Antrean review</h3>
+          <div class="table-wrap"><table><thead><tr><th>Prioritas</th><th>Sampel</th><th>Final</th><th>Prediksi</th><th>Koreksi</th><th>Quality</th><th>Model</th><th>Status</th><th>Waktu</th></tr></thead><tbody id="aiBody"></tbody></table></div>
         </div>
       </section>
 
@@ -126,6 +129,6 @@
   </main>
 
   <script type="module" src="/account.js?v=20260926-5"></script>
-  <script type="module" src="/develop/app.js?v=20260926-3"></script>
+  <script type="module" src="/develop/app.js?v=20260926-4"></script>
 </body>
 </html>
