@@ -12,6 +12,7 @@ let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
 let MEMBERSHIP_SCHEMA_READY=false;
 let OPERATIONS_SCHEMA_READY=false;
+let CONTRIBUTION_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
@@ -22,8 +23,8 @@ function corsHeaders(request,env){
   const allowed=allowedOrigins(env);
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
-    'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token',
+    'Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
   };
@@ -258,9 +259,31 @@ async function ensureOperationsSchema(env){
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     )`),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS idempotent_operations (
+      operation_id TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(operation_id,scope)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)')
   ]);
   OPERATIONS_SCHEMA_READY=true;
+}
+function validOperationId(value){return /^[0-9a-f-]{36}$/i.test(String(value||''));}
+async function replayOperation(env,scope,operationId){
+  if(!validOperationId(operationId))return null;
+  await ensureOperationsSchema(env);
+  const row=await env.DB.prepare('SELECT response_json FROM idempotent_operations WHERE operation_id=? AND scope=? LIMIT 1').bind(operationId,scope).first();
+  if(!row)return null;
+  try{return JSON.parse(row.response_json||'null');}catch{return null;}
+}
+async function rememberOperation(env,scope,operationId,payload){
+  if(!validOperationId(operationId))return;
+  await ensureOperationsSchema(env);
+  await env.DB.prepare('INSERT OR IGNORE INTO idempotent_operations (operation_id,scope,response_json,created_at) VALUES (?,?,?,?)')
+    .bind(operationId,scope,JSON.stringify(payload),new Date().toISOString()).run();
 }
 async function audit(env,actor,action,targetType='',targetId='',detail={}){
   try{
@@ -344,6 +367,68 @@ function parseDatasetMeta(value){
   if(new TextEncoder().encode(json).byteLength>40_000)throw Error('Metadata dataset terlalu besar.');
   return json;
 }
+function parseDatasetCsv(text){
+  const rows=[];let row=[],cell='',quoted=false;
+  const source=String(text||'');
+  for(let i=0;i<source.length;i++){
+    const ch=source[i];
+    if(ch==='"'){
+      if(quoted&&source[i+1]==='"'){cell+='"';i++;}
+      else quoted=!quoted;
+    }else if(ch===','&&!quoted){row.push(cell);cell='';}
+    else if((ch==='\n'||ch==='\r')&&!quoted){
+      if(ch==='\r'&&source[i+1]==='\n')i++;
+      row.push(cell);rows.push(row);row=[];cell='';
+    }else cell+=ch;
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  return rows.filter(r=>r.some(value=>String(value).length>0));
+}
+function datasetCsvCell(value){
+  const text=String(value??'');
+  return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
+}
+function serializeDatasetCsv(rows){return rows.map(row=>row.map(datasetCsvCell).join(',')).join('\n');}
+function applyDatasetOperations(content,operations){
+  if(!Array.isArray(operations)||!operations.length||operations.length>300)throw Error('Delta dataset tidak valid.');
+  const rows=parseDatasetCsv(content);
+  if(!rows.length)throw Error('Dataset kosong perlu disinkronkan penuh.');
+  const cols=rows[0].length;
+  const data=rows.slice(1).map(row=>Array.from({length:cols},(_,i)=>String(row[i]??'')));
+  for(const operation of operations){
+    const kind=String(operation?.kind||'');
+    if(kind==='set_cell'){
+      const r=Number(operation.row),col=Number(operation.col);
+      if(!Number.isInteger(r)||!Number.isInteger(col)||r<0||r>=data.length||col<0||col>=cols)throw Error('Posisi sel delta tidak valid.');
+      data[r][col]=String(operation.value??'');
+    }else if(kind==='set_range'){
+      const r0=Number(operation.row),c0=Number(operation.col),values=operation.values;
+      if(!Number.isInteger(r0)||!Number.isInteger(c0)||r0<0||c0<0||!Array.isArray(values)||!values.length)throw Error('Rentang delta tidak valid.');
+      for(let r=0;r<values.length;r++){
+        if(!Array.isArray(values[r])||r0+r>=data.length||c0+values[r].length>cols)throw Error('Rentang delta melewati ukuran dataset.');
+        for(let col=0;col<values[r].length;col++)data[r0+r][c0+col]=String(values[r][col]??'');
+      }
+    }else if(kind==='append_row'){
+      const values=Array.isArray(operation.values)?operation.values:[];
+      if(values.length!==cols)throw Error('Jumlah kolom baris baru tidak sesuai.');
+      data.push(values.map(value=>String(value??'')));
+    }else if(kind==='delete_row'){
+      const r=Number(operation.row);
+      if(!Number.isInteger(r)||r<0||r>=data.length)throw Error('Baris delta tidak valid.');
+      data.splice(r,1);
+    }else if(kind==='move_column'){
+      const from=Number(operation.from),to=Number(operation.to);
+      if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to<0||from>=cols||to>=cols)throw Error('Kolom delta tidak valid.');
+      for(const row of [rows[0],...data]){const [value]=row.splice(from,1);row.splice(to,0,value);}
+    }else throw Error('Jenis delta dataset tidak didukung.');
+  }
+  return serializeDatasetCsv([rows[0],...data]);
+}
+async function datasetVersion(env,userId){
+  const row=await env.DB.prepare(`SELECT COUNT(*) AS n,COALESCE(SUM(revision),0) AS revisions,COALESCE(MAX(updated_at),'') AS updated
+    FROM user_datasets WHERE user_id=?`).bind(userId).first();
+  return `${Number(row?.n||0)}:${Number(row?.revisions||0)}:${String(row?.updated||'')}`;
+}
 async function datasetUsage(env,userId){
   await ensureDatasetSchema(env);
   const row=await env.DB.prepare(`SELECT
@@ -411,10 +496,12 @@ async function handleDatasetList(request,env,url){
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   await ensureDatasetSchema(env);
   const includeDeleted=url.searchParams.get('include_deleted')==='1';
+  const version=await datasetVersion(env,user.id),known=String(url.searchParams.get('known_version')||'');
+  if(known&&known===version)return json(request,env,{unchanged:true,version,items:[]});
   const result=await env.DB.prepare(`SELECT id,name,revision,created_at,updated_at,deleted_at
     FROM user_datasets WHERE user_id=? ${includeDeleted?'':'AND deleted_at IS NULL'} ORDER BY updated_at ASC`)
     .bind(user.id).all();
-  return json(request,env,{items:(result.results||[]).map(datasetSummary)});
+  return json(request,env,{unchanged:false,version,items:(result.results||[]).map(datasetSummary)});
 }
 async function handleDatasetGet(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
@@ -479,6 +566,33 @@ async function handleDatasetPut(request,env,id){
 
   const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
   return json(request,env,{ok:true,item:datasetPayload(row)});
+}
+async function handleDatasetPatch(request,env,id){
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
+  await ensureDatasetSchema(env);
+  const body=await request.json().catch(()=>null),expectedRevision=Number(body?.expectedRevision),operationId=String(body?.operationId||''),operations=body?.operations;
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const scope=`dataset:${user.id}:${id}`,replayed=await replayOperation(env,scope,operationId);
+  if(replayed)return json(request,env,replayed);
+  const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  if(!row)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
+  if(!Number.isFinite(expectedRevision)||Number(row.revision)!==expectedRevision)return json(request,env,{error:'revision_conflict',current:datasetPayload(row)},409);
+  let content;
+  try{content=applyDatasetOperations(row.content,operations);}catch(error){return json(request,env,{error:error.message},400);}
+  if(new TextEncoder().encode(content).byteLength>MAX_DATASET_BYTES)return json(request,env,{error:'Dataset terlalu besar untuk sinkronisasi akun.'},413);
+  const incomingBytes=new TextEncoder().encode(content+String(row.meta_json||'')).byteLength;
+  const existingBytes=new TextEncoder().encode(String(row.content||'')+String(row.meta_json||'')).byteLength;
+  const quotaCheck=await enforceDatasetQuota(env,user,{incomingBytes,existingBytes,isNew:false});
+  if(!quotaCheck.ok)return json(request,env,{error:quotaCheck.error,message:'Batas penyimpanan membership tercapai.',usage:quotaCheck.usage,quota:quotaCheck.quota},413);
+  const now=new Date().toISOString();
+  await env.DB.prepare('UPDATE user_datasets SET content=?,revision=revision+1,updated_at=? WHERE id=? AND user_id=?').bind(content,now,id,user.id).run();
+  const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  const payload={ok:true,item:datasetPayload(current),applied:Array.isArray(operations)?operations.length:0};
+  await rememberOperation(env,scope,operationId,payload);
+  return json(request,env,payload);
 }
 async function handleDatasetDelete(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
@@ -1073,6 +1187,37 @@ async function verifyTurnstile(request,env){
   const data=await result.json();
   return Boolean(data.success&&(!data.action||data.action==='chili_contribute'));
 }
+async function ensureContributionSchema(env){
+  if(CONTRIBUTION_SCHEMA_READY)return;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS contributions (
+    id TEXT PRIMARY KEY,
+    sample TEXT NOT NULL,
+    image BLOB NOT NULL,
+    mime_type TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    boxes_json TEXT NOT NULL,
+    predicted_boxes_json TEXT NOT NULL,
+    predicted_count INTEGER NOT NULL,
+    final_count INTEGER NOT NULL,
+    prediction_method TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    correction_count INTEGER NOT NULL,
+    quality_score REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'candidate',
+    created_at TEXT NOT NULL,
+    edit_token_hash TEXT,
+    updated_at TEXT
+  )`).run();
+  const info=await env.DB.prepare('PRAGMA table_info(contributions)').all(),columns=new Set((info.results||[]).map(row=>row.name));
+  if(!columns.has('edit_token_hash'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN edit_token_hash TEXT').run();
+  if(!columns.has('updated_at'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN updated_at TEXT').run();
+  await env.DB.batch([
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)')
+  ]);
+  CONTRIBUTION_SCHEMA_READY=true;
+}
 function qualityScore(predictedCount,finalCount,correctionCount){
   const denominator=Math.max(1,finalCount,predictedCount);
   const rate=Math.min(1,correctionCount/denominator);
@@ -1084,7 +1229,11 @@ function parseJsonField(form,name,fallback=[]){
 
 async function handleContribution(request,env){
   if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
-  const form=await request.formData(),image=form.get('image');
+  await ensureContributionSchema(env);
+  const form=await request.formData(),image=form.get('image'),operationId=String(form.get('operation_id')||'');
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const replayed=await replayOperation(env,'contribution:create',operationId);
+  if(replayed)return json(request,env,replayed);
   if(!(image instanceof File))return json(request,env,{error:'Foto tidak ditemukan.'},400);
   if(image.size<=0||image.size>MAX_IMAGE_BYTES)return json(request,env,{error:'Ukuran foto kontribusi tidak valid.'},413);
   if(!['image/webp','image/jpeg','image/png'].includes(image.type))return json(request,env,{error:'Format foto tidak didukung.'},415);
@@ -1099,16 +1248,43 @@ async function handleContribution(request,env){
   const correctionCount=Math.abs(finalCount-predictedCount)+(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
   const method=String(form.get('prediction_method')||'unknown').slice(0,40);
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
-  const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount);
+  const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount),editToken=randomToken(24),editTokenHash=await sha256(editToken);
   const bytes=await image.arrayBuffer();
 
   await env.DB.prepare(`INSERT INTO contributions
-    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt)
+    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
     .run();
 
-  return json(request,env,{ok:true,id,qualityScore:score,finalCount});
+  const payload={ok:true,id,editToken,qualityScore:score,finalCount};
+  await rememberOperation(env,'contribution:create',operationId,payload);
+  return json(request,env,payload);
+}
+async function handleContributionPatch(request,env,id){
+  if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
+  await ensureContributionSchema(env);
+  if(!validDatasetId(id))return json(request,env,{error:'ID kontribusi tidak valid.'},400);
+  const editToken=request.headers.get('X-Contribution-Edit')||'';
+  if(!editToken)return json(request,env,{error:'Token edit kontribusi tidak tersedia.'},401);
+  const body=await request.json().catch(()=>null),operationId=String(body?.operationId||'');
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const scope='contribution:update:'+id,replayed=await replayOperation(env,scope,operationId);
+  if(replayed)return json(request,env,replayed);
+  const row=await env.DB.prepare('SELECT id,edit_token_hash,predicted_boxes_json FROM contributions WHERE id=? LIMIT 1').bind(id).first();
+  if(!row)return json(request,env,{error:'Kontribusi tidak ditemukan.'},404);
+  if(!row.edit_token_hash||await sha256(editToken)!==row.edit_token_hash)return json(request,env,{error:'Token edit kontribusi tidak valid.'},403);
+  const boxes=body?.boxes,predictedBoxes=body?.predictedBoxes??JSON.parse(row.predicted_boxes_json||'[]');
+  if(!validBoxes(boxes)||!validBoxes(predictedBoxes))return json(request,env,{error:'Bounding box tidak valid.'},400);
+  const predictedCount=predictedBoxes.length,finalCount=boxes.length;
+  const correctionCount=Math.abs(finalCount-predictedCount)+(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
+  const method=String(body?.predictionMethod||'manual').slice(0,40),modelVersion=String(body?.modelVersion||'unknown').slice(0,80);
+  const score=qualityScore(predictedCount,finalCount,correctionCount),now=new Date().toISOString();
+  await env.DB.prepare(`UPDATE contributions SET boxes_json=?,predicted_boxes_json=?,predicted_count=?,final_count=?,prediction_method=?,model_version=?,correction_count=?,quality_score=?,updated_at=? WHERE id=?`)
+    .bind(JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,now,id).run();
+  const payload={ok:true,id,updated:true,qualityScore:score,finalCount};
+  await rememberOperation(env,scope,operationId,payload);
+  return json(request,env,payload);
 }
 async function handleManifest(request,env,url){
   if(!authAdmin(request,env))return json(request,env,{error:'Tidak diizinkan.'},401);
@@ -1134,7 +1310,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.2'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.3'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -1182,8 +1358,11 @@ export default {
       const datasetMatch=url.pathname.match(/^\/v1\/datasets\/([0-9a-f-]{36})$/i);
       if(request.method==='GET'&&datasetMatch)return await handleDatasetGet(request,env,datasetMatch[1]);
       if(request.method==='PUT'&&datasetMatch)return await handleDatasetPut(request,env,datasetMatch[1]);
+      if(request.method==='PATCH'&&datasetMatch)return await handleDatasetPatch(request,env,datasetMatch[1]);
       if(request.method==='DELETE'&&datasetMatch)return await handleDatasetDelete(request,env,datasetMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/contributions')return await handleContribution(request,env);
+      const contributionMatch=url.pathname.match(/^\/v1\/contributions\/([0-9a-f-]{36})$/i);
+      if(request.method==='PATCH'&&contributionMatch)return await handleContributionPatch(request,env,contributionMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/admin/manifest')return await handleManifest(request,env,url);
       const imageMatch=url.pathname.match(/^\/v1\/admin\/image\/([0-9a-f-]+)$/i);
       if(request.method==='GET'&&imageMatch)return await handleImage(request,env,imageMatch[1]);
