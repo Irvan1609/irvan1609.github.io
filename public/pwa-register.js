@@ -4,7 +4,7 @@ let deferredInstall=null;
 function installStyles(){
   if(document.getElementById('agrotikPwaStyle'))return;
   const style=document.createElement('style');style.id='agrotikPwaStyle';
-  style.textContent='.agrotik-install{position:fixed;right:10px;bottom:70px;z-index:180;width:30px;height:30px;display:grid;place-items:center;border:1px solid #c7d1cc;border-radius:50%;background:rgba(255,255,255,.94);color:#486158;padding:0;font:700 15px/1 "Segoe UI",Arial,sans-serif;box-shadow:0 4px 12px rgba(18,54,40,.10);cursor:pointer;opacity:.72}.agrotik-install:hover,.agrotik-install:focus-visible{opacity:1}.agrotik-offline{position:fixed;left:10px;bottom:10px;z-index:180;padding:5px 8px;border-radius:999px;background:#26343d;color:#fff;font:700 11px/1 "Segoe UI",Arial,sans-serif;box-shadow:0 5px 16px rgba(0,0,0,.16)}@media(display-mode:standalone){.agrotik-install{display:none!important}}';
+  style.textContent='.agrotik-install{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border:1px solid #d3dce1;border-radius:8px;background:transparent;color:#526577;padding:0;font:750 14px/1 "Segoe UI",Arial,sans-serif;box-shadow:none;cursor:pointer;opacity:.78}.agrotik-install:hover,.agrotik-install:focus-visible{opacity:1;background:#f3f6f8;color:#17324d}.agrotik-offline{position:fixed;left:10px;bottom:10px;z-index:180;padding:5px 8px;border-radius:999px;background:#26343d;color:#fff;font:700 11px/1 "Segoe UI",Arial,sans-serif;box-shadow:0 5px 16px rgba(0,0,0,.16)}@media(max-width:680px){.agrotik-install{width:28px;height:28px;flex-basis:28px;border-radius:7px;font-size:13px}}@media(display-mode:standalone){.agrotik-install{display:none!important}}';
   document.head.append(style);
 }
 function installButton(){
@@ -18,7 +18,8 @@ function installButton(){
     await deferredInstall.userChoice.catch(()=>null);
     deferredInstall=null;button.remove();
   };
-  document.body.append(button);return button;
+  const headerTarget=document.querySelector('.subweb-nav')||document.querySelector('.site-header .nav-links')||document.querySelector('header nav')||document.querySelector('header');
+  (headerTarget||document.body).append(button);return button;
 }
 function updateNetworkBadge(){
   installStyles();
