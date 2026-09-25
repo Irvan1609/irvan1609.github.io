@@ -643,6 +643,10 @@ async function handleAuthExchange(request,env){
     .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now).run();
 
   const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
+  if(user?.account_status&&user.account_status!=='active'){
+    await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=?').bind(new Date().toISOString(),sessionId).run();
+    return json(request,env,{error:'account_suspended',message:'Akun ini sedang ditangguhkan.'},403);
+  }
   return json(request,env,{ok:true,token:sessionToken,expiresAt,user:publicUser(user)});
 }
 async function handleAuthSession(request,env){
