@@ -171,7 +171,7 @@ async function ensureAuthSchema(env){
   if(!columns.has('membership_plan_id'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_plan_id TEXT").run();
   if(!columns.has('account_status'))await env.DB.prepare("ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'").run();
   for(const email of adminEmails(env)){
-    await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
+    await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',membership_plan_id='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
       .bind(new Date().toISOString(),email).run();
   }
   AUTH_SCHEMA_READY=true;
@@ -479,8 +479,10 @@ function publicUser(row){
       status:row.role==='admin'?'active':(row.membership_status||'inactive'),
       active,
       expiresAt:row.membership_expires_at||null,
-      source:row.role==='admin'?'admin':(row.membership_source||'none')
+      source:row.role==='admin'?'admin':(row.membership_source||'none'),
+      planId:row.role==='admin'?'admin':(row.membership_plan_id||null)
     },
+    accountStatus:row.account_status||'active',
     features:{
       datasetSync:syncAccess(row),
       analysisIncluded:analysisIncluded(row),
@@ -494,9 +496,10 @@ async function userFromSession(request,env){
   const token=bearerToken(request);
   if(!token)return null;
   const hash=await sha256(token),nowMs=Date.now(),now=new Date(nowMs).toISOString();
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.created_at,u.last_login_at,s.id AS session_id,s.last_seen_at
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.created_at,u.last_login_at,s.id AS session_id,s.last_seen_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
+  if(row&&row.account_status!=='active')return null;
   if(row){
     const lastSeen=Date.parse(row.last_seen_at||'');
     if(!Number.isFinite(lastSeen)||nowMs-lastSeen>=SESSION_TOUCH_MINUTES*60000){
@@ -568,13 +571,13 @@ async function handleGoogleCallback(request,env,url){
   if(!user){
     user={id:crypto.randomUUID()};
     await env.DB.prepare(`INSERT INTO users
-      (id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at,role,membership_status,membership_expires_at,membership_source,access_updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(user.id,String(profile.sub),cleanEmail,verified,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,now,admin?'admin':'user',admin?'active':'inactive',null,admin?'admin':'none',now).run();
+      (id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at,role,membership_status,membership_expires_at,membership_source,access_updated_at,membership_plan_id,account_status)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(user.id,String(profile.sub),cleanEmail,verified,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,now,admin?'admin':'user',admin?'active':'inactive',null,admin?'admin':'none',now,admin?'admin':null,'active').run();
   }else{
     await env.DB.prepare(`UPDATE users SET email=?,email_verified=?,name=?,picture_url=?,updated_at=?,last_login_at=? WHERE id=?`)
       .bind(cleanEmail,verified,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,user.id).run();
-    if(admin)await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',access_updated_at=? WHERE id=?`).bind(now,user.id).run();
+    if(admin)await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',membership_plan_id='admin',access_updated_at=? WHERE id=?`).bind(now,user.id).run();
   }
 
   const rawCode=randomToken(32),codeHash=await sha256(rawCode);
@@ -600,7 +603,7 @@ async function handleAuthExchange(request,env){
     (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at) VALUES (?,?,?,?,?,?,NULL)`)
     .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now).run();
 
-  const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
+  const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
   return json(request,env,{ok:true,token:sessionToken,expiresAt,user:publicUser(user)});
 }
 async function handleAuthSession(request,env){
