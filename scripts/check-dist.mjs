@@ -64,7 +64,7 @@ for (const [name,page] of [['root',portfolio],['stat',html],['mendeley',mendeley
   if(!page.includes('/manifest.webmanifest')||!page.includes('/pwa-register.js')) fail(`built ${name} page is missing PWA wiring`);
 }
 const sw=fs.readFileSync(serviceWorkerPath,'utf8'),manifest=JSON.parse(fs.readFileSync(pwaManifestPath,'utf8'));
-if(!sw.includes('agrotik-core-')||!sw.includes('warmChiliOffline')||!sw.includes("request.method!=='GET'")) fail('built service worker contract is incomplete');
+if(!sw.includes('agrotik-core-')||!sw.includes('agrotik-runtime-')||!sw.includes("request.method!=='GET'")||!sw.includes("request.mode==='navigate'")) fail('built service worker contract is incomplete');
 if(manifest.short_name!=='Agrotik'||manifest.display!=='standalone') fail('built PWA manifest is invalid');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);
@@ -84,4 +84,4 @@ for (const marker of ['pasteBtn','openAnalysis','globalSearch','globalSearchResu
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');
 
-console.log(`Dist check OK: app pages and PWA shell built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), offline assets and production markers present.`);
+console.log(`Dist check OK: app pages and lightweight PWA shell built; ${jsFiles.length} JS bundle(s), ${cssFiles.length} CSS bundle(s), offline assets and production markers present.`);
