@@ -120,13 +120,13 @@ export function installAnalysisFlow() {
     else{
       panel.querySelectorAll('[data-analysis-group]').forEach(group=>{
         const toggle=group.querySelector('.analysis-group-toggle'),body=toggle?.nextElementSibling;
-        if(body)body.hidden=true;
-        toggle?.setAttribute('aria-expanded','false');
+        if(body)body.hidden=false;
+        toggle?.setAttribute('aria-expanded','true');
       });
     }
     panel.hidden=false;
     open.setAttribute('aria-expanded','true');
-    requestAnimationFrame(()=>panel.querySelector('.analysis-group-toggle')?.focus());
+    requestAnimationFrame(()=>panel.querySelector('.analysis-menu-item')?.focus());
   }
 
   open.addEventListener('click',()=>{
@@ -135,15 +135,8 @@ export function installAnalysisFlow() {
   });
 
   panel.querySelectorAll('.analysis-group-toggle').forEach(toggle=>toggle.addEventListener('click',()=>{
+    if(!phoneGuardMode())return;
     const body=toggle.nextElementSibling,opening=body.hidden;
-    if(!phoneGuardMode()&&opening){
-      panel.querySelectorAll('.analysis-group-toggle').forEach(other=>{
-        if(other===toggle)return;
-        const otherBody=other.nextElementSibling;
-        if(otherBody)otherBody.hidden=true;
-        other.setAttribute('aria-expanded','false');
-      });
-    }
     body.hidden=!opening;
     toggle.setAttribute('aria-expanded',String(opening));
   }));
