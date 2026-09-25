@@ -1,9 +1,12 @@
 import {detectChiliBoxesFromImageData} from './detector.js';
+import {detectChiliWithModel} from './ml-detector.js';
+import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
-let image=null,photo='',boxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
-let cameraStream=null,facingMode='environment',torchOn=false,detecting=false;
+let image=null,photo='',boxes=[],predictedBoxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
+let cameraStream=null,facingMode='environment',torchOn=false,detecting=false,contributing=false;
+let predictionMethod='manual',modelVersion='heuristic-color-v1';
 const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
 
 const status=message=>$('status').textContent=message;
@@ -97,8 +100,14 @@ async function autoDetectChilies({automatic=false}={}){
   status('Mendeteksi cabai pada foto…');
   try{
     await new Promise(resolve=>setTimeout(resolve,20));
-    const result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
-    checkpoint();boxes=result.boxes;paint();
+    let result=await detectChiliWithModel(image).catch(()=>null);
+    if(result){
+      predictionMethod=result.method||'onnx';modelVersion=result.version||'onnx';
+    }else{
+      result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
+      predictionMethod='heuristic-color';modelVersion='heuristic-color-v1';
+    }
+    checkpoint();boxes=result.boxes;predictedBoxes=cloneBoxes();paint();
     if(boxes.length){
       status(`Deteksi otomatis menemukan ${boxes.length} calon cabai. Periksa kotaknya; tambahkan atau hapus jika ada yang kurang tepat.`);
     }else{
@@ -112,7 +121,8 @@ async function autoDetectChilies({automatic=false}={}){
 }
 async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
-  image=prepared.image;photo=prepared.url;boxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;
+  image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;
+  predictionMethod='manual';modelVersion='heuristic-color-v1';
   $('sample').value=name||nowName();
   $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
@@ -319,7 +329,8 @@ async function saveCurrent(){
     const id=activeId||crypto.randomUUID(),existing=activeId?await transaction('readonly',store=>store.get(activeId)):null;
     await transaction('readwrite',store=>store.put({
       id,name,image:photo,width:image.naturalWidth,height:image.naturalHeight,
-      boxes:cloneBoxes(),reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
+      boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),predictionMethod,modelVersion,
+      reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
     const synced=sendCurrentToStatistics({quiet:true});
@@ -329,10 +340,39 @@ async function saveCurrent(){
 $('save').onclick=saveCurrent;$('mobileSave').onclick=saveCurrent;
 $('sendToStat').onclick=()=>sendCurrentToStatistics();
 
+async function contributeCurrent(){
+  if(contributing)return;
+  if(!image)return status('Ambil foto atau pilih foto terlebih dahulu.');
+  if(!cloudContributionReady())return status('Kontribusi cloud belum diaktifkan. Selesaikan konfigurasi Cloudflare terlebih dahulu.');
+  if(!$('trainingConsent').checked)return status('Centang persetujuan penggunaan foto dan kotak untuk pelatihan AI.');
+  const sample=$('sample').value.trim()||nowName();
+  contributing=true;$('contribute').disabled=true;$('contribute').textContent='Mengirim…';
+  try{
+    const result=await submitTrainingContribution({
+      image,sample,boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),
+      predictionMethod,modelVersion,consent:true
+    });
+    $('trainingConsent').checked=false;
+    status(`Kontribusi diterima: ${result.finalCount} buah. Data masuk kandidat pelatihan dengan quality score ${result.qualityScore}.`);
+  }catch(error){
+    status(error.message||'Kontribusi belum dapat dikirim.');
+  }finally{
+    contributing=false;$('contribute').disabled=!cloudContributionReady();$('contribute').textContent='Kirim untuk melatih AI';
+  }
+}
+$('contribute').onclick=contributeCurrent;
+function updateCloudState(){
+  const ready=cloudContributionReady();
+  $('contribute').disabled=!ready;
+  $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+}
+
+
 async function openRecord(row){
   if(!canDiscard())return;
   try{
-    image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;
+    image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);predictedBoxes=(row.predictedBoxes||[]).map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;
+    predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
     $('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);
     window.scrollTo({top:0,behavior:'smooth'});status(`Sampel dibuka: ${row.boxes.length} buah.`);
   }catch{status('Foto tersimpan tidak dapat dibuka.');}
@@ -398,7 +438,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStre
 
 try{
   applyDetectSettings();
-  db=await openDB();await list();updateInteractionMode();
+  db=await openDB();await list();updateInteractionMode();updateCloudState();
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch{
   status('Penyimpanan browser tidak tersedia. Hasil masih dapat dihitung, tetapi tidak bisa disimpan.');
