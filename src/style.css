@@ -2771,3 +2771,81 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   }
   .analysis-item-arrow{font-size:16px!important}
 }
+
+/* COMPACT-LIGHT DEFAULT 2026-09-26 */
+html{font-size:15px}
+body{line-height:1.34}
+button{min-height:34px;padding:5px 9px}
+input:not([type=checkbox]),select,textarea{padding:7px 8px}
+.app-shell{padding:10px}
+.topbar{padding:9px 12px}
+.nav{gap:5px;padding:0 12px 8px}
+.toolbar{gap:5px;padding:7px 10px}
+.main{gap:8px;margin-top:8px;grid-template-columns:185px minmax(0,1fr)}
+.project-panel{padding:7px}
+.panel-title{padding:3px 5px 6px}
+.tree-item{margin-bottom:3px}
+.sheet-header{gap:5px;padding:7px 9px}
+.data-grid{font-size:var(--data-font-size)}
+.data-grid th,.data-grid td{padding:4px 8px;min-width:90px;height:30px}
+.data-grid .row-number{min-width:38px}
+.status{padding:6px 9px}
+.empty-state{padding:24px 12px}
+.error-box{margin:7px 0;padding:8px}
+.modal-backdrop{padding:10px}
+.modal-backdrop>.modal{max-height:calc(100dvh - 20px);border-radius:8px;box-shadow:0 8px 26px #15233424}
+.modal-head,.modal-foot{gap:7px;padding:8px 12px}
+.modal-body{padding:11px}
+.form-grid,.ral-grid{gap:8px}
+.form-field{gap:4px}
+.ral-title{padding:7px 9px}
+.ral-list{max-height:190px;padding:4px}
+.ral-check{gap:7px;padding:6px 7px}
+.ral-select{width:calc(100% - 14px);margin:7px}
+.ral-hint{padding:0 8px 8px}
+.analysis-note{margin:6px 0;padding:6px 8px;line-height:1.3}
+.ral-result-block{margin-top:10px;padding-top:8px}
+.result-table{margin:6px 0}
+.result-table th,.result-table td{padding:5px 6px}
+.number-settings{margin:7px 0;padding:8px 10px}
+.number-settings-body{padding-top:7px}
+.number-settings label{margin:6px 0 4px}
+.number-settings select{padding:7px}
+.number-settings p{margin-top:6px;line-height:1.3}
+.bnj-options{gap:8px}
+.result-actions{gap:5px;margin:5px 0 7px}
+.result-actions button{min-height:32px;padding:4px 8px}
+.analysis-result{margin-top:8px;content-visibility:auto;contain-intrinsic-size:auto 420px}
+.analysis-result>h3,.analysis-result>h4{padding:5px 7px!important}
+.analysis-result .result-actions{padding:5px 7px}
+.analysis-result .result-table th,.analysis-result .result-table td{height:22px;padding:2px 5px}
+.analysis-result .anova-table th,.analysis-result .anova-table td{height:24px}
+.analysis-result .analysis-note{margin-top:6px;padding:4px 6px;line-height:1.25}
+.analysis-result .posthoc-table{margin-top:6px}
+.dataset-actions{gap:4px;margin-top:7px}
+.design-options{gap:8px}
+.design-options button{padding:12px 10px}
+.design-options b{font-size:19px;margin-bottom:4px}
+.field-label{margin:7px 8px 0}
+#rakBnjOptions{gap:7px}
+.scientific-chart{padding:6px}
+#scienceFields select{margin:4px 0}
+#scienceFields details{margin:7px 0;padding:7px}
+#scienceContrastFields label{gap:7px;margin:5px 0}
+@media(max-width:720px){
+  html{font-size:14px}
+  .app-shell{padding:6px}
+  .topbar{padding:7px 8px}
+  .nav{padding:0 8px 7px;gap:4px}
+  .main{gap:6px;margin-top:6px}
+  button{min-height:38px;padding:6px 9px}
+  .project-panel{padding:5px}
+  .sheet-header{padding:6px 7px}
+  .data-grid th,.data-grid td{height:32px;padding:4px 7px}
+  .modal-backdrop{padding:5px}
+  .modal-backdrop>.modal{max-height:calc(100dvh - 10px)}
+  .modal-body{padding:8px}
+  .modal-head,.modal-foot{padding:7px 9px}
+  .form-grid,.ral-grid{gap:6px}
+  .analysis-result{margin-top:6px}
+}
