@@ -1,56 +1,85 @@
 export function installNavigation(){
   const nav=document.querySelector('.nav');
-  const sheet=document.querySelector('.sheet-header');
-  if(!nav||!sheet)return;
+  const header=document.querySelector('.app-header');
+  if(!nav||!header)return;
 
-  const clear=document.getElementById('clearData');
-  if(clear){clear.textContent='×';clear.setAttribute('aria-label','Hapus seluruh data');clear.title='Hapus seluruh data';clear.classList.add('icon-only');sheet.append(clear);}
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
-  for(const [id,title,ids] of [
-    ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
-    ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
-  ]){
-    const button=document.createElement('button');
-    button.id=id+'Button';
-    button.textContent=title;
-    button.setAttribute('aria-expanded','false');
-    button.setAttribute('aria-controls',id);
+  const panel=document.createElement('div');
+  panel.id='appMenu';
+  panel.className='nav-command-panel compact-app-menu';
+  panel.hidden=true;
+  panel.setAttribute('role','region');
+  panel.setAttribute('aria-label','Menu aplikasi');
 
-    const panel=document.createElement('div');
-    panel.id=id;
-    panel.className='nav-command-panel';
-    panel.hidden=true;
-    panel.setAttribute('role','group');
-    panel.setAttribute('aria-label',title);
-    ids.forEach(name=>{const command=document.getElementById(name);if(command)panel.append(command);});
-    nav.append(button);
-    nav.after(panel);
+  const addSection=(title,ids)=>{
+    const section=document.createElement('section');
+    section.className='app-menu-section';
+    const heading=document.createElement('div');
+    heading.className='app-menu-section-title';
+    heading.textContent=title;
+    section.append(heading);
+    const commands=document.createElement('div');
+    commands.className='app-menu-commands';
+    ids.forEach(id=>{
+      const command=document.getElementById(id);
+      if(command)commands.append(command);
+    });
+    section.append(commands);
+    panel.append(section);
+  };
 
-    button.onclick=()=>{
-      const opening=panel.hidden;
+  addSection('File',['pasteBtn','importBtn','importXlsx','newTxt']);
+  addSection('Data',['focusData','addRow','addCol','compactEditor','undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']);
+  addSection('Lainnya',['dataTemplate','analysisHistory','configureDriveBackup','clearData']);
+
+  const settingsToggle=document.getElementById('appSettingsToggle');
+  if(settingsToggle){
+    settingsToggle.hidden=true;
+    const section=panel.querySelector('.app-menu-section:last-child .app-menu-commands');
+    const settings=document.createElement('button');
+    settings.type='button';
+    settings.id='openSettingsFromMenu';
+    settings.textContent='Pengaturan';
+    settings.onclick=()=>{
       closeMenus();
-      panel.hidden=!opening;
-      button.setAttribute('aria-expanded',String(opening));
+      settingsToggle.click();
     };
-    panel.addEventListener('click',event=>{if(event.target.closest('button'))closeMenus();});
+    section?.append(settings);
   }
 
+  const menuButton=document.createElement('button');
+  menuButton.id='appMenuButton';
+  menuButton.type='button';
+  menuButton.textContent='Menu';
+  menuButton.setAttribute('aria-expanded','false');
+  menuButton.setAttribute('aria-controls','appMenu');
+  nav.append(menuButton);
+  header.append(panel);
+
   function closeMenus(){
-    for(const id of ['fileMenu','dataMenu','helpMenu']){
-      const panel=document.getElementById(id),button=document.getElementById(id+'Button');
-      if(panel)panel.hidden=true;
-      if(button)button.setAttribute('aria-expanded','false');
-    }
+    panel.hidden=true;
+    menuButton.setAttribute('aria-expanded','false');
     const analysisMenu=document.getElementById('analysisMenu'),openAnalysis=document.getElementById('openAnalysis');
     if(analysisMenu)analysisMenu.hidden=true;
     if(openAnalysis)openAnalysis.setAttribute('aria-expanded','false');
   }
 
+  menuButton.onclick=()=>{
+    const opening=panel.hidden;
+    document.dispatchEvent(new Event('close-navigation'));
+    panel.hidden=!opening;
+    menuButton.setAttribute('aria-expanded',String(opening));
+  };
+
+  panel.addEventListener('click',event=>{
+    const button=event.target.closest('button');
+    if(button&&button.id!=='openSettingsFromMenu')closeMenus();
+  });
+
   document.addEventListener('click',event=>{
-    if(!event.target.closest('.nav,.nav-command-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
+    if(!event.target.closest('.nav,.nav-command-panel,#backScience,[data-back-design],#appSettingsPanel'))closeMenus();
   });
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenus();});
