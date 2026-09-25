@@ -944,7 +944,7 @@ async function handleMembershipPaymentStatus(request,env,orderId){
   const payment=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? AND user_id=? LIMIT 1').bind(orderId,user.id).first();
   if(!payment)return json(request,env,{error:'Pembayaran tidak ditemukan.'},404);
   const current=['settlement','expire','deny','cancel','error'].includes(payment.status)?payment:await syncMembershipPayment(env,payment);
-  return json(request,env,{orderId:current.order_id,status:current.status,paid:current.status==='settlement',applied:Boolean(current.applied_at),expiresAt:current.membership_expires_at||null});
+  return json(request,env,{orderId:current.order_id,status:current.status,paid:current.status==='settlement',applied:Boolean(current.applied_at),expiresAt:current.membership_expires_at||null,qrUrl:current.qr_url||null});
 }
 async function handleMembershipWebhook(request,env){
   if(!midtransMembershipConfigured(env))return json(request,env,{received:true,ignored:true});
@@ -1421,7 +1421,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.8'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.9'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
