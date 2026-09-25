@@ -5,6 +5,7 @@ const $=s=>document.querySelector(s);
 let currentOrder='';
 let pollTimer=null;
 let plans=[];
+let qrisObjectUrl='';
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function token(){return window.IrvanAccount?.getToken?.()||'';}
@@ -45,8 +46,40 @@ function renderPlans(paymentConfigured){
     $('#membershipGate').textContent='Mode preview admin: paket publik tetap ditampilkan, tetapi akun admin tidak perlu membeli membership.';
   }
 }
+async function showQrImage(orderId,fallbackUrl=''){
+  const image=$('#qrisImage');
+  image.hidden=true;
+  if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}
+  try{
+    const response=await fetch(endpoint+'/v1/membership/payments/'+encodeURIComponent(orderId)+'/qr',{
+      headers:{Authorization:'Bearer '+token()},
+      cache:'no-store'
+    });
+    if(!response.ok){
+      const data=await response.json().catch(()=>({}));
+      throw Error(data.message||data.error||('HTTP '+response.status));
+    }
+    const blob=await response.blob();
+    qrisObjectUrl=URL.createObjectURL(blob);
+    image.src=qrisObjectUrl;
+    image.hidden=false;
+    return;
+  }catch(error){
+    console.error('QRIS proxy failed',error);
+  }
+  if(fallbackUrl){
+    image.src=fallbackUrl;
+    image.hidden=false;
+    image.onerror=()=>{
+      image.hidden=true;
+      $('#qrisMessage').textContent='Transaksi QRIS berhasil dibuat, tetapi gambar QR tidak dapat dimuat. Tekan “Periksa sekarang” atau coba muat ulang transaksi.';
+    };
+  }else{
+    $('#qrisMessage').textContent='Transaksi dibuat, tetapi Midtrans belum memberikan gambar QRIS.';
+  }
+}
 function openModal(){const m=$('#qrisModal');m.hidden=false;}
-function closeModal(){clearTimeout(pollTimer);pollTimer=null;$('#qrisModal').hidden=true;currentOrder='';}
+function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
   openModal();$('#qrisMessage').textContent='Membuat QRIS…';$('#qrisImage').hidden=true;$('#qrisOrder').textContent='';
@@ -55,7 +88,8 @@ async function buy(planId){
     currentOrder=data.orderId;
     $('#qrisTitle').textContent=data.planName||'Pembayaran membership';
     $('#qrisMessage').textContent='Pindai QRIS '+money(data.amount)+'. Status akan diperiksa otomatis.';
-    $('#qrisImage').src=data.qrUrl;$('#qrisImage').hidden=false;$('#qrisOrder').textContent='ID transaksi: '+data.orderId;
+    $('#qrisOrder').textContent='ID transaksi: '+data.orderId;
+    await showQrImage(data.orderId,data.qrUrl);
     poll();
   }catch(error){$('#qrisMessage').textContent=error.message||'QRIS tidak dapat dibuat.';}
 }
