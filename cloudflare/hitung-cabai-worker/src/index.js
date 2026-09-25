@@ -16,7 +16,7 @@ function corsHeaders(request,env){
   const allowed=allowedOrigins(env);
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
-    'Access-Control-Allow-Methods':'GET,POST,OPTIONS',
+    'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
@@ -164,9 +164,9 @@ function validDatasetId(value){
   return /^[0-9a-f-]{36}$/i.test(String(value||''));
 }
 function normalizeDatasetName(value){
-  const name=String(value||'').trim().replace(/\.(?:txt|csv)$/i,'')+'.csv';
-  if(!name||name.length>180||/[\\/\u0000-\u001f]/.test(name))return '';
-  return name;
+  const base=String(value||'').trim().replace(/\.(?:txt|csv)$/i,'');
+  if(!base||base.length>176||/[\\/\u0000-\u001f]/.test(base))return '';
+  return base+'.csv';
 }
 function parseDatasetMeta(value){
   const meta=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
