@@ -31,8 +31,7 @@ export function parseParameterHeader(header,{datasetName=''}={}){
     const code=clean(raw.slice(0,divider)),detail=splitUnit(raw.slice(divider+1));
     return {raw,code,name:detail.text,unit:detail.unit};
   }
-  const plain=splitUnit(raw),detected=resolveAgronomicParameter(plain.text,{datasetName});
-  if(detected)return {raw,code:detected.code,name:detected.name,unit:plain.unit||detected.unit};
+  const plain=splitUnit(raw);
   return {raw,code:plain.text||raw,name:'',unit:plain.unit};
 }
 
