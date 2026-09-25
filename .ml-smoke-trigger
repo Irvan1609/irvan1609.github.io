@@ -1,0 +1,4 @@
+source=roboflow
+epochs=2
+dataset=andis-workspace-gtt7i/chili-dem2l/1
+requested_at=2026-09-25T16:03:00+08:00
