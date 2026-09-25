@@ -1,0 +1,102 @@
+name: Smoke Test Hitung Cabai ML
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Dataset untuk smoke test
+        required: true
+        default: cloudflare
+        type: choice
+        options:
+          - cloudflare
+          - roboflow
+      epochs:
+        description: Epoch smoke test (tidak dipromosikan)
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-test-hitung-cabai
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      CHILI_API_URL: ${{ vars.CHILI_API_URL }}
+      CHILI_ADMIN_TOKEN: ${{ secrets.CHILI_ADMIN_TOKEN }}
+      ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
+      ROBOFLOW_DATASET_ID: ${{ vars.ROBOFLOW_DATASET_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Pasang dependensi ML
+        run: pip install "ultralytics>=8.3,<9" onnx onnxslim "roboflow>=1.4,<2"
+
+      - name: Ambil sampel dari Cloudflare
+        if: inputs.source == 'cloudflare'
+        id: cloud
+        shell: bash
+        run: |
+          if [ -z "$CHILI_API_URL" ] || [ -z "$CHILI_ADMIN_TOKEN" ]; then
+            echo "CHILI_API_URL/CHILI_ADMIN_TOKEN belum dikonfigurasi."
+            exit 1
+          fi
+          python scripts/fetch-chili-dataset.py             --api-url "$CHILI_API_URL"             --token "$CHILI_ADMIN_TOKEN"             --out .chili-dataset             --min-samples 5             --limit 50
+          echo "data_yaml=.chili-dataset/data.yaml" >> "$GITHUB_OUTPUT"
+
+      - name: Ambil dataset dari Roboflow
+        if: inputs.source == 'roboflow'
+        id: roboflow
+        shell: bash
+        run: |
+          if [ -z "$ROBOFLOW_API_KEY" ] || [ -z "$ROBOFLOW_DATASET_ID" ]; then
+            echo "ROBOFLOW_API_KEY atau ROBOFLOW_DATASET_ID belum dikonfigurasi."
+            exit 1
+          fi
+          python scripts/fetch-roboflow-chili-dataset.py             --dataset "$ROBOFLOW_DATASET_ID"             --api-key "$ROBOFLOW_API_KEY"             --out .roboflow-dataset
+
+      - name: Pilih dataset
+        id: dataset
+        shell: bash
+        run: |
+          if [ "${{ inputs.source }}" = "roboflow" ]; then
+            DATA="${{ steps.roboflow.outputs.data_yaml }}"
+          else
+            DATA="${{ steps.cloud.outputs.data_yaml }}"
+          fi
+          if [ -z "$DATA" ] || [ ! -f "$DATA" ]; then
+            echo "data.yaml tidak ditemukan."
+            exit 1
+          fi
+          echo "data_yaml=$DATA" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke train + evaluasi + export ONNX
+        run: |
+          python scripts/smoke-train-chili-model.py             --data "${{ steps.dataset.outputs.data_yaml }}"             --epochs "${{ inputs.epochs }}"             --imgsz 512
+
+      - name: Simpan hasil smoke test
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitung-cabai-smoke-${{ inputs.source }}-${{ github.run_number }}
+          path: |
+            .chili-smoke/smoke-report.json
+            .chili-smoke/smoke-model.onnx
+            .chili-smoke/run/results.csv
+          if-no-files-found: error
+          retention-days: 14
