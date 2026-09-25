@@ -222,7 +222,7 @@ function syncBar(){
   const panel=document.getElementById('projectPanel'),title=panel?.querySelector('.panel-title');
   if(!panel||!title)return null;
   bar=document.createElement('div');bar.id='datasetSyncBar';bar.className='dataset-sync-bar';
-  bar.innerHTML='<span class="dataset-sync-dot" aria-hidden="true"></span><span id="datasetSyncState">Masuk untuk sinkronisasi</span><button id="syncDatasets" type="button">Sinkronkan</button>';
+  bar.innerHTML='<span class="dataset-sync-dot" aria-hidden="true"></span><span id="datasetSyncState">Belum dicadangkan ke cloud</span><button id="syncDatasets" type="button">Sinkronkan</button>';
   title.insertAdjacentElement('afterend',bar);
   bar.querySelector('#syncDatasets').onclick=()=>syncNow({manual:true});
   return bar;
@@ -410,7 +410,8 @@ async function syncNow({manual=false}={}){
     if(counters.downloaded)parts.push(`${counters.downloaded} diterima`);
     if(counters.deleted)parts.push(`${counters.deleted} dihapus`);
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
-    setSyncStatus(parts.length?parts.join(' · '):'Tersinkron','synced');
+    const syncTime=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
   }catch(error){
     console.error('Dataset sync failed',error);
     setSyncStatus(error.message||'Sinkronisasi gagal','error');
@@ -425,12 +426,14 @@ function onAccount(event){
   syncAllowed=true;
   const bar=syncBar();
   if(!currentUser){
-    if(bar)bar.hidden=true;
+    if(bar)bar.hidden=false;
+    setSyncStatus('Belum dicadangkan ke cloud','idle');
     return;
   }
   if(!currentUser.features?.datasetSync){
     syncAllowed=false;
-    if(bar)bar.hidden=true;
+    if(bar)bar.hidden=false;
+    setSyncStatus('Cadangan cloud: tidak tersedia untuk akun ini','idle');
     return;
   }
   if(bar)bar.hidden=false;
@@ -442,12 +445,13 @@ function onAccount(event){
     setSyncStatus('Sinkronisasi dijeda: browser ini terkait akun lain','error');
     return;
   }
-  setSyncStatus('Menyiapkan sinkronisasi…','syncing');
+  const previous=loadSyncState(currentUser.id);
+  setSyncStatus(previous.lastSyncAt?`Terakhir tersinkron ${new Date(previous.lastSyncAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`:'Belum dicadangkan ke cloud','pending');
   scheduleSync(300);
   periodicTimer=setInterval(()=>{if(!document.hidden)syncNow();},FALLBACK_SYNC_MS);
 }
 export function installAccountDatasetSync(){
-  const bar=syncBar();if(bar)bar.hidden=true;
+  const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{};
@@ -458,6 +462,7 @@ export function installAccountDatasetSync(){
       }
       saveSyncState(currentUser.id,sync);
     }
+    if(currentUser&&syncAllowed)setSyncStatus('Perubahan belum dicadangkan','pending');
     scheduleSync();
   });
   window.addEventListener('storage',event=>{
