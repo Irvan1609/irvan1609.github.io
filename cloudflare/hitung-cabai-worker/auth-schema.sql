@@ -136,3 +136,14 @@ CREATE TABLE IF NOT EXISTS backup_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at);
+
+
+CREATE TABLE IF NOT EXISTS idempotent_operations (
+  operation_id TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  response_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY(operation_id,scope)
+);
+
+CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
