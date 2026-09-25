@@ -74,7 +74,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==4||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('focusData')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must expose Analisis, Cari, Fokus Data, and Dataset controls');
+if((nav.match(/<button\b/g)||[]).length!==4||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('focusData')||!nav.includes('projectToggle')||!/>Pilih analisis<\/button>/.test(nav))fail('top navigation must expose Pilih analisis, Cari, Fokus Data, and Dataset controls');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
