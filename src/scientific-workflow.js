@@ -38,7 +38,7 @@ function datasetFingerprint(dataset){
 }
 function configSignature(options){
   if(!options)return '';
-  return JSON.stringify({design:options.design,a:options.a,b:options.b,rep:options.rep,parameters:options.parameters,transforms:options.transforms,alpha:options.alpha,posthoc:options.posthoc,assumptions:options.assumptions,contrastMode:options.contrastMode});
+  return JSON.stringify({design:options.design,a:options.a,b:options.b,rep:options.rep,parameters:options.parameters,transforms:options.transforms,alpha:options.alpha,posthoc:options.posthoc,assumptions:options.assumptions,contrastMode:options.contrastMode,contrasts:options.contrasts,levels:options.levels});
 }
 function significanceForReport(report){
   const tested=(report?.terms||[]).filter(term=>Number.isFinite(term?.p)&&!['Ulangan','Kelompok'].includes(String(term.label||'')));
@@ -49,11 +49,13 @@ function markResultsStale(container,stale=true){
   const badge=container.querySelector('[data-stale-banner]');if(badge)badge.hidden=!stale;
 }
 export function hasSavedScientificConfig(){
-  const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
-  return !!saved&&['ral','rak','fral','frak','split'].includes(saved.design)&&saved.contrastMode!=='custom';
+  try{
+    const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+    return !!saved&&['ral','rak','fral','frak','split'].includes(saved.design)&&saved.contrastMode!=='custom';
+  }catch{return false;}
 }
 export function detectScientificDesign(){
-  const d=readDataset();if(!d?.headers?.length||!d.rows?.length)return null;
+  let d;try{d=readDataset();}catch{return null;}if(!d?.headers?.length||!d.rows?.length)return null;
   const values=index=>d.rows.map(row=>String(row[index]??'').trim()).filter(Boolean);
   const numeric=index=>{const list=values(index);return list.length>0&&list.every(value=>Number.isFinite(parseNumber(value)));};
   const categories=d.headers.map((_,index)=>index).filter(index=>values(index).length&&!numeric(index));
@@ -65,7 +67,7 @@ export function detectScientificDesign(){
   return {design,a:treatment,b:second??null,rep:replicate>=0?replicate:null};
 }
 export async function quickRunLastScientific(){
-  const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+  let current;try{current=readDataset();}catch{return false;}const saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
   if(!saved||!['ral','rak','fral','frak','split'].includes(saved.design)||saved.contrastMode==='custom')return false;
   openScientific(saved.design);
   await Promise.resolve();
@@ -223,7 +225,7 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
 function saveHistory(reports,options){
   const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
-  const resultVersion=Math.max(0,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
+  const resultVersion=Math.max(same.length,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
   if(previous){
     if(previous.datasetFingerprint&&previous.datasetFingerprint!==fingerprint)changes.push('data');
     if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
