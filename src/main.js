@@ -925,7 +925,7 @@ function toggleMobileProjectPanel(force){
   const opening=force===undefined?!root.classList.contains('mobile-project-open'):Boolean(force);
   root.classList.toggle('mobile-project-open',opening);
   button.setAttribute?.('aria-expanded',String(opening));
-  button.textContent=opening?'Tutup':'Dataset';
+  button.textContent=opening?'✕':'☰';button.setAttribute('aria-label',opening?'Tutup dataset':'Dataset');button.title=opening?'Tutup dataset':'Dataset';
 }
 
 
