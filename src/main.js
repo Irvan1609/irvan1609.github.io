@@ -12,6 +12,7 @@ import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip}
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
 import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
+import {installResearchWorkspace} from './research-workspace.js';
 
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
@@ -1003,7 +1004,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
+  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js')
