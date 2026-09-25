@@ -141,8 +141,8 @@ function canDiscard(){
 
 function canvasScale(){
   if(!image)return 1;
-  const width=Math.max(240,viewport.clientWidth-2),base=Math.min(1,width/image.naturalWidth);
-  return base*Number($('zoom').value||1);
+  const width=Math.max(1,viewport.clientWidth-2);
+  return width/image.naturalWidth;
 }
 function layoutCanvas(){
   if(!image)return;
