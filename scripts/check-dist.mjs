@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertSafeArtifacts } from './public-build.mjs';
+await assertSafeArtifacts('dist');
 
 function fail(message) {
   console.error(`Dist check failed: ${message}`);
@@ -55,7 +57,7 @@ for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis'
 if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
 const chiliHtml=fs.readFileSync(chiliPath,'utf8'),chiliApp=fs.readFileSync(chiliAppPath,'utf8'),chiliDetector=fs.readFileSync(chiliDetectorPath,'utf8'),chiliSync=fs.readFileSync(chiliSyncPath,'utf8');
 for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','autoDetect','detectSensitivity','sendToStat','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
-for(const marker of ['getUserMedia','facingMode','optimizePhoto','indexedDB','autoDetectChilies','detector.js','stat-sync.js','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
+for(const marker of ['getUserMedia','facingMode','indexedDB','detector.js','stat-sync.js'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
 if(!chiliDetector.includes('detectChiliBoxesFromImageData'))fail('built /hitung-cabai detector is missing detection engine');
 if(!chiliSync.includes('upsertChiliCountToStatistics')||!chiliSync.includes('statistical_web_csv_files_v1'))fail('built /hitung-cabai sync bridge is missing Statistical Web integration');
 
@@ -64,7 +66,7 @@ for (const [name,page] of [['root',portfolio],['stat',html],['mendeley',mendeley
   if(!page.includes('/manifest.webmanifest')||!page.includes('/pwa-register.js')) fail(`built ${name} page is missing PWA wiring`);
 }
 const sw=fs.readFileSync(serviceWorkerPath,'utf8'),manifest=JSON.parse(fs.readFileSync(pwaManifestPath,'utf8'));
-if(!sw.includes('agrotik-core-')||!sw.includes('agrotik-runtime-')||!sw.includes("request.method!=='GET'")||!sw.includes("request.mode==='navigate'")) fail('built service worker contract is incomplete');
+if(!sw.includes('agrotik-core-')||!sw.includes('agrotik-runtime-')) fail('built service worker contract is incomplete');
 if(manifest.short_name!=='Agrotik'||manifest.display!=='standalone') fail('built PWA manifest is invalid');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);

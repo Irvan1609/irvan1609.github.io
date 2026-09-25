@@ -1,4 +1,4 @@
-const VERSION='20260926-light-2';
+const VERSION='20260926-public-build-1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
