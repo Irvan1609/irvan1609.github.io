@@ -81,10 +81,16 @@ async function warmResource(input,depth=0,seen=new Set()){
 }
 async function cacheExternal(url){
   try{
-    const request=new Request(url,{mode:'no-cors'});
+    const request=new Request(url,{mode:'cors'});
     const response=await fetch(request);
-    if(cacheableResponse(response))await put(THIRD_PARTY_CACHE,request,response);
-  }catch{}
+    if(cacheableResponse(response))await put(THIRD_PARTY_CACHE,url,response);
+  }catch{
+    try{
+      const request=new Request(url,{mode:'no-cors'});
+      const response=await fetch(request);
+      if(cacheableResponse(response))await put(THIRD_PARTY_CACHE,url,response);
+    }catch{}
+  }
 }
 async function warmChiliOffline(){
   const manifestUrl=new URL('/hitung-cabai/model-manifest.json',self.location.origin);
