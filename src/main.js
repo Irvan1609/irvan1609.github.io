@@ -568,7 +568,12 @@ function renderGrid(){
     wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
       button.onclick=event=>{
         const col=Number(button.dataset.renameColumn);
-        if(event.shiftKey&&state.rows.length){const anchor=state.selection.anchor?.c??col;state.selection.anchor={r:0,c:Math.min(anchor,col)};state.selection.focus={r:state.rows.length-1,c:Math.max(anchor,col)};paintSelection();document.documentElement.dataset.statSelectedColumns=Array.from({length:Math.abs(col-anchor)+1},(_,i)=>Math.min(anchor,col)+i).join(',');return;}
+        if((event.shiftKey||event.ctrlKey||event.metaKey)&&state.rows.length){
+          const anchor=event.shiftKey?(state.selection.anchor?.c??col):col;
+          state.selection.anchor={r:0,c:Math.min(anchor,col)};state.selection.focus={r:state.rows.length-1,c:Math.max(anchor,col)};paintSelection();
+          document.documentElement.dataset.statSelectedColumns=Array.from({length:Math.abs(col-anchor)+1},(_,i)=>Math.min(anchor,col)+i).join(',');
+          return;
+        }
         openColumnName(col);
       };
       button.closest('th')?.addEventListener('contextmenu',event=>openColumnContextMenu(event,Number(button.dataset.renameColumn)));
