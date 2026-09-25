@@ -4,6 +4,7 @@ const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 const $=s=>document.querySelector(s);
 let currentOrder='';
 let pollTimer=null;
+let pollAttempts=0;
 let plans=[];
 let qrisObjectUrl='';
 let currentQrUrl='';
@@ -108,11 +109,12 @@ async function showQrImage(orderId,fallbackUrl=''){
   }
 }
 function openModal(){const m=$('#qrisModal');m.hidden=false;const modal=m.querySelector('.qris-modal');modal?.classList.remove('success','success-reveal');$('#qrisSuccessIcon').hidden=true;$('#qrisCheck').hidden=false;$('#qrisDone').textContent='Tutup';const eyebrow=$('#qrisEyebrow');if(eyebrow)eyebrow.textContent='QRIS';}
-function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
+function closeModal(){clearTimeout(pollTimer);pollTimer=null;pollAttempts=0;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
   armSuccessSound();
   successHandledOrder='';
+  pollAttempts=0;
   openModal();$('#qrisMessage').textContent='Membuat QRIS…';$('#qrisImage').hidden=true;$('#qrisOrder').textContent='';
   try{
     const data=await api('/v1/membership/payments',{method:'POST',body:JSON.stringify({planId})});
@@ -160,7 +162,19 @@ async function checkPayment(){
   }catch(error){$('#qrisMessage').textContent=(error.message||'Status tidak dapat diperiksa.')+' Mencoba lagi…';}
   return false;
 }
-async function poll(){const done=await checkPayment();if(!done&&currentOrder)pollTimer=setTimeout(poll,3000);}
+async function poll(){
+  if(!currentOrder)return;
+  if(document.hidden){
+    pollTimer=setTimeout(poll,15000);
+    return;
+  }
+  const done=await checkPayment();
+  if(done||!currentOrder)return;
+  pollAttempts++;
+  const delays=[3000,5000,8000,12000,15000];
+  const delay=delays[Math.min(pollAttempts,delays.length-1)];
+  pollTimer=setTimeout(poll,delay);
+}
 async function loadAll(){
   try{
     const planData=await api('/v1/membership/plans');
@@ -185,4 +199,10 @@ async function copyQrUrl(){
 $('#qrisClose').onclick=closeModal;$('#qrisDone').onclick=closeModal;$('#qrisCheck').onclick=checkPayment;$('#qrisCopyUrl').onclick=copyQrUrl;
 $('#qrisModal').addEventListener('click',event=>{if(event.target===$('#qrisModal'))closeModal();});
 document.addEventListener('accountchange',()=>setTimeout(loadAll,0));
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&currentOrder){
+    clearTimeout(pollTimer);
+    pollTimer=setTimeout(poll,500);
+  }
+});
 setTimeout(loadAll,300);
