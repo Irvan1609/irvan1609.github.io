@@ -41,7 +41,7 @@ function notifyDatasetChange(detail={}){
 }
 function indicateSaved(){
   const el=$('#saveIndicator');if(!el)return;
-  el.textContent='Tersimpan di perangkat ini';
+  el.textContent='●';el.setAttribute('aria-label','Tersimpan di perangkat ini');el.title='Tersimpan di perangkat ini';
   el.classList.add('visible');
   clearTimeout(saveIndicatorTimer);
 }
@@ -417,6 +417,16 @@ function ensureColumnContextMenu(){
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#columnContextMenu'))menu.hidden=true;});
   return menu;
 }
+function bindColumnLongPress(button,index){
+  let timer=null,startX=0,startY=0;
+  const clear=()=>{clearTimeout(timer);timer=null;};
+  button.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='mouse')return;startX=event.clientX;startY=event.clientY;clear();
+    timer=setTimeout(()=>{button.dataset.longPress='1';openColumnContextMenu({preventDefault(){},clientX:startX,clientY:startY},index);},520);
+  });
+  button.addEventListener('pointermove',event=>{if(Math.hypot(event.clientX-startX,event.clientY-startY)>12)clear();});
+  button.addEventListener('pointerup',clear);button.addEventListener('pointercancel',clear);
+}
 function openColumnContextMenu(event,index){
   event.preventDefault();const menu=ensureColumnContextMenu();menu.dataset.column=String(index);menu.hidden=false;
   menu.style.left=Math.min(event.clientX,window.innerWidth-170)+'px';menu.style.top=Math.min(event.clientY,window.innerHeight-210)+'px';
@@ -587,7 +597,9 @@ function renderGrid(){
     }));
     bindGridArrowNavigation(wrap);bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);markGridQuality(wrap,types);
     wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
+      bindColumnLongPress(button,Number(button.dataset.renameColumn));
       button.onclick=event=>{
+        if(button.dataset.longPress==='1'){button.dataset.longPress='';event.preventDefault();return;}
         const col=Number(button.dataset.renameColumn);
         if((event.shiftKey||event.ctrlKey||event.metaKey)&&state.rows.length){
           const anchor=event.shiftKey?(state.selection.anchor?.c??col):col;
