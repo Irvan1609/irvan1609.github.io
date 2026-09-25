@@ -526,7 +526,7 @@ async function handleDevelopUsers(request,env,url){
   await ensureDatasetSchema(env);
   const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||200));
   const result=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.created_at,u.last_login_at,
-    SUM(CASE WHEN d.deleted_at IS NULL THEN 1 ELSE 0 END) AS dataset_count
+    SUM(CASE WHEN d.id IS NOT NULL AND d.deleted_at IS NULL THEN 1 ELSE 0 END) AS dataset_count
     FROM users u LEFT JOIN user_datasets d ON d.user_id=u.id
     GROUP BY u.id ORDER BY u.last_login_at DESC LIMIT ?`).bind(limit).all();
   return json(request,env,{items:(result.results||[]).map(row=>({
@@ -630,9 +630,9 @@ export default {
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request,env)});
     const url=new URL(request.url);
     try{
-      if(url.pathname.startsWith('/v1/auth/'))cleanupAuth(env);
+      if(url.pathname.startsWith('/v1/auth/'))await cleanupAuth(env);
       if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,apiVersion:'2026-09-26.1'});
-      if(url.pathname.startsWith('/v1/auth/'))await ensureAuthSchema(env);
+      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
