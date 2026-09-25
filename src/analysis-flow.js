@@ -61,6 +61,10 @@ const analysisGroups=[
   }
 ];
 
+function analysisMark(type,value){
+  const marks={ral:'RAL',rak:'RAK',fral:'2F',frak:'2F',split:'RPT',nested:'N',repeated:'RM',nonparametric:'NP',correlation:'r',path:'β',regression:'R²',descriptive:'Σ',pca:'PCA',combined:'G×E',mixed:'REML',genetic:'H²',stability:'GGE',power:'n'};
+  return marks[value]||marks[type]||'A';
+}
 function analysisButton([type,value,label,description]){
   const attr={
     design:'data-design',
@@ -74,11 +78,12 @@ function analysisButton([type,value,label,description]){
     power:'data-power'
   }[type];
   const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
-  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr}><b>${label}</b><span>${description}</span></button>`;
+  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr}><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b><span>${description}</span></span><span class="analysis-item-arrow" aria-hidden="true">›</span></button>`;
 }
 
 function panelMarkup(){
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><span>Gunakan tombol Cari di bagian atas untuk pencarian seluruh web.</span></div></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-chevron" aria-hidden="true">⌄</span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
+  const total=analysisGroups.reduce((sum,group)=>sum+group.items.length,0);
+  return `<div class="analysis-menu-head"><div><span class="analysis-picker-kicker">ANALISIS DATA</span><b>Pilih metode statistik</b><span>Pilih berdasarkan tujuan analisis dan struktur rancangan percobaan.</span></div><span class="analysis-method-count">${total} metode</span></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-meta"><small>${group.items.length}</small><span class="analysis-group-chevron" aria-hidden="true">⌄</span></span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
 }
 
 export function installAnalysisFlow() {
