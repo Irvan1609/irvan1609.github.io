@@ -70,6 +70,10 @@ function randomToken(bytes=32){
   let binary='';for(const byte of data)binary+=String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
+function randomHex(bytes=16){
+  const data=new Uint8Array(bytes);crypto.getRandomValues(data);
+  return [...data].map(value=>value.toString(16).padStart(2,'0')).join('');
+}
 async function sha256(value){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(value)));
   return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -700,7 +704,7 @@ async function handleMembershipCreatePayment(request,env){
   const body=await request.json().catch(()=>({})),planId=String(body.planId||'');
   const plan=await env.DB.prepare('SELECT * FROM membership_plans WHERE id=? AND active=1 AND price_idr>0 LIMIT 1').bind(planId).first();
   if(!plan)return json(request,env,{error:'plan_not_available',message:'Paket membership tidak tersedia.'},404);
-  const orderId='member-'+Date.now()+'-'+randomToken(12).replace(/[^a-f0-9]/gi,'').toLowerCase().padEnd(24,'0').slice(0,24);
+  const orderId='member-'+Date.now()+'-'+randomHex(12);
   const now=new Date().toISOString(),amount=Number(plan.price_idr);
   await env.DB.prepare(`INSERT INTO membership_payments (order_id,user_id,plan_id,amount,status,created_at,updated_at)
     VALUES (?,?,?,?,?,?,?)`).bind(orderId,user.id,plan.id,amount,'creating',now,now).run();
@@ -994,14 +998,14 @@ async function handleDevelopUsers(request,env,url){
   if(access.error)return json(request,env,{error:'admin_required'},403);
   await ensureDatasetSchema(env);
   const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||200));
-  const result=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.created_at,u.last_login_at,
+  const result=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.created_at,u.last_login_at,
     SUM(CASE WHEN d.id IS NOT NULL AND d.deleted_at IS NULL THEN 1 ELSE 0 END) AS dataset_count
     FROM users u LEFT JOIN user_datasets d ON d.user_id=u.id
     GROUP BY u.id ORDER BY u.last_login_at DESC LIMIT ?`).bind(limit).all();
   return json(request,env,{items:(result.results||[]).map(row=>({
     id:row.id,email:row.email,name:row.name,picture:row.picture_url||'',role:row.role||'user',
-    membership:{status:row.role==='admin'?'active':(row.membership_status||'inactive'),active:membershipActive(row),expiresAt:row.membership_expires_at||null,source:row.role==='admin'?'admin':(row.membership_source||'none')},
-    datasetCount:Number(row.dataset_count||0),createdAt:row.created_at,lastLoginAt:row.last_login_at
+    membership:{status:row.role==='admin'?'active':(row.membership_status||'inactive'),active:membershipActive(row),expiresAt:row.membership_expires_at||null,source:row.role==='admin'?'admin':(row.membership_source||'none'),planId:row.role==='admin'?'admin':(row.membership_plan_id||null)},
+    accountStatus:row.account_status||'active',datasetCount:Number(row.dataset_count||0),createdAt:row.created_at,lastLoginAt:row.last_login_at
   }))});
 }
 async function handleDevelopUserDatasets(request,env,userId){
@@ -1019,8 +1023,14 @@ async function handleDevelopAccess(request,env,userId){
   const target=await env.DB.prepare('SELECT id,email,email_verified,role FROM users WHERE id=? LIMIT 1').bind(userId).first();
   if(!target)return json(request,env,{error:'Pengguna tidak ditemukan.'},404);
   if(target.role==='admin'||(target.email_verified&&isAdminEmail(target.email,env)))return json(request,env,{error:'Akses admin tidak dapat diturunkan dari panel ini.'},409);
+  await ensureMembershipSchema(env);
   const body=await request.json().catch(()=>({})),status=String(body.status||'inactive');
   if(!['active','inactive'].includes(status))return json(request,env,{error:'Status membership tidak valid.'},400);
+  const planId=status==='active'?String(body.planId||'manual'):'';
+  if(status==='active'){
+    const plan=await env.DB.prepare('SELECT id FROM membership_plans WHERE id=? LIMIT 1').bind(planId).first();
+    if(!plan)return json(request,env,{error:'Paket membership tidak valid.'},400);
+  }
   let expiresAt=null;
   if(status==='active'&&body.expiresAt){
     const parsed=Date.parse(String(body.expiresAt));
@@ -1028,9 +1038,10 @@ async function handleDevelopAccess(request,env,userId){
     expiresAt=new Date(parsed).toISOString();
   }
   const now=new Date().toISOString();
-  await env.DB.prepare(`UPDATE users SET membership_status=?,membership_expires_at=?,membership_source='manual',access_updated_at=? WHERE id=?`)
-    .bind(status,expiresAt,now,userId).run();
-  const row=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(userId).first();
+  await env.DB.prepare(`UPDATE users SET membership_status=?,membership_expires_at=?,membership_source='manual',membership_plan_id=?,access_updated_at=? WHERE id=?`)
+    .bind(status,expiresAt,status==='active'?planId:null,now,userId).run();
+  await audit(env,access.user,'membership.manual_update','user',userId,{status,planId:status==='active'?planId:null,expiresAt});
+  const row=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(userId).first();
   return json(request,env,{ok:true,user:publicUser(row)});
 }
 
@@ -1095,23 +1106,57 @@ async function handleImage(request,env,id){
 }
 
 export default {
+  async scheduled(event,env,ctx){
+    if(!env.BACKUPS)return;
+    ctx.waitUntil(createBackupSnapshot(env,null,'scheduled').catch(error=>console.error('scheduled backup failed',error)));
+  },
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request,env)});
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,apiVersion:'2026-09-26.1'});
-      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/'))await ensureAuthSchema(env);
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.2'});
+      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/session')return await handleAuthSession(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/profile')return await handleAuthProfile(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/membership/plans')return await handleMembershipPlans(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/membership/payments')return await handleMembershipCreatePayment(request,env);
+      const membershipPaymentMatch=url.pathname.match(/^\/v1\/membership\/payments\/(member-[0-9]+-[a-f0-9]{24})$/i);
+      if(request.method==='GET'&&membershipPaymentMatch)return await handleMembershipPaymentStatus(request,env,membershipPaymentMatch[1]);
+      if(request.method==='POST'&&url.pathname==='/v1/membership/webhook')return await handleMembershipWebhook(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/account/summary')return await handleAccountSummary(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/account/sessions')return await handleAccountSessions(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/account/sessions/revoke-others')return await handleAccountRevokeOthers(request,env);
+      const accountSessionMatch=url.pathname.match(/^\/v1\/account\/sessions\/([0-9a-f-]{36})$/i);
+      if(request.method==='DELETE'&&accountSessionMatch)return await handleAccountRevokeSession(request,env,accountSessionMatch[1]);
+      if(request.method==='GET'&&url.pathname==='/v1/account/payments')return await handleAccountPayments(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/account/export')return await handleAccountExport(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/plans')return await handleDevelopPlans(request,env);
+      const developPlanMatch=url.pathname.match(/^\/v1\/develop\/plans\/([a-z0-9_-]{2,40})$/i);
+      if(request.method==='PUT'&&developPlanMatch)return await handleDevelopPlanUpdate(request,env,developPlanMatch[1]);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/payments')return await handleDevelopPayments(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/datasets')return await handleDevelopAllDatasets(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/contributions')return await handleDevelopContributions(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
+      if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
+      const developBackupMatch=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/download$/i);
+      if(request.method==='GET'&&developBackupMatch)return await handleDevelopBackupDownload(request,env,developBackupMatch[1]);
       const developDatasetsMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/datasets$/i);
       if(request.method==='GET'&&developDatasetsMatch)return await handleDevelopUserDatasets(request,env,developDatasetsMatch[1]);
+      const developSupportMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/support-view$/i);
+      if(request.method==='GET'&&developSupportMatch)return await handleDevelopSupportView(request,env,developSupportMatch[1]);
+      const developStatusMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/account-status$/i);
+      if(request.method==='POST'&&developStatusMatch)return await handleDevelopAccountStatus(request,env,developStatusMatch[1]);
+      const developRevokeSessionsMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/revoke-sessions$/i);
+      if(request.method==='POST'&&developRevokeSessionsMatch)return await handleDevelopRevokeSessions(request,env,developRevokeSessionsMatch[1]);
       const developAccessMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/access$/i);
       if(request.method==='POST'&&developAccessMatch)return await handleDevelopAccess(request,env,developAccessMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/datasets')return await handleDatasetList(request,env,url);
