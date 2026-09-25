@@ -3,6 +3,8 @@ import {ACCOUNT_CONFIG} from './account-config.js';
 const TOKEN_KEY='irvan_account_session_v1';
 const USER_KEY='irvan_account_user_v1';
 const LOGIN_STATE_KEY='irvan_account_login_state_v1';
+const AUTH_READY_CACHE_KEY='irvan_account_auth_ready_v1';
+const AUTH_READY_CACHE_MS=15*60*1000;
 
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 let currentUser=null;
@@ -231,9 +233,16 @@ async function logout(){
 }
 async function checkAuthReady(){
   try{
-    const response=await fetch(endpoint+'/v1/health',{headers:{Accept:'application/json'}});
+    const cached=safeJson(sessionStorage.getItem(AUTH_READY_CACHE_KEY),null);
+    if(cached&&Date.now()-Number(cached.at||0)<AUTH_READY_CACHE_MS){
+      authReady=Boolean(cached.ready);authChecked=true;render();return;
+    }
+  }catch{}
+  try{
+    const response=await fetch(endpoint+'/v1/health',{headers:{Accept:'application/json'},cache:'no-store'});
     const data=await response.json().catch(()=>({}));
     authReady=Boolean(response.ok&&data.authConfigured===true);
+    try{sessionStorage.setItem(AUTH_READY_CACHE_KEY,JSON.stringify({ready:authReady,at:Date.now()}));}catch{}
   }catch{authReady=false;}
   authChecked=true;render();
 }
@@ -241,8 +250,12 @@ async function init(){
   if(!ACCOUNT_CONFIG.enabled||!endpoint)return;
   ensureMount();loadStored();render();
   const handled=await exchangeCallback();
-  await checkAuthReady();
-  if(!handled&&token)await refreshSession();
+  if(token){
+    authReady=true;authChecked=true;
+    if(!handled)await refreshSession();
+  }else{
+    await checkAuthReady();
+  }
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
