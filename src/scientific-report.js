@@ -156,8 +156,8 @@ export function renderReport(report){
   html+=`<details class="result-technical-details"><summary>Keputusan uji lanjut</summary>${renderDecisionSummary(report)}</details>`;
   const tested=report.terms.filter(t=>t.f!==null);
   html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(displayName)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
-  if(report.interactionPosthoc){
-    html+=caption(`Uji lanjut interaksi RPT — ${report.interactionPosthoc.method==='none'?'tanpa uji lanjut':report.interactionPosthoc.method.toUpperCase()}`)+splitInteractionTable(report,report.interactionPosthoc);
+  if(report.interactionPosthoc&&report.interactionPosthoc.method!=='none'){
+    html+=caption(`Uji lanjut interaksi RPT — ${report.interactionPosthoc.method.toUpperCase()}`)+splitInteractionTable(report,report.interactionPosthoc);
   }
   for(const comparison of report.comparisons){
     if(comparison.method==='none')continue;
@@ -167,16 +167,17 @@ export function renderReport(report){
       continue;
     }
     html+=caption(`${comparison.title} — ${method}`)+table(['Perlakuan',displayName,'n','SD','SE'],comparison.items.map(item=>[esc(item.label),`${fmt(item.mean,2)}${item.letters?.length?`<sup>${esc(item.letters.join(comparison.items.length>26?' · ':''))}</sup>`:''}`,item.n,item.sd,item.se]),'posthoc-table');
-    if(comparison.method!=='none'){
-      html+=`<div class="analysis-note">${method} ${alpha*100}%; KT galat = ${fmt(comparison.mse)}; db galat = ${fmt(comparison.df,2)}. Rataan dengan huruf bersama tidak terdeteksi berbeda nyata. Huruf hanya berlaku di dalam tabel ini.</div>`;
-      html+=table(['Rentang','Nilai kritis '+(comparison.method==='bnt'?'t':'q')],comparison.critical.map(x=>[x.range,x.value]));
-    }
+    html+=`<div class="analysis-note">${method} ${alpha*100}%; KT galat = ${fmt(comparison.mse)}; db galat = ${fmt(comparison.df,2)}. Huruf yang sama = tidak berbeda nyata.</div>`;
     const high=comparison.items.reduce((a,b)=>a.mean>=b.mean?a:b),low=comparison.items.reduce((a,b)=>a.mean<=b.mean?a:b);
     const same=high.letters?.some(x=>low.letters?.includes(x));
-    html+=`<div class="analysis-note">Pada ${esc(comparison.title)}, rataan tertinggi terdapat pada ${esc(high.label)} (${fmt(high.mean,2)} ± ${fmt(high.se,2)} SE), sedangkan terendah pada ${esc(low.label)} (${fmt(low.mean,2)} ± ${fmt(low.se,2)} SE). `Kedua rataan ${same?'tidak terdeteksi berbeda nyata':'berbeda nyata'} menurut ${method} pada α = ${fmt(alpha,2)}.`</div>`;
+    html+=`<div class="analysis-note">Pada ${esc(comparison.title)}, rataan tertinggi terdapat pada ${esc(high.label)} (${fmt(high.mean,2)} ± ${fmt(high.se,2)} SE), sedangkan terendah pada ${esc(low.label)} (${fmt(low.mean,2)} ± ${fmt(low.se,2)} SE). Kedua rataan ${same?'tidak terdeteksi berbeda nyata':'berbeda nyata'} menurut ${method} pada α = ${fmt(alpha,2)}.</div>`;
     const axis=/Faktor B|Anak Petak|B pada A/i.test(comparison.title)?'b':'a',chartItems=comparison.items.map(item=>({...item,label:describeLevel(report,axis,item.label)}));html+=barChart(chartItems,`${displayName} — ${comparison.title}`)+`<div class="figure-caption">Rataan ± SE model. Urutan mengikuti data. </div>`;
   }
-  if(multi)html+=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
+  if(multi){
+    const interaction=report.terms.find(t=>/^A\s*×\s*B$/i.test(String(t.label||''))||/Interaksi.*A.*B/i.test(String(t.label||'')));
+    const interactionHtml=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
+    html+=interaction&&Number.isFinite(interaction.p)&&interaction.p<.05?interactionHtml:`<details class="result-technical-details"><summary>Grafik interaksi</summary>${interactionHtml}</details>`;
+  }
   if(report.contrasts.length)html+=renderContrasts(report,caption);
   html+=renderBab4Table(report);
   if(report.assumptions.length){
