@@ -59,7 +59,7 @@ async function handleContribution(request,env){
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<32||height<32||width>5000||height>5000)return json(request,env,{error:'Dimensi foto tidak valid.'},400);
   const sample=String(form.get('sample')||'Tanpa kode').trim().slice(0,100)||'Tanpa kode';
   const predictedCount=predictedBoxes.length,finalCount=boxes.length;
-  const correctionCount=Math.abs(finalCount-predictedCount)+Math.min(predictedCount,finalCount)*(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
+  const correctionCount=Math.abs(finalCount-predictedCount)+(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
   const method=String(form.get('prediction_method')||'unknown').slice(0,40);
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
   const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount);
@@ -84,7 +84,7 @@ async function handleImage(request,env,id){
   if(!authAdmin(request,env))return json(request,env,{error:'Tidak diizinkan.'},401);
   const row=await env.DB.prepare('SELECT image,mime_type FROM contributions WHERE id=?').bind(id).first();
   if(!row?.image)return json(request,env,{error:'Foto tidak ditemukan.'},404);
-  return new Response(row.image,{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+  return new Response(new Uint8Array(row.image),{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
 }
 
 export default {
