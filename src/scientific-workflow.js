@@ -411,7 +411,12 @@ function validate(){
   }
   renderStructure(check,o);
   $('#scienceQuality').innerHTML=renderDataQuality(quality);
-  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>`<li>${x.row?'Baris '+x.row+': ':''}${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>`;
+  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>x.row?`<li><button type="button" class="validation-cell-link" data-focus-error-row="${x.row-1}" data-focus-error-col="${Number.isInteger(x.column)?x.column:0}">Baris ${x.row}</button>: ${esc(x.message)}</li>`:`<li>${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>`;
+  $('#scienceValidation').querySelectorAll('[data-focus-error-row]').forEach(button=>button.onclick=()=>{
+    const row=Number(button.dataset.focusErrorRow),column=Number(button.dataset.focusErrorCol);
+    $('#scientificModal').classList.remove('open');
+    globalThis.StatisticalWebData?.focusCell?.(row,column);
+  });
   document.querySelectorAll('.data-grid td.data-invalid').forEach(td=>td.classList.remove('data-invalid'));
   check.issues.filter(x=>x.row).forEach(issue=>{const row=document.querySelector(`.data-grid td[data-r="${issue.row-1}"]`)?.closest('tr');if(row){if(issue.column!==undefined)row.querySelector(`td[data-c="${issue.column}"]`)?.classList.add('data-invalid');else [...row.querySelectorAll('td[data-c]')].forEach(c=>c.classList.add('data-invalid'));}});
   const runButton=$('#runScience');
@@ -433,6 +438,7 @@ async function analyze(){
   const runRevision=revision;
   $('#scienceResults').innerHTML='';const {o,check}=validate();if(check.issues.length)return;
   try{
+    globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');
     if(o.contrastMode==='polynomial')o.levels=[...document.querySelectorAll('[data-level]')].map(el=>parseNumber(el.value));
     const metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);saveAnalysisConfig();
     const button=$('#runScience');button.disabled=true;button.textContent='Menghitung…';
@@ -473,16 +479,16 @@ async function analyze(){
       finalizeAgronomyFactorial(report);
       reports.push(report);
     }
-    showResults(reports,$('#scienceResults'));
+    const saved=saveHistory(reports,o),meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
+    showResults(reports,$('#scienceResults'),data.name,meta);
     const dock=$('#analysisDockResults');
     if(dock){
-      showResults(reports,dock,data.name);
+      showResults(reports,dock,data.name,meta);
       $('#analysisResultDock').hidden=false;
       $('#analysisResultDock').dataset.open='true';
       $('#analysisDockTitle').textContent=`${data.name} · ${designNames[currentDesign]||currentDesign}`;
       $('#scientificModal').classList.remove('open');
     }
-    const saved=saveHistory(reports,o);
     $('#scienceRunStatus').textContent=saved?'Selesai · tersimpan':'Selesai · belum tersimpan';
     void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
   }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
