@@ -27,16 +27,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Check JavaScript syntax
-        run: npm run check:syntax
-      - name: Check UI contract
-        run: npm run test:ui
-      - name: Check statistical calculations
-        run: npm run test:statistics
-      - name: Build Vite application
-        run: npm run build
-      - name: Check built site
-        run: npm run test:dist
+      - name: Verify application
+        run: npm run verify
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
