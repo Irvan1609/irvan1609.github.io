@@ -84,7 +84,7 @@ function analysisButton([type,value,label,description]){
     power:'data-power'
   }[type];
   const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
-  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr} aria-pressed="false"><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-check" aria-hidden="true">✓</span></button>`;
+  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr} aria-pressed="false"><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-arrow" aria-hidden="true">›</span></button>`;
 }
 
 function panelMarkup(){
