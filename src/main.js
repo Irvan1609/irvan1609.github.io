@@ -11,6 +11,8 @@ import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip}
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import {installAccountDatasetSync} from './account-dataset-sync.js';
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,renameLocalDataset,copyLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
+import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import jStat from 'jstat';
 
 const FILES_KEY='statistical_web_csv_files_v1';
@@ -22,7 +24,7 @@ const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
-let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0;
+let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=formatNumber;
@@ -50,15 +52,63 @@ function displayDatasetName(name){return String(name||'dataset').replace(/\.(?:c
 function csvCell(value){const text=String(value??'');return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;}
 function serializeRows(headers,rows){if(!headers?.length)return '';return [headers,...rows].map(row=>row.map(csvCell).join(',')).join('\n');}
 function serialize(){return serializeRows(state.headers,state.rows.map(row=>state.headers.map((_,i)=>row[i]??'')));}
+function activeDatasetPayload(){
+  const meta=state.meta[state.active]||{plant:'',treatment:''};
+  return {name:displayDatasetName(state.active),fileName:state.active,plant:meta.plant||'',treatment:meta.treatment||'',headers:[...state.headers],rows:state.rows.map(row=>[...row])};
+}
+if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
+  readActiveDataset:()=>activeDatasetPayload(),
+  readDatasetContent:async name=>{
+    const file=String(name||state.active);
+    if(file===state.active)return serialize();
+    const stored=state.files[file]??'';
+    if(typeof isLocalPointer==='function'&&isLocalPointer(stored))return await loadLocalDataset(file)??'';
+    return String(stored??'');
+  }
+};
+function localStoreReady(){return typeof indexedDB!=='undefined'&&typeof isLocalPointer==='function'&&typeof saveLocalDataset==='function';}
+function manifestValue(name,content){
+  const current=state.files[name];
+  return localStoreReady()&&(isLocalPointer(current)||shouldOffloadDataset(content))?localPointer(name):String(content??'');
+}
+function saveFilesManifest(){localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);}
+function storeDatasetContent(name,content){
+  const next=manifestValue(name,content),offloaded=localStoreReady()&&isLocalPointer(next);
+  state.files[name]=next;saveFilesManifest();
+  if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Penyimpanan lokal besar gagal.',error));
+  return offloaded;
+}
+async function hydrateDatasetContent(name){
+  const stored=state.files[name]??'';
+  if(localStoreReady()&&isLocalPointer(stored))return await loadLocalDataset(name)??'';
+  return String(stored??'');
+}
+async function migrateLargeLocalDatasets(){
+  if(!localStoreReady())return;
+  let changed=false;
+  for(const [name,value] of Object.entries(state.files)){
+    if(isLocalPointer(value)||!shouldOffloadDataset(value))continue;
+    await saveLocalDataset(name,value);state.files[name]=localPointer(name);changed=true;
+  }
+  if(changed)saveFilesManifest();
+}
 function editorSnapshot(){
   return {active:state.active,headers:[...state.headers],rows:state.rows.map(row=>[...row]),meta:{...(state.meta[state.active]||{plant:'',treatment:''})}};
 }
-function snapshotFingerprint(snapshot){return JSON.stringify([snapshot.headers,snapshot.rows,snapshot.meta]);}
+function snapshotFingerprint(snapshot){
+  if(snapshot.rows.length>VIRTUALIZE_AFTER_ROWS)return null;
+  return JSON.stringify([snapshot.headers,snapshot.rows,snapshot.meta]);
+}
+function undoLimit(){
+  if(state.rows.length>5000)return 3;
+  if(state.rows.length>VIRTUALIZE_AFTER_ROWS)return 8;
+  return 60;
+}
 function pushUndo(reason='perubahan'){
-  const snapshot=editorSnapshot(),last=state.undo.at(-1);
-  if(last?.fingerprint===snapshotFingerprint(snapshot))return;
-  state.undo.push({snapshot,reason,fingerprint:snapshotFingerprint(snapshot)});
-  if(state.undo.length>60)state.undo.shift();
+  const snapshot=editorSnapshot(),fingerprint=snapshotFingerprint(snapshot),last=state.undo.at(-1);
+  if(fingerprint&&last?.fingerprint===fingerprint)return;
+  state.undo.push({snapshot,reason,fingerprint});
+  while(state.undo.length>undoLimit())state.undo.shift();
   state.redo=[];
 }
 function restoreSnapshot(snapshot){
@@ -84,15 +134,20 @@ function recordEditorHistory(reason='edit',force=false){
   const now=Date.now();if(!force&&now-lastHistoryWrite<2500)return;
   lastHistoryWrite=now;
   try{
+    const csv=serialize(),meta={...(state.meta[state.active]||{})};
+    if(localStoreReady()&&shouldOffloadDataset(csv)){
+      void saveLocalSnapshot(state.active,{date:new Date(now).toISOString(),reason,csv,meta}).catch(()=>{});
+      return;
+    }
     const all=editorHistoryStore(),key=displayDatasetName(state.active),list=Array.isArray(all[key])?all[key]:[];
-    const entry={date:new Date(now).toISOString(),reason,csv:serialize(),meta:{...(state.meta[state.active]||{})}};
+    const entry={date:new Date(now).toISOString(),reason,csv,meta};
     if(list[0]?.csv===entry.csv&&JSON.stringify(list[0]?.meta||{})===JSON.stringify(entry.meta))return;
     all[key]=[entry,...list].slice(0,12);localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));
   }catch{}
 }
 function persist(reason='edit',history=true,patch=null){
   try{
-    state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);
+    const content=serialize();storeDatasetContent(state.active,content);
     indicateSaved();if(history)recordEditorHistory(reason,false);notifyDatasetChange({type:'upsert',name:state.active,reason,patch});
   }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
 }
@@ -157,6 +212,14 @@ function bindInlineDatasetMeta(){
     });
   });
 }
+function applyActiveCsv(text,{history=true}={}){
+  const parsed=String(text||'').trim()?csvRows(String(text),','):[];
+  state.headers=parsed[0]||[];state.rows=parsed.slice(1).map(row=>state.headers.map((_,i)=>row[i]??''));
+  state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
+  renderTree();renderGrid();renderDatasetMeta();
+  if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
+  if(history)recordEditorHistory('dibuka',true);
+}
 function loadStorage(){
   try{
     state.meta=JSON.parse(localStorage.getItem(META_KEY)||'{}')||{};
@@ -168,13 +231,16 @@ function loadStorage(){
   loadActive(false);
 }
 function loadActive(save=true){
-  const text=state.files[state.active]??'',parsed=text.trim()?csvRows(text,','):[];
-  state.headers=parsed[0]||[];state.rows=parsed.slice(1).map(row=>state.headers.map((_,i)=>row[i]??''));
-  state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
-  if(save)localStorage.setItem(ACTIVE_KEY,state.active);
-  renderTree();renderGrid();renderDatasetMeta();
-  if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
-  recordEditorHistory('dibuka',true);
+  const active=state.active,stored=state.files[active]??'';
+  if(save)localStorage.setItem(ACTIVE_KEY,active);
+  if(localStoreReady()&&isLocalPointer(stored)){
+    state.headers=[];state.rows=[];state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
+    renderTree();renderGrid();renderDatasetMeta();if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(active);
+    localHydrationPromise=hydrateDatasetContent(active).then(text=>{if(state.active===active)applyActiveCsv(text);}).catch(error=>showError('Dataset lokal tidak dapat dibuka.',error));
+    return localHydrationPromise;
+  }
+  applyActiveCsv(stored);localHydrationPromise=Promise.resolve();
+  return localHydrationPromise;
 }
 function renderTree(){
   const tree=$('#fileTree');if(!tree)return;
@@ -247,13 +313,17 @@ function paintSelection(){
   const range=selectionRange(),wrap=$('#gridWrap');if(!wrap)return;
   wrap.querySelectorAll('td.cell-selected,td.cell-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active'));
   if(!range)return;
-  for(let r=range.r1;r<=range.r2;r++)for(let c=range.c1;c<=range.c2;c++)wrap.querySelector(`td[data-r="${r}"][data-c="${c}"]`)?.classList.add('cell-selected');
+  wrap.querySelectorAll('td[data-r][data-c]').forEach(cell=>{
+    const r=Number(cell.dataset.r),c=Number(cell.dataset.c);
+    if(r>=range.r1&&r<=range.r2&&c>=range.c1&&c<=range.c2)cell.classList.add('cell-selected');
+  });
   const focus=state.selection.focus;wrap.querySelector(`td[data-r="${focus.r}"][data-c="${focus.c}"]`)?.classList.add('cell-active');
   requestAnimationFrame(positionFillHandle);
 }
 function setSelection(r,c,{extend=false,focus=true}={}){
+  if(r<0||c<0||r>=state.rows.length||c>=state.headers.length)return;
   if(!extend||!state.selection.anchor)state.selection.anchor={r,c};
-  state.selection.focus={r,c};paintSelection();
+  state.selection.focus={r,c};ensureGridRowVisible(r);paintSelection();
   const cell=$('#gridWrap')?.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
   if(focus&&cell)selectEditableCell(cell);
 }
@@ -327,8 +397,7 @@ function bindGridArrowNavigation(wrap){
       }
       if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.ctrlKey||event.metaKey)return;
       const next={ArrowUp:[r-1,c],ArrowDown:[r+1,c],ArrowLeft:[r,c-1],ArrowRight:[r,c+1]}[event.key];
-      const target=wrap.querySelector(`[contenteditable="true"][data-r="${next[0]}"][data-c="${next[1]}"]`);
-      if(!target)return;
+      if(next[0]<0||next[0]>=state.rows.length||next[1]<0||next[1]>=state.headers.length)return;
       event.preventDefault();setSelection(next[0],next[1],{extend:event.shiftKey});
     });
   });
@@ -447,9 +516,17 @@ function ensureGridFind(){
   bar.innerHTML='<input id="gridFindInput" type="search" autocomplete="off" placeholder="Cari data"><span id="gridFindCount"></span><button type="button" aria-label="Tutup">×</button>';
   workspace.prepend(bar);
   const input=bar.querySelector('input'),count=bar.querySelector('span'),close=bar.querySelector('button');
-  const clear=()=>document.querySelectorAll('.cell-find-match').forEach(cell=>cell.classList.remove('cell-find-match'));
-  const run=()=>{clear();const q=input.value.trim().toLocaleLowerCase('id-ID');if(!q){count.textContent='';return;}const matches=[...document.querySelectorAll('.data-grid tbody td[data-r]')].filter(cell=>cell.textContent.toLocaleLowerCase('id-ID').includes(q));matches.forEach(cell=>cell.classList.add('cell-find-match'));count.textContent=String(matches.length);matches[0]?.scrollIntoView({block:'nearest',inline:'nearest'});};
-  input.addEventListener('input',run);close.onclick=()=>{bar.hidden=true;input.value='';count.textContent='';clear();};
+  const clear=()=>{gridFindQuery='';document.querySelectorAll('.cell-find-match').forEach(cell=>cell.classList.remove('cell-find-match'));};
+  const run=()=>{
+    gridFindQuery=input.value.trim().toLocaleLowerCase('id-ID');
+    if(!gridFindQuery){count.textContent='';renderGrid();return;}
+    const matches=[];
+    state.rows.forEach((row,r)=>row.forEach((value,col)=>{if(String(value??'').toLocaleLowerCase('id-ID').includes(gridFindQuery))matches.push({r,col});}));
+    count.textContent=String(matches.length);
+    if(matches[0]){ensureGridRowVisible(matches[0].r);setSelection(matches[0].r,matches[0].col,{focus:false});}
+    else renderGrid();
+  };
+  input.addEventListener('input',run);close.onclick=()=>{bar.hidden=true;input.value='';count.textContent='';clear();renderGrid();};
   return bar;
 }
 function openGridFind(){
@@ -553,81 +630,106 @@ function bindColumnFormArrowNavigation(){
     event.preventDefault();target.focus();target.select?.();
   });
 }
-function markGridQuality(wrap,types){
-  if(!wrap||!state.rows.length)return;
-  const signatures=new Map();
+
+function gridQualityModel(){
+  const signatures=new Map(),numeric=state.headers.map(()=>({filled:0,numeric:0}));
   state.rows.forEach((row,index)=>{
     const normalized=row.map(value=>String(value??'').trim()).join('\u001f');
     if(normalized.replace(/\u001f/g,'').length)signatures.set(normalized,[...(signatures.get(normalized)||[]),index]);
-  });
-  for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(row=>wrap.querySelector(`.data-grid tbody tr:nth-child(${row+1})`)?.classList.add('duplicate-row'));
-  state.rows.forEach((row,r)=>{
-    const rowHasData=row.some(value=>String(value??'').trim()!=='');
     row.forEach((value,col)=>{
-      const cell=wrap.querySelector(`td[data-r="${r}"][data-c="${col}"]`);if(!cell)return;
-      const text=String(value??'').trim();
-      cell.classList.toggle('cell-missing',rowHasData&&!text);
-      const values=state.rows.map(item=>String(item[col]??'').trim()).filter(Boolean),numericCount=values.filter(item=>Number.isFinite(parseNumber(item))).length;
-      const mostlyNumeric=values.length>=3&&numericCount/values.length>=.7;
-      cell.classList.toggle('cell-type-warning',Boolean(text&&mostlyNumeric&&!Number.isFinite(parseNumber(text))));
+      const text=String(value??'').trim();if(!text)return;
+      numeric[col].filled++;if(Number.isFinite(parseNumber(text)))numeric[col].numeric++;
     });
   });
+  const duplicateRows=new Set();
+  for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(index=>duplicateRows.add(index));
+  return {duplicateRows,mostlyNumeric:numeric.map(item=>item.filled>=3&&item.numeric/item.filled>=.7)};
+}
+function virtualRowHeight(){return document.documentElement?.classList?.contains('compact-data-editor')?32:40;}
+function rowMarkup(row,rowIndex,types,widths,quality){
+  const duplicate=quality.duplicateRows.has(rowIndex)?' duplicate-row':'';
+  const rowHasData=row.some(value=>String(value??'').trim()!=='');
+  return '<tr class="'+duplicate.trim()+'"><td class="row-number"><span data-select-row="'+rowIndex+'">'+(rowIndex+1)+'</span><button class="grid-delete" data-delete-row="'+rowIndex+'" aria-label="Hapus baris '+(rowIndex+1)+'" title="Hapus baris"></button></td>'+state.headers.map((_,col)=>{
+    const width=widths[col],style=width?' style="width:'+width+'px;min-width:'+width+'px;max-width:'+width+'px"':'',text=String(row[col]??''),trim=text.trim();
+    const classes=[['category','text'].includes(types[col].type)?'string-column-cell':'',rowHasData&&!trim?'cell-missing':'',trim&&quality.mostlyNumeric[col]&&!Number.isFinite(parseNumber(trim))?'cell-type-warning':'',gridFindQuery&&trim.toLocaleLowerCase('id-ID').includes(gridFindQuery)?'cell-find-match':''].filter(Boolean).join(' ');
+    return '<td class="'+classes+'" contenteditable="true" spellcheck="false" data-r="'+rowIndex+'" data-c="'+col+'"'+style+'>'+esc(text)+'</td>';
+  }).join('')+'</tr>';
+}
+function bindGridBody(wrap){
+  wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
+    const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
+  }));
+  bindGridArrowNavigation(wrap);
+  wrap.querySelectorAll('[data-select-row]').forEach(label=>label.onclick=event=>{
+    const row=Number(label.dataset.selectRow);if(!state.headers.length)return;
+    const anchor=event.shiftKey?(state.selection.anchor?.r??row):row;
+    state.selection.anchor={r:Math.min(anchor,row),c:0};state.selection.focus={r:Math.max(anchor,row),c:state.headers.length-1};paintSelection();
+  });
+  wrap.querySelectorAll('[data-delete-row]').forEach(button=>button.onclick=()=>{
+    const i=Number(button.dataset.deleteRow);if(!confirm('Hapus baris '+(i+1)+'?'))return;
+    pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true,{kind:'delete_row',row:i});clearSelection();renderGrid();setStatus('Baris dihapus.');
+  });
+}
+function renderGridRows(wrap,types,widths,quality,{force=false}={}){
+  const tbody=wrap.querySelector('.data-grid tbody');if(!tbody)return;
+  const viewport=Math.max(240,wrap.clientHeight||600),rowHeight=virtualRowHeight();
+  const windowInfo=virtualWindow({rowCount:state.rows.length,scrollTop:wrap.scrollTop,viewportHeight:viewport,rowHeight});
+  if(windowInfo.virtualized&&!force&&Number(wrap.dataset.virtualStart)===windowInfo.start&&Number(wrap.dataset.virtualEnd)===windowInfo.end)return;
+  wrap.dataset.virtualized=windowInfo.virtualized?'1':'0';wrap.dataset.virtualStart=String(windowInfo.start);wrap.dataset.virtualEnd=String(windowInfo.end);
+  const span=state.headers.length+1,top=windowInfo.top?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.top+'px"></td></tr>':'';
+  const bottom=windowInfo.bottom?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.bottom+'px"></td></tr>':'';
+  tbody.innerHTML=top+state.rows.slice(windowInfo.start,windowInfo.end).map((row,offset)=>rowMarkup(row,windowInfo.start+offset,types,widths,quality)).join('')+bottom;
+  bindGridBody(wrap);paintSelection();positionFillHandle();
+}
+function ensureGridRowVisible(row){
+  const wrap=$('#gridWrap');if(!wrap||wrap.dataset.virtualized!=='1')return;
+  const start=Number(wrap.dataset.virtualStart||0),end=Number(wrap.dataset.virtualEnd||0);
+  if(row>=start&&row<end)return;
+  wrap.scrollTop=Math.max(0,row*virtualRowHeight()-virtualRowHeight()*3);
+  const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(item=>item[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index)),quality=gridQualityModel();
+  renderGridRows(wrap,types,widths,quality,{force:true});
+}
+function bindGridHeader(wrap){
+  bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);
+  wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
+    bindColumnLongPress(button,Number(button.dataset.renameColumn));
+    button.onclick=event=>{
+      if(button.dataset.longPress==='1'){button.dataset.longPress='';event.preventDefault();return;}
+      const col=Number(button.dataset.renameColumn);
+      if((event.shiftKey||event.ctrlKey||event.metaKey)&&state.rows.length){
+        const anchor=event.shiftKey?(state.selection.anchor?.c??col):col;
+        state.selection.anchor={r:0,c:Math.min(anchor,col)};state.selection.focus={r:state.rows.length-1,c:Math.max(anchor,col)};paintSelection();
+        document.documentElement.dataset.statSelectedColumns=Array.from({length:Math.abs(col-anchor)+1},(_,i)=>Math.min(anchor,col)+i).join(',');
+        return;
+      }
+      openColumnName(col);
+    };
+    button.closest('th')?.addEventListener('contextmenu',event=>openColumnContextMenu(event,Number(button.dataset.renameColumn)));
+  });
+  wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>deleteColumnAt(Number(button.dataset.deleteColumn)));
 }
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;
   if(!state.headers.length){
-    wrap.innerHTML=`<div class="empty-state">
-      <div class="empty-state-icon" aria-hidden="true">▦</div>
-      <h3>${esc(displayDatasetName(state.active))}</h3>
-      <div class="empty-state-actions">
-        <button type="button" class="primary" data-empty-paste>Tempel dari Excel</button>
-        <button type="button" data-empty-import>Impor berkas</button>
-        <button type="button" data-empty-example>Coba contoh</button>
-      </div>
-      <button type="button" class="empty-add-column" data-add-col>+ Kolom</button>
-    </div>`;
+    delete wrap.dataset.virtualized;wrap.innerHTML='<div class="empty-state"><div class="empty-state-icon" aria-hidden="true">▦</div><h3>'+esc(displayDatasetName(state.active))+'</h3><div class="empty-state-actions"><button type="button" class="primary" data-empty-paste>Tempel dari Excel</button><button type="button" data-empty-import>Impor berkas</button><button type="button" data-empty-example>Coba contoh</button></div><button type="button" class="empty-add-column" data-add-col>+ Kolom</button></div>';
   }else{
-    const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index));
-    wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>${state.headers.map((h,j)=>{
-      const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type),width=widths[j],style=width?` style="width:${width}px;min-width:${width}px;max-width:${width}px"`:'';
-      return `<th data-column-header="${esc(h)}" data-column-index="${j}" data-column-type="${esc(type.type)}" class="type-${esc(type.type)} ${isText?'string-column':''}"${style}><div class="header-controls"><span class="column-drag-handle" data-drag-column="${j}" draggable="true" role="button" tabindex="0" aria-label="Geser kolom ${esc(h)}" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="${j}" title="${esc(tip)}" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><span class="column-resizer" data-resize-column="${j}" title="Tarik untuk ubah lebar; klik ganda untuk otomatis"></span><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`;
-    }).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span data-select-row="${i}">${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>{const width=widths[j],style=width?` style="width:${width}px;min-width:${width}px;max-width:${width}px"`:'';return `<td class="${['category','text'].includes(types[j].type)?'string-column-cell':''}" contenteditable="true" spellcheck="false" data-r="${i}" data-c="${j}"${style}>${esc(r[j])}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;
-    wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
-      const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
-    }));
-    bindGridArrowNavigation(wrap);bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);markGridQuality(wrap,types);
-    wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
-      bindColumnLongPress(button,Number(button.dataset.renameColumn));
-      button.onclick=event=>{
-        if(button.dataset.longPress==='1'){button.dataset.longPress='';event.preventDefault();return;}
-        const col=Number(button.dataset.renameColumn);
-        if((event.shiftKey||event.ctrlKey||event.metaKey)&&state.rows.length){
-          const anchor=event.shiftKey?(state.selection.anchor?.c??col):col;
-          state.selection.anchor={r:0,c:Math.min(anchor,col)};state.selection.focus={r:state.rows.length-1,c:Math.max(anchor,col)};paintSelection();
-          document.documentElement.dataset.statSelectedColumns=Array.from({length:Math.abs(col-anchor)+1},(_,i)=>Math.min(anchor,col)+i).join(',');
-          return;
-        }
-        openColumnName(col);
-      };
-      button.closest('th')?.addEventListener('contextmenu',event=>openColumnContextMenu(event,Number(button.dataset.renameColumn)));
-    });
-    wrap.querySelectorAll('[data-select-row]').forEach(label=>label.onclick=event=>{
-      const row=Number(label.dataset.selectRow);if(!state.headers.length)return;
-      const anchor=event.shiftKey?(state.selection.anchor?.r??row):row;
-      state.selection.anchor={r:Math.min(anchor,row),c:0};state.selection.focus={r:Math.max(anchor,row),c:state.headers.length-1};paintSelection();
-    });
-    wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>deleteColumnAt(Number(button.dataset.deleteColumn)));
-    wrap.querySelectorAll('[data-delete-row]').forEach(button=>button.onclick=()=>{
-      const i=Number(button.dataset.deleteRow);if(!confirm(`Hapus baris ${i+1}?`))return;
-      pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true,{kind:'delete_row',row:i});clearSelection();renderGrid();setStatus('Baris dihapus.');
-    });
+    const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index)),quality=gridQualityModel();
+    const heads=state.headers.map((h,j)=>{
+      const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type),width=widths[j],style=width?' style="width:'+width+'px;min-width:'+width+'px;max-width:'+width+'px"':'';
+      return '<th data-column-header="'+esc(h)+'" data-column-index="'+j+'" data-column-type="'+esc(type.type)+'" class="type-'+esc(type.type)+' '+(isText?'string-column':'')+'"'+style+'><div class="header-controls"><span class="column-drag-handle" data-drag-column="'+j+'" draggable="true" role="button" tabindex="0" aria-label="Geser kolom '+esc(h)+'" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="'+j+'" title="'+esc(tip)+'" aria-label="Ubah nama kolom '+esc(h)+'">'+columnHeaderMarkup(h)+'</button><span class="column-resizer" data-resize-column="'+j+'" title="Tarik untuk ubah lebar; klik ganda untuk otomatis"></span><button class="grid-delete" data-delete-column="'+j+'" aria-label="Hapus kolom '+esc(h)+'" title="Hapus kolom"></button></div></th>';
+    }).join('');
+    wrap.innerHTML='<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>'+heads+'</tr></thead><tbody></tbody></table>';
+    bindGridHeader(wrap);renderGridRows(wrap,types,widths,quality,{force:true});
+    if(state.rows.length>VIRTUALIZE_AFTER_ROWS){
+      let raf=0;
+      wrap.onscroll=()=>{positionFillHandle();cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>renderGridRows(wrap,types,widths,quality));};
+    }else wrap.onscroll=positionFillHandle;
   }
   wrap.querySelector('[data-empty-paste]')?.addEventListener('click',openModal);
   wrap.querySelector('[data-empty-import]')?.addEventListener('click',()=>$('#quickImportFile')?.click());
   wrap.querySelector('[data-empty-example]')?.addEventListener('click',()=>{
     const first=document.querySelector('#exampleDatasets [data-example-id]');
-    if(first)first.click();
-    else $('#dataTemplate')?.click();
+    if(first)first.click();else $('#dataTemplate')?.click();
   });
   wrap.querySelectorAll('[data-add-row]').forEach(button=>button.onclick=addRow);
   wrap.querySelectorAll('[data-add-col]').forEach(button=>button.onclick=addColumn);
@@ -673,19 +775,22 @@ function renameDataset() {
 function saveDatasetName(event) {
   event.preventDefault();
   const name=$('#datasetName').value.trim().replace(/\.(?:csv|txt)$/i,'');
-  const target=name+'.csv', box=$('#datasetNameError');
+  const target=name+'.csv',box=$('#datasetNameError'),previous=state.active,content=serialize();
   if(!name||/[\\/\u0000-\u001f]/.test(name)){box.hidden=false;box.textContent='Masukkan nama tanpa garis miring atau karakter kontrol.';return;}
-  if(Object.keys(state.files).some(key=>key.toLowerCase()===target.toLowerCase()&&key!==state.active)){box.hidden=false;box.textContent='Nama tersebut sudah digunakan dataset lain.';return;}
-  const files=Object.fromEntries(Object.entries(state.files).map(([key,value])=>[key===state.active?target:key,key===state.active?serialize():value]));
+  if(Object.keys(state.files).some(key=>key.toLowerCase()===target.toLowerCase()&&key!==previous)){box.hidden=false;box.textContent='Nama tersebut sudah digunakan dataset lain.';return;}
   try{
-    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);
-    const previous=state.active,meta={...state.meta};if(previous!==target){
-      const oldKey=displayDatasetName(previous),newKey=displayDatasetName(target);
-      meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);
-      const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
-    }
-    localStorage.setItem(META_KEY,JSON.stringify(meta));
+    const previousStored=state.files[previous],offloaded=localStoreReady()&&(isLocalPointer(previousStored)||shouldOffloadDataset(content));
+    const files=Object.fromEntries(Object.entries(state.files).filter(([key])=>key!==previous));
+    files[target]=offloaded?localPointer(target):content;
+    const meta={...state.meta},oldKey=displayDatasetName(previous),newKey=displayDatasetName(target);
+    meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];
+    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);localStorage.setItem(META_KEY,JSON.stringify(meta));
+    if(previous!==target){moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);}
+    const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
     state.files=files;state.active=target;state.meta=meta;
+    if(offloaded)void saveLocalDataset(target,content).then(()=>deleteLocalDataset(previous)).catch(error=>showError('Dataset besar gagal diganti nama.',error));
+    else if(localStoreReady()&&isLocalPointer(previousStored))void deleteLocalDataset(previous);
+    if(localStoreReady())void renameLocalSnapshots(previous,target).catch(()=>{});
     notifyDatasetChange({type:'rename',name:target,previous});
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
@@ -694,19 +799,26 @@ function deleteDataset(){
   const name=displayDatasetName(state.active),rows=state.rows.length,cols=state.headers.length;
   const detail=rows||cols?`${rows} baris × ${cols} kolom beserta metadata dan riwayat lokal`:'dataset kosong beserta metadata dan riwayat lokal';
   if(!confirm(`Hapus dataset “${name}” secara permanen dari perangkat ini?\n\nCakupan: ${detail}.\nTindakan ini tidak dapat diurungkan.`))return;
-  const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
+  const removed=state.active,removedStored=state.files[removed];removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
   try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}
   state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';
-  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
-  persist('hapus dataset',false);notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus(`Dataset “${name}” dihapus dari perangkat ini.`);
+  try{saveFilesManifest();localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch(error){return showError('Dataset tidak dapat dihapus.',error);}
+  if(localStoreReady()&&isLocalPointer(removedStored))void deleteLocalDataset(removed);
+  if(localStoreReady())void deleteLocalSnapshots(removed).catch(()=>{});
+  notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus(`Dataset “${name}” dihapus dari perangkat ini.`);
 }
 function downloadDataset(){const blob=new Blob([serialize()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=state.active;a.click();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus(`✓ ${displayDatasetName(state.active)} diunduh.`);}
 function duplicateDataset(){
-  const source=state.active,base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
+  const source=state.active,content=serialize(),base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
   while(Object.prototype.hasOwnProperty.call(state.files,name))name=`${base} (${n++}).csv`;
-  state.files[name]=serialize();state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
+  const offloaded=localStoreReady()&&shouldOffloadDataset(content);
+  state.files[name]=offloaded?localPointer(name):content;state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
   copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));
-  try{localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);notifyDatasetChange({type:'upsert',name,reason:'duplikat'});loadActive(false);setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);}catch(error){showError('Gagal membuat salinan dataset.',error);}
+  try{
+    localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);
+    if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Salinan besar gagal disimpan.',error));
+    notifyDatasetChange({type:'upsert',name,reason:'duplikat'});applyActiveCsv(content,{history:false});setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);
+  }catch(error){showError('Gagal membuat salinan dataset.',error);}
 }
 function openDatasetView(title,html){
   $('#datasetViewTitle').textContent=title;$('#datasetViewBody').innerHTML=html;$('#datasetViewModal').classList.add('open');
@@ -724,8 +836,8 @@ function showDatasetMetadata(){
   }).join('');
   openDatasetView('Metadata dataset',`<div class="dataset-meta-summary"><b>${esc(datasetName)}</b><span>Tanaman: ${esc(meta.plant||'—')}</span><span>Perlakuan: ${esc(meta.treatment||'—')}</span><span>${state.rows.length} baris × ${state.headers.length} kolom</span></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Kode</th><th>Nama lengkap</th><th>Satuan</th><th>Tipe</th><th>Arti kategori</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
-function restoreHistoryEntry(index){
-  const key=displayDatasetName(state.active),all=editorHistoryStore(),entry=all[key]?.[index];if(!entry)return;
+function applyHistoryEntry(entry){
+  if(!entry)return;
   if(!confirm(`Pulihkan versi ${new Date(entry.date).toLocaleString('id-ID')}? Data saat ini tetap masuk ke riwayat.`))return;
   pushUndo('pulihkan riwayat');recordEditorHistory('sebelum pemulihan',true);
   const parsed=entry.csv?.trim()?csvRows(entry.csv,','):[];
@@ -733,10 +845,23 @@ function restoreHistoryEntry(index){
   try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
   persist('pulihkan riwayat',true);renderGrid();renderDatasetMeta();$('#datasetViewModal').classList.remove('open');setStatus('✓ Versi lama dipulihkan.');
 }
-function showDatasetHistory(){
-  const key=displayDatasetName(state.active),entries=editorHistoryStore()[key]||[];
-  openDatasetView('Riwayat perubahan',entries.length?`<p class="form-help">Maksimal 12 versi lokal per dataset. Riwayat ini hanya tersimpan di browser ini.</p><div class="editor-history-list">${entries.map((entry,index)=>`<button type="button" data-restore-history="${index}"><b>${esc(new Date(entry.date).toLocaleString('id-ID'))}</b><span>${esc(entry.reason||'perubahan')}</span></button>`).join('')}</div>`:'<p>Belum ada riwayat perubahan.</p>');
-  $('#datasetViewBody').querySelectorAll('[data-restore-history]').forEach(button=>button.onclick=()=>restoreHistoryEntry(Number(button.dataset.restoreHistory)));
+function restoreHistoryEntry(index){
+  const key=displayDatasetName(state.active),all=editorHistoryStore(),entry=all[key]?.[index];applyHistoryEntry(entry);
+}
+async function showDatasetHistory(){
+  const key=displayDatasetName(state.active),small=editorHistoryStore()[key]||[];
+  let large=[];
+  if(localStoreReady())large=await listLocalSnapshots(state.active,12).catch(()=>[]);
+  const entries=[
+    ...small.map((entry,index)=>({...entry,source:'small',index})),
+    ...large.map(entry=>({...entry,source:'large'}))
+  ].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,12);
+  openDatasetView('Riwayat perubahan',entries.length?`<p class="form-help">Versi lokal disimpan di perangkat ini.</p><div class="editor-history-list">${entries.map((entry,index)=>`<button type="button" data-history-entry="${index}"><b>${esc(new Date(entry.date).toLocaleString('id-ID'))}</b><span>${esc(entry.reason||'perubahan')}</span></button>`).join('')}</div>`:'<p>Belum ada riwayat perubahan.</p>');
+  $('#datasetViewBody').querySelectorAll('[data-history-entry]').forEach(button=>button.onclick=async()=>{
+    const entry=entries[Number(button.dataset.historyEntry)];if(!entry)return;
+    if(entry.source==='large'){const full=await getLocalSnapshot(entry.id).catch(()=>null);applyHistoryEntry(full);}
+    else restoreHistoryEntry(entry.index);
+  });
 }
 function toggleCompactEditor(){
   const enabled=!document.documentElement.classList.contains('compact-data-editor');
@@ -796,7 +921,8 @@ function installDataGrid(){
       let name=base+'.csv',suffix=2;
       const names=new Set(Object.keys(state.files).map(x=>x.toLowerCase()));
       while(names.has(name.toLowerCase()))name=`${base} (${suffix++}).csv`;
-      const files={...state.files,[name]:serializeRows(headers,rows)},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim()}};
+      const csv=serializeRows(headers,rows),value=localStoreReady()&&shouldOffloadDataset(csv)?localPointer(name):csv;
+      const files={...state.files,[name]:value},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim()}};
       const previousFiles=localStorage.getItem(FILES_KEY),previousActive=localStorage.getItem(ACTIVE_KEY),previousMeta=localStorage.getItem(META_KEY);
       try{localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,name);localStorage.setItem(META_KEY,JSON.stringify(meta));}
       catch(error){
@@ -804,6 +930,7 @@ function installDataGrid(){
         throw error;
       }
       state.files=files;state.active=name;state.headers=headers;state.rows=rows;state.meta=meta;
+      if(localStoreReady()&&isLocalPointer(value))void saveLocalDataset(name,csv).catch(error=>showError('Dataset besar gagal disimpan.',error));
       notifyDatasetChange({type:'upsert',name,reason:'impor'});
       clearError();renderTree();renderGrid();renderDatasetMeta();
       detail.importResult={ok:true,name};
@@ -818,4 +945,10 @@ function installDataGrid(){
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
 
-initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
+async function boot(){
+  loadStorage();
+  if(localStoreReady())void requestPersistentStorage();
+  try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
+  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
+}
+initNumberSettings();void boot();
