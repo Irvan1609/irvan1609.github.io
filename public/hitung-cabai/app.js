@@ -6,7 +6,8 @@ const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 let image=null,photo='',boxes=[],predictedBoxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
 let cameraStream=null,facingMode='environment',torchOn=false,detecting=false,contributing=false;
-let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false;
+let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false,confidenceStats=null;
+let batchQueue=[],batchTotal=0,batchIndex=0;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='';
 const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
 
@@ -93,6 +94,37 @@ function applyDetectSettings(){
 function saveDetectSettings(){
   try{localStorage.setItem(DETECT_SETTINGS_KEY,JSON.stringify({target:$('detectColor').value,sensitivity:$('detectSensitivity').value,onLoad:$('detectOnLoad').checked}));}catch{}
 }
+function renderConfidence(stats=confidenceStats){
+  confidenceStats=stats||null;
+  const host=$('confidenceInspector');if(!host)return;
+  if(!image||!detectionRun){host.hidden=true;return;}
+  host.hidden=false;$('confidenceModel').textContent=predictionMethod==='onnx'?modelVersion:'Deteksi warna';
+  const confidence=confidenceStats?.confidence;
+  if(confidence?.n){
+    $('confidenceMean').textContent=(confidence.mean*100).toFixed(1)+'%';
+    $('confidenceRange').textContent=(confidence.min*100).toFixed(0)+'–'+(confidence.max*100).toFixed(0)+'%';
+    $('confidenceLow').textContent=confidence.low?confidence.low+' kotak <50%':'0';
+  }else{
+    $('confidenceMean').textContent='—';$('confidenceRange').textContent='—';$('confidenceLow').textContent=predictionMethod==='onnx'?'0':'n/a';
+  }
+}
+function updateBatchState(){
+  const host=$('batchState');if(!host)return;
+  const active=batchTotal>1;
+  host.hidden=!active;
+  if(!active)return;
+  $('batchProgress').textContent=Math.min(batchIndex,batchTotal)+' / '+batchTotal;
+  $('batchName').textContent=batchQueue.length?batchQueue[0].name:'Batch selesai';
+  $('batchNext').disabled=!batchQueue.length||dirty||detecting;
+}
+async function loadNextBatch(){
+  if(!batchQueue.length)return updateBatchState();
+  if(!canDiscard())return;
+  const file=batchQueue.shift();batchIndex=Math.min(batchTotal,batchIndex+1);
+  try{await loadPhotoFile(file,file.name.replace(/\.[^.]+$/,''));}
+  catch(error){status(error.message||'Foto berikutnya tidak dapat dibuka.');}
+  updateBatchState();
+}
 function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
   const auto=$('autoDetect'),mode=$('mode'),zoom=$('zoom'),save=$('save'),mobileSave=$('mobileSave'),send=$('sendToStat');
@@ -141,7 +173,7 @@ async function autoDetectChilies({automatic=false}={}){
       result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
       predictionMethod='heuristic-color';modelVersion='heuristic-color-v1';
     }
-    checkpoint();boxes=result.boxes;predictedBoxes=cloneBoxes();paint();
+    checkpoint();boxes=result.boxes;predictedBoxes=cloneBoxes();confidenceStats=result.stats||null;paint();renderConfidence(confidenceStats);
     if(boxes.length){
       const engine=predictionMethod==='onnx'?`AI ${modelVersion}`:'Deteksi warna';
       status(`${engine} menemukan ${boxes.length} calon cabai. Periksa kotaknya; tambahkan atau hapus jika ada yang kurang tepat.`);
@@ -151,12 +183,12 @@ async function autoDetectChilies({automatic=false}={}){
   }catch(error){
     status(error.message||'Deteksi otomatis gagal.');
   }finally{
-    detectionRun=Boolean(image);detecting=false;$('autoDetect').textContent='Deteksi otomatis';updateWorkflowState();
+    detectionRun=Boolean(image);detecting=false;$('autoDetect').textContent='Deteksi otomatis';renderConfidence();updateWorkflowState();updateBatchState();
   }
 }
 async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
-  image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;detectionRun=false;
+  image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;detectionRun=false;confidenceStats=null;
   predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';
   $('sample').value=name||nowName();
   $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
@@ -279,20 +311,31 @@ $('detectSensitivity').onchange=saveDetectSettings;
 $('detectOnLoad').onchange=saveDetectSettings;
 $('zoom').onchange=()=>redraw(true);
 $('mode').onchange=updateInteractionMode;
-$('sample').oninput=()=>{dirty=true;updateWorkflowState();};
+document.addEventListener('keydown',event=>{
+  if(event.ctrlKey||event.metaKey||event.altKey||/^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName||''))return;
+  const key=event.key.toLowerCase();
+  if(key==='a'&&image&&detectionRun){$('mode').value='add';updateInteractionMode();}
+  if(key==='d'&&image&&detectionRun){$('mode').value='delete';updateInteractionMode();}
+  if(key==='z'&&image&&detectionRun&&history.length)undo();
+});
+$('sample').oninput=()=>{dirty=true;updateWorkflowState();updateBatchState();};
 window.addEventListener('resize',()=>redraw(true));
 window.visualViewport?.addEventListener('resize',()=>redraw(true));
 
 async function chooseFile(input){
-  const file=input.files?.[0];if(!file)return;
+  const files=[...(input.files||[])];if(!files.length)return;
   try{
     if(!canDiscard())return;
-    await loadPhotoFile(file);
+    if(input.id==='photo'&&files.length>1){
+      batchTotal=files.length;batchIndex=1;batchQueue=files.slice(1);
+    }else{batchTotal=0;batchIndex=0;batchQueue=[];}
+    const file=files[0];await loadPhotoFile(file,file.name.replace(/\.[^.]+$/,''));updateBatchState();
   }catch(error){status(error.message||'Foto tidak dapat dibuka.');}
   finally{input.value='';}
 }
 $('photo').onchange=event=>chooseFile(event.target);
 $('cameraFile').onchange=event=>chooseFile(event.target);
+$('batchNext').onclick=()=>void loadNextBatch();
 
 function stopCamera(){
   if(cameraStream){for(const track of cameraStream.getTracks())track.stop();}
@@ -370,13 +413,13 @@ async function saveCurrent(){
     const thumbnail=existing?.thumbnail||thumbnailDataURL(image);
     await transaction('readwrite',store=>store.put({
       id,name,image:photo,thumbnail,width:image.naturalWidth,height:image.naturalHeight,
-      boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),predictionMethod,modelVersion,
+      boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),predictionMethod,modelVersion,confidenceStats,
       cloudContributionId:cloudContributionId||existing?.cloudContributionId||'',
       cloudEditToken:cloudEditToken||existing?.cloudEditToken||'',
       reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
-    const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();
+    const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(synced){
       const action=synced.updated?'diperbarui':'ditambahkan';
       status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);
@@ -426,9 +469,9 @@ async function openRecord(row){
   if(!canDiscard())return;
   try{
     image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);predictedBoxes=(row.predictedBoxes||[]).map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;detectionRun=true;
-    predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
+    predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';confidenceStats=row.confidenceStats||null;
     cloudContributionId=row.cloudContributionId||'';cloudEditToken=row.cloudEditToken||'';contributionOperationId='';
-    $('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
+    batchQueue=[];batchTotal=0;batchIndex=0;$('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);renderConfidence();updateWorkflowState();updateBatchState();
     window.scrollTo({top:0,behavior:'smooth'});status(`Sampel dibuka: ${row.boxes.length} buah.`);
   }catch{status('Foto tersimpan tidak dapat dibuka.');}
 }
