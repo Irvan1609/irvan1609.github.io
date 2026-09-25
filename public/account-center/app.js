@@ -22,13 +22,19 @@ async function api(path,options={}){
 function gate(text,state='info'){const el=$('#accountGate');el.hidden=false;el.textContent=text;el.dataset.state=state;$('#accountApp').hidden=true;}
 function renderProfile(summary){
   const user=summary.user||{},membership=user.membership||{};
+  const rank=user.role==='admin'?'immortal':membership.active?'glory':'bronze';
+  const rankLabel=rank==='immortal'?'IMMORTAL':rank==='glory'?'GLORY':'BRONZE';
+  const card=$('.profile-card');
+  card?.classList.remove('tier-immortal','tier-glory','tier-bronze');
+  card?.classList.add('tier-'+rank);
+  $('#profileAvatar').className='profile-avatar-wrap tier-'+rank;
   $('#profileAvatar').innerHTML=user.picture?'<img class="profile-avatar-img" src="'+esc(user.picture)+'" alt="" referrerpolicy="no-referrer">':'<span class="profile-avatar-fallback">'+esc(initials(user))+'</span>';
   $('#profileName').textContent=user.name||'Pengguna';
   $('#profileEmail').textContent=user.email||'';
   const role=$('#roleBadge');role.textContent=user.role==='admin'?'Admin':'User';role.className='badge '+(user.role==='admin'?'admin':'');
   const member=$('#membershipBadge');
-  member.textContent=user.role==='admin'?'Membership permanen':membership.active?'Membership aktif':'Akun gratis';
-  member.className='badge '+((user.role==='admin'||membership.active)?'member':'');
+  member.textContent=rankLabel;
+  member.className='badge rank-badge '+rank;
   $('#upgradeMembership').hidden=user.role==='admin';
   $('#cancelMembership').hidden=user.role==='admin'||!membership.active;
   $('#metricDatasets').textContent=Number(summary.usage?.datasetCount||0).toLocaleString('id-ID');
