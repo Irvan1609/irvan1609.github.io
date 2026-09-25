@@ -342,12 +342,19 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
       const batch=pendingPatches.get(track.name);
       let saved=null;
       if(batch?.operations?.length){
-        saved=await patchCloud(id,{expectedRevision:track.revision,operationId:batch.operationId,operations:batch.operations});
-        pendingPatches.delete(track.name);
-        counters.patched+=batch.operations.length;
-        const savedHash=await remoteFingerprint(saved);
-        if(savedHash!==localHash){
-          saved=await putCloud(id,local,saved.revision);
+        try{
+          saved=await patchCloud(id,{expectedRevision:track.revision,operationId:batch.operationId,operations:batch.operations});
+          pendingPatches.delete(track.name);
+          counters.patched+=batch.operations.length;
+          const savedHash=await remoteFingerprint(saved);
+          if(savedHash!==localHash){
+            saved=await putCloud(id,local,saved.revision);
+            counters.uploaded++;
+          }
+        }catch(error){
+          if(![400,404,405].includes(error.status))throw error;
+          pendingPatches.delete(track.name);
+          saved=await putCloud(id,local,track.revision);
           counters.uploaded++;
         }
       }else{
