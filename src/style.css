@@ -1750,3 +1750,381 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .analysis-menu-item{grid-template-columns:34px minmax(0,1fr) 14px!important}
   .analysis-item-mark{width:32px;height:32px}
 }
+
+
+/* MOBILE-FIRST FINAL OVERRIDES 2026-09-26 */
+#mobileMoreButton{display:none}
+.mobile-dataset-backdrop{display:none}
+
+@media(max-width:720px){
+  html,body{max-width:100%;overflow-x:hidden}
+  body{background:#f6f8fa}
+  .app-shell{
+    width:100%;
+    max-width:none;
+    padding:7px 6px calc(78px + env(safe-area-inset-bottom))!important;
+  }
+
+  /* One compact app dock instead of a second crowded header. */
+  .app-header{
+    position:fixed!important;
+    left:7px;right:7px;
+    bottom:max(7px,env(safe-area-inset-bottom));
+    top:auto!important;
+    z-index:92;
+    overflow:visible!important;
+    border:1px solid #ccd8e1!important;
+    border-radius:16px!important;
+    background:rgba(255,255,255,.97)!important;
+    box-shadow:0 12px 34px rgba(20,42,62,.2)!important;
+    backdrop-filter:blur(14px);
+  }
+  .app-header .nav{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:3px!important;
+    padding:5px!important;
+  }
+  .app-header .nav>button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:49px!important;
+    padding:5px 3px!important;
+    border:0!important;
+    border-radius:11px!important;
+    background:transparent!important;
+    color:#455b6d!important;
+    font-size:10.5px!important;
+    font-weight:750!important;
+    line-height:1.15!important;
+    white-space:normal!important;
+  }
+  .app-header .nav>button[aria-expanded="true"],
+  .app-header .nav>button:active{
+    background:#eaf2f7!important;
+    color:#173f61!important;
+  }
+  #openAnalysis::before,#globalSearchButton::before,#projectToggle::before,#mobileMoreButton::before{
+    display:block;margin:0 auto 2px;font-size:17px;line-height:18px;font-weight:500;
+  }
+  #openAnalysis::before{content:"Σ"}
+  #globalSearchButton::before{content:"⌕"}
+  #projectToggle::before{content:"▤"}
+  #mobileMoreButton::before{content:"•••";letter-spacing:1px}
+  #openAnalysis{grid-column:auto!important}
+  #projectToggle{display:block!important}
+  #fileMenuButton,#dataMenuButton,#helpMenuButton{display:none!important}
+  #mobileMoreButton{display:block!important}
+
+  /* Command menus become bottom sheets just above the dock. */
+  .nav-command-panel,
+  .mobile-more-panel{
+    position:fixed!important;
+    left:7px!important;right:7px!important;
+    bottom:calc(72px + env(safe-area-inset-bottom))!important;
+    top:auto!important;
+    z-index:96!important;
+    width:auto!important;
+    max-height:58dvh!important;
+    margin:0!important;
+    padding:7px!important;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:5px!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+    border:1px solid #cbd7e0!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    box-shadow:0 18px 50px rgba(20,42,62,.24)!important;
+  }
+  .nav-command-panel[hidden],.mobile-more-panel[hidden]{display:none!important}
+  .mobile-more-panel button{
+    min-height:48px;border-radius:10px;text-align:left;font-weight:750;
+  }
+
+  /* Analysis chooser is a native-feeling bottom sheet. */
+  .analysis-command-panel{
+    position:fixed!important;
+    left:7px!important;right:7px!important;
+    top:auto!important;
+    bottom:calc(72px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-height:70dvh!important;
+    margin:0!important;
+    border-radius:18px!important;
+    box-shadow:0 20px 56px rgba(20,42,62,.28)!important;
+  }
+  .analysis-menu-head{padding:10px!important}
+  .analysis-menu-groups{display:block!important}
+  .analysis-group-toggle{min-height:48px!important}
+  .analysis-group-items{grid-template-columns:1fr!important;padding:5px!important}
+  .analysis-menu-item{min-height:47px!important;padding:7px 9px!important}
+
+  .main{
+    display:block!important;
+    width:100%;
+    margin:0!important;
+  }
+  .workspace{
+    width:100%;
+    border-radius:12px!important;
+    box-shadow:none!important;
+    overflow:hidden;
+  }
+
+  /* Dataset list is a drawer/bottom sheet, not content inserted above the table. */
+  .mobile-dataset-backdrop{
+    position:fixed;inset:0;z-index:93;
+    background:rgba(17,31,43,.34);
+    backdrop-filter:blur(1px);
+  }
+  html.mobile-project-open .mobile-dataset-backdrop{display:block}
+  .project-panel,
+  html.mobile-project-open .project-panel{
+    display:block!important;
+    position:fixed!important;
+    left:7px!important;right:7px!important;
+    bottom:calc(72px + env(safe-area-inset-bottom))!important;
+    top:auto!important;
+    z-index:94!important;
+    width:auto!important;
+    max-height:68dvh!important;
+    padding:10px!important;
+    border:1px solid #ccd8e1!important;
+    border-radius:18px!important;
+    background:#fff!important;
+    box-shadow:0 20px 56px rgba(20,42,62,.26)!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+    transform:translateY(calc(100% + 100px));
+    opacity:0;
+    visibility:hidden;
+    transition:transform .18s ease,opacity .18s ease,visibility .18s;
+  }
+  html.mobile-project-open .project-panel{
+    transform:translateY(0);
+    opacity:1;
+    visibility:visible;
+  }
+  .project-panel-resizer{display:none!important}
+  .panel-title{
+    position:sticky;top:-10px;z-index:2;
+    margin:-10px -10px 8px;padding:12px 12px 9px;
+    background:#fff;border-bottom:1px solid #e4e9ed;
+    font-size:12px!important;
+  }
+  #fileTree{display:grid!important;grid-template-columns:1fr!important;gap:4px!important}
+  .tree-item{
+    width:100%!important;min-height:45px!important;
+    padding:8px 10px!important;margin:0!important;
+    text-align:left;font-size:12.5px!important;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .dataset-actions{grid-template-columns:1fr 1fr!important}
+  .dataset-actions button{min-height:43px!important;font-size:12px!important}
+  .dataset-actions #deleteDataset{grid-column:1/-1}
+  .dataset-more-actions{display:grid!important;grid-template-columns:1fr!important}
+  .dataset-more-actions button{min-height:42px!important}
+
+  /* Compact sheet identity: dataset first, metadata second. */
+  .sheet-header{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:5px 7px!important;
+    padding:7px 8px!important;
+    background:#fff!important;
+  }
+  .dataset-title{
+    display:flex!important;align-items:center!important;gap:4px!important;
+    width:auto!important;min-width:0!important;font-size:11px!important;
+  }
+  .dataset-title>strong,.dataset-title>span:nth-child(2){display:none!important}
+  #activeFile{
+    display:block;min-width:0;max-width:calc(100vw - 92px)!important;
+    padding:3px 4px!important;
+    font-size:13px!important;font-weight:800;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .save-indicator{
+    width:16px!important;height:16px!important;min-width:16px!important;
+    padding:0!important;margin:0!important;font-size:8px!important;
+  }
+  .dataset-meta-compact{
+    grid-column:1/-1!important;
+    width:100%!important;margin:0!important;
+  }
+  .dataset-meta-summaryline{
+    display:flex!important;
+    gap:5px!important;
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .dataset-meta-summaryline::-webkit-scrollbar{display:none}
+  .dataset-meta-summaryline>span{
+    flex:0 1 auto!important;
+    width:auto!important;max-width:min(72vw,280px)!important;
+    padding:3px 5px!important;
+    border:1px solid #e3e9ee!important;border-radius:7px!important;
+    background:#f8fafb!important;
+  }
+  .dataset-meta-summaryline b{display:none!important}
+  .dataset-meta-inline{max-width:min(68vw,260px)!important;font-size:11px!important}
+  #clearData{
+    grid-column:2;grid-row:1;
+    align-self:center;
+    width:34px!important;height:34px!important;min-height:34px!important;
+    padding:7px!important;margin:0!important;
+    border:0!important;background:transparent!important;
+  }
+
+  /* Data is the primary mobile surface. Never freeze rows/columns. */
+  .grid-container{
+    width:100%!important;
+    min-height:0!important;
+    height:calc(100dvh - 174px)!important;
+    max-height:none!important;
+    overflow:auto!important;
+    border-top:1px solid #e3e8ed;
+    overscroll-behavior:auto!important;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    touch-action:pan-x pan-y;
+  }
+  .data-grid{
+    min-width:max-content!important;
+    font-size:12.5px!important;
+  }
+  .data-grid thead th,
+  .data-grid thead th:first-child,
+  .data-grid thead th:nth-child(2),
+  .data-grid tbody td:first-child,
+  .data-grid tbody td:nth-child(2),
+  .data-grid .row-number{
+    position:static!important;
+    left:auto!important;top:auto!important;z-index:auto!important;
+    box-shadow:none!important;
+  }
+  .data-grid th,.data-grid td{
+    min-width:84px!important;
+    height:39px!important;
+    padding:6px 7px!important;
+  }
+  .data-grid .row-number{
+    min-width:42px!important;width:42px!important;
+    background:#f5f7fa!important;
+  }
+  .column-drag-handle{display:none!important}
+  .data-grid thead .grid-delete{display:none!important}
+  .column-resizer{width:12px!important;right:-6px!important}
+  .fill-handle{width:12px!important;height:12px!important}
+  .row-number .grid-delete{
+    min-width:20px!important;min-height:20px!important;
+    margin-left:2px!important;
+  }
+  .grid-add-controls{display:grid!important;grid-template-columns:1fr!important;gap:2px!important}
+  .grid-add-controls button{min-height:24px!important;padding:2px 3px!important;font-size:9.5px!important}
+  .status{
+    min-height:28px!important;max-height:28px!important;
+    padding:5px 8px!important;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:10.5px!important;
+  }
+
+  /* Modal forms become bottom sheets; typing no longer zooms iOS. */
+  .modal-backdrop{
+    align-items:flex-end!important;
+    justify-content:center!important;
+    padding:0!important;
+    background:rgba(17,31,43,.36)!important;
+  }
+  .modal-backdrop>.modal{
+    width:100%!important;max-width:100%!important;
+    max-height:88dvh!important;
+    margin:0!important;
+    border-width:1px 0 0!important;
+    border-radius:18px 18px 0 0!important;
+    box-shadow:0 -14px 50px rgba(20,42,62,.22)!important;
+  }
+  .modal-head{
+    min-height:48px!important;padding:8px 11px!important;
+    position:sticky;top:0;z-index:4;
+  }
+  .modal-head::before{
+    content:"";position:absolute;left:50%;top:5px;
+    width:34px;height:4px;border-radius:999px;background:#d4dde4;
+    transform:translateX(-50%);
+  }
+  .modal-head strong{font-size:13.5px!important;padding-top:3px}
+  .modal-head button{width:36px!important;height:36px!important;min-height:36px!important}
+  .modal-body{padding:10px!important}
+  .modal-foot{
+    position:sticky;bottom:0;z-index:4;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom))!important;
+    background:#fff!important;
+  }
+  .modal-foot>button{min-height:45px!important}
+  input:not([type=checkbox]),select,textarea{font-size:16px!important}
+  #pasteArea{min-height:44dvh!important}
+
+  /* Search should feel like one simple mobile command palette. */
+  .global-search-dialog{max-height:82dvh!important}
+  #globalSearch{min-height:48px!important;border-radius:10px!important}
+  .global-search-results{max-height:62dvh!important}
+  .global-search-item{min-height:47px!important;padding:8px!important}
+
+  /* Results occupy the lower half; the data above remains visible. */
+  .analysis-result-dock{
+    left:5px!important;right:5px!important;
+    top:auto!important;
+    bottom:calc(72px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    height:min(58dvh,620px)!important;
+    border-radius:18px 18px 8px 8px!important;
+    box-shadow:0 -14px 46px rgba(20,42,62,.24)!important;
+  }
+  .analysis-dock-head{min-height:45px!important;padding:7px 9px!important}
+  .analysis-dock-head::before{
+    content:"";position:absolute;left:50%;top:4px;
+    width:34px;height:4px;border-radius:999px;background:#d4dde4;
+    transform:translateX(-50%);
+  }
+  .analysis-dock-head{position:relative;padding-top:10px!important}
+  .analysis-dock-body{padding:6px!important}
+  .analysis-result{margin:6px 0!important;border-radius:6px!important}
+  .analysis-result .result-table{min-width:560px!important;font-size:11px!important}
+  .analysis-result .anova-table{min-width:650px!important}
+  .result-actions,.master-result-actions{grid-template-columns:1fr 1fr!important}
+  .result-actions button,.master-result-actions button{min-height:42px!important}
+
+  .grid-find-bar{
+    position:fixed!important;
+    left:7px!important;right:7px!important;
+    top:calc(64px + env(safe-area-inset-top))!important;
+    z-index:91!important;
+    border-radius:12px!important;
+  }
+}
+
+@media(max-width:420px){
+  .app-shell{padding-left:4px!important;padding-right:4px!important}
+  .app-header{left:5px;right:5px}
+  .app-header .nav>button{font-size:10px!important}
+  .sheet-header{padding:6px!important}
+  #activeFile{max-width:calc(100vw - 82px)!important}
+  .grid-container{height:calc(100dvh - 166px)!important}
+  .data-grid th,.data-grid td{min-width:78px!important;padding:5px 6px!important}
+  .dataset-meta-summaryline>span{max-width:78vw!important}
+  .analysis-result-dock{left:3px!important;right:3px!important}
+}
+
+@media(max-height:520px) and (orientation:landscape) and (max-width:920px){
+  .app-header{
+    left:auto!important;right:6px!important;bottom:6px!important;
+    width:min(430px,62vw)!important;
+  }
+  .grid-container{height:calc(100dvh - 105px)!important;max-height:none!important}
+  .sheet-header{padding:5px 7px!important}
+  .analysis-command-panel,.project-panel,.nav-command-panel,.mobile-more-panel{
+    left:6px!important;right:6px!important;bottom:66px!important;max-height:64dvh!important
+  }
+}
