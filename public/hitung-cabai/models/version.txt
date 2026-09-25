@@ -1,0 +1,7 @@
+yolo-20260925-1
+source=roboflow:andis-workspace-gtt7i/chili-dem2l/2
+sample_count=197
+precision=0.923932
+recall=0.906469
+map50=0.965958
+map50_95=0.826838
