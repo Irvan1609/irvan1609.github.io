@@ -1,6 +1,6 @@
 import {detectChiliBoxesFromImageData} from './detector.js';
 import {detectChiliWithModel} from './ml-detector.js';
-import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js';
+import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260925-2';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
