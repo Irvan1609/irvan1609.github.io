@@ -545,23 +545,29 @@ function renderGrid(){
       <button type="button" class="empty-add-column" data-add-col>+ Kolom</button>
     </div>`;
   }else{
-    const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index])));
+    const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index));
     wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>${state.headers.map((h,j)=>{
-      const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type);
-      return `<th data-column-header="${esc(h)}" data-column-index="${j}" data-column-type="${esc(type.type)}" class="${isText?'string-column':''}"><div class="header-controls"><span class="column-drag-handle" data-drag-column="${j}" draggable="true" role="button" tabindex="0" aria-label="Geser kolom ${esc(h)}" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="${j}" title="${esc(tip)}" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`;
-    }).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span>${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>`<td class="${['category','text'].includes(types[j].type)?'string-column-cell':''}" contenteditable="true" spellcheck="false" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type),width=widths[j],style=width?` style="width:${width}px;min-width:${width}px;max-width:${width}px"`:'';
+      return `<th data-column-header="${esc(h)}" data-column-index="${j}" data-column-type="${esc(type.type)}" class="type-${esc(type.type)} ${isText?'string-column':''}"${style}><div class="header-controls"><span class="column-drag-handle" data-drag-column="${j}" draggable="true" role="button" tabindex="0" aria-label="Geser kolom ${esc(h)}" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="${j}" title="${esc(tip)}" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><span class="column-resizer" data-resize-column="${j}" title="Tarik untuk ubah lebar; klik ganda untuk otomatis"></span><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`;
+    }).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span data-select-row="${i}">${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>{const width=widths[j],style=width?` style="width:${width}px;min-width:${width}px;max-width:${width}px"`:'';return `<td class="${['category','text'].includes(types[j].type)?'string-column-cell':''}" contenteditable="true" spellcheck="false" data-r="${i}" data-c="${j}"${style}>${esc(r[j])}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;
     wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
       const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
     }));
-    bindGridArrowNavigation(wrap);bindColumnDrag(wrap);
-    wrap.querySelectorAll('[data-rename-column]').forEach(button=>button.onclick=()=>openColumnName(Number(button.dataset.renameColumn)));
-    wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>{
-      const j=Number(button.dataset.deleteColumn),header=state.headers[j],filled=state.rows.filter(row=>String(row[j]??'').trim()!=='').length;
-      const warning=filled>=100?`Kolom ini berisi ${filled} nilai. `:'';
-      if(!confirm(`${warning}Hapus kolom ${header} beserta datanya?`))return;
-      pushUndo('hapus kolom');removeCategoryColumn(displayDatasetName(state.active),header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];
-      persist('hapus kolom',true);clearSelection();renderGrid();setStatus('Kolom dihapus.');
+    bindGridArrowNavigation(wrap);bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);
+    wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
+      button.onclick=event=>{
+        const col=Number(button.dataset.renameColumn);
+        if(event.shiftKey&&state.rows.length){const anchor=state.selection.anchor?.c??col;state.selection.anchor={r:0,c:Math.min(anchor,col)};state.selection.focus={r:state.rows.length-1,c:Math.max(anchor,col)};paintSelection();document.documentElement.dataset.statSelectedColumns=Array.from({length:Math.abs(col-anchor)+1},(_,i)=>Math.min(anchor,col)+i).join(',');return;}
+        openColumnName(col);
+      };
+      button.closest('th')?.addEventListener('contextmenu',event=>openColumnContextMenu(event,Number(button.dataset.renameColumn)));
     });
+    wrap.querySelectorAll('[data-select-row]').forEach(label=>label.onclick=event=>{
+      const row=Number(label.dataset.selectRow);if(!state.headers.length)return;
+      const anchor=event.shiftKey?(state.selection.anchor?.r??row):row;
+      state.selection.anchor={r:Math.min(anchor,row),c:0};state.selection.focus={r:Math.max(anchor,row),c:state.headers.length-1};paintSelection();
+    });
+    wrap.querySelectorAll('[data-delete-column]').forEach(button=>button.onclick=()=>deleteColumnAt(Number(button.dataset.deleteColumn)));
     wrap.querySelectorAll('[data-delete-row]').forEach(button=>button.onclick=()=>{
       const i=Number(button.dataset.deleteRow);if(!confirm(`Hapus baris ${i+1}?`))return;
       pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true,{kind:'delete_row',row:i});clearSelection();renderGrid();setStatus('Baris dihapus.');
@@ -577,7 +583,7 @@ function renderGrid(){
   wrap.querySelectorAll('[data-add-row]').forEach(button=>button.onclick=addRow);
   wrap.querySelectorAll('[data-add-col]').forEach(button=>button.onclick=addColumn);
   if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
-  paintSelection();
+  paintSelection();positionFillHandle();
 }
 function excelRows(text){return text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>line.split('\t'));}
 function detectDelimiter(text){let semis=0,commas=0,quotes=false;for(const c of text.slice(0,10000)){if(c==='"')quotes=!quotes;else if(!quotes&&c===';')semis++;else if(!quotes&&c===',')commas++;}return semis>commas?';':',';}
