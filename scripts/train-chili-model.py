@@ -19,6 +19,7 @@ def main():
     p.add_argument("--data",required=True)
     p.add_argument("--public-dir",default="public/hitung-cabai")
     p.add_argument("--epochs",type=int,default=30)
+    p.add_argument("--sample-count",type=int,default=0)
     args=p.parse_args()
 
     from ultralytics import YOLO
@@ -66,7 +67,8 @@ def main():
         "map50":round(map50,6),
         "map50_95":round(map5095,6),
         "accepted":bool(accepted),
-        "evaluated_at":datetime.now(timezone.utc).isoformat()
+        "evaluated_at":datetime.now(timezone.utc).isoformat(),
+        "sample_count":int(args.sample_count)
     }
     pathlib.Path(".chili-training").mkdir(exist_ok=True)
     pathlib.Path(".chili-training/candidate-metrics.json").write_text(json.dumps(metrics,indent=2),encoding="utf-8")
