@@ -41,7 +41,7 @@
           <span class="app-flow-badge">Data → Analisis → Ekspor</span>
         </div>
         <nav class="nav" aria-label="Perintah Statistical Web">
-          <button id="openAnalysis" class="primary" type="button">Analisis</button>
+          <button id="openAnalysis" class="primary" type="button">Pilih analisis</button>
           <button id="globalSearchButton" type="button" aria-haspopup="dialog" aria-controls="globalSearchModal">Cari</button>
           <button id="focusData" type="button" aria-pressed="false" title="Perluas area tabel">Fokus Data</button>
           <button id="projectToggle" type="button" aria-expanded="false">☰ Dataset</button>
@@ -49,13 +49,13 @@
       </header>
 
       <div class="toolbar">
-        <button id="pasteBtn" class="primary" type="button">Tempel data</button>
+        <button id="pasteBtn" class="primary" type="button">Tempel dari Excel</button>
         <button id="importBtn" type="button">Impor CSV</button>
         <button id="newTxt" type="button">Data baru</button>
         <button id="addRow" type="button">Tambah baris</button>
         <button id="addCol" type="button">Tambah kolom</button>
         <button id="compactEditor" type="button" title="Tampilan ringkas">Ringkas</button>
-        <button id="clearData" type="button" aria-label="Hapus seluruh data" title="Hapus seluruh data">×</button>
+        <button id="clearData" class="danger-action" type="button" aria-label="Kosongkan seluruh isi dataset aktif" title="Kosongkan seluruh isi dataset aktif"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg><span>Kosongkan data</span></button>
       </div>
 
       <div class="workflow-strip" aria-label="Alur kerja Statistical Web">
@@ -75,7 +75,7 @@
           <div class="dataset-actions">
             <button id="renameDataset" type="button">Ubah nama</button>
             <button id="duplicateDataset" type="button">Buat salinan</button>
-            <button id="deleteDataset" type="button" aria-label="Hapus dataset" title="Hapus dataset">×</button>
+            <button id="deleteDataset" class="danger-action" type="button" aria-label="Hapus dataset aktif" title="Hapus dataset aktif"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg><span>Hapus dataset</span></button>
           </div>
           <details class="dataset-more">
             <summary>Lainnya</summary>
@@ -92,7 +92,7 @@
           <div class="sheet-header">
             <div class="dataset-title">
               <strong>Tabel data</strong><span>/</span><span id="activeFile">dataset</span>
-              <span id="saveIndicator" class="save-indicator" aria-live="polite">✓ tersimpan</span>
+              <span id="saveIndicator" class="save-indicator visible" aria-live="polite">Tersimpan di perangkat ini</span>
             </div>
             <div class="dataset-meta-compact">
               <div class="dataset-meta-summaryline" aria-label="Ringkasan metadata dataset">
@@ -178,6 +178,7 @@
     </div>
 
     <input id="file" class="file-input" type="file" accept=".csv,text/csv">
+    <input id="quickImportFile" class="file-input" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
   </div>
 
   <noscript><div class="fatal-error">JavaScript harus diaktifkan untuk menggunakan Statistical Web.</div></noscript>
