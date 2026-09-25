@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {validateColumnNames} from '../src/dataset-columns.js';
+import {recognizedAgronomicHeaders,saveUserParameterAlias} from '../src/agronomic-data-dictionary.js';
 import {templateCatalog,getDataTemplate,rowsForEditor} from '../src/template-catalog.js';
 import ExcelJS from 'exceljs';
 
@@ -13,7 +14,7 @@ const document={addEventListener:target.addEventListener.bind(target),querySelec
   if(!elements.has(selector))elements.set(selector,{addEventListener(){},classList:{},textContent:''});
   return elements.get(selector);
 }};
-const context=vm.createContext({document,validateColumnNames,formatNumber:String,console:{error(){}},localStorage:{
+const context=vm.createContext({document,validateColumnNames,recognizedAgronomicHeaders,saveUserParameterAlias,formatNumber:String,console:{error(){}},localStorage:{
   getItem:key=>storage.get(key)??null,
   setItem(key,value){if(key===failKey){failKey=null;throw Error('Kuota penyimpanan penuh.');}storage.set(key,value);},
   removeItem:key=>storage.delete(key)
