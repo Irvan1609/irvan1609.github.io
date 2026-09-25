@@ -27,10 +27,6 @@
       <header class="app-header">
         <nav class="nav" aria-label="Perintah Statistical Web">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
-          <div class="global-search" role="search">
-            <input id="globalSearch" type="search" autocomplete="off" placeholder="Cari fitur, analisis, dataset, kolom…" aria-label="Cari di Statistical Web" aria-controls="globalSearchResults" aria-expanded="false">
-            <div id="globalSearchResults" class="global-search-results" role="listbox" hidden></div>
-          </div>
           <button id="projectToggle" type="button" aria-expanded="false">☰ Dataset</button>
         </nav>
       </header>
@@ -51,7 +47,7 @@
       <main class="main">
         <aside class="project-panel" id="projectPanel">
           <div class="panel-title">Dataset</div>
-          <input id="datasetSearch" class="dataset-search" type="search" autocomplete="off" placeholder="Cari dataset…" aria-label="Cari dataset" hidden>
+          <input id="datasetSearch" class="dataset-search" type="search" autocomplete="off" placeholder="Cari dataset…" aria-label="Cari dataset">
           <div id="fileTree"></div>
           <details class="dataset-more dataset-manage">
             <summary>Kelola dataset</summary>
