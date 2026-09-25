@@ -77,6 +77,27 @@ async function copyScope(scope) {
   area.remove();
 }
 
+function safeFilename(value){return String(value||'hasil').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim()||'hasil';}
+function exportBab4Doc(scope){
+  const sections=[...scope.querySelectorAll('.analysis-result')],parts=[];
+  for(const section of sections){
+    const title=section.querySelector(':scope > h3')?.textContent?.trim();
+    const table=section.querySelector('[data-bab4-table]');
+    const interpretation=section.querySelector('[data-chapter-interpretation]');
+    if(!table&&!interpretation)continue;
+    if(title)parts.push(`<h2>${title.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</h2>`);
+    if(table){const clone=cleanClone(table);parts.push(clone.innerHTML);}
+    if(interpretation){
+      const paragraphs=[...interpretation.querySelectorAll('.interpretation-paragraph')].map(node=>`<p>${node.textContent.trim().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</p>`).join('');
+      if(paragraphs)parts.push('<h3>Interpretasi</h3>'+paragraphs);
+    }
+  }
+  if(!parts.length)throw Error('Tabel BAB IV belum tersedia.');
+  const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:10pt;color:#000}h2{font-size:11pt;margin:18pt 0 6pt}h3{font-size:10pt;margin:10pt 0 4pt}table{width:100%;border-collapse:collapse;margin:4pt 0 8pt}th,td{padding:4pt 5pt;border-left:0;border-right:0}thead th{border-top:1.5pt solid #000;border-bottom:1pt solid #000}tbody tr:last-child td{border-bottom:1.5pt solid #000}.table-caption{font-weight:700;margin:4pt 0}.analysis-note{font-size:9pt;margin:3pt 0}.publication-table-tools{display:none}sup{vertical-align:super;font-size:75%}</style></head><body>${parts.join('\n')}</body></html>`;
+  const blob=new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=safeFilename(scope.dataset.datasetName||'hasil')+' - BAB IV.doc';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
 async function exportScope(scope, filename, formulas=false) {
   const snapshot = cleanClone(scope);
   snapshot.dataset.decimalSeparator = getDecimalSeparator();
@@ -129,7 +150,7 @@ export function installResultExport() {
   document.addEventListener('click', async event => {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
-    const action=button.dataset.resultAction,isAll=action==='export-all'||action==='export-all-formula';
+    const action=button.dataset.resultAction,isAll=['export-all','export-all-formula','export-bab4'].includes(action);
     const scope = action==='copy-publication'?button.closest('[data-bab4-table]'):isAll?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
@@ -142,7 +163,10 @@ export function installResultExport() {
     try {
       if(action==='copy-publication'){
         await copyScope(scope);
-        message('Tabel disalin.');
+        message('Tabel siap ditempel ke Word/Excel.');
+      } else if(action==='export-bab4'){
+        exportBab4Doc(scope);
+        message('BAB IV siap dibuka di Word.');
       } else if(action==='copy-interpretation'){
         const block=button.closest('[data-chapter-interpretation]');
         const text=[...(block?.querySelectorAll('.interpretation-paragraph')||[])].map(el=>el.textContent.trim()).filter(Boolean).join('\n\n');
