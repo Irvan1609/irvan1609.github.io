@@ -18,6 +18,8 @@ for(const marker of [
   "requireAdminUser",
   "/v1/develop/overview",
   "/v1/develop/users",
+  "/v1/account/summary",
+  "/v1/membership/plans",
   "membership_required",
   "SESSION_TOUCH_MINUTES=15",
   "apiVersion:'2026-09-26.2'"
