@@ -1,0 +1,82 @@
+name: Bootstrap Hitung Cabai from Roboflow
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".ml-bootstrap-trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-hitung-cabai-roboflow
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
+      ROBOFLOW_DATASET_ID: andis-workspace-gtt7i/chili-dem2l/2
+      BOOTSTRAP_EPOCHS: "40"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pasang mesin ML
+        run: |
+          pip install "ultralytics>=8.3,<9" onnx onnxslim onnxruntime "roboflow>=1.4,<2"
+
+      - name: Ambil Roboflow Version 2
+        id: dataset
+        shell: bash
+        run: |
+          if [ -z "$ROBOFLOW_API_KEY" ]; then
+            echo "ROBOFLOW_API_KEY belum dikonfigurasi."
+            exit 1
+          fi
+          python scripts/fetch-roboflow-chili-dataset.py \
+            --dataset "$ROBOFLOW_DATASET_ID" \
+            --api-key "$ROBOFLOW_API_KEY" \
+            --out .roboflow-dataset
+
+      - name: Latih kandidat produksi 40 epoch
+        id: train
+        run: |
+          python scripts/train-chili-model.py \
+            --data "${{ steps.dataset.outputs.data_yaml }}" \
+            --epochs "$BOOTSTRAP_EPOCHS" \
+            --sample-count "${{ steps.dataset.outputs.sample_count }}"
+
+      - name: Simpan diagnostik kandidat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitung-cabai-bootstrap-${{ github.run_number }}
+          path: |
+            .chili-training/candidate-metrics.json
+            .chili-training/candidate/results.csv
+            .chili-training/candidate/weights/best.pt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publikasikan model jika lolos
+        if: steps.train.outputs.accepted == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/hitung-cabai/model-manifest.json public/hitung-cabai/models/
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan model."
+          else
+            git commit -m "Hitung Cabai: promote Roboflow bootstrap model"
+            git push
+          fi
