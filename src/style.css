@@ -953,3 +953,30 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .grid-container{min-height:190px!important;max-height:calc(100dvh - 145px)!important}
   .modal-backdrop>.modal{max-height:calc(100dvh - 8px)!important}
 }
+
+
+/* Account dataset sync */
+.dataset-sync-bar{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px;
+  margin:2px 0 8px;
+  padding:6px 7px;
+  border:1px solid #dde4ea;
+  border-radius:8px;
+  background:#f8fafc;
+  color:#637383;
+  font-size:10.5px;
+}
+.dataset-sync-dot{width:7px;height:7px;border-radius:50%;background:#a7b2bc}
+.dataset-sync-bar[data-state="syncing"] .dataset-sync-dot{background:#3b78a5;box-shadow:0 0 0 3px rgba(59,120,165,.12)}
+.dataset-sync-bar[data-state="synced"] .dataset-sync-dot{background:#2f7d55}
+.dataset-sync-bar[data-state="error"] .dataset-sync-dot{background:#a64141}
+#datasetSyncState{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#syncDatasets{min-height:28px!important;padding:3px 6px!important;font-size:10px!important;background:#fff!important}
+#syncDatasets:disabled{opacity:.5}
+@media(max-width:720px){
+  .dataset-sync-bar{grid-template-columns:auto minmax(0,1fr) auto;margin-bottom:7px;padding:6px}
+  #syncDatasets{min-height:34px!important;padding:5px 7px!important}
+}
