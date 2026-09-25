@@ -90,20 +90,19 @@ function persistResultOrder(container,datasetName){
 function installResultControls(container,reports,datasetName){
   const sections=()=>[...container.querySelectorAll('.analysis-result')],summary=container.querySelector('.analysis-summary');
   const filterButtons=[...container.querySelectorAll('[data-result-filter]')],focus=container.querySelector('[data-result-focus]');
-  const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]');
+  const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]'),presentation=container.querySelector('[data-presentation-mode]');
   const prev=container.querySelector('[data-result-prev]'),next=container.querySelector('[data-result-next]'),page=container.querySelector('[data-result-page]');
   let filter='all';
   const matching=()=>sections().filter(section=>filter==='all'||section.dataset.overallSignificance===filter);
   const activeFocus=()=>focus?.value||'';
+  const classForMode=mode=>mode==='compare'?'compare-parameters-mode':mode==='thesis'?'thesis-table-mode':mode==='publication'?'publication-table-mode':mode==='presentation'?'presentation-results-mode':'';
   const setMode=mode=>{
-    container.classList.toggle('compare-parameters-mode',mode==='compare');
-    container.classList.toggle('thesis-table-mode',mode==='thesis');
-    container.classList.toggle('publication-table-mode',mode==='publication');
-    for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication']])if(button)button.setAttribute('aria-pressed',String(mode===name));
+    for(const className of ['compare-parameters-mode','thesis-table-mode','publication-table-mode','presentation-results-mode'])container.classList.toggle(className,className===classForMode(mode));
+    for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication'],[presentation,'presentation']])if(button)button.setAttribute('aria-pressed',String(mode===name));
   };
   const apply=()=>{
-    const list=matching(),wanted=activeFocus(),compareMode=container.classList.contains('compare-parameters-mode');
-    if(compareMode){
+    const list=matching(),wanted=activeFocus(),summaryOnly=container.classList.contains('compare-parameters-mode');
+    if(summaryOnly){
       sections().forEach(section=>section.hidden=true);
       if(summary)summary.hidden=false;
     }else{
@@ -126,8 +125,11 @@ function installResultControls(container,reports,datasetName){
     apply();
   });
   if(focus)focus.onchange=()=>{setMode('');apply();};
-  const modeButton=(button,mode)=>{if(button)button.onclick=()=>{const active=container.classList.contains(mode==='compare'?'compare-parameters-mode':mode==='thesis'?'thesis-table-mode':'publication-table-mode');setMode(active?'':mode);if(focus&&!active)focus.value='';apply();};};
-  modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');
+  const modeButton=(button,mode)=>{if(button)button.onclick=()=>{
+    const className=classForMode(mode),active=container.classList.contains(className);
+    setMode(active?'':mode);if(focus&&!active&&mode!=='presentation')focus.value='';apply();
+  };};
+  modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');modeButton(presentation,'presentation');
   container.querySelectorAll('[data-summary-parameter]').forEach(button=>button.onclick=()=>{
     if(focus)focus.value=button.dataset.summaryParameter;
     setMode('');apply();
