@@ -4,7 +4,10 @@ export function installNavigation(){
   if(!nav||!sheet)return;
 
   const clear=document.getElementById('clearData');
-  if(clear){clear.textContent='×';clear.setAttribute('aria-label','Hapus seluruh data');clear.title='Hapus seluruh data';clear.classList.add('icon-only');sheet.append(clear);}
+  if(clear){
+    clear.innerHTML='<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg>';
+    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');sheet.append(clear);
+  }
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
@@ -75,7 +78,6 @@ export function installNavigation(){
       importBtn:'impor import csv file data',
       importXlsx:'impor import excel xlsx workbook',
       newTxt:'baru dataset data baru',
-      focusData:'fokus layar penuh tabel spreadsheet',
       addRow:'tambah baris row',
       addCol:'tambah kolom column',
       compactEditor:'ringkas compact tampilan',
@@ -95,7 +97,6 @@ export function installNavigation(){
       viewDatasetMeta:'metadata dataset',
       datasetHistory:'riwayat perubahan dataset',
       deleteDataset:'hapus delete dataset',
-      toggleDatasetMeta:'informasi tanaman perlakuan metadata',
       syncDatasets:'sinkronisasi cloud akun dataset cadangan antar perangkat'
     };
     Object.keys(aliases).forEach(id=>{
@@ -146,7 +147,7 @@ export function installNavigation(){
     if(!query){
       const empty=document.createElement('div');
       empty.className='global-search-empty';
-      empty.textContent='Ketik untuk mencari fitur, analisis, dataset, kolom, hasil, atau halaman.';
+      empty.textContent='Cari fitur, analisis, dataset, atau kolom.';
       searchResults.append(empty);return;
     }
     const matches=buildGlobalIndex().map(entry=>({entry,score:rank(entry,query)})).filter(x=>Number.isFinite(x.score)).sort((a,b)=>a.score-b.score||a.entry.label.localeCompare(b.entry.label,'id')).slice(0,14);
