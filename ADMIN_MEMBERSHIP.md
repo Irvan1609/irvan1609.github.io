@@ -1,105 +1,162 @@
-# Admin, Membership, Sinkronisasi, dan Develop Console
+# Admin, Membership, Account Center, Develop, dan QRIS
 
-## Admin utama
+## Role
 
-Akun admin bawaan:
+Role aplikasi:
+
+- `user`: akun gratis.
+- membership aktif: tetap role `user`, tetapi memperoleh entitlement membership.
+- `admin`: akses tertinggi.
+
+Admin bawaan adalah Google account terverifikasi:
 
 `andyirvan1609@gmail.com`
 
-Worker mempromosikan email ini menjadi role `admin` hanya setelah Google mengembalikan email terverifikasi. Admin memperoleh membership permanen, sinkronisasi dataset, akses analisis tanpa QRIS per analisis, dan Develop Console.
+Worker juga mendukung override `ADMIN_EMAILS`. Admin selalu dianggap membership aktif permanen.
 
-Variabel Worker opsional:
+## Entitlement
 
-`ADMIN_EMAILS = "andyirvan1609@gmail.com"`
+Akun gratis:
+- penggunaan lokal tetap tersedia sesuai fitur halaman;
+- tidak mendapat cloud dataset sync;
+- jika payment gate analisis diaktifkan, mengikuti aturan pembayaran per analisis.
 
-Jika variabel tidak diisi, email di atas tetap menjadi default.
+Membership:
+- cloud dataset sync;
+- kuota dataset dan penyimpanan mengikuti paket;
+- analisis termasuk tanpa QRIS per analisis;
+- Account Center dan riwayat membership.
+
+Admin:
+- seluruh entitlement membership tanpa tanggal berakhir;
+- tanpa pembayaran membership dan tanpa QRIS per analisis;
+- menu **Develop** pada profil;
+- akses server-side ke `/develop/`.
+
+## Account Center
+
+URL:
+
+`https://irvan1609.github.io/account/`
+
+Fitur:
+- status akun/role/membership;
+- penggunaan dan kuota cloud;
+- sesi aktif;
+- cabut sesi perangkat lain;
+- riwayat pembayaran membership;
+- ekspor data akun JSON;
+- tautan upgrade/kelola membership.
 
 ## Membership
 
-Field akses disimpan pada tabel `users`:
+URL:
 
-- `role`: `user` atau `admin`
-- `membership_status`: `inactive` atau `active`
-- `membership_expires_at`: tanggal berakhir opsional
-- `membership_source`: `none`, `manual`, `admin`, dan dapat diperluas ke `qris`
-- `access_updated_at`
+`https://irvan1609.github.io/membership/`
 
-Akun admin selalu dianggap aktif tanpa tanggal berakhir.
+Paket disimpan di D1, bukan hard-coded UI. Admin mengatur dari Develop:
+- nama;
+- deskripsi;
+- durasi;
+- harga;
+- jumlah dataset;
+- batas storage;
+- aktif/nonaktif.
 
-Membership aktif memperoleh:
+Paket default dibuat nonaktif dengan harga 0 sehingga tidak ada harga komersial yang diinventarisasi otomatis. Admin harus mengisi harga dan mengaktifkan paket.
 
-- sinkronisasi dataset cloud;
-- bypass pembayaran QRIS per analisis ketika payment gate diaktifkan nanti.
+## QRIS membership
 
-Akun gratis tetap dapat memakai fungsi lokal yang memang tidak dikunci, tetapi tidak mendapat sinkronisasi cloud.
+Membership menggunakan Midtrans Core API QRIS dari Worker akun yang sama. Webhook tidak dipercaya sendirian: Worker mengambil ulang status transaksi dari Midtrans dan mencocokkan nominal sebelum membership diterapkan.
 
-## Optimasi Cloudflare
+Secret Worker:
 
-Sinkronisasi tidak lagi melakukan polling setiap 60 detik.
+`MIDTRANS_SERVER_KEY`
 
-Trigger sinkronisasi:
+Vars:
 
-- setelah perubahan dataset dengan debounce 3,5 detik;
-- login admin/membership;
-- tab kembali aktif;
-- koneksi internet kembali;
-- tombol Sinkronkan;
-- fallback setiap 10 menit hanya ketika halaman terlihat.
+`MIDTRANS_ENV = "sandbox"`
 
-`sessions.last_seen_at` hanya diperbarui maksimal sekali setiap 15 menit per sesi, bukan pada setiap request.
+`MEMBERSHIP_PUBLIC_BASE_URL = "https://hitung-cabai-api.andyirvan1609.workers.dev"`
 
-Pembersihan state OAuth/session lama hanya dicoba saat login Google baru dimulai dan dibatasi oleh interval cleanup Worker.
+Health akan menampilkan `membershipPayments:true` setelah Server Key tersedia.
 
-## Develop Console
+## Develop
 
 URL:
 
 `https://irvan1609.github.io/develop/`
 
-Halaman sengaja tidak dimasukkan ke navigasi publik dan memakai `noindex,nofollow,noarchive`, tetapi keamanan tidak bergantung pada URL rahasia. Semua endpoint develop memverifikasi session dan role admin di Worker.
+Tab:
+- Overview
+- Users
+- Membership
+- Payments
+- Datasets
+- Hitung Cabai / AI
+- Server
+- Audit Log
+- Backups
 
-Fitur awal:
+URL dibuat tidak terindeks mesin pencari, tetapi keamanan tidak bergantung pada URL. Semua endpoint `/v1/develop/*` memverifikasi session dan role admin di Worker.
 
-- total pengguna;
-- jumlah admin + membership aktif;
-- total dataset cloud;
-- total kontribusi AI;
-- sesi aktif 24 jam;
-- pengguna baru 7 hari;
-- daftar akun dan login terakhir;
-- jumlah dataset per pengguna;
-- daftar dataset cloud per pengguna;
-- aktivasi/nonaktivasi membership;
-- tanggal berakhir membership opsional.
+Support view bersifat read-only. Sistem tidak mengeluarkan token impersonasi user.
 
-Endpoint admin:
+## Manajemen pengguna
 
-- `GET /v1/develop/overview`
-- `GET /v1/develop/users`
-- `GET /v1/develop/users/:id/datasets`
-- `POST /v1/develop/users/:id/access`
+Admin dapat:
+- memberi/mencabut membership manual;
+- memilih paket dan tanggal kedaluwarsa;
+- suspend/resume akun non-admin;
+- mencabut semua session user;
+- melihat ringkasan dan dataset metadata user dalam Support View.
 
-User biasa atau membership tidak dapat memakai endpoint ini.
+Admin utama tidak dapat disuspend atau diturunkan melalui Develop.
 
-## QRIS
+## Kuota cloud
 
-Payment gate sudah mengenali entitlement dari akun. Ketika QRIS diaktifkan nanti:
+Kuota disimpan pada `membership_plans`:
+- `dataset_limit`
+- `storage_limit_bytes`
 
-- akun gratis mengikuti aturan pembayaran;
-- membership aktif melewati pembayaran per analisis;
-- admin melewati pembayaran per analisis.
+Worker memeriksa kuota sebelum INSERT/UPDATE dataset. Admin tidak dibatasi kuota paket.
 
-Pembelian membership melalui QRIS belum diaktifkan pada tahap ini. Struktur `membership_source` sudah disiapkan agar status yang berasal dari pembayaran dapat ditandai sebagai `qris` pada tahap berikutnya.
+## Optimasi Cloudflare
 
-## Deploy
+Dataset sync:
+- debounce perubahan sekitar 3,5 detik;
+- sync saat login, tab kembali aktif, koneksi pulih, atau tombol manual;
+- fallback 10 menit hanya ketika halaman terlihat;
+- akun gratis tidak menjalankan polling sync.
 
-Perubahan role, membership, dataset gate, dan Develop Console membutuhkan deploy ulang Worker:
+`sessions.last_seen_at` hanya ditulis maksimal satu kali per 15 menit per sesi.
 
-`cloudflare/hitung-cabai-worker/src/index.js`
+## Audit
 
-Tidak ada secret baru yang wajib ditambahkan. `ADMIN_EMAILS` hanya override opsional.
+Tabel `audit_logs` mencatat tindakan sensitif seperti:
+- perubahan membership;
+- perubahan paket;
+- support read-only view;
+- suspend/resume akun;
+- revoke session;
+- pembuatan/unduh/ekspor backup;
+- penerapan pembayaran membership.
 
-Setelah deploy, health Worker terbaru menampilkan:
+## Backup & disaster recovery
+
+Ekspor logis admin selalu tersedia dari Develop.
+
+Untuk snapshot otomatis eksternal, buat R2 bucket dan binding:
+
+`BACKUPS`
+
+Contoh konfigurasi ada di `cloudflare/hitung-cabai-worker/wrangler.toml.example`. Handler terjadwal membuat logical backup JSON ke R2. Develop menampilkan status, ukuran, dan tombol unduh snapshot.
+
+R2 direkomendasikan karena snapshot di luar D1 tetap tersedia bila terjadi masalah pada database D1.
+
+## Worker health terbaru
+
+Setelah deploy Worker terbaru:
 
 ```json
 {
@@ -109,8 +166,10 @@ Setelah deploy, health Worker terbaru menampilkan:
   "datasetSync": true,
   "membershipAccess": true,
   "developConsole": true,
-  "apiVersion": "2026-09-26.1"
+  "accountCenter": true,
+  "membershipPayments": true,
+  "apiVersion": "2026-09-26.2"
 }
 ```
 
-Setelah Worker aktif, refresh halaman. Session admin yang sudah ada akan dibaca ulang dan akun admin akan mendapat role `admin`.
+`membershipPayments` akan `false` sampai `MIDTRANS_SERVER_KEY` dipasang.
