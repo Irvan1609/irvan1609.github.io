@@ -74,7 +74,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length<3||!nav.includes('openAnalysis')||!nav.includes('focusData')||!/>Analisis<\/button>/.test(nav))fail('analysis navigation must contain Analisis, Fokus Data, and project controls');
+if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Analisis plus mobile Dataset control');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
@@ -126,9 +126,9 @@ if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statis
 
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
-if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so Data/Help commands exist when menus are assembled');
-for (const marker of ["['dataMenu','Data'","['helpMenu','Bantuan'",'validateDataset','dataTemplate','analysisHistory']) {
-  if (!navigation.includes(marker)) fail(`navigation.js missing Data/Help menu contract: ${marker}`);
+if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so app-menu commands exist when the menu is assembled');
+for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu']) {
+  if (!navigation.includes(marker)) fail(`navigation.js missing compact app-menu contract: ${marker}`);
 }
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
