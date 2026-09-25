@@ -349,7 +349,6 @@ async function contributeCurrent(){
   if(contributing)return;
   if(!image)return status('Ambil foto atau pilih foto terlebih dahulu.');
   if(!cloudContributionReady())return status('Kontribusi cloud belum diaktifkan. Selesaikan konfigurasi Cloudflare terlebih dahulu.');
-  if(!$('trainingConsent').checked)return status('Centang persetujuan penggunaan foto dan kotak untuk pelatihan AI.');
   const sample=$('sample').value.trim()||nowName();
   contributing=true;$('contribute').disabled=true;$('contribute').textContent='Mengirim…';
   try{
@@ -357,7 +356,6 @@ async function contributeCurrent(){
       image,sample,boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),
       predictionMethod,modelVersion,consent:true
     });
-    $('trainingConsent').checked=false;
     status(`Kontribusi diterima: ${result.finalCount} buah. Data masuk kandidat pelatihan dengan quality score ${result.qualityScore}.`);
   }catch(error){
     status(error.message||'Kontribusi belum dapat dikirim.');
