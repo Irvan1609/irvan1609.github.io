@@ -80,13 +80,27 @@ export async function submitTrainingContribution({
   predictedBoxes=[],
   predictionMethod='manual',
   modelVersion=CHILI_CLOUD_CONFIG.modelVersion,
-  consent=false
+  consent=false,
+  contributionId='',
+  editToken='',
+  operationId=crypto.randomUUID()
 }={}){
   if(!cloudContributionReady())throw Error('Kontribusi cloud belum diaktifkan oleh pengelola.');
   if(!consent)throw Error('Persetujuan penggunaan data untuk pelatihan belum diberikan.');
   const finalBoxes=cleanBoxes(boxes),initialBoxes=cleanBoxes(predictedBoxes);
-  const prepared=await prepareTrainingImage(image);
   const token=await turnstileToken();
+  const endpoint=CHILI_CLOUD_CONFIG.endpoint.replace(/\/+$/,'');
+  if(contributionId&&editToken){
+    const response=await fetch(endpoint+'/v1/contributions/'+encodeURIComponent(contributionId),{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','CF-Turnstile-Token':token,'X-Contribution-Edit':editToken},
+      body:JSON.stringify({operationId,boxes:finalBoxes,predictedBoxes:initialBoxes,predictionMethod,modelVersion})
+    });
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(payload.error||`Pembaruan anotasi gagal (HTTP ${response.status}).`);
+    return payload;
+  }
+  const prepared=await prepareTrainingImage(image);
   const form=new FormData();
   form.append('image',prepared.blob,prepared.mimeType==='image/webp'?'cabai.webp':'cabai.jpg');
   form.append('sample',String(sample||'').trim().slice(0,100));
@@ -99,8 +113,8 @@ export async function submitTrainingContribution({
   form.append('prediction_method',String(predictionMethod||'manual').slice(0,40));
   form.append('model_version',String(modelVersion||'unknown').slice(0,80));
   form.append('consent','true');
+  form.append('operation_id',operationId);
 
-  const endpoint=CHILI_CLOUD_CONFIG.endpoint.replace(/\/+$/,'');
   const response=await fetch(endpoint+'/v1/contributions',{
     method:'POST',
     headers:{'CF-Turnstile-Token':token},

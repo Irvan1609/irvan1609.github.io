@@ -22,12 +22,12 @@ for(const marker of [
   "/v1/membership/plans",
   "membership_required",
   "SESSION_TOUCH_MINUTES=15",
-  "apiVersion:'2026-09-26.2'"
+  "apiVersion:'2026-09-26.3'"
 ]) if(!worker.includes(marker))fail('Worker missing '+marker);
 
 for(const marker of ['features:{','datasetSync:syncAccess','analysisIncluded:analysisIncluded','develop:row.role'])if(!worker.includes(marker))fail('Public entitlements missing '+marker);
 if(!account.includes("currentUser.features?.develop")||!account.includes("location.assign('/develop/')"))fail('Admin account menu missing Develop Console');
-if(!sync.includes('FALLBACK_SYNC_MS=10*60*1000')||!sync.includes("currentUser.features?.datasetSync"))fail('Optimized membership-only sync missing');
+if(!sync.includes('SYNC_DEBOUNCE_MS=1600')||sync.includes('setInterval(')||!sync.includes("currentUser.features?.datasetSync"))fail('Optimized membership-only sync missing');
 if(!payment.includes('includedAnalysisAccess')||!payment.includes("Membership · Analisis bebas")||!payment.includes("Admin · Analisis bebas"))fail('Payment bypass missing');
 if(!developHtml.includes('noindex,nofollow,noarchive')||!develop.includes('/v1/develop/overview')||!develop.includes('/access'))fail('Develop console contract incomplete');
 
