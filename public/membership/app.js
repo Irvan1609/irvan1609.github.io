@@ -6,6 +6,7 @@ let currentOrder='';
 let pollTimer=null;
 let plans=[];
 let qrisObjectUrl='';
+let currentQrUrl='';
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function token(){return window.IrvanAccount?.getToken?.()||'';}
@@ -79,13 +80,15 @@ async function showQrImage(orderId,fallbackUrl=''){
   }
 }
 function openModal(){const m=$('#qrisModal');m.hidden=false;}
-function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
+function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
   openModal();$('#qrisMessage').textContent='Membuat QRIS…';$('#qrisImage').hidden=true;$('#qrisOrder').textContent='';
   try{
     const data=await api('/v1/membership/payments',{method:'POST',body:JSON.stringify({planId})});
     currentOrder=data.orderId;
+    currentQrUrl=String(data.qrUrl||'');
+    $('#qrisCopyUrl').hidden=!currentQrUrl;
     $('#qrisTitle').textContent=data.planName||'Pembayaran membership';
     $('#qrisMessage').textContent='Pindai QRIS '+money(data.amount)+'. Status akan diperiksa otomatis.';
     $('#qrisOrder').textContent='ID transaksi: '+data.orderId;
@@ -97,6 +100,7 @@ async function checkPayment(){
   if(!currentOrder)return;
   try{
     const data=await api('/v1/membership/payments/'+encodeURIComponent(currentOrder));
+    if(data.qrUrl&&!currentQrUrl){currentQrUrl=String(data.qrUrl);$('#qrisCopyUrl').hidden=false;}
     if(data.paid&&data.applied){
       clearTimeout(pollTimer);pollTimer=null;
       $('#qrisMessage').textContent='Pembayaran berhasil. Membership sudah diaktifkan sampai '+dateText(data.expiresAt)+'.';
@@ -122,7 +126,19 @@ async function loadAll(){
     renderStatus(summary);renderPlans(Boolean(planData.paymentConfigured));
   }catch(error){$('#membershipGate').hidden=false;$('#membershipGate').dataset.state='error';$('#membershipGate').textContent=error.message||'Paket membership tidak dapat dimuat.';$('#plansGrid').hidden=true;}
 }
-$('#qrisClose').onclick=closeModal;$('#qrisDone').onclick=closeModal;$('#qrisCheck').onclick=checkPayment;
+async function copyQrUrl(){
+  if(!currentQrUrl){$('#qrisMessage').textContent='URL QR belum tersedia. Tekan “Periksa sekarang” lalu coba lagi.';return;}
+  try{
+    await navigator.clipboard.writeText(currentQrUrl);
+    const button=$('#qrisCopyUrl'),label=button.textContent;button.textContent='URL QR tersalin ✓';
+    setTimeout(()=>{if(button.isConnected)button.textContent=label;},1800);
+  }catch{
+    const input=document.createElement('textarea');input.value=currentQrUrl;input.setAttribute('readonly','');input.style.position='fixed';input.style.opacity='0';
+    document.body.appendChild(input);input.select();document.execCommand('copy');input.remove();
+    $('#qrisCopyUrl').textContent='URL QR tersalin ✓';setTimeout(()=>{$('#qrisCopyUrl').textContent='Salin URL QR Sandbox';},1800);
+  }
+}
+$('#qrisClose').onclick=closeModal;$('#qrisDone').onclick=closeModal;$('#qrisCheck').onclick=checkPayment;$('#qrisCopyUrl').onclick=copyQrUrl;
 $('#qrisModal').addEventListener('click',event=>{if(event.target===$('#qrisModal'))closeModal();});
 document.addEventListener('accountchange',()=>setTimeout(loadAll,0));
 setTimeout(loadAll,300);
