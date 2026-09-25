@@ -9,6 +9,14 @@ let pollStartedAt = 0;
 let pendingButton = null;
 let activeObserver = null;
 
+function includedAnalysisAccess(){
+  return Boolean(window.IrvanAccount?.authenticated&&window.IrvanAccount?.user?.features?.analysisIncluded);
+}
+function includedAccessLabel(){
+  const user=window.IrvanAccount?.user;
+  return user?.role==='admin'?'Admin · Analisis bebas':(user?.membership?.active?'Membership · Analisis bebas':'');
+}
+
 function readSession(key) {
   try { return sessionStorage.getItem(key); } catch { return null; }
 }
@@ -28,6 +36,7 @@ function saveCredit(credit) {
   writeSession(CREDIT_KEY, JSON.stringify(credit));
   writeSession(LAST_ORDER_KEY, credit.orderId);
   updateCreditButton();
+  document.addEventListener('accountchange',updateCreditButton);
 }
 function clearCredit() {
   removeSession(CREDIT_KEY);
@@ -64,7 +73,8 @@ function closePayment() {
 function updateCreditButton() {
   const button = document.querySelector('#paymentCreditStatus');
   if (!button) return;
-  button.textContent = readCredit() ? 'Kredit analisis: 1' : 'Kredit analisis: 0';
+  const included=includedAccessLabel();
+  button.textContent = included || (readCredit() ? 'Kredit analisis: 1' : 'Kredit analisis: 0');
 }
 function resetPaymentView() {
   const qr = document.querySelector('#paymentQr');
@@ -78,6 +88,11 @@ function resetPaymentView() {
     : 'Pembayaran belum diaktifkan oleh pemilik situs.');
 }
 function openPayment(button = null) {
+  if(includedAnalysisAccess()){
+    const status=document.querySelector('#status');
+    if(status)status.textContent='✓ Akses analisis termasuk dalam akun Anda.';
+    return;
+  }
   pendingButton = button;
   resetPaymentView();
   modal()?.classList.add('open');
@@ -203,6 +218,7 @@ function armCreditConsumption(button, credit) {
 function interceptAnalysis(event) {
   const button = event.target.closest?.('button');
   if (!button || !ANALYSIS_TARGETS[button.id] || !PAYMENT_CONFIG.enabled) return;
+  if(includedAnalysisAccess())return;
   if (!isPaymentConfigured(PAYMENT_CONFIG)) {
     event.preventDefault();
     event.stopImmediatePropagation();
