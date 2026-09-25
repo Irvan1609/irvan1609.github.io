@@ -1,3 +1,4 @@
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset} from './local-dataset-store.js';
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
 const META_KEY='statistical_web_dataset_meta_v1';
@@ -43,13 +44,16 @@ async function hashItem(item){
   const digest=await crypto.subtle.digest('SHA-256',encoder.encode(text));
   return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-function readStores(){
-  return {
-    files:safeObject(FILES_KEY),
-    meta:safeObject(META_KEY),
-    categories:safeObject(CATEGORY_KEY),
-    treatments:safeObject(TREATMENT_KEY)
-  };
+async function readStores(){
+  const files=safeObject(FILES_KEY),active=localStorage.getItem(ACTIVE_KEY)||'';
+  for(const [name,value] of Object.entries(files)){
+    if(!isLocalPointer(value))continue;
+    let content=null;
+    if(name===active)content=await globalThis.StatisticalWebData?.readDatasetContent?.(name);
+    if(content===null||content===undefined)content=await loadLocalDataset(name);
+    files[name]=String(content??'');
+  }
+  return {files,meta:safeObject(META_KEY),categories:safeObject(CATEGORY_KEY),treatments:safeObject(TREATMENT_KEY)};
 }
 function bundleFor(stores,fileName){
   const key=displayName(fileName),prefix=key+'::',treatment={};
@@ -66,6 +70,7 @@ function removeLocal(stores,fileName){
   delete stores.meta[fileName];
   delete stores.categories[key];
   for(const entry of Object.keys(stores.treatments))if(entry.startsWith(prefix))delete stores.treatments[entry];
+  void deleteLocalDataset(fileName).catch(()=>{});
 }
 function putLocal(stores,fileName,content,metaBundle){
   const name=normalizeFileName(fileName),key=displayName(name),prefix=key+'::',bundle=metaBundle&&typeof metaBundle==='object'?metaBundle:{};
@@ -83,22 +88,33 @@ function renameLocal(stores,from,to){
   removeLocal(stores,from);
   return putLocal(stores,to,content,bundle);
 }
-function disposableWorkspace(stores=readStores()){
-  const names=Object.keys(stores.files);
+function disposableWorkspace(stores=null){
+  const current=stores||{files:safeObject(FILES_KEY),meta:safeObject(META_KEY),categories:safeObject(CATEGORY_KEY),treatments:safeObject(TREATMENT_KEY)};
+  const names=Object.keys(current.files);
   if(names.length>1)return false;
   if(!names.length)return true;
-  return isDisposableDefault(localItem(stores,names[0]));
+  if(isLocalPointer(current.files[names[0]]))return false;
+  return isDisposableDefault(localItem(current,names[0]));
 }
-function writeStores(stores){
-  localStorage.setItem(FILES_KEY,JSON.stringify(stores.files));
+async function writeStores(stores){
+  const manifest={};
+  for(const [name,content] of Object.entries(stores.files)){
+    const text=String(content??'');
+    if(shouldOffloadDataset(text)){
+      await saveLocalDataset(name,text);manifest[name]=localPointer(name);
+    }else{
+      manifest[name]=text;await deleteLocalDataset(name).catch(()=>{});
+    }
+  }
+  localStorage.setItem(FILES_KEY,JSON.stringify(manifest));
   localStorage.setItem(META_KEY,JSON.stringify(stores.meta));
   localStorage.setItem(CATEGORY_KEY,JSON.stringify(stores.categories));
   localStorage.setItem(TREATMENT_KEY,JSON.stringify(stores.treatments));
   const active=localStorage.getItem(ACTIVE_KEY);
-  if(!active||!Object.prototype.hasOwnProperty.call(stores.files,active)){
-    const next=Object.keys(stores.files)[0]||'dataset.csv';
-    if(!Object.prototype.hasOwnProperty.call(stores.files,next))stores.files[next]='';
-    localStorage.setItem(FILES_KEY,JSON.stringify(stores.files));
+  if(!active||!Object.prototype.hasOwnProperty.call(manifest,active)){
+    const next=Object.keys(manifest)[0]||'dataset.csv';
+    if(!Object.prototype.hasOwnProperty.call(manifest,next))manifest[next]='';
+    localStorage.setItem(FILES_KEY,JSON.stringify(manifest));
     localStorage.setItem(ACTIVE_KEY,next);
   }
 }
@@ -391,7 +407,7 @@ async function syncNow({manual=false}={}){
   if(document.hidden&&!manual)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
-    const stores=readStores(),sync=loadSyncState(currentUser.id);
+    const stores=await readStores(),sync=loadSyncState(currentUser.id);
     const listing=await cloudRows(sync.remoteVersion||'');
     const rows=listing.unchanged
       ? Object.entries(sync.items).map(([id,item])=>({id,name:item.name,revision:item.revision,deletedAt:item.deleted?new Date(0).toISOString():null}))
@@ -450,7 +466,7 @@ async function syncNow({manual=false}={}){
     sync.remoteVersion=(counters.uploaded||counters.patched||counters.deleted)?null:(listing.version||sync.remoteVersion||null);
     saveSyncState(currentUser.id,sync);
     if(counters.localChanged){
-      writeStores(stores);
+      await writeStores(stores);
       document.dispatchEvent(new CustomEvent('stat-cloud-sync-applied',{detail:{...counters}}));
     }
     const parts=[];
