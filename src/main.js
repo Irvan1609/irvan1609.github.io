@@ -6,6 +6,7 @@ import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
+import {recognizedAgronomicHeaders,saveUserParameterAlias} from './agronomic-data-dictionary.js';
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
@@ -28,6 +29,11 @@ let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHist
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=formatNumber;
+
+function dictionaryRecognitionText(headers,datasetName=''){
+  const recognized=recognizedAgronomicHeaders(headers,{datasetName});
+  return recognized.length?` · ${recognized.length} parameter dikenali otomatis`:'';
+}
 
 function showError(message,errorObj){
   console.error(message,errorObj||'');
@@ -298,6 +304,7 @@ function saveColumnName(event){
     box.hidden=false;box.textContent='Kode harus terisi. Kode, nama lengkap, dan satuan tidak boleh mengandung tab/baris baru; judul akhirnya juga harus unik.';return;
   }
   const previous=state.headers[editingColumnIndex],datasetName=displayDatasetName(state.active),stringMeta=collectStringMetadata();
+  if(fullName&&!previous.includes('|'))saveUserParameterAlias(previous,{code,name:fullName,unit});
   pushUndo('ubah kolom');state.headers[editingColumnIndex]=name;
   moveCategoryColumn(datasetName,previous,name);
   if(stringMeta)saveCategoryMetadata(datasetName,name,stringMeta);
@@ -742,8 +749,8 @@ function csvRows(text,delimiter){const rows=[];let row=[],cell='',quoted=false;f
 function openModal(){clearError();const m=$('#pasteModal');m.classList.add('open');$('#pasteArea').value='';$('#preview').textContent='';setTimeout(()=>$('#pasteArea').focus(),0);}
 function closeModal(){$('#pasteModal').classList.remove('open');}
 function previewPaste(){const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';}
-function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');pushUndo('tempel dataset');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?validateColumnNames(a[0]):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist('tempel dataset',true);clearSelection();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${displayDatasetName(state.active)}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
-async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');pushUndo('impor CSV');state.headers=validateColumnNames(a[0]);state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist('impor CSV',true);clearSelection();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
+function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');pushUndo('tempel dataset');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?validateColumnNames(a[0]):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist('tempel dataset',true);clearSelection();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${displayDatasetName(state.active)}${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
+async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');pushUndo('impor CSV');state.headers=validateColumnNames(a[0]);state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist('impor CSV',true);clearSelection();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
 function quickImport(event){
   const input=event.target,file=input.files?.[0];input.value='';if(!file)return;
   const isXlsx=/\.xlsx$/i.test(file.name)||file.type==='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -934,7 +941,7 @@ function installDataGrid(){
       notifyDatasetChange({type:'upsert',name,reason:'impor'});
       clearError();renderTree();renderGrid();renderDatasetMeta();
       detail.importResult={ok:true,name};
-      setStatus(`✓ ${displayDatasetName(name)}: ${rows.length} baris × ${headers.length} kolom berhasil diimpor.`);
+      setStatus(`✓ ${displayDatasetName(name)}: ${rows.length} baris × ${headers.length} kolom berhasil diimpor${dictionaryRecognitionText(headers,displayDatasetName(name))}.`);
     }catch(error){
       if(detail&&typeof detail==='object')detail.importResult={ok:false,error:error.message};
       showError('Gagal membuat dataset.',error);
