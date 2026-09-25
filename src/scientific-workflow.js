@@ -24,6 +24,57 @@ function phoneGuardMode(){
 }
 let currentDesign='ral',data=null,revision=0,pendingPreset='';
 
+function datasetFingerprint(dataset){
+  const d=dataset||{headers:[],rows:[]};let hash=2166136261;
+  const feed=value=>{
+    const text=String(value??'');
+    for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
+    hash^=31;hash=Math.imul(hash,16777619);
+  };
+  feed(d.plant);feed(d.treatment);
+  (d.headers||[]).forEach(feed);
+  for(const row of d.rows||[])for(const value of row)feed(value);
+  return (hash>>>0).toString(16).padStart(8,'0')+':'+(d.rows?.length||0)+':'+(d.headers?.length||0);
+}
+function configSignature(options){
+  if(!options)return '';
+  return JSON.stringify({design:options.design,a:options.a,b:options.b,rep:options.rep,parameters:options.parameters,transforms:options.transforms,alpha:options.alpha,posthoc:options.posthoc,assumptions:options.assumptions,contrastMode:options.contrastMode,contrasts:options.contrasts,levels:options.levels});
+}
+function significanceForReport(report){
+  const tested=(report?.terms||[]).filter(term=>Number.isFinite(term?.p)&&!['Ulangan','Kelompok'].includes(String(term.label||'')));
+  if(!tested.length)return 'tn';const p=Math.min(...tested.map(term=>term.p));return p<.01?'**':p<.05?'*':'tn';
+}
+function markResultsStale(container,stale=true){
+  if(!container)return;container.dataset.stale=stale?'true':'false';
+  const badge=container.querySelector('[data-stale-banner]');if(badge)badge.hidden=!stale;
+}
+export function hasSavedScientificConfig(){
+  try{
+    const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+    return !!saved&&['ral','rak','fral','frak','split'].includes(saved.design)&&saved.contrastMode!=='custom';
+  }catch{return false;}
+}
+export function detectScientificDesign(){
+  let d;try{d=readDataset();}catch{return null;}if(!d?.headers?.length||!d.rows?.length)return null;
+  const values=index=>d.rows.map(row=>String(row[index]??'').trim()).filter(Boolean);
+  const numeric=index=>{const list=values(index);return list.length>0&&list.every(value=>Number.isFinite(parseNumber(value)));};
+  const categories=d.headers.map((_,index)=>index).filter(index=>values(index).length&&!numeric(index));
+  if(!categories.length)return null;
+  const treatment=categories.find(index=>/(^|\b)(perlakuan|treatment|genotip|genotype|varietas|variety|kode)(\b|$)/i.test(String(d.headers[index]||'')))??categories[0];
+  const second=categories.find(index=>index!==treatment&&/(^|\b)(faktor\s*b|factor\s*b|sub\s*plot|anak\s*petak)(\b|$)/i.test(String(d.headers[index]||'')))??categories.find(index=>index!==treatment);
+  const replicate=d.headers.findIndex((header,index)=>index!==treatment&&index!==second&&/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i.test(String(header||'')));
+  const design=second!==undefined&&second!==null?(replicate>=0?'frak':'fral'):(replicate>=0?'rak':'ral');
+  return {design,a:treatment,b:second??null,rep:replicate>=0?replicate:null};
+}
+export async function quickRunLastScientific(){
+  let current;try{current=readDataset();}catch{return false;}const saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+  if(!saved||!['ral','rak','fral','frak','split'].includes(saved.design)||saved.contrastMode==='custom')return false;
+  openScientific(saved.design);
+  await Promise.resolve();
+  const checked=validate();if(checked.check.issues.length||!checked.o.parameters.length)return false;
+  await analyze();return true;
+}
+
 function readJsonStore(key){
   try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
 }
@@ -41,20 +92,19 @@ function persistResultOrder(container,datasetName){
 function installResultControls(container,reports,datasetName){
   const sections=()=>[...container.querySelectorAll('.analysis-result')],summary=container.querySelector('.analysis-summary');
   const filterButtons=[...container.querySelectorAll('[data-result-filter]')],focus=container.querySelector('[data-result-focus]');
-  const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]');
+  const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]'),presentation=container.querySelector('[data-presentation-mode]');
   const prev=container.querySelector('[data-result-prev]'),next=container.querySelector('[data-result-next]'),page=container.querySelector('[data-result-page]');
   let filter='all';
   const matching=()=>sections().filter(section=>filter==='all'||section.dataset.overallSignificance===filter);
   const activeFocus=()=>focus?.value||'';
+  const classForMode=mode=>mode==='compare'?'compare-parameters-mode':mode==='thesis'?'thesis-table-mode':mode==='publication'?'publication-table-mode':mode==='presentation'?'presentation-results-mode':'';
   const setMode=mode=>{
-    container.classList.toggle('compare-parameters-mode',mode==='compare');
-    container.classList.toggle('thesis-table-mode',mode==='thesis');
-    container.classList.toggle('publication-table-mode',mode==='publication');
-    for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication']])if(button)button.setAttribute('aria-pressed',String(mode===name));
+    for(const className of ['compare-parameters-mode','thesis-table-mode','publication-table-mode','presentation-results-mode'])container.classList.toggle(className,className===classForMode(mode));
+    for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication'],[presentation,'presentation']])if(button)button.setAttribute('aria-pressed',String(mode===name));
   };
   const apply=()=>{
-    const list=matching(),wanted=activeFocus(),compareMode=container.classList.contains('compare-parameters-mode');
-    if(compareMode){
+    const list=matching(),wanted=activeFocus(),summaryOnly=container.classList.contains('compare-parameters-mode');
+    if(summaryOnly){
       sections().forEach(section=>section.hidden=true);
       if(summary)summary.hidden=false;
     }else{
@@ -77,8 +127,11 @@ function installResultControls(container,reports,datasetName){
     apply();
   });
   if(focus)focus.onchange=()=>{setMode('');apply();};
-  const modeButton=(button,mode)=>{if(button)button.onclick=()=>{const active=container.classList.contains(mode==='compare'?'compare-parameters-mode':mode==='thesis'?'thesis-table-mode':'publication-table-mode');setMode(active?'':mode);if(focus&&!active)focus.value='';apply();};};
-  modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');
+  const modeButton=(button,mode)=>{if(button)button.onclick=()=>{
+    const className=classForMode(mode),active=container.classList.contains(className);
+    setMode(active?'':mode);if(focus&&!active&&mode!=='presentation')focus.value='';apply();
+  };};
+  modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');modeButton(presentation,'presentation');
   container.querySelectorAll('[data-summary-parameter]').forEach(button=>button.onclick=()=>{
     if(focus)focus.value=button.dataset.summaryParameter;
     setMode('');apply();
@@ -142,14 +195,19 @@ function applyAnalysisPreset(value){
   $('#sciencePosthoc').value=preset.posthoc;$('#scienceAlpha').value=String(preset.alpha);$('#sciencePreset').value=value;
   saveAnalysisConfig();validate();
 }
-function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
+function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis',meta={}){
   const ordered=orderedReports(reports,datasetName);
   const focusOptions=ordered.map(report=>`<option value="${esc(report.name)}">${esc(report.name)}</option>`).join('');
-  container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|phone-parameter-mode)\b/g,'').trim();
-  container.innerHTML=`<div class="analysis-result-toolbar"><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select><button type="button" data-compare-mode aria-pressed="false">Bandingkan</button><button type="button" data-thesis-table-mode aria-pressed="false">Skripsi</button><button type="button" data-publication-mode aria-pressed="false">Publikasi</button><div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor .xlsx</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa</button><details class="result-more-actions"><summary>Lainnya</summary><button data-result-action="export-all-formula">Ekspor formula</button></details><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
-  container.dataset.datasetName=datasetName;
+  const fingerprint=meta.fingerprint||reports[0]?.datasetFingerprint||'',resultVersion=meta.resultVersion||reports[0]?.resultVersion||'';
+  let stale=false;
+  try{const current=readDataset();stale=!!fingerprint&&current?.name===datasetName&&datasetFingerprint(current)!==fingerprint;}catch{}
+  container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|presentation-results-mode|phone-parameter-mode)\b/g,'').trim();
+  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div><div class="analysis-result-toolbar"><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select><button type="button" data-compare-mode aria-pressed="false">Bandingkan</button><button type="button" data-thesis-table-mode aria-pressed="false">Skripsi</button><button type="button" data-publication-mode aria-pressed="false">Publikasi</button><button type="button" data-presentation-mode aria-pressed="false">Presentasi</button>${resultVersion?`<span class="analysis-version-badge">V${resultVersion}</span>`:''}<div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div class="result-actions master-result-actions"><button data-result-action="export-bab4">BAB IV</button><button data-result-action="export-all">Ekspor .xlsx</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa</button><details class="result-more-actions"><summary>Lainnya</summary><button data-result-action="export-all-formula">Ekspor formula</button></details><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
+  container.dataset.datasetName=datasetName;container.dataset.analysisFingerprint=fingerprint;container.dataset.resultVersion=String(resultVersion||'');
+  markResultsStale(container,stale);
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   installResultControls(container,ordered,datasetName);
+  const rerun=container.querySelector('[data-rerun-stale]');if(rerun)rerun.onclick=async()=>{rerun.disabled=true;await quickRunLastScientific();};
   const printButton=container.querySelector('[data-print-results]');
   if(printButton)printButton.onclick=()=>{
     document.body.classList.add('print-analysis-mode');
@@ -166,16 +224,50 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
 }
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
 function saveHistory(reports,options){
-  const entry={id:crypto.randomUUID(),version:1,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,separator:getDecimalSeparator(),reports};
-  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...getHistory()].slice(0,20)));return true;}catch{return false;}
+  const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
+  const resultVersion=Math.max(same.length,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
+  if(previous){
+    if(previous.datasetFingerprint&&previous.datasetFingerprint!==fingerprint)changes.push('data');
+    if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
+  }
+  for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
+  const entry={id:crypto.randomUUID(),version:1,resultVersion,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
+  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
+}
+function compareHistoryEntries(a,b){
+  const names=[...new Set([...(a.reports||[]).map(report=>report.name),...(b.reports||[]).map(report=>report.name)])];
+  const value=(entry,name)=>{
+    const report=entry.reports.find(item=>item.name===name);if(!report)return {mean:'—',cv:'—',sig:'—'};
+    return {mean:Number.isFinite(report.grand)?report.grand.toFixed(2):'—',cv:Number.isFinite(report.cv)?report.cv.toFixed(2)+'%':'—',sig:significanceForReport(report)};
+  };
+  const label=entry=>`V${entry.resultVersion||'?'} · ${String(entry.options?.posthoc||'none').toUpperCase()} · α ${entry.options?.alpha??'—'}`;
+  const rows=names.map(name=>{const x=value(a,name),y=value(b,name);return `<tr><td>${esc(name)}</td><td>${x.mean}</td><td>${x.cv}</td><td><b>${x.sig}</b></td><td>${y.mean}</td><td>${y.cv}</td><td><b>${y.sig}</b></td></tr>`;}).join('');
+  return `<section class="analysis-version-compare"><div class="compare-version-head"><b>${esc(label(a))}</b><span>vs</span><b>${esc(label(b))}</b></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Parameter</th><th>Rataan A</th><th>KK A</th><th>Ket. A</th><th>Rataan B</th><th>KK B</th><th>Ket. B</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 function history(){
-  const entries=getHistory();openTool('Riwayat analisis',entries.length?'<p>Saya simpan sampai 20 analisis terakhir di browser ini. Kalau perlu dipindahkan ke perangkat lain, hasilnya bisa diekspor.</p><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
+  const entries=getHistory();
+  openTool('Riwayat analisis',entries.length?'<div class="history-compare-bar"><button id="compareHistory" type="button" disabled>Bandingkan 2</button></div><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
   if(!entries.length)return;
-  $('#historyList').innerHTML=entries.map(e=>`<div class="history-row"><button data-history-open="${esc(e.id)}">${esc(e.dataset)} — ${esc(designNames[e.design])} · ${new Date(e.date).toLocaleString('id-ID')}</button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">Hapus</button></div>`).join('');
-  $('#historyList').onclick=event=>{const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');
-    if(open){const entry=entries.find(e=>e.id===open.dataset.historyOpen);try{showResults(entry.reports,$('#historyResult'),entry.dataset);}catch{$('#historyResult').textContent='Riwayat tidak dapat dibaca.';}}
-    if(del&&confirm('Hapus hasil analisis ini dari riwayat?')){try{localStorage.setItem(HISTORY,JSON.stringify(entries.filter(e=>e.id!==del.dataset.historyDelete)));history();}catch{$('#historyResult').textContent='Riwayat tidak dapat dihapus.';}}
+  const list=$('#historyList'),host=$('#historyResult'),compare=$('#compareHistory');
+  list.innerHTML=entries.map(e=>{
+    const changed=e.changes?.length?` · Δ ${e.changes.join('+')}`:'',method=String(e.options?.posthoc||'none').toUpperCase();
+    return `<div class="history-row analysis-history-version"><label class="history-compare-check"><input type="checkbox" data-history-compare="${esc(e.id)}" aria-label="Pilih V${e.resultVersion||'?'} untuk dibandingkan"></label><button data-history-open="${esc(e.id)}"><b>V${e.resultVersion||'?'}</b> · ${esc(e.dataset)} · ${esc(designNames[e.design]||e.design)} · ${esc(method)}${changed}<small>${new Date(e.date).toLocaleString('id-ID')}</small></button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">×</button></div>`;
+  }).join('');
+  const selected=()=>[...list.querySelectorAll('[data-history-compare]:checked')].map(input=>entries.find(entry=>entry.id===input.dataset.historyCompare)).filter(Boolean);
+  list.onchange=event=>{
+    if(!event.target.matches('[data-history-compare]'))return;
+    const checked=[...list.querySelectorAll('[data-history-compare]:checked')];
+    if(checked.length>2){event.target.checked=false;}
+    compare.disabled=selected().length!==2;
+  };
+  compare.onclick=()=>{const pair=selected();if(pair.length===2)host.innerHTML=compareHistoryEntries(pair[0],pair[1]);};
+  list.onclick=event=>{
+    const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');
+    if(open){
+      const entry=entries.find(e=>e.id===open.dataset.historyOpen);
+      try{showResults(entry.reports,host,entry.dataset,{fingerprint:entry.datasetFingerprint,resultVersion:entry.resultVersion});}catch{host.textContent='Riwayat tidak dapat dibaca.';}
+    }
+    if(del&&confirm('Hapus hasil analisis ini dari riwayat?')){try{localStorage.setItem(HISTORY,JSON.stringify(entries.filter(e=>e.id!==del.dataset.historyDelete)));history();}catch{host.textContent='Riwayat tidak dapat dihapus.';}}
   };
 }
 function options(){
@@ -321,7 +413,12 @@ function validate(){
   }
   renderStructure(check,o);
   $('#scienceQuality').innerHTML=renderDataQuality(quality);
-  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>`<li>${x.row?'Baris '+x.row+': ':''}${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>`;
+  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>x.row?`<li><button type="button" class="validation-cell-link" data-focus-error-row="${x.row-1}" data-focus-error-col="${Number.isInteger(x.column)?x.column:0}">Baris ${x.row}</button>: ${esc(x.message)}</li>`:`<li>${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>`;
+  $('#scienceValidation').querySelectorAll('[data-focus-error-row]').forEach(button=>button.onclick=()=>{
+    const row=Number(button.dataset.focusErrorRow),column=Number(button.dataset.focusErrorCol);
+    $('#scientificModal').classList.remove('open');
+    globalThis.StatisticalWebData?.focusCell?.(row,column);
+  });
   document.querySelectorAll('.data-grid td.data-invalid').forEach(td=>td.classList.remove('data-invalid'));
   check.issues.filter(x=>x.row).forEach(issue=>{const row=document.querySelector(`.data-grid td[data-r="${issue.row-1}"]`)?.closest('tr');if(row){if(issue.column!==undefined)row.querySelector(`td[data-c="${issue.column}"]`)?.classList.add('data-invalid');else [...row.querySelectorAll('td[data-c]')].forEach(c=>c.classList.add('data-invalid'));}});
   const runButton=$('#runScience');
@@ -343,6 +440,7 @@ async function analyze(){
   const runRevision=revision;
   $('#scienceResults').innerHTML='';const {o,check}=validate();if(check.issues.length)return;
   try{
+    globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');
     if(o.contrastMode==='polynomial')o.levels=[...document.querySelectorAll('[data-level]')].map(el=>parseNumber(el.value));
     const metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);saveAnalysisConfig();
     const button=$('#runScience');button.disabled=true;button.textContent='Menghitung…';
@@ -383,16 +481,16 @@ async function analyze(){
       finalizeAgronomyFactorial(report);
       reports.push(report);
     }
-    showResults(reports,$('#scienceResults'));
+    const saved=saveHistory(reports,o),meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
+    showResults(reports,$('#scienceResults'),data.name,meta);
     const dock=$('#analysisDockResults');
     if(dock){
-      showResults(reports,dock,data.name);
+      showResults(reports,dock,data.name,meta);
       $('#analysisResultDock').hidden=false;
       $('#analysisResultDock').dataset.open='true';
       $('#analysisDockTitle').textContent=`${data.name} · ${designNames[currentDesign]||currentDesign}`;
       $('#scientificModal').classList.remove('open');
     }
-    const saved=saveHistory(reports,o);
     $('#scienceRunStatus').textContent=saved?'Selesai · tersimpan':'Selesai · belum tersimpan';
     void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
   }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
@@ -456,6 +554,14 @@ export function installScientificWorkflow(){
   $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncParameterRoleExclusions(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
   $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
+  document.addEventListener('stat-dataset-changed',()=>{
+    let current;try{current=readDataset();}catch{return;}
+    const fingerprint=datasetFingerprint(current);
+    document.querySelectorAll('[data-all-results][data-analysis-fingerprint]').forEach(container=>{
+      if(container.dataset.datasetName!==current.name)return;
+      markResultsStale(container,!!container.dataset.analysisFingerprint&&container.dataset.analysisFingerprint!==fingerprint);
+    });
+  });
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
   installDriveBackup();
