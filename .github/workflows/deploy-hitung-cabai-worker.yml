@@ -64,6 +64,7 @@ jobs:
             compatibility_date:'2026-09-25',
             workers_dev:true,
             keep_vars:true,
+            secrets:{required:['MIDTRANS_SERVER_KEY']},
             d1_databases:[{
               binding:'DB',
               database_name:'hitung-cabai',
@@ -83,12 +84,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
-            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
-            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
-          else
-            echo "args=" >> "$GITHUB_OUTPUT"
+          if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
+            echo "::error::GitHub Repository Secret MIDTRANS_SERVER_KEY belum tersedia."
+            exit 1
           fi
+          node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
+          echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
 
       - name: Validate Midtrans credential when managed by GitHub
         env:
@@ -97,8 +98,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
-            echo "MIDTRANS_SERVER_KEY belum dikelola dari GitHub; memakai secret yang sudah ada di Cloudflare."
-            exit 0
+            echo "::error::GitHub Repository Secret MIDTRANS_SERVER_KEY belum tersedia."
+            exit 1
           fi
           KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           case "$KEY" in
