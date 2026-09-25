@@ -542,6 +542,26 @@ function bindColumnFormArrowNavigation(){
     event.preventDefault();target.focus();target.select?.();
   });
 }
+function markGridQuality(wrap,types){
+  if(!wrap||!state.rows.length)return;
+  const signatures=new Map();
+  state.rows.forEach((row,index)=>{
+    const normalized=row.map(value=>String(value??'').trim()).join('\u001f');
+    if(normalized.replace(/\u001f/g,'').length)signatures.set(normalized,[...(signatures.get(normalized)||[]),index]);
+  });
+  for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(row=>wrap.querySelector(`tr:nth-child(${row+1})`)?.classList.add('duplicate-row'));
+  state.rows.forEach((row,r)=>{
+    const rowHasData=row.some(value=>String(value??'').trim()!=='');
+    row.forEach((value,col)=>{
+      const cell=wrap.querySelector(`td[data-r="${r}"][data-c="${col}"]`);if(!cell)return;
+      const text=String(value??'').trim();
+      cell.classList.toggle('cell-missing',rowHasData&&!text);
+      const values=state.rows.map(item=>String(item[col]??'').trim()).filter(Boolean),numericCount=values.filter(item=>Number.isFinite(parseNumber(item))).length;
+      const mostlyNumeric=values.length>=3&&numericCount/values.length>=.7;
+      cell.classList.toggle('cell-type-warning',Boolean(text&&mostlyNumeric&&!Number.isFinite(parseNumber(text))));
+    });
+  });
+}
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;
   if(!state.headers.length){
@@ -564,7 +584,7 @@ function renderGrid(){
     wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
       const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
     }));
-    bindGridArrowNavigation(wrap);bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);
+    bindGridArrowNavigation(wrap);bindColumnDrag(wrap);bindColumnResize(wrap);installFillHandle(wrap);markGridQuality(wrap,types);
     wrap.querySelectorAll('[data-rename-column]').forEach(button=>{
       button.onclick=event=>{
         const col=Number(button.dataset.renameColumn);
