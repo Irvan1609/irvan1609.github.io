@@ -17,39 +17,70 @@ export function normalizeAgronomicAlias(value){
     .trim();
 }
 
-function definition(code,name,unit='',aliases=[],category=''){
-  return Object.freeze({code,name,unit,category,aliases:Object.freeze([...aliases])});
+function definition(language,code,name,unit='',aliases=[],category=''){
+  return Object.freeze({language,code,name,unit,category,aliases:Object.freeze([...aliases])});
 }
 
 export const BUILTIN_AGRONOMIC_PARAMETERS=Object.freeze([
-  definition('TT','Tinggi Tanaman','cm',['tt','tinggi tanaman','plant height'],'Pertumbuhan vegetatif'),
-  definition('DB','Diameter Batang','mm',['db','diameter batang','stem diameter'],'Pertumbuhan vegetatif'),
-  definition('JD','Jumlah Daun','helai',['jd','jumlah daun','leaf number','number of leaves'],'Pertumbuhan vegetatif'),
-  definition('LD','Luas Daun','cm²',['ld','luas daun','leaf area'],'Pertumbuhan vegetatif'),
-  definition('ILD','Indeks Luas Daun','',['ild','indeks luas daun','leaf area index','lai'],'Pertumbuhan vegetatif'),
-  definition('BK','Bobot Kering','g',['bk','bobot kering','dry weight','dry biomass'],'Biomassa'),
-  definition('B100','Bobot 100 Biji','g',['b100','bobot 100 biji','berat 100 biji','100 seed weight'],'Komponen hasil'),
-  definition('B1000','Bobot 1000 Biji','g',['b1000','bobot 1000 biji','berat 1000 biji','1000 seed weight','thousand seed weight'],'Komponen hasil'),
-  definition('PROD','Produktivitas','t ha⁻¹',['prod','produktivitas','productivity','yield per hectare'],'Hasil'),
-  definition('KA','Kadar Air','%',['ka','kadar air','moisture content'],'Mutu hasil'),
-  definition('ASI','Anthesis–Silking Interval','hari',['asi','anthesis silking interval','anthesis-silking interval'],'Fenologi jagung'),
-  definition('AD','Umur Anthesis','HST',['ad','anthesis date','umur anthesis','umur berbunga jantan'],'Fenologi jagung'),
-  definition('SD','Umur Silking','HST',['sd','silking date','umur silking','umur keluar rambut'],'Fenologi jagung'),
-  definition('TTG','Tinggi Tongkol','cm',['ttg','tinggi tongkol','ear height'],'Morfologi jagung'),
-  definition('PT','Panjang Tongkol','cm',['pt','panjang tongkol','ear length','cob length'],'Komponen hasil jagung'),
-  definition('DT','Diameter Tongkol','mm',['dt','diameter tongkol','ear diameter','cob diameter'],'Komponen hasil jagung'),
-  definition('JBB','Jumlah Baris Biji','baris',['jbb','jumlah baris biji','jumlah baris per tongkol','kernel rows per ear'],'Komponen hasil jagung'),
-  definition('JBPB','Jumlah Biji per Baris','biji',['jbpb','jumlah biji per baris','kernels per row'],'Komponen hasil jagung'),
-  definition('PB','Panjang Buah','mm',['pb','panjang buah','fruit length'],'Komponen hasil'),
-  definition('DBU','Diameter Buah','mm',['dbu','diameter buah','fruit diameter'],'Komponen hasil'),
-  definition('SPAD','Indeks SPAD','',['spad','nilai spad','spad value','chlorophyll meter reading'],'Fisiologi'),
-  definition('gs','Konduktansi Stomata','mol m⁻² s⁻¹',['gs','konduktansi stomata','stomatal conductance'],'Fisiologi'),
-  definition('Pn','Laju Fotosintesis Bersih','µmol CO₂ m⁻² s⁻¹',['pn','laju fotosintesis','laju fotosintesis bersih','net photosynthetic rate'],'Fisiologi'),
-  definition('RWC','Kadar Air Relatif','%',['rwc','kadar air relatif','relative water content'],'Fisiologi'),
-  definition('SLA','Luas Daun Spesifik','cm² g⁻¹',['sla','luas daun spesifik','specific leaf area'],'Fisiologi'),
-  definition('WUE','Efisiensi Penggunaan Air','',['wue','efisiensi penggunaan air','water use efficiency'],'Efisiensi sumber daya'),
-  definition('NUE','Efisiensi Penggunaan Nitrogen','',['nue','efisiensi penggunaan nitrogen','nitrogen use efficiency'],'Efisiensi sumber daya'),
-  definition('HI','Indeks Panen','',['hi','indeks panen','harvest index'],'Alokasi biomassa')
+  // Bahasa Indonesia
+  definition('id','TT','Tinggi Tanaman','cm',['tt','tinggi tanaman'],'Pertumbuhan vegetatif'),
+  definition('id','DB','Diameter Batang','mm',['db','diameter batang'],'Pertumbuhan vegetatif'),
+  definition('id','JD','Jumlah Daun','helai',['jd','jumlah daun'],'Pertumbuhan vegetatif'),
+  definition('id','LD','Luas Daun','cm²',['ld','luas daun'],'Pertumbuhan vegetatif'),
+  definition('id','ILD','Indeks Luas Daun','',['ild','indeks luas daun'],'Pertumbuhan vegetatif'),
+  definition('id','BK','Bobot Kering','g',['bk','bobot kering'],'Biomassa'),
+  definition('id','B100','Bobot 100 Biji','g',['b100','bobot 100 biji','berat 100 biji'],'Komponen hasil'),
+  definition('id','B1000','Bobot 1000 Biji','g',['b1000','bobot 1000 biji','berat 1000 biji'],'Komponen hasil'),
+  definition('id','PROD','Produktivitas','t ha⁻¹',['prod','produktivitas'],'Hasil'),
+  definition('id','KA','Kadar Air','%',['ka','kadar air'],'Mutu hasil'),
+  definition('id','ASI','Interval Antesis–Silking','hari',['asi','interval antesis silking','interval anthesis silking'],'Fenologi jagung'),
+  definition('id','UA','Umur Antesis','HST',['ua','umur antesis','umur berbunga jantan'],'Fenologi jagung'),
+  definition('id','US','Umur Silking','HST',['us','umur silking','umur keluar rambut'],'Fenologi jagung'),
+  definition('id','TTG','Tinggi Tongkol','cm',['ttg','tinggi tongkol'],'Morfologi jagung'),
+  definition('id','PT','Panjang Tongkol','cm',['pt','panjang tongkol'],'Komponen hasil jagung'),
+  definition('id','DT','Diameter Tongkol','mm',['dt','diameter tongkol'],'Komponen hasil jagung'),
+  definition('id','JBB','Jumlah Baris Biji','baris',['jbb','jumlah baris biji','jumlah baris per tongkol'],'Komponen hasil jagung'),
+  definition('id','JBPB','Jumlah Biji per Baris','biji',['jbpb','jumlah biji per baris'],'Komponen hasil jagung'),
+  definition('id','PB','Panjang Buah','mm',['pb','panjang buah'],'Komponen hasil'),
+  definition('id','DBU','Diameter Buah','mm',['dbu','diameter buah'],'Komponen hasil'),
+  definition('id','SPAD','Nilai SPAD','',['spad','nilai spad'],'Fisiologi'),
+  definition('id','gs','Konduktansi Stomata','mol m⁻² s⁻¹',['gs','konduktansi stomata'],'Fisiologi'),
+  definition('id','Pn','Laju Fotosintesis Bersih','µmol CO₂ m⁻² s⁻¹',['pn','laju fotosintesis','laju fotosintesis bersih'],'Fisiologi'),
+  definition('id','KAR','Kadar Air Relatif','%',['kar','kadar air relatif'],'Fisiologi'),
+  definition('id','LDS','Luas Daun Spesifik','cm² g⁻¹',['lds','luas daun spesifik'],'Fisiologi'),
+  definition('id','EPA','Efisiensi Penggunaan Air','',['epa','efisiensi penggunaan air'],'Efisiensi sumber daya'),
+  definition('id','EPN','Efisiensi Penggunaan Nitrogen','',['epn','efisiensi penggunaan nitrogen'],'Efisiensi sumber daya'),
+  definition('id','IP','Indeks Panen','',['ip','indeks panen'],'Alokasi biomassa'),
+
+  // English — deliberately separate from Indonesian entries
+  definition('en','PH','Plant Height','cm',['ph','plant height'],'Vegetative growth'),
+  definition('en','SD','Stem Diameter','mm',['sd','stem diameter'],'Vegetative growth'),
+  definition('en','LN','Leaf Number','leaves',['ln','leaf number','number of leaves'],'Vegetative growth'),
+  definition('en','LA','Leaf Area','cm²',['la','leaf area'],'Vegetative growth'),
+  definition('en','LAI','Leaf Area Index','',['lai','leaf area index'],'Vegetative growth'),
+  definition('en','DW','Dry Weight','g',['dw','dry weight','dry biomass'],'Biomass'),
+  definition('en','HSW','Hundred Seed Weight','g',['hsw','hundred seed weight','100 seed weight'],'Yield component'),
+  definition('en','TSW','Thousand Seed Weight','g',['tsw','thousand seed weight','1000 seed weight'],'Yield component'),
+  definition('en','YLD','Yield','t ha⁻¹',['yld','yield','yield per hectare'],'Yield'),
+  definition('en','MC','Moisture Content','%',['mc','moisture content'],'Product quality'),
+  definition('en','ASI','Anthesis–Silking Interval','days',['asi','anthesis silking interval','anthesis-silking interval'],'Maize phenology'),
+  definition('en','AD','Anthesis Date','DAP',['ad','anthesis date'],'Maize phenology'),
+  definition('en','SDATE','Silking Date','DAP',['sdate','silking date'],'Maize phenology'),
+  definition('en','EH','Ear Height','cm',['eh','ear height'],'Maize morphology'),
+  definition('en','EL','Ear Length','cm',['el','ear length','cob length'],'Maize yield component'),
+  definition('en','ED','Ear Diameter','mm',['ed','ear diameter','cob diameter'],'Maize yield component'),
+  definition('en','KRE','Kernel Rows per Ear','rows',['kre','kernel rows per ear'],'Maize yield component'),
+  definition('en','KPR','Kernels per Row','kernels',['kpr','kernels per row'],'Maize yield component'),
+  definition('en','FL','Fruit Length','mm',['fl','fruit length'],'Yield component'),
+  definition('en','FD','Fruit Diameter','mm',['fd','fruit diameter'],'Yield component'),
+  definition('en','SPAD','SPAD Value','',['spad','spad value','chlorophyll meter reading'],'Physiology'),
+  definition('en','gs','Stomatal Conductance','mol m⁻² s⁻¹',['gs','stomatal conductance'],'Physiology'),
+  definition('en','Pn','Net Photosynthetic Rate','µmol CO₂ m⁻² s⁻¹',['pn','net photosynthetic rate','photosynthetic rate'],'Physiology'),
+  definition('en','RWC','Relative Water Content','%',['rwc','relative water content'],'Physiology'),
+  definition('en','SLA','Specific Leaf Area','cm² g⁻¹',['sla','specific leaf area'],'Physiology'),
+  definition('en','WUE','Water Use Efficiency','',['wue','water use efficiency'],'Resource-use efficiency'),
+  definition('en','NUE','Nitrogen Use Efficiency','',['nue','nitrogen use efficiency'],'Resource-use efficiency'),
+  definition('en','HI','Harvest Index','',['hi','harvest index'],'Biomass allocation')
 ]);
 
 function buildBuiltinIndex(){
@@ -58,7 +89,9 @@ function buildBuiltinIndex(){
     const aliases=[item.code,item.name,...item.aliases];
     for(const alias of aliases){
       const key=normalizeAgronomicAlias(alias);
-      if(key&&!index[key])index[key]=item;
+      if(!key)continue;
+      if(!index[key])index[key]=[];
+      if(!index[key].includes(item))index[key].push(item);
     }
   }
   return index;
@@ -80,9 +113,9 @@ function writeStore(key,value){
 
 function normalizedDefinition(value){
   const source=value&&typeof value==='object'?value:{};
-  const code=clean(source.code),name=clean(source.name),unit=clean(source.unit),category=clean(source.category);
+  const code=clean(source.code),name=clean(source.name),unit=clean(source.unit),category=clean(source.category),language=clean(source.language)||'custom';
   if(!code||!name)return null;
-  return {code,name,unit,category};
+  return {code,name,unit,category,language};
 }
 
 function safeAlias(alias){
@@ -104,7 +137,7 @@ function observationParts(value){
 
 function candidateKeys(value){
   const key=normalizeAgronomicAlias(value),keys=[key];
-  const withoutTrailingUnit=key.replace(/\s+(?:cm2|cm²|cm|mm|meter|m|gram|g|kg|persen|%)$/i,'').trim();
+  const withoutTrailingUnit=key.replace(/\s+(?:cm2|cm²|cm|mm|meter|m|gram|g|kg|persen|%|days?|hari|leaves|helai|rows?|baris|kernels?|biji)$/i,'').trim();
   if(withoutTrailingUnit&&withoutTrailingUnit!==key)keys.push(withoutTrailingUnit);
   return [...new Set(keys.filter(Boolean))];
 }
@@ -117,10 +150,20 @@ function decorate(def,source,matchedAlias,observationTime=''){
     name:time?`${def.name} ${time}`:def.name,
     unit:def.unit||'',
     category:def.category||'',
+    language:def.language||'custom',
     source,
     matchedAlias,
     observationTime:time
   };
+}
+
+function uniqueSuggestions(items){
+  const seen=new Set();
+  return items.filter(item=>{
+    const key=[item.language,item.code,item.name,item.unit].join('|');
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
 }
 
 export function readUserParameterDictionary(){
@@ -151,35 +194,45 @@ export function saveProjectParameterAlias(datasetName,alias,metadata){
   return writeStore(PROJECT_STORE,all);
 }
 
-export function resolveAgronomicParameter(value,{datasetName=''}={}){
+export function suggestAgronomicParameters(value,{datasetName='',language=''}={}){
   const raw=clean(value);
-  if(!raw)return null;
-  const {base,observationTime}=observationParts(raw),keys=candidateKeys(base);
+  if(!raw)return [];
+  const {base,observationTime}=observationParts(raw),keys=candidateKeys(base),wanted=clean(language).toLowerCase();
+  const suggestions=[];
   const user=readStore(USER_STORE);
   for(const key of keys){
     const def=normalizedDefinition(user[key]);
-    if(def)return decorate(def,'user',key,observationTime);
+    if(def&&(!wanted||def.language===wanted))suggestions.push(decorate(def,'user',key,observationTime));
   }
   const projectAll=readStore(PROJECT_STORE),project=datasetName?projectAll[clean(datasetName)]||{}:{};
   for(const key of keys){
     const def=normalizedDefinition(project[key]);
-    if(def)return decorate(def,'project',key,observationTime);
+    if(def&&(!wanted||def.language===wanted))suggestions.push(decorate(def,'project',key,observationTime));
   }
   for(const key of keys){
-    if(BUILTIN_INDEX[key])return decorate(BUILTIN_INDEX[key],'builtin',key,observationTime);
+    for(const def of BUILTIN_INDEX[key]||[]){
+      if(!wanted||def.language===wanted)suggestions.push(decorate(def,'builtin',key,observationTime));
+    }
   }
-  return null;
+  return uniqueSuggestions(suggestions);
+}
+
+export function resolveAgronomicParameter(value,options={}){
+  return suggestAgronomicParameters(value,options)[0]||null;
 }
 
 export function recognizedAgronomicHeaders(headers,{datasetName=''}={}){
   return (Array.isArray(headers)?headers:[]).map(header=>({
     header:String(header??''),
-    metadata:resolveAgronomicParameter(header,{datasetName})
-  })).filter(item=>item.metadata);
+    suggestions:suggestAgronomicParameters(header,{datasetName})
+  })).filter(item=>item.suggestions.length);
 }
 
-export function getBuiltInAgronomicDictionary(){
-  return BUILTIN_AGRONOMIC_PARAMETERS.map(item=>({
-    code:item.code,name:item.name,unit:item.unit,category:item.category,aliases:[...item.aliases]
-  }));
+export function getBuiltInAgronomicDictionary({language=''}={}){
+  const wanted=clean(language).toLowerCase();
+  return BUILTIN_AGRONOMIC_PARAMETERS
+    .filter(item=>!wanted||item.language===wanted)
+    .map(item=>({
+      language:item.language,code:item.code,name:item.name,unit:item.unit,category:item.category,aliases:[...item.aliases]
+    }));
 }
