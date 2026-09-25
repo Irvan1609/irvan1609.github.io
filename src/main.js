@@ -431,7 +431,7 @@ function openColumnContextMenu(event,index){
   };
 }
 function ensureGridFind(){
-  const workspace=document.querySelector('.workspace');if(!workspace)return null;
+  const workspace=document.querySelector('.workspace');if(!workspace||typeof workspace.prepend!=='function'||typeof document.createElement!=='function')return null;
   let bar=document.getElementById('gridFindBar');if(bar)return bar;
   bar=document.createElement('div');bar.id='gridFindBar';bar.className='grid-find-bar';bar.hidden=true;
   bar.innerHTML='<input id="gridFindInput" type="search" autocomplete="off" placeholder="Cari data"><span id="gridFindCount"></span><button type="button" aria-label="Tutup">×</button>';
@@ -446,7 +446,8 @@ function openGridFind(){
   const bar=ensureGridFind();if(!bar)return;bar.hidden=false;const input=bar.querySelector('input');input.focus();input.select();
 }
 function installPanelResize(){
-  const panel=$('#projectPanel'),main=document.querySelector('.main');if(!panel||!main||panel.querySelector('.project-panel-resizer'))return;
+  const panel=$('#projectPanel'),main=document.querySelector('.main');
+  if(!panel||!main||typeof panel.append!=='function'||typeof document.createElement!=='function'||panel.querySelector?.('.project-panel-resizer'))return;
   const handle=document.createElement('div');handle.className='project-panel-resizer';handle.title='Geser lebar panel';panel.append(handle);
   handle.addEventListener('pointerdown',event=>{
     if(matchMedia('(max-width:720px)').matches)return;event.preventDefault();handle.setPointerCapture?.(event.pointerId);
