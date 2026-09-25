@@ -12,9 +12,9 @@
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
-      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Statistical Web</span></a>
+      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Statistical Web</span></a>
       <nav class="subweb-nav" aria-label="Navigasi situs">
-        <a href="/">Portofolio</a>
+        <a href="/">Beranda</a>
         <a href="/stat/" aria-current="page">Statistik</a>
         <a href="/hitung-cabai/">Hitung Cabai</a>
         <a href="/print-skripsi/">Print</a>
@@ -26,6 +26,14 @@
   <div id="app">
     <div class="app-shell">
       <header class="app-header">
+        <div class="app-intro">
+          <div>
+            <span class="app-kicker">Data percobaan</span>
+            <strong>Statistical Web</strong>
+            <p>Masukkan data, periksa tabel, lalu pilih analisis yang sesuai dengan rancangan percobaan.</p>
+          </div>
+          <span class="app-flow-badge">Data → Analisis → Ekspor</span>
+        </div>
         <nav class="nav" aria-label="Perintah Statistical Web">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
           <button id="globalSearchButton" type="button" aria-haspopup="dialog" aria-controls="globalSearchModal">Cari</button>
@@ -35,13 +43,20 @@
       </header>
 
       <div class="toolbar">
-        <button id="pasteBtn" class="primary" type="button">Tempel dari Excel</button>
+        <button id="pasteBtn" class="primary" type="button">Tempel data</button>
         <button id="importBtn" type="button">Impor CSV</button>
         <button id="newTxt" type="button">Data baru</button>
         <button id="addRow" type="button">Tambah baris</button>
         <button id="addCol" type="button">Tambah kolom</button>
         <button id="compactEditor" type="button" title="Tampilan ringkas">Ringkas</button>
         <button id="clearData" type="button" aria-label="Hapus seluruh data" title="Hapus seluruh data">×</button>
+      </div>
+
+      <div class="workflow-strip" aria-label="Alur kerja Statistical Web">
+        <span><b>1</b><em>Masukkan data</em></span>
+        <span><b>2</b><em>Periksa tabel</em></span>
+        <span><b>3</b><em>Jalankan analisis</em></span>
+        <span><b>4</b><em>Salin atau ekspor</em></span>
       </div>
 
       <div id="errorBox" class="error-box" role="alert" hidden></div>
