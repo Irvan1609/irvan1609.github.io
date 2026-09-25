@@ -78,7 +78,7 @@ function analysisButton([type,value,label,description]){
 }
 
 function panelMarkup(){
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><span>Gunakan pencarian utama di atas untuk mencari seluruh fitur web.</span></div></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-chevron" aria-hidden="true">⌄</span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
+  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><span>Kelompokkan berdasarkan tujuan analisis.</span></div><input id="analysisSearch" type="search" placeholder="Cari analisis…" aria-label="Cari analisis"></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-chevron" aria-hidden="true">⌄</span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
 }
 
 export function installAnalysisFlow() {
@@ -107,7 +107,7 @@ export function installAnalysisFlow() {
     document.dispatchEvent(new Event('close-navigation'));
     panel.hidden=false;
     open.setAttribute('aria-expanded','true');
-    requestAnimationFrame(()=>panel.querySelector('.analysis-group-toggle')?.focus());
+    requestAnimationFrame(()=>$('#analysisSearch')?.focus());
   }
 
   open.addEventListener('click',()=>{
@@ -120,6 +120,23 @@ export function installAnalysisFlow() {
     body.hidden=!opening;
     toggle.setAttribute('aria-expanded',String(opening));
   }));
+
+  const search=$('#analysisSearch');
+  search.addEventListener('input',()=>{
+    const query=search.value.trim().toLocaleLowerCase('id-ID');
+    panel.querySelectorAll('[data-analysis-group]').forEach(group=>{
+      let visible=0;
+      group.querySelectorAll('.analysis-menu-item').forEach(button=>{
+        const match=!query||button.textContent.toLocaleLowerCase('id-ID').includes(query);
+        button.hidden=!match;if(match)visible++;
+      });
+      group.hidden=visible===0;
+      if(query&&visible){
+        const body=group.querySelector('.analysis-group-items'),toggle=group.querySelector('.analysis-group-toggle');
+        body.hidden=false;toggle.setAttribute('aria-expanded','true');
+      }
+    });
+  });
 
   const run=fn=>{closeMenu();fn();};
   panel.querySelectorAll('[data-design]').forEach(button=>button.addEventListener('click',()=>run(()=>openScientific(button.dataset.design))));
