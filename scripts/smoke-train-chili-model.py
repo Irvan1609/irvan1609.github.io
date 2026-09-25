@@ -56,13 +56,13 @@ def main():
 
     from ultralytics import YOLO
 
-    out=pathlib.Path(".chili-smoke")
+    out=(pathlib.Path.cwd()/".chili-smoke").resolve()
     out.mkdir(exist_ok=True)
     split_counts,class_names=count_split_images(args.data)
 
     model=YOLO("yolov8n.pt")
     model.train(
-        data=args.data,
+        data=str(pathlib.Path(args.data).resolve()),
         epochs=args.epochs,
         imgsz=args.imgsz,
         batch=8,
@@ -76,12 +76,12 @@ def main():
         plots=False
     )
 
-    best=out/"run"/"weights"/"best.pt"
+    best=pathlib.Path(model.trainer.best)
     if not best.exists():
-        raise SystemExit("Training selesai tetapi best.pt tidak ditemukan.")
+        raise SystemExit(f"Training selesai tetapi best.pt tidak ditemukan di {best}.")
 
     candidate=YOLO(str(best))
-    results=candidate.val(data=args.data,imgsz=args.imgsz,device="cpu",verbose=False)
+    results=candidate.val(data=str(pathlib.Path(args.data).resolve()),imgsz=args.imgsz,device="cpu",verbose=False)
     exported=pathlib.Path(candidate.export(format="onnx",imgsz=args.imgsz,opset=12,simplify=True,dynamic=False))
     target=out/"smoke-model.onnx"
     shutil.copy2(exported,target)
