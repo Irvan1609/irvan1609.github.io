@@ -333,6 +333,27 @@ function parseDatasetMeta(value){
   if(new TextEncoder().encode(json).byteLength>40_000)throw Error('Metadata dataset terlalu besar.');
   return json;
 }
+async function datasetUsage(env,userId){
+  await ensureDatasetSchema(env);
+  const row=await env.DB.prepare(`SELECT
+    COUNT(*) AS dataset_count,
+    COALESCE(SUM(length(content)+length(meta_json)),0) AS storage_bytes,
+    COALESCE(SUM(revision),0) AS revision_total
+    FROM user_datasets WHERE user_id=? AND deleted_at IS NULL`).bind(userId).first();
+  return {
+    datasetCount:Number(row?.dataset_count||0),
+    storageBytes:Number(row?.storage_bytes||0),
+    revisionTotal:Number(row?.revision_total||0)
+  };
+}
+async function enforceDatasetQuota(env,user,{incomingBytes=0,existingBytes=0,isNew=false}={}){
+  if(user?.role==='admin')return {ok:true,usage:await datasetUsage(env,user.id),quota:await userQuota(env,user)};
+  const quota=await userQuota(env,user),usage=await datasetUsage(env,user.id);
+  if(isNew&&quota.datasetLimit>0&&usage.datasetCount>=quota.datasetLimit)return {ok:false,error:'dataset_limit',usage,quota};
+  const nextStorage=Math.max(0,usage.storageBytes-existingBytes+incomingBytes);
+  if(quota.storageLimitBytes>0&&nextStorage>quota.storageLimitBytes)return {ok:false,error:'storage_limit',usage:{...usage,storageBytes:nextStorage},quota};
+  return {ok:true,usage:{...usage,storageBytes:nextStorage},quota};
+}
 function datasetSummary(row){
   return {
     id:row.id,
@@ -411,7 +432,16 @@ async function handleDatasetPut(request,env,id){
   let metaJson;
   try{metaJson=parseDatasetMeta(body?.meta);}catch(error){return json(request,env,{error:error.message},413);}
   const now=new Date().toISOString();
-  const existing=await env.DB.prepare('SELECT id,user_id,revision FROM user_datasets WHERE id=? LIMIT 1').bind(id).first();
+  const existing=await env.DB.prepare('SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1').bind(id).first();
+  const incomingBytes=new TextEncoder().encode(content+metaJson).byteLength;
+  const existingBytes=existing?new TextEncoder().encode(String(existing.content||'')+String(existing.meta_json||'')).byteLength:0;
+  const quotaCheck=await enforceDatasetQuota(env,user,{incomingBytes,existingBytes,isNew:!existing});
+  if(!quotaCheck.ok)return json(request,env,{
+    error:quotaCheck.error,
+    message:quotaCheck.error==='dataset_limit'?'Batas jumlah dataset membership tercapai.':'Batas penyimpanan membership tercapai.',
+    usage:quotaCheck.usage,
+    quota:quotaCheck.quota
+  },413);
 
   if(existing){
     if(existing.user_id!==user.id)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
@@ -427,8 +457,6 @@ async function handleDatasetPut(request,env,id){
       throw error;
     }
   }else{
-    const countRow=await env.DB.prepare('SELECT COUNT(*) AS n FROM user_datasets WHERE user_id=? AND deleted_at IS NULL').bind(user.id).first();
-    if(Number(countRow?.n||0)>=MAX_DATASETS_PER_USER)return json(request,env,{error:'Batas dataset akun tercapai.'},429);
     try{
       await env.DB.prepare(`INSERT INTO user_datasets (id,user_id,name,content,meta_json,revision,created_at,updated_at,deleted_at)
         VALUES (?,?,?,?,?,1,?,?,NULL)`).bind(id,user.id,name,content,metaJson,now,now).run();
