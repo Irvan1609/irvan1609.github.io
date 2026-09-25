@@ -971,6 +971,19 @@ async function handleAccountSummary(request,env){
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
   return json(request,env,await accountSummary(env,user));
 }
+async function handleAccountMembershipCancel(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(user.role==='admin')return json(request,env,{error:'admin_permanent',message:'Membership admin bersifat permanen dan tidak dapat dibatalkan dari akun.'},409);
+  if(!membershipActive(user))return json(request,env,{error:'membership_not_active',message:'Tidak ada membership aktif yang dapat dibatalkan.'},409);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`UPDATE users
+    SET membership_status='cancelled',membership_expires_at=?,membership_source='user_cancelled',access_updated_at=?
+    WHERE id=? AND role!='admin'`).bind(now,now,user.id).run();
+  await audit(env,user,'membership.cancelled','user',user.id,{previousPlanId:user.membership_plan_id||null,previousExpiresAt:user.membership_expires_at||null,cancelledAt:now});
+  const updated=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(user.id).first();
+  return json(request,env,{ok:true,cancelledAt:now,user:publicUser(updated)});
+}
 async function handleAccountSessions(request,env){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
@@ -1421,7 +1434,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.9'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.10'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -1437,6 +1450,7 @@ export default {
       if(request.method==='GET'&&membershipPaymentMatch)return await handleMembershipPaymentStatus(request,env,membershipPaymentMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/membership/webhook')return await handleMembershipWebhook(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/account/summary')return await handleAccountSummary(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/account/membership/cancel')return await handleAccountMembershipCancel(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/account/sessions')return await handleAccountSessions(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/account/sessions/revoke-others')return await handleAccountRevokeOthers(request,env);
       const accountSessionMatch=url.pathname.match(/^\/v1\/account\/sessions\/([0-9a-f-]{36})$/i);
