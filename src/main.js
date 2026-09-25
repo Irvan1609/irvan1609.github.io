@@ -20,6 +20,7 @@ const LEGACY_ACTIVE_KEY='statistical_web_active_txt_v2';
 const META_KEY='statistical_web_dataset_meta_v1';
 const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
+const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
 let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0;
 const $=s=>document.querySelector(s);
@@ -89,10 +90,10 @@ function recordEditorHistory(reason='edit',force=false){
     all[key]=[entry,...list].slice(0,12);localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));
   }catch{}
 }
-function persist(reason='edit',history=true){
+function persist(reason='edit',history=true,patch=null){
   try{
     state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);
-    indicateSaved();if(history)recordEditorHistory(reason,false);notifyDatasetChange({type:'upsert',name:state.active,reason});
+    indicateSaved();if(history)recordEditorHistory(reason,false);notifyDatasetChange({type:'upsert',name:state.active,reason,patch});
   }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
 }
 function updateStorageStatus(){}
@@ -267,17 +268,24 @@ function ensureGridSize(rowCount,colCount){
 }
 function pasteIntoGrid(text,r0,c0){
   const matrix=excelRows(text);if(!matrix.length)return;
-  pushUndo('tempel sel');ensureGridSize(r0+matrix.length,c0+Math.max(...matrix.map(row=>row.length)));
+  const oldRows=state.rows.length,oldCols=state.headers.length,maxCols=Math.max(...matrix.map(row=>row.length));
+  pushUndo('tempel sel');ensureGridSize(r0+matrix.length,c0+maxCols);
   matrix.forEach((row,ri)=>row.forEach((value,ci)=>{state.rows[r0+ri][c0+ci]=value;}));
-  persist('tempel sel',true);renderGrid();
+  const patch=(state.rows.length===oldRows&&state.headers.length===oldCols)?{kind:'set_range',row:r0,col:c0,values:matrix}:null;
+  persist('tempel sel',true,patch);renderGrid();
   state.selection.anchor={r:r0,c:c0};state.selection.focus={r:r0+matrix.length-1,c:c0+Math.max(...matrix.map(row=>row.length))-1};paintSelection();
   setStatus(`✓ ${matrix.length} × ${Math.max(...matrix.map(row=>row.length))} sel ditempel.`);
 }
 function clearSelectedCells(){
   const range=selectionRange();if(!range)return;
   pushUndo('kosongkan sel');
-  for(let r=range.r1;r<=range.r2;r++)for(let c=range.c1;c<=range.c2;c++)if(state.rows[r])state.rows[r][c]='';
-  persist('kosongkan sel',true);renderGrid();state.selection.anchor={r:range.r1,c:range.c1};state.selection.focus={r:range.r1,c:range.c1};paintSelection();
+  const values=[];
+  for(let r=range.r1;r<=range.r2;r++){
+    const row=[];
+    for(let c=range.c1;c<=range.c2;c++){if(state.rows[r])state.rows[r][c]='';row.push('');}
+    values.push(row);
+  }
+  persist('kosongkan sel',true,{kind:'set_range',row:range.r1,col:range.c1,values});renderGrid();state.selection.anchor={r:range.r1,c:range.c1};state.selection.focus={r:range.r1,c:range.c1};paintSelection();
 }
 async function copySelectedCells(){
   const range=selectionRange();if(!range)return false;
@@ -332,7 +340,7 @@ function moveColumn(from,to){
   pushUndo('pindah kolom');
   const [header]=state.headers.splice(from,1);state.headers.splice(to,0,header);
   state.rows.forEach(row=>{const [value]=row.splice(from,1);row.splice(to,0,value);});
-  persist('pindah kolom',true);clearSelection();renderGrid();setStatus('Kolom dipindahkan.');
+  persist('pindah kolom',true,{kind:'move_column',from,to});clearSelection();renderGrid();setStatus('Kolom dipindahkan.');
 }
 function bindColumnDrag(wrap){
   let touchFrom=null,touchTo=null;
@@ -411,7 +419,7 @@ function renderGrid(){
       return `<th data-column-header="${esc(h)}" data-column-index="${j}" data-column-type="${esc(type.type)}" class="${isText?'string-column':''}"><div class="header-controls"><span class="column-drag-handle" data-drag-column="${j}" draggable="true" role="button" tabindex="0" aria-label="Geser kolom ${esc(h)}" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="${j}" title="${esc(tip)}" aria-label="Ubah nama kolom ${esc(h)}">${columnHeaderMarkup(h)}</button><button class="grid-delete" data-delete-column="${j}" aria-label="Hapus kolom ${esc(h)}" title="Hapus kolom"></button></div></th>`;
     }).join('')}</tr></thead><tbody>${state.rows.map((r,i)=>`<tr><td class="row-number"><span>${i+1}</span><button class="grid-delete" data-delete-row="${i}" aria-label="Hapus baris ${i+1}" title="Hapus baris"></button></td>${state.headers.map((_,j)=>`<td class="${['category','text'].includes(types[j].type)?'string-column-cell':''}" contenteditable="true" spellcheck="false" data-r="${i}" data-c="${j}">${esc(r[j])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
-      const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false);refreshColumnType(col,wrap);
+      const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
     }));
     bindGridArrowNavigation(wrap);bindColumnDrag(wrap);
     wrap.querySelectorAll('[data-rename-column]').forEach(button=>button.onclick=()=>openColumnName(Number(button.dataset.renameColumn)));
@@ -424,7 +432,7 @@ function renderGrid(){
     });
     wrap.querySelectorAll('[data-delete-row]').forEach(button=>button.onclick=()=>{
       const i=Number(button.dataset.deleteRow);if(!confirm(`Hapus baris ${i+1}?`))return;
-      pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true);clearSelection();renderGrid();setStatus('Baris dihapus.');
+      pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true,{kind:'delete_row',row:i});clearSelection();renderGrid();setStatus('Baris dihapus.');
     });
   }
   wrap.querySelector('[data-empty-paste]')?.addEventListener('click',openModal);
@@ -460,7 +468,7 @@ function quickImport(event){
   }
 }
 function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=[];state.rows=[];state.meta[name]={plant:'',treatment:''};persist();try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}loadActive(false);setStatus(`✓ ${displayDatasetName(name)} dibuat.`);}
-function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');pushUndo('tambah baris');state.rows.push(state.headers.map(()=>''));persist('tambah baris',true);renderGrid();setStatus('✓ Baris baru ditambahkan.');}
+function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');pushUndo('tambah baris');const row=state.headers.map(()=>'');state.rows.push(row);persist('tambah baris',true,{kind:'append_row',values:row});renderGrid();setStatus('✓ Baris baru ditambahkan.');}
 function addColumn(){pushUndo('tambah kolom');if(!state.headers.length)state.rows=[];state.headers.push(nextColumnName(state.headers));state.rows.forEach(r=>r.push(''));persist('tambah kolom',true);renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
 function clearData(){
   const name=displayDatasetName(state.active),filled=state.rows.reduce((sum,row)=>sum+row.filter(value=>String(value??'').trim()!=='').length,0);
