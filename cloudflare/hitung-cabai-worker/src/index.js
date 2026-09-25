@@ -945,7 +945,7 @@ async function handleDevelopBackups(request,env){
   await ensureOperationsSchema(env);
   if(request.method==='POST'){
     try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual')},201);}
-    catch(error)return json(request,env,{error:'backup_unavailable',message:error.message},503);
+    catch(error){return json(request,env,{error:'backup_unavailable',message:error.message},503);}
   }
   const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
   return json(request,env,{items:result.results||[],r2Configured:Boolean(env.BACKUPS)});
