@@ -1293,3 +1293,12 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
 .data-grid td.cell-missing{background-image:linear-gradient(135deg,transparent 0 78%,rgba(185,132,42,.22) 78% 100%)}
 .data-grid td.cell-type-warning{box-shadow:inset 0 0 0 1.5px rgba(180,83,60,.5)}
 .data-grid tbody tr.duplicate-row td{border-bottom-color:#c8a75d}
+
+
+/* Quiet autosave indicator */
+.save-indicator{
+  width:18px!important;height:18px!important;min-width:18px!important;padding:0!important;
+  display:inline-grid!important;place-items:center!important;background:transparent!important;
+  color:#2f7d55!important;font-size:10px!important;line-height:1!important
+}
+.save-indicator::before{content:none!important}
