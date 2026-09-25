@@ -174,6 +174,16 @@ function parseDatasetMeta(value){
   if(new TextEncoder().encode(json).byteLength>40_000)throw Error('Metadata dataset terlalu besar.');
   return json;
 }
+function datasetSummary(row){
+  return {
+    id:row.id,
+    name:row.name,
+    revision:Number(row.revision)||1,
+    createdAt:row.created_at,
+    updatedAt:row.updated_at,
+    deletedAt:row.deleted_at||null
+  };
+}
 function datasetPayload(row){
   let meta={};
   try{meta=JSON.parse(row.meta_json||'{}')||{};}catch{}
@@ -197,10 +207,19 @@ async function handleDatasetList(request,env,url){
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
   await ensureDatasetSchema(env);
   const includeDeleted=url.searchParams.get('include_deleted')==='1';
-  const result=await env.DB.prepare(`SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at
+  const result=await env.DB.prepare(`SELECT id,name,revision,created_at,updated_at,deleted_at
     FROM user_datasets WHERE user_id=? ${includeDeleted?'':'AND deleted_at IS NULL'} ORDER BY updated_at ASC`)
     .bind(user.id).all();
-  return json(request,env,{items:(result.results||[]).map(datasetPayload)});
+  return json(request,env,{items:(result.results||[]).map(datasetSummary)});
+}
+async function handleDatasetGet(request,env,id){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
+  await ensureDatasetSchema(env);
+  const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  if(!row)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
+  return json(request,env,{item:datasetPayload(row)});
 }
 async function handleDatasetPut(request,env,id){
   const user=await requireUser(request,env);
@@ -481,6 +500,7 @@ export default {
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/datasets')return await handleDatasetList(request,env,url);
       const datasetMatch=url.pathname.match(/^\/v1\/datasets\/([0-9a-f-]{36})$/i);
+      if(request.method==='GET'&&datasetMatch)return await handleDatasetGet(request,env,datasetMatch[1]);
       if(request.method==='PUT'&&datasetMatch)return await handleDatasetPut(request,env,datasetMatch[1]);
       if(request.method==='DELETE'&&datasetMatch)return await handleDatasetDelete(request,env,datasetMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/contributions')return await handleContribution(request,env);
