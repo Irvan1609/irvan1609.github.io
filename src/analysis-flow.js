@@ -1,13 +1,24 @@
 const $ = selector => document.querySelector(selector);
-import {openAssociation} from './association-workflow.js';
-import {openAdvanced} from './advanced-workflow.js';
-import {openNextGen} from './nextgen-workflow.js';
-import {openMixedModel} from './mixed-workflow.js';
-import {openDesignExtension} from './design-extensions-workflow.js';
-import {openNonparametric} from './nonparametric-workflow.js';
-import {openPowerAnalysis} from './power-workflow.js';
-import {openStabilityIndices} from './stability-indices-workflow.js';
-import {installScientificWorkflow,openScientific} from './scientific-workflow.js';
+
+let scientificReady=false;
+async function openScientificLazy(design){
+  const mod=await import('./scientific-workflow.js');
+  if(!scientificReady&&!document.getElementById('scientificModal')){
+    mod.installScientificWorkflow();
+    scientificReady=true;
+  }
+  mod.openScientific(design);
+}
+const lazyOpeners={
+  designExt:async value=>(await import('./design-extensions-workflow.js')).openDesignExtension(value),
+  nonparametric:async ()=>(await import('./nonparametric-workflow.js')).openNonparametric(),
+  power:async ()=>(await import('./power-workflow.js')).openPowerAnalysis(),
+  stabilityIndices:async ()=>(await import('./stability-indices-workflow.js')).openStabilityIndices(),
+  association:async value=>(await import('./association-workflow.js')).openAssociation(value),
+  advanced:async value=>(await import('./advanced-workflow.js')).openAdvanced(value),
+  nextgen:async value=>(await import('./nextgen-workflow.js')).openNextGen(value),
+  mixed:async ()=>(await import('./mixed-workflow.js')).openMixedModel()
+};
 
 function phoneGuardMode(){
   return globalThis.matchMedia?.('(max-width: 720px) and (pointer: coarse)')?.matches
@@ -93,7 +104,6 @@ function panelMarkup(){
 }
 
 export function installAnalysisFlow() {
-  installScientificWorkflow();
   const nav=$('.nav'),open=$('#openAnalysis');
   if(!nav||!open)return;
 
@@ -155,19 +165,28 @@ export function installAnalysisFlow() {
     if(confirm)confirm.disabled=false;
     if(selectedLabel)selectedLabel.textContent=button.querySelector('b')?.textContent||'Metode dipilih';
   };
-  const openButton=button=>{
+  const openButton=async button=>{
     if(!button)return;
     closeMenu();
-    if(button.matches('[data-design]'))openScientific(button.dataset.design);
-    else if(button.matches('[data-design-ext]'))openDesignExtension(button.dataset.designExt);
-    else if(button.matches('[data-nonparametric]'))openNonparametric();
-    else if(button.matches('[data-power]'))openPowerAnalysis();
-    else if(button.matches('[data-stability-indices]'))openStabilityIndices();
-    else if(button.matches('[data-association]'))openAssociation(button.dataset.association);
-    else if(button.matches('[data-advanced]'))openAdvanced(button.dataset.advanced);
-    else if(button.matches('[data-nextgen]'))openNextGen(button.dataset.nextgen);
-    else if(button.matches('[data-mixed]'))openMixedModel();
-    resetSelection();
+    const original=button.querySelector('b')?.textContent||'Analisis';
+    button.disabled=true;
+    try{
+      if(button.matches('[data-design]'))await openScientificLazy(button.dataset.design);
+      else if(button.matches('[data-design-ext]'))await lazyOpeners.designExt(button.dataset.designExt);
+      else if(button.matches('[data-nonparametric]'))await lazyOpeners.nonparametric();
+      else if(button.matches('[data-power]'))await lazyOpeners.power();
+      else if(button.matches('[data-stability-indices]'))await lazyOpeners.stabilityIndices();
+      else if(button.matches('[data-association]'))await lazyOpeners.association(button.dataset.association);
+      else if(button.matches('[data-advanced]'))await lazyOpeners.advanced(button.dataset.advanced);
+      else if(button.matches('[data-nextgen]'))await lazyOpeners.nextgen(button.dataset.nextgen);
+      else if(button.matches('[data-mixed]'))await lazyOpeners.mixed();
+    }catch(error){
+      console.error('Analisis gagal dimuat',error);
+      alert('Modul '+original+' belum dapat dimuat. Coba lagi.');
+    }finally{
+      button.disabled=false;
+      resetSelection();
+    }
   };
   const runSelected=()=>openButton(selectedButton);
   panel.querySelectorAll('.analysis-menu-item').forEach(button=>button.addEventListener('click',()=>{
