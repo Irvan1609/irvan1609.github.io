@@ -11,6 +11,8 @@ import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip}
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import {installAccountDatasetSync} from './account-dataset-sync.js';
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,renameLocalDataset,copyLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots} from './local-dataset-store.js';
+import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import jStat from 'jstat';
 
 const FILES_KEY='statistical_web_csv_files_v1';
@@ -22,7 +24,7 @@ const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
-let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0;
+let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=formatNumber;
@@ -50,6 +52,46 @@ function displayDatasetName(name){return String(name||'dataset').replace(/\.(?:c
 function csvCell(value){const text=String(value??'');return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;}
 function serializeRows(headers,rows){if(!headers?.length)return '';return [headers,...rows].map(row=>row.map(csvCell).join(',')).join('\n');}
 function serialize(){return serializeRows(state.headers,state.rows.map(row=>state.headers.map((_,i)=>row[i]??'')));}
+function activeDatasetPayload(){
+  const meta=state.meta[state.active]||{plant:'',treatment:''};
+  return {name:displayDatasetName(state.active),fileName:state.active,plant:meta.plant||'',treatment:meta.treatment||'',headers:[...state.headers],rows:state.rows.map(row=>[...row])};
+}
+if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
+  readActiveDataset:()=>activeDatasetPayload(),
+  readDatasetContent:async name=>{
+    const file=String(name||state.active);
+    if(file===state.active)return serialize();
+    const stored=state.files[file]??'';
+    if(typeof isLocalPointer==='function'&&isLocalPointer(stored))return await loadLocalDataset(file)??'';
+    return String(stored??'');
+  }
+};
+function localStoreReady(){return typeof isLocalPointer==='function'&&typeof saveLocalDataset==='function';}
+function manifestValue(name,content){
+  const current=state.files[name];
+  return localStoreReady()&&(isLocalPointer(current)||shouldOffloadDataset(content))?localPointer(name):String(content??'');
+}
+function saveFilesManifest(){localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);}
+function storeDatasetContent(name,content){
+  const next=manifestValue(name,content),offloaded=localStoreReady()&&isLocalPointer(next);
+  state.files[name]=next;saveFilesManifest();
+  if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Penyimpanan lokal besar gagal.',error));
+  return offloaded;
+}
+async function hydrateDatasetContent(name){
+  const stored=state.files[name]??'';
+  if(localStoreReady()&&isLocalPointer(stored))return await loadLocalDataset(name)??'';
+  return String(stored??'');
+}
+async function migrateLargeLocalDatasets(){
+  if(!localStoreReady())return;
+  let changed=false;
+  for(const [name,value] of Object.entries(state.files)){
+    if(isLocalPointer(value)||!shouldOffloadDataset(value))continue;
+    await saveLocalDataset(name,value);state.files[name]=localPointer(name);changed=true;
+  }
+  if(changed)saveFilesManifest();
+}
 function editorSnapshot(){
   return {active:state.active,headers:[...state.headers],rows:state.rows.map(row=>[...row]),meta:{...(state.meta[state.active]||{plant:'',treatment:''})}};
 }
@@ -84,15 +126,20 @@ function recordEditorHistory(reason='edit',force=false){
   const now=Date.now();if(!force&&now-lastHistoryWrite<2500)return;
   lastHistoryWrite=now;
   try{
+    const csv=serialize(),meta={...(state.meta[state.active]||{})};
+    if(localStoreReady()&&shouldOffloadDataset(csv)){
+      void saveLocalSnapshot(state.active,{date:new Date(now).toISOString(),reason,csv,meta}).catch(()=>{});
+      return;
+    }
     const all=editorHistoryStore(),key=displayDatasetName(state.active),list=Array.isArray(all[key])?all[key]:[];
-    const entry={date:new Date(now).toISOString(),reason,csv:serialize(),meta:{...(state.meta[state.active]||{})}};
+    const entry={date:new Date(now).toISOString(),reason,csv,meta};
     if(list[0]?.csv===entry.csv&&JSON.stringify(list[0]?.meta||{})===JSON.stringify(entry.meta))return;
     all[key]=[entry,...list].slice(0,12);localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));
   }catch{}
 }
 function persist(reason='edit',history=true,patch=null){
   try{
-    state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);
+    const content=serialize();storeDatasetContent(state.active,content);
     indicateSaved();if(history)recordEditorHistory(reason,false);notifyDatasetChange({type:'upsert',name:state.active,reason,patch});
   }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
 }
@@ -157,6 +204,14 @@ function bindInlineDatasetMeta(){
     });
   });
 }
+function applyActiveCsv(text,{history=true}={}){
+  const parsed=String(text||'').trim()?csvRows(String(text),','):[];
+  state.headers=parsed[0]||[];state.rows=parsed.slice(1).map(row=>state.headers.map((_,i)=>row[i]??''));
+  state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
+  renderTree();renderGrid();renderDatasetMeta();
+  if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
+  if(history)recordEditorHistory('dibuka',true);
+}
 function loadStorage(){
   try{
     state.meta=JSON.parse(localStorage.getItem(META_KEY)||'{}')||{};
@@ -168,13 +223,16 @@ function loadStorage(){
   loadActive(false);
 }
 function loadActive(save=true){
-  const text=state.files[state.active]??'',parsed=text.trim()?csvRows(text,','):[];
-  state.headers=parsed[0]||[];state.rows=parsed.slice(1).map(row=>state.headers.map((_,i)=>row[i]??''));
-  state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
-  if(save)localStorage.setItem(ACTIVE_KEY,state.active);
-  renderTree();renderGrid();renderDatasetMeta();
-  if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
-  recordEditorHistory('dibuka',true);
+  const active=state.active,stored=state.files[active]??'';
+  if(save)localStorage.setItem(ACTIVE_KEY,active);
+  if(localStoreReady()&&isLocalPointer(stored)){
+    state.headers=[];state.rows=[];state.undo=[];state.redo=[];state.selection={anchor:null,focus:null};
+    renderTree();renderGrid();renderDatasetMeta();if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(active);
+    localHydrationPromise=hydrateDatasetContent(active).then(text=>{if(state.active===active)applyActiveCsv(text);}).catch(error=>showError('Dataset lokal tidak dapat dibuka.',error));
+    return localHydrationPromise;
+  }
+  applyActiveCsv(stored);localHydrationPromise=Promise.resolve();
+  return localHydrationPromise;
 }
 function renderTree(){
   const tree=$('#fileTree');if(!tree)return;
