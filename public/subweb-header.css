@@ -1,10 +1,62 @@
-:root{font-family:"Segoe UI",Arial,sans-serif;--subweb-header-bg:#ffffff;--subweb-header-line:#d7e0e8;--subweb-header-ink:#17324d;--subweb-header-muted:#5e7082;--subweb-header-active:#eaf2fb}
-.subweb-header{position:sticky;top:0;z-index:50;background:var(--subweb-header-bg);border-bottom:1px solid var(--subweb-header-line)}
-.subweb-header-inner{width:min(1180px,calc(100% - 32px));min-height:60px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
-.subweb-brand{display:inline-flex;align-items:center;gap:8px;color:var(--subweb-header-ink);text-decoration:none;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
-.subweb-brand:hover{text-decoration:none}.subweb-brand-arrow{font-size:18px;line-height:1}
-.subweb-nav{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}.subweb-nav::-webkit-scrollbar{display:none}
-.subweb-nav a{display:inline-flex;align-items:center;min-height:34px;padding:7px 10px;border-radius:8px;color:var(--subweb-header-muted);text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap}
-.subweb-nav a:hover{background:#f4f7fa;color:var(--subweb-header-ink)}.subweb-nav a[aria-current="page"]{background:var(--subweb-header-active);color:var(--subweb-header-ink)}
-@media(max-width:680px){.subweb-header-inner{width:min(100% - 20px,1180px);min-height:56px;gap:10px}.subweb-brand{font-size:14px}.subweb-nav{gap:2px}.subweb-nav a{padding:7px 8px;font-size:12px}}
-@media(max-width:500px){.subweb-brand span:last-child{display:none}.subweb-brand-arrow{font-size:20px}}
+:root{
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+  --subweb-header-bg:rgba(255,255,255,.96);
+  --subweb-header-line:#dbe4e8;
+  --subweb-header-ink:#17324d;
+  --subweb-header-muted:#607181;
+  --subweb-header-active:#e8f0f7;
+}
+.subweb-header{
+  position:sticky;top:0;z-index:70;
+  background:var(--subweb-header-bg);
+  border-bottom:1px solid var(--subweb-header-line);
+  backdrop-filter:blur(14px);
+  box-shadow:0 4px 18px rgba(26,48,68,.04);
+}
+.subweb-header-inner{
+  width:min(1200px,calc(100% - 32px));min-height:64px;margin:auto;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+}
+.subweb-brand{
+  display:inline-flex;align-items:center;gap:9px;min-height:42px;
+  color:var(--subweb-header-ink);text-decoration:none;font-weight:850;
+  letter-spacing:-.015em;white-space:nowrap;border-radius:9px;
+}
+.subweb-brand:hover{text-decoration:none;color:#0f4f72}
+.subweb-brand:focus-visible,.subweb-nav a:focus-visible{outline:3px solid #89b7d3;outline-offset:2px}
+.subweb-brand-arrow{
+  width:32px;height:32px;display:grid;place-items:center;border-radius:9px;
+  background:#f1f5f8;border:1px solid #e0e7ec;font-size:18px;line-height:1;
+}
+.subweb-nav{
+  display:flex;align-items:center;gap:4px;min-width:0;
+  overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;
+}
+.subweb-nav::-webkit-scrollbar{display:none}
+.subweb-nav a{
+  display:inline-flex;align-items:center;justify-content:center;min-height:40px;
+  padding:8px 11px;border-radius:9px;color:var(--subweb-header-muted);
+  text-decoration:none;font-size:13px;font-weight:750;white-space:nowrap;
+}
+.subweb-nav a:hover{background:#f3f6f8;color:var(--subweb-header-ink)}
+.subweb-nav a[aria-current="page"]{background:var(--subweb-header-active);color:var(--subweb-header-ink)}
+@media(max-width:760px){
+  .subweb-header-inner{
+    width:min(100% - 20px,1200px);min-height:auto;padding:7px 0 6px;
+    display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;
+    gap:6px 8px;
+  }
+  .subweb-brand{grid-column:1;grid-row:1;min-width:0;font-size:14px;overflow:hidden}
+  .subweb-brand span:last-child{overflow:hidden;text-overflow:ellipsis}
+  .subweb-nav{
+    grid-column:1/-1;grid-row:2;width:100%;margin:0;
+    padding-top:5px;border-top:1px solid #edf1f4;
+  }
+  .subweb-nav a{min-height:36px;padding:7px 9px;font-size:12px}
+  .subweb-header-inner>.account-widget{grid-column:2;grid-row:1;justify-self:end;margin-left:0!important}
+}
+@media(max-width:420px){
+  .subweb-header-inner{width:calc(100% - 16px)}
+  .subweb-brand-arrow{width:30px;height:30px}
+  .subweb-nav a{padding-inline:8px}
+}

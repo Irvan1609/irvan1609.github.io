@@ -980,3 +980,71 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .dataset-sync-bar{grid-template-columns:auto minmax(0,1fr) auto;margin-bottom:7px;padding:6px}
   #syncDatasets{min-height:34px!important;padding:5px 7px!important}
 }
+
+
+/* UX OVERHAUL 2026-09-26 */
+:root{
+  --ux-surface:#fff;--ux-surface-soft:#f7fafc;--ux-ink:#1c2c3b;--ux-muted:#647484;
+  --ux-line:#dce4eb;--ux-primary:#1f5b8f;--ux-primary-dark:#17476f;--ux-soft:#eaf2f8;
+  --ux-shadow:0 10px 30px rgba(24,49,72,.07);
+}
+body{background:#eef3f6;color:var(--ux-ink)}
+.app-shell{max-width:1540px;padding:18px 20px 28px}
+.app-header{border:1px solid var(--ux-line);border-radius:14px;background:var(--ux-surface);box-shadow:var(--ux-shadow);overflow:hidden}
+.app-intro{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:18px 20px 12px}
+.app-intro>div{min-width:0}.app-kicker{display:block;margin-bottom:3px;color:var(--ux-primary);font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.app-intro strong{display:block;font-size:21px;letter-spacing:-.025em}.app-intro p{margin:3px 0 0;color:var(--ux-muted);font-size:13px}
+.app-flow-badge{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:var(--ux-soft);color:#315f84;font-size:11px;font-weight:800;white-space:nowrap}
+.nav{padding:0 20px 16px;gap:7px}.nav button{min-height:40px;border-radius:9px;font-weight:700}
+.nav #openAnalysis{padding-inline:18px}.nav #globalSearchButton{background:#f8fafc}
+.toolbar{margin-top:12px;padding:12px 14px;border:1px solid var(--ux-line);border-radius:14px;background:var(--ux-surface);box-shadow:0 6px 20px rgba(24,49,72,.045)}
+.toolbar button{min-height:40px;border-radius:9px;font-size:13px;font-weight:650}
+.toolbar #pasteBtn{padding-inline:17px}.toolbar #clearData{width:40px;padding:0;color:#a13d3d;border-color:#efd0d0;background:#fffafa;font-size:20px}
+.toolbar #clearData:hover{background:#fff0f0;border-color:#e5b4b4}
+.workflow-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin:12px 0 0;border:1px solid var(--ux-line);border-radius:12px;overflow:hidden;background:var(--ux-line)}
+.workflow-strip span{display:flex;align-items:center;gap:9px;min-width:0;padding:10px 12px;background:#f9fbfc;color:#526474}
+.workflow-strip b{width:24px;height:24px;flex:0 0 24px;display:grid;place-items:center;border-radius:8px;background:#e8f1f7;color:#245a83;font-size:11px}
+.workflow-strip em{font-style:normal;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main{grid-template-columns:230px minmax(0,1fr);gap:14px;margin-top:14px}
+.project-panel,.workspace{border:1px solid var(--ux-line);border-radius:14px;background:var(--ux-surface);box-shadow:0 6px 22px rgba(24,49,72,.04)}
+.project-panel{position:sticky;top:82px;padding:12px;max-height:calc(100dvh - 100px);overflow:auto}
+.panel-title{padding:5px 7px 10px;color:#314a5f;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.dataset-search{min-height:40px!important;border-radius:9px!important;background:#fbfcfd!important}
+.tree-item{min-height:39px;border-radius:9px;font-size:13px}.tree-item.active{background:#e8f1f8;border-color:#bdd2e3;color:#173f62}
+.dataset-actions{gap:6px}.dataset-actions button{min-height:36px;border-radius:8px;font-size:12px}
+.workspace{overflow:hidden}.sheet-header{padding:13px 15px;background:#fbfcfd}.dataset-title{min-width:0}
+.dataset-title strong{font-size:14px}.save-indicator{border-radius:999px}
+.dataset-meta-summaryline{color:#627383}
+#toggleDatasetMeta{min-height:34px;padding:6px 9px;border-radius:8px;font-size:12px}
+.grid-container{max-height:67vh;min-height:360px;background:#fff}
+.data-grid thead th{background:#edf3f7}.data-grid th,.data-grid td{height:40px}
+.status{min-height:39px;background:#fbfcfd}
+.modal-backdrop{backdrop-filter:blur(2px)}.modal-backdrop>.modal{border-radius:14px;border-color:#cedae3;box-shadow:0 22px 60px rgba(20,42,62,.22)}
+.modal-head{min-height:54px}.modal-head strong{font-size:15px}.modal-head button{width:38px;padding:0}
+@media(max-width:900px){
+  .main{grid-template-columns:190px minmax(0,1fr)}
+  .workflow-strip span{padding-inline:9px}.workflow-strip em{font-size:11px}
+}
+@media(max-width:720px){
+  .app-shell{padding:8px 9px 92px}
+  .app-header{border-radius:12px}.app-intro{padding:13px 13px 9px;align-items:flex-start}
+  .app-intro strong{font-size:18px}.app-intro p{font-size:12px;line-height:1.4}.app-flow-badge{display:none}
+  .nav{padding:0 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .nav button{width:100%;min-height:44px}.nav #openAnalysis{grid-column:1/2}
+  .toolbar{margin-top:9px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .toolbar button{width:100%;min-width:0;min-height:44px;padding:8px 9px}
+  .toolbar #clearData{width:100%;font-size:18px}
+  .workflow-strip{display:flex;overflow-x:auto;scrollbar-width:none}.workflow-strip::-webkit-scrollbar{display:none}
+  .workflow-strip span{flex:0 0 auto;min-width:135px}
+  .main{grid-template-columns:minmax(0,1fr);gap:9px;margin-top:9px}
+  .project-panel{position:static;top:auto;max-height:48dvh}
+  .workspace{border-radius:12px}.sheet-header{padding:11px}
+  .grid-container{max-height:58vh;min-height:300px}
+  .data-grid th,.data-grid td{min-width:92px;padding:9px 11px}
+  .status{font-size:12px}
+}
+@media(max-width:420px){
+  .app-intro p{max-width:290px}
+  .toolbar{grid-template-columns:1fr 1fr}
+  .workflow-strip span{min-width:125px}
+}
