@@ -40,8 +40,8 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
-  'openAnalysis','globalSearchButton','globalSearchModal','closeGlobalSearch','globalSearch','globalSearchResults','focusData','renameDataset','deleteDataset','datasetNameForm',
-  'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','toggleDatasetMeta','datasetMetaEditor',
+  'openAnalysis','globalSearchButton','globalSearchModal','closeGlobalSearch','globalSearch','globalSearchResults','renameDataset','deleteDataset','datasetNameForm',
+  'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','datasetMetaEditor',
   'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels',
   'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
 ];
@@ -74,7 +74,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==4||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('focusData')||!nav.includes('projectToggle')||!/>Pilih analisis<\/button>/.test(nav))fail('top navigation must expose Pilih analisis, Cari, Fokus Data, and Dataset controls');
+if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||nav.includes('focusData')||!/>Pilih analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Pilih analisis, Cari, and Dataset');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
@@ -95,7 +95,7 @@ for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('anal
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
-const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','focusData','toggleDatasetMeta','plantNameSummary','treatmentNameSummary'];
+const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','plantNameSummary','treatmentNameSummary'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
 if ((main.match(/validateColumnNames\(a\[0\]\)/g) || []).length !== 2) fail('paste and CSV imports must both validate column names');
 if (!dataTools.includes('validateColumnNames(headers)')) fail('Excel import must share the column-name validator');
@@ -109,12 +109,13 @@ if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-strin
 if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');
 for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','toggleCompactEditor','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
 if(!main.includes('detectColumnType')||!main.includes('columnTooltip'))fail('editor must detect column types and expose metadata tooltips');
-if(!statStyle.includes('position:sticky')||!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing freeze/selection/compact/autosave styles');
+if(!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing selection/compact/autosave styles');
+if(!statStyle.includes('/* No frozen table rows/columns. */')||!statStyle.includes('position:static!important'))fail('data table must not freeze rows or columns');
 if(!dataTools.includes("plant:$('#plantName')")||!dataTools.includes("treatment:$('#treatmentName')"))fail('analysis dataset must carry plant and treatment metadata');
 if(!scientific.includes('data-print-results')||!scientific.includes('datasetMeta={plant:data.plant'))fail('scientific results must include print mode and dataset context');
 
-if(!statStyle.includes('.data-grid thead th.string-column')||!statStyle.includes('.column-string-section'))fail('string columns must use a subtle header-only distinction and integrated editor section');
-if(main.includes('string-column-badge')||main.includes('>STRING<')||main.includes('string-column-cell')||statStyle.includes('.string-column-badge')||statStyle.includes('.string-column-cell'))fail('string columns must not add badges or body-cell coloring');
+if(!statStyle.includes('.data-grid thead th.string-column')||!statStyle.includes('.column-string-section')||!statStyle.includes('.string-column-cell'))fail('string columns must use responsive color and integrated editor mapping');
+if(main.includes('string-column-badge')||main.includes('>STRING<')||statStyle.includes('.string-column-badge'))fail('string columns must not add text badges');
 if(!main.includes('data-column-header')||!dataTools.includes('th[data-column-header]'))fail('analysis readers must ignore string-mapping controls and use canonical column headers');
 if(html.includes('id="info"')||html.includes('id="storageStatus"')||html.includes('dataset.txt'))fail('stat sheet header must not show dimensions/file-count/TXT extension');
 if(!statStyle.includes("content:'×'"))fail('row/column delete affordance must use × rather than a trash icon');
@@ -129,7 +130,7 @@ if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statis
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so app-menu commands exist when the menu is assembled');
-for (const marker of ["['fileMenu','File'","['dataMenu','Data'","['helpMenu','Bantuan'",'validateDataset','dataTemplate','analysisHistory','focusData','globalSearchButton','globalSearchModal','globalSearch','globalSearchResults','buildGlobalIndex','data-column-header']) {
+for (const marker of ["['fileMenu','File'","['dataMenu','Data'","['helpMenu','Bantuan'",'validateDataset','dataTemplate','analysisHistory','globalSearchButton','globalSearchModal','globalSearch','globalSearchResults','buildGlobalIndex','data-column-header']) {
   if (!navigation.includes(marker)) fail(`navigation.js missing classic menu/global-search contract: ${marker}`);
 }
 
@@ -156,10 +157,12 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
   if (!printApp.includes(marker)) fail(`print-skripsi app missing behavior marker: ${marker}`);
 }
 
-if(!main.includes('toggleFocusMode')||!main.includes('toggleDatasetMetaEditor'))fail('responsive focus/metadata controls are missing');
-if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.focus-data-mode')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/focus/collapse styles are missing');
+for(const marker of ['bindInlineDatasetMeta','data-meta-field','refreshColumnType','moveColumn','bindColumnDrag','data-column-index','data-drag-column'])if(!main.includes(marker))fail('direct metadata/live-type/drag feature missing '+marker);
+if(html.includes('id="focusData"')||html.includes('id="toggleDatasetMeta"'))fail('obsolete focus/edit-information controls must be removed');
+if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')||!html.includes('contenteditable="true" role="textbox" aria-label="Perlakuan"'))fail('plant and treatment metadata must be directly editable');
+if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
 if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
-console.log(`UI contract OK: classic multi-button Statistical Web layout restored, with one global search across features, analyses, datasets, columns, results, and pages.`);
+console.log(`UI contract OK: simplified Statistical Web with direct metadata editing, live column typing, drag reorder, and no frozen table.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
