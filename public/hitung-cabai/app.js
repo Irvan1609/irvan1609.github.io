@@ -109,7 +109,8 @@ async function autoDetectChilies({automatic=false}={}){
     }
     checkpoint();boxes=result.boxes;predictedBoxes=cloneBoxes();paint();
     if(boxes.length){
-      status(`Deteksi otomatis menemukan ${boxes.length} calon cabai. Periksa kotaknya; tambahkan atau hapus jika ada yang kurang tepat.`);
+      const engine=predictionMethod==='onnx'?`AI ${modelVersion}`:'Deteksi warna';
+      status(`${engine} menemukan ${boxes.length} calon cabai. Periksa kotaknya; tambahkan atau hapus jika ada yang kurang tepat.`);
     }else{
       status('Belum ada cabai yang terdeteksi. Coba pilih warna yang sesuai atau ubah kepekaan menjadi “Lebih peka”.');
     }
