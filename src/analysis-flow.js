@@ -78,7 +78,7 @@ function analysisButton([type,value,label,description]){
 }
 
 function panelMarkup(){
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><span>Kelompokkan berdasarkan tujuan analisis.</span></div><input id="analysisSearch" type="search" placeholder="Cari analisis…" aria-label="Cari analisis"></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-chevron" aria-hidden="true">⌄</span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
+  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><span>Buka hanya kelompok yang diperlukan.</span></div><input id="analysisSearch" type="search" placeholder="Cari analisis…" aria-label="Cari analisis"></div><div class="analysis-menu-groups">${analysisGroups.map(group=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="false"><span><b>${group.title}</b><small>${group.description}</small></span><span class="analysis-group-chevron" aria-hidden="true">⌄</span></button><div class="analysis-group-items" hidden>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
 }
 
 export function installAnalysisFlow() {
@@ -117,6 +117,11 @@ export function installAnalysisFlow() {
 
   panel.querySelectorAll('.analysis-group-toggle').forEach(toggle=>toggle.addEventListener('click',()=>{
     const body=toggle.nextElementSibling,opening=body.hidden;
+    panel.querySelectorAll('.analysis-group-toggle').forEach(other=>{
+      if(other===toggle)return;
+      other.setAttribute('aria-expanded','false');
+      if(other.nextElementSibling)other.nextElementSibling.hidden=true;
+    });
     body.hidden=!opening;
     toggle.setAttribute('aria-expanded',String(opening));
   }));
