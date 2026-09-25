@@ -17,7 +17,7 @@ for(const marker of [
 ]) if(!schema.includes(marker))fail('schema missing '+marker);
 
 for(const marker of [
-  'handleMembershipCreatePayment','handleMembershipWebhook','applyMembershipPayment',
+  'handleMembershipCreatePayment','handleMembershipWebhook','handleMembershipQrImage','applyMembershipPayment',
   'handleAccountSummary','handleAccountSessions','handleAccountPayments','handleAccountExport',
   'handleDevelopPlanUpdate','handleDevelopPayments','handleDevelopAllDatasets','handleDevelopAudit',
   'handleDevelopSupportView','handleDevelopAccountStatus','handleDevelopBackups',
@@ -26,7 +26,7 @@ for(const marker of [
 ]) if(!worker.includes(marker))fail('Worker missing '+marker);
 
 for(const marker of ['/v1/account/summary','/v1/account/sessions','/v1/account/payments','/v1/account/export'])if(!account.includes(marker))fail('Account Center missing '+marker);
-for(const marker of ['/v1/membership/plans','/v1/membership/payments','QRIS'])if(!membership.includes(marker))fail('Membership app missing '+marker);
+for(const marker of ['/v1/membership/plans','/v1/membership/payments','showQrImage','QRIS'])if(!membership.includes(marker))fail('Membership app missing '+marker);
 for(const marker of ['/v1/develop/plans','/v1/develop/payments','/v1/develop/datasets','/v1/develop/contributions','/v1/develop/audit','/v1/develop/backups','support-view','account-status'])if(!develop.includes(marker))fail('Develop app missing '+marker);
 for(const tab of ['Overview','Users','Membership','Payments','Datasets','Hitung Cabai / AI','Server','Audit Log','Backups'])if(!developHtml.includes(tab))fail('Develop tab missing '+tab);
 
