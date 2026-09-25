@@ -10,7 +10,7 @@
 .account-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:750}
 .account-chevron{font-size:10px;color:#718191}
 .account-menu{position:absolute;right:0;top:calc(100% + 7px);z-index:120;width:min(300px,calc(100vw - 20px));padding:8px;border:1px solid #d7e0e8;border-radius:12px;background:#fff;box-shadow:0 16px 38px rgba(25,43,61,.16)}
-.account-profile{display:grid;grid-template-columns:40px minmax(0,1fr);gap:9px;align-items:center;padding:7px 7px 9px}
+.account-profile{display:grid;grid-template-columns:48px minmax(0,1fr);gap:9px;align-items:center;padding:7px 7px 9px}
 .account-profile .account-avatar{width:40px;height:40px}
 .account-profile strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#17324d}
 .account-profile small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;color:#6b7c8c;font-size:11px}
@@ -36,10 +36,24 @@
 @media(max-width:680px){.subweb-header-inner{gap:7px}.subweb-nav{flex:1 1 auto;min-width:0}.subweb-header-inner>.account-widget{margin-left:0}}
 
 .account-access-badge{display:inline-flex;align-items:center;width:max-content;margin-top:5px;padding:2px 6px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.02em}
-.account-access-badge.immortal{background:linear-gradient(90deg,#eee2ff,#fff0bd);color:#5a318f;border:1px solid #dac4ff}
-.account-access-badge.glory{background:linear-gradient(90deg,#e1f3ff,#eceaff);color:#245f9e;border:1px solid #bddbef}
-.account-access-badge.bronze{background:#f4e2d1;color:#7a4827;border:1px solid #ddbd9e}
+.account-access-badge.admin{background:#f5e9c8;color:#6f4d09}
+.account-access-badge.member{background:#e6f4ea;color:#256547}
+.account-access-badge.freezer{background:#eef2f5;color:#667786}
 
-.account-trigger:has(+.account-menu .account-access-badge.immortal){border-color:#cdb2f4;box-shadow:0 0 0 2px rgba(108,66,174,.08)}
-.account-trigger:has(+.account-menu .account-access-badge.glory){border-color:#a9cfe8;box-shadow:0 0 0 2px rgba(54,132,184,.07)}
-.account-trigger:has(+.account-menu .account-access-badge.bronze){border-color:#d5b18f;box-shadow:0 0 0 2px rgba(147,91,43,.06)}
+.account-avatar-frame{position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;padding:2px;isolation:isolate;flex:0 0 auto}
+.account-avatar-frame.large{width:46px;height:46px;padding:3px}
+.account-avatar-frame::before{content:"";position:absolute;inset:0;border-radius:50%;z-index:-1}
+.account-avatar-frame::after{content:"";position:absolute;inset:-3px;border-radius:50%;z-index:-2;pointer-events:none}
+.account-avatar-frame .account-avatar{position:relative;z-index:1;width:28px;height:28px;border:2px solid #fff}
+.account-avatar-frame.large .account-avatar{width:40px;height:40px}
+
+.account-avatar-frame.immortal::before{background:conic-gradient(from 0deg,#f6d56a,#9e6cff,#5d35a8,#3cc7e8,#f6d56a);animation:account-avatar-spin 5.5s linear infinite}
+.account-avatar-frame.immortal::after{background:radial-gradient(circle,rgba(147,94,255,.28) 0 40%,rgba(246,213,106,.14) 50%,transparent 72%);filter:blur(3px);animation:account-avatar-pulse 2.6s ease-in-out infinite}
+.account-avatar-frame.glory::before{background:conic-gradient(from 20deg,#72d8ff,#2787d1,#6a5ce6,#b77cff,#72d8ff);animation:account-avatar-spin 8s linear infinite}
+.account-avatar-frame.glory::after{background:radial-gradient(circle,rgba(73,166,231,.22) 0 42%,rgba(112,91,229,.10) 54%,transparent 72%);filter:blur(3px);animation:account-avatar-pulse 3.4s ease-in-out infinite}
+.account-avatar-frame.bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
+.account-avatar-frame.bronze::after{background:radial-gradient(circle,rgba(174,110,57,.13) 0 44%,transparent 72%);filter:blur(3px)}
+
+@keyframes account-avatar-spin{to{transform:rotate(360deg)}}
+@keyframes account-avatar-pulse{0%,100%{transform:scale(.96);opacity:.6}50%{transform:scale(1.08);opacity:1}}
+@media(prefers-reduced-motion:reduce){.account-avatar-frame::before,.account-avatar-frame::after{animation:none!important}}
