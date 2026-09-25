@@ -3069,3 +3069,64 @@ input:not([type=checkbox]),select,textarea{padding:7px 8px}
   .analysis-history-version>[data-history-open] small{display:none}
 }
 
+
+
+/* ULTRA-COMPACT PERFORMANCE PASS 2026-09-26 */
+body{line-height:1.32}
+.app-shell{padding:10px}
+.nav{gap:4px;padding-left:10px;padding-right:10px;padding-bottom:6px}
+.main{gap:9px;margin-top:8px}
+.project-panel{padding:7px}
+.panel-title{padding:3px 5px 6px}
+.sheet-header{gap:6px;padding:7px 9px}
+.status{padding:5px 8px;line-height:1.25}
+button{min-height:30px;padding:4px 8px;line-height:1.2}
+input:not([type=checkbox]),select,textarea{padding:6px 8px;line-height:1.25}
+.data-grid{line-height:1.2}
+.data-grid th,.data-grid td{height:30px;min-width:72px;padding:4px 7px}
+.data-grid .row-number{min-width:58px}
+.dataset-actions{gap:4px;margin-top:7px}
+.nav-command-panel{gap:4px;padding:6px 10px}
+.modal-backdrop{padding:12px}
+.modal-backdrop>.modal{max-height:calc(100dvh - 24px)}
+.modal-head,.modal-foot{gap:7px;padding:8px 11px}
+.modal-body{padding:11px}
+.form-grid,.ral-grid{gap:8px}
+.form-field{gap:4px}
+.ral-title{padding:6px 8px}
+.ral-list{padding:4px}
+.ral-check{gap:7px;padding:6px 7px}
+.ral-select{width:calc(100% - 14px);margin:7px}
+.ral-hint{padding:0 7px 7px}
+.analysis-note{margin:7px 0;padding:6px 8px;line-height:1.3}
+.ral-result-block{margin-top:12px;padding-top:8px}
+.result-table{margin:7px 0}
+.result-table th,.result-table td{padding:6px 7px}
+.result-actions{gap:4px;margin:6px 0 8px}
+.analysis-result{margin-top:10px}
+.analysis-result .result-actions{padding:5px 6px}
+.analysis-result .result-table th,.analysis-result .result-table td{height:22px;padding:2px 5px}
+.analysis-result .anova-table th,.analysis-result .anova-table td{height:24px}
+.analysis-result .analysis-note{margin-top:6px;padding:4px 6px;line-height:1.25}
+.analysis-summary,.data-quality,.decision-summary,.thesis-audit{margin-top:7px;margin-bottom:10px}
+.analysis-result,.analysis-summary,.data-quality,.decision-summary,.thesis-audit,.bab4-result,.scientific-chart{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 240px;
+}
+@media(pointer:coarse){
+  button,.result-actions button{min-height:40px}
+  input:not([type=checkbox]),select,textarea{min-height:38px}
+  .data-grid th,.data-grid td{height:36px;padding:5px 8px}
+}
+@media(max-width:720px){
+  .app-shell{padding:4px}
+  .main{gap:6px;margin-top:6px}
+  .project-panel{padding:5px}
+  .nav{padding-left:6px;padding-right:6px;padding-bottom:5px}
+  .sheet-header{padding:6px}
+  .modal-backdrop{padding:5px}
+  .modal-backdrop>.modal{max-height:calc(100dvh - 10px)}
+  .modal-head,.modal-foot{padding:8px 9px}
+  .modal-body{padding:9px}
+  .analysis-result{margin-left:-3px;margin-right:-3px}
+}
