@@ -147,9 +147,26 @@ function renderDatasets(){
   $('#datasetsBody').innerHTML=rows.length?rows.map(item=>'<tr><td>'+esc(item.dataset_name||'—')+'</td><td>'+esc(item.user_name||'—')+'<br><small>'+esc(item.email||'')+'</small></td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+Number(item.revision||1)+'</td><td>'+esc(dt(item.updated_at))+'</td><td>'+(item.deleted_at?'<span class="negative">Dihapus</span>':'Aktif')+'</td></tr>').join(''):'<tr><td colspan="6">Tidak ada dataset.</td></tr>';
 }
 async function loadDatasets(){const data=await api('/v1/develop/datasets?limit=1000');datasets=data.items||[];renderDatasets();}
+function aiReviewPriority(item){
+  const quality=Number(item.quality_score||0),corrections=Number(item.correction_count||0),predicted=Number(item.predicted_count||0),finalCount=Number(item.final_count||0);
+  const delta=Math.abs(finalCount-predicted);
+  if(quality<.65||corrections>=5||delta>=5)return {rank:0,label:'Tinggi'};
+  if(quality<.85||corrections>=2||delta>=2)return {rank:1,label:'Sedang'};
+  return {rank:2,label:'Rendah'};
+}
+function modelEvaluation(items){
+  const groups=new Map();
+  for(const item of items){
+    const model=item.model_version||item.prediction_method||'unknown',row=groups.get(model)||{model,n:0,quality:0,corrections:0,delta:0};
+    row.n++;row.quality+=Number(item.quality_score||0);row.corrections+=Number(item.correction_count||0);row.delta+=Math.abs(Number(item.final_count||0)-Number(item.predicted_count||0));groups.set(model,row);
+  }
+  return [...groups.values()].map(row=>({...row,quality:row.n?row.quality/row.n:0,delta:row.n?row.delta/row.n:0})).sort((a,b)=>b.n-a.n);
+}
 async function loadAI(){
-  const data=await api('/v1/develop/contributions?limit=500'),items=data.items||[];
-  $('#aiBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>').join(''):'<tr><td colspan="8">Belum ada kontribusi AI.</td></tr>';
+  const data=await api('/v1/develop/contributions?limit=500'),items=data.items||[],models=modelEvaluation(items);
+  $('#aiModelBody').innerHTML=models.length?models.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+row.n+'</td><td>'+row.quality.toFixed(3)+'</td><td>'+row.corrections+'</td><td>'+row.delta.toFixed(2)+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada evaluasi model.</td></tr>';
+  const queue=[...items].sort((a,b)=>aiReviewPriority(a).rank-aiReviewPriority(b).rank||Number(a.quality_score||0)-Number(b.quality_score||0)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  $('#aiBody').innerHTML=queue.length?queue.map(item=>{const priority=aiReviewPriority(item);return '<tr><td><b>'+priority.label+'</b></td><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>';}).join(''):'<tr><td colspan="9">Belum ada kontribusi AI.</td></tr>';
 }
 async function loadServer(){
   const result=await Promise.all([api('/v1/develop/usage'),loadHealth()]),u=result[0].estimated||{};
