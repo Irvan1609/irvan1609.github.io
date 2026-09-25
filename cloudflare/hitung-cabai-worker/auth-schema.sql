@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS membership_payments (
   amount INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   midtrans_transaction_id TEXT,
+  qr_url TEXT,
   paid_at TEXT,
   applied_at TEXT,
   membership_expires_at TEXT,
