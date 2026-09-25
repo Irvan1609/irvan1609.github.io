@@ -141,8 +141,11 @@ function canDiscard(){
 
 function canvasScale(){
   if(!image)return 1;
-  const width=Math.max(1,viewport.clientWidth-2);
-  return width/image.naturalWidth;
+  const screenHeight=window.visualViewport?.height||window.innerHeight||720;
+  const mobile=window.matchMedia('(max-width:680px)').matches;
+  const maxWidth=Math.max(1,viewport.clientWidth-2);
+  const maxHeight=Math.max(mobile?220:260,Math.min(mobile?520:640,screenHeight*(mobile?.46:.55)));
+  return Math.min(maxWidth/image.naturalWidth,maxHeight/image.naturalHeight,1);
 }
 function layoutCanvas(){
   if(!image)return;
@@ -244,6 +247,7 @@ $('zoom').onchange=()=>redraw(true);
 $('mode').onchange=updateInteractionMode;
 $('sample').oninput=()=>dirty=true;
 window.addEventListener('resize',()=>redraw(true));
+window.visualViewport?.addEventListener('resize',()=>redraw(true));
 
 async function chooseFile(input){
   const file=input.files?.[0];if(!file)return;
