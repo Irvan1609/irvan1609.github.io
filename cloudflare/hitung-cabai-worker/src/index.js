@@ -652,6 +652,319 @@ async function handleAuthProfile(request,env){
   if(!row)return json(request,env,{error:'Sesi tidak valid.'},401);
   return json(request,env,{user:publicUser(row)});
 }
+async function handleMembershipPlans(request,env){
+  await ensureMembershipSchema(env);
+  const result=await env.DB.prepare(`SELECT id,name,description,duration_days,price_idr,dataset_limit,storage_limit_bytes,active,sort_order
+    FROM membership_plans WHERE active=1 AND price_idr>0 ORDER BY sort_order,id`).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,name:row.name,description:row.description,durationDays:Number(row.duration_days),
+    priceIdr:Number(row.price_idr),datasetLimit:Number(row.dataset_limit),storageLimitBytes:Number(row.storage_limit_bytes)
+  })),paymentConfigured:midtransMembershipConfigured(env)});
+}
+async function applyMembershipPayment(env,payment,status){
+  if(!payment||payment.applied_at||!successfulMidtrans(status))return payment;
+  await ensureMembershipSchema(env);
+  const plan=await env.DB.prepare('SELECT id,duration_days FROM membership_plans WHERE id=? LIMIT 1').bind(payment.plan_id).first();
+  if(!plan)throw Error('Paket membership tidak ditemukan.');
+  const user=await env.DB.prepare('SELECT id,role,membership_expires_at FROM users WHERE id=? LIMIT 1').bind(payment.user_id).first();
+  if(!user)throw Error('Pengguna pembayaran tidak ditemukan.');
+  const now=new Date().toISOString();
+  const expiresAt=user.role==='admin'?null:addDaysIso(user.membership_expires_at,Number(plan.duration_days));
+  const transactionId=String(status.transaction_id||'').slice(0,160);
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE membership_payments SET status='settlement',midtrans_transaction_id=?,paid_at=COALESCE(paid_at,?),applied_at=?,membership_expires_at=?,updated_at=? WHERE order_id=? AND applied_at IS NULL`)
+      .bind(transactionId,now,now,expiresAt,now,payment.order_id),
+    env.DB.prepare(`UPDATE users SET membership_status='active',membership_expires_at=?,membership_source='qris',membership_plan_id=?,access_updated_at=? WHERE id=? AND role!='admin'`)
+      .bind(expiresAt,payment.plan_id,now,payment.user_id)
+  ]);
+  await audit(env,{id:payment.user_id},'membership.payment_applied','membership_payment',payment.order_id,{planId:payment.plan_id,expiresAt});
+  return env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? LIMIT 1').bind(payment.order_id).first();
+}
+async function syncMembershipPayment(env,payment){
+  const status=await midtransMembershipRequest(env,'/v2/'+encodeURIComponent(payment.order_id)+'/status',{method:'GET'});
+  const gross=Number(status.gross_amount);
+  if(!Number.isFinite(gross)||Math.round(gross)!==Number(payment.amount))throw Error('Nominal transaksi Midtrans tidak sesuai.');
+  const nextStatus=String(status.transaction_status||payment.status||'unknown');
+  const now=new Date().toISOString();
+  await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,paid_at=CASE WHEN ?=\'settlement\' THEN COALESCE(paid_at,?) ELSE paid_at END,updated_at=? WHERE order_id=?')
+    .bind(nextStatus,String(status.transaction_id||'').slice(0,160),nextStatus,now,now,payment.order_id).run();
+  const current=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? LIMIT 1').bind(payment.order_id).first();
+  return successfulMidtrans(status)?applyMembershipPayment(env,current,status):current;
+}
+async function handleMembershipCreatePayment(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(user.role==='admin')return json(request,env,{error:'admin_permanent',message:'Admin memiliki membership permanen.'},409);
+  if(!midtransMembershipConfigured(env))return json(request,env,{error:'payment_not_configured',message:'Pembayaran membership belum dikonfigurasi.'},503);
+  await ensureMembershipSchema(env);
+  const body=await request.json().catch(()=>({})),planId=String(body.planId||'');
+  const plan=await env.DB.prepare('SELECT * FROM membership_plans WHERE id=? AND active=1 AND price_idr>0 LIMIT 1').bind(planId).first();
+  if(!plan)return json(request,env,{error:'plan_not_available',message:'Paket membership tidak tersedia.'},404);
+  const orderId='member-'+Date.now()+'-'+randomToken(12).replace(/[^a-f0-9]/gi,'').toLowerCase().padEnd(24,'0').slice(0,24);
+  const now=new Date().toISOString(),amount=Number(plan.price_idr);
+  await env.DB.prepare(`INSERT INTO membership_payments (order_id,user_id,plan_id,amount,status,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?)`).bind(orderId,user.id,plan.id,amount,'creating',now,now).run();
+  try{
+    const base=String(env.MEMBERSHIP_PUBLIC_BASE_URL||new URL(request.url).origin).replace(/\/$/,'');
+    const charge=await midtransMembershipRequest(env,'/v2/charge',{
+      method:'POST',
+      headers:{'X-Override-Notification':base+'/v1/membership/webhook'},
+      body:JSON.stringify({
+        payment_type:'qris',
+        transaction_details:{order_id:orderId,gross_amount:amount},
+        item_details:[{id:'membership-'+plan.id,price:amount,quantity:1,name:String(plan.name).slice(0,50)}],
+        customer_details:{first_name:String(user.name||'Pengguna').slice(0,50),email:String(user.email||'').slice(0,254)},
+        qris:{acquirer:'gopay'}
+      })
+    });
+    const qr=(charge.actions||[]).find(action=>action.name==='generate-qr-code-v2')||(charge.actions||[]).find(action=>action.name==='generate-qr-code');
+    if(!qr?.url)throw Error('Midtrans tidak mengembalikan URL QRIS.');
+    await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,updated_at=? WHERE order_id=?')
+      .bind(String(charge.transaction_status||'pending'),String(charge.transaction_id||'').slice(0,160),new Date().toISOString(),orderId).run();
+    await audit(env,user,'membership.payment_created','membership_payment',orderId,{planId:plan.id,amount});
+    return json(request,env,{orderId,planId:plan.id,planName:plan.name,amount,qrUrl:qr.url,status:charge.transaction_status||'pending'},201);
+  }catch(error){
+    await env.DB.prepare("UPDATE membership_payments SET status='error',updated_at=? WHERE order_id=?").bind(new Date().toISOString(),orderId).run();
+    throw error;
+  }
+}
+async function handleMembershipPaymentStatus(request,env,orderId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureMembershipSchema(env);
+  const payment=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? AND user_id=? LIMIT 1').bind(orderId,user.id).first();
+  if(!payment)return json(request,env,{error:'Pembayaran tidak ditemukan.'},404);
+  const current=['settlement','expire','deny','cancel','error'].includes(payment.status)?payment:await syncMembershipPayment(env,payment);
+  return json(request,env,{orderId:current.order_id,status:current.status,paid:current.status==='settlement',applied:Boolean(current.applied_at),expiresAt:current.membership_expires_at||null});
+}
+async function handleMembershipWebhook(request,env){
+  if(!midtransMembershipConfigured(env))return json(request,env,{received:true,ignored:true});
+  await ensureMembershipSchema(env);
+  const body=await request.json().catch(()=>({})),orderId=safeMembershipOrderId(body.order_id);
+  if(!orderId)return json(request,env,{received:true,ignored:true});
+  const payment=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? LIMIT 1').bind(orderId).first();
+  if(!payment)return json(request,env,{received:true,ignored:true});
+  await syncMembershipPayment(env,payment);
+  return json(request,env,{received:true});
+}
+async function accountSummary(env,user){
+  await ensureMembershipSchema(env);await ensureDatasetSchema(env);
+  const [usage,quota,sessions,payment]=await Promise.all([
+    datasetUsage(env,user.id),
+    userQuota(env,user),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').bind(user.id,new Date().toISOString()).first(),
+    env.DB.prepare('SELECT order_id,plan_id,amount,status,paid_at,membership_expires_at,created_at FROM membership_payments WHERE user_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id).first()
+  ]);
+  return {user:publicUser(user),usage,quota,activeSessions:Number(sessions?.n||0),lastPayment:payment||null};
+}
+async function handleAccountSummary(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  return json(request,env,await accountSummary(env,user));
+}
+async function handleAccountSessions(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const currentHash=await sha256(bearerToken(request));
+  const result=await env.DB.prepare(`SELECT id,token_hash,created_at,expires_at,last_seen_at,revoked_at FROM sessions
+    WHERE user_id=? ORDER BY last_seen_at DESC LIMIT 50`).bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,current:row.token_hash===currentHash,createdAt:row.created_at,expiresAt:row.expires_at,lastSeenAt:row.last_seen_at,revoked:Boolean(row.revoked_at)
+  }))});
+}
+async function handleAccountRevokeSession(request,env,sessionId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const currentHash=await sha256(bearerToken(request));
+  const target=await env.DB.prepare('SELECT id,token_hash FROM sessions WHERE id=? AND user_id=? LIMIT 1').bind(sessionId,user.id).first();
+  if(!target)return json(request,env,{error:'Sesi tidak ditemukan.'},404);
+  if(target.token_hash===currentHash)return json(request,env,{error:'current_session',message:'Gunakan tombol Keluar untuk sesi perangkat ini.'},409);
+  await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND user_id=?').bind(new Date().toISOString(),sessionId,user.id).run();
+  return json(request,env,{ok:true});
+}
+async function handleAccountRevokeOthers(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const currentHash=await sha256(bearerToken(request)),now=new Date().toISOString();
+  const result=await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND token_hash!=? AND revoked_at IS NULL').bind(now,user.id,currentHash).run();
+  return json(request,env,{ok:true,revoked:Number(result?.meta?.changes||0)});
+}
+async function handleAccountPayments(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureMembershipSchema(env);
+  const result=await env.DB.prepare(`SELECT p.order_id,p.plan_id,pl.name AS plan_name,p.amount,p.status,p.paid_at,p.membership_expires_at,p.created_at
+    FROM membership_payments p LEFT JOIN membership_plans pl ON pl.id=p.plan_id
+    WHERE p.user_id=? ORDER BY p.created_at DESC LIMIT 100`).bind(user.id).all();
+  return json(request,env,{items:result.results||[]});
+}
+async function handleAccountExport(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureDatasetSchema(env);await ensureMembershipSchema(env);
+  const [datasets,payments]=await Promise.all([
+    env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE user_id=? ORDER BY updated_at').bind(user.id).all(),
+    env.DB.prepare('SELECT order_id,plan_id,amount,status,paid_at,membership_expires_at,created_at FROM membership_payments WHERE user_id=? ORDER BY created_at').bind(user.id).all()
+  ]);
+  return json(request,env,{exportedAt:new Date().toISOString(),account:publicUser(user),datasets:(datasets.results||[]).map(datasetPayload),membershipPayments:payments.results||[]},200,{'Content-Disposition':'attachment; filename="irvan-account-export.json"'});
+}
+async function handleDevelopPlans(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureMembershipSchema(env);
+  const result=await env.DB.prepare('SELECT * FROM membership_plans ORDER BY sort_order,id').all();
+  return json(request,env,{items:result.results||[],paymentConfigured:midtransMembershipConfigured(env)});
+}
+async function handleDevelopPlanUpdate(request,env,planId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureMembershipSchema(env);
+  const body=await request.json().catch(()=>({})),existing=await env.DB.prepare('SELECT * FROM membership_plans WHERE id=? LIMIT 1').bind(planId).first();
+  if(!existing)return json(request,env,{error:'Paket tidak ditemukan.'},404);
+  const name=String(body.name??existing.name).trim().slice(0,100),description=String(body.description??existing.description).trim().slice(0,500);
+  const durationDays=Math.max(1,Math.min(3650,Number(body.durationDays??existing.duration_days)||30));
+  const priceIdr=Math.max(0,Math.min(100000000,Math.round(Number(body.priceIdr??existing.price_idr)||0)));
+  const datasetLimit=Math.max(1,Math.min(5000,Math.round(Number(body.datasetLimit??existing.dataset_limit)||30)));
+  const storageLimitBytes=Math.max(1048576,Math.min(10*1024*1024*1024,Math.round(Number(body.storageLimitBytes??existing.storage_limit_bytes)||20971520)));
+  const active=body.active===undefined?Number(existing.active):body.active?1:0,now=new Date().toISOString();
+  await env.DB.prepare(`UPDATE membership_plans SET name=?,description=?,duration_days=?,price_idr=?,dataset_limit=?,storage_limit_bytes=?,active=?,updated_at=? WHERE id=?`)
+    .bind(name,description,durationDays,priceIdr,datasetLimit,storageLimitBytes,active,now,planId).run();
+  await audit(env,admin,'membership.plan_updated','membership_plan',planId,{durationDays,priceIdr,datasetLimit,storageLimitBytes,active:Boolean(active)});
+  return json(request,env,{ok:true});
+}
+async function handleDevelopPayments(request,env,url){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureMembershipSchema(env);
+  const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||200));
+  const result=await env.DB.prepare(`SELECT p.order_id,p.user_id,u.email,u.name,p.plan_id,pl.name AS plan_name,p.amount,p.status,p.paid_at,p.applied_at,p.membership_expires_at,p.created_at
+    FROM membership_payments p LEFT JOIN users u ON u.id=p.user_id LEFT JOIN membership_plans pl ON pl.id=p.plan_id
+    ORDER BY p.created_at DESC LIMIT ?`).bind(limit).all();
+  return json(request,env,{items:result.results||[]});
+}
+async function handleDevelopAllDatasets(request,env,url){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureDatasetSchema(env);
+  const limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit'))||300));
+  const result=await env.DB.prepare(`SELECT d.id,d.user_id,u.email,u.name,d.name,d.revision,length(d.content)+length(d.meta_json) AS size_bytes,d.created_at,d.updated_at,d.deleted_at
+    FROM user_datasets d LEFT JOIN users u ON u.id=d.user_id ORDER BY d.updated_at DESC LIMIT ?`).bind(limit).all();
+  return json(request,env,{items:result.results||[]});
+}
+async function handleDevelopContributions(request,env,url){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||100));
+  const result=await env.DB.prepare(`SELECT id,sample,width,height,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at
+    FROM contributions ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+  return json(request,env,{items:result.results||[]});
+}
+async function handleDevelopAudit(request,env,url){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureOperationsSchema(env);
+  const limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit'))||250));
+  const result=await env.DB.prepare(`SELECT a.id,a.actor_user_id,u.email AS actor_email,a.action,a.target_type,a.target_id,a.detail_json,a.created_at
+    FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id ORDER BY a.created_at DESC LIMIT ?`).bind(limit).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({...row,detail:safeJsonText(row.detail_json)}))});
+}
+function safeJsonText(value){try{return JSON.parse(value||'{}');}catch{return {};}}
+async function handleDevelopUsage(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureDatasetSchema(env);
+  const [datasets,sessions,users,contrib]=await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(content)+length(meta_json)),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active FROM sessions`).bind(new Date().toISOString()).first(),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
+    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(image)),0) AS bytes FROM contributions').first()
+  ]);
+  return json(request,env,{estimated:{
+    users:Number(users?.n||0),datasets:Number(datasets?.datasets||0),datasetBytes:Number(datasets?.bytes||0),datasetRevisionWrites:Number(datasets?.revisions||0),
+    sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),contributionImageBytes:Number(contrib?.bytes||0)
+  },note:'Ini estimasi penggunaan aplikasi dari D1, bukan meter resmi kuota akun Cloudflare.'});
+}
+async function handleDevelopSupportView(request,env,userId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const target=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(userId).first();
+  if(!target)return json(request,env,{error:'Pengguna tidak ditemukan.'},404);
+  const summary=await accountSummary(env,target);
+  const data=await env.DB.prepare('SELECT id,name,revision,updated_at,deleted_at FROM user_datasets WHERE user_id=? ORDER BY updated_at DESC LIMIT 50').bind(userId).all();
+  await audit(env,admin,'support.readonly_view','user',userId,{});
+  return json(request,env,{...summary,datasets:data.results||[],mode:'read-only'});
+}
+async function handleDevelopAccountStatus(request,env,userId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const target=await env.DB.prepare('SELECT id,email,email_verified,role,account_status FROM users WHERE id=? LIMIT 1').bind(userId).first();
+  if(!target)return json(request,env,{error:'Pengguna tidak ditemukan.'},404);
+  if(target.role==='admin'||(target.email_verified&&isAdminEmail(target.email,env)))return json(request,env,{error:'Akun admin tidak dapat ditangguhkan.'},409);
+  const body=await request.json().catch(()=>({})),status=String(body.status||'active');
+  if(!['active','suspended'].includes(status))return json(request,env,{error:'Status akun tidak valid.'},400);
+  await env.DB.prepare('UPDATE users SET account_status=?,access_updated_at=? WHERE id=?').bind(status,new Date().toISOString(),userId).run();
+  if(status==='suspended')await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL').bind(new Date().toISOString(),userId).run();
+  await audit(env,admin,'user.account_status','user',userId,{status});
+  return json(request,env,{ok:true,status});
+}
+async function handleDevelopRevokeSessions(request,env,userId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const result=await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL').bind(new Date().toISOString(),userId).run();
+  await audit(env,admin,'user.sessions_revoked','user',userId,{count:Number(result?.meta?.changes||0)});
+  return json(request,env,{ok:true,revoked:Number(result?.meta?.changes||0)});
+}
+async function buildBackupPayload(env){
+  await ensureAuthSchema(env);await ensureDatasetSchema(env);await ensureMembershipSchema(env);await ensureOperationsSchema(env);
+  const [users,datasets,plans,payments,auditRows]=await Promise.all([
+    env.DB.prepare('SELECT id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at,role,membership_status,membership_expires_at,membership_source,access_updated_at,membership_plan_id,account_status FROM users').all(),
+    env.DB.prepare('SELECT * FROM user_datasets').all(),
+    env.DB.prepare('SELECT * FROM membership_plans').all(),
+    env.DB.prepare('SELECT * FROM membership_payments').all(),
+    env.DB.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5000').all()
+  ]);
+  return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[]};
+}
+async function createBackupSnapshot(env,actor=null,note='manual'){
+  await ensureOperationsSchema(env);
+  if(!env.BACKUPS)throw Error('R2 binding BACKUPS belum dikonfigurasi.');
+  const payload=await buildBackupPayload(env),text=JSON.stringify(payload),id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
+  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100)}});
+  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,note,created_at) VALUES (?,?,?,?,?,?)')
+    .bind(id,key,'success',new TextEncoder().encode(text).byteLength,String(note).slice(0,200),payload.exportedAt).run();
+  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:new TextEncoder().encode(text).byteLength});
+  return {id,key,sizeBytes:new TextEncoder().encode(text).byteLength,createdAt:payload.exportedAt};
+}
+async function handleDevelopBackups(request,env){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureOperationsSchema(env);
+  if(request.method==='POST'){
+    try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual')},201);}
+    catch(error)return json(request,env,{error:'backup_unavailable',message:error.message},503);
+  }
+  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
+  return json(request,env,{items:result.results||[],r2Configured:Boolean(env.BACKUPS)});
+}
+async function handleDevelopBackupDownload(request,env,backupId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(!env.BACKUPS)return json(request,env,{error:'backup_unavailable'},503);
+  const row=await env.DB.prepare('SELECT object_key FROM backup_runs WHERE id=? LIMIT 1').bind(backupId).first();
+  if(!row)return json(request,env,{error:'Backup tidak ditemukan.'},404);
+  const object=await env.BACKUPS.get(row.object_key);
+  if(!object)return json(request,env,{error:'Objek backup tidak ditemukan.'},404);
+  await audit(env,admin,'backup.downloaded','backup',backupId,{});
+  return new Response(object.body,{headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="irvan-backup-'+backupId+'.json"','Cache-Control':'no-store',...corsHeaders(request,env)}});
+}
+async function handleDevelopBackupExport(request,env){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const payload=await buildBackupPayload(env);
+  await audit(env,admin,'backup.exported','system','logical-export',{});
+  return json(request,env,payload,200,{'Content-Disposition':'attachment; filename="irvan-logical-backup.json"'});
+}
+
 async function handleDevelopOverview(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
