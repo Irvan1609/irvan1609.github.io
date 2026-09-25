@@ -95,12 +95,20 @@ async function migrateLargeLocalDatasets(){
 function editorSnapshot(){
   return {active:state.active,headers:[...state.headers],rows:state.rows.map(row=>[...row]),meta:{...(state.meta[state.active]||{plant:'',treatment:''})}};
 }
-function snapshotFingerprint(snapshot){return JSON.stringify([snapshot.headers,snapshot.rows,snapshot.meta]);}
+function snapshotFingerprint(snapshot){
+  if(snapshot.rows.length>VIRTUALIZE_AFTER_ROWS)return null;
+  return JSON.stringify([snapshot.headers,snapshot.rows,snapshot.meta]);
+}
+function undoLimit(){
+  if(state.rows.length>5000)return 3;
+  if(state.rows.length>VIRTUALIZE_AFTER_ROWS)return 8;
+  return 60;
+}
 function pushUndo(reason='perubahan'){
-  const snapshot=editorSnapshot(),last=state.undo.at(-1);
-  if(last?.fingerprint===snapshotFingerprint(snapshot))return;
-  state.undo.push({snapshot,reason,fingerprint:snapshotFingerprint(snapshot)});
-  if(state.undo.length>60)state.undo.shift();
+  const snapshot=editorSnapshot(),fingerprint=snapshotFingerprint(snapshot),last=state.undo.at(-1);
+  if(fingerprint&&last?.fingerprint===fingerprint)return;
+  state.undo.push({snapshot,reason,fingerprint});
+  while(state.undo.length>undoLimit())state.undo.shift();
   state.redo=[];
 }
 function restoreSnapshot(snapshot){
