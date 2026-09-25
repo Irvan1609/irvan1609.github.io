@@ -89,6 +89,18 @@ function unletterbox(box,meta,size){
   return [nx1,ny1,Math.max(0,nx2-nx1),Math.max(0,ny2-ny1)];
 }
 
+export function summarizeConfidence(scores=[]){
+  const clean=scores.map(Number).filter(Number.isFinite).map(value=>clamp(value,0,1));
+  if(!clean.length)return {n:0,min:null,mean:null,max:null,low:0};
+  return {
+    n:clean.length,
+    min:Math.min(...clean),
+    mean:clean.reduce((sum,value)=>sum+value,0)/clean.length,
+    max:Math.max(...clean),
+    low:clean.filter(value=>value<.5).length
+  };
+}
+
 export async function detectChiliWithModel(source){
   const info=await manifest();
   if(!info?.enabled)return null;
@@ -97,6 +109,7 @@ export async function detectChiliWithModel(source){
   const inputName=active.inputNames[0],tensor=tensorFromImageData(prepared.imageData,ort);
   const outputs=await active.run({[inputName]:tensor}),output=outputs[active.outputNames[0]];
   const decoded=decodeYoloOutput(output.data,output.dims,{inputSize:size,confidence:Number(info.confidence)||.25,iouThreshold:Number(info.iou)||.45});
-  const boxes=decoded.map(item=>unletterbox(item.box,prepared,size)).filter(box=>box[2]>0&&box[3]>0);
-  return {boxes,version:String(info.version||'onnx'),method:'onnx',stats:{accepted:boxes.length}};
+  const detections=decoded.map(item=>({score:item.score,box:unletterbox(item.box,prepared,size)})).filter(item=>item.box[2]>0&&item.box[3]>0);
+  const boxes=detections.map(item=>item.box),confidence=summarizeConfidence(detections.map(item=>item.score));
+  return {boxes,detections,version:String(info.version||'onnx'),method:'onnx',stats:{accepted:boxes.length,confidence}};
 }

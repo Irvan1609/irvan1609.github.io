@@ -206,6 +206,15 @@ export function installAnalysisFlow() {
     if(button){if(phoneGuardMode())choose(button);else await openButton(button);}
   });
   confirm()?.addEventListener('click',()=>openButton(selectedButton));
+  document.addEventListener('agrotik-open-analysis',event=>{
+    const key=String(event.detail?.key||'');if(!key)return;
+    const found=descriptor(key)||flatItems.find(entry=>entry.item[1]===key);
+    if(found)void openDescriptor(found);
+  });
+  document.addEventListener('agrotik-run-recipe',async event=>{
+    const recipe=event.detail?.recipe;if(!recipe)return;
+    try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error('Recipe analisis gagal dimuat',error);}
+  });
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
