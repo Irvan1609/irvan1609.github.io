@@ -79,7 +79,7 @@ async function showQrImage(orderId,fallbackUrl=''){
     $('#qrisMessage').textContent='Transaksi dibuat, tetapi Midtrans belum memberikan gambar QRIS.';
   }
 }
-function openModal(){const m=$('#qrisModal');m.hidden=false;}
+function openModal(){const m=$('#qrisModal');m.hidden=false;m.querySelector('.qris-modal')?.classList.remove('success');$('#qrisCheck').hidden=false;$('#qrisDone').textContent='Tutup';}
 function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
@@ -103,8 +103,15 @@ async function checkPayment(){
     if(data.qrUrl&&!currentQrUrl){currentQrUrl=String(data.qrUrl);$('#qrisCopyUrl').hidden=false;}
     if(data.paid&&data.applied){
       clearTimeout(pollTimer);pollTimer=null;
-      $('#qrisMessage').textContent='Pembayaran berhasil. Membership sudah diaktifkan sampai '+dateText(data.expiresAt)+'.';
+      const modal=$('#qrisModal .qris-modal');
+      modal?.classList.add('success');
+      $('#qrisTitle').textContent='Selamat! Anda sudah menjadi member 🎉';
+      $('#qrisMessage').textContent='Pembayaran berhasil. Membership Anda aktif sampai '+dateText(data.expiresAt)+'. Semua manfaat membership sekarang sudah dapat digunakan.';
       $('#qrisImage').hidden=true;
+      $('#qrisCopyUrl').hidden=true;
+      $('#qrisCheck').hidden=true;
+      $('#qrisDone').textContent='Mulai menggunakan membership';
+      $('#qrisOrder').textContent='Membership aktif ✓';
       await window.IrvanAccount?.refresh?.();
       await loadAll();
       return true;
