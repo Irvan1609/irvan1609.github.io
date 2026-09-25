@@ -24,6 +24,55 @@ function phoneGuardMode(){
 }
 let currentDesign='ral',data=null,revision=0,pendingPreset='';
 
+function datasetFingerprint(dataset){
+  const d=dataset||{headers:[],rows:[]};let hash=2166136261;
+  const feed=value=>{
+    const text=String(value??'');
+    for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619);}
+    hash^=31;hash=Math.imul(hash,16777619);
+  };
+  feed(d.plant);feed(d.treatment);
+  (d.headers||[]).forEach(feed);
+  for(const row of d.rows||[])for(const value of row)feed(value);
+  return (hash>>>0).toString(16).padStart(8,'0')+':'+(d.rows?.length||0)+':'+(d.headers?.length||0);
+}
+function configSignature(options){
+  if(!options)return '';
+  return JSON.stringify({design:options.design,a:options.a,b:options.b,rep:options.rep,parameters:options.parameters,transforms:options.transforms,alpha:options.alpha,posthoc:options.posthoc,assumptions:options.assumptions,contrastMode:options.contrastMode});
+}
+function significanceForReport(report){
+  const tested=(report?.terms||[]).filter(term=>Number.isFinite(term?.p)&&!['Ulangan','Kelompok'].includes(String(term.label||'')));
+  if(!tested.length)return 'tn';const p=Math.min(...tested.map(term=>term.p));return p<.01?'**':p<.05?'*':'tn';
+}
+function markResultsStale(container,stale=true){
+  if(!container)return;container.dataset.stale=stale?'true':'false';
+  const badge=container.querySelector('[data-stale-banner]');if(badge)badge.hidden=!stale;
+}
+export function hasSavedScientificConfig(){
+  const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+  return !!saved&&['ral','rak','fral','frak','split'].includes(saved.design)&&saved.contrastMode!=='custom';
+}
+export function detectScientificDesign(){
+  const d=readDataset();if(!d?.headers?.length||!d.rows?.length)return null;
+  const values=index=>d.rows.map(row=>String(row[index]??'').trim()).filter(Boolean);
+  const numeric=index=>{const list=values(index);return list.length>0&&list.every(value=>Number.isFinite(parseNumber(value)));};
+  const categories=d.headers.map((_,index)=>index).filter(index=>values(index).length&&!numeric(index));
+  if(!categories.length)return null;
+  const treatment=categories.find(index=>/(^|\b)(perlakuan|treatment|genotip|genotype|varietas|variety|kode)(\b|$)/i.test(String(d.headers[index]||'')))??categories[0];
+  const second=categories.find(index=>index!==treatment&&/(^|\b)(faktor\s*b|factor\s*b|sub\s*plot|anak\s*petak)(\b|$)/i.test(String(d.headers[index]||'')))??categories.find(index=>index!==treatment);
+  const replicate=d.headers.findIndex((header,index)=>index!==treatment&&index!==second&&/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i.test(String(header||'')));
+  const design=second!==undefined&&second!==null?(replicate>=0?'frak':'fral'):(replicate>=0?'rak':'ral');
+  return {design,a:treatment,b:second??null,rep:replicate>=0?replicate:null};
+}
+export async function quickRunLastScientific(){
+  const current=readDataset(),saved=readJsonStore(CONFIG)[String(current?.name||'dataset')];
+  if(!saved||!['ral','rak','fral','frak','split'].includes(saved.design)||saved.contrastMode==='custom')return false;
+  openScientific(saved.design);
+  await Promise.resolve();
+  const checked=validate();if(checked.check.issues.length||!checked.o.parameters.length)return false;
+  await analyze();return true;
+}
+
 function readJsonStore(key){
   try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
 }
