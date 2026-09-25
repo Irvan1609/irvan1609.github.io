@@ -2130,81 +2130,10 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
 }
 
 
-/* SAFE SIMPLE ANALYSIS 2026-09-26 */
-.analysis-menu-item{
-  transform:none!important;
-  box-shadow:none!important;
-  min-height:54px!important;
-  border-color:#e0e6eb!important;
-  background:#fff!important;
-}
-.analysis-menu-item:hover{transform:none!important;box-shadow:none!important;background:#f8fafb!important}
-.analysis-menu-item.selected,
-.analysis-menu-item[aria-pressed="true"]{
-  border-color:#7299b5!important;
-  background:#edf4f8!important;
-  box-shadow:inset 0 0 0 1px #7299b5!important;
-}
-.analysis-item-check{
-  display:grid;
-  place-items:center;
-  width:20px;height:20px;
-  border-radius:50%;
-  background:#dce6ed;
-  color:transparent;
-  font-size:11px;
-  font-weight:900;
-}
-.analysis-menu-item.selected .analysis-item-check,
-.analysis-menu-item[aria-pressed="true"] .analysis-item-check{
-  background:#315f7f;
-  color:#fff;
-}
-.analysis-menu-foot{
-  position:sticky;
-  bottom:0;
-  z-index:5;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:9px 10px;
-  border-top:1px solid #dfe6eb;
-  background:rgba(255,255,255,.98);
-}
-.analysis-menu-foot>span{
-  min-width:0;
-  flex:1;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  color:#5b6d7d;
-  font-size:11px;
-  font-weight:700;
-}
-.analysis-menu-foot button{
-  min-width:110px;
-  min-height:40px;
-  border-radius:9px;
-  font-weight:800;
-}
-.analysis-menu-foot button:disabled{
-  opacity:.45;
-  cursor:default;
-}
-.science-run-button:disabled{
-  background:#eef1f4!important;
-  border-color:#d9dfe4!important;
-  color:#8a969f!important;
-  cursor:default!important;
-}
-.science-run-button:not(:disabled){
-  background:#215b7f!important;
-  border-color:#215b7f!important;
-  color:#fff!important;
-}
+/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */
+.analysis-menu-foot,.analysis-item-check{display:none}
 
 @media(max-width:720px){
-  /* Keep method picking simple and deliberate. */
   .analysis-command-panel{
     max-height:64dvh!important;
     overflow:hidden!important;
@@ -2231,106 +2160,117 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   }
   .analysis-menu-group{border:0!important;border-bottom:1px solid #edf0f2!important}
   .analysis-group-toggle{
-    min-height:46px!important;
+    min-height:48px!important;
     padding:8px 10px!important;
     background:#fff!important;
   }
   .analysis-group-toggle b{font-size:12px!important}
-  .analysis-group-meta>small{height:19px;min-width:19px;font-size:9px}
   .analysis-group-items{
     grid-template-columns:1fr!important;
-    gap:4px!important;
-    padding:4px 6px 8px!important;
+    gap:6px!important;
+    padding:5px 6px 9px!important;
     background:#fafbfc!important;
   }
   .analysis-menu-item{
-    grid-template-columns:34px minmax(0,1fr) 22px!important;
-    min-height:52px!important;
-    gap:8px!important;
-    padding:7px 8px!important;
-    border-radius:9px!important;
+    grid-template-columns:36px minmax(0,1fr) 24px!important;
+    min-height:56px!important;
+    gap:9px!important;
+    padding:8px 9px!important;
+    border-radius:10px!important;
+    border-color:#dfe6eb!important;
+    background:#fff!important;
     text-align:left;
+    transform:none!important;
+    box-shadow:none!important;
+    touch-action:manipulation;
   }
-  .analysis-item-mark{width:31px;height:31px;border-radius:8px;font-size:9.5px!important}
-  .analysis-item-copy b{font-size:12px!important}
+  .analysis-menu-item:hover{transform:none!important;box-shadow:none!important}
+  .analysis-menu-item.selected,
+  .analysis-menu-item[aria-pressed="true"]{
+    border-color:#7299b5!important;
+    background:#edf4f8!important;
+    box-shadow:inset 0 0 0 1px #7299b5!important;
+  }
+  .analysis-item-mark{width:32px;height:32px;border-radius:8px;font-size:9.5px!important}
+  .analysis-item-check{
+    display:grid;
+    place-items:center;
+    width:21px;height:21px;
+    border-radius:50%;
+    background:#e1e8ed;
+    color:transparent;
+    font-size:11px;
+    font-weight:900;
+  }
+  .analysis-menu-item.selected .analysis-item-check,
+  .analysis-menu-item[aria-pressed="true"] .analysis-item-check{
+    background:#315f7f;
+    color:#fff;
+  }
   .analysis-menu-foot{
     flex:0 0 auto;
-    padding:7px 8px calc(7px + env(safe-area-inset-bottom));
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    border-top:1px solid #dfe6eb;
+    background:#fff;
   }
-  .analysis-menu-foot>span{font-size:10.5px}
-  .analysis-menu-foot button{min-width:116px;min-height:46px}
+  .analysis-menu-foot>span{
+    min-width:0;flex:1;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:#5b6d7d;font-size:10.5px;font-weight:700;
+  }
+  .analysis-menu-foot button{
+    min-width:118px;
+    min-height:48px;
+    border-radius:10px;
+    font-weight:800;
+  }
+  .analysis-menu-foot button:disabled{opacity:.45}
 
-  /* Analysis form: keep only the controls needed to act. Validation still runs automatically. */
-  .analysis-workspace-backdrop>.analysis-workspace-modal{
-    max-height:91dvh!important;
-  }
-  .analysis-workspace-head{
-    min-height:52px!important;
-    padding:8px 10px!important;
-  }
+  /* Only phone analysis configuration is simplified. */
+  .analysis-workspace-backdrop>.analysis-workspace-modal{max-height:91dvh!important}
+  .analysis-workspace-head{min-height:52px!important;padding:8px 10px!important}
   .science-title-stack>strong{font-size:14px!important}
   .science-context{gap:3px!important}
   .science-context>span{font-size:9.5px!important}
-  .science-config{
-    gap:6px!important;
-    padding:6px!important;
-  }
-  .science-card{
-    border-radius:9px!important;
-    box-shadow:none!important;
-  }
-  .science-card-head{
-    min-height:38px;
-    padding:6px 8px!important;
-    gap:7px!important;
-  }
+  .science-config{gap:6px!important;padding:6px!important}
+  .science-card{border-radius:9px!important;box-shadow:none!important}
+  .science-card-head{min-height:38px;padding:6px 8px!important;gap:7px!important}
   .science-step{width:22px;height:22px;border-radius:6px;font-size:9px}
   .science-card-head b{font-size:12px!important}
-  .science-role-grid,.science-option-grid{
-    gap:6px!important;
-    padding:7px!important;
-  }
-  .science-role-grid label,.science-option-grid label,.science-contrast-box>label{font-size:10.5px!important}
+  .science-role-grid,.science-option-grid{gap:6px!important;padding:7px!important}
   .science-role-grid select,.science-option-grid select,.science-contrast-box select{
-    min-height:44px!important;
+    min-height:46px!important;
     font-size:16px!important;
   }
   .science-inline-help{display:none!important}
-  .science-parameter-list{
-    max-height:30dvh!important;
-    padding:4px!important;
-  }
+  .science-parameter-list{max-height:30dvh!important;padding:4px!important}
   .science-parameter-list .parameter-row{
-    min-height:48px;
+    min-height:50px;
     grid-template-columns:minmax(0,1fr) minmax(112px,34%)!important;
     gap:4px!important;
     border-bottom:1px solid #eef1f3!important;
     border-radius:0!important;
   }
   .science-parameter-list .ral-check{
-    min-height:48px!important;
+    min-height:50px!important;
     padding:7px!important;
     font-size:11.5px!important;
   }
   .science-parameter-list .ral-check input{
-    width:20px!important;height:20px!important;flex:0 0 20px;
+    width:21px!important;height:21px!important;flex:0 0 21px;
   }
   .science-parameter-list select{
-    min-height:42px!important;
+    min-height:44px!important;
     margin:3px!important;
     font-size:14px!important;
   }
-  .science-switch-row{
-    margin:0 7px 7px!important;
-    padding:8px!important;
-  }
+  .science-switch-row{margin:0 7px 7px!important;padding:8px!important}
   .science-switch-row small{display:none}
-  .science-card-advanced>details>summary{
-    min-height:44px;
-    padding:8px!important;
-  }
+  .science-card-advanced>details>summary{min-height:46px;padding:8px!important}
 
-  /* Automatic validation stays visible, verbose review cards do not. */
   .science-review-panel{
     padding:5px 6px!important;
     border-top:1px solid #e4e9ed!important;
@@ -2339,39 +2279,33 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .science-review-head,
   .science-review-panel #scienceStructure,
   .science-review-panel #scienceQuality,
-  .science-validate-button{
-    display:none!important;
-  }
+  .science-validate-button{display:none!important}
   .science-review-panel #scienceValidation .analysis-note{
-    margin:0!important;
-    padding:6px 8px!important;
-    border:0!important;
-    background:#f3f8f5!important;
+    margin:0!important;padding:6px 8px!important;
+    border:0!important;background:#f3f8f5!important;
     font-size:10.5px!important;
   }
   .science-review-panel #scienceValidation .error-box{
-    margin:0!important;
-    padding:7px 8px!important;
-    max-height:22dvh;
-    overflow:auto;
+    margin:0!important;padding:7px 8px!important;
+    max-height:22dvh;overflow:auto;
     font-size:10.5px!important;
   }
 
-  /* One deliberate primary action; close is already available in the header. */
   .analysis-workspace-foot{
     min-height:58px!important;
     padding:7px 8px calc(7px + env(safe-area-inset-bottom))!important;
   }
-  .science-back-button,
-  #closeScience2,
-  .science-run-status{
-    display:none!important;
-  }
+  .science-back-button,#closeScience2,.science-run-status{display:none!important}
   .science-foot-actions{width:100%!important}
   .science-run-button{
     width:100%!important;
-    min-height:48px!important;
+    min-height:50px!important;
     border-radius:10px!important;
     font-size:13px!important;
+  }
+  .science-run-button:disabled{
+    background:#eef1f4!important;
+    border-color:#d9dfe4!important;
+    color:#8a969f!important;
   }
 }
