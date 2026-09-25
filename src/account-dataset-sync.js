@@ -82,13 +82,6 @@ function renameLocal(stores,from,to){
   removeLocal(stores,from);
   return putLocal(stores,to,content,bundle);
 }
-function uniqueName(stores,name,label='Lokal'){
-  const base=displayName(name),stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');
-  let candidate=`${base} - ${label} ${stamp}.csv`,n=2;
-  const lower=new Set(Object.keys(stores.files).map(key=>key.toLocaleLowerCase('id-ID')));
-  while(lower.has(candidate.toLocaleLowerCase('id-ID')))candidate=`${base} - ${label} ${stamp} (${n++}).csv`;
-  return candidate;
-}
 function disposableWorkspace(stores=readStores()){
   const names=Object.keys(stores.files);
   if(names.length>1)return false;
@@ -280,7 +273,11 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
     if(remoteChanged){
       const full=await getCloud(id);
       let target=normalizeFileName(full.name);
-      if(Object.prototype.hasOwnProperty.call(stores.files,target))target=uniqueName(stores,target,'Cloud');
+      if(Object.prototype.hasOwnProperty.call(stores.files,target)){
+        archiveConflict(localItem(stores,target),{reason:'nama dataset bentrok saat menerima pembaruan cloud',source:'lokal'});
+        removeLocal(stores,target);
+        counters.conflicts++;counters.localChanged=true;
+      }
       putLocal(stores,target,full.content,full.meta);
       sync.items[id]={name:target,revision:full.revision,hash:await hashItem(localItem(stores,target)),deleted:false};
       counters.downloaded++;counters.localChanged=true;
