@@ -41,6 +41,31 @@ export function installNavigation(){
     panel.addEventListener('click',event=>{if(event.target.closest('button'))closeMenus();});
   }
 
+  const mobileMoreButton=document.createElement('button');
+  mobileMoreButton.id='mobileMoreButton';
+  mobileMoreButton.type='button';
+  mobileMoreButton.textContent='Menu';
+  mobileMoreButton.setAttribute('aria-expanded','false');
+  mobileMoreButton.setAttribute('aria-controls','mobileMorePanel');
+  const mobileMorePanel=document.createElement('div');
+  mobileMorePanel.id='mobileMorePanel';
+  mobileMorePanel.className='mobile-more-panel';
+  mobileMorePanel.hidden=true;
+  mobileMorePanel.innerHTML='<button type="button" data-open-command="fileMenu">File</button><button type="button" data-open-command="dataMenu">Data</button><button type="button" data-open-command="helpMenu">Bantuan</button>';
+  nav.append(mobileMoreButton);nav.after(mobileMorePanel);
+  mobileMoreButton.onclick=()=>{
+    const opening=mobileMorePanel.hidden;
+    closeMenus();
+    mobileMorePanel.hidden=!opening;
+    mobileMoreButton.setAttribute('aria-expanded',String(opening));
+  };
+  mobileMorePanel.addEventListener('click',event=>{
+    const target=event.target.closest('[data-open-command]');if(!target)return;
+    const button=document.getElementById(target.dataset.openCommand+'Button');
+    mobileMorePanel.hidden=true;mobileMoreButton.setAttribute('aria-expanded','false');
+    button?.click();
+  });
+
 
   const searchButton=document.getElementById('globalSearchButton');
   const searchModal=document.getElementById('globalSearchModal');
@@ -206,13 +231,15 @@ export function installNavigation(){
       if(panel)panel.hidden=true;
       if(button)button.setAttribute('aria-expanded','false');
     }
+    if(mobileMorePanel)mobileMorePanel.hidden=true;
+    if(mobileMoreButton)mobileMoreButton.setAttribute('aria-expanded','false');
     const analysisMenu=document.getElementById('analysisMenu'),openAnalysis=document.getElementById('openAnalysis');
     if(analysisMenu)analysisMenu.hidden=true;
     if(openAnalysis)openAnalysis.setAttribute('aria-expanded','false');
   }
 
   document.addEventListener('click',event=>{
-    if(!event.target.closest('.nav,.nav-command-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
+    if(!event.target.closest('.nav,.nav-command-panel,.mobile-more-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
   });
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
