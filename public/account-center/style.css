@@ -14,3 +14,28 @@
 .status-badge.member{background:#e6f4ea;color:#256547}
 .status-badge.freezer{background:#eef2f5;color:#667786}
 @media(max-width:560px){.profile-avatar-wrap{margin:auto}}
+
+/* COMPACT ACCOUNT 2026-09-26 */
+body{line-height:1.35}
+.account-center{width:min(1100px,calc(100% - 20px));margin:12px auto 36px}
+.account-hero{gap:12px;margin-bottom:9px}
+.account-hero h1{margin:2px 0 3px;font-size:clamp(27px,4vw,38px)}
+.account-hero p,.panel-head p,.security-note p{font-size:12.5px;line-height:1.35}
+button,.button-link{padding:6px 9px;min-height:34px;border-radius:7px}
+.gate{padding:11px}
+.profile-card{gap:11px;padding:12px}
+.profile-copy h2{font-size:19px}
+.profile-copy p{margin:2px 0 5px;font-size:12px}
+.profile-actions{gap:5px}
+.metric-grid{gap:6px;margin-top:7px}
+.metric-grid article{padding:9px}
+.metric-grid span{font-size:10px}.metric-grid b{margin-top:2px;font-size:17px}
+.center-panel{margin-top:7px;padding:10px;content-visibility:auto;contain-intrinsic-size:auto 260px}
+.panel-head{gap:9px;margin-bottom:7px}
+.panel-head h2,.security-note h2{margin-bottom:2px;font-size:16px}
+.session-list{gap:4px}.session-row{gap:7px;padding:7px}
+th,td{padding:7px 8px}
+.security-note{gap:12px}
+.profile-avatar-wrap{width:70px;height:70px;padding:4px}
+.profile-avatar-wrap .profile-avatar-img,.profile-avatar-wrap .profile-avatar-fallback{width:62px;height:62px}
+@media(max-width:560px){.account-center{width:min(100% - 12px,1100px);margin-top:7px}.profile-card{gap:8px;padding:10px}.metric-grid{gap:5px}.center-panel{padding:9px}}
