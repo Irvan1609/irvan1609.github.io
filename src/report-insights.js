@@ -5,6 +5,7 @@ import {parseParameterHeader,parameterLongName} from './parameter-metadata.js';
 const html=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const significant=(term,alpha)=>Number.isFinite(term?.p)&&term.p<alpha;
 const statusText=(term,alpha)=>significant(term,alpha)?(term.p<.01?'berpengaruh sangat nyata':'berpengaruh nyata'):'tidak berpengaruh nyata';
+const significanceSymbol=p=>!Number.isFinite(p)?'—':p<.01?'**':p<.05?'*':'tn';
 
 function lettersOverlap(a,b){
   const left=a?.letters||[],right=b?.letters||[];
@@ -127,7 +128,7 @@ export function interpretReport(report){
 export function analysisSummaryRows(reports){
   return (reports||[]).map(report=>{
     const tested=(report.terms||[]).filter(t=>Number.isFinite(t.p)&&!['Ulangan','Kelompok'].includes(t.label));
-    const significantTerms=tested.filter(t=>t.p<(report.alpha??.05)).map(t=>t.label);
+    const significantTerms=tested.filter(t=>t.p<.05).map(t=>t.label);
     const minP=tested.length?Math.min(...tested.map(t=>t.p)):null;
     const posthoc=(report.comparisons||[]).map(c=>c.method).filter(m=>m&&m!=='none');
     return {
@@ -136,7 +137,8 @@ export function analysisSummaryRows(reports){
       mean:report.grand,
       cv:report.cv,
       minP,
-      significant:significantTerms.join(', ')||'Tidak ada',
+      significance:significanceSymbol(minP),
+      significant:significantTerms.join(', ')||'—',
       posthoc:[...new Set(posthoc)].map(x=>x.toUpperCase()).join(', ')||'—'
     };
   });
@@ -145,6 +147,6 @@ export function analysisSummaryRows(reports){
 export function renderAnalysisSummary(reports){
   const rows=analysisSummaryRows(reports);
   if(!rows.length)return '';
-  const body=rows.map(row=>`<tr><td>${html(row.parameter)}</td><td data-number="${row.n}">${row.n}</td><td data-number="${row.mean}">${fmt(row.mean,2)}</td><td data-number="${row.cv}">${fmt(row.cv,2)}%</td><td>${row.minP===null?'—':row.minP<.001?'&lt;0,001':fmt(row.minP,4)}</td><td>${html(row.significant)}</td><td>${html(row.posthoc)}</td></tr>`).join('');
-  return `<section class="analysis-summary" data-analysis-summary><div class="summary-head"><div><b>Ringkasan semua parameter</b><small>${rows.length} parameter dianalisis</small></div></div><div class="table-scroll"><table class="result-table summary-table"><thead><tr><th>Parameter</th><th>N</th><th>Rataan</th><th>KK</th><th>p terkecil</th><th>Sumber keragaman nyata</th><th>Uji lanjut</th></tr></thead><tbody>${body}</tbody></table></div></section>`;
+  const body=rows.map(row=>`<tr><td>${html(row.parameter)}</td><td data-number="${row.n}">${row.n}</td><td data-number="${row.mean}">${fmt(row.mean,2)}</td><td data-number="${row.cv}">${fmt(row.cv,2)}%</td><td class="summary-significance"><b>${row.significance}</b></td><td>${html(row.significant)}</td><td>${html(row.posthoc)}</td></tr>`).join('');
+  return `<section class="analysis-summary" data-analysis-summary><div class="summary-head"><div><b>Ringkasan semua parameter</b><small>${rows.length} parameter dianalisis</small></div></div><div class="table-scroll"><table class="result-table summary-table"><thead><tr><th>Parameter</th><th>N</th><th>Rataan</th><th>KK</th><th>Ket.</th><th>Sumber nyata</th><th>Uji lanjut</th></tr></thead><tbody>${body}</tbody></table></div><div class="analysis-note">tn = tidak nyata; * = nyata pada taraf 5%; ** = sangat nyata pada taraf 1%.</div></section>`;
 }
