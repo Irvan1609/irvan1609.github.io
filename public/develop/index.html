@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#14253a">
+  <title>Develop Console | Irvan</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260926-1">
+  <link rel="stylesheet" href="/develop/style.css">
+</head>
+<body>
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Develop Console</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi develop"><a href="/stat/">Statistical Web</a><a href="/hitung-cabai/">Hitung Cabai</a></nav>
+    </div>
+  </header>
+  <main class="dev-wrap">
+    <section class="dev-hero">
+      <div><span class="dev-eyebrow">Admin only</span><h1>Develop Console</h1><p>Ringkasan akun, membership, dataset cloud, aktivitas sesi, dan kontribusi AI.</p></div>
+      <button id="refreshDevelop" type="button">Muat ulang</button>
+    </section>
+    <div id="developGate" class="dev-gate">Memeriksa akses admin…</div>
+    <div id="developApp" hidden>
+      <section id="statsGrid" class="stats-grid" aria-label="Statistik pengguna"></section>
+      <section class="dev-panel">
+        <div class="panel-head">
+          <div><h2>Pengguna</h2><p>Kelola akses membership dan lihat penggunaan dataset per akun.</p></div>
+          <input id="userSearch" type="search" autocomplete="off" placeholder="Cari nama atau email…">
+        </div>
+        <div class="table-wrap">
+          <table class="users-table">
+            <thead><tr><th>Pengguna</th><th>Akses</th><th>Dataset</th><th>Login terakhir</th><th>Membership</th></tr></thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="dev-panel">
+        <div class="panel-head"><div><h2>Detail dataset pengguna</h2><p id="datasetOwner">Pilih pengguna untuk melihat daftar dataset cloud.</p></div></div>
+        <div id="userDatasets" class="dataset-list"><span class="muted">Belum ada pengguna dipilih.</span></div>
+      </section>
+      <section class="dev-panel dev-system">
+        <div><h2>Server</h2><p>Endpoint develop hanya menerima session akun dengan role admin. URL halaman ini bukan mekanisme keamanan.</p></div>
+        <div id="serverState" class="server-state">Memeriksa Worker…</div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account.js?v=20260926-1"></script>
+  <script type="module" src="/develop/app.js"></script>
+</body>
+</html>
