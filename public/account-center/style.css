@@ -7,21 +7,12 @@
 
 .profile-avatar-wrap.avatar-aura-immortal::before{background:conic-gradient(from 0deg,#f6d56a,#9e6cff,#5d35a8,#3cc7e8,#f6d56a)}
 .profile-avatar-wrap.avatar-aura-immortal::after{background:radial-gradient(circle,rgba(147,94,255,.34) 0 36%,rgba(246,213,106,.17) 48%,transparent 72%)}
-.profile-avatar-wrap.avatar-aura-immortal{filter:drop-shadow(0 5px 10px rgba(87,48,150,.18))}
-
-.profile-avatar-wrap.avatar-aura-glory::before{background:conic-gradient(from 20deg,#72d8ff,#2787d1,#6a5ce6,#b77cff,#72d8ff)}
-.profile-avatar-wrap.avatar-aura-glory::after{background:radial-gradient(circle,rgba(73,166,231,.27) 0 40%,rgba(112,91,229,.13) 52%,transparent 72%)}
-.profile-avatar-wrap.avatar-aura-glory{filter:drop-shadow(0 5px 9px rgba(42,111,177,.15))}
-
-.profile-avatar-wrap.avatar-aura-bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
-.profile-avatar-wrap.avatar-aura-bronze::after{background:radial-gradient(circle,rgba(174,110,57,.16) 0 42%,transparent 70%)}
-.profile-avatar-wrap.avatar-aura-bronze{filter:drop-shadow(0 4px 7px rgba(110,70,36,.12))}
+.profile-avatar-wrap.avatar-aura-immortal{}
 
 .status-badge.admin{background:#f5e9c8;color:#6f4d09}
 .status-badge.member{background:#e6f4ea;color:#256547}
 .status-badge.freezer{background:#eef2f5;color:#667786}
 
-@keyframes avatar-ring-spin{to{transform:rotate(360deg)}}
-@keyframes avatar-aura-pulse{0%,100%{transform:scale(.95);opacity:.65}50%{transform:scale(1.08);opacity:1}}
-@media(prefers-reduced-motion:reduce){.profile-avatar-wrap::before,.profile-avatar-wrap::after{animation:none!important}}
+}
+50%{transform:scale(1.08);opacity:1}}
 @media(max-width:560px){.profile-avatar-wrap{margin:auto}}
