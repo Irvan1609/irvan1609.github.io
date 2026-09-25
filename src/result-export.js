@@ -98,24 +98,18 @@ function decorateCollapsibleResults(root=document){
     if(section.dataset.collapseBound==='1')return;
     const heading=section.querySelector(':scope > h3, :scope > h4');if(!heading)return;
     section.dataset.collapseBound='1';
-    section.classList.add('result-collapsed');
     const toggle=document.createElement('button');
     toggle.type='button';
     toggle.className='result-collapse-toggle';
-    toggle.textContent='⌄';
-    toggle.setAttribute('aria-label','Buka atau tutup hasil parameter');
-    toggle.setAttribute('aria-expanded','false');
+    toggle.textContent='Ciutkan';
+    toggle.setAttribute('aria-expanded','true');
     toggle.title='Buka/tutup hasil parameter';
     toggle.addEventListener('click',event=>{
       event.preventDefault();event.stopPropagation();
       const collapsed=section.classList.toggle('result-collapsed');
+      toggle.textContent=collapsed?'Buka':'Ciutkan';
       toggle.setAttribute('aria-expanded',String(!collapsed));
     });
-    heading.addEventListener('click',event=>{
-      if(event.target.closest('button,a,input,select,textarea'))return;
-      toggle.click();
-    });
-    heading.classList.add('result-heading-toggle');
     heading.append(toggle);
   });
 }
