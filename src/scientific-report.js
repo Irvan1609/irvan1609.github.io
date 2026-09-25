@@ -11,6 +11,15 @@ export const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 export const designNames={ral:'RAL',rak:'RAK',fral:'Faktorial RAL',frak:'Faktorial RAK',split:'RPT / petak terbagi dalam RAK'};
 const pv=p=>p===null||!Number.isFinite(p)?'—':p<.001?'&lt;'+fmt(.001):fmt(p);
 const sigMark=p=>!Number.isFinite(p)?'—':p<.01?'**':p<.05?'*':'tn';
+function testedTerms(report){
+  return (report.terms||[]).filter(term=>Number.isFinite(term?.p)&&!['Ulangan','Kelompok'].includes(String(term.label||'')));
+}
+function overallSignificance(report){
+  const terms=testedTerms(report);
+  if(!terms.length)return 'tn';
+  const minP=Math.min(...terms.map(term=>term.p));
+  return minP<.01?'ss':minP<.05?'s':'tn';
+}
 function compactStatus(report){
   const terms=report.terms||[],find=patterns=>terms.find(term=>patterns.some(pattern=>pattern.test(String(term.label||''))));
   const chip=(label,term)=>term&&Number.isFinite(term.p)?`<span class="result-status-chip result-status-${sigMark(term.p)==='**'?'ss':sigMark(term.p)==='*'?'s':'tn'}"><b>${esc(label)}</b> ${sigMark(term.p)}</span>`:'';
@@ -18,6 +27,11 @@ function compactStatus(report){
     return [chip('A',find([/^Faktor A$/i,/Petak Utama \(A\)/i])),chip('B',find([/^Faktor B$/i,/Anak Petak \(B\)/i])),chip('A×B',find([/^A\s*×\s*B$/i,/Interaksi.*A.*B/i]))].filter(Boolean).join('');
   }
   return chip('Perlakuan',find([/^Perlakuan$/i]));
+}
+function smartPosthocWarning(report){
+  if(!report.posthoc||report.posthoc==='none')return '';
+  const active=(report.comparisons||[]).some(c=>c.method&&c.method!=='none')||(report.interactionPosthoc?.method&&report.interactionPosthoc.method!=='none');
+  return active?'':`<div class="analysis-smart-warning">Uji lanjut tidak ditampilkan · ANOVA tn</div>`;
 }
 function cell(x){return typeof x==='number'?`<td data-number="${x}">${fmt(x)}</td>`:`<td>${x??'—'}</td>`;}
 function table(headers,rows,cls=''){return `<div class="table-scroll"><table class="result-table ${cls}"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;}
@@ -124,7 +138,7 @@ export function renderReport(report){
   const caption=text=>`<div class="table-caption">Tabel ${++num}. ${esc(text)}</div>`;
   const cvText=design==='split'?`KK (a) = ${fmt(report.cvWhole,2)}%; KK (b) = ${fmt(report.cv,2)}%`:`KK = ${fmt(report.cv,2)}%`;
   const transformType=report.transform?.type||'none',transformLabel=report.transform?.label||'Tanpa transformasi',transformLambda=Number.isFinite(report.transform?.lambda)?String(report.transform.lambda):'';
-  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-parameter-code="${esc(parameterMeta.code||'')}" data-parameter-unit="${esc(parameterMeta.unit||'')}" data-design="${esc(design)}" data-transform-type="${esc(transformType)}" data-transform-label="${esc(transformLabel)}" data-transform-lambda="${esc(transformLambda)}"><h3>${esc(reportTitle)}</h3><div class="analysis-result-meta"><span>N ${report.N}</span><span>Rataan ${fmt(report.grand,2)}</span><span>${cvText}</span><span class="analysis-result-significance">${compactStatus(report)}</span></div>${resultActions(`${design}-${name}`)}`;
+  let html=`<section class="analysis-result" data-export-scope data-parameter="${esc(name)}" data-parameter-code="${esc(parameterMeta.code||'')}" data-parameter-unit="${esc(parameterMeta.unit||'')}" data-design="${esc(design)}" data-transform-type="${esc(transformType)}" data-transform-label="${esc(transformLabel)}" data-transform-lambda="${esc(transformLambda)}" data-overall-significance="${overallSignificance(report)}"><h3>${esc(reportTitle)}</h3><div class="analysis-result-meta"><span>N ${report.N}</span><span>Rataan ${fmt(report.grand,2)}</span><span>${cvText}</span><span class="analysis-result-significance">${compactStatus(report)}</span></div>${resultActions(`${design}-${name}`)}`;
   const multi=['fral','frak','split'].includes(design),grouped=['rak','frak','split'].includes(design);
   const hasRep=report.replicates.some(r=>r!=='');
   const rawGroups=report.cells.map(c=>report.observations.filter(o=>o.a===c.a&&o.b===c.b));
@@ -153,6 +167,7 @@ export function renderReport(report){
     html+=`<details class="result-technical-details"><summary>Data pengamatan</summary>${caption('Data pengamatan')}${observationTable(report.observations,'observation-table')}</details>`;
     html+=caption('Sidik ragam')+renderAnova(report);
   }
+  html+=smartPosthocWarning(report);
   html+=`<details class="result-technical-details"><summary>Keputusan uji lanjut</summary>${renderDecisionSummary(report)}</details>`;
   const tested=report.terms.filter(t=>t.f!==null);
   html+=`<div class="analysis-note">${tested.map(t=>`${esc(t.label)} ${t.p<alpha?'berpengaruh nyata':'tidak menunjukkan pengaruh nyata'} terhadap ${esc(displayName)} (F = ${fmt(t.f)}, db = ${t.df} dan ${report.terms.find(e=>e.label===t.error)?.df??'—'}, α = ${fmt(alpha,2)}).`).join(' ')}</div>`;
@@ -176,7 +191,7 @@ export function renderReport(report){
   if(multi){
     const interaction=report.terms.find(t=>/^A\s*×\s*B$/i.test(String(t.label||''))||/Interaksi.*A.*B/i.test(String(t.label||'')));
     const interactionHtml=interactionChart(report)+caption('Rataan kombinasi untuk grafik interaksi')+table(['Faktor A','Faktor B','Rataan','SE'],report.cells.map(c=>[esc(c.a),esc(c.b),c.mean,c.se]));
-    html+=interaction&&Number.isFinite(interaction.p)&&interaction.p<.05?interactionHtml:`<details class="result-technical-details"><summary>Grafik interaksi</summary>${interactionHtml}</details>`;
+    if(interaction&&Number.isFinite(interaction.p)&&interaction.p<.05)html+=interactionHtml;
   }
   if(report.contrasts.length)html+=renderContrasts(report,caption);
   html+=renderBab4Table(report);
