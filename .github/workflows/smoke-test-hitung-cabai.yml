@@ -39,7 +39,7 @@ jobs:
       CHILI_API_URL: ${{ vars.CHILI_API_URL }}
       CHILI_ADMIN_TOKEN: ${{ secrets.CHILI_ADMIN_TOKEN }}
       ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
-      ROBOFLOW_DATASET_ID: ${{ vars.ROBOFLOW_DATASET_ID || 'andis-workspace-gtt7i/chili-dem2l/1' }}
+      ROBOFLOW_DATASET_ID: ${{ vars.ROBOFLOW_DATASET_ID || 'andis-workspace-gtt7i/chili-dem2l/2' }}
       SMOKE_SOURCE: ${{ inputs.source || 'roboflow' }}
       SMOKE_EPOCHS: ${{ inputs.epochs || '2' }}
     steps:
