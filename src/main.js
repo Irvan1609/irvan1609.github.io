@@ -315,6 +315,16 @@ function bindGridArrowNavigation(wrap){
         const range=selectionRange();
         if(range&&(range.r1!==range.r2||range.c1!==range.c2||event.key==='Delete')){event.preventDefault();clearSelectedCells();return;}
       }
+      if(event.key==='Enter'||event.key==='Tab'){
+        event.preventDefault();
+        let nr=r,nc=c;
+        if(event.key==='Enter')nr+=event.shiftKey?-1:1;
+        else nc+=event.shiftKey?-1:1;
+        if(nc>=state.headers.length){nc=0;nr++;}
+        if(nc<0){nc=state.headers.length-1;nr--;}
+        if(nr<0||nr>=state.rows.length)return;
+        setSelection(nr,nc);return;
+      }
       if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.ctrlKey||event.metaKey)return;
       const next={ArrowUp:[r-1,c],ArrowDown:[r+1,c],ArrowLeft:[r,c-1],ArrowRight:[r,c+1]}[event.key];
       const target=wrap.querySelector(`[contenteditable="true"][data-r="${next[0]}"][data-c="${next[1]}"]`);
@@ -465,7 +475,8 @@ function installFillHandle(wrap){
       const r1=Math.min(source.r1,target.r),r2=Math.max(source.r2,target.r),c1=Math.min(source.c1,target.c),c2=Math.max(source.c2,target.c);
       if(r1===source.r1&&r2===source.r2&&c1===source.c1&&c2===source.c2)return;
       const pattern=rangeMatrix(state.rows,source);if(!pattern.length)return;pushUndo('isi otomatis');
-      for(let r=r1;r<=r2;r++)for(let col=c1;col<=c2;col++)state.rows[r][col]=pattern[(r-source.r1)%pattern.length<0?0:(r-source.r1)%pattern.length][(col-source.c1)%pattern[0].length<0?0:(col-source.c1)%pattern[0].length];
+      const mod=(value,size)=>((value%size)+size)%size;
+      for(let r=r1;r<=r2;r++)for(let col=c1;col<=c2;col++)state.rows[r][col]=pattern[mod(r-source.r1,pattern.length)][mod(col-source.c1,pattern[0].length)];
       const values=[];for(let r=r1;r<=r2;r++)values.push(state.rows[r].slice(c1,c2+1));
       persist('isi otomatis',true,{kind:'set_range',row:r1,col:c1,values});renderGrid();state.selection.anchor={r:r1,c:c1};state.selection.focus={r:r2,c:c2};paintSelection();
     };
@@ -711,6 +722,8 @@ function installEditorShortcuts(){
     if(modifier&&key==='z'&&!event.shiftKey&&!inField){event.preventDefault();undoEditor();return;}
     if(modifier&&(key==='y'||(key==='z'&&event.shiftKey))&&!inField){event.preventDefault();redoEditor();return;}
     if(modifier&&key==='s'&&!inField){event.preventDefault();downloadDataset();return;}
+    if(modifier&&key==='f'&&!inField&&!document.querySelector('.modal-backdrop.open')){event.preventDefault();openGridFind();return;}
+    if(modifier&&key==='a'&&!inField&&state.rows.length&&state.headers.length){event.preventDefault();state.selection.anchor={r:0,c:0};state.selection.focus={r:state.rows.length-1,c:state.headers.length-1};paintSelection();return;}
     if(modifier&&key==='enter'&&!inField){event.preventDefault();const run=$('#runScience'),modal=$('#scientificModal');if(modal?.classList.contains('open')&&run&&!run.disabled)run.click();else $('#openAnalysis')?.click();return;}
     if(modifier&&key==='c'&&!inField&&selectionRange()){event.preventDefault();await copySelectedCells();return;}
     if(key==='f2'&&!inField&&state.selection.focus){event.preventDefault();openColumnName(state.selection.focus.c);return;}
@@ -762,7 +775,7 @@ function installDataGrid(){
       showError('Gagal membuat dataset.',error);
     }
   });
-  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();
+  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#activeFile').onclick=renameDataset;$('#activeFile').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();renameDataset();}};$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();installPanelResize();ensureGridFind();
   const rootClassList=document.documentElement?.classList,compactSaved=localStorage.getItem(COMPACT_KEY)==='1';rootClassList?.toggle?.('compact-data-editor',compactSaved);if($('#compactEditor'))$('#compactEditor').textContent=rootClassList?.contains?.('compact-data-editor')?'Normal':'Ringkas';
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
