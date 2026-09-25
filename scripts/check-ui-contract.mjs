@@ -96,6 +96,8 @@ for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="fa
 if(!statStyle.includes('/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('phone-only safe analysis styles missing');
 if(!statStyle.includes('.analysis-menu-foot{display:none}'))fail('desktop analysis confirmation footer must stay hidden');
 if(!flow.includes('class="analysis-item-arrow"')||flow.includes('class="analysis-item-check"'))fail('desktop analysis cards must keep original arrow markup');
+for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','@media(min-width:901px)','.analysis-menu-groups{','grid-template-columns:repeat(2,minmax(0,1fr))!important','min-height:76px!important'])if(!statStyle.includes(marker))fail('desktop wide analysis panel missing '+marker);
+for(const marker of ["if(phoneGuardMode())resetSelection();","if(!phoneGuardMode()&&opening)","body.hidden=true","aria-expanded','false"])if(!flow.includes(marker))fail('desktop collapsed analysis categories missing '+marker);
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
