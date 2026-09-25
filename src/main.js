@@ -5,7 +5,7 @@ import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
-import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
+import {parseParameterHeader,buildParameterHeader,detectParameterHeader} from './parameter-metadata.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias} from './agronomic-data-dictionary.js';
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
@@ -32,7 +32,7 @@ const fmt=formatNumber;
 
 function dictionaryRecognitionText(headers,datasetName=''){
   const recognized=recognizedAgronomicHeaders(headers,{datasetName});
-  return recognized.length?` · ${recognized.length} parameter dikenali otomatis`:'';
+  return recognized.length?` · ${recognized.length} saran Data Dictionary tersedia; klik nama kolom untuk meninjau`:'';
 }
 
 function showError(message,errorObj){
@@ -277,12 +277,30 @@ function renderStringColumnEditor(index){
   section.hidden=false;unitInput.value=stored.unit||'';
   levelsHost.innerHTML=levels.map(level=>`<label class="column-string-row"><span title="${esc(level)}">${esc(level)} =</span><input data-column-string-level="${esc(level)}" value="${esc(stored.levels?.[level]?.value||'')}" placeholder="nilai" inputmode="decimal" autocomplete="off" aria-label="Nilai untuk ${esc(level)}"></label>`).join('');
 }
+function renderColumnDictionarySuggestion(index){
+  const box=$('#columnDictionarySuggestion'),text=$('#columnDictionarySuggestionText'),button=$('#applyColumnDictionarySuggestion');
+  if(!box||!text||!button)return;
+  const header=state.headers[index]||'',suggestion=detectParameterHeader(header,{datasetName:displayDatasetName(state.active)});
+  if(!suggestion){
+    box.hidden=true;button.onclick=null;return;
+  }
+  const proposed=buildParameterHeader(suggestion);
+  text.textContent=`Saran untuk “${header}”: ${proposed}. Data tidak akan diubah kecuali Anda memilih Gunakan saran lalu menyimpan.`;
+  box.hidden=false;
+  button.onclick=()=>{
+    $('#columnCode').value=suggestion.code;
+    $('#columnFullName').value=suggestion.name;
+    $('#columnUnit').value=suggestion.unit;
+    setStatus(`Saran Data Dictionary untuk “${header}” dimasukkan ke formulir. Klik Simpan untuk menerapkannya.`);
+  };
+}
 function openColumnName(index){
   editingColumnIndex=index;
   const meta=parseParameterHeader(state.headers[index]||'');
   $('#columnCode').value=meta.code;
   $('#columnFullName').value=meta.name;
   $('#columnUnit').value=meta.unit;
+  renderColumnDictionarySuggestion(index);
   renderStringColumnEditor(index);
   $('#columnNameError').hidden=true;
   $('#columnNameModal').classList.add('open');
