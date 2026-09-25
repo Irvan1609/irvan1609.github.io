@@ -4,17 +4,14 @@ import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-c
 import {installNavigation} from './navigation.js';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
-import { resultActions, installResultExport } from './result-export.js';
+import { installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from './agronomic-data-dictionary.js';
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
-import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
-import {installAccountDatasetSync} from './account-dataset-sync.js';
-import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,renameLocalDataset,copyLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
-import jStat from 'jstat';
 
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
@@ -1006,6 +1003,15 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
+  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
+
+function installDeferredFeatures(){
+  const start=()=>import('./account-dataset-sync.js')
+    .then(({installAccountDatasetSync})=>installAccountDatasetSync())
+    .catch(error=>console.warn('Sinkronisasi akun tidak dapat dimuat.',error));
+  if('requestIdleCallback' in window)window.requestIdleCallback(start,{timeout:1800});
+  else window.setTimeout(start,250);
+}
+installDeferredFeatures();
 }
 initNumberSettings();void boot();
