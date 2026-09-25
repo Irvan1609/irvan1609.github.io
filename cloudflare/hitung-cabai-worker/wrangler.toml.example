@@ -24,4 +24,4 @@ bucket_name = "irvan-backups"
 
 # Daily logical backup. The scheduled handler skips cleanly when BACKUPS is absent.
 [triggers]
-crons = ["17 18 * * *"]
+crons = ["0 18 * * *"]
