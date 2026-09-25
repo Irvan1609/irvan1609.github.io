@@ -3,6 +3,7 @@ const MAX_BOXES=1500;
 const SESSION_DAYS=30;
 const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
+let AUTH_SCHEMA_READY=false;
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io').split(',').map(v=>v.trim()).filter(Boolean));
@@ -83,6 +84,7 @@ async function cleanupAuth(env){
   ]).catch(()=>{});
 }
 async function ensureAuthSchema(env){
+  if(AUTH_SCHEMA_READY)return;
   await env.DB.batch([
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -131,6 +133,7 @@ async function ensureAuthSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
   ]);
+  AUTH_SCHEMA_READY=true;
 }
 
 function publicUser(row){
