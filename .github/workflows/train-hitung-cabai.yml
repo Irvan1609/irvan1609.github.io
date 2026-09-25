@@ -1,0 +1,80 @@
+name: Train Hitung Cabai
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 18 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: train-hitung-cabai
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    env:
+      CHILI_API_URL: ${{ vars.CHILI_API_URL }}
+      CHILI_ADMIN_TOKEN: ${{ secrets.CHILI_ADMIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Periksa konfigurasi
+        id: config
+        shell: bash
+        run: |
+          if [ -z "$CHILI_API_URL" ] || [ -z "$CHILI_ADMIN_TOKEN" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare API belum dikonfigurasi; training dilewati."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ambil dataset tervalidasi
+        if: steps.config.outputs.ready == 'true'
+        id: dataset
+        run: |
+          python scripts/fetch-chili-dataset.py             --api-url "$CHILI_API_URL"             --token "$CHILI_ADMIN_TOKEN"             --out .chili-dataset             --min-samples 100
+
+      - name: Siapkan Python
+        if: steps.dataset.outputs.ready == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Pasang mesin training
+        if: steps.dataset.outputs.ready == 'true'
+        run: pip install "ultralytics>=8.3,<9" onnx onnxslim
+
+      - name: Latih dan evaluasi kandidat
+        if: steps.dataset.outputs.ready == 'true'
+        id: train
+        run: python scripts/train-chili-model.py --data .chili-dataset/data.yaml --epochs 30
+
+      - name: Simpan diagnostik kandidat
+        if: steps.dataset.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hitung-cabai-candidate-${{ github.run_number }}
+          path: |
+            .chili-training/candidate-metrics.json
+            .chili-training/candidate/results.csv
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publikasikan model yang lolos
+        if: steps.train.outputs.accepted == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/hitung-cabai/model-manifest.json public/hitung-cabai/models/
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan model."
+          else
+            git commit -m "Hitung Cabai: promote validated model"
+            git push
+          fi
