@@ -27,7 +27,11 @@
       <header class="app-header">
         <nav class="nav" aria-label="Perintah Statistical Web">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
-          <button id="projectToggle" type="button" aria-expanded="false">Dataset</button>
+          <div class="global-search" role="search">
+            <input id="globalSearch" type="search" autocomplete="off" placeholder="Cari fitur, analisis, dataset, kolom…" aria-label="Cari di Statistical Web" aria-controls="globalSearchResults" aria-expanded="false">
+            <div id="globalSearchResults" class="global-search-results" role="listbox" hidden></div>
+          </div>
+          <button id="projectToggle" type="button" aria-expanded="false">☰ Dataset</button>
         </nav>
       </header>
 
@@ -47,7 +51,7 @@
       <main class="main">
         <aside class="project-panel" id="projectPanel">
           <div class="panel-title">Dataset</div>
-          <input id="datasetSearch" class="dataset-search" type="search" autocomplete="off" placeholder="Cari dataset…" aria-label="Cari dataset">
+          <input id="datasetSearch" class="dataset-search" type="search" autocomplete="off" placeholder="Cari dataset…" aria-label="Cari dataset" hidden>
           <div id="fileTree"></div>
           <details class="dataset-more dataset-manage">
             <summary>Kelola dataset</summary>
@@ -74,7 +78,7 @@
                 <span><b>Tanaman</b> <span id="plantNameSummary">—</span></span>
                 <span><b>Perlakuan</b> <span id="treatmentNameSummary">—</span></span>
               </div>
-              <button id="toggleDatasetMeta" type="button" aria-expanded="false">Info</button>
+              <button id="toggleDatasetMeta" type="button" aria-expanded="false">Edit informasi</button>
             </div>
             <div id="datasetMetaEditor" class="dataset-meta-fields" hidden>
               <label for="plantName"><span>Tanaman</span><input id="plantName" maxlength="80" autocomplete="off" placeholder="mis. jagung"></label>
