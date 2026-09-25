@@ -195,6 +195,12 @@ export function installAnalysisFlow() {
   }));
   confirm?.addEventListener('click',runSelected);
 
+  document.addEventListener('agrotik-open-analysis',event=>{
+    const key=event.detail?.key;if(!key)return;
+    const button=panel.querySelector(`[data-design="${key}"],[data-design-ext="${key}"],[data-association="${key}"],[data-advanced="${key}"],[data-nextgen="${key}"]`);
+    if(button)void openButton(button);
+  });
+
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
