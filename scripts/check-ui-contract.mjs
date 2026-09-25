@@ -163,13 +163,17 @@ if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')|
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
 if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
-for(const feature of ['bindColumnResize','autoSizeColumn','installFillHandle','openGridFind','openColumnContextMenu','installPanelResize','markGridQuality','COLUMN_WIDTHS_KEY'])
+for(const feature of ['bindColumnResize','autoSizeColumn','installFillHandle','openGridFind','openColumnContextMenu','installPanelResize','gridQualityModel','COLUMN_WIDTHS_KEY'])
   if(!main.includes(feature))fail('spreadsheet UX missing '+feature);
 for(const feature of ['analysisResultDock','analysisDockResults','selectedColumnIndexes'])
   if(!scientific.includes(feature))fail('analysis dock/selected-column workflow missing '+feature);
 for(const feature of ['.column-resizer','.fill-handle','.grid-find-bar','.analysis-result-dock','.cell-missing','.cell-type-warning','.duplicate-row'])
   if(!statStyle.includes(feature))fail('spreadsheet UX CSS missing '+feature);
 if(!html.includes('id="activeFile" role="button" tabindex="0"'))fail('dataset name must be directly renameable from the sheet header');
+for(const feature of ['local-dataset-store.js','virtual-grid.js','migrateLargeLocalDatasets','isLocalPointer','storeDatasetContent','renderGridRows','ensureGridRowVisible','VIRTUALIZE_AFTER_ROWS','gridQualityModel'])
+  if(!main.includes(feature))fail('local-first/virtual grid feature missing '+feature);
+if(!dataTools.includes('StatisticalWebData')||!dataTools.includes('tbody tr:not(.virtual-spacer)'))fail('analysis must read full state with virtual-grid fallback');
+if(!statStyle.includes('.virtual-spacer'))fail('virtual grid spacer styling missing');
 
 console.log(`UI contract OK: simplified Statistical Web with direct metadata editing, live column typing, drag reorder, and no frozen table.`);
 
