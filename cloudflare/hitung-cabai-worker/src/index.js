@@ -22,7 +22,7 @@ function corsHeaders(request,env){
   const allowed=allowedOrigins(env);
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
-    'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
@@ -258,9 +258,31 @@ async function ensureOperationsSchema(env){
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     )`),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS idempotent_operations (
+      operation_id TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(operation_id,scope)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)')
   ]);
   OPERATIONS_SCHEMA_READY=true;
+}
+function validOperationId(value){return /^[0-9a-f-]{36}$/i.test(String(value||''));}
+async function replayOperation(env,scope,operationId){
+  if(!validOperationId(operationId))return null;
+  await ensureOperationsSchema(env);
+  const row=await env.DB.prepare('SELECT response_json FROM idempotent_operations WHERE operation_id=? AND scope=? LIMIT 1').bind(operationId,scope).first();
+  if(!row)return null;
+  try{return JSON.parse(row.response_json||'null');}catch{return null;}
+}
+async function rememberOperation(env,scope,operationId,payload){
+  if(!validOperationId(operationId))return;
+  await ensureOperationsSchema(env);
+  await env.DB.prepare('INSERT OR IGNORE INTO idempotent_operations (operation_id,scope,response_json,created_at) VALUES (?,?,?,?)')
+    .bind(operationId,scope,JSON.stringify(payload),new Date().toISOString()).run();
 }
 async function audit(env,actor,action,targetType='',targetId='',detail={}){
   try{
