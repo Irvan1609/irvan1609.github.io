@@ -93,12 +93,15 @@ jobs:
           fi
 
       - name: Validate Midtrans credential when managed by GitHub
-        if: ${{ secrets.MIDTRANS_SERVER_KEY != '' }}
         env:
           MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
+            echo "MIDTRANS_SERVER_KEY belum dikelola dari GitHub; memakai secret yang sudah ada di Cloudflare."
+            exit 0
+          fi
           KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           case "$KEY" in
             \"*\") KEY="${KEY#\"}"; KEY="${KEY%\"}" ;;
