@@ -9,6 +9,8 @@ let currentUser=null;
 let token='';
 let mount=null;
 let menu=null;
+let authReady=false;
+let authChecked=false;
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
@@ -84,6 +86,8 @@ function render(){
     const button=document.createElement('button');
     button.type='button';button.className='account-login';
     button.innerHTML='<span class="account-google-mark" aria-hidden="true">G</span><span>Masuk dengan Google</span>';
+    button.disabled=!authReady;
+    button.title=authChecked&&!authReady?'Login Google belum diaktifkan di server.':'';
     button.onclick=startLogin;
     mount.append(button);
     closeMenu();dispatch();return;
@@ -126,7 +130,7 @@ function ensureMount(){
   return mount;
 }
 async function startLogin(){
-  if(!ACCOUNT_CONFIG.enabled||!endpoint)return status('Login belum dikonfigurasi.','error');
+  if(!ACCOUNT_CONFIG.enabled||!endpoint||!authReady)return status('Login Google belum aktif di server.','error');
   const state=randomState();
   sessionStorage.setItem(LOGIN_STATE_KEY,state);
   const url=new URL(endpoint+'/v1/auth/google/start');
@@ -204,11 +208,20 @@ async function logout(){
   }catch{}
   status('Anda sudah keluar.','success');
 }
+async function checkAuthReady(){
+  try{
+    const response=await fetch(endpoint+'/v1/health',{headers:{Accept:'application/json'}});
+    const data=await response.json().catch(()=>({}));
+    authReady=Boolean(response.ok&&data.authConfigured===true);
+  }catch{authReady=false;}
+  authChecked=true;render();
+}
 async function init(){
   if(!ACCOUNT_CONFIG.enabled||!endpoint)return;
   ensureMount();loadStored();render();
   const handled=await exchangeCallback();
-  if(!handled)await refreshSession();
+  await checkAuthReady();
+  if(!handled&&token)await refreshSession();
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
