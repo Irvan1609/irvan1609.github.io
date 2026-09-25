@@ -296,7 +296,22 @@ async function audit(env,actor,action,targetType='',targetId='',detail={}){
       .bind(crypto.randomUUID(),actor?.id||null,String(action),String(targetType||''),String(targetId||''),JSON.stringify(detail||{}).slice(0,20000),new Date().toISOString()).run();
   }catch(error){console.error('audit log failed',error);}
 }
-function midtransServerKey(env){return String(env.MIDTRANS_SERVER_KEY||'').trim();}
+function midtransServerKey(env){
+  let value=String(env.MIDTRANS_SERVER_KEY||'').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  if((value.startsWith('"')&&value.endsWith('"'))||(value.startsWith("'")&&value.endsWith("'")))value=value.slice(1,-1).trim();
+  if(/^Basic\s+/i.test(value)){
+    try{
+      const decoded=atob(value.replace(/^Basic\s+/i,'').trim());
+      if(decoded.endsWith(':'))value=decoded.slice(0,-1).trim();
+    }catch{}
+  }else if(!value.toLowerCase().includes('-server-')&&/^[A-Za-z0-9+/=]+$/.test(value)&&value.length>24){
+    try{
+      const decoded=atob(value);
+      if(decoded.toLowerCase().includes('-server-'))value=(decoded.endsWith(':')?decoded.slice(0,-1):decoded).trim();
+    }catch{}
+  }
+  return value;
+}
 function detectedMidtransEnvironment(env){
   const key=midtransServerKey(env);
   if(key.startsWith('SB-'))return 'sandbox';
@@ -1412,7 +1427,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.6'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.7'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
