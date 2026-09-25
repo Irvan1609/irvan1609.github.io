@@ -12,6 +12,11 @@ import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from '
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1';
+function phoneGuardMode(){
+  return globalThis.matchMedia?.('(max-width: 720px) and (pointer: coarse)')?.matches
+    || globalThis.matchMedia?.('(max-width: 720px)')?.matches
+    || false;
+}
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
   container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
@@ -170,7 +175,7 @@ function renderStructure(check,o){
 }
 function validate(){
   const o=options(),check=validateData(data,o,parseNumber),quality=inspectDataQuality(data,o,parseNumber);let contrastInfo='';
-  if(!o.parameters.length&&!check.issues.some(issue=>/parameter/i.test(issue.message)))check.issues.unshift({message:'Pilih minimal satu parameter.'});
+  if(phoneGuardMode()&&!o.parameters.length&&!check.issues.some(issue=>/parameter/i.test(issue.message)))check.issues.unshift({message:'Pilih minimal satu parameter.'});
   if(!check.issues.length){
     o.parameters.forEach((column,index)=>{
       const type=o.transforms?.[column]||'none';
@@ -193,10 +198,16 @@ function validate(){
   check.issues.filter(x=>x.row).forEach(issue=>{const row=document.querySelector(`.data-grid td[data-r="${issue.row-1}"]`)?.closest('tr');if(row){if(issue.column!==undefined)row.querySelector(`td[data-c="${issue.column}"]`)?.classList.add('data-invalid');else [...row.querySelectorAll('td[data-c]')].forEach(c=>c.classList.add('data-invalid'));}});
   const runButton=$('#runScience');
   if(runButton){
-    const ready=!check.issues.length&&o.parameters.length>0;
-    runButton.disabled=!ready;
-    runButton.setAttribute('aria-disabled',String(!ready));
-    runButton.textContent=ready?'Jalankan':'Lengkapi pilihan';
+    if(phoneGuardMode()){
+      const ready=!check.issues.length&&o.parameters.length>0;
+      runButton.disabled=!ready;
+      runButton.setAttribute('aria-disabled',String(!ready));
+      runButton.textContent=ready?'Jalankan':'Lengkapi pilihan';
+    }else{
+      runButton.disabled=false;
+      runButton.setAttribute('aria-disabled','false');
+      runButton.textContent='Jalankan analisis';
+    }
   }
   return {o,check,quality};
 }
@@ -257,7 +268,10 @@ async function analyze(){
     $('#scienceRunStatus').textContent=saved?'Selesai · tersimpan':'Selesai · belum tersimpan';
     void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
   }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
-  finally{if($('#scientificModal').classList.contains('open'))validate();}
+  finally{
+    if(phoneGuardMode()&&$('#scientificModal').classList.contains('open'))validate();
+    else{$('#runScience').disabled=false;$('#runScience').setAttribute('aria-disabled','false');$('#runScience').textContent='Jalankan analisis';}
+  }
 }
 export function openScientific(design){
   revision++;
@@ -292,7 +306,9 @@ export function openScientific(design){
   $('#scienceAssumptions').checked=false;
   $('#scienceContrastMode').value='none';$('#scienceContrastMode').disabled=multi;$('#scienceContrastHelp').textContent=multi?'Kontras/polinomial tersedia pada rancangan satu faktor RAL/RAK.':'';
   $('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML=data.headers.length?'':'<p>Masukkan dataset.</p>';$('#scienceRunStatus').textContent='';contrastFields();
-  const runButton=$('#runScience');if(runButton){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
+  const runButton=$('#runScience');
+  if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
+  else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
   $('#scientificModal').classList.add('open');
   validate();
 }
