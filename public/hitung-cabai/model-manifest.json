@@ -1,6 +1,6 @@
 {
-  "enabled": false,
-  "version": "heuristic-color-v1",
+  "enabled": true,
+  "version": "yolo-20260925-1",
   "modelUrl": "./models/cabai-latest.onnx",
   "inputSize": 640,
   "confidence": 0.25,

@@ -1,0 +1,10 @@
+{
+  "precision": 0.923932,
+  "recall": 0.906469,
+  "map50": 0.965958,
+  "map50_95": 0.826838,
+  "accepted": true,
+  "evaluated_at": "2026-09-25T09:18:53.483034+00:00",
+  "sample_count": 197,
+  "version": "yolo-20260925-1"
+}
