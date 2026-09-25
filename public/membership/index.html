@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <title>Membership | Irvan</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260926-2">
+  <link rel="stylesheet" href="/membership/style.css">
+</head>
+<body>
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Membership</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi membership"><a href="/account/">Akun</a><a href="/stat/">Statistik</a></nav>
+    </div>
+  </header>
+
+  <main class="membership-wrap">
+    <section class="membership-hero">
+      <span class="eyebrow">Cloud & analysis access</span>
+      <h1>Membership</h1>
+      <p>Membership membuka sinkronisasi dataset lintas perangkat dan akses analisis tanpa pembayaran per analisis.</p>
+      <div id="membershipStatus" class="membership-status">Memeriksa status akun…</div>
+    </section>
+
+    <div id="membershipGate" class="gate">Memuat paket…</div>
+    <section id="plansGrid" class="plans-grid" hidden></section>
+
+    <section class="benefit-panel">
+      <h2>Yang termasuk</h2>
+      <div class="benefit-grid">
+        <article><b>Cloud Sync</b><span>Dataset dan metadata tersinkron antarperangkat.</span></article>
+        <article><b>Analisis termasuk</b><span>Tidak perlu membeli kredit QRIS per analisis.</span></article>
+        <article><b>Kuota paket</b><span>Batas dataset dan penyimpanan mengikuti paket yang aktif.</span></article>
+        <article><b>Account Center</b><span>Kelola sesi, pembayaran, ekspor data, dan status akun.</span></article>
+      </div>
+    </section>
+  </main>
+
+  <div id="qrisModal" class="qris-backdrop" hidden>
+    <div class="qris-modal" role="dialog" aria-modal="true" aria-labelledby="qrisTitle">
+      <div class="qris-head"><div><span class="eyebrow">QRIS</span><h2 id="qrisTitle">Pembayaran membership</h2></div><button id="qrisClose" type="button" aria-label="Tutup">✕</button></div>
+      <p id="qrisMessage">Membuat QRIS…</p>
+      <img id="qrisImage" alt="QRIS membership" hidden>
+      <div id="qrisOrder" class="qris-order"></div>
+      <div class="qris-actions"><button id="qrisCheck" type="button">Periksa sekarang</button><button id="qrisDone" type="button">Tutup</button></div>
+    </div>
+  </div>
+
+  <script type="module" src="/account.js?v=20260926-2"></script>
+  <script type="module" src="/membership/app.js"></script>
+</body>
+</html>
