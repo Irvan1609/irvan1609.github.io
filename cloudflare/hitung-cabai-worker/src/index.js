@@ -858,10 +858,16 @@ async function syncMembershipPayment(env,payment){
   const gross=Number(status.gross_amount);
   if(!Number.isFinite(gross)||Math.round(gross)!==Number(payment.amount))throw Error('Nominal transaksi Midtrans tidak sesuai.');
   const nextStatus=String(status.transaction_status||payment.status||'unknown');
-  const now=new Date().toISOString();
-  await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,paid_at=CASE WHEN ?=\'settlement\' THEN COALESCE(paid_at,?) ELSE paid_at END,updated_at=? WHERE order_id=?')
-    .bind(nextStatus,String(status.transaction_id||'').slice(0,160),nextStatus,now,now,payment.order_id).run();
-  const current=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? LIMIT 1').bind(payment.order_id).first();
+  const transactionId=String(status.transaction_id||'').slice(0,160);
+  const statusChanged=nextStatus!==String(payment.status||'');
+  const transactionChanged=Boolean(transactionId&&transactionId!==String(payment.midtrans_transaction_id||''));
+  let current=payment;
+  if(statusChanged||transactionChanged){
+    const now=new Date().toISOString();
+    await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,paid_at=CASE WHEN ?=\'settlement\' THEN COALESCE(paid_at,?) ELSE paid_at END,updated_at=? WHERE order_id=?')
+      .bind(nextStatus,transactionId,nextStatus,now,now,payment.order_id).run();
+    current=await env.DB.prepare('SELECT * FROM membership_payments WHERE order_id=? LIMIT 1').bind(payment.order_id).first();
+  }
   return successfulMidtrans(status)?applyMembershipPayment(env,current,status):current;
 }
 async function handleMembershipCreatePayment(request,env){
@@ -1434,7 +1440,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.10'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.11'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
