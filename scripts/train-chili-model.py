@@ -31,22 +31,28 @@ def main():
         try: previous=json.loads(metrics_path.read_text(encoding="utf-8"))
         except Exception: previous={}
 
+    train_root=(pathlib.Path.cwd()/".chili-training").resolve()
+    train_root.mkdir(exist_ok=True)
+
     model=YOLO("yolov8n.pt")
     model.train(
-        data=args.data,
+        data=str(pathlib.Path(args.data).resolve()),
         epochs=args.epochs,
         imgsz=640,
         batch=8,
         device="cpu",
         workers=2,
         patience=8,
-        project=".chili-training",
+        project=str(train_root),
         name="candidate",
         exist_ok=True,
         verbose=False
     )
-    candidate=YOLO(".chili-training/candidate/weights/best.pt")
-    results=candidate.val(data=args.data,imgsz=640,device="cpu",verbose=False)
+    best=pathlib.Path(model.trainer.best)
+    if not best.exists():
+        raise SystemExit(f"Training selesai tetapi best.pt tidak ditemukan di {best}.")
+    candidate=YOLO(str(best))
+    results=candidate.val(data=str(pathlib.Path(args.data).resolve()),imgsz=640,device="cpu",verbose=False)
     precision=metric_value(results,"precision")
     recall=metric_value(results,"recall")
     map50=metric_value(results,"mAP50(B)")
@@ -70,8 +76,7 @@ def main():
         "evaluated_at":datetime.now(timezone.utc).isoformat(),
         "sample_count":int(args.sample_count)
     }
-    pathlib.Path(".chili-training").mkdir(exist_ok=True)
-    pathlib.Path(".chili-training/candidate-metrics.json").write_text(json.dumps(metrics,indent=2),encoding="utf-8")
+    (train_root/"candidate-metrics.json").write_text(json.dumps(metrics,indent=2),encoding="utf-8")
     print(json.dumps(metrics,indent=2))
     set_output("accepted","true" if accepted else "false")
 
