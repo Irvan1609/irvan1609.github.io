@@ -113,15 +113,25 @@ async function loadSupport(id){
   ].map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></article>').join('')+'</div><div class="support-datasets">'+(data.datasets||[]).map(d=>'<div class="support-dataset"><span>'+esc(d.name)+'</span><small>rev '+Number(d.revision||1)+' · '+esc(dt(d.updated_at))+'</small></div>').join('')+'</div>';
 }
 function renderPlans(){
-  $('#planGrid').innerHTML=plans.map(plan=>'<article class="plan-card" data-plan-id="'+esc(plan.id)+'"><h3>'+esc(plan.name)+'</h3><div class="plan-fields"><label>Nama<input data-name value="'+esc(plan.name)+'"></label><label>Durasi (hari)<input data-days type="number" min="1" value="'+Number(plan.duration_days)+'"></label><label class="plan-desc">Deskripsi<input data-description value="'+esc(plan.description||'')+'"></label><label>Harga (Rp)<input data-price type="number" min="0" value="'+Number(plan.price_idr||0)+'"></label><label>Dataset<input data-dataset-limit type="number" min="1" value="'+Number(plan.dataset_limit||1)+'"></label><label>Storage (MB)<input data-storage type="number" min="1" value="'+Math.round(Number(plan.storage_limit_bytes||0)/1048576)+'"></label></div><label class="plan-toggle"><input data-active type="checkbox"'+(Number(plan.active)?' checked':'')+'> Aktifkan untuk pembelian publik</label><div class="plan-actions"><button type="button" data-save-plan>Simpan paket</button></div></article>').join('');
+  $('#planGrid').innerHTML=plans.map(plan=>'<article class="plan-card" data-plan-id="'+esc(plan.id)+'"><h3>'+esc(plan.name)+'</h3><div class="plan-publish-state '+(Number(plan.active)&&Number(plan.price_idr)>0?'positive':'muted')+'">'+(Number(plan.active)&&Number(plan.price_idr)>0?'Tampil di halaman Membership':'Belum tampil publik')+'</div><div class="plan-fields"><label>Nama<input data-name value="'+esc(plan.name)+'"></label><label>Durasi (hari)<input data-days type="number" min="1" value="'+Number(plan.duration_days)+'"></label><label class="plan-desc">Deskripsi<input data-description value="'+esc(plan.description||'')+'"></label><label>Harga (Rp)<input data-price type="number" min="0" value="'+Number(plan.price_idr||0)+'"></label><label>Dataset<input data-dataset-limit type="number" min="1" value="'+Number(plan.dataset_limit||1)+'"></label><label>Storage (MB)<input data-storage type="number" min="1" value="'+Math.round(Number(plan.storage_limit_bytes||0)/1048576)+'"></label></div><label class="plan-toggle"><input data-active type="checkbox"'+(Number(plan.active)?' checked':'')+'> Aktifkan untuk pembelian publik</label><div class="plan-actions"><button type="button" data-save-plan>Simpan paket</button></div></article>').join('');
   $('#planGrid').querySelectorAll('[data-save-plan]').forEach(button=>button.onclick=()=>savePlan(button.closest('[data-plan-id]')));
 }
 async function loadPlans(){plans=[];await ensurePlans();renderPlans();}
 async function savePlan(card){
   const id=card.dataset.planId,button=card.querySelector('[data-save-plan]');button.disabled=true;
   const body={name:card.querySelector('[data-name]').value,description:card.querySelector('[data-description]').value,durationDays:Number(card.querySelector('[data-days]').value),priceIdr:Number(card.querySelector('[data-price]').value),datasetLimit:Number(card.querySelector('[data-dataset-limit]').value),storageLimitBytes:Number(card.querySelector('[data-storage]').value)*1048576,active:card.querySelector('[data-active]').checked};
-  try{await api('/v1/develop/plans/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(body)});plans=[];await loadPlans();loaded.delete('users');}
-  catch(error){alert(error.message);}finally{button.disabled=false;}
+  if(body.active&&body.priceIdr<=0){
+    alert('Agar paket tampil di halaman Membership, isi harga lebih dari Rp0 lalu aktifkan paket.');
+    button.disabled=false;return;
+  }
+  const original=button.textContent;button.textContent='Menyimpan…';
+  try{
+    await api('/v1/develop/plans/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(body)});
+    plans=[];await loadPlans();loaded.delete('users');
+    const fresh=[...document.querySelectorAll('[data-plan-id]')].find(el=>el.dataset.planId===id);
+    const savedButton=fresh?.querySelector('[data-save-plan]');
+    if(savedButton){savedButton.textContent=body.active?'Tersimpan · tampil publik':'Tersimpan';setTimeout(()=>{if(savedButton.isConnected)savedButton.textContent='Simpan paket';},1800);}
+  }catch(error){alert(error.message);}finally{if(button.isConnected){button.disabled=false;button.textContent=original;}}
 }
 async function loadPayments(){
   const data=await api('/v1/develop/payments?limit=500'),items=data.items||[];
