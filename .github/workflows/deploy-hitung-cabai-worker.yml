@@ -64,7 +64,7 @@ jobs:
             compatibility_date:'2026-09-25',
             workers_dev:true,
             keep_vars:true,
-            secrets:{required:['MIDTRANS_SERVER_KEY']},
+            vars:{MIDTRANS_ENV:'sandbox'},
             d1_databases:[{
               binding:'DB',
               database_name:'hitung-cabai',
@@ -84,12 +84,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
-            echo "::error::GitHub Repository Secret MIDTRANS_SERVER_KEY belum tersedia."
-            exit 1
+          if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
+            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
+            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "MIDTRANS_SERVER_KEY GitHub tidak ada; mempertahankan secret yang sudah tersimpan di Cloudflare."
+            echo "args=" >> "$GITHUB_OUTPUT"
           fi
-          node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
-          echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
 
       - name: Validate Midtrans credential when managed by GitHub
         env:
@@ -98,19 +99,15 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
-            echo "::error::GitHub Repository Secret MIDTRANS_SERVER_KEY belum tersedia."
-            exit 1
+            echo "Validasi Midtrans GitHub dilewati; secret dikelola langsung di Cloudflare."
+            exit 0
           fi
           KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           case "$KEY" in
             \"*\") KEY="${KEY#\"}"; KEY="${KEY%\"}" ;;
             \'*\') KEY="${KEY#\'}"; KEY="${KEY%\'}" ;;
           esac
-          if [[ "$KEY" == SB-* ]]; then
-            BASE="https://api.sandbox.midtrans.com"
-          else
-            BASE="https://api.midtrans.com"
-          fi
+          BASE="https://api.sandbox.midtrans.com"
           STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -u "$KEY:" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
           if [ "$STATUS" = "401" ]; then
             echo "::error::MIDTRANS_SERVER_KEY ditolak Midtrans. Copy ulang Server Key yang benar dari environment merchant yang sesuai."
