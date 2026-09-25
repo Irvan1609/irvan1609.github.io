@@ -1,4 +1,4 @@
-import {CHILI_CLOUD_CONFIG,cloudContributionReady} from './cloud-config.js';
+import {CHILI_CLOUD_CONFIG,cloudContributionReady} from './cloud-config.js?v=20260925-2';
 
 let turnstileLoader=null;
 let widgetId=null;
