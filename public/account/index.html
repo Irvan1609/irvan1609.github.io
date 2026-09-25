@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <title>Akun | Irvan</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260926-2">
+  <link rel="stylesheet" href="/account-center/style.css">
+</head>
+<body>
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Akun</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi akun">
+        <a href="/stat/">Statistik</a>
+        <a href="/membership/">Membership</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="account-center">
+    <section class="account-hero">
+      <div>
+        <span class="eyebrow">Account Center</span>
+        <h1>Akun & penyimpanan</h1>
+        <p>Kelola status akun, membership, sinkronisasi, sesi perangkat, pembayaran, dan ekspor data.</p>
+      </div>
+      <button id="refreshAccount" type="button">Muat ulang</button>
+    </section>
+
+    <div id="accountGate" class="gate">Memeriksa sesi akun…</div>
+
+    <div id="accountApp" hidden>
+      <section class="profile-card">
+        <div id="profileAvatar"></div>
+        <div class="profile-copy">
+          <h2 id="profileName">—</h2>
+          <p id="profileEmail">—</p>
+          <div class="badges"><span id="roleBadge" class="badge">—</span><span id="membershipBadge" class="badge">—</span></div>
+        </div>
+        <div class="profile-actions">
+          <a id="upgradeMembership" class="button-link primary" href="/membership/">Kelola membership</a>
+          <button id="exportAccount" type="button">Ekspor data akun</button>
+        </div>
+      </section>
+
+      <section class="metric-grid">
+        <article><span>Dataset cloud</span><b id="metricDatasets">0</b></article>
+        <article><span>Penyimpanan</span><b id="metricStorage">0 B</b></article>
+        <article><span>Batas dataset</span><b id="metricDatasetLimit">—</b></article>
+        <article><span>Batas penyimpanan</span><b id="metricStorageLimit">—</b></article>
+        <article><span>Sesi aktif</span><b id="metricSessions">0</b></article>
+        <article><span>Membership berakhir</span><b id="metricExpiry">—</b></article>
+      </section>
+
+      <section class="center-panel">
+        <div class="panel-head">
+          <div><h2>Sesi perangkat</h2><p>Sesi login aktif untuk akun ini. Sesi saat ini tidak dapat dicabut dari sini.</p></div>
+          <button id="revokeOthers" type="button">Keluar dari perangkat lain</button>
+        </div>
+        <div id="sessionList" class="session-list"></div>
+      </section>
+
+      <section class="center-panel">
+        <div class="panel-head">
+          <div><h2>Riwayat membership</h2><p>Transaksi QRIS membership yang terkait dengan akun Anda.</p></div>
+          <a class="button-link" href="/membership/">Buka membership</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Paket</th><th>Nominal</th><th>Status</th><th>Dibuat</th><th>Berlaku sampai</th></tr></thead>
+            <tbody id="paymentBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="center-panel security-note">
+        <div>
+          <h2>Privasi & keamanan</h2>
+          <p>Data sinkronisasi hanya dikaitkan ke akun Google yang sedang login. Token sesi mentah tidak disimpan di database; server menyimpan hash token.</p>
+        </div>
+        <button id="logoutAccount" type="button" class="danger">Keluar dari akun ini</button>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/account.js?v=20260926-2"></script>
+  <script type="module" src="/account-center/app.js"></script>
+</body>
+</html>
