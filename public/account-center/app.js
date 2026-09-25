@@ -22,19 +22,14 @@ async function api(path,options={}){
 function gate(text,state='info'){const el=$('#accountGate');el.hidden=false;el.textContent=text;el.dataset.state=state;$('#accountApp').hidden=true;}
 function renderProfile(summary){
   const user=summary.user||{},membership=user.membership||{};
-  const rank=user.role==='admin'?'immortal':membership.active?'glory':'bronze';
-  const rankLabel=rank==='immortal'?'IMMORTAL':rank==='glory'?'GLORY':'BRONZE';
-  const card=$('.profile-card');
-  card?.classList.remove('tier-immortal','tier-glory','tier-bronze');
-  card?.classList.add('tier-'+rank);
-  $('#profileAvatar').className='profile-avatar-wrap tier-'+rank;
+  const aura=user.role==='admin'?'immortal':membership.active?'glory':'bronze';
+  const statusLabel=user.role==='admin'?'Admin':membership.active?'Member':'Freezer';
+  $('#profileAvatar').className='profile-avatar-wrap avatar-aura-'+aura;
   $('#profileAvatar').innerHTML=user.picture?'<img class="profile-avatar-img" src="'+esc(user.picture)+'" alt="" referrerpolicy="no-referrer">':'<span class="profile-avatar-fallback">'+esc(initials(user))+'</span>';
   $('#profileName').textContent=user.name||'Pengguna';
   $('#profileEmail').textContent=user.email||'';
-  const role=$('#roleBadge');role.textContent=user.role==='admin'?'Admin':'User';role.className='badge '+(user.role==='admin'?'admin':'');
-  const member=$('#membershipBadge');
-  member.textContent=rankLabel;
-  member.className='badge rank-badge '+rank;
+  const role=$('#roleBadge');role.textContent=statusLabel;role.className='badge status-badge '+(user.role==='admin'?'admin':membership.active?'member':'freezer');
+  const member=$('#membershipBadge');member.hidden=true;member.textContent='';
   $('#upgradeMembership').hidden=user.role==='admin';
   $('#cancelMembership').hidden=user.role==='admin'||!membership.active;
   $('#metricDatasets').textContent=Number(summary.usage?.datasetCount||0).toLocaleString('id-ID');
