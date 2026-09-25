@@ -10,6 +10,9 @@ export function datasetBytes(content){return encoder.encode(String(content??''))
 export function shouldOffloadDataset(content,threshold=OFFLOAD_THRESHOLD_BYTES){return datasetBytes(content)>=threshold;}
 export function localPointer(name){return LOCAL_POINTER_PREFIX+encodeURIComponent(String(name||'dataset.csv'));}
 export function isLocalPointer(value){return String(value||'').startsWith(LOCAL_POINTER_PREFIX);}
+export async function requestPersistentStorage(){
+  try{return Boolean(await globalThis.navigator?.storage?.persist?.());}catch{return false;}
+}
 
 function openDb(){
   if(typeof indexedDB==='undefined')return Promise.reject(Error('IndexedDB tidak tersedia.'));
