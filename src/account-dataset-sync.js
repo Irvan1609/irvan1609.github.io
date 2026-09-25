@@ -269,6 +269,7 @@ function setSyncStatus(text,state='idle'){
 function scheduleSync(delay=SYNC_DEBOUNCE_MS){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
+  if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   retryTimer=setTimeout(()=>syncNow(),delay);
 }
 function queuePatch(name,patch){
@@ -405,6 +406,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 }
 async function syncNow({manual=false}={}){
   if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
+  if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   if(document.hidden&&!manual)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
@@ -535,6 +537,7 @@ export function installAccountDatasetSync(){
     if([FILES_KEY,META_KEY,CATEGORY_KEY,TREATMENT_KEY].includes(event.key))scheduleSync(2200);
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed)scheduleSync(900);});
+  window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
   window.addEventListener('online',()=>scheduleSync(900));
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
