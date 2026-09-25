@@ -1,4 +1,4 @@
-const VERSION='20260926-1';
+const VERSION='20260926-light-1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -6,34 +6,12 @@ const CACHE_PREFIX='agrotik-';
 
 const CORE_URLS=[
   '/',
-  '/stat/',
-  '/hitung-cabai/',
-  '/kamera-pengukur/',
-  '/mendeley/',
-  '/print-skripsi/',
   '/offline.html',
   '/manifest.webmanifest',
-  '/pwa-register.js',
-  '/subweb-header.css',
-  '/account.css?v=20260926-4',
   '/icons/agrotik.svg'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
-const OFFLINE_LIBS=[
-  'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/jszip.min.js'
-];
-const ORT_BASE='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-const ORT_ASSETS=[
-  ORT_BASE+'ort.min.js',
-  ORT_BASE+'ort-wasm-simd-threaded.mjs',
-  ORT_BASE+'ort-wasm-simd-threaded.wasm',
-  ORT_BASE+'ort-wasm-simd-threaded.jsep.mjs',
-  ORT_BASE+'ort-wasm-simd-threaded.jsep.wasm'
-];
 
 function sameOrigin(url){return url.origin===self.location.origin;}
 function cacheableResponse(response){return response&&(response.ok||response.type==='opaque');}
@@ -63,20 +41,12 @@ async function put(cacheName,request,response){
   const cache=await caches.open(cacheName);
   await cache.put(request,response.clone());
 }
-async function warmResource(input,depth=0,seen=new Set()){
+async function warmResource(input){
   const url=new URL(input,self.location.origin);
-  if(!sameOrigin(url)||skipSameOriginPath(url.pathname)||seen.has(url.href))return;
-  seen.add(url.href);
+  if(!sameOrigin(url)||skipSameOriginPath(url.pathname))return;
   try{
-    const response=await fetch(url.href,{cache:'reload'});
-    if(!cacheableResponse(response))return;
-    await put(CORE_CACHE,url.href,response);
-    if(depth>=3)return;
-    const type=response.headers.get('content-type')||'';
-    if(!/(text\/html|text\/css|javascript|json)/i.test(type))return;
-    const text=await response.clone().text();
-    const refs=extractRefs(text,response.url||url.href);
-    await Promise.allSettled(refs.map(ref=>warmResource(ref,depth+1,seen)));
+    const response=await fetch(url.href);
+    if(cacheableResponse(response))await put(CORE_CACHE,url.href,response);
   }catch{}
 }
 async function cacheExternal(url){
@@ -91,27 +61,6 @@ async function cacheExternal(url){
       if(cacheableResponse(response))await put(THIRD_PARTY_CACHE,url,response);
     }catch{}
   }
-}
-async function warmChiliOffline(){
-  const manifestUrl=new URL('/hitung-cabai/model-manifest.json',self.location.origin);
-  let info=null;
-  try{
-    const response=await fetch(manifestUrl.href,{cache:'reload'});
-    if(cacheableResponse(response)){
-      await put(CORE_CACHE,manifestUrl.href,response);
-      info=await response.clone().json().catch(()=>null);
-    }
-  }catch{}
-  if(info?.enabled&&info.modelUrl){
-    try{
-      const modelUrl=new URL(info.modelUrl,manifestUrl.href);
-      if(sameOrigin(modelUrl)){
-        const response=await fetch(modelUrl.href);
-        if(cacheableResponse(response))await put(RUNTIME_CACHE,modelUrl.href,response);
-      }
-    }catch{}
-  }
-  await Promise.allSettled(ORT_ASSETS.map(cacheExternal));
 }
 async function matchIgnoreSearch(request){
   const direct=await caches.match(request);
@@ -154,7 +103,6 @@ async function thirdPartyResponse(request){
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
     await Promise.allSettled(CORE_URLS.map(url=>warmResource(url)));
-    await Promise.allSettled(OFFLINE_LIBS.map(cacheExternal));
     await self.skipWaiting();
   })());
 });
@@ -190,8 +138,5 @@ self.addEventListener('message',event=>{
   if(data.type==='WARM_ROUTE'){
     event.waitUntil(warmResource(data.url||'/'));
     return;
-  }
-  if(data.type==='WARM_CHILI'){
-    event.waitUntil(warmChiliOffline());
   }
 });
