@@ -53,7 +53,7 @@ function factorialHtml(report){
   }).join('');
   const aName=metadataFactor(report,'a','Faktor A'),bName=metadataFactor(report,'b','Faktor B');
   const note=[methodNote(report,[interaction,compA,compB].filter(Boolean)),metadataNote(report)].filter(Boolean).join(' ');
-  return `<section class="bab4-result" data-bab4-table><div class="publication-table-tools"><button type="button" data-result-action="copy-publication">Salin tabel</button></div><div class="table-caption">Tabel hasil BAB IV. Rata-rata ${esc(measureName(report))} pada berbagai ${esc(aName)} dan ${esc(bName)}</div><div class="table-scroll"><table class="result-table bab4-table"><thead><tr><th>${esc(bName)} \\ ${esc(aName)}</th>${A.map(a=>`<th>${esc(a)}</th>`).join('')}<th>Rata-rata</th></tr></thead><tbody>${bRows}<tr><th scope="row">Rata-rata</th>${aRow}<td data-number="${report.grand}">${fmt(report.grand,2)}</td></tr></tbody></table></div><div class="analysis-note">${esc(note)}</div></section>`;
+  return `<section class="bab4-result" data-bab4-table><div class="publication-table-tools"><button type="button" data-result-action="copy-publication">Salin ke Word</button></div><div class="table-caption">Tabel hasil BAB IV. Rata-rata ${esc(measureName(report))} pada berbagai ${esc(aName)} dan ${esc(bName)}</div><div class="table-scroll"><table class="result-table bab4-table"><thead><tr><th>${esc(bName)} \\ ${esc(aName)}</th>${A.map(a=>`<th>${esc(a)}</th>`).join('')}<th>Rata-rata</th></tr></thead><tbody>${bRows}<tr><th scope="row">Rata-rata</th>${aRow}<td data-number="${report.grand}">${fmt(report.grand,2)}</td></tr></tbody></table></div><div class="analysis-note">${esc(note)}</div></section>`;
 }
 function oneFactorHtml(report){
   const comparison=(report.comparisons||[]).find(c=>c.title==='Perlakuan')||(report.comparisons||[])[0];
@@ -61,7 +61,7 @@ function oneFactorHtml(report){
   const factor=metadataFactor(report,'a','Perlakuan');
   const rows=comparison.items.map(item=>`<tr><th scope="row">${esc(item.label)}</th><td>${valueCell(item)}</td><td>${esc(describeLevel(report,'a',item.label,{withCode:false})||'—')}</td></tr>`).join('');
   const note=[methodNote(report,[comparison]),metadataNote(report)].filter(Boolean).join(' ');
-  return `<section class="bab4-result" data-bab4-table><div class="publication-table-tools"><button type="button" data-result-action="copy-publication">Salin tabel</button></div><div class="table-caption">Tabel hasil BAB IV. Rata-rata ${esc(measureName(report))} pada berbagai ${esc(factor)}</div><div class="table-scroll"><table class="result-table bab4-table"><thead><tr><th>${esc(factor)}</th><th>Rata-rata</th><th>Keterangan perlakuan</th></tr></thead><tbody>${rows}</tbody></table></div><div class="analysis-note">${esc(note)}</div></section>`;
+  return `<section class="bab4-result" data-bab4-table><div class="publication-table-tools"><button type="button" data-result-action="copy-publication">Salin ke Word</button></div><div class="table-caption">Tabel hasil BAB IV. Rata-rata ${esc(measureName(report))} pada berbagai ${esc(factor)}</div><div class="table-scroll"><table class="result-table bab4-table"><thead><tr><th>${esc(factor)}</th><th>Rata-rata</th><th>Keterangan perlakuan</th></tr></thead><tbody>${rows}</tbody></table></div><div class="analysis-note">${esc(note)}</div></section>`;
 }
 export function renderBab4Table(report){
   return ['fral','frak','split'].includes(report.design)?factorialHtml(report):oneFactorHtml(report);
