@@ -828,8 +828,8 @@ function showDatasetMetadata(){
   }).join('');
   openDatasetView('Metadata dataset',`<div class="dataset-meta-summary"><b>${esc(datasetName)}</b><span>Tanaman: ${esc(meta.plant||'—')}</span><span>Perlakuan: ${esc(meta.treatment||'—')}</span><span>${state.rows.length} baris × ${state.headers.length} kolom</span></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Kode</th><th>Nama lengkap</th><th>Satuan</th><th>Tipe</th><th>Arti kategori</th></tr></thead><tbody>${rows}</tbody></table></div>`);
 }
-function restoreHistoryEntry(index){
-  const key=displayDatasetName(state.active),all=editorHistoryStore(),entry=all[key]?.[index];if(!entry)return;
+function applyHistoryEntry(entry){
+  if(!entry)return;
   if(!confirm(`Pulihkan versi ${new Date(entry.date).toLocaleString('id-ID')}? Data saat ini tetap masuk ke riwayat.`))return;
   pushUndo('pulihkan riwayat');recordEditorHistory('sebelum pemulihan',true);
   const parsed=entry.csv?.trim()?csvRows(entry.csv,','):[];
@@ -837,10 +837,23 @@ function restoreHistoryEntry(index){
   try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
   persist('pulihkan riwayat',true);renderGrid();renderDatasetMeta();$('#datasetViewModal').classList.remove('open');setStatus('✓ Versi lama dipulihkan.');
 }
-function showDatasetHistory(){
-  const key=displayDatasetName(state.active),entries=editorHistoryStore()[key]||[];
-  openDatasetView('Riwayat perubahan',entries.length?`<p class="form-help">Maksimal 12 versi lokal per dataset. Riwayat ini hanya tersimpan di browser ini.</p><div class="editor-history-list">${entries.map((entry,index)=>`<button type="button" data-restore-history="${index}"><b>${esc(new Date(entry.date).toLocaleString('id-ID'))}</b><span>${esc(entry.reason||'perubahan')}</span></button>`).join('')}</div>`:'<p>Belum ada riwayat perubahan.</p>');
-  $('#datasetViewBody').querySelectorAll('[data-restore-history]').forEach(button=>button.onclick=()=>restoreHistoryEntry(Number(button.dataset.restoreHistory)));
+function restoreHistoryEntry(index){
+  const key=displayDatasetName(state.active),all=editorHistoryStore(),entry=all[key]?.[index];applyHistoryEntry(entry);
+}
+async function showDatasetHistory(){
+  const key=displayDatasetName(state.active),small=editorHistoryStore()[key]||[];
+  let large=[];
+  if(localStoreReady())large=await listLocalSnapshots(state.active,12).catch(()=>[]);
+  const entries=[
+    ...small.map((entry,index)=>({...entry,source:'small',index})),
+    ...large.map(entry=>({...entry,source:'large'}))
+  ].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,12);
+  openDatasetView('Riwayat perubahan',entries.length?`<p class="form-help">Versi lokal disimpan di perangkat ini.</p><div class="editor-history-list">${entries.map((entry,index)=>`<button type="button" data-history-entry="${index}"><b>${esc(new Date(entry.date).toLocaleString('id-ID'))}</b><span>${esc(entry.reason||'perubahan')}</span></button>`).join('')}</div>`:'<p>Belum ada riwayat perubahan.</p>');
+  $('#datasetViewBody').querySelectorAll('[data-history-entry]').forEach(button=>button.onclick=async()=>{
+    const entry=entries[Number(button.dataset.historyEntry)];if(!entry)return;
+    if(entry.source==='large'){const full=await getLocalSnapshot(entry.id).catch(()=>null);applyHistoryEntry(full);}
+    else restoreHistoryEntry(entry.index);
+  });
 }
 function toggleCompactEditor(){
   const enabled=!document.documentElement.classList.contains('compact-data-editor');
@@ -900,7 +913,8 @@ function installDataGrid(){
       let name=base+'.csv',suffix=2;
       const names=new Set(Object.keys(state.files).map(x=>x.toLowerCase()));
       while(names.has(name.toLowerCase()))name=`${base} (${suffix++}).csv`;
-      const files={...state.files,[name]:serializeRows(headers,rows)},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim()}};
+      const csv=serializeRows(headers,rows),value=localStoreReady()&&shouldOffloadDataset(csv)?localPointer(name):csv;
+      const files={...state.files,[name]:value},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim()}};
       const previousFiles=localStorage.getItem(FILES_KEY),previousActive=localStorage.getItem(ACTIVE_KEY),previousMeta=localStorage.getItem(META_KEY);
       try{localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,name);localStorage.setItem(META_KEY,JSON.stringify(meta));}
       catch(error){
@@ -908,6 +922,7 @@ function installDataGrid(){
         throw error;
       }
       state.files=files;state.active=name;state.headers=headers;state.rows=rows;state.meta=meta;
+      if(localStoreReady()&&isLocalPointer(value))void saveLocalDataset(name,csv).catch(error=>showError('Dataset besar gagal disimpan.',error));
       notifyDatasetChange({type:'upsert',name,reason:'impor'});
       clearError();renderTree();renderGrid();renderDatasetMeta();
       detail.importResult={ok:true,name};
