@@ -136,7 +136,8 @@ function observationParts(value){
 }
 
 function candidateKeys(value){
-  const key=normalizeAgronomicAlias(value),keys=[key];
+  const raw=clean(value).replace(/\s*\([^()]*\)\s*$/,'');
+  const key=normalizeAgronomicAlias(raw),keys=[key];
   const withoutTrailingUnit=key.replace(/\s+(?:cm2|cm²|cm|mm|meter|m|gram|g|kg|persen|%|days?|hari|leaves|helai|rows?|baris|kernels?|biji)$/i,'').trim();
   if(withoutTrailingUnit&&withoutTrailingUnit!==key)keys.push(withoutTrailingUnit);
   return [...new Set(keys.filter(Boolean))];
