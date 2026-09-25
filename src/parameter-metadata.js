@@ -1,3 +1,5 @@
+import {resolveAgronomicParameter} from './agronomic-data-dictionary.js';
+
 const clean=value=>String(value??'').trim();
 
 function splitUnit(text){
@@ -13,7 +15,15 @@ export function normalizeParameterUnit(value){
   return clean(wrapped?wrapped[1]:unit);
 }
 
-export function parseParameterHeader(header){
+export function detectParameterHeader(header,{datasetName=''}={}){
+  const raw=clean(header);
+  if(!raw||raw.includes('|'))return null;
+  const plain=splitUnit(raw),detected=resolveAgronomicParameter(plain.text,{datasetName});
+  if(!detected)return null;
+  return {...detected,raw,unit:plain.unit||detected.unit};
+}
+
+export function parseParameterHeader(header,{datasetName=''}={}){
   const raw=clean(header);
   if(!raw)return {raw:'',code:'',name:'',unit:''};
   const divider=raw.indexOf('|');
@@ -21,7 +31,8 @@ export function parseParameterHeader(header){
     const code=clean(raw.slice(0,divider)),detail=splitUnit(raw.slice(divider+1));
     return {raw,code,name:detail.text,unit:detail.unit};
   }
-  const plain=splitUnit(raw);
+  const plain=splitUnit(raw),detected=resolveAgronomicParameter(plain.text,{datasetName});
+  if(detected)return {raw,code:detected.code,name:detected.name,unit:plain.unit||detected.unit};
   return {raw,code:plain.text||raw,name:'',unit:plain.unit};
 }
 
