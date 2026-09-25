@@ -214,7 +214,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
     delete sync.items[id];
     return;
   }
-  const remoteChanged=Number(remote.revision)!==Number(track.revision)||normalizeFileName(remote.name)!==normalizeFileName(track.name);
+  const remoteChanged=Number(remote.revision)!==Number(track.revision);
   const localChanged=localExists?localHash!==track.hash:true;
 
   if(remote.deletedAt){
