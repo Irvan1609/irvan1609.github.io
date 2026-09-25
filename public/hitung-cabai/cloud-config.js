@@ -9,7 +9,7 @@ export const CHILI_CLOUD_CONFIG={
 export function cloudContributionReady(){
   return Boolean(
     CHILI_CLOUD_CONFIG.enabled &&
-    /^https:\/\/\/?/i.test(CHILI_CLOUD_CONFIG.endpoint) &&
+    /^https:\/\//i.test(CHILI_CLOUD_CONFIG.endpoint) &&
     CHILI_CLOUD_CONFIG.turnstileSiteKey
   );
 }
