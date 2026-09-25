@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {alignmentCheck} from '../public/kamera-pengukur/alignment.js';
+import {cameraGuide,installLiveCamera} from '../public/kamera-pengukur/live-camera.js';
 import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/kamera-pengukur/geometry.js';
 const p=[[45,30],[620,100],[590,910],[100,800]],h=homography(p);
 [[0,0],[WIDTH,0],[WIDTH,HEIGHT],[0,HEIGHT]].forEach((q,i)=>{const v=project(h,...q);assert.ok(Math.hypot(v[0]-p[i][0],v[1]-p[i][1])<1e-7);});
@@ -16,4 +18,50 @@ assert.throws(()=>detectMarkers({data,width:210,height:297}));
 const svg=fs.readFileSync('public/kamera-pengukur/kalibrator.svg','utf8');
 assert.match(svg,/width="210mm" height="297mm"/);
 assert.match(svg,/M55 271 H155/);
+// Printed patches must not be mistaken for position markers.
+const swatches=[...svg.matchAll(/<rect x="(\d+)" y="(229|241)" width="22" height="10" fill="#([0-9a-f]{6})"\/>/g)];
+assert.equal(swatches.length,12);
+const chart=new Uint8ClampedArray(210*297*4);chart.fill(255);
+for(const [x,y] of [[15,15],[195,15],[195,282],[15,282]])for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++)chart.set([208,0,208,255],((y+dy)*210+x+dx)*4);
+for(const [,x,y,hex] of swatches){
+  const rgb=hex.match(/../g).map(n=>parseInt(n,16));
+  for(let dy=0;dy<10;dy++)for(let dx=0;dx<22;dx++)chart.set([...rgb,255],((Number(y)+dy)*210+Number(x)+dx)*4);
+}
+assert.deepEqual(detectMarkers({data:chart,width:210,height:297}),[[15,15],[195,15],[195,282],[15,282]]);
+assert.equal(alignmentCheck([[0,0],[180,0],[180,267],[0,267]]).retake,false);
+assert.equal(alignmentCheck([[30,0],[150,0],[180,267],[0,267]]).retake,true);
+assert.equal(alignmentCheck([[0,0],[180,0],[180,150],[0,150]]).retake,true);
+assert.equal(alignmentCheck([]),null);
+assert.equal(alignmentCheck([[0,0],[0,0],[0,0],[0,0]]),null);
+const rotated=[[0,0],[180,0],[180,267],[0,267]].map(([x,y])=>[x*Math.cos(.3)-y*Math.sin(.3)+90,x*Math.sin(.3)+y*Math.cos(.3)+40]);
+assert.equal(alignmentCheck(rotated).retake,false);
+const target=cameraGuide(null,480,640).target;
+assert.equal(cameraGuide(target,480,640).ready,true);
+assert.equal(cameraGuide(null,480,640).ready,false);
+assert.equal(cameraGuide(target.map(([x,y])=>[x+60,y]),480,640).ready,false);
+assert.match(cameraGuide(target.map(([x,y])=>[240+(x-240)*.6,320+(y-320)*.6]),480,640).message,/Dekatkan/);
+assert.match(cameraGuide(target.map(([x,y])=>[240+(x-240)*1.2,320+(y-320)*1.2]),480,640).message,/Jauhkan/);
+// Closing while permission is pending must release the late-arriving stream.
+const elements=Object.fromEntries(['openLive','closeLive','takeLive','livePanel','liveVideo','liveOverlay','liveStatus'].map(id=>[id,{disabled:false,hidden:false,focus(){},getContext(){return {};},play:async()=>{}}]));
+const documentEvents={},windowEvents={};
+globalThis.document={getElementById:id=>elements[id],createElement:()=>({getContext:()=>({})}),addEventListener:(n,f)=>documentEvents[n]=f};
+globalThis.window={addEventListener:(n,f)=>windowEvents[n]=f};
+let resolveCamera,stopped=0;
+Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:options=>{
+  assert.equal(options.audio,false);
+  return new Promise(resolve=>resolveCamera=resolve);
+}}}});
+installLiveCamera(()=>assert.fail('No photo should be captured'));
+const opening=elements.openLive.onclick();
+elements.closeLive.onclick();
+resolveCamera({getTracks:()=>[{stop:()=>stopped++}]});
+await opening;
+assert.equal(stopped,1);
+assert.equal(elements.livePanel.hidden,true);
+assert.equal(elements.takeLive.disabled,true);
+navigator.mediaDevices.getUserMedia=async()=>{throw Object.assign(new Error(),{name:'NotAllowedError'});};
+await elements.openLive.onclick();
+assert.match(elements.liveStatus.textContent,/Izin kamera ditolak/);
+assert.equal(elements.openLive.disabled,false);
+windowEvents.pagehide();
 console.log('Camera tests OK: projective mapping, scale, marker detection, missing markers, invalid points, A4 dimensions.');

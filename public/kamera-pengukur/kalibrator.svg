@@ -511,7 +511,23 @@
 <path d="M26 281 h 1" stroke="black" stroke-width=".15"/>
 <path d="M26 282 h 1" stroke="black" stroke-width=".15"/>
 <text x="184" y="36" font-size="2.5">mm</text>
-<rect x="38" y="40" width="147" height="218" fill="none" stroke="#aaa" stroke-width=".2" stroke-dasharray="2 2"/>
+<rect x="38" y="40" width="147" height="180" fill="none" stroke="#aaa" stroke-width=".2" stroke-dasharray="2 2"/>
+<text x="111" y="226" text-anchor="middle" font-size="3">ACUAN WARNA RELATIF · v2 · jangan tutupi petak</text>
+<g id="color-reference" stroke="#222" stroke-width=".15">
+<rect x="40" y="229" width="22" height="10" fill="#c83228"/>
+<rect x="64" y="229" width="22" height="10" fill="#e89024"/>
+<rect x="88" y="229" width="22" height="10" fill="#e6ce32"/>
+<rect x="112" y="229" width="22" height="10" fill="#368552"/>
+<rect x="136" y="229" width="22" height="10" fill="#32a8b4"/>
+<rect x="160" y="229" width="22" height="10" fill="#305aa0"/>
+<rect x="40" y="241" width="22" height="10" fill="#ffffff"/>
+<rect x="64" y="241" width="22" height="10" fill="#cccccc"/>
+<rect x="88" y="241" width="22" height="10" fill="#999999"/>
+<rect x="112" y="241" width="22" height="10" fill="#666666"/>
+<rect x="136" y="241" width="22" height="10" fill="#333333"/>
+<rect x="160" y="241" width="22" height="10" fill="#000000"/>
+</g>
+<text x="111" y="256" text-anchor="middle" font-size="2.5">Gunakan lembar yang sama. Bukan standar warna terukur.</text>
 <text x="111" y="263" text-anchor="middle" font-size="3">Letakkan objek di area tengah. Jangan tutupi penanda.</text>
 <path d="M55 271 H155 M55 268 V274 M155 268 V274" stroke="black" stroke-width=".3"/>
 <text x="105" y="279" font-size="3" text-anchor="middle">CEK CETAK: garis ini harus 100 mm</text>
