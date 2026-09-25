@@ -1138,3 +1138,67 @@ button{font-weight:650}
   .save-indicator{font-size:11.5px}
   .dataset-sync-bar{font-size:11px}
 }
+
+
+/* SIMPLIFIED DATA WORKSPACE 2026-09-26 */
+.app-header{border-radius:12px}
+.app-header .nav{padding:12px 14px;gap:6px}
+.main{margin-top:10px}
+.grid-container{max-height:74vh;min-height:320px}
+
+/* No frozen table rows/columns. */
+.data-grid thead th,
+.data-grid thead th:first-child,
+.data-grid thead th:nth-child(2),
+.data-grid tbody td:first-child,
+.data-grid tbody td:nth-child(2){
+  position:static!important;left:auto!important;top:auto!important;z-index:auto!important;
+}
+.data-grid tbody td:nth-child(2){border-right:1px solid #e1e6ed}
+
+/* Inline dataset metadata: click the value and type. */
+.dataset-meta-compact{margin-left:auto}
+.dataset-meta-summaryline>span{padding:3px 6px;gap:4px;background:transparent;border-color:transparent;font-size:11.5px}
+.dataset-meta-summaryline b{font-size:10.5px;color:#6c7c89;text-transform:uppercase;letter-spacing:.035em}
+.dataset-meta-inline{
+  min-width:24px;max-width:260px;padding:2px 4px;border-radius:5px;color:#263f53;
+  font-weight:700;cursor:text;outline:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.dataset-meta-inline:hover{background:#eef4f7}
+.dataset-meta-inline:focus{background:#fff;box-shadow:0 0 0 2px #9fc1d8;white-space:normal}
+#datasetMetaEditor{display:none!important}
+
+/* Live type color. */
+.data-grid thead th.string-column{background:#e3f1e8!important;border-color:#c3d9ca}
+.data-grid td.string-column-cell{background:#f3f9f5}
+.data-grid tbody tr:nth-child(even) td.string-column-cell{background:#edf6f0}
+.data-grid td.string-column-cell.cell-selected{background:#edf5ff!important}
+
+/* Column reorder. */
+.column-drag-handle{
+  display:inline-grid;place-items:center;flex:0 0 20px;width:20px;height:28px;border-radius:5px;
+  color:#81909c;font-size:13px;line-height:1;letter-spacing:-3px;cursor:grab;user-select:none;touch-action:none
+}
+.column-drag-handle:hover,.column-drag-handle:focus{background:#dde7ee;color:#314e64;outline:none}
+.column-drag-handle:active{cursor:grabbing}
+.data-grid th.column-dragging{opacity:.55}
+.data-grid th.column-drop-target{box-shadow:inset 3px 0 0 #3c78a2}
+.header-controls{gap:4px}
+
+/* Less instructional text. */
+.empty-state{min-height:290px;padding:34px 16px}
+.empty-state h3{margin-bottom:3px}
+.empty-add-column{margin-top:8px!important}
+.status{padding:7px 11px;font-size:12px}
+.sheet-header{padding:10px 12px}
+.save-indicator{font-size:10.5px;padding:3px 7px}
+
+@media(max-width:720px){
+  .app-header .nav{padding:8px}
+  .grid-container{max-height:72vh;min-height:260px}
+  .dataset-meta-compact{width:100%;margin-left:0}
+  .dataset-meta-summaryline{justify-content:flex-start}
+  .dataset-meta-summaryline>span{max-width:100%}
+  .dataset-meta-inline{max-width:min(62vw,260px)}
+  .column-drag-handle{width:26px;height:32px;font-size:15px}
+}
