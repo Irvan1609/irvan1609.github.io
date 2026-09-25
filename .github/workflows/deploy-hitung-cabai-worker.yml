@@ -1,4 +1,5 @@
 name: Deploy Hitung Cabai Worker
+# Secret validation is intentionally rerunnable.
 
 on:
   push:
