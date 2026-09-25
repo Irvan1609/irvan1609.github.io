@@ -9,6 +9,12 @@ import {openPowerAnalysis} from './power-workflow.js';
 import {openStabilityIndices} from './stability-indices-workflow.js';
 import {installScientificWorkflow,openScientific} from './scientific-workflow.js';
 
+function phoneGuardMode(){
+  return globalThis.matchMedia?.('(max-width: 720px) and (pointer: coarse)')?.matches
+    || globalThis.matchMedia?.('(max-width: 720px)')?.matches
+    || false;
+}
+
 const analysisGroups=[
   {
     title:'Rancangan Percobaan',
@@ -110,7 +116,7 @@ export function installAnalysisFlow() {
   }
   function openMenu(){
     document.dispatchEvent(new Event('close-navigation'));
-    resetSelection();
+    if(phoneGuardMode())resetSelection();
     panel.hidden=false;
     open.setAttribute('aria-expanded','true');
     requestAnimationFrame(()=>panel.querySelector('.analysis-group-toggle')?.focus());
@@ -141,8 +147,8 @@ export function installAnalysisFlow() {
     if(confirm)confirm.disabled=false;
     if(selectedLabel)selectedLabel.textContent=button.querySelector('b')?.textContent||'Metode dipilih';
   };
-  const runSelected=()=>{
-    const button=selectedButton;if(!button)return;
+  const openButton=button=>{
+    if(!button)return;
     closeMenu();
     if(button.matches('[data-design]'))openScientific(button.dataset.design);
     else if(button.matches('[data-design-ext]'))openDesignExtension(button.dataset.designExt);
@@ -155,7 +161,11 @@ export function installAnalysisFlow() {
     else if(button.matches('[data-mixed]'))openMixedModel();
     resetSelection();
   };
-  panel.querySelectorAll('.analysis-menu-item').forEach(button=>button.addEventListener('click',()=>choose(button)));
+  const runSelected=()=>openButton(selectedButton);
+  panel.querySelectorAll('.analysis-menu-item').forEach(button=>button.addEventListener('click',()=>{
+    if(phoneGuardMode())choose(button);
+    else openButton(button);
+  }));
   confirm?.addEventListener('click',runSelected);
 
   document.addEventListener('close-navigation',closeMenu);
