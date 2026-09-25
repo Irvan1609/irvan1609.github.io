@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {decodeYoloOutput,nmsBoxes} from '../public/hitung-cabai/ml-detector.js';
 import {cloudContributionReady} from '../public/hitung-cabai/cloud-config.js';
 
-assert.equal(cloudContributionReady(),false);
+assert.equal(cloudContributionReady(),true);
 
 const candidates=nmsBoxes([
   {score:.9,box:[.1,.1,.2,.2]},
