@@ -34,3 +34,8 @@
 
 .subweb-header-inner>.account-widget{margin-left:auto}.wrap.nav>.account-widget{margin-left:0}body>header:not(.subweb-header)>.account-widget{margin-left:auto}
 @media(max-width:680px){.subweb-header-inner{gap:7px}.subweb-nav{flex:1 1 auto;min-width:0}.subweb-header-inner>.account-widget{margin-left:0}}
+
+.account-access-badge{display:inline-flex;align-items:center;width:max-content;margin-top:5px;padding:2px 6px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.02em}
+.account-access-badge.admin{background:#f3e7c7;color:#6e4b05}
+.account-access-badge.member{background:#e7f4ec;color:#246343}
+.account-access-badge.free{background:#eef2f5;color:#667786}
