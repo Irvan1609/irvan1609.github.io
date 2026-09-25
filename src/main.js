@@ -41,8 +41,9 @@ function notifyDatasetChange(detail={}){
 }
 function indicateSaved(){
   const el=$('#saveIndicator');if(!el)return;
-  el.textContent='✓ tersimpan';el.classList.add('visible');clearTimeout(saveIndicatorTimer);
-  saveIndicatorTimer=setTimeout(()=>el.classList.remove('visible'),1400);
+  el.textContent='Tersimpan di perangkat ini';
+  el.classList.add('visible');
+  clearTimeout(saveIndicatorTimer);
 }
 function parseTSV(text){return text.replace(/\r/g,'').split('\n').filter(line=>line.length>0).map(line=>line.split('\t'));}
 function displayDatasetName(name){return String(name||'dataset').replace(/\.(?:csv|txt)$/i,'');}
@@ -308,7 +309,17 @@ function bindColumnFormArrowNavigation(){
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;
   if(!state.headers.length){
-    wrap.innerHTML=`<div class="empty-state"><h3>${esc(displayDatasetName(state.active))}</h3><p>Tempel/impor data atau mulai dengan kolom baru.</p><button type="button" class="empty-add-column" data-add-col>+ Kolom</button></div>`;
+    wrap.innerHTML=`<div class="empty-state">
+      <div class="empty-state-icon" aria-hidden="true">▦</div>
+      <h3>Mulai isi ${esc(displayDatasetName(state.active))}</h3>
+      <p>Masukkan data dari Excel/CSV atau buka contoh agar format tabel langsung terlihat.</p>
+      <div class="empty-state-actions">
+        <button type="button" class="primary" data-empty-paste>Tempel dari Excel</button>
+        <button type="button" data-empty-import>Impor berkas</button>
+        <button type="button" data-empty-example>Coba contoh</button>
+      </div>
+      <button type="button" class="empty-add-column" data-add-col>Atau buat kolom kosong</button>
+    </div>`;
   }else{
     const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index])));
     wrap.innerHTML=`<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>${state.headers.map((h,j)=>{
@@ -330,6 +341,13 @@ function renderGrid(){
       pushUndo('hapus baris');state.rows.splice(i,1);persist('hapus baris',true);clearSelection();renderGrid();setStatus('Baris dihapus.');
     });
   }
+  wrap.querySelector('[data-empty-paste]')?.addEventListener('click',openModal);
+  wrap.querySelector('[data-empty-import]')?.addEventListener('click',()=>$('#quickImportFile')?.click());
+  wrap.querySelector('[data-empty-example]')?.addEventListener('click',()=>{
+    const first=document.querySelector('#exampleDatasets [data-example-id]');
+    if(first)first.click();
+    else $('#dataTemplate')?.click();
+  });
   wrap.querySelectorAll('[data-add-row]').forEach(button=>button.onclick=addRow);
   wrap.querySelectorAll('[data-add-col]').forEach(button=>button.onclick=addColumn);
   if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
@@ -343,10 +361,28 @@ function closeModal(){$('#pasteModal').classList.remove('open');}
 function previewPaste(){const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';}
 function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');pushUndo('tempel dataset');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?validateColumnNames(a[0]):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist('tempel dataset',true);clearSelection();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${displayDatasetName(state.active)}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
 async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');pushUndo('impor CSV');state.headers=validateColumnNames(a[0]);state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist('impor CSV',true);clearSelection();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
+function quickImport(event){
+  const input=event.target,file=input.files?.[0];input.value='';if(!file)return;
+  const isXlsx=/\.xlsx$/i.test(file.name)||file.type==='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const target=isXlsx?$('#xlsxInput'):$('#file');
+  if(!target)return showError(isXlsx?'Impor Excel belum siap. Muat ulang halaman lalu coba lagi.':'Impor CSV belum siap.');
+  try{
+    const transfer=new DataTransfer();transfer.items.add(file);target.files=transfer.files;
+    target.dispatchEvent(new Event('change',{bubbles:true}));
+  }catch(error){
+    showError('Berkas belum dapat diteruskan ke pengimpor. Gunakan tombol impor pada toolbar.',error);
+  }
+}
 function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=[];state.rows=[];state.meta[name]={plant:'',treatment:''};persist();try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}loadActive(false);setStatus(`✓ ${displayDatasetName(name)} dibuat.`);}
 function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');pushUndo('tambah baris');state.rows.push(state.headers.map(()=>''));persist('tambah baris',true);renderGrid();setStatus('✓ Baris baru ditambahkan.');}
 function addColumn(){pushUndo('tambah kolom');if(!state.headers.length)state.rows=[];state.headers.push(nextColumnName(state.headers));state.rows.forEach(r=>r.push(''));persist('tambah kolom',true);renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
-function clearData(){const filled=state.rows.reduce((sum,row)=>sum+row.filter(value=>String(value??'').trim()!=='').length,0);if(!confirm(`Hapus seluruh isi ${displayDatasetName(state.active)}${filled?` (${filled} nilai)`:''}?`))return;pushUndo('kosongkan dataset');state.headers=[];state.rows=[];persist('kosongkan dataset',true);clearSelection();renderGrid();setStatus(`✓ Isi ${displayDatasetName(state.active)} dikosongkan.`);}
+function clearData(){
+  const name=displayDatasetName(state.active),filled=state.rows.reduce((sum,row)=>sum+row.filter(value=>String(value??'').trim()!=='').length,0);
+  const scope=filled?`${filled} nilai pada ${state.rows.length} baris × ${state.headers.length} kolom`:'seluruh struktur tabel yang masih kosong';
+  if(!confirm(`Kosongkan seluruh isi dataset “${name}”?\n\nCakupan: ${scope}.\nDataset tetap ada. Setelah tindakan ini Anda dapat menekan Ctrl+Z untuk memulihkan isi selama sesi ini.`))return;
+  pushUndo('kosongkan dataset');state.headers=[];state.rows=[];persist('kosongkan dataset',true);clearSelection();renderGrid();
+  setStatus(`Isi “${name}” dikosongkan. Tekan Ctrl+Z untuk memulihkan selama sesi ini.`);
+}
 function renameDataset() {
   $('#datasetName').value=displayDatasetName(state.active);
   $('#datasetNameError').hidden=true;
@@ -373,7 +409,16 @@ function saveDatasetName(event) {
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
 }
-function deleteDataset(){const name=displayDatasetName(state.active),detail=state.rows.length||state.headers.length?` (${state.rows.length} baris × ${state.headers.length} kolom)`:'';if(!confirm(`Hapus ${name}${detail}? Tindakan ini tidak dapat dibatalkan.`))return;const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}persist('hapus dataset',false);notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus('✓ Dataset dihapus.');}
+function deleteDataset(){
+  const name=displayDatasetName(state.active),rows=state.rows.length,cols=state.headers.length;
+  const detail=rows||cols?`${rows} baris × ${cols} kolom beserta metadata dan riwayat lokal`:'dataset kosong beserta metadata dan riwayat lokal';
+  if(!confirm(`Hapus dataset “${name}” secara permanen dari perangkat ini?\n\nCakupan: ${detail}.\nTindakan ini tidak dapat diurungkan.`))return;
+  const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
+  try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}
+  state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';
+  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
+  persist('hapus dataset',false);notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus(`Dataset “${name}” dihapus dari perangkat ini.`);
+}
 function downloadDataset(){const blob=new Blob([serialize()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=state.active;a.click();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus(`✓ ${displayDatasetName(state.active)} diunduh.`);}
 function duplicateDataset(){
   const source=state.active,base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
@@ -508,7 +553,7 @@ function installDataGrid(){
       showError('Gagal membuat dataset.',error);
     }
   });
-  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#focusData').onclick=toggleFocusMode;$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#toggleDatasetMeta').onclick=()=>toggleDatasetMetaEditor();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;$('#plantName').addEventListener('focus',()=>pushUndo('metadata'));$('#treatmentName').addEventListener('focus',()=>pushUndo('metadata'));$('#plantName').oninput=saveDatasetMeta;$('#treatmentName').oninput=saveDatasetMeta;bindColumnFormArrowNavigation();installEditorShortcuts();
+  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#focusData').onclick=toggleFocusMode;$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#toggleDatasetMeta').onclick=()=>toggleDatasetMetaEditor();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;$('#plantName').addEventListener('focus',()=>pushUndo('metadata'));$('#treatmentName').addEventListener('focus',()=>pushUndo('metadata'));$('#plantName').oninput=saveDatasetMeta;$('#treatmentName').oninput=saveDatasetMeta;bindColumnFormArrowNavigation();installEditorShortcuts();
   const rootClassList=document.documentElement?.classList,compactSaved=localStorage.getItem(COMPACT_KEY)==='1',focusSaved=localStorage.getItem(FOCUS_KEY)==='1';rootClassList?.toggle?.('compact-data-editor',compactSaved);if($('#compactEditor'))$('#compactEditor').textContent=rootClassList?.contains?.('compact-data-editor')?'Normal':'Ringkas';applyFocusMode(focusSaved);
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
