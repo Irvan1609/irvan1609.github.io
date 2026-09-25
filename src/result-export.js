@@ -130,7 +130,7 @@ export function installResultExport() {
     const button = event.target.closest('[data-result-action]');
     if (!button) return;
     const action=button.dataset.resultAction,isAll=action==='export-all'||action==='export-all-formula';
-    const scope = isAll?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
+    const scope = action==='copy-publication'?button.closest('[data-bab4-table]'):isAll?button.closest('[data-all-results]'):button.closest('[data-export-scope]');
     if (!scope) return;
     const status = document.querySelector('#status');
     const feedback=button.closest('.result-actions')?.querySelector('.export-status');
@@ -140,7 +140,10 @@ export function installResultExport() {
     button.disabled=true;
     button.textContent='Memproses…';
     try {
-      if(action==='copy-interpretation'){
+      if(action==='copy-publication'){
+        await copyScope(scope);
+        message('Tabel disalin.');
+      } else if(action==='copy-interpretation'){
         const block=button.closest('[data-chapter-interpretation]');
         const text=[...(block?.querySelectorAll('.interpretation-paragraph')||[])].map(el=>el.textContent.trim()).filter(Boolean).join('\n\n');
         if(!text)throw Error('Interpretasi belum tersedia.');
