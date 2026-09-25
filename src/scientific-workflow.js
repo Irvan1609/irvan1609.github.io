@@ -552,7 +552,7 @@ export function openScientific(design){
   $('#scientificModal').classList.add('open');
   validate();
 }
-function openScientificRecipe(recipe){
+export function openScientificRecipe(recipe){
   if(!recipe?.design)return;
   const source=globalThis.StatisticalWebData?.readActiveDataset?.(),expected=String(recipe.dataset||'').toLowerCase(),current=String(source?.fileName||'').toLowerCase();
   if(expected&&current&&expected!==current){alert(`Recipe ini dibuat untuk ${recipe.dataset}. Buka dataset tersebut terlebih dahulu.`);return;}
@@ -600,5 +600,4 @@ export function installScientificWorkflow(){
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
   installDriveBackup();
-  document.addEventListener('agrotik-run-recipe',event=>openScientificRecipe(event.detail?.recipe));
 }
