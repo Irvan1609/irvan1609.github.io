@@ -7,7 +7,35 @@ let pollTimer=null;
 let plans=[];
 let qrisObjectUrl='';
 let currentQrUrl='';
+let successAudioContext=null;
+let successHandledOrder='';
 
+function armSuccessSound(){
+  try{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)return;
+    if(!successAudioContext)successAudioContext=new AudioCtx();
+    if(successAudioContext.state==='suspended')successAudioContext.resume().catch(()=>{});
+  }catch{}
+}
+function playSuccessSound(){
+  try{
+    armSuccessSound();
+    const ctx=successAudioContext;
+    if(!ctx)return;
+    const start=ctx.currentTime+.02;
+    [[659.25,0,.18],[783.99,.16,.18],[987.77,.32,.34]].forEach(([frequency,offset,duration])=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type='sine';osc.frequency.value=frequency;
+      gain.gain.setValueAtTime(.0001,start+offset);
+      gain.gain.exponentialRampToValueAtTime(.14,start+offset+.025);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+offset+duration);
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.start(start+offset);osc.stop(start+offset+duration+.03);
+    });
+    if(navigator.vibrate)navigator.vibrate([70,45,110]);
+  }catch{}
+}
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function token(){return window.IrvanAccount?.getToken?.()||'';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
@@ -79,10 +107,12 @@ async function showQrImage(orderId,fallbackUrl=''){
     $('#qrisMessage').textContent='Transaksi dibuat, tetapi Midtrans belum memberikan gambar QRIS.';
   }
 }
-function openModal(){const m=$('#qrisModal');m.hidden=false;m.querySelector('.qris-modal')?.classList.remove('success');$('#qrisCheck').hidden=false;$('#qrisDone').textContent='Tutup';}
+function openModal(){const m=$('#qrisModal');m.hidden=false;const modal=m.querySelector('.qris-modal');modal?.classList.remove('success','success-reveal');$('#qrisSuccessIcon').hidden=true;$('#qrisCheck').hidden=false;$('#qrisDone').textContent='Tutup';const eyebrow=$('#qrisEyebrow');if(eyebrow)eyebrow.textContent='QRIS';}
 function closeModal(){clearTimeout(pollTimer);pollTimer=null;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
+  armSuccessSound();
+  successHandledOrder='';
   openModal();$('#qrisMessage').textContent='Membuat QRIS…';$('#qrisImage').hidden=true;$('#qrisOrder').textContent='';
   try{
     const data=await api('/v1/membership/payments',{method:'POST',body:JSON.stringify({planId})});
@@ -103,15 +133,22 @@ async function checkPayment(){
     if(data.qrUrl&&!currentQrUrl){currentQrUrl=String(data.qrUrl);$('#qrisCopyUrl').hidden=false;}
     if(data.paid&&data.applied){
       clearTimeout(pollTimer);pollTimer=null;
+      if(successHandledOrder!==currentOrder){
+        successHandledOrder=currentOrder;
+        playSuccessSound();
+      }
       const modal=$('#qrisModal .qris-modal');
-      modal?.classList.add('success');
-      $('#qrisTitle').textContent='Selamat! Anda sudah menjadi member 🎉';
-      $('#qrisMessage').textContent='Pembayaran berhasil. Membership Anda aktif sampai '+dateText(data.expiresAt)+'. Semua manfaat membership sekarang sudah dapat digunakan.';
       $('#qrisImage').hidden=true;
       $('#qrisCopyUrl').hidden=true;
       $('#qrisCheck').hidden=true;
+      $('#qrisOrder').textContent='';
+      const eyebrow=$('#qrisEyebrow');if(eyebrow)eyebrow.textContent='Pembayaran berhasil';
+      $('#qrisSuccessIcon').hidden=false;
+      $('#qrisTitle').textContent='Selamat! Anda sudah menjadi member 🎉';
+      $('#qrisMessage').textContent='Membership Anda aktif sampai '+dateText(data.expiresAt)+'. Cloud Sync dan seluruh manfaat membership sekarang sudah dapat digunakan.';
       $('#qrisDone').textContent='Mulai menggunakan membership';
-      $('#qrisOrder').textContent='Membership aktif ✓';
+      modal?.classList.add('success');
+      requestAnimationFrame(()=>modal?.classList.add('success-reveal'));
       await window.IrvanAccount?.refresh?.();
       await loadAll();
       return true;
