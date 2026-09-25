@@ -20,6 +20,10 @@ on:
           - "1"
           - "2"
           - "3"
+  push:
+    branches: [master]
+    paths:
+      - ".ml-smoke-trigger"
 
 permissions:
   contents: read
@@ -36,6 +40,8 @@ jobs:
       CHILI_ADMIN_TOKEN: ${{ secrets.CHILI_ADMIN_TOKEN }}
       ROBOFLOW_API_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
       ROBOFLOW_DATASET_ID: ${{ vars.ROBOFLOW_DATASET_ID || 'andis-workspace-gtt7i/chili-dem2l/1' }}
+      SMOKE_SOURCE: ${{ inputs.source || 'roboflow' }}
+      SMOKE_EPOCHS: ${{ inputs.epochs || '2' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +55,7 @@ jobs:
         run: pip install "ultralytics>=8.3,<9" onnx onnxslim "roboflow>=1.4,<2"
 
       - name: Ambil sampel dari Cloudflare
-        if: inputs.source == 'cloudflare'
+        if: env.SMOKE_SOURCE == 'cloudflare'
         id: cloud
         shell: bash
         run: |
@@ -61,7 +67,7 @@ jobs:
           echo "data_yaml=.chili-dataset/data.yaml" >> "$GITHUB_OUTPUT"
 
       - name: Ambil dataset dari Roboflow
-        if: inputs.source == 'roboflow'
+        if: env.SMOKE_SOURCE == 'roboflow'
         id: roboflow
         shell: bash
         run: |
@@ -75,7 +81,7 @@ jobs:
         id: dataset
         shell: bash
         run: |
-          if [ "${{ inputs.source }}" = "roboflow" ]; then
+          if [ "${{ env.SMOKE_SOURCE }}" = "roboflow" ]; then
             DATA="${{ steps.roboflow.outputs.data_yaml }}"
           else
             DATA="${{ steps.cloud.outputs.data_yaml }}"
@@ -88,12 +94,12 @@ jobs:
 
       - name: Smoke train + evaluasi + export ONNX
         run: |
-          python scripts/smoke-train-chili-model.py             --data "${{ steps.dataset.outputs.data_yaml }}"             --epochs "${{ inputs.epochs }}"             --imgsz 512
+          python scripts/smoke-train-chili-model.py             --data "${{ steps.dataset.outputs.data_yaml }}"             --epochs "${{ env.SMOKE_EPOCHS }}"             --imgsz 512
 
       - name: Simpan hasil smoke test
         uses: actions/upload-artifact@v4
         with:
-          name: hitung-cabai-smoke-${{ inputs.source }}-${{ github.run_number }}
+          name: hitung-cabai-smoke-${{ env.SMOKE_SOURCE }}-${{ github.run_number }}
           path: |
             .chili-smoke/smoke-report.json
             .chili-smoke/smoke-model.onnx
