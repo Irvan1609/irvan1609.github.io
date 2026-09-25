@@ -139,6 +139,10 @@
       <form id="columnNameForm" class="modal" role="dialog" aria-modal="true" aria-labelledby="columnNameTitle">
         <div class="modal-head"><strong id="columnNameTitle">Pengaturan kolom</strong><button type="button" id="closeColumnName" aria-label="Tutup dialog nama kolom">✕</button></div>
         <div class="modal-body">
+          <aside id="columnDictionarySuggestion" class="dictionary-suggestion" hidden>
+            <div><b>Saran Data Dictionary</b><span id="columnDictionarySuggestionText"></span></div>
+            <button type="button" id="applyColumnDictionarySuggestion">Gunakan saran</button>
+          </aside>
           <div class="parameter-definition-grid">
             <div class="form-field"><label for="columnCode">Kode / nama pendek</label><input id="columnCode" required maxlength="60" autocomplete="off" placeholder="mis. TT"></div>
             <div class="form-field"><label for="columnFullName">Nama lengkap parameter</label><input id="columnFullName" maxlength="140" autocomplete="off" placeholder="mis. Tinggi Tanaman"></div>
