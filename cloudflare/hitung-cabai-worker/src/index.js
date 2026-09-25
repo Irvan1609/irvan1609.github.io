@@ -348,7 +348,7 @@ async function datasetUsage(env,userId){
   await ensureDatasetSchema(env);
   const row=await env.DB.prepare(`SELECT
     COUNT(*) AS dataset_count,
-    COALESCE(SUM(length(content)+length(meta_json)),0) AS storage_bytes,
+    COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS storage_bytes,
     COALESCE(SUM(revision),0) AS revision_total
     FROM user_datasets WHERE user_id=? AND deleted_at IS NULL`).bind(userId).first();
   return {
@@ -862,7 +862,7 @@ async function handleDevelopAllDatasets(request,env,url){
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
   await ensureDatasetSchema(env);
   const limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit'))||300));
-  const result=await env.DB.prepare(`SELECT d.id,d.user_id,u.email,u.name AS user_name,d.name AS dataset_name,d.revision,length(d.content)+length(d.meta_json) AS size_bytes,d.created_at,d.updated_at,d.deleted_at
+  const result=await env.DB.prepare(`SELECT d.id,d.user_id,u.email,u.name AS user_name,d.name AS dataset_name,d.revision,length(CAST(d.content AS BLOB))+length(CAST(d.meta_json AS BLOB)) AS size_bytes,d.created_at,d.updated_at,d.deleted_at
     FROM user_datasets d LEFT JOIN users u ON u.id=d.user_id ORDER BY d.updated_at DESC LIMIT ?`).bind(limit).all();
   return json(request,env,{items:result.results||[]});
 }
@@ -889,7 +889,7 @@ async function handleDevelopUsage(request,env){
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
   await ensureDatasetSchema(env);
   const [datasets,sessions,users,contrib]=await Promise.all([
-    env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(content)+length(meta_json)),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
     env.DB.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active FROM sessions`).bind(new Date().toISOString()).first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
     env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(image)),0) AS bytes FROM contributions').first()
@@ -989,7 +989,7 @@ async function handleDevelopOverview(request,env){
   const [users,members,datasets,contributions,sessions,newUsers,payments,lastBackup]=await Promise.all([
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role='admin' OR (membership_status='active' AND (membership_expires_at IS NULL OR membership_expires_at>?))`).bind(nowIso).first(),
-    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(content)+length(meta_json)),0) AS bytes FROM user_datasets WHERE deleted_at IS NULL').first(),
+    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes FROM user_datasets WHERE deleted_at IS NULL').first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM contributions').first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM sessions WHERE revoked_at IS NULL AND expires_at>? AND last_seen_at>?').bind(nowIso,dayAgo).first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at>?').bind(weekAgo).first(),
