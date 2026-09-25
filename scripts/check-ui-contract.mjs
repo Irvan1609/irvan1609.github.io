@@ -40,7 +40,7 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
-  'openAnalysis','focusData','renameDataset','deleteDataset','datasetNameForm',
+  'openAnalysis','globalSearch','globalSearchResults','focusData','renameDataset','deleteDataset','datasetNameForm',
   'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','toggleDatasetMeta','datasetMetaEditor',
   'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels',
   'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
@@ -90,7 +90,8 @@ for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','me
 if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
-for(const id of ['openAnalysis','analysisMenu','analysisSearch'])if(!flow.includes(id))fail('analysis flow missing '+id);
+for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
+if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','focusData','toggleDatasetMeta','plantNameSummary','treatmentNameSummary'];
@@ -127,7 +128,7 @@ if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statis
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so app-menu commands exist when the menu is assembled');
-for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu']) {
+for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu','globalSearch','globalSearchResults','searchIndex','data-column-header']) {
   if (!navigation.includes(marker)) fail(`navigation.js missing compact app-menu contract: ${marker}`);
 }
 
@@ -156,6 +157,7 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
 
 if(!main.includes('toggleFocusMode')||!main.includes('toggleDatasetMetaEditor'))fail('responsive focus/metadata controls are missing');
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.focus-data-mode')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/focus/collapse styles are missing');
-console.log(`UI contract OK: simplified /stat shell, grouped analysis menu, focus data mode, compact metadata, mobile layout, and scientific analysis workflow are present.`);
+if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
+console.log(`UI contract OK: polished /stat shell, grouped analysis menu, one global search across features/analyses/datasets/columns, mobile layout, and scientific workflow are present.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
