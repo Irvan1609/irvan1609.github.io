@@ -109,7 +109,7 @@ function render(){
 
   menu=document.createElement('div');
   menu.className='account-menu';menu.hidden=true;
-  const developButton=currentUser.features?.develop?'<button type="button" data-account-develop>Develop Console</button>':'';
+  const developButton=currentUser.features?.develop?'<button type="button" data-account-develop>Develop</button>':'';
   menu.innerHTML=`<div class="account-profile">${avatarMarkup(currentUser,true)}<div><strong>${escapeHtml(currentUser.name||'Pengguna')}</strong><small>${escapeHtml(currentUser.email||'')}</small><span class="account-access-badge ${accessClass(currentUser)}">${accessLabel(currentUser)}</span></div></div><div class="account-menu-separator"></div><button type="button" data-account-profile>Profil akun</button>${developButton}<button type="button" class="account-logout" data-account-logout>Keluar</button>`;
 
   trigger.onclick=()=>{
