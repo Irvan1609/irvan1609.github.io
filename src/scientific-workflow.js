@@ -222,16 +222,50 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
 }
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
 function saveHistory(reports,options){
-  const entry={id:crypto.randomUUID(),version:1,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,separator:getDecimalSeparator(),reports};
-  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...getHistory()].slice(0,20)));return true;}catch{return false;}
+  const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
+  const resultVersion=Math.max(0,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
+  if(previous){
+    if(previous.datasetFingerprint&&previous.datasetFingerprint!==fingerprint)changes.push('data');
+    if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
+  }
+  for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
+  const entry={id:crypto.randomUUID(),version:1,resultVersion,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
+  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
+}
+function compareHistoryEntries(a,b){
+  const names=[...new Set([...(a.reports||[]).map(report=>report.name),...(b.reports||[]).map(report=>report.name)])];
+  const value=(entry,name)=>{
+    const report=entry.reports.find(item=>item.name===name);if(!report)return {mean:'—',cv:'—',sig:'—'};
+    return {mean:Number.isFinite(report.grand)?report.grand.toFixed(2):'—',cv:Number.isFinite(report.cv)?report.cv.toFixed(2)+'%':'—',sig:significanceForReport(report)};
+  };
+  const label=entry=>`V${entry.resultVersion||'?'} · ${String(entry.options?.posthoc||'none').toUpperCase()} · α ${entry.options?.alpha??'—'}`;
+  const rows=names.map(name=>{const x=value(a,name),y=value(b,name);return `<tr><td>${esc(name)}</td><td>${x.mean}</td><td>${x.cv}</td><td><b>${x.sig}</b></td><td>${y.mean}</td><td>${y.cv}</td><td><b>${y.sig}</b></td></tr>`;}).join('');
+  return `<section class="analysis-version-compare"><div class="compare-version-head"><b>${esc(label(a))}</b><span>vs</span><b>${esc(label(b))}</b></div><div class="table-scroll"><table class="result-table"><thead><tr><th>Parameter</th><th>Rataan A</th><th>KK A</th><th>Ket. A</th><th>Rataan B</th><th>KK B</th><th>Ket. B</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 function history(){
-  const entries=getHistory();openTool('Riwayat analisis',entries.length?'<p>Saya simpan sampai 20 analisis terakhir di browser ini. Kalau perlu dipindahkan ke perangkat lain, hasilnya bisa diekspor.</p><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
+  const entries=getHistory();
+  openTool('Riwayat analisis',entries.length?'<div class="history-compare-bar"><button id="compareHistory" type="button" disabled>Bandingkan 2</button></div><div id="historyList"></div><div id="historyResult" data-all-results></div>':'<p>Belum ada riwayat analisis.</p>');
   if(!entries.length)return;
-  $('#historyList').innerHTML=entries.map(e=>`<div class="history-row"><button data-history-open="${esc(e.id)}">${esc(e.dataset)} — ${esc(designNames[e.design])} · ${new Date(e.date).toLocaleString('id-ID')}</button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">Hapus</button></div>`).join('');
-  $('#historyList').onclick=event=>{const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');
-    if(open){const entry=entries.find(e=>e.id===open.dataset.historyOpen);try{showResults(entry.reports,$('#historyResult'),entry.dataset);}catch{$('#historyResult').textContent='Riwayat tidak dapat dibaca.';}}
-    if(del&&confirm('Hapus hasil analisis ini dari riwayat?')){try{localStorage.setItem(HISTORY,JSON.stringify(entries.filter(e=>e.id!==del.dataset.historyDelete)));history();}catch{$('#historyResult').textContent='Riwayat tidak dapat dihapus.';}}
+  const list=$('#historyList'),host=$('#historyResult'),compare=$('#compareHistory');
+  list.innerHTML=entries.map(e=>{
+    const changed=e.changes?.length?` · Δ ${e.changes.join('+')}`:'',method=String(e.options?.posthoc||'none').toUpperCase();
+    return `<div class="history-row analysis-history-version"><label class="history-compare-check"><input type="checkbox" data-history-compare="${esc(e.id)}" aria-label="Pilih V${e.resultVersion||'?'} untuk dibandingkan"></label><button data-history-open="${esc(e.id)}"><b>V${e.resultVersion||'?'}</b> · ${esc(e.dataset)} · ${esc(designNames[e.design]||e.design)} · ${esc(method)}${changed}<small>${new Date(e.date).toLocaleString('id-ID')}</small></button><button data-history-delete="${esc(e.id)}" aria-label="Hapus riwayat">×</button></div>`;
+  }).join('');
+  const selected=()=>[...list.querySelectorAll('[data-history-compare]:checked')].map(input=>entries.find(entry=>entry.id===input.dataset.historyCompare)).filter(Boolean);
+  list.onchange=event=>{
+    if(!event.target.matches('[data-history-compare]'))return;
+    const checked=[...list.querySelectorAll('[data-history-compare]:checked')];
+    if(checked.length>2){event.target.checked=false;}
+    compare.disabled=selected().length!==2;
+  };
+  compare.onclick=()=>{const pair=selected();if(pair.length===2)host.innerHTML=compareHistoryEntries(pair[0],pair[1]);};
+  list.onclick=event=>{
+    const open=event.target.closest('[data-history-open]'),del=event.target.closest('[data-history-delete]');
+    if(open){
+      const entry=entries.find(e=>e.id===open.dataset.historyOpen);
+      try{showResults(entry.reports,host,entry.dataset,{fingerprint:entry.datasetFingerprint,resultVersion:entry.resultVersion});}catch{host.textContent='Riwayat tidak dapat dibaca.';}
+    }
+    if(del&&confirm('Hapus hasil analisis ini dari riwayat?')){try{localStorage.setItem(HISTORY,JSON.stringify(entries.filter(e=>e.id!==del.dataset.historyDelete)));history();}catch{host.textContent='Riwayat tidak dapat dihapus.';}}
   };
 }
 function options(){
