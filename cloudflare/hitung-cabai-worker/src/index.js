@@ -212,6 +212,7 @@ async function ensureMembershipSchema(env){
       amount INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       midtrans_transaction_id TEXT,
+      qr_url TEXT,
       paid_at TEXT,
       applied_at TEXT,
       membership_expires_at TEXT,
@@ -223,6 +224,9 @@ async function ensureMembershipSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user ON membership_payments(user_id,created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)')
   ]);
+  const paymentInfo=await env.DB.prepare('PRAGMA table_info(membership_payments)').all();
+  const paymentColumns=new Set((paymentInfo.results||[]).map(row=>row.name));
+  if(!paymentColumns.has('qr_url'))await env.DB.prepare('ALTER TABLE membership_payments ADD COLUMN qr_url TEXT').run();
   const now=new Date().toISOString();
   const seeds=[
     ['manual','Membership Manual','Akses membership yang diberikan admin.',30,0,50,52428800,0,0],
@@ -848,8 +852,8 @@ async function handleMembershipCreatePayment(request,env){
     });
     const qr=(charge.actions||[]).find(action=>action.name==='generate-qr-code-v2')||(charge.actions||[]).find(action=>action.name==='generate-qr-code');
     if(!qr?.url)throw Error('Midtrans tidak mengembalikan URL QRIS.');
-    await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,updated_at=? WHERE order_id=?')
-      .bind(String(charge.transaction_status||'pending'),String(charge.transaction_id||'').slice(0,160),new Date().toISOString(),orderId).run();
+    await env.DB.prepare('UPDATE membership_payments SET status=?,midtrans_transaction_id=?,qr_url=?,updated_at=? WHERE order_id=?')
+      .bind(String(charge.transaction_status||'pending'),String(charge.transaction_id||'').slice(0,160),String(qr.url||'').slice(0,2000),new Date().toISOString(),orderId).run();
     await audit(env,user,'membership.payment_created','membership_payment',orderId,{planId:plan.id,amount});
     return json(request,env,{orderId,planId:plan.id,planName:plan.name,amount,qrUrl:qr.url,status:charge.transaction_status||'pending'},201);
   }catch(error){
@@ -861,24 +865,24 @@ async function handleMembershipQrImage(request,env,orderId){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
   await ensureMembershipSchema(env);
-  const payment=await env.DB.prepare('SELECT order_id,user_id,midtrans_transaction_id,status FROM membership_payments WHERE order_id=? AND user_id=? LIMIT 1').bind(orderId,user.id).first();
+  const payment=await env.DB.prepare('SELECT order_id,user_id,midtrans_transaction_id,qr_url,status FROM membership_payments WHERE order_id=? AND user_id=? LIMIT 1').bind(orderId,user.id).first();
   if(!payment)return json(request,env,{error:'Pembayaran tidak ditemukan.'},404);
   if(['settlement','expire','deny','cancel','error'].includes(String(payment.status||'')))return json(request,env,{error:'QRIS tidak lagi aktif untuk transaksi ini.'},410);
 
-  let qrUrl='';
-  try{
-    const status=await midtransMembershipRequest(env,'/v2/'+encodeURIComponent(orderId)+'/status',{method:'GET'});
-    const action=(status.actions||[]).find(item=>item.name==='generate-qr-code-v2')||(status.actions||[]).find(item=>item.name==='generate-qr-code');
-    qrUrl=String(action?.url||'');
-    if(!payment.midtrans_transaction_id&&status.transaction_id){
-      payment.midtrans_transaction_id=String(status.transaction_id).slice(0,160);
-      await env.DB.prepare('UPDATE membership_payments SET midtrans_transaction_id=?,updated_at=? WHERE order_id=?').bind(payment.midtrans_transaction_id,new Date().toISOString(),orderId).run();
+  let qrUrl=String(payment.qr_url||'');
+  if(!qrUrl){
+    try{
+      const status=await midtransMembershipRequest(env,'/v2/'+encodeURIComponent(orderId)+'/status',{method:'GET'});
+      if(!payment.midtrans_transaction_id&&status.transaction_id){
+        payment.midtrans_transaction_id=String(status.transaction_id).slice(0,160);
+        await env.DB.prepare('UPDATE membership_payments SET midtrans_transaction_id=?,updated_at=? WHERE order_id=?').bind(payment.midtrans_transaction_id,new Date().toISOString(),orderId).run();
+      }
+    }catch(error){
+      console.error('QR status lookup failed',error);
     }
-  }catch(error){
-    console.error('QR status lookup failed',error);
-  }
-  if(!qrUrl&&payment.midtrans_transaction_id){
-    qrUrl=midtransMembershipBase(env)+'/v2/qris/'+encodeURIComponent(payment.midtrans_transaction_id)+'/qr-code';
+    if(payment.midtrans_transaction_id){
+      qrUrl=midtransMembershipBase(env)+'/v2/qris/'+encodeURIComponent(payment.midtrans_transaction_id)+'/qr-code';
+    }
   }
   if(!qrUrl)return json(request,env,{error:'URL QRIS belum tersedia dari Midtrans.'},404);
 
@@ -1349,7 +1353,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.3'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.4'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -1410,6 +1414,10 @@ export default {
       return json(request,env,{error:'Endpoint tidak ditemukan.'},404);
     }catch(error){
       console.error(error);
+      if(url.pathname.startsWith('/v1/membership/')){
+        const message=String(error?.message||'Layanan membership sedang bermasalah.').slice(0,300);
+        return json(request,env,{error:'membership_upstream_error',message},502);
+      }
       return json(request,env,{error:'Server tidak dapat memproses permintaan.'},500);
     }
   }
