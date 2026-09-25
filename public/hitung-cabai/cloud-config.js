@@ -1,7 +1,7 @@
 export const CHILI_CLOUD_CONFIG={
   enabled:false,
   endpoint:'',
-  turnstileSiteKey:'',
+  turnstileSiteKey:'0x4AAAAAAF'+'DFL_8dHZY6bCV6',
   modelVersion:'heuristic-color-v1',
   maxUploadBytes:850000
 };
