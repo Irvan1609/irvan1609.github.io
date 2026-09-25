@@ -6,6 +6,7 @@ const META_KEY='statistical_web_dataset_meta_v1';
 const CATEGORY_KEY='statistical_web_category_metadata_v1';
 const TREATMENT_KEY='statistical_web_treatment_metadata_v1';
 const SYNC_PREFIX='statistical_web_cloud_sync_v1:';
+const OWNER_KEY='statistical_web_cloud_owner_v1';
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 const encoder=new TextEncoder();
 
@@ -13,6 +14,7 @@ let syncing=false;
 let retryTimer=null;
 let periodicTimer=null;
 let currentUser=null;
+let syncAllowed=true;
 
 const safeObject=(key)=>{
   try{
@@ -87,6 +89,12 @@ function uniqueName(stores,name,label='Lokal'){
   const lower=new Set(Object.keys(stores.files).map(key=>key.toLocaleLowerCase('id-ID')));
   while(lower.has(candidate.toLocaleLowerCase('id-ID')))candidate=`${base} - ${label} ${stamp} (${n++}).csv`;
   return candidate;
+}
+function disposableWorkspace(stores=readStores()){
+  const names=Object.keys(stores.files);
+  if(names.length>1)return false;
+  if(!names.length)return true;
+  return isDisposableDefault(localItem(stores,names[0]));
 }
 function writeStores(stores){
   localStorage.setItem(FILES_KEY,JSON.stringify(stores.files));
@@ -184,13 +192,13 @@ function setSyncStatus(text,state='idle'){
   if(bar)bar.dataset.state=state;
   if(label)label.textContent=text;
   if(button){
-    button.disabled=state==='syncing'||!currentUser;
+    button.disabled=state==='syncing'||!currentUser||!syncAllowed;
     button.textContent=state==='syncing'?'Menyinkronkan…':'Sinkronkan';
   }
 }
 function scheduleSync(delay=1400){
   clearTimeout(retryTimer);
-  if(!currentUser)return;
+  if(!currentUser||!syncAllowed)return;
   retryTimer=setTimeout(()=>syncNow(),delay);
 }
 async function remoteFingerprint(row){
@@ -289,7 +297,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
   sync.items[id]={name:track.name,revision:remote.revision,hash:localHash,deleted:false};
 }
 async function syncNow({manual=false}={}){
-  if(syncing||!currentUser||!window.IrvanAccount?.authenticated)return;
+  if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
     const rows=await cloudRows(),remoteById=new Map(rows.map(row=>[row.id,row]));
@@ -369,8 +377,17 @@ async function syncNow({manual=false}={}){
 function onAccount(event){
   currentUser=event.detail?.authenticated?event.detail.user:null;
   clearInterval(periodicTimer);periodicTimer=null;
+  syncAllowed=true;
   if(!currentUser){
     setSyncStatus('Masuk untuk sinkronisasi','idle');
+    return;
+  }
+  const owner=localStorage.getItem(OWNER_KEY)||'';
+  if(!owner||owner===currentUser.id||disposableWorkspace()){
+    localStorage.setItem(OWNER_KEY,currentUser.id);
+  }else{
+    syncAllowed=false;
+    setSyncStatus('Sinkronisasi dijeda: browser ini terkait akun lain','error');
     return;
   }
   setSyncStatus('Menyiapkan sinkronisasi…','syncing');
