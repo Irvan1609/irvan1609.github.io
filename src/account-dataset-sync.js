@@ -11,10 +11,10 @@ const encoder=new TextEncoder();
 
 let syncing=false;
 let retryTimer=null;
-let periodicTimer=null;
 let currentUser=null;
 let syncAllowed=true;
-const FALLBACK_SYNC_MS=10*60*1000;
+const pendingPatches=new Map();
+const SYNC_DEBOUNCE_MS=1600;
 
 const safeObject=(key)=>{
   try{
@@ -105,8 +105,8 @@ function writeStores(stores){
 function loadSyncState(userId){
   try{
     const raw=JSON.parse(localStorage.getItem(SYNC_PREFIX+userId)||'{}');
-    return {items:raw?.items&&typeof raw.items==='object'?raw.items:{},lastSyncAt:raw?.lastSyncAt||null};
-  }catch{return {items:{},lastSyncAt:null};}
+    return {items:raw?.items&&typeof raw.items==='object'?raw.items:{},lastSyncAt:raw?.lastSyncAt||null,remoteVersion:raw?.remoteVersion||null};
+  }catch{return {items:{},lastSyncAt:null,remoteVersion:null};}
 }
 function saveSyncState(userId,state){
   localStorage.setItem(SYNC_PREFIX+userId,JSON.stringify(state));
@@ -175,10 +175,12 @@ async function api(path,options={}){
   }
   return {response,data};
 }
-async function cloudRows(){
-  const {response,data}=await api('/v1/datasets?include_deleted=1');
+async function cloudRows(knownVersion=''){
+  const query=new URLSearchParams({include_deleted:'1'});
+  if(knownVersion)query.set('known_version',knownVersion);
+  const {response,data}=await api('/v1/datasets?'+query.toString());
   if(!response.ok)throw Error(data.error||'Dataset cloud tidak dapat dibaca.');
-  return Array.isArray(data.items)?data.items:[];
+  return {items:Array.isArray(data.items)?data.items:[],unchanged:Boolean(data.unchanged),version:data.version||null};
 }
 async function getCloud(id){
   const {response,data}=await api('/v1/datasets/'+encodeURIComponent(id));
@@ -192,6 +194,17 @@ async function putCloud(id,item,expectedRevision=null){
   });
   if(!response.ok){
     const error=Error(data.error||'Dataset tidak dapat disinkronkan.');
+    error.status=response.status;error.payload=data;throw error;
+  }
+  return data.item;
+}
+async function patchCloud(id,{expectedRevision,operationId,operations}){
+  const {response,data}=await api('/v1/datasets/'+encodeURIComponent(id),{
+    method:'PATCH',
+    body:JSON.stringify({expectedRevision,operationId,operations})
+  });
+  if(!response.ok){
+    const error=Error(data.error||'Perubahan dataset tidak dapat disinkronkan.');
     error.status=response.status;error.payload=data;throw error;
   }
   return data.item;
@@ -236,10 +249,20 @@ function setSyncStatus(text,state='idle'){
     button.textContent=state==='syncing'?'Menyinkronkan…':'Sinkronkan';
   }
 }
-function scheduleSync(delay=3500){
+function scheduleSync(delay=SYNC_DEBOUNCE_MS){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
   retryTimer=setTimeout(()=>syncNow(),delay);
+}
+function queuePatch(name,patch){
+  if(!name||!patch||typeof patch!=='object')return;
+  const key=normalizeFileName(name),current=pendingPatches.get(key)||{operationId:crypto.randomUUID(),operations:[]};
+  current.operations.push(clone(patch));
+  if(current.operations.length>250){
+    pendingPatches.delete(key);
+    return;
+  }
+  pendingPatches.set(key,current);
 }
 async function remoteFingerprint(row){
   return hashItem({name:normalizeFileName(row.name),content:String(row.content??''),meta:row.meta||{}});
@@ -316,11 +339,24 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 
   if(localChanged&&!remoteChanged){
     try{
-      const saved=await putCloud(id,local,track.revision);
-      sync.items[id]={name:local.name,revision:saved.revision,hash:await hashItem(local),deleted:false};
-      counters.uploaded++;
+      const batch=pendingPatches.get(track.name);
+      let saved=null;
+      if(batch?.operations?.length){
+        saved=await patchCloud(id,{expectedRevision:track.revision,operationId:batch.operationId,operations:batch.operations});
+        pendingPatches.delete(track.name);
+        counters.patched+=batch.operations.length;
+        const savedHash=await remoteFingerprint(saved);
+        if(savedHash!==localHash){
+          saved=await putCloud(id,local,saved.revision);
+          counters.uploaded++;
+        }
+      }else{
+        saved=await putCloud(id,local,track.revision);
+        counters.uploaded++;
+      }
+      sync.items[id]={name:local.name,revision:saved.revision,hash:localHash,deleted:false};
     }catch(error){
-      if(error.status===409){delete sync.items[id];counters.conflicts++;}
+      if(error.status===409){pendingPatches.delete(track.name);delete sync.items[id];counters.conflicts++;}
       else throw error;
     }
     return;
@@ -348,9 +384,13 @@ async function syncNow({manual=false}={}){
   if(document.hidden&&!manual)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
-    const rows=await cloudRows(),remoteById=new Map(rows.map(row=>[row.id,row]));
     const stores=readStores(),sync=loadSyncState(currentUser.id);
-    const counters={uploaded:0,downloaded:0,deleted:0,conflicts:0,localChanged:false};
+    const listing=await cloudRows(sync.remoteVersion||'');
+    const rows=listing.unchanged
+      ? Object.entries(sync.items).map(([id,item])=>({id,name:item.name,revision:item.revision,deletedAt:item.deleted?new Date(0).toISOString():null}))
+      : listing.items;
+    const remoteById=new Map(rows.map(row=>[row.id,row]));
+    const counters={uploaded:0,patched:0,downloaded:0,deleted:0,conflicts:0,localChanged:false};
     cleanupLegacyLocalLabels(stores,sync,counters);
 
     for(const [id,track] of Object.entries({...sync.items})){
@@ -400,6 +440,7 @@ async function syncNow({manual=false}={}){
     }
 
     sync.lastSyncAt=new Date().toISOString();
+    sync.remoteVersion=(counters.uploaded||counters.patched||counters.deleted)?null:(listing.version||sync.remoteVersion||null);
     saveSyncState(currentUser.id,sync);
     if(counters.localChanged){
       writeStores(stores);
@@ -407,6 +448,7 @@ async function syncNow({manual=false}={}){
     }
     const parts=[];
     if(counters.uploaded)parts.push(`${counters.uploaded} diunggah`);
+    if(counters.patched)parts.push(`${counters.patched} perubahan kecil`);
     if(counters.downloaded)parts.push(`${counters.downloaded} diterima`);
     if(counters.deleted)parts.push(`${counters.deleted} dihapus`);
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
@@ -422,7 +464,6 @@ async function syncNow({manual=false}={}){
 }
 function onAccount(event){
   currentUser=event.detail?.authenticated?event.detail.user:null;
-  clearInterval(periodicTimer);periodicTimer=null;
   syncAllowed=true;
   const bar=syncBar();
   if(!currentUser){
@@ -448,7 +489,6 @@ function onAccount(event){
   const previous=loadSyncState(currentUser.id);
   setSyncStatus(previous.lastSyncAt?`Terakhir tersinkron ${new Date(previous.lastSyncAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`:'Belum dicadangkan ke cloud','pending');
   scheduleSync(300);
-  periodicTimer=setInterval(()=>{if(!document.hidden)syncNow();},FALLBACK_SYNC_MS);
 }
 export function installAccountDatasetSync(){
   const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
@@ -462,6 +502,8 @@ export function installAccountDatasetSync(){
       }
       saveSyncState(currentUser.id,sync);
     }
+    if(detail.patch&&detail.name)queuePatch(detail.name,detail.patch);
+    else if(detail.name)pendingPatches.delete(normalizeFileName(detail.name));
     if(currentUser&&syncAllowed)setSyncStatus('Perubahan belum dicadangkan','pending');
     scheduleSync();
   });
