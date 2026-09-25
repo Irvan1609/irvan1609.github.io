@@ -296,11 +296,28 @@ async function audit(env,actor,action,targetType='',targetId='',detail={}){
       .bind(crypto.randomUUID(),actor?.id||null,String(action),String(targetType||''),String(targetId||''),JSON.stringify(detail||{}).slice(0,20000),new Date().toISOString()).run();
   }catch(error){console.error('audit log failed',error);}
 }
-function midtransMembershipConfigured(env){return Boolean(env.MIDTRANS_SERVER_KEY);}
-function midtransMembershipBase(env){return env.MIDTRANS_ENV==='production'?'https://api.midtrans.com':'https://api.sandbox.midtrans.com';}
+function midtransServerKey(env){return String(env.MIDTRANS_SERVER_KEY||'').trim();}
+function midtransEnvironment(env){return String(env.MIDTRANS_ENV||'sandbox').trim().toLowerCase()==='production'?'production':'sandbox';}
+function midtransMembershipConfigured(env){return Boolean(midtransServerKey(env));}
+function midtransMembershipBase(env){return midtransEnvironment(env)==='production'?'https://api.midtrans.com':'https://api.sandbox.midtrans.com';}
+function midtransCredentialHint(env){
+  const key=midtransServerKey(env),environment=midtransEnvironment(env);
+  if(!key)return {ok:false,code:'missing_server_key',message:'MIDTRANS_SERVER_KEY belum dikonfigurasi.',environment,keyType:'missing'};
+  const lower=key.toLowerCase();
+  const clientKey=lower.includes('-client-');
+  const serverKey=lower.includes('-server-');
+  const sandboxKey=key.startsWith('SB-');
+  const keyEnvironment=sandboxKey?'sandbox':'production';
+  if(clientKey)return {ok:false,code:'client_key_used',message:'MIDTRANS_SERVER_KEY berisi Client Key. Gunakan Server Key dari Midtrans Settings → Access Keys.',environment,keyType:'client',keyEnvironment};
+  if(serverKey&&keyEnvironment!==environment)return {ok:false,code:'environment_mismatch',message:'Server Key Midtrans tidak cocok dengan MIDTRANS_ENV. Sandbox harus memakai Sandbox Server Key; Production harus memakai Production Server Key.',environment,keyType:'server',keyEnvironment};
+  return {ok:true,code:'ok',message:'Format credential Midtrans tampak sesuai.',environment,keyType:serverKey?'server':'unknown',keyEnvironment:serverKey?keyEnvironment:'unknown'};
+}
 function midtransMembershipAuth(env){
-  if(!env.MIDTRANS_SERVER_KEY)throw Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
-  return 'Basic '+btoa(String(env.MIDTRANS_SERVER_KEY)+':');
+  const key=midtransServerKey(env);
+  if(!key)throw Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
+  const hint=midtransCredentialHint(env);
+  if(!hint.ok)throw Error(hint.message);
+  return 'Basic '+btoa(key+':');
 }
 async function midtransMembershipRequest(env,path,options={}){
   const response=await fetch(midtransMembershipBase(env)+path,{...options,headers:{
@@ -310,7 +327,15 @@ async function midtransMembershipRequest(env,path,options={}){
     ...(options.headers||{})
   }});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(data?.status_message||data?.message||('Midtrans HTTP '+response.status));
+  if(!response.ok){
+    const errors=Array.isArray(data?.error_messages)?data.error_messages.filter(Boolean).join(' · '):'';
+    if(response.status===401){
+      const hint=midtransCredentialHint(env);
+      const detail=!hint.ok?hint.message:(errors||'Autentikasi Midtrans ditolak. Periksa Server Key dan environment Sandbox/Production.');
+      throw Error('Midtrans 401: '+detail);
+    }
+    throw Error(errors||data?.status_message||data?.message||('Midtrans HTTP '+response.status));
+  }
   return data;
 }
 function successfulMidtrans(status){return status?.transaction_status==='settlement'&&(!status.fraud_status||status.fraud_status==='accept');}
@@ -977,6 +1002,34 @@ async function handleAccountExport(request,env){
   ]);
   return json(request,env,{exportedAt:new Date().toISOString(),account:publicUser(user),datasets:(datasets.results||[]).map(datasetPayload),membershipPayments:payments.results||[]},200,{'Content-Disposition':'attachment; filename="irvan-account-export.json"'});
 }
+async function handleDevelopMidtransDiagnostic(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  const hint=midtransCredentialHint(env);
+  const result={configured:midtransMembershipConfigured(env),...hint,verified:false,httpStatus:null};
+  if(!hint.ok)return json(request,env,result,200);
+  try{
+    const response=await fetch(midtransMembershipBase(env)+'/v2/agrotik-credential-check-does-not-exist/status',{
+      method:'GET',
+      headers:{Accept:'application/json',Authorization:midtransMembershipAuth(env)}
+    });
+    result.httpStatus=response.status;
+    result.verified=response.status!==401;
+    if(response.status===401){
+      const data=await response.json().catch(()=>({}));
+      result.ok=false;
+      result.code='midtrans_unauthorized';
+      result.message=(Array.isArray(data?.error_messages)?data.error_messages.join(' · '):'')||'Midtrans menolak Server Key.';
+    }else{
+      result.ok=true;
+      result.code='credential_verified';
+      result.message='Midtrans menerima autentikasi Server Key untuk environment ini.';
+    }
+  }catch(error){
+    result.ok=false;result.code='network_error';result.message=String(error?.message||error);
+  }
+  return json(request,env,result);
+}
 async function handleDevelopPlans(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
@@ -1353,7 +1406,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.4'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.5'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -1377,6 +1430,7 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/account/export')return await handleAccountExport(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/midtrans-diagnostic')return await handleDevelopMidtransDiagnostic(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/plans')return await handleDevelopPlans(request,env);
       const developPlanMatch=url.pathname.match(/^\/v1\/develop\/plans\/([a-z0-9_-]{2,40})$/i);
       if(request.method==='PUT'&&developPlanMatch)return await handleDevelopPlanUpdate(request,env,developPlanMatch[1]);
