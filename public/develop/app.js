@@ -128,8 +128,8 @@ async function loadPayments(){
   $('#paymentsBody').innerHTML=items.length?items.map(item=>'<tr><td class="nowrap">'+esc(item.order_id)+'</td><td>'+esc(item.name||item.email||'—')+'<br><small>'+esc(item.email||'')+'</small></td><td>'+esc(item.plan_name||item.plan_id)+'</td><td>'+esc(money(item.amount))+'</td><td class="'+(item.status==='settlement'?'status-paid':'status-pending')+'">'+esc(item.status)+'</td><td>'+esc(dt(item.created_at))+'</td><td>'+esc(dateOnly(item.membership_expires_at))+'</td></tr>').join(''):'<tr><td colspan="7">Belum ada pembayaran membership.</td></tr>';
 }
 function renderDatasets(){
-  const q=$('#datasetSearch').value.trim().toLowerCase(),rows=datasets.filter(item=>!q||((item.name||'')+' '+(item.email||'')).toLowerCase().includes(q));
-  $('#datasetsBody').innerHTML=rows.length?rows.map(item=>'<tr><td>'+esc(item.name)+'</td><td>'+esc(item.name?item.email||'—':'—')+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+Number(item.revision||1)+'</td><td>'+esc(dt(item.updated_at))+'</td><td>'+(item.deleted_at?'<span class="negative">Dihapus</span>':'Aktif')+'</td></tr>').join(''):'<tr><td colspan="6">Tidak ada dataset.</td></tr>';
+  const q=$('#datasetSearch').value.trim().toLowerCase(),rows=datasets.filter(item=>!q||((item.dataset_name||'')+' '+(item.user_name||'')+' '+(item.email||'')).toLowerCase().includes(q));
+  $('#datasetsBody').innerHTML=rows.length?rows.map(item=>'<tr><td>'+esc(item.dataset_name||'—')+'</td><td>'+esc(item.user_name||'—')+'<br><small>'+esc(item.email||'')+'</small></td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+Number(item.revision||1)+'</td><td>'+esc(dt(item.updated_at))+'</td><td>'+(item.deleted_at?'<span class="negative">Dihapus</span>':'Aktif')+'</td></tr>').join(''):'<tr><td colspan="6">Tidak ada dataset.</td></tr>';
 }
 async function loadDatasets(){const data=await api('/v1/develop/datasets?limit=1000');datasets=data.items||[];renderDatasets();}
 async function loadAI(){
