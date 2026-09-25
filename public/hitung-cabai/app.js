@@ -150,6 +150,7 @@ function updateWorkflowState(){
   if(savePanel){savePanel.dataset.ready=String(canSave);savePanel.dataset.complete=String(hasImage&&!dirty&&Boolean(activeId));}
   const ready=cloudContributionReady();
   if($('contribute'))$('contribute').disabled=!ready||!detected||contributing;
+  updateBatchState();
 }
 function detectionImageData(){
   const maxSide=1000,scale=Math.min(1,maxSide/Math.max(image.naturalWidth,image.naturalHeight));
