@@ -132,6 +132,11 @@ async function cloudRows(){
   if(!response.ok)throw Error(data.error||'Dataset cloud tidak dapat dibaca.');
   return Array.isArray(data.items)?data.items:[];
 }
+async function getCloud(id){
+  const {response,data}=await api('/v1/datasets/'+encodeURIComponent(id));
+  if(!response.ok)throw Error(data.error||'Dataset cloud tidak dapat dibaca.');
+  return data.item;
+}
 async function putCloud(id,item,expectedRevision=null){
   const {response,data}=await api('/v1/datasets/'+encodeURIComponent(id),{
     method:'PUT',
@@ -203,8 +208,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
     delete sync.items[id];
     return;
   }
-  const remoteHash=remote.deletedAt?null:await remoteFingerprint(remote);
-  const remoteChanged=Number(remote.revision)!==Number(track.revision)||(remoteHash&&remoteHash!==track.hash);
+  const remoteChanged=Number(remote.revision)!==Number(track.revision)||normalizeFileName(remote.name)!==normalizeFileName(track.name);
   const localChanged=localExists?localHash!==track.hash:true;
 
   if(remote.deletedAt){
@@ -224,10 +228,11 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 
   if(!localExists){
     if(remoteChanged){
-      let target=normalizeFileName(remote.name);
+      const full=await getCloud(id);
+      let target=normalizeFileName(full.name);
       if(Object.prototype.hasOwnProperty.call(stores.files,target))target=uniqueName(stores,target,'Cloud');
-      putLocal(stores,target,remote.content,remote.meta);
-      sync.items[id]={name:target,revision:remote.revision,hash:await hashItem(localItem(stores,target)),deleted:false};
+      putLocal(stores,target,full.content,full.meta);
+      sync.items[id]={name:target,revision:full.revision,hash:await hashItem(localItem(stores,target)),deleted:false};
       counters.downloaded++;counters.localChanged=true;
     }else{
       try{
@@ -243,15 +248,16 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
   }
 
   if(!localChanged&&remoteChanged){
-    let target=normalizeFileName(remote.name);
+    const full=await getCloud(id);
+    let target=normalizeFileName(full.name);
     if(target!==track.name&&Object.prototype.hasOwnProperty.call(stores.files,target)){
       const preserved=uniqueName(stores,target,'Lokal');
       renameLocal(stores,target,preserved);
       counters.conflicts++;
     }
     if(target!==track.name)removeLocal(stores,track.name);
-    putLocal(stores,target,remote.content,remote.meta);
-    sync.items[id]={name:target,revision:remote.revision,hash:await hashItem(localItem(stores,target)),deleted:false};
+    putLocal(stores,target,full.content,full.meta);
+    sync.items[id]={name:target,revision:full.revision,hash:await hashItem(localItem(stores,target)),deleted:false};
     counters.downloaded++;counters.localChanged=true;
     return;
   }
@@ -269,12 +275,13 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
   }
 
   if(localChanged&&remoteChanged){
+    const full=await getCloud(id);
     const localConflict=uniqueName(stores,track.name,'Lokal');
     renameLocal(stores,track.name,localConflict);
-    let remoteName=normalizeFileName(remote.name);
+    let remoteName=normalizeFileName(full.name);
     if(Object.prototype.hasOwnProperty.call(stores.files,remoteName))remoteName=uniqueName(stores,remoteName,'Cloud');
-    putLocal(stores,remoteName,remote.content,remote.meta);
-    sync.items[id]={name:remoteName,revision:remote.revision,hash:await hashItem(localItem(stores,remoteName)),deleted:false};
+    putLocal(stores,remoteName,full.content,full.meta);
+    sync.items[id]={name:remoteName,revision:full.revision,hash:await hashItem(localItem(stores,remoteName)),deleted:false};
     counters.conflicts++;counters.downloaded++;counters.localChanged=true;
     return;
   }
@@ -295,8 +302,9 @@ async function syncNow({manual=false}={}){
 
     for(const remote of rows){
       if(remote.deletedAt||sync.items[remote.id])continue;
-      let target=normalizeFileName(remote.name);
-      const remoteHash=await remoteFingerprint(remote);
+      const full=await getCloud(remote.id);
+      let target=normalizeFileName(full.name);
+      const remoteHash=await remoteFingerprint(full);
       if(Object.prototype.hasOwnProperty.call(stores.files,target)){
         const existingLocal=localItem(stores,target),localHash=await hashItem(existingLocal);
         if(localHash===remoteHash){
@@ -312,8 +320,8 @@ async function syncNow({manual=false}={}){
           counters.conflicts++;counters.localChanged=true;
         }
       }
-      putLocal(stores,target,remote.content,remote.meta);
-      sync.items[remote.id]={name:target,revision:remote.revision,hash:remoteHash,deleted:false};
+      putLocal(stores,target,full.content,full.meta);
+      sync.items[remote.id]={name:target,revision:full.revision,hash:remoteHash,deleted:false};
       counters.downloaded++;counters.localChanged=true;
     }
 
