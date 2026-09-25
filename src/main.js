@@ -10,6 +10,7 @@ import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCatego
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
+import {installAccountDatasetSync} from './account-dataset-sync.js';
 import jStat from 'jstat';
 
 const FILES_KEY='statistical_web_csv_files_v1';
@@ -35,6 +36,9 @@ function showError(message,errorObj){
 }
 function clearError(){const box=$('#errorBox');if(box){box.hidden=true;box.textContent='';}}
 function setStatus(text){if($('#status'))$('#status').textContent=text;}
+function notifyDatasetChange(detail={}){
+  try{document.dispatchEvent(new CustomEvent('stat-dataset-changed',{detail}));}catch{}
+}
 function indicateSaved(){
   const el=$('#saveIndicator');if(!el)return;
   el.textContent='✓ tersimpan';el.classList.add('visible');clearTimeout(saveIndicatorTimer);
@@ -88,7 +92,7 @@ function recordEditorHistory(reason='edit',force=false){
 function persist(reason='edit',history=true){
   try{
     state.files[state.active]=serialize();localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(ACTIVE_KEY,state.active);
-    indicateSaved();if(history)recordEditorHistory(reason,false);
+    indicateSaved();if(history)recordEditorHistory(reason,false);notifyDatasetChange({type:'upsert',name:state.active,reason});
   }catch(e){showError('Gagal menyimpan dataset sementara di browser.',e);}
 }
 function updateStorageStatus(){}
@@ -120,7 +124,7 @@ function renderDatasetMeta(){
 function saveDatasetMeta(){
   state.meta[state.active]={plant:$('#plantName')?.value.trim()||'',treatment:$('#treatmentName')?.value.trim()||''};
   updateDatasetMetaSummary(state.meta[state.active]);
-  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));indicateSaved();recordEditorHistory('metadata',false);}catch(e){showError('Keterangan tanaman/perlakuan tidak dapat disimpan.',e);}
+  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));indicateSaved();recordEditorHistory('metadata',false);notifyDatasetChange({type:'upsert',name:state.active,reason:'metadata'});}catch(e){showError('Keterangan tanaman/perlakuan tidak dapat disimpan.',e);}
 }
 function loadStorage(){
   try{
@@ -365,17 +369,18 @@ function saveDatasetName(event) {
     }
     localStorage.setItem(META_KEY,JSON.stringify(meta));
     state.files=files;state.active=target;state.meta=meta;
+    notifyDatasetChange({type:'rename',name:target,previous});
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
 }
-function deleteDataset(){const name=displayDatasetName(state.active),detail=state.rows.length||state.headers.length?` (${state.rows.length} baris × ${state.headers.length} kolom)`:'';if(!confirm(`Hapus ${name}${detail}? Tindakan ini tidak dapat dibatalkan.`))return;const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}persist('hapus dataset',false);loadActive(false);setStatus('✓ Dataset dihapus.');}
+function deleteDataset(){const name=displayDatasetName(state.active),detail=state.rows.length||state.headers.length?` (${state.rows.length} baris × ${state.headers.length} kolom)`:'';if(!confirm(`Hapus ${name}${detail}? Tindakan ini tidak dapat dibatalkan.`))return;const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}persist('hapus dataset',false);notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus('✓ Dataset dihapus.');}
 function downloadDataset(){const blob=new Blob([serialize()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=state.active;a.click();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus(`✓ ${displayDatasetName(state.active)} diunduh.`);}
 function duplicateDataset(){
   const source=state.active,base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
   while(Object.prototype.hasOwnProperty.call(state.files,name))name=`${base} (${n++}).csv`;
   state.files[name]=serialize();state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
   copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));
-  try{localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);loadActive(false);setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);}catch(error){showError('Gagal membuat salinan dataset.',error);}
+  try{localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);notifyDatasetChange({type:'upsert',name,reason:'duplikat'});loadActive(false);setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);}catch(error){showError('Gagal membuat salinan dataset.',error);}
 }
 function openDatasetView(title,html){
   $('#datasetViewTitle').textContent=title;$('#datasetViewBody').innerHTML=html;$('#datasetViewModal').classList.add('open');
@@ -459,6 +464,13 @@ function installEditorShortcuts(){
 }
 
 function installDataGrid(){
+  document.addEventListener('stat-cloud-sync-applied',event=>{
+    loadStorage();
+    const detail=event.detail||{},parts=[];
+    if(detail.downloaded)parts.push(`${detail.downloaded} dataset dari cloud`);
+    if(detail.conflicts)parts.push(`${detail.conflicts} konflik diamankan`);
+    setStatus(parts.length?`✓ Sinkronisasi akun: ${parts.join(' · ')}.`:'✓ Dataset akun tersinkron.');
+  });
   document.addEventListener('dataset-import',event=>{
     const detail=event.detail;
     try{
@@ -487,6 +499,7 @@ function installDataGrid(){
         throw error;
       }
       state.files=files;state.active=name;state.headers=headers;state.rows=rows;state.meta=meta;
+      notifyDatasetChange({type:'upsert',name,reason:'impor'});
       clearError();renderTree();renderGrid();renderDatasetMeta();
       detail.importResult={ok:true,name};
       setStatus(`✓ ${displayDatasetName(name)}: ${rows.length} baris × ${headers.length} kolom berhasil diimpor.`);
@@ -500,4 +513,4 @@ function installDataGrid(){
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
 
-initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
+initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
