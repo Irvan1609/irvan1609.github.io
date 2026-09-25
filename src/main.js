@@ -508,9 +508,17 @@ function ensureGridFind(){
   bar.innerHTML='<input id="gridFindInput" type="search" autocomplete="off" placeholder="Cari data"><span id="gridFindCount"></span><button type="button" aria-label="Tutup">×</button>';
   workspace.prepend(bar);
   const input=bar.querySelector('input'),count=bar.querySelector('span'),close=bar.querySelector('button');
-  const clear=()=>document.querySelectorAll('.cell-find-match').forEach(cell=>cell.classList.remove('cell-find-match'));
-  const run=()=>{clear();const q=input.value.trim().toLocaleLowerCase('id-ID');if(!q){count.textContent='';return;}const matches=[...document.querySelectorAll('.data-grid tbody td[data-r]')].filter(cell=>cell.textContent.toLocaleLowerCase('id-ID').includes(q));matches.forEach(cell=>cell.classList.add('cell-find-match'));count.textContent=String(matches.length);matches[0]?.scrollIntoView({block:'nearest',inline:'nearest'});};
-  input.addEventListener('input',run);close.onclick=()=>{bar.hidden=true;input.value='';count.textContent='';clear();};
+  const clear=()=>{gridFindQuery='';document.querySelectorAll('.cell-find-match').forEach(cell=>cell.classList.remove('cell-find-match'));};
+  const run=()=>{
+    gridFindQuery=input.value.trim().toLocaleLowerCase('id-ID');
+    if(!gridFindQuery){count.textContent='';renderGrid();return;}
+    const matches=[];
+    state.rows.forEach((row,r)=>row.forEach((value,col)=>{if(String(value??'').toLocaleLowerCase('id-ID').includes(gridFindQuery))matches.push({r,col});}));
+    count.textContent=String(matches.length);
+    if(matches[0]){ensureGridRowVisible(matches[0].r);setSelection(matches[0].r,matches[0].col,{focus:false});}
+    else renderGrid();
+  };
+  input.addEventListener('input',run);close.onclick=()=>{bar.hidden=true;input.value='';count.textContent='';clear();renderGrid();};
   return bar;
 }
 function openGridFind(){
