@@ -10,6 +10,8 @@ const CLEANUP_INTERVAL_MS=6*60*60*1000;
 const ADMIN_EMAIL_DEFAULT='andyirvan1609@gmail.com';
 let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
+let MEMBERSHIP_SCHEMA_READY=false;
+let OPERATIONS_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
@@ -166,11 +168,134 @@ async function ensureAuthSchema(env){
   if(!columns.has('membership_expires_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_expires_at TEXT").run();
   if(!columns.has('membership_source'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_source TEXT NOT NULL DEFAULT 'none'").run();
   if(!columns.has('access_updated_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN access_updated_at TEXT").run();
+  if(!columns.has('membership_plan_id'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_plan_id TEXT").run();
+  if(!columns.has('account_status'))await env.DB.prepare("ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'").run();
   for(const email of adminEmails(env)){
     await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
       .bind(new Date().toISOString(),email).run();
   }
   AUTH_SCHEMA_READY=true;
+}
+
+async function ensureMembershipSchema(env){
+  if(MEMBERSHIP_SCHEMA_READY)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS membership_plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      duration_days INTEGER NOT NULL,
+      price_idr INTEGER NOT NULL DEFAULT 0,
+      dataset_limit INTEGER NOT NULL DEFAULT 30,
+      storage_limit_bytes INTEGER NOT NULL DEFAULT 20971520,
+      active INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS membership_payments (
+      order_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      plan_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      midtrans_transaction_id TEXT,
+      paid_at TEXT,
+      applied_at TEXT,
+      membership_expires_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(plan_id) REFERENCES membership_plans(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user ON membership_payments(user_id,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)')
+  ]);
+  const now=new Date().toISOString();
+  const seeds=[
+    ['manual','Membership Manual','Akses membership yang diberikan admin.',30,0,50,52428800,0,0],
+    ['monthly','Membership 30 Hari','Membership 30 hari.',30,0,50,52428800,0,10],
+    ['quarterly','Membership 90 Hari','Membership 90 hari.',90,0,75,104857600,0,20],
+    ['yearly','Membership 365 Hari','Membership 365 hari.',365,0,120,262144000,0,30]
+  ];
+  for(const row of seeds){
+    await env.DB.prepare(`INSERT OR IGNORE INTO membership_plans
+      (id,name,description,duration_days,price_idr,dataset_limit,storage_limit_bytes,active,sort_order,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(...row,now,now).run();
+  }
+  MEMBERSHIP_SCHEMA_READY=true;
+}
+async function ensureOperationsSchema(env){
+  if(OPERATIONS_SCHEMA_READY)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_user_id TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS backup_runs (
+      id TEXT PRIMARY KEY,
+      object_key TEXT,
+      status TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_backup_runs_created ON backup_runs(created_at)')
+  ]);
+  OPERATIONS_SCHEMA_READY=true;
+}
+async function audit(env,actor,action,targetType='',targetId='',detail={}){
+  try{
+    await ensureOperationsSchema(env);
+    await env.DB.prepare('INSERT INTO audit_logs (id,actor_user_id,action,target_type,target_id,detail_json,created_at) VALUES (?,?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(),actor?.id||null,String(action),String(targetType||''),String(targetId||''),JSON.stringify(detail||{}).slice(0,20000),new Date().toISOString()).run();
+  }catch(error){console.error('audit log failed',error);}
+}
+function midtransMembershipConfigured(env){return Boolean(env.MIDTRANS_SERVER_KEY);}
+function midtransMembershipBase(env){return env.MIDTRANS_ENV==='production'?'https://api.midtrans.com':'https://api.sandbox.midtrans.com';}
+function midtransMembershipAuth(env){
+  if(!env.MIDTRANS_SERVER_KEY)throw Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
+  return 'Basic '+btoa(String(env.MIDTRANS_SERVER_KEY)+':');
+}
+async function midtransMembershipRequest(env,path,options={}){
+  const response=await fetch(midtransMembershipBase(env)+path,{...options,headers:{
+    Accept:'application/json',
+    Authorization:midtransMembershipAuth(env),
+    ...(options.body?{'Content-Type':'application/json'}:{}),
+    ...(options.headers||{})
+  }});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data?.status_message||data?.message||('Midtrans HTTP '+response.status));
+  return data;
+}
+function successfulMidtrans(status){return status?.transaction_status==='settlement'&&(!status.fraud_status||status.fraud_status==='accept');}
+function safeMembershipOrderId(value){const v=String(value||'');return /^member-[0-9]{10,}-[a-f0-9]{16,64}$/.test(v)?v:'';}
+function addDaysIso(baseIso,days){
+  const base=Math.max(Date.now(),Date.parse(baseIso||'')||0);
+  return new Date(base+Math.max(1,Number(days)||1)*86400000).toISOString();
+}
+async function activePlanForUser(env,user){
+  if(!user?.membership_plan_id)return null;
+  await ensureMembershipSchema(env);
+  return env.DB.prepare('SELECT id,name,description,duration_days,price_idr,dataset_limit,storage_limit_bytes,active FROM membership_plans WHERE id=? LIMIT 1').bind(user.membership_plan_id).first();
+}
+async function userQuota(env,user){
+  if(user?.role==='admin')return {datasetLimit:null,storageLimitBytes:null,planId:'admin',planName:'Admin'};
+  if(!membershipActive(user))return {datasetLimit:0,storageLimitBytes:0,planId:null,planName:'Gratis'};
+  const plan=await activePlanForUser(env,user)||await env.DB.prepare("SELECT * FROM membership_plans WHERE id='manual' LIMIT 1").first();
+  return {
+    datasetLimit:Number(plan?.dataset_limit||0)||0,
+    storageLimitBytes:Number(plan?.storage_limit_bytes||0)||0,
+    planId:plan?.id||'manual',
+    planName:plan?.name||'Membership'
+  };
 }
 
 async function ensureDatasetSchema(env){
