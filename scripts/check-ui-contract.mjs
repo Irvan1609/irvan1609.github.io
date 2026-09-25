@@ -74,7 +74,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay compact: Analisis, Cari, and Dataset controls');
+if((nav.match(/<button\b/g)||[]).length!==4||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('focusData')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must expose Analisis, Cari, Fokus Data, and Dataset controls');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
@@ -128,8 +128,8 @@ if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statis
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so app-menu commands exist when the menu is assembled');
-for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu','globalSearchButton','globalSearchModal','globalSearch','globalSearchResults','globalIndex','data-column-header']) {
-  if (!navigation.includes(marker)) fail(`navigation.js missing compact app-menu contract: ${marker}`);
+for (const marker of ["['fileMenu','File'","['dataMenu','Data'","['helpMenu','Bantuan'",'validateDataset','dataTemplate','analysisHistory','focusData','globalSearchButton','globalSearchModal','globalSearch','globalSearchResults','buildGlobalIndex','data-column-header']) {
+  if (!navigation.includes(marker)) fail(`navigation.js missing classic menu/global-search contract: ${marker}`);
 }
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
@@ -159,6 +159,6 @@ if(!main.includes('toggleFocusMode')||!main.includes('toggleDatasetMetaEditor'))
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.focus-data-mode')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/focus/collapse styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
 if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
-console.log(`UI contract OK: polished /stat shell, grouped analysis menu, one global search across features/analyses/datasets/columns, mobile layout, and scientific workflow are present.`);
+console.log(`UI contract OK: classic multi-button Statistical Web layout restored, with one global search across features, analyses, datasets, columns, results, and pages.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
