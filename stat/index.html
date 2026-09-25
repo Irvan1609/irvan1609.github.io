@@ -27,6 +27,7 @@
       <header class="app-header">
         <nav class="nav" aria-label="Perintah Statistical Web">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
+          <button id="globalSearchButton" type="button" aria-haspopup="dialog" aria-controls="globalSearchModal">Cari</button>
           <button id="focusData" type="button" aria-pressed="false" title="Perluas area tabel">Fokus Data</button>
           <button id="projectToggle" type="button" aria-expanded="false">☰ Dataset</button>
         </nav>
@@ -88,6 +89,18 @@
           <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Siap.</div>
         </section>
       </main>
+    </div>
+
+    <div id="globalSearchModal" class="modal-backdrop">
+      <div class="modal global-search-dialog" role="dialog" aria-modal="true" aria-labelledby="globalSearchTitle">
+        <div class="modal-head"><strong id="globalSearchTitle">Cari di Statistical Web</strong><button id="closeGlobalSearch" type="button" aria-label="Tutup pencarian">✕</button></div>
+        <div class="modal-body">
+          <input id="globalSearch" type="search" autocomplete="off" placeholder="Cari fitur, analisis, dataset, kolom…" aria-label="Cari fitur, analisis, dataset, kolom">
+          <div id="globalSearchResults" class="global-search-results" role="listbox">
+            <div class="global-search-empty">Ketik untuk mencari seluruh Statistical Web.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="pasteModal" class="modal-backdrop">
