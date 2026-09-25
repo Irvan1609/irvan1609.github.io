@@ -90,7 +90,18 @@ export async function copyLocalDataset(from,to){
 }
 export async function saveLocalSnapshot(dataset,{date=new Date().toISOString(),reason='edit',csv='',meta={}}={}){
   const id=crypto.randomUUID(),record={id,dataset:String(dataset),date,reason:String(reason),csv:String(csv),meta};
-  await idbRequest(SNAPSHOT_STORE,'readwrite',store=>store.put(record));return id;
+  await idbRequest(SNAPSHOT_STORE,'readwrite',store=>store.put(record));
+  const rows=await listLocalSnapshots(dataset,1000).catch(()=>[]);
+  const stale=rows.slice(20);
+  if(stale.length){
+    const db=await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SNAPSHOT_STORE,'readwrite'),store=tx.objectStore(SNAPSHOT_STORE);
+      stale.forEach(row=>store.delete(row.id));
+      tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
+    });
+  }
+  return id;
 }
 export async function listLocalSnapshots(dataset,limit=12){
   const db=await openDb();
