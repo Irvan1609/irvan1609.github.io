@@ -7,15 +7,18 @@ assert.deepEqual(parseParameterHeader('TT | Tinggi Tanaman (cm)'),{
   raw:'TT | Tinggi Tanaman (cm)',code:'TT',name:'Tinggi Tanaman',unit:'cm'
 });
 assert.deepEqual(parseParameterHeader('Tinggi Tanaman (cm)'),{
-  raw:'Tinggi Tanaman (cm)',code:'TT',name:'Tinggi Tanaman',unit:'cm'
+  raw:'Tinggi Tanaman (cm)',code:'Tinggi Tanaman',name:'',unit:'cm'
 });
 assert.deepEqual(parseParameterHeader('tt'),{
-  raw:'tt',code:'TT',name:'Tinggi Tanaman',unit:'cm'
+  raw:'tt',code:'tt',name:'',unit:''
 });
 assert.deepEqual(parseParameterHeader('tt_42HST'),{
-  raw:'tt_42HST',code:'TT_42HST',name:'Tinggi Tanaman 42 HST',unit:'cm'
+  raw:'tt_42HST',code:'tt_42HST',name:'',unit:''
 });
 assert.equal(detectParameterHeader('tinggi tanaman')?.source,'builtin');
+assert.equal(detectParameterHeader('tinggi tanaman')?.code,'TT');
+assert.equal(detectParameterHeader('plant height')?.code,'PH');
+assert.equal(detectParameterHeader('plant height')?.language,'en');
 assert.deepEqual(parseParameterHeader('Perlakuan'),{
   raw:'Perlakuan',code:'Perlakuan',name:'',unit:''
 });

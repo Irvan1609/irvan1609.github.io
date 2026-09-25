@@ -6,7 +6,7 @@ import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { resultActions, installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
-import {recognizedAgronomicHeaders,saveUserParameterAlias} from './agronomic-data-dictionary.js';
+import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from './agronomic-data-dictionary.js';
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
@@ -32,7 +32,7 @@ const fmt=formatNumber;
 
 function dictionaryRecognitionText(headers,datasetName=''){
   const recognized=recognizedAgronomicHeaders(headers,{datasetName});
-  return recognized.length?` · ${recognized.length} parameter dikenali otomatis`:'';
+  return recognized.length?` · ${recognized.length} saran parameter tersedia`:'';
 }
 
 function showError(message,errorObj){
@@ -277,12 +277,33 @@ function renderStringColumnEditor(index){
   section.hidden=false;unitInput.value=stored.unit||'';
   levelsHost.innerHTML=levels.map(level=>`<label class="column-string-row"><span title="${esc(level)}">${esc(level)} =</span><input data-column-string-level="${esc(level)}" value="${esc(stored.levels?.[level]?.value||'')}" placeholder="nilai" inputmode="decimal" autocomplete="off" aria-label="Nilai untuk ${esc(level)}"></label>`).join('');
 }
+function renderParameterSuggestions(index){
+  const host=$('#parameterSuggestion'),header=state.headers[index]||'',meta=parseParameterHeader(header);
+  if(!host)return;
+  const suggestions=header.includes('|')?[]:suggestAgronomicParameters(meta.code,{datasetName:displayDatasetName(state.active)});
+  if(!suggestions.length){host.hidden=true;host.innerHTML='';return;}
+  host.hidden=false;
+  host.innerHTML='<div class="parameter-suggestion-head"><b>Saran kamus parameter</b><small>Data belum diubah. Pilih salah satu saran jika sesuai.</small></div><div class="parameter-suggestion-list">'+suggestions.map((item,i)=>{
+    const language=item.language==='id'?'Indonesia':item.language==='en'?'English':'Kustom';
+    const unit=item.unit?' ('+esc(item.unit)+')':'';
+    return '<button type="button" class="parameter-suggestion-item" data-parameter-suggestion="'+i+'"><span><strong>'+esc(item.code)+'</strong> <span class="parameter-suggestion-arrow">→</span> '+esc(item.name)+unit+'</span><small>'+esc(language)+'</small></button>';
+  }).join('')+'</div>';
+  host.querySelectorAll('[data-parameter-suggestion]').forEach(button=>button.addEventListener('click',()=>{
+    const item=suggestions[Number(button.dataset.parameterSuggestion)];if(!item)return;
+    $('#columnCode').value=item.code;$('#columnFullName').value=item.name;$('#columnUnit').value=item.unit||'';
+    $('#columnNameForm').dataset.suggestionLanguage=item.language||'';
+    host.querySelectorAll('.parameter-suggestion-item').forEach(el=>el.classList.toggle('selected',el===button));
+    setStatus('Saran diterapkan ke formulir. Klik Simpan untuk mengubah header kolom.');
+  }));
+}
 function openColumnName(index){
   editingColumnIndex=index;
   const meta=parseParameterHeader(state.headers[index]||'');
   $('#columnCode').value=meta.code;
   $('#columnFullName').value=meta.name;
   $('#columnUnit').value=meta.unit;
+  $('#columnNameForm').dataset.suggestionLanguage='';
+  renderParameterSuggestions(index);
   renderStringColumnEditor(index);
   $('#columnNameError').hidden=true;
   $('#columnNameModal').classList.add('open');
@@ -304,7 +325,7 @@ function saveColumnName(event){
     box.hidden=false;box.textContent='Kode harus terisi. Kode, nama lengkap, dan satuan tidak boleh mengandung tab/baris baru; judul akhirnya juga harus unik.';return;
   }
   const previous=state.headers[editingColumnIndex],datasetName=displayDatasetName(state.active),stringMeta=collectStringMetadata();
-  if(fullName&&!previous.includes('|'))saveUserParameterAlias(previous,{code,name:fullName,unit});
+  if(fullName&&!previous.includes('|'))saveUserParameterAlias(previous,{code,name:fullName,unit,language:$('#columnNameForm').dataset.suggestionLanguage||'custom'});
   pushUndo('ubah kolom');state.headers[editingColumnIndex]=name;
   moveCategoryColumn(datasetName,previous,name);
   if(stringMeta)saveCategoryMetadata(datasetName,name,stringMeta);

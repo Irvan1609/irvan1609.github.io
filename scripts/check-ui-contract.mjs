@@ -42,7 +42,7 @@ const requiredIds = [
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
   'openAnalysis','globalSearchButton','globalSearchModal','closeGlobalSearch','globalSearch','globalSearchResults','renameDataset','deleteDataset','datasetNameForm',
   'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','datasetMetaEditor',
-  'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels',
+  'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','parameterSuggestion','columnStringSection','columnStringUnit','columnStringLevels',
   'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
@@ -104,6 +104,7 @@ if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_f
 if(!main.includes('displayDatasetName')||!main.includes("name=base+'.csv'"))fail('dataset editor must hide CSV extension in UI while storing CSV datasets');
 if(!main.includes('data-add-row')||!main.includes('data-add-col'))fail('data grid corner must expose + Baris / + Kolom controls');
 if(!main.includes('columnHeaderMarkup')||!main.includes('columnFullName')||!main.includes('columnUnit')||!main.includes('buildParameterHeader'))fail('column editor must support separate kode, nama lengkap, and satuan inputs');
+if(!main.includes('renderParameterSuggestions')||!main.includes('suggestAgronomicParameters')||!main.includes('Klik Simpan untuk mengubah header kolom'))fail('agronomic dictionary must remain an opt-in suggestion workflow');
 if(main.includes('categoryMapMarkup')||main.includes('data-category-value')||main.includes('data-category-unit'))fail('string mapping controls must not be rendered above data columns');
 if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-string-level')||!main.includes('saveCategoryMetadata')||!main.includes('columnStringUnit'))fail('string columns must expose value mapping inside the column editor with one shared unit');
 if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');

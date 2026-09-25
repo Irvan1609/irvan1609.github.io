@@ -1,4 +1,4 @@
-import {resolveAgronomicParameter} from './agronomic-data-dictionary.js';
+import {suggestAgronomicParameters} from './agronomic-data-dictionary.js';
 
 const clean=value=>String(value??'').trim();
 
@@ -15,15 +15,15 @@ export function normalizeParameterUnit(value){
   return clean(wrapped?wrapped[1]:unit);
 }
 
-export function detectParameterHeader(header,{datasetName=''}={}){
+export function detectParameterHeader(header,{datasetName='',language=''}={}){
   const raw=clean(header);
   if(!raw||raw.includes('|'))return null;
-  const plain=splitUnit(raw),detected=resolveAgronomicParameter(plain.text,{datasetName});
+  const plain=splitUnit(raw),detected=suggestAgronomicParameters(plain.text,{datasetName,language})[0];
   if(!detected)return null;
   return {...detected,raw,unit:plain.unit||detected.unit};
 }
 
-export function parseParameterHeader(header,{datasetName=''}={}){
+export function parseParameterHeader(header){
   const raw=clean(header);
   if(!raw)return {raw:'',code:'',name:'',unit:''};
   const divider=raw.indexOf('|');
@@ -31,8 +31,7 @@ export function parseParameterHeader(header,{datasetName=''}={}){
     const code=clean(raw.slice(0,divider)),detail=splitUnit(raw.slice(divider+1));
     return {raw,code,name:detail.text,unit:detail.unit};
   }
-  const plain=splitUnit(raw),detected=resolveAgronomicParameter(plain.text,{datasetName});
-  if(detected)return {raw,code:detected.code,name:detected.name,unit:plain.unit||detected.unit};
+  const plain=splitUnit(raw);
   return {raw,code:plain.text||raw,name:'',unit:plain.unit};
 }
 
