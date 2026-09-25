@@ -19,9 +19,15 @@ function phoneGuardMode(){
 }
 let currentDesign='ral',data=null,revision=0;
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis'){
-  container.innerHTML='<div class="result-actions master-result-actions"><button data-result-action="export-all">Ekspor semua parameter (.xlsx)</button><button data-result-action="export-all-formula">ƒx Ekspor semua (formula)</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa hasil</button><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
+  container.innerHTML='<div class="result-actions master-result-actions"><button type="button" data-thesis-table-mode>Tabel Skripsi</button><button data-result-action="export-all">Ekspor .xlsx</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa</button><details class="result-more-actions"><summary>Lainnya</summary><button data-result-action="export-all-formula">Ekspor formula</button></details><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
   container.dataset.datasetName=datasetName;
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
+  const thesisMode=container.querySelector('[data-thesis-table-mode]');
+  if(thesisMode)thesisMode.onclick=()=>{
+    const enabled=container.classList.toggle('thesis-table-mode');
+    thesisMode.textContent=enabled?'Hasil Lengkap':'Tabel Skripsi';
+    thesisMode.setAttribute('aria-pressed',String(enabled));
+  };
   const printButton=container.querySelector('[data-print-results]');
   if(printButton)printButton.onclick=()=>{
     document.body.classList.add('print-analysis-mode');
