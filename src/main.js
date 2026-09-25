@@ -249,6 +249,7 @@ function paintSelection(){
   if(!range)return;
   for(let r=range.r1;r<=range.r2;r++)for(let c=range.c1;c<=range.c2;c++)wrap.querySelector(`td[data-r="${r}"][data-c="${c}"]`)?.classList.add('cell-selected');
   const focus=state.selection.focus;wrap.querySelector(`td[data-r="${focus.r}"][data-c="${focus.c}"]`)?.classList.add('cell-active');
+  requestAnimationFrame(positionFillHandle);
 }
 function setSelection(r,c,{extend=false,focus=true}={}){
   if(!extend||!state.selection.anchor)state.selection.anchor={r,c};
@@ -328,7 +329,10 @@ function refreshColumnType(index,wrap=$('#gridWrap')){
   const type=columnTypeInfo(index),isString=['category','text'].includes(type.type),header=state.headers[index];
   const th=wrap.querySelector(`th[data-column-index="${index}"]`);
   if(th){
-    th.dataset.columnType=type.type;th.classList.toggle('string-column',isString);
+    th.dataset.columnType=type.type;
+    th.classList.remove('string-column','type-numeric','type-date','type-category','type-text','type-empty');
+    th.classList.add('type-'+type.type);
+    th.classList.toggle('string-column',isString);
     const category=readCategoryMetadata(displayDatasetName(state.active),header);
     const name=th.querySelector('.header-name');if(name)name.title=columnTooltip(header,type,category);
   }
@@ -342,6 +346,134 @@ function moveColumn(from,to){
   state.rows.forEach(row=>{const [value]=row.splice(from,1);row.splice(to,0,value);});
   persist('pindah kolom',true,{kind:'move_column',from,to});clearSelection();renderGrid();setStatus('Kolom dipindahkan.');
 }
+
+function columnWidthStore(){
+  try{const value=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
+}
+function savedColumnWidth(index){
+  const store=columnWidthStore(),dataset=displayDatasetName(state.active),header=state.headers[index];
+  const value=Number(store?.[dataset]?.[header]);return Number.isFinite(value)?Math.max(72,Math.min(420,value)):null;
+}
+function saveColumnWidth(index,width){
+  const store=columnWidthStore(),dataset=displayDatasetName(state.active),header=state.headers[index];
+  store[dataset]??={};store[dataset][header]=Math.round(Math.max(72,Math.min(420,width)));
+  try{localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(store));}catch{}
+}
+function setColumnVisualWidth(wrap,index,width){
+  const value=Math.round(Math.max(72,Math.min(420,width))),th=wrap.querySelector(`th[data-column-index="${index}"]`);
+  if(th){th.style.width=value+'px';th.style.minWidth=value+'px';th.style.maxWidth=value+'px';}
+  wrap.querySelectorAll(`td[data-c="${index}"]`).forEach(cell=>{cell.style.width=value+'px';cell.style.minWidth=value+'px';cell.style.maxWidth=value+'px';});
+}
+function autoSizeColumn(wrap,index){
+  const th=wrap.querySelector(`th[data-column-index="${index}"]`);if(!th)return;
+  let width=Math.max(90,th.querySelector('.header-controls')?.scrollWidth||th.scrollWidth||90);
+  wrap.querySelectorAll(`td[data-c="${index}"]`).forEach(cell=>{width=Math.max(width,Math.min(380,cell.scrollWidth+24));});
+  width=Math.min(380,width+12);setColumnVisualWidth(wrap,index,width);saveColumnWidth(index,width);
+}
+function bindColumnResize(wrap){
+  wrap.querySelectorAll('[data-resize-column]').forEach(handle=>{
+    handle.addEventListener('dblclick',event=>{event.preventDefault();event.stopPropagation();autoSizeColumn(wrap,Number(handle.dataset.resizeColumn));});
+    handle.addEventListener('pointerdown',event=>{
+      event.preventDefault();event.stopPropagation();
+      const index=Number(handle.dataset.resizeColumn),th=handle.closest('th'),startX=event.clientX,startWidth=th?.getBoundingClientRect().width||120;
+      handle.setPointerCapture?.(event.pointerId);document.documentElement.classList.add('column-resizing');
+      const move=moveEvent=>setColumnVisualWidth(wrap,index,startWidth+(moveEvent.clientX-startX));
+      const stop=stopEvent=>{
+        handle.releasePointerCapture?.(stopEvent.pointerId);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);
+        document.documentElement.classList.remove('column-resizing');const current=wrap.querySelector(`th[data-column-index="${index}"]`);if(current)saveColumnWidth(index,current.getBoundingClientRect().width);
+      };
+      handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);
+    });
+  });
+}
+function duplicateColumn(index){
+  if(index<0||index>=state.headers.length)return;
+  const source=state.headers[index],name=nextColumnName(state.headers),values=state.rows.map(row=>row[index]??'');
+  pushUndo('duplikat kolom');state.headers.splice(index+1,0,name);state.rows.forEach((row,r)=>row.splice(index+1,0,values[r]));
+  persist('duplikat kolom',true);renderGrid();setStatus(`Kolom ${source} disalin.`);
+}
+function deleteColumnAt(index){
+  const j=Number(index),header=state.headers[j];if(!header)return;
+  const filled=state.rows.filter(row=>String(row[j]??'').trim()!=='').length,warning=filled>=100?`Kolom ini berisi ${filled} nilai. `:'';
+  if(!confirm(`${warning}Hapus kolom ${header} beserta datanya?`))return;
+  pushUndo('hapus kolom');removeCategoryColumn(displayDatasetName(state.active),header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];
+  persist('hapus kolom',true);clearSelection();renderGrid();setStatus('Kolom dihapus.');
+}
+function ensureColumnContextMenu(){
+  let menu=document.getElementById('columnContextMenu');if(menu)return menu;
+  menu=document.createElement('div');menu.id='columnContextMenu';menu.className='column-context-menu';menu.hidden=true;
+  menu.innerHTML='<button data-col-action="rename">Ubah nama</button><button data-col-action="duplicate">Duplikat</button><button data-col-action="left">← Kiri</button><button data-col-action="right">Kanan →</button><button data-col-action="delete" class="danger-text">Hapus</button>';
+  document.body.append(menu);
+  document.addEventListener('pointerdown',event=>{if(!event.target.closest('#columnContextMenu'))menu.hidden=true;});
+  return menu;
+}
+function openColumnContextMenu(event,index){
+  event.preventDefault();const menu=ensureColumnContextMenu();menu.dataset.column=String(index);menu.hidden=false;
+  menu.style.left=Math.min(event.clientX,window.innerWidth-170)+'px';menu.style.top=Math.min(event.clientY,window.innerHeight-210)+'px';
+  menu.onclick=click=>{
+    const action=click.target.closest('[data-col-action]')?.dataset.colAction;if(!action)return;
+    const col=Number(menu.dataset.column);menu.hidden=true;
+    if(action==='rename')openColumnName(col);
+    else if(action==='duplicate')duplicateColumn(col);
+    else if(action==='left'&&col>0)moveColumn(col,col-1);
+    else if(action==='right'&&col<state.headers.length-1)moveColumn(col,col+1);
+    else if(action==='delete')deleteColumnAt(col);
+  };
+}
+function ensureGridFind(){
+  const workspace=document.querySelector('.workspace');if(!workspace)return null;
+  let bar=document.getElementById('gridFindBar');if(bar)return bar;
+  bar=document.createElement('div');bar.id='gridFindBar';bar.className='grid-find-bar';bar.hidden=true;
+  bar.innerHTML='<input id="gridFindInput" type="search" autocomplete="off" placeholder="Cari data"><span id="gridFindCount"></span><button type="button" aria-label="Tutup">×</button>';
+  workspace.prepend(bar);
+  const input=bar.querySelector('input'),count=bar.querySelector('span'),close=bar.querySelector('button');
+  const clear=()=>document.querySelectorAll('.cell-find-match').forEach(cell=>cell.classList.remove('cell-find-match'));
+  const run=()=>{clear();const q=input.value.trim().toLocaleLowerCase('id-ID');if(!q){count.textContent='';return;}const matches=[...document.querySelectorAll('.data-grid tbody td[data-r]')].filter(cell=>cell.textContent.toLocaleLowerCase('id-ID').includes(q));matches.forEach(cell=>cell.classList.add('cell-find-match'));count.textContent=String(matches.length);matches[0]?.scrollIntoView({block:'nearest',inline:'nearest'});};
+  input.addEventListener('input',run);close.onclick=()=>{bar.hidden=true;input.value='';count.textContent='';clear();};
+  return bar;
+}
+function openGridFind(){
+  const bar=ensureGridFind();if(!bar)return;bar.hidden=false;const input=bar.querySelector('input');input.focus();input.select();
+}
+function installPanelResize(){
+  const panel=$('#projectPanel'),main=document.querySelector('.main');if(!panel||!main||panel.querySelector('.project-panel-resizer'))return;
+  const handle=document.createElement('div');handle.className='project-panel-resizer';handle.title='Geser lebar panel';panel.append(handle);
+  handle.addEventListener('pointerdown',event=>{
+    if(matchMedia('(max-width:720px)').matches)return;event.preventDefault();handle.setPointerCapture?.(event.pointerId);
+    const start=panel.getBoundingClientRect().width,startX=event.clientX;
+    const move=e=>{const width=Math.max(170,Math.min(420,start+(e.clientX-startX)));document.documentElement.style.setProperty('--dataset-panel-width',width+'px');};
+    const stop=e=>{handle.releasePointerCapture?.(e.pointerId);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);};
+    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);
+  });
+  handle.ondblclick=()=>document.documentElement.style.removeProperty('--dataset-panel-width');
+}
+function positionFillHandle(){
+  const wrap=$('#gridWrap'),handle=wrap?.querySelector('.fill-handle'),cell=wrap?.querySelector('td.cell-active');
+  if(!wrap||!handle||!cell){if(handle)handle.hidden=true;return;}
+  const wr=wrap.getBoundingClientRect(),cr=cell.getBoundingClientRect();
+  handle.hidden=false;handle.style.left=(cr.right-wr.left+wrap.scrollLeft-5)+'px';handle.style.top=(cr.bottom-wr.top+wrap.scrollTop-5)+'px';
+}
+function installFillHandle(wrap){
+  let handle=wrap.querySelector('.fill-handle');
+  if(!handle){handle=document.createElement('div');handle.className='fill-handle';handle.hidden=true;handle.title='Tarik untuk mengisi';wrap.append(handle);}
+  handle.onpointerdown=event=>{
+    const source=selectionRange();if(!source)return;event.preventDefault();event.stopPropagation();let target={...state.selection.focus};
+    handle.setPointerCapture?.(event.pointerId);
+    const move=e=>{const cell=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('td[data-r][data-c]');if(cell)target={r:Number(cell.dataset.r),c:Number(cell.dataset.c)};};
+    const stop=e=>{
+      handle.releasePointerCapture?.(e.pointerId);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);
+      const r1=Math.min(source.r1,target.r),r2=Math.max(source.r2,target.r),c1=Math.min(source.c1,target.c),c2=Math.max(source.c2,target.c);
+      if(r1===source.r1&&r2===source.r2&&c1===source.c1&&c2===source.c2)return;
+      const pattern=rangeMatrix(state.rows,source);if(!pattern.length)return;pushUndo('isi otomatis');
+      for(let r=r1;r<=r2;r++)for(let col=c1;col<=c2;col++)state.rows[r][col]=pattern[(r-source.r1)%pattern.length<0?0:(r-source.r1)%pattern.length][(col-source.c1)%pattern[0].length<0?0:(col-source.c1)%pattern[0].length];
+      const values=[];for(let r=r1;r<=r2;r++)values.push(state.rows[r].slice(c1,c2+1));
+      persist('isi otomatis',true,{kind:'set_range',row:r1,col:c1,values});renderGrid();state.selection.anchor={r:r1,c:c1};state.selection.focus={r:r2,c:c2};paintSelection();
+    };
+    handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);
+  };
+  wrap.addEventListener('scroll',positionFillHandle,{passive:true});
+}
+
 function bindColumnDrag(wrap){
   let touchFrom=null,touchTo=null;
   const clearMarks=()=>wrap.querySelectorAll('.column-dragging,.column-drop-target').forEach(el=>el.classList.remove('column-dragging','column-drop-target'));
