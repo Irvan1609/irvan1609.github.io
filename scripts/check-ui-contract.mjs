@@ -94,7 +94,8 @@ if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not b
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
 for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','runSelected','resetSelection','phoneGuardMode','else openButton(button)'])if(!flow.includes(marker))fail('phone-only safe analysis selection missing '+marker);
 if(!statStyle.includes('/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('phone-only safe analysis styles missing');
-if(!statStyle.includes('.analysis-menu-foot,.analysis-item-check{display:none}'))fail('desktop analysis confirmation UI must stay hidden');
+if(!statStyle.includes('.analysis-menu-foot{display:none}'))fail('desktop analysis confirmation footer must stay hidden');
+if(!flow.includes('class="analysis-item-arrow"')||flow.includes('class="analysis-item-check"'))fail('desktop analysis cards must keep the original arrow markup');
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
