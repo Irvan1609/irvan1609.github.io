@@ -1,0 +1,11 @@
+name = "hitung-cabai-api"
+main = "src/index.js"
+compatibility_date = "2026-09-25"
+
+[vars]
+ALLOWED_ORIGINS = "https://irvan1609.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hitung-cabai"
+database_id = "ISI_DATABASE_ID_D1"
