@@ -767,19 +767,22 @@ function renameDataset() {
 function saveDatasetName(event) {
   event.preventDefault();
   const name=$('#datasetName').value.trim().replace(/\.(?:csv|txt)$/i,'');
-  const target=name+'.csv', box=$('#datasetNameError');
+  const target=name+'.csv',box=$('#datasetNameError'),previous=state.active,content=serialize();
   if(!name||/[\\/\u0000-\u001f]/.test(name)){box.hidden=false;box.textContent='Masukkan nama tanpa garis miring atau karakter kontrol.';return;}
-  if(Object.keys(state.files).some(key=>key.toLowerCase()===target.toLowerCase()&&key!==state.active)){box.hidden=false;box.textContent='Nama tersebut sudah digunakan dataset lain.';return;}
-  const files=Object.fromEntries(Object.entries(state.files).map(([key,value])=>[key===state.active?target:key,key===state.active?serialize():value]));
+  if(Object.keys(state.files).some(key=>key.toLowerCase()===target.toLowerCase()&&key!==previous)){box.hidden=false;box.textContent='Nama tersebut sudah digunakan dataset lain.';return;}
   try{
-    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);
-    const previous=state.active,meta={...state.meta};if(previous!==target){
-      const oldKey=displayDatasetName(previous),newKey=displayDatasetName(target);
-      meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);
-      const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
-    }
-    localStorage.setItem(META_KEY,JSON.stringify(meta));
+    const previousStored=state.files[previous],offloaded=localStoreReady()&&(isLocalPointer(previousStored)||shouldOffloadDataset(content));
+    const files=Object.fromEntries(Object.entries(state.files).filter(([key])=>key!==previous));
+    files[target]=offloaded?localPointer(target):content;
+    const meta={...state.meta},oldKey=displayDatasetName(previous),newKey=displayDatasetName(target);
+    meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];
+    localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);localStorage.setItem(META_KEY,JSON.stringify(meta));
+    if(previous!==target){moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);}
+    const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
     state.files=files;state.active=target;state.meta=meta;
+    if(offloaded)void saveLocalDataset(target,content).then(()=>deleteLocalDataset(previous)).catch(error=>showError('Dataset besar gagal diganti nama.',error));
+    else if(localStoreReady()&&isLocalPointer(previousStored))void deleteLocalDataset(previous);
+    if(localStoreReady())void renameLocalSnapshots(previous,target).catch(()=>{});
     notifyDatasetChange({type:'rename',name:target,previous});
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
@@ -788,19 +791,26 @@ function deleteDataset(){
   const name=displayDatasetName(state.active),rows=state.rows.length,cols=state.headers.length;
   const detail=rows||cols?`${rows} baris × ${cols} kolom beserta metadata dan riwayat lokal`:'dataset kosong beserta metadata dan riwayat lokal';
   if(!confirm(`Hapus dataset “${name}” secara permanen dari perangkat ini?\n\nCakupan: ${detail}.\nTindakan ini tidak dapat diurungkan.`))return;
-  const removed=state.active;removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
+  const removed=state.active,removedStored=state.files[removed];removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
   try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}
   state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';
-  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
-  persist('hapus dataset',false);notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus(`Dataset “${name}” dihapus dari perangkat ini.`);
+  try{saveFilesManifest();localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch(error){return showError('Dataset tidak dapat dihapus.',error);}
+  if(localStoreReady()&&isLocalPointer(removedStored))void deleteLocalDataset(removed);
+  if(localStoreReady())void deleteLocalSnapshots(removed).catch(()=>{});
+  notifyDatasetChange({type:'delete',name:removed});loadActive(false);setStatus(`Dataset “${name}” dihapus dari perangkat ini.`);
 }
 function downloadDataset(){const blob=new Blob([serialize()],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=state.active;a.click();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus(`✓ ${displayDatasetName(state.active)} diunduh.`);}
 function duplicateDataset(){
-  const source=state.active,base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
+  const source=state.active,content=serialize(),base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
   while(Object.prototype.hasOwnProperty.call(state.files,name))name=`${base} (${n++}).csv`;
-  state.files[name]=serialize();state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
+  const offloaded=localStoreReady()&&shouldOffloadDataset(content);
+  state.files[name]=offloaded?localPointer(name):content;state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
   copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));
-  try{localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);notifyDatasetChange({type:'upsert',name,reason:'duplikat'});loadActive(false);setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);}catch(error){showError('Gagal membuat salinan dataset.',error);}
+  try{
+    localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);
+    if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Salinan besar gagal disimpan.',error));
+    notifyDatasetChange({type:'upsert',name,reason:'duplikat'});applyActiveCsv(content,{history:false});setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);
+  }catch(error){showError('Gagal membuat salinan dataset.',error);}
 }
 function openDatasetView(title,html){
   $('#datasetViewTitle').textContent=title;$('#datasetViewBody').innerHTML=html;$('#datasetViewModal').classList.add('open');
