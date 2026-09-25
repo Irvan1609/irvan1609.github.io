@@ -413,12 +413,11 @@ function toggleCompactEditor(){
   localStorage.setItem(COMPACT_KEY,enabled?'1':'0');$('#compactEditor').textContent=enabled?'Normal':'Ringkas';setStatus(enabled?'Tampilan ringkas aktif.':'Tampilan normal aktif.');
 }
 function toggleDatasetMetaEditor(force){
-  const editor=$('#datasetMetaEditor'),button=$('#toggleDatasetMeta'),header=document.querySelector('.sheet-header');if(!editor||!button)return;
+  const editor=$('#datasetMetaEditor'),button=$('#toggleDatasetMeta');if(!editor||!button)return;
   const opening=force===undefined?editor.hidden:Boolean(force);
   editor.hidden=!opening;
-  header?.classList.toggle('dataset-meta-open',opening);
   button.setAttribute('aria-expanded',String(opening));
-  button.textContent=opening?'Tutup':'Info';
+  button.textContent=opening?'Selesai':'Edit informasi';
   if(opening)$('#plantName')?.focus();
 }
 function applyFocusMode(enabled){
@@ -439,11 +438,10 @@ function toggleFocusMode(){
 function toggleMobileProjectPanel(force){
   const root=document.documentElement,button=$('#projectToggle');
   if(!root||!button)return;
-  const opening=force===undefined?!root.classList.contains('dataset-panel-open'):Boolean(force);
-  root.classList.toggle('dataset-panel-open',opening);
-  root.classList.remove('mobile-project-open');
+  const opening=force===undefined?!root.classList.contains('mobile-project-open'):Boolean(force);
+  root.classList.toggle('mobile-project-open',opening);
   button.setAttribute?.('aria-expanded',String(opening));
-  button.textContent='Dataset';
+  button.textContent=opening?'× Dataset':'☰ Dataset';
 }
 
 
@@ -499,7 +497,7 @@ function installDataGrid(){
   });
   $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#compactEditor').onclick=toggleCompactEditor;$('#focusData').onclick=toggleFocusMode;$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#toggleDatasetMeta').onclick=()=>toggleDatasetMetaEditor();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;$('#plantName').addEventListener('focus',()=>pushUndo('metadata'));$('#treatmentName').addEventListener('focus',()=>pushUndo('metadata'));$('#plantName').oninput=saveDatasetMeta;$('#treatmentName').oninput=saveDatasetMeta;bindColumnFormArrowNavigation();installEditorShortcuts();
   const rootClassList=document.documentElement?.classList,compactSaved=localStorage.getItem(COMPACT_KEY)==='1',focusSaved=localStorage.getItem(FOCUS_KEY)==='1';rootClassList?.toggle?.('compact-data-editor',compactSaved);if($('#compactEditor'))$('#compactEditor').textContent=rootClassList?.contains?.('compact-data-editor')?'Normal':'Ringkas';applyFocusMode(focusSaved);
-  $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
+  $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
 
 initNumberSettings();loadStorage();installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();
