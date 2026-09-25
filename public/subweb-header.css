@@ -119,3 +119,20 @@
   .subweb-header-inner{padding-left:6px;padding-right:6px}
   .subweb-brand span:last-child{font-size:12.5px}
 }
+
+/* COMPACT HEADER 2026-09-26 */
+.subweb-header{backdrop-filter:none;box-shadow:0 1px 0 rgba(26,48,68,.04)}
+.subweb-header-inner{min-height:52px;gap:9px}
+.subweb-brand{min-height:36px;gap:7px;font-size:13px}
+.subweb-brand-arrow{width:28px;height:28px;border-radius:7px;font-size:16px}
+.subweb-nav{gap:3px}
+.subweb-home-link,.subweb-tools summary{min-height:34px;padding:5px 8px;font-size:12px;border-radius:7px}
+.subweb-tools-menu{top:calc(100% + 5px);padding:5px;border-radius:9px;box-shadow:0 10px 26px rgba(25,43,61,.12)}
+.subweb-tools-menu a{min-height:34px;padding:6px 8px}
+@media(max-width:760px){
+ .subweb-header-inner{min-height:48px;padding:4px 6px}
+ .subweb-brand{min-height:36px}
+ .subweb-tools summary{width:36px;height:36px;min-height:36px}
+ .subweb-tools-menu{top:52px}
+ .subweb-header-inner>.account-widget{width:36px}
+}
