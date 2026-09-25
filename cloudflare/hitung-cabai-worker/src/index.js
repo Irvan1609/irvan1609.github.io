@@ -366,6 +366,68 @@ function parseDatasetMeta(value){
   if(new TextEncoder().encode(json).byteLength>40_000)throw Error('Metadata dataset terlalu besar.');
   return json;
 }
+function parseDatasetCsv(text){
+  const rows=[];let row=[],cell='',quoted=false;
+  const source=String(text||'');
+  for(let i=0;i<source.length;i++){
+    const ch=source[i];
+    if(ch==='"'){
+      if(quoted&&source[i+1]==='"'){cell+='"';i++;}
+      else quoted=!quoted;
+    }else if(ch===','&&!quoted){row.push(cell);cell='';}
+    else if((ch==='\n'||ch==='\r')&&!quoted){
+      if(ch==='\r'&&source[i+1]==='\n')i++;
+      row.push(cell);rows.push(row);row=[];cell='';
+    }else cell+=ch;
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  return rows.filter(r=>r.some(value=>String(value).length>0));
+}
+function datasetCsvCell(value){
+  const text=String(value??'');
+  return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
+}
+function serializeDatasetCsv(rows){return rows.map(row=>row.map(datasetCsvCell).join(',')).join('\n');}
+function applyDatasetOperations(content,operations){
+  if(!Array.isArray(operations)||!operations.length||operations.length>300)throw Error('Delta dataset tidak valid.');
+  const rows=parseDatasetCsv(content);
+  if(!rows.length)throw Error('Dataset kosong perlu disinkronkan penuh.');
+  const cols=rows[0].length;
+  const data=rows.slice(1).map(row=>Array.from({length:cols},(_,i)=>String(row[i]??'')));
+  for(const operation of operations){
+    const kind=String(operation?.kind||'');
+    if(kind==='set_cell'){
+      const r=Number(operation.row),col=Number(operation.col);
+      if(!Number.isInteger(r)||!Number.isInteger(col)||r<0||r>=data.length||col<0||col>=cols)throw Error('Posisi sel delta tidak valid.');
+      data[r][col]=String(operation.value??'');
+    }else if(kind==='set_range'){
+      const r0=Number(operation.row),c0=Number(operation.col),values=operation.values;
+      if(!Number.isInteger(r0)||!Number.isInteger(c0)||r0<0||c0<0||!Array.isArray(values)||!values.length)throw Error('Rentang delta tidak valid.');
+      for(let r=0;r<values.length;r++){
+        if(!Array.isArray(values[r])||r0+r>=data.length||c0+values[r].length>cols)throw Error('Rentang delta melewati ukuran dataset.');
+        for(let col=0;col<values[r].length;col++)data[r0+r][c0+col]=String(values[r][col]??'');
+      }
+    }else if(kind==='append_row'){
+      const values=Array.isArray(operation.values)?operation.values:[];
+      if(values.length!==cols)throw Error('Jumlah kolom baris baru tidak sesuai.');
+      data.push(values.map(value=>String(value??'')));
+    }else if(kind==='delete_row'){
+      const r=Number(operation.row);
+      if(!Number.isInteger(r)||r<0||r>=data.length)throw Error('Baris delta tidak valid.');
+      data.splice(r,1);
+    }else if(kind==='move_column'){
+      const from=Number(operation.from),to=Number(operation.to);
+      if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to<0||from>=cols||to>=cols)throw Error('Kolom delta tidak valid.');
+      for(const row of [rows[0],...data]){const [value]=row.splice(from,1);row.splice(to,0,value);}
+    }else throw Error('Jenis delta dataset tidak didukung.');
+  }
+  return serializeDatasetCsv([rows[0],...data]);
+}
+async function datasetVersion(env,userId){
+  const row=await env.DB.prepare(`SELECT COUNT(*) AS n,COALESCE(SUM(revision),0) AS revisions,COALESCE(MAX(updated_at),'') AS updated
+    FROM user_datasets WHERE user_id=?`).bind(userId).first();
+  return `${Number(row?.n||0)}:${Number(row?.revisions||0)}:${String(row?.updated||'')}`;
+}
 async function datasetUsage(env,userId){
   await ensureDatasetSchema(env);
   const row=await env.DB.prepare(`SELECT
@@ -433,10 +495,12 @@ async function handleDatasetList(request,env,url){
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   await ensureDatasetSchema(env);
   const includeDeleted=url.searchParams.get('include_deleted')==='1';
+  const version=await datasetVersion(env,user.id),known=String(url.searchParams.get('known_version')||'');
+  if(known&&known===version)return json(request,env,{unchanged:true,version,items:[]});
   const result=await env.DB.prepare(`SELECT id,name,revision,created_at,updated_at,deleted_at
     FROM user_datasets WHERE user_id=? ${includeDeleted?'':'AND deleted_at IS NULL'} ORDER BY updated_at ASC`)
     .bind(user.id).all();
-  return json(request,env,{items:(result.results||[]).map(datasetSummary)});
+  return json(request,env,{unchanged:false,version,items:(result.results||[]).map(datasetSummary)});
 }
 async function handleDatasetGet(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
@@ -501,6 +565,33 @@ async function handleDatasetPut(request,env,id){
 
   const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
   return json(request,env,{ok:true,item:datasetPayload(row)});
+}
+async function handleDatasetPatch(request,env,id){
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
+  await ensureDatasetSchema(env);
+  const body=await request.json().catch(()=>null),expectedRevision=Number(body?.expectedRevision),operationId=String(body?.operationId||''),operations=body?.operations;
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const scope=`dataset:${user.id}:${id}`,replayed=await replayOperation(env,scope,operationId);
+  if(replayed)return json(request,env,replayed);
+  const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  if(!row)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
+  if(!Number.isFinite(expectedRevision)||Number(row.revision)!==expectedRevision)return json(request,env,{error:'revision_conflict',current:datasetPayload(row)},409);
+  let content;
+  try{content=applyDatasetOperations(row.content,operations);}catch(error){return json(request,env,{error:error.message},400);}
+  if(new TextEncoder().encode(content).byteLength>MAX_DATASET_BYTES)return json(request,env,{error:'Dataset terlalu besar untuk sinkronisasi akun.'},413);
+  const incomingBytes=new TextEncoder().encode(content+String(row.meta_json||'')).byteLength;
+  const existingBytes=new TextEncoder().encode(String(row.content||'')+String(row.meta_json||'')).byteLength;
+  const quotaCheck=await enforceDatasetQuota(env,user,{incomingBytes,existingBytes,isNew:false});
+  if(!quotaCheck.ok)return json(request,env,{error:quotaCheck.error,message:'Batas penyimpanan membership tercapai.',usage:quotaCheck.usage,quota:quotaCheck.quota},413);
+  const now=new Date().toISOString();
+  await env.DB.prepare('UPDATE user_datasets SET content=?,revision=revision+1,updated_at=? WHERE id=? AND user_id=?').bind(content,now,id,user.id).run();
+  const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
+  const payload={ok:true,item:datasetPayload(current),applied:Array.isArray(operations)?operations.length:0};
+  await rememberOperation(env,scope,operationId,payload);
+  return json(request,env,payload);
 }
 async function handleDatasetDelete(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
@@ -1155,7 +1246,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.2'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),apiVersion:'2026-09-26.3'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -1203,6 +1294,7 @@ export default {
       const datasetMatch=url.pathname.match(/^\/v1\/datasets\/([0-9a-f-]{36})$/i);
       if(request.method==='GET'&&datasetMatch)return await handleDatasetGet(request,env,datasetMatch[1]);
       if(request.method==='PUT'&&datasetMatch)return await handleDatasetPut(request,env,datasetMatch[1]);
+      if(request.method==='PATCH'&&datasetMatch)return await handleDatasetPatch(request,env,datasetMatch[1]);
       if(request.method==='DELETE'&&datasetMatch)return await handleDatasetDelete(request,env,datasetMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/contributions')return await handleContribution(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/admin/manifest')return await handleManifest(request,env,url);
