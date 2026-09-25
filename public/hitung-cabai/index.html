@@ -75,6 +75,80 @@
     @media(max-width:480px){.correction-controls{grid-template-columns:1fr 1fr}.correction-controls #undo{grid-column:1/-1}.mini-flow span{flex:1 1 calc(50% - 5px)}}
   </style>
   <link rel="stylesheet" href="/account.css?v=20260926-2">
+
+  <style>
+    /* MOBILE-FIRST FINAL 2026-09-26 */
+    @media(max-width:680px){
+      body{background:#f7f9fb}
+      main{width:100%;margin:6px 0 calc(76px + env(safe-area-inset-bottom));padding:0 6px}
+      .intro{padding:2px 4px 6px;margin:0}
+      .intro h1{font-size:20px;margin:0}
+      .intro p{display:none}
+      .page-kicker{font-size:9.5px;margin-bottom:1px}
+      .mini-flow{
+        display:flex;flex-wrap:nowrap;gap:4px;margin-top:7px;
+        overflow-x:auto;scrollbar-width:none
+      }
+      .mini-flow::-webkit-scrollbar{display:none}
+      .mini-flow span{
+        flex:0 0 auto;padding:4px 6px;font-size:9.5px;border-radius:8px
+      }
+      .mini-flow b{width:17px;height:17px;border-radius:5px;font-size:9px}
+      .panel{padding:8px;border-radius:11px;box-shadow:none}
+      .section-heading{margin:2px 0 7px;gap:7px}
+      .section-heading>span{width:24px;height:24px;flex-basis:24px;border-radius:7px}
+      .section-heading strong{font-size:12.5px}
+      .section-heading small{display:none}
+      .section-heading.compact{margin-top:10px;padding-top:9px}
+      .capture-actions{display:grid;grid-template-columns:1fr 1fr;padding:6px;gap:5px}
+      .capture-actions .btn,.capture-actions .file-button{min-height:44px;padding:7px;font-size:12px}
+      .sample-row{padding:7px;margin-top:8px;grid-template-columns:minmax(0,1fr) auto}
+      .field label{font-size:10px}
+      .field input,.field select{min-height:42px;font-size:16px}
+      .count-card{min-width:78px;min-height:50px;padding:5px 8px}
+      #count{font-size:22px}
+      .editor-tools{margin:8px 0 6px;padding:6px;gap:5px;grid-template-columns:1fr!important}
+      .editor-stage{padding:7px;gap:5px}
+      .editor-stage-title{font-size:9.5px}
+      .correction-controls{grid-template-columns:1fr 1fr!important;gap:5px}
+      .correction-controls #undo{grid-column:1/-1}
+      .save-stage{display:none}
+      .detect-settings{margin:5px 0 6px}
+      .detect-settings>summary{min-height:36px;padding:6px 8px;font-size:10.5px}
+      .training-action{padding:6px;margin:5px 0;gap:4px}
+      .training-action .cloud-state{font-size:10px}
+      #viewport{
+        height:calc(100dvh - 360px);
+        min-height:250px;
+        max-height:58dvh;
+        border-radius:8px
+      }
+      .help{display:none}
+      #status{
+        min-height:0;margin:6px 0 0;padding:6px 8px;
+        font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+      }
+      .section-heading.save-step{display:none}
+      details.data-panel{margin-top:7px}
+      details.data-panel>summary{font-size:12px;padding:4px}
+      .record-main b{font-size:12px}
+      .record-main small{font-size:10px}
+      .record-thumb{width:42px;height:42px;flex-basis:42px}
+      .record-actions button{min-height:36px;padding:5px 7px;font-size:11px}
+      .mobile-actionbar{
+        left:5px;right:5px;bottom:max(5px,env(safe-area-inset-bottom));
+        border:1px solid #cfd9e1;border-radius:14px;
+        padding:5px;background:rgba(255,255,255,.97);
+        box-shadow:0 12px 34px rgba(20,42,62,.2)
+      }
+      .mobile-actionbar .btn{min-height:48px;border-radius:10px}
+    }
+    @media(max-width:390px){
+      main{padding-left:4px;padding-right:4px}
+      #viewport{height:calc(100dvh - 345px);min-height:220px}
+      .capture-actions .btn,.capture-actions .file-button{font-size:11px}
+    }
+  </style>
 </head>
 <body>
   <header class="subweb-header">
