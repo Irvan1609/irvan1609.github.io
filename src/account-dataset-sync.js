@@ -51,7 +51,8 @@ async function readStores(){
     let content=null;
     if(name===active)content=await globalThis.StatisticalWebData?.readDatasetContent?.(name);
     if(content===null||content===undefined)content=await loadLocalDataset(name);
-    files[name]=String(content??'');
+    if(content===null||content===undefined)throw Error('Dataset lokal “'+displayName(name)+'” tidak dapat dibaca.');
+    files[name]=String(content);
   }
   return {files,meta:safeObject(META_KEY),categories:safeObject(CATEGORY_KEY),treatments:safeObject(TREATMENT_KEY)};
 }
