@@ -57,22 +57,29 @@ function initials(user){
   const name=String(user?.name||user?.email||'?').trim();
   return name.split(/\s+/).slice(0,2).map(part=>part[0]?.toUpperCase()||'').join('')||'?';
 }
+function avatarAuraClass(user){
+  if(user?.role==='admin')return 'immortal';
+  if(user?.membership?.active)return 'glory';
+  return 'bronze';
+}
 function avatarMarkup(user,large=false){
-  if(user?.picture)return `<img class="account-avatar" src="${escapeHtml(user.picture)}" alt="" referrerpolicy="no-referrer">`;
-  return `<span class="account-avatar account-avatar-fallback" aria-hidden="true">${escapeHtml(initials(user))}</span>`;
+  const avatar=user?.picture
+    ?`<img class="account-avatar" src="${escapeHtml(user.picture)}" alt="" referrerpolicy="no-referrer">`
+    :`<span class="account-avatar account-avatar-fallback" aria-hidden="true">${escapeHtml(initials(user))}</span>`;
+  return `<span class="account-avatar-frame ${avatarAuraClass(user)}${large?' large':''}" aria-hidden="true">${avatar}</span>`;
 }
 function escapeHtml(value){
   return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 function accessLabel(user){
-  if(user?.role==='admin')return 'IMMORTAL';
-  if(user?.membership?.active)return 'GLORY';
-  return 'BRONZE';
+  if(user?.role==='admin')return 'Admin';
+  if(user?.membership?.active)return 'Member';
+  return 'Freezer';
 }
 function accessClass(user){
-  if(user?.role==='admin')return 'immortal';
-  if(user?.membership?.active)return 'glory';
-  return 'bronze';
+  if(user?.role==='admin')return 'admin';
+  if(user?.membership?.active)return 'member';
+  return 'freezer';
 }
 function dispatch(){
   window.IrvanAccount={
