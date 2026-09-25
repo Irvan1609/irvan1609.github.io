@@ -12,6 +12,7 @@ let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
 let MEMBERSHIP_SCHEMA_READY=false;
 let OPERATIONS_SCHEMA_READY=false;
+let CONTRIBUTION_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
@@ -23,7 +24,7 @@ function corsHeaders(request,env){
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
     'Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token',
+    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
   };
@@ -1185,6 +1186,37 @@ async function verifyTurnstile(request,env){
   const data=await result.json();
   return Boolean(data.success&&(!data.action||data.action==='chili_contribute'));
 }
+async function ensureContributionSchema(env){
+  if(CONTRIBUTION_SCHEMA_READY)return;
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS contributions (
+    id TEXT PRIMARY KEY,
+    sample TEXT NOT NULL,
+    image BLOB NOT NULL,
+    mime_type TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    boxes_json TEXT NOT NULL,
+    predicted_boxes_json TEXT NOT NULL,
+    predicted_count INTEGER NOT NULL,
+    final_count INTEGER NOT NULL,
+    prediction_method TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    correction_count INTEGER NOT NULL,
+    quality_score REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'candidate',
+    created_at TEXT NOT NULL,
+    edit_token_hash TEXT,
+    updated_at TEXT
+  )`).run();
+  const info=await env.DB.prepare('PRAGMA table_info(contributions)').all(),columns=new Set((info.results||[]).map(row=>row.name));
+  if(!columns.has('edit_token_hash'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN edit_token_hash TEXT').run();
+  if(!columns.has('updated_at'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN updated_at TEXT').run();
+  await env.DB.batch([
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)')
+  ]);
+  CONTRIBUTION_SCHEMA_READY=true;
+}
 function qualityScore(predictedCount,finalCount,correctionCount){
   const denominator=Math.max(1,finalCount,predictedCount);
   const rate=Math.min(1,correctionCount/denominator);
@@ -1196,7 +1228,11 @@ function parseJsonField(form,name,fallback=[]){
 
 async function handleContribution(request,env){
   if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
-  const form=await request.formData(),image=form.get('image');
+  await ensureContributionSchema(env);
+  const form=await request.formData(),image=form.get('image'),operationId=String(form.get('operation_id')||'');
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const replayed=await replayOperation(env,'contribution:create',operationId);
+  if(replayed)return json(request,env,replayed);
   if(!(image instanceof File))return json(request,env,{error:'Foto tidak ditemukan.'},400);
   if(image.size<=0||image.size>MAX_IMAGE_BYTES)return json(request,env,{error:'Ukuran foto kontribusi tidak valid.'},413);
   if(!['image/webp','image/jpeg','image/png'].includes(image.type))return json(request,env,{error:'Format foto tidak didukung.'},415);
@@ -1211,16 +1247,43 @@ async function handleContribution(request,env){
   const correctionCount=Math.abs(finalCount-predictedCount)+(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
   const method=String(form.get('prediction_method')||'unknown').slice(0,40);
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
-  const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount);
+  const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount),editToken=randomToken(24),editTokenHash=await sha256(editToken);
   const bytes=await image.arrayBuffer();
 
   await env.DB.prepare(`INSERT INTO contributions
-    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt)
+    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
     .run();
 
-  return json(request,env,{ok:true,id,qualityScore:score,finalCount});
+  const payload={ok:true,id,editToken,qualityScore:score,finalCount};
+  await rememberOperation(env,'contribution:create',operationId,payload);
+  return json(request,env,payload);
+}
+async function handleContributionPatch(request,env,id){
+  if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
+  await ensureContributionSchema(env);
+  if(!validDatasetId(id))return json(request,env,{error:'ID kontribusi tidak valid.'},400);
+  const editToken=request.headers.get('X-Contribution-Edit')||'';
+  if(!editToken)return json(request,env,{error:'Token edit kontribusi tidak tersedia.'},401);
+  const body=await request.json().catch(()=>null),operationId=String(body?.operationId||'');
+  if(!validOperationId(operationId))return json(request,env,{error:'operation_id tidak valid.'},400);
+  const scope='contribution:update:'+id,replayed=await replayOperation(env,scope,operationId);
+  if(replayed)return json(request,env,replayed);
+  const row=await env.DB.prepare('SELECT id,edit_token_hash,predicted_boxes_json FROM contributions WHERE id=? LIMIT 1').bind(id).first();
+  if(!row)return json(request,env,{error:'Kontribusi tidak ditemukan.'},404);
+  if(!row.edit_token_hash||await sha256(editToken)!==row.edit_token_hash)return json(request,env,{error:'Token edit kontribusi tidak valid.'},403);
+  const boxes=body?.boxes,predictedBoxes=body?.predictedBoxes??JSON.parse(row.predicted_boxes_json||'[]');
+  if(!validBoxes(boxes)||!validBoxes(predictedBoxes))return json(request,env,{error:'Bounding box tidak valid.'},400);
+  const predictedCount=predictedBoxes.length,finalCount=boxes.length;
+  const correctionCount=Math.abs(finalCount-predictedCount)+(JSON.stringify(boxes)===JSON.stringify(predictedBoxes)?0:1);
+  const method=String(body?.predictionMethod||'manual').slice(0,40),modelVersion=String(body?.modelVersion||'unknown').slice(0,80);
+  const score=qualityScore(predictedCount,finalCount,correctionCount),now=new Date().toISOString();
+  await env.DB.prepare(`UPDATE contributions SET boxes_json=?,predicted_boxes_json=?,predicted_count=?,final_count=?,prediction_method=?,model_version=?,correction_count=?,quality_score=?,updated_at=? WHERE id=?`)
+    .bind(JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,now,id).run();
+  const payload={ok:true,id,updated:true,qualityScore:score,finalCount};
+  await rememberOperation(env,scope,operationId,payload);
+  return json(request,env,payload);
 }
 async function handleManifest(request,env,url){
   if(!authAdmin(request,env))return json(request,env,{error:'Tidak diizinkan.'},401);
@@ -1297,6 +1360,8 @@ export default {
       if(request.method==='PATCH'&&datasetMatch)return await handleDatasetPatch(request,env,datasetMatch[1]);
       if(request.method==='DELETE'&&datasetMatch)return await handleDatasetDelete(request,env,datasetMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/contributions')return await handleContribution(request,env);
+      const contributionMatch=url.pathname.match(/^\/v1\/contributions\/([0-9a-f-]{36})$/i);
+      if(request.method==='PATCH'&&contributionMatch)return await handleContributionPatch(request,env,contributionMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/admin/manifest')return await handleManifest(request,env,url);
       const imageMatch=url.pathname.match(/^\/v1\/admin\/image\/([0-9a-f-]+)$/i);
       if(request.method==='GET'&&imageMatch)return await handleImage(request,env,imageMatch[1]);
