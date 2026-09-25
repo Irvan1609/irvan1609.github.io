@@ -218,7 +218,7 @@ function syncBar(){
   const panel=document.getElementById('projectPanel'),title=panel?.querySelector('.panel-title');
   if(!panel||!title)return null;
   bar=document.createElement('div');bar.id='datasetSyncBar';bar.className='dataset-sync-bar';
-  bar.innerHTML='<span class="dataset-sync-dot" aria-hidden="true"></span><span id="datasetSyncState">Cadangan cloud: belum aktif</span><button id="syncDatasets" type="button">Sinkronkan</button>';
+  bar.innerHTML='<span class="dataset-sync-dot" aria-hidden="true"></span><span id="datasetSyncState">Belum dicadangkan ke cloud</span><button id="syncDatasets" type="button">Sinkronkan</button>';
   title.insertAdjacentElement('afterend',bar);
   bar.querySelector('#syncDatasets').onclick=()=>syncNow({manual:true});
   return bar;
@@ -423,7 +423,7 @@ function onAccount(event){
   const bar=syncBar();
   if(!currentUser){
     if(bar)bar.hidden=false;
-    setSyncStatus('Cadangan cloud: belum aktif','idle');
+    setSyncStatus('Belum dicadangkan ke cloud','idle');
     return;
   }
   if(!currentUser.features?.datasetSync){
@@ -447,7 +447,7 @@ function onAccount(event){
   periodicTimer=setInterval(()=>{if(!document.hidden)syncNow();},FALLBACK_SYNC_MS);
 }
 export function installAccountDatasetSync(){
-  const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Cadangan cloud: belum aktif','idle');}
+  const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{};
