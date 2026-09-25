@@ -35,27 +35,42 @@ jobs:
       - name: Ambil dataset tervalidasi
         if: steps.config.outputs.ready == 'true'
         id: dataset
+        run: python scripts/fetch-chili-dataset.py --api-url "$CHILI_API_URL" --token "$CHILI_ADMIN_TOKEN" --out .chili-dataset --min-samples 100
+
+      - name: Periksa apakah ada data baru
+        if: steps.dataset.outputs.ready == 'true'
+        id: freshness
+        shell: bash
         run: |
-          python scripts/fetch-chili-dataset.py             --api-url "$CHILI_API_URL"             --token "$CHILI_ADMIN_TOKEN"             --out .chili-dataset             --min-samples 100
+          LAST=0
+          if [ -f public/hitung-cabai/models/metrics.json ]; then
+            LAST=$(python -c "import json; print(json.load(open('public/hitung-cabai/models/metrics.json')).get('sample_count', 0))")
+          fi
+          if [ "${{ steps.dataset.outputs.sample_count }}" -gt "$LAST" ]; then
+            echo "train=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "train=false" >> "$GITHUB_OUTPUT"
+            echo "Tidak ada sampel baru; training dilewati."
+          fi
 
       - name: Siapkan Python
-        if: steps.dataset.outputs.ready == 'true'
+        if: steps.freshness.outputs.train == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Pasang mesin training
-        if: steps.dataset.outputs.ready == 'true'
+        if: steps.freshness.outputs.train == 'true'
         run: pip install "ultralytics>=8.3,<9" onnx onnxslim
 
       - name: Latih dan evaluasi kandidat
-        if: steps.dataset.outputs.ready == 'true'
+        if: steps.freshness.outputs.train == 'true'
         id: train
-        run: python scripts/train-chili-model.py --data .chili-dataset/data.yaml --epochs 30
+        run: python scripts/train-chili-model.py --data .chili-dataset/data.yaml --epochs 30 --sample-count ${{ steps.dataset.outputs.sample_count }}
 
       - name: Simpan diagnostik kandidat
-        if: steps.dataset.outputs.ready == 'true'
+        if: steps.freshness.outputs.train == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hitung-cabai-candidate-${{ github.run_number }}
