@@ -14,6 +14,7 @@ let retryTimer=null;
 let periodicTimer=null;
 let currentUser=null;
 let syncAllowed=true;
+const FALLBACK_SYNC_MS=10*60*1000;
 
 const safeObject=(key)=>{
   try{
@@ -231,7 +232,7 @@ function setSyncStatus(text,state='idle'){
     button.textContent=state==='syncing'?'Menyinkronkan…':'Sinkronkan';
   }
 }
-function scheduleSync(delay=1400){
+function scheduleSync(delay=3500){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
   retryTimer=setTimeout(()=>syncNow(),delay);
@@ -340,6 +341,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 }
 async function syncNow({manual=false}={}){
   if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
+  if(document.hidden&&!manual)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
     const rows=await cloudRows(),remoteById=new Map(rows.map(row=>[row.id,row]));
@@ -417,10 +419,17 @@ function onAccount(event){
   currentUser=event.detail?.authenticated?event.detail.user:null;
   clearInterval(periodicTimer);periodicTimer=null;
   syncAllowed=true;
+  const bar=syncBar();
   if(!currentUser){
-    setSyncStatus('Masuk untuk sinkronisasi','idle');
+    if(bar)bar.hidden=true;
     return;
   }
+  if(!currentUser.features?.datasetSync){
+    syncAllowed=false;
+    if(bar)bar.hidden=true;
+    return;
+  }
+  if(bar)bar.hidden=false;
   const owner=localStorage.getItem(OWNER_KEY)||'';
   if(!owner||owner===currentUser.id||disposableWorkspace()){
     localStorage.setItem(OWNER_KEY,currentUser.id);
@@ -430,11 +439,11 @@ function onAccount(event){
     return;
   }
   setSyncStatus('Menyiapkan sinkronisasi…','syncing');
-  scheduleSync(250);
-  periodicTimer=setInterval(()=>syncNow(),60000);
+  scheduleSync(300);
+  periodicTimer=setInterval(()=>{if(!document.hidden)syncNow();},FALLBACK_SYNC_MS);
 }
 export function installAccountDatasetSync(){
-  syncBar();
+  const bar=syncBar();if(bar)bar.hidden=true;
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{};
@@ -450,7 +459,7 @@ export function installAccountDatasetSync(){
   window.addEventListener('storage',event=>{
     if([FILES_KEY,META_KEY,CATEGORY_KEY,TREATMENT_KEY].includes(event.key))scheduleSync(2200);
   });
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser)scheduleSync(500);});
-  window.addEventListener('online',()=>scheduleSync(500));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed)scheduleSync(900);});
+  window.addEventListener('online',()=>scheduleSync(900));
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
