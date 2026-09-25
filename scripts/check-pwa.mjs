@@ -12,14 +12,15 @@ for(const marker of [
   "CORE_CACHE='agrotik-core-'",
   "RUNTIME_CACHE='agrotik-runtime-'",
   "THIRD_PARTY_CACHE='agrotik-third-party-'",
-  "'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/offline.html'",
-  "request.method!=='GET'","request.mode==='navigate'","warmChiliOffline",
-  "cdn.jsdelivr.net","cdnjs.cloudflare.com","ORT_ASSETS"
+  "'/offline.html'",
+  "request.method!=='GET'","request.mode==='navigate'",
+  "cdn.jsdelivr.net","cdnjs.cloudflare.com"
 ]) if(!sw.includes(marker))fail('service worker missing '+marker);
 
 if(sw.includes("method==='POST'")||sw.includes('method==="POST"'))fail('service worker must not cache POST requests');
 if(!sw.includes("skipSameOriginPath(url.pathname)"))fail('service worker cache exclusion missing');
-if(!register.includes("navigator.serviceWorker.register")||!register.includes("beforeinstallprompt")||!register.includes("WARM_CHILI"))fail('PWA registration/install flow incomplete');
+if(!register.includes("navigator.serviceWorker.register")||!register.includes("beforeinstallprompt"))fail('PWA registration/install flow incomplete');
+if(!register.includes("document.querySelector('.subweb-nav')")||!register.includes("document.querySelector('.site-header .nav-links')"))fail('PWA install control must be placed in the site header');
 
 if(manifest.name!=='Agrotik · Alat Riset Agronomi')fail('manifest name incorrect');
 if(manifest.display!=='standalone'||manifest.scope!=='/'||manifest.start_url!=='/')fail('manifest app shell settings incorrect');
@@ -37,4 +38,4 @@ for(const path of ['index.html','stat/index.html','public/hitung-cabai/index.htm
 const sync=fs.readFileSync('src/account-dataset-sync.js','utf8');
 if(!sync.includes("navigator.onLine===false")||!sync.includes("window.addEventListener('offline'")||!sync.includes("window.addEventListener('online'"))fail('offline cloud-sync guard missing');
 
-console.log('PWA contract OK: installable shell, offline cache, local-first sync, offline tools and on-demand chili ML cache are wired.');
+console.log('PWA contract OK: lightweight installable shell, runtime offline cache, header install control, and local-first sync are wired.');
