@@ -54,6 +54,5 @@
 .account-avatar-frame.bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
 .account-avatar-frame.bronze::after{background:radial-gradient(circle,rgba(174,110,57,.13) 0 44%,transparent 72%)}
 
-@keyframes account-avatar-spin{to{transform:rotate(360deg)}}
-@keyframes account-avatar-pulse{0%,100%{transform:scale(.96);opacity:.6}50%{transform:scale(1.08);opacity:1}}
-@media(prefers-reduced-motion:reduce){.account-avatar-frame::before,.account-avatar-frame::after{animation:none!important}}
+}
+50%{transform:scale(1.08);opacity:1}}
