@@ -549,7 +549,7 @@ function markGridQuality(wrap,types){
     const normalized=row.map(value=>String(value??'').trim()).join('\u001f');
     if(normalized.replace(/\u001f/g,'').length)signatures.set(normalized,[...(signatures.get(normalized)||[]),index]);
   });
-  for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(row=>wrap.querySelector(`tr:nth-child(${row+1})`)?.classList.add('duplicate-row'));
+  for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(row=>wrap.querySelector(`.data-grid tbody tr:nth-child(${row+1})`)?.classList.add('duplicate-row'));
   state.rows.forEach((row,r)=>{
     const rowHasData=row.some(value=>String(value??'').trim()!=='');
     row.forEach((value,col)=>{
