@@ -92,8 +92,9 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
-for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','runSelected','resetSelection'])if(!flow.includes(marker))fail('safe analysis selection missing '+marker);
-if(!statStyle.includes('/* SAFE SIMPLE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('safe simple analysis styles missing');
+for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','runSelected','resetSelection','phoneGuardMode','else openButton(button)'])if(!flow.includes(marker))fail('phone-only safe analysis selection missing '+marker);
+if(!statStyle.includes('/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('phone-only safe analysis styles missing');
+if(!statStyle.includes('.analysis-menu-foot,.analysis-item-check{display:none}'))fail('desktop analysis confirmation UI must stay hidden');
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'","openScientific(button.dataset.design)"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
 
@@ -139,7 +140,7 @@ for (const marker of ["['fileMenu','File'","['dataMenu','Data'","['helpMenu','Ba
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
-for(const marker of ["runButton.disabled=!ready","runButton.textContent=ready?'Jalankan':'Lengkapi pilihan'","Pilih minimal satu parameter."])if(!scientific.includes(marker))fail('safe analysis run state missing '+marker);
+for(const marker of ["phoneGuardMode()","runButton.disabled=!ready","runButton.textContent=ready?'Jalankan':'Lengkapi pilihan'","runButton.textContent='Jalankan analisis'"])if(!scientific.includes(marker))fail('phone-only safe analysis run state missing '+marker);
 for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','data-transform.js','treatment-metadata.js','category-metadata.js','readCategoryMetadata','categoryLevelDescription','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
 if(scientific.includes('Definisi perlakuan untuk tabel & interpretasi BAB IV')||scientific.includes('scienceTreatmentFields'))fail('analysis dialog must use existing metadata instead of a duplicate treatment-definition editor');
 for (const marker of ['Catatan interpretasi','copy-interpretation','renderBab4Table','Data sebelum transformasi','Sidik ragam sebelum transformasi','renderDecisionSummary','residualHistogram','renderInfluenceDiagnostics']) if (!scientificReport.includes(marker)) fail(`scientific report missing ${marker}`);
