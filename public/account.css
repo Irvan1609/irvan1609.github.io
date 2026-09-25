@@ -36,6 +36,10 @@
 @media(max-width:680px){.subweb-header-inner{gap:7px}.subweb-nav{flex:1 1 auto;min-width:0}.subweb-header-inner>.account-widget{margin-left:0}}
 
 .account-access-badge{display:inline-flex;align-items:center;width:max-content;margin-top:5px;padding:2px 6px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.02em}
-.account-access-badge.admin{background:#f3e7c7;color:#6e4b05}
-.account-access-badge.member{background:#e7f4ec;color:#246343}
-.account-access-badge.free{background:#eef2f5;color:#667786}
+.account-access-badge.immortal{background:linear-gradient(90deg,#eee2ff,#fff0bd);color:#5a318f;border:1px solid #dac4ff}
+.account-access-badge.glory{background:linear-gradient(90deg,#e1f3ff,#eceaff);color:#245f9e;border:1px solid #bddbef}
+.account-access-badge.bronze{background:#f4e2d1;color:#7a4827;border:1px solid #ddbd9e}
+
+.account-trigger:has(+.account-menu .account-access-badge.immortal){border-color:#cdb2f4;box-shadow:0 0 0 2px rgba(108,66,174,.08)}
+.account-trigger:has(+.account-menu .account-access-badge.glory){border-color:#a9cfe8;box-shadow:0 0 0 2px rgba(54,132,184,.07)}
+.account-trigger:has(+.account-menu .account-access-badge.bronze){border-color:#d5b18f;box-shadow:0 0 0 2px rgba(147,91,43,.06)}
