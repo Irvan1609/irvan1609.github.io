@@ -42,9 +42,12 @@ async function loadHealth(){
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
   return data;
 }
+async function loadMidtransDiagnostic(){
+  return api('/v1/develop/midtrans-diagnostic');
+}
 async function loadOverview(){
-  const result=await Promise.all([api('/v1/develop/overview'),api('/v1/develop/usage'),loadHealth()]);
-  const stats=result[0].stats||{},usage=result[1].estimated||{};
+  const result=await Promise.all([api('/v1/develop/overview'),api('/v1/develop/usage'),loadHealth(),loadMidtransDiagnostic()]);
+  const stats=result[0].stats||{},usage=result[1].estimated||{},midtrans=result[3]||{};
   const cards=[
     ['Total pengguna',stats.users],['Admin + member',stats.entitledUsers],['Dataset cloud',stats.datasets],
     ['Storage dataset',bytes(stats.datasetBytes)],['Pendapatan membership',money(stats.membershipRevenueIdr)],
@@ -55,7 +58,9 @@ async function loadOverview(){
   $('#statsGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+Number(item[1]||0).toLocaleString('id-ID')+'</b></article>').join('');
   $('#overviewUsage').innerHTML=[
     ['Ukuran dataset',bytes(usage.datasetBytes)],['Revisi dataset',Number(usage.datasetRevisionWrites||0).toLocaleString('id-ID')],
-    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto kontribusi',bytes(usage.contributionImageBytes)]
+    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto kontribusi',bytes(usage.contributionImageBytes)],
+    ['Midtrans env',midtrans.environment||'—'],['Midtrans key',midtrans.keyType||'—'],
+    ['Midtrans auth',midtrans.verified?'Terverifikasi':(midtrans.message||'Belum terverifikasi')]
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
 }
 async function ensurePlans(){
