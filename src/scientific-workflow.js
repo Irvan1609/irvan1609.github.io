@@ -22,6 +22,10 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   container.innerHTML='<div class="result-actions master-result-actions"><button type="button" data-thesis-table-mode>Tabel Skripsi</button><button data-result-action="export-all">Ekspor .xlsx</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa</button><details class="result-more-actions"><summary>Lainnya</summary><button data-result-action="export-all-formula">Ekspor formula</button></details><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>'+renderAnalysisSummary(reports)+reports.map(renderReport).join('');
   container.dataset.datasetName=datasetName;
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
+  container.querySelectorAll('[data-summary-parameter]').forEach(button=>button.onclick=()=>{
+    const target=[...container.querySelectorAll('.analysis-result')].find(section=>section.dataset.parameter===button.dataset.summaryParameter);
+    if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
+  });
   const thesisMode=container.querySelector('[data-thesis-table-mode]');
   if(thesisMode)thesisMode.onclick=()=>{
     const enabled=container.classList.toggle('thesis-table-mode');
