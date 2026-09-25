@@ -36,7 +36,6 @@ function saveCredit(credit) {
   writeSession(CREDIT_KEY, JSON.stringify(credit));
   writeSession(LAST_ORDER_KEY, credit.orderId);
   updateCreditButton();
-  document.addEventListener('accountchange',updateCreditButton);
 }
 function clearCredit() {
   removeSession(CREDIT_KEY);
@@ -250,6 +249,7 @@ function injectPaymentUi() {
   document.querySelector('#paymentCreate').onclick = createPayment;
   document.querySelector('#paymentRecover').onclick = recoverLastPayment;
   modal().addEventListener('click', event => { if (event.target === modal()) closePayment(); });
+  document.addEventListener('accountchange',updateCreditButton);
   updateCreditButton();
 }
 
