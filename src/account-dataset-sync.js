@@ -169,6 +169,10 @@ async function api(path,options={}){
     window.IrvanAccount?.refresh?.();
     throw Error('Sesi akun berakhir. Silakan masuk kembali.');
   }
+  if(response.status===403&&data?.error==='membership_required'){
+    await window.IrvanAccount?.refresh?.();
+    throw Error('Sinkronisasi cloud memerlukan membership aktif.');
+  }
   return {response,data};
 }
 async function cloudRows(){
