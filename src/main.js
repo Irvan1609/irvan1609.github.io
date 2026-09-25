@@ -137,7 +137,8 @@ function saveInlineDatasetMeta(field,value){
   }catch(e){showError('Informasi dataset tidak dapat disimpan.',e);}
 }
 function bindInlineDatasetMeta(){
-  document.querySelectorAll('[data-meta-field]').forEach(el=>{
+  const fields=document.querySelectorAll?.('[data-meta-field]')||[];
+  fields.forEach(el=>{
     if(el.dataset.metaBound==='1')return;el.dataset.metaBound='1';
     el.addEventListener('focus',()=>{if(el.textContent.trim()==='—')el.textContent='';});
     el.addEventListener('input',()=>{
