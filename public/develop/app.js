@@ -47,7 +47,10 @@ async function loadOverview(){
   const stats=result[0].stats||{},usage=result[1].estimated||{};
   const cards=[
     ['Total pengguna',stats.users],['Admin + member',stats.entitledUsers],['Dataset cloud',stats.datasets],
-    ['Kontribusi AI',stats.contributions],['Sesi aktif 24 jam',stats.activeSessions24h],['Pengguna baru 7 hari',stats.newUsers7d]
+    ['Storage dataset',bytes(stats.datasetBytes)],['Pendapatan membership',money(stats.membershipRevenueIdr)],
+    ['Pembayaran settlement',stats.settledPayments],['Kontribusi AI',stats.contributions],
+    ['Sesi aktif 24 jam',stats.activeSessions24h],['Pengguna baru 7 hari',stats.newUsers7d],
+    ['Backup terakhir',stats.lastBackupAt?dateOnly(stats.lastBackupAt):'Belum ada']
   ];
   $('#statsGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+Number(item[1]||0).toLocaleString('id-ID')+'</b></article>').join('');
   $('#overviewUsage').innerHTML=[
