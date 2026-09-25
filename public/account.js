@@ -65,14 +65,14 @@ function escapeHtml(value){
   return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 function accessLabel(user){
-  if(user?.role==='admin')return 'Admin';
-  if(user?.membership?.active)return 'Membership';
-  return 'Akun gratis';
+  if(user?.role==='admin')return 'IMMORTAL';
+  if(user?.membership?.active)return 'GLORY';
+  return 'BRONZE';
 }
 function accessClass(user){
-  if(user?.role==='admin')return 'admin';
-  if(user?.membership?.active)return 'member';
-  return 'free';
+  if(user?.role==='admin')return 'immortal';
+  if(user?.membership?.active)return 'glory';
+  return 'bronze';
 }
 function dispatch(){
   window.IrvanAccount={
