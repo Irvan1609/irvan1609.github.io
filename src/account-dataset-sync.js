@@ -157,6 +157,12 @@ async function deleteCloud(id,expectedRevision){
 function localItem(stores,name){
   return {name,content:String(stores.files[name]??''),meta:bundleFor(stores,name)};
 }
+function isDisposableDefault(item){
+  if(normalizeFileName(item?.name)!=='dataset.csv')return false;
+  const meta=item?.meta||{},dataset=meta.dataset||{};
+  return !String(item?.content||'').trim()&&!String(dataset.plant||'').trim()&&!String(dataset.treatment||'').trim()&&
+    !Object.keys(meta.category||{}).length&&!Object.keys(meta.treatment||{}).length;
+}
 function syncBar(){
   let bar=document.getElementById('datasetSyncBar');
   if(bar)return bar;
@@ -292,14 +298,19 @@ async function syncNow({manual=false}={}){
       let target=normalizeFileName(remote.name);
       const remoteHash=await remoteFingerprint(remote);
       if(Object.prototype.hasOwnProperty.call(stores.files,target)){
-        const localHash=await hashItem(localItem(stores,target));
+        const existingLocal=localItem(stores,target),localHash=await hashItem(existingLocal);
         if(localHash===remoteHash){
           sync.items[remote.id]={name:target,revision:remote.revision,hash:remoteHash,deleted:false};
           continue;
         }
-        const preserved=uniqueName(stores,target,'Lokal');
-        renameLocal(stores,target,preserved);
-        counters.conflicts++;counters.localChanged=true;
+        if(isDisposableDefault(existingLocal)){
+          removeLocal(stores,target);
+          counters.localChanged=true;
+        }else{
+          const preserved=uniqueName(stores,target,'Lokal');
+          renameLocal(stores,target,preserved);
+          counters.conflicts++;counters.localChanged=true;
+        }
       }
       putLocal(stores,target,remote.content,remote.meta);
       sync.items[remote.id]={name:target,revision:remote.revision,hash:remoteHash,deleted:false};
@@ -361,7 +372,17 @@ function onAccount(event){
 export function installAccountDatasetSync(){
   syncBar();
   document.addEventListener('accountchange',onAccount);
-  document.addEventListener('stat-dataset-changed',()=>scheduleSync());
+  document.addEventListener('stat-dataset-changed',event=>{
+    const detail=event.detail||{};
+    if(currentUser&&detail.type==='rename'&&detail.previous&&detail.name){
+      const sync=loadSyncState(currentUser.id);
+      for(const item of Object.values(sync.items)){
+        if(!item.deleted&&item.name===detail.previous)item.name=detail.name;
+      }
+      saveSyncState(currentUser.id,sync);
+    }
+    scheduleSync();
+  });
   window.addEventListener('storage',event=>{
     if([FILES_KEY,META_KEY,CATEGORY_KEY,TREATMENT_KEY].includes(event.key))scheduleSync(2200);
   });
