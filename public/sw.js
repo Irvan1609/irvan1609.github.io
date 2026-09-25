@@ -15,7 +15,7 @@ const CORE_URLS=[
   '/manifest.webmanifest',
   '/pwa-register.js',
   '/subweb-header.css',
-  '/account.css?v=20260926-2',
+  '/account.css?v=20260926-4',
   '/icons/agrotik.svg'
 ];
 
