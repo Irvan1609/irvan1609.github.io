@@ -31,3 +31,6 @@
   .account-login{width:38px;min-width:38px;padding:4px}
   .account-widget{margin-left:0}
 }
+
+.subweb-header-inner>.account-widget{margin-left:auto}.wrap.nav>.account-widget{margin-left:0}body>header:not(.subweb-header)>.account-widget{margin-left:auto}
+@media(max-width:680px){.subweb-header-inner{gap:7px}.subweb-nav{flex:1 1 auto;min-width:0}.subweb-header-inner>.account-widget{margin-left:0}}
