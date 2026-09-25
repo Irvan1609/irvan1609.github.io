@@ -862,7 +862,7 @@ async function handleDevelopAllDatasets(request,env,url){
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
   await ensureDatasetSchema(env);
   const limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit'))||300));
-  const result=await env.DB.prepare(`SELECT d.id,d.user_id,u.email,u.name,d.name,d.revision,length(d.content)+length(d.meta_json) AS size_bytes,d.created_at,d.updated_at,d.deleted_at
+  const result=await env.DB.prepare(`SELECT d.id,d.user_id,u.email,u.name AS user_name,d.name AS dataset_name,d.revision,length(d.content)+length(d.meta_json) AS size_bytes,d.created_at,d.updated_at,d.deleted_at
     FROM user_datasets d LEFT JOIN users u ON u.id=d.user_id ORDER BY d.updated_at DESC LIMIT ?`).bind(limit).all();
   return json(request,env,{items:result.results||[]});
 }
