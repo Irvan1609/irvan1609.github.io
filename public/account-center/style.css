@@ -5,16 +5,16 @@
 .profile-avatar-wrap::after{content:"";position:absolute;inset:-5px;border-radius:50%;z-index:-2;pointer-events:none}
 .profile-avatar-wrap .profile-avatar-img,.profile-avatar-wrap .profile-avatar-fallback{position:relative;z-index:2;width:66px;height:66px;border:3px solid #fff;box-shadow:0 2px 8px rgba(23,50,77,.16)}
 
-.profile-avatar-wrap.avatar-aura-immortal::before{background:conic-gradient(from 0deg,#f6d56a,#9e6cff,#5d35a8,#3cc7e8,#f6d56a);animation:avatar-ring-spin 5.5s linear infinite}
-.profile-avatar-wrap.avatar-aura-immortal::after{background:radial-gradient(circle,rgba(147,94,255,.34) 0 36%,rgba(246,213,106,.17) 48%,transparent 72%);filter:blur(5px);animation:avatar-aura-pulse 2.6s ease-in-out infinite}
+.profile-avatar-wrap.avatar-aura-immortal::before{background:conic-gradient(from 0deg,#f6d56a,#9e6cff,#5d35a8,#3cc7e8,#f6d56a)}
+.profile-avatar-wrap.avatar-aura-immortal::after{background:radial-gradient(circle,rgba(147,94,255,.34) 0 36%,rgba(246,213,106,.17) 48%,transparent 72%)}
 .profile-avatar-wrap.avatar-aura-immortal{filter:drop-shadow(0 5px 10px rgba(87,48,150,.18))}
 
-.profile-avatar-wrap.avatar-aura-glory::before{background:conic-gradient(from 20deg,#72d8ff,#2787d1,#6a5ce6,#b77cff,#72d8ff);animation:avatar-ring-spin 8s linear infinite}
-.profile-avatar-wrap.avatar-aura-glory::after{background:radial-gradient(circle,rgba(73,166,231,.27) 0 40%,rgba(112,91,229,.13) 52%,transparent 72%);filter:blur(4px);animation:avatar-aura-pulse 3.4s ease-in-out infinite}
+.profile-avatar-wrap.avatar-aura-glory::before{background:conic-gradient(from 20deg,#72d8ff,#2787d1,#6a5ce6,#b77cff,#72d8ff)}
+.profile-avatar-wrap.avatar-aura-glory::after{background:radial-gradient(circle,rgba(73,166,231,.27) 0 40%,rgba(112,91,229,.13) 52%,transparent 72%)}
 .profile-avatar-wrap.avatar-aura-glory{filter:drop-shadow(0 5px 9px rgba(42,111,177,.15))}
 
 .profile-avatar-wrap.avatar-aura-bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
-.profile-avatar-wrap.avatar-aura-bronze::after{background:radial-gradient(circle,rgba(174,110,57,.16) 0 42%,transparent 70%);filter:blur(4px)}
+.profile-avatar-wrap.avatar-aura-bronze::after{background:radial-gradient(circle,rgba(174,110,57,.16) 0 42%,transparent 70%)}
 .profile-avatar-wrap.avatar-aura-bronze{filter:drop-shadow(0 4px 7px rgba(110,70,36,.12))}
 
 .status-badge.admin{background:#f5e9c8;color:#6f4d09}
