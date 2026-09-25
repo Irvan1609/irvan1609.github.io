@@ -22,7 +22,7 @@ export function nmsBoxes(candidates,iouThreshold=.45,maxDetections=1500){
 export function decodeYoloOutput(data,dims,{inputSize=640,confidence=.25,iouThreshold=.45}={}){
   if(!data||!Array.isArray(dims)||dims.length!==3)throw Error('Output model YOLO tidak dikenali.');
   let count,channels,channelFirst;
-  if(dims[1]<=128&&dims[2]>dims[1]){channels=dims[1];count=dims[2];channelFirst=true;}
+  if(dims[1]>=5&&dims[1]<=128){channels=dims[1];count=dims[2];channelFirst=true;}
   else{count=dims[1];channels=dims[2];channelFirst=false;}
   if(channels<5)throw Error('Output model tidak memiliki confidence kelas.');
   const at=(i,c)=>channelFirst?data[c*count+i]:data[i*channels+c];
