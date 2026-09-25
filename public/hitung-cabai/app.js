@@ -7,6 +7,7 @@ const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 let image=null,photo='',boxes=[],predictedBoxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
 let cameraStream=null,facingMode='environment',torchOn=false,detecting=false,contributing=false;
 let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false;
+let cloudContributionId='',cloudEditToken='',contributionOperationId='';
 const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
 
 const status=message=>$('status').textContent=message;
@@ -55,6 +56,13 @@ function blobToDataURL(blob){
     reader.onerror=()=>reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+function thumbnailDataURL(source,maxSide=220){
+  if(!source?.naturalWidth||!source?.naturalHeight)return '';
+  const scale=Math.min(1,maxSide/Math.max(source.naturalWidth,source.naturalHeight)),canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(source.naturalWidth*scale));canvas.height=Math.max(1,Math.round(source.naturalHeight*scale));
+  canvas.getContext('2d',{alpha:false}).drawImage(source,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/jpeg',.72);
 }
 async function optimizePhoto(dataURL){
   const source=await decodeImage(dataURL);
@@ -149,7 +157,7 @@ async function autoDetectChilies({automatic=false}={}){
 async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
   image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;detectionRun=false;
-  predictionMethod='manual';modelVersion='heuristic-color-v1';
+  predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';
   $('sample').value=name||nowName();
   $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
@@ -359,9 +367,12 @@ async function saveCurrent(){
   if(!name)return status('Isi kode sampel.');
   try{
     const id=activeId||crypto.randomUUID(),existing=activeId?await transaction('readonly',store=>store.get(activeId)):null;
+    const thumbnail=existing?.thumbnail||thumbnailDataURL(image);
     await transaction('readwrite',store=>store.put({
-      id,name,image:photo,width:image.naturalWidth,height:image.naturalHeight,
+      id,name,image:photo,thumbnail,width:image.naturalWidth,height:image.naturalHeight,
       boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),predictionMethod,modelVersion,
+      cloudContributionId:cloudContributionId||existing?.cloudContributionId||'',
+      cloudEditToken:cloudEditToken||existing?.cloudEditToken||'',
       reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
@@ -383,12 +394,20 @@ async function contributeCurrent(){
   if(!cloudContributionReady())return status('Kontribusi cloud belum diaktifkan. Selesaikan konfigurasi Cloudflare terlebih dahulu.');
   const sample=$('sample').value.trim()||nowName();
   contributing=true;$('contribute').disabled=true;$('contribute').textContent='Mengirim…';
+  if(!contributionOperationId)contributionOperationId=crypto.randomUUID();
   try{
+    const updating=Boolean(cloudContributionId&&cloudEditToken);
     const result=await submitTrainingContribution({
       image,sample,boxes:cloneBoxes(),predictedBoxes:predictedBoxes.map(box=>[...box]),
-      predictionMethod,modelVersion,consent:true
+      predictionMethod,modelVersion,consent:true,contributionId:cloudContributionId,editToken:cloudEditToken,
+      operationId:contributionOperationId
     });
-    status(`Kontribusi diterima: ${result.finalCount} buah. Data masuk kandidat pelatihan dengan quality score ${result.qualityScore}.`);
+    cloudContributionId=result.id||cloudContributionId;cloudEditToken=result.editToken||cloudEditToken;contributionOperationId='';
+    if(activeId){
+      const existing=await transaction('readonly',store=>store.get(activeId));
+      if(existing)await transaction('readwrite',store=>store.put({...existing,cloudContributionId,cloudEditToken,updatedAt:new Date().toISOString()}));
+    }
+    status(updating?`Anotasi diperbarui: ${result.finalCount} buah. Foto tidak diunggah ulang.`:`Kontribusi diterima: ${result.finalCount} buah. Foto diunggah sekali; koreksi berikutnya hanya mengirim anotasi.`);
   }catch(error){
     status(error.message||'Kontribusi belum dapat dikirim.');
   }finally{
@@ -408,6 +427,7 @@ async function openRecord(row){
   try{
     image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);predictedBoxes=(row.predictedBoxes||[]).map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;detectionRun=true;
     predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
+    cloudContributionId=row.cloudContributionId||'';cloudEditToken=row.cloudEditToken||'';contributionOperationId='';
     $('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
     window.scrollTo({top:0,behavior:'smooth'});status(`Sampel dibuka: ${row.boxes.length} buah.`);
   }catch{status('Foto tersimpan tidak dapat dibuka.');}
@@ -416,7 +436,7 @@ async function deleteRecord(row){
   if(!confirm(`Hapus sampel "${row.name}"?`))return;
   try{
     await transaction('readwrite',store=>store.delete(row.id));
-    if(activeId===row.id){activeId=null;}
+    if(activeId===row.id){activeId=null;cloudContributionId='';cloudEditToken='';contributionOperationId='';}
     await list();status('Sampel dihapus.');
   }catch{status('Sampel tidak dapat dihapus.');}
 }
@@ -428,7 +448,8 @@ async function list(){
   }
   for(const row of rows){
     const li=document.createElement('li'),main=document.createElement('div'),actions=document.createElement('div');
-    main.className='record-main';main.innerHTML=`<b></b><small></small>`;
+    main.className='record-main';main.innerHTML=`${row.thumbnail?'<img class="record-thumb" alt="" loading="lazy">':''}<span><b></b><small></small></span>`;
+    if(row.thumbnail)main.querySelector('img').src=row.thumbnail;
     main.querySelector('b').textContent=row.name;main.querySelector('small').textContent=`${row.boxes.length} buah`;
     actions.className='record-actions';
     const open=document.createElement('button');open.type='button';open.textContent='Buka';open.onclick=()=>openRecord(row);
@@ -444,8 +465,9 @@ function valid(record){
 }
 $('export').onclick=async()=>{
   try{
-    const samples=await transaction('readonly',store=>store.getAll());
-    if(!samples?.length)return status('Belum ada data tersimpan.');
+    const rows=await transaction('readonly',store=>store.getAll());
+    if(!rows?.length)return status('Belum ada data tersimpan.');
+    const samples=rows.map(({cloudEditToken,cloudContributionId,thumbnail,...sample})=>sample);
     const data={version:1,format:'chili-boxes',className:'cabai',boxFormat:'normalized top-left x,y,width,height',samples};
     const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
     const link=document.createElement('a');link.href=url;link.download='data-cabai.json';link.click();
@@ -460,7 +482,7 @@ $('import').onchange=async event=>{
     if(data.version!==1||data.format!=='chili-boxes'||!Array.isArray(data.samples)||!data.samples.every(valid))throw Error('Format cadangan tidak valid.');
     await new Promise((resolve,reject)=>{
       const tx=db.transaction('samples','readwrite');
-      for(const record of data.samples)tx.objectStore('samples').put({...record,id:crypto.randomUUID()});
+      for(const record of data.samples)tx.objectStore('samples').put({...record,id:crypto.randomUUID(),cloudContributionId:'',cloudEditToken:''});
       tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
     });
     await list();status('Cadangan berhasil dipulihkan sebagai salinan.');
