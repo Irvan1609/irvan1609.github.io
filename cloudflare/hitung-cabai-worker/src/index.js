@@ -82,6 +82,57 @@ async function cleanupAuth(env){
     env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(now)
   ]).catch(()=>{});
 }
+async function ensureAuthSchema(env){
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      google_sub TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL,
+      email_verified INTEGER NOT NULL DEFAULT 0,
+      name TEXT NOT NULL,
+      picture_url TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_login_at TEXT NOT NULL
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS oauth_states (
+      state TEXT PRIMARY KEY,
+      client_state TEXT NOT NULL,
+      return_to TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_oauth_states_expires_at ON oauth_states(expires_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS auth_exchange_codes (
+      code_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      client_state TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_exchange_codes_user_id ON auth_exchange_codes(user_id)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_exchange_codes_expires_at ON auth_exchange_codes(expires_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      revoked_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
+  ]);
+}
+
 function publicUser(row){
   return row?{
     id:row.id,
@@ -283,6 +334,7 @@ export default {
     try{
       if(Math.random()<.02)cleanupAuth(env);
       if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env)});
+      if(url.pathname.startsWith('/v1/auth/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
