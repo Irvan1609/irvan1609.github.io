@@ -1,5 +1,3 @@
-import {ACCOUNT_CONFIG} from '/account-config.js';
-
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
 const META_KEY='statistical_web_dataset_meta_v1';
@@ -7,7 +5,7 @@ const CATEGORY_KEY='statistical_web_category_metadata_v1';
 const TREATMENT_KEY='statistical_web_treatment_metadata_v1';
 const SYNC_PREFIX='statistical_web_cloud_sync_v1:';
 const OWNER_KEY='statistical_web_cloud_owner_v1';
-const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
+const endpoint='https://hitung-cabai-api.andyirvan1609.workers.dev';
 const encoder=new TextEncoder();
 
 let syncing=false;
