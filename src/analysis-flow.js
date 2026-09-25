@@ -78,12 +78,12 @@ function analysisButton([type,value,label,description]){
     power:'data-power'
   }[type];
   const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
-  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr}><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-arrow" aria-hidden="true">›</span></button>`;
+  return `<button type="button" class="analysis-menu-item" ${attr}${valueAttr} aria-pressed="false"><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-check" aria-hidden="true">✓</span></button>`;
 }
 
 function panelMarkup(){
   const total=analysisGroups.reduce((sum,group)=>sum+group.items.length,0);
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b></div><span class="analysis-method-count">${total}</span></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b></span><span class="analysis-group-meta"><small>${group.items.length}</small><span class="analysis-group-chevron" aria-hidden="true">⌄</span></span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div>`;
+  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b></div><span class="analysis-method-count">${total}</span></div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b></span><span class="analysis-group-meta"><small>${group.items.length}</small><span class="analysis-group-chevron" aria-hidden="true">⌄</span></span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div><div class="analysis-menu-foot"><span id="analysisSelectedLabel">Pilih satu metode</span><button id="confirmAnalysis" type="button" class="primary" disabled>Lanjut</button></div>`;
 }
 
 export function installAnalysisFlow() {
@@ -110,6 +110,7 @@ export function installAnalysisFlow() {
   }
   function openMenu(){
     document.dispatchEvent(new Event('close-navigation'));
+    resetSelection();
     panel.hidden=false;
     open.setAttribute('aria-expanded','true');
     requestAnimationFrame(()=>panel.querySelector('.analysis-group-toggle')?.focus());
@@ -126,16 +127,36 @@ export function installAnalysisFlow() {
     toggle.setAttribute('aria-expanded',String(opening));
   }));
 
-  const run=fn=>{closeMenu();fn();};
-  panel.querySelectorAll('[data-design]').forEach(button=>button.addEventListener('click',()=>run(()=>openScientific(button.dataset.design))));
-  panel.querySelectorAll('[data-design-ext]').forEach(button=>button.addEventListener('click',()=>run(()=>openDesignExtension(button.dataset.designExt))));
-  panel.querySelector('[data-nonparametric]')?.addEventListener('click',()=>run(openNonparametric));
-  panel.querySelector('[data-power]')?.addEventListener('click',()=>run(openPowerAnalysis));
-  panel.querySelector('[data-stability-indices]')?.addEventListener('click',()=>run(openStabilityIndices));
-  panel.querySelectorAll('[data-association]').forEach(button=>button.addEventListener('click',()=>run(()=>openAssociation(button.dataset.association))));
-  panel.querySelectorAll('[data-advanced]').forEach(button=>button.addEventListener('click',()=>run(()=>openAdvanced(button.dataset.advanced))));
-  panel.querySelectorAll('[data-nextgen]').forEach(button=>button.addEventListener('click',()=>run(()=>openNextGen(button.dataset.nextgen))));
-  panel.querySelector('[data-mixed]')?.addEventListener('click',()=>run(openMixedModel));
+  const confirm=$('#confirmAnalysis'),selectedLabel=$('#analysisSelectedLabel');
+  let selectedButton=null;
+  const resetSelection=()=>{
+    selectedButton=null;
+    panel.querySelectorAll('.analysis-menu-item').forEach(button=>{button.classList.remove('selected');button.setAttribute('aria-pressed','false');});
+    if(confirm)confirm.disabled=true;
+    if(selectedLabel)selectedLabel.textContent='Pilih satu metode';
+  };
+  const choose=button=>{
+    selectedButton=button;
+    panel.querySelectorAll('.analysis-menu-item').forEach(item=>{const active=item===button;item.classList.toggle('selected',active);item.setAttribute('aria-pressed',String(active));});
+    if(confirm)confirm.disabled=false;
+    if(selectedLabel)selectedLabel.textContent=button.querySelector('b')?.textContent||'Metode dipilih';
+  };
+  const runSelected=()=>{
+    const button=selectedButton;if(!button)return;
+    closeMenu();
+    if(button.matches('[data-design]'))openScientific(button.dataset.design);
+    else if(button.matches('[data-design-ext]'))openDesignExtension(button.dataset.designExt);
+    else if(button.matches('[data-nonparametric]'))openNonparametric();
+    else if(button.matches('[data-power]'))openPowerAnalysis();
+    else if(button.matches('[data-stability-indices]'))openStabilityIndices();
+    else if(button.matches('[data-association]'))openAssociation(button.dataset.association);
+    else if(button.matches('[data-advanced]'))openAdvanced(button.dataset.advanced);
+    else if(button.matches('[data-nextgen]'))openNextGen(button.dataset.nextgen);
+    else if(button.matches('[data-mixed]'))openMixedModel();
+    resetSelection();
+  };
+  panel.querySelectorAll('.analysis-menu-item').forEach(button=>button.addEventListener('click',()=>choose(button)));
+  confirm?.addEventListener('click',runSelected);
 
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
