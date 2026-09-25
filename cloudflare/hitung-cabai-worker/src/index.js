@@ -5,8 +5,12 @@ const MAX_DATASETS_PER_USER=120;
 const SESSION_DAYS=30;
 const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
+const SESSION_TOUCH_MINUTES=15;
+const CLEANUP_INTERVAL_MS=6*60*60*1000;
+const ADMIN_EMAIL_DEFAULT='andyirvan1609@gmail.com';
 let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
+let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io').split(',').map(v=>v.trim()).filter(Boolean));
@@ -40,6 +44,22 @@ function authAdmin(request,env){
 function authConfigured(env){
   return Boolean(env.GOOGLE_CLIENT_ID&&env.GOOGLE_CLIENT_SECRET);
 }
+function adminEmails(env){
+  return new Set(String(env.ADMIN_EMAILS||ADMIN_EMAIL_DEFAULT).split(',').map(value=>value.trim().toLowerCase()).filter(Boolean));
+}
+function isAdminEmail(email,env){
+  return adminEmails(env).has(String(email||'').trim().toLowerCase());
+}
+function membershipActive(row,now=Date.now()){
+  if(!row)return false;
+  if(row.role==='admin')return true;
+  if(row.membership_status!=='active')return false;
+  if(!row.membership_expires_at)return true;
+  const expires=Date.parse(row.membership_expires_at);
+  return Number.isFinite(expires)&&expires>now;
+}
+function syncAccess(row){return Boolean(row&&(row.role==='admin'||membershipActive(row)));}
+function analysisIncluded(row){return syncAccess(row);}
 function isoAfter({minutes=0,days=0}={}){
   return new Date(Date.now()+minutes*60000+days*86400000).toISOString();
 }
@@ -78,8 +98,11 @@ function appendAuthResult(returnTo,params){
   }
   return url.toString();
 }
-async function cleanupAuth(env){
-  const now=new Date().toISOString();
+async function cleanupAuth(env,{force=false}={}){
+  const nowMs=Date.now();
+  if(!force&&nowMs-LAST_CLEANUP_AT<CLEANUP_INTERVAL_MS)return;
+  LAST_CLEANUP_AT=nowMs;
+  const now=new Date(nowMs).toISOString();
   await env.DB.batch([
     env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ? OR used_at IS NOT NULL').bind(now),
     env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(now),
@@ -136,6 +159,17 @@ async function ensureAuthSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
   ]);
+  const info=await env.DB.prepare('PRAGMA table_info(users)').all();
+  const columns=new Set((info.results||[]).map(row=>row.name));
+  if(!columns.has('role'))await env.DB.prepare("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run();
+  if(!columns.has('membership_status'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_status TEXT NOT NULL DEFAULT 'inactive'").run();
+  if(!columns.has('membership_expires_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_expires_at TEXT").run();
+  if(!columns.has('membership_source'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_source TEXT NOT NULL DEFAULT 'none'").run();
+  if(!columns.has('access_updated_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN access_updated_at TEXT").run();
+  for(const email of adminEmails(env)){
+    await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
+      .bind(new Date().toISOString(),email).run();
+  }
   AUTH_SCHEMA_READY=true;
 }
 
@@ -202,9 +236,22 @@ async function requireUser(request,env){
   const user=await userFromSession(request,env);
   return user||null;
 }
-async function handleDatasetList(request,env,url){
+async function requireSyncUser(request,env){
   const user=await requireUser(request,env);
-  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!user)return {error:'unauthenticated',user:null};
+  if(!syncAccess(user))return {error:'membership_required',user};
+  return {error:null,user};
+}
+async function requireAdminUser(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return {error:'unauthenticated',user:null};
+  if(user.role!=='admin')return {error:'admin_required',user};
+  return {error:null,user};
+}
+async function handleDatasetList(request,env,url){
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   await ensureDatasetSchema(env);
   const includeDeleted=url.searchParams.get('include_deleted')==='1';
   const result=await env.DB.prepare(`SELECT id,name,revision,created_at,updated_at,deleted_at
@@ -213,8 +260,9 @@ async function handleDatasetList(request,env,url){
   return json(request,env,{items:(result.results||[]).map(datasetSummary)});
 }
 async function handleDatasetGet(request,env,id){
-  const user=await requireUser(request,env);
-  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
   const row=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
@@ -222,8 +270,9 @@ async function handleDatasetGet(request,env,id){
   return json(request,env,{item:datasetPayload(row)});
 }
 async function handleDatasetPut(request,env,id){
-  const user=await requireUser(request,env);
-  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -268,8 +317,9 @@ async function handleDatasetPut(request,env,id){
   return json(request,env,{ok:true,item:datasetPayload(row)});
 }
 async function handleDatasetDelete(request,env,id){
-  const user=await requireUser(request,env);
-  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const access=await requireSyncUser(request,env),user=access.user;
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -291,24 +341,44 @@ async function handleDatasetDelete(request,env,id){
 }
 
 function publicUser(row){
-  return row?{
+  if(!row)return null;
+  const active=membershipActive(row);
+  return {
     id:row.id,
     email:row.email,
     emailVerified:Boolean(row.email_verified),
     name:row.name||'Pengguna',
     picture:row.picture_url||'',
+    role:row.role||'user',
+    membership:{
+      status:row.role==='admin'?'active':(row.membership_status||'inactive'),
+      active,
+      expiresAt:row.membership_expires_at||null,
+      source:row.role==='admin'?'admin':(row.membership_source||'none')
+    },
+    features:{
+      datasetSync:syncAccess(row),
+      analysisIncluded:analysisIncluded(row),
+      develop:row.role==='admin'
+    },
     createdAt:row.created_at,
     lastLoginAt:row.last_login_at
-  }:null;
+  };
 }
 async function userFromSession(request,env){
   const token=bearerToken(request);
   if(!token)return null;
-  const hash=await sha256(token),now=new Date().toISOString();
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.created_at,u.last_login_at,s.id AS session_id
+  const hash=await sha256(token),nowMs=Date.now(),now=new Date(nowMs).toISOString();
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.created_at,u.last_login_at,s.id AS session_id,s.last_seen_at
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
-  if(row)env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now,row.session_id).run().catch(()=>{});
+  if(row){
+    const lastSeen=Date.parse(row.last_seen_at||'');
+    if(!Number.isFinite(lastSeen)||nowMs-lastSeen>=SESSION_TOUCH_MINUTES*60000){
+      env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now,row.session_id).run().catch(()=>{});
+      row.last_seen_at=now;
+    }
+  }
   return row||null;
 }
 async function handleGoogleStart(request,env,url){
@@ -369,15 +439,17 @@ async function handleGoogleCallback(request,env,url){
 
   const now=new Date().toISOString();
   let user=await env.DB.prepare('SELECT id FROM users WHERE google_sub=? LIMIT 1').bind(String(profile.sub)).first();
+  const cleanEmail=String(profile.email).slice(0,254),verified=profile.email_verified?1:0,admin=Boolean(verified&&isAdminEmail(cleanEmail,env));
   if(!user){
     user={id:crypto.randomUUID()};
     await env.DB.prepare(`INSERT INTO users
-      (id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at)
-      VALUES (?,?,?,?,?,?,?,?,?)`)
-      .bind(user.id,String(profile.sub),String(profile.email).slice(0,254),profile.email_verified?1:0,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,now).run();
+      (id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at,role,membership_status,membership_expires_at,membership_source,access_updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(user.id,String(profile.sub),cleanEmail,verified,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,now,admin?'admin':'user',admin?'active':'inactive',null,admin?'admin':'none',now).run();
   }else{
     await env.DB.prepare(`UPDATE users SET email=?,email_verified=?,name=?,picture_url=?,updated_at=?,last_login_at=? WHERE id=?`)
-      .bind(String(profile.email).slice(0,254),profile.email_verified?1:0,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,user.id).run();
+      .bind(cleanEmail,verified,String(profile.name||profile.email).slice(0,160),String(profile.picture||'').slice(0,1000),now,now,user.id).run();
+    if(admin)await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',access_updated_at=? WHERE id=?`).bind(now,user.id).run();
   }
 
   const rawCode=randomToken(32),codeHash=await sha256(rawCode);
@@ -403,7 +475,7 @@ async function handleAuthExchange(request,env){
     (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at) VALUES (?,?,?,?,?,?,NULL)`)
     .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now).run();
 
-  const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
+  const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
   return json(request,env,{ok:true,token:sessionToken,expiresAt,user:publicUser(user)});
 }
 async function handleAuthSession(request,env){
@@ -424,6 +496,75 @@ async function handleAuthProfile(request,env){
   if(!row)return json(request,env,{error:'Sesi tidak valid.'},401);
   return json(request,env,{user:publicUser(row)});
 }
+async function handleDevelopOverview(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error)return json(request,env,{error:'admin_required'},403);
+  await ensureDatasetSchema(env);
+  const now=new Date(),nowIso=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString(),weekAgo=new Date(now.getTime()-7*86400000).toISOString();
+  const [users,members,datasets,contributions,sessions,newUsers]=await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role='admin' OR (membership_status='active' AND (membership_expires_at IS NULL OR membership_expires_at>?))`).bind(nowIso).first(),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM user_datasets WHERE deleted_at IS NULL').first(),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM contributions').first(),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM sessions WHERE revoked_at IS NULL AND expires_at>? AND last_seen_at>?').bind(nowIso,dayAgo).first(),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM users WHERE created_at>?').bind(weekAgo).first()
+  ]);
+  return json(request,env,{ok:true,stats:{
+    users:Number(users?.n||0),
+    entitledUsers:Number(members?.n||0),
+    datasets:Number(datasets?.n||0),
+    contributions:Number(contributions?.n||0),
+    activeSessions24h:Number(sessions?.n||0),
+    newUsers7d:Number(newUsers?.n||0)
+  },generatedAt:nowIso});
+}
+async function handleDevelopUsers(request,env,url){
+  const access=await requireAdminUser(request,env);
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error)return json(request,env,{error:'admin_required'},403);
+  await ensureDatasetSchema(env);
+  const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||200));
+  const result=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.created_at,u.last_login_at,
+    SUM(CASE WHEN d.deleted_at IS NULL THEN 1 ELSE 0 END) AS dataset_count
+    FROM users u LEFT JOIN user_datasets d ON d.user_id=u.id
+    GROUP BY u.id ORDER BY u.last_login_at DESC LIMIT ?`).bind(limit).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,email:row.email,name:row.name,picture:row.picture_url||'',role:row.role||'user',
+    membership:{status:row.role==='admin'?'active':(row.membership_status||'inactive'),active:membershipActive(row),expiresAt:row.membership_expires_at||null,source:row.role==='admin'?'admin':(row.membership_source||'none')},
+    datasetCount:Number(row.dataset_count||0),createdAt:row.created_at,lastLoginAt:row.last_login_at
+  }))});
+}
+async function handleDevelopUserDatasets(request,env,userId){
+  const access=await requireAdminUser(request,env);
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error)return json(request,env,{error:'admin_required'},403);
+  await ensureDatasetSchema(env);
+  const result=await env.DB.prepare(`SELECT id,name,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE user_id=? ORDER BY updated_at DESC LIMIT 200`).bind(userId).all();
+  return json(request,env,{items:(result.results||[]).map(datasetSummary)});
+}
+async function handleDevelopAccess(request,env,userId){
+  const access=await requireAdminUser(request,env);
+  if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(access.error)return json(request,env,{error:'admin_required'},403);
+  const target=await env.DB.prepare('SELECT id,email,email_verified,role FROM users WHERE id=? LIMIT 1').bind(userId).first();
+  if(!target)return json(request,env,{error:'Pengguna tidak ditemukan.'},404);
+  if(target.role==='admin'||(target.email_verified&&isAdminEmail(target.email,env)))return json(request,env,{error:'Akses admin tidak dapat diturunkan dari panel ini.'},409);
+  const body=await request.json().catch(()=>({})),status=String(body.status||'inactive');
+  if(!['active','inactive'].includes(status))return json(request,env,{error:'Status membership tidak valid.'},400);
+  let expiresAt=null;
+  if(status==='active'&&body.expiresAt){
+    const parsed=Date.parse(String(body.expiresAt));
+    if(!Number.isFinite(parsed))return json(request,env,{error:'Tanggal kedaluwarsa tidak valid.'},400);
+    expiresAt=new Date(parsed).toISOString();
+  }
+  const now=new Date().toISOString();
+  await env.DB.prepare(`UPDATE users SET membership_status=?,membership_expires_at=?,membership_source='manual',access_updated_at=? WHERE id=?`)
+    .bind(status,expiresAt,now,userId).run();
+  const row=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(userId).first();
+  return json(request,env,{ok:true,user:publicUser(row)});
+}
+
 async function verifyTurnstile(request,env){
   if(!env.TURNSTILE_SECRET)throw Error('TURNSTILE_SECRET belum dikonfigurasi.');
   const token=request.headers.get('CF-Turnstile-Token')||'';
@@ -489,8 +630,8 @@ export default {
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request,env)});
     const url=new URL(request.url);
     try{
-      if(Math.random()<.02)cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,apiVersion:'2026-09-25.2'});
+      if(url.pathname.startsWith('/v1/auth/'))cleanupAuth(env);
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,apiVersion:'2026-09-26.1'});
       if(url.pathname.startsWith('/v1/auth/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
@@ -498,6 +639,12 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/auth/session')return await handleAuthSession(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/profile')return await handleAuthProfile(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
+      const developDatasetsMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/datasets$/i);
+      if(request.method==='GET'&&developDatasetsMatch)return await handleDevelopUserDatasets(request,env,developDatasetsMatch[1]);
+      const developAccessMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/access$/i);
+      if(request.method==='POST'&&developAccessMatch)return await handleDevelopAccess(request,env,developAccessMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/datasets')return await handleDatasetList(request,env,url);
       const datasetMatch=url.pathname.match(/^\/v1\/datasets\/([0-9a-f-]{36})$/i);
       if(request.method==='GET'&&datasetMatch)return await handleDatasetGet(request,env,datasetMatch[1]);
