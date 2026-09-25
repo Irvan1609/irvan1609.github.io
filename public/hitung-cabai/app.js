@@ -354,6 +354,7 @@ function sendCurrentToStatistics({quiet=false}={}){
 }
 async function saveCurrent(){
   if(!image)return status('Ambil foto atau pilih foto terlebih dahulu.');
+  if(!detectionRun)return status('Jalankan deteksi terlebih dahulu, lalu periksa kotaknya sebelum menyimpan.');
   const name=$('sample').value.trim();
   if(!name)return status('Isi kode sampel.');
   try{
