@@ -64,6 +64,16 @@ function avatarMarkup(user,large=false){
 function escapeHtml(value){
   return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
+function accessLabel(user){
+  if(user?.role==='admin')return 'Admin';
+  if(user?.membership?.active)return 'Membership';
+  return 'Akun gratis';
+}
+function accessClass(user){
+  if(user?.role==='admin')return 'admin';
+  if(user?.membership?.active)return 'member';
+  return 'free';
+}
 function dispatch(){
   window.IrvanAccount={
     get user(){return currentUser;},
@@ -99,12 +109,18 @@ function render(){
 
   menu=document.createElement('div');
   menu.className='account-menu';menu.hidden=true;
-  menu.innerHTML=`<div class="account-profile">${avatarMarkup(currentUser,true)}<div><strong>${escapeHtml(currentUser.name||'Pengguna')}</strong><small>${escapeHtml(currentUser.email||'')}</small></div></div><div class="account-menu-separator"></div><button type="button" data-account-profile>Profil akun</button><button type="button" class="account-logout" data-account-logout>Keluar</button>`;
+  const developButton=currentUser.features?.develop?'<button type="button" data-account-develop>Develop Console</button>':'';
+  menu.innerHTML=`<div class="account-profile">${avatarMarkup(currentUser,true)}<div><strong>${escapeHtml(currentUser.name||'Pengguna')}</strong><small>${escapeHtml(currentUser.email||'')}</small><span class="account-access-badge ${accessClass(currentUser)}">${accessLabel(currentUser)}</span></div></div><div class="account-menu-separator"></div><button type="button" data-account-profile>Profil akun</button>${developButton}<button type="button" class="account-logout" data-account-logout>Keluar</button>`;
 
   trigger.onclick=()=>{
     const opening=menu.hidden;menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
   };
-  menu.querySelector('[data-account-profile]').onclick=()=>{closeMenu();status(`Masuk sebagai ${currentUser.name||currentUser.email} · ${currentUser.email}`);};
+  menu.querySelector('[data-account-profile]').onclick=()=>{
+    closeMenu();
+    const suffix=currentUser.role==='admin'?'Admin':(currentUser.membership?.active?'Membership aktif':'Akun gratis');
+    status(`${currentUser.name||currentUser.email} · ${suffix}`);
+  };
+  menu.querySelector('[data-account-develop]')?.addEventListener('click',()=>{location.assign('/develop/');});
   menu.querySelector('[data-account-logout]').onclick=logout;
   mount.append(trigger,menu);
   dispatch();
