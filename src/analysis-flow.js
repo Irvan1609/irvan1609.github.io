@@ -117,6 +117,13 @@ export function installAnalysisFlow() {
   function openMenu(){
     document.dispatchEvent(new Event('close-navigation'));
     if(phoneGuardMode())resetSelection();
+    else{
+      panel.querySelectorAll('[data-analysis-group]').forEach(group=>{
+        const toggle=group.querySelector('.analysis-group-toggle'),body=toggle?.nextElementSibling;
+        if(body)body.hidden=true;
+        toggle?.setAttribute('aria-expanded','false');
+      });
+    }
     panel.hidden=false;
     open.setAttribute('aria-expanded','true');
     requestAnimationFrame(()=>panel.querySelector('.analysis-group-toggle')?.focus());
@@ -129,6 +136,14 @@ export function installAnalysisFlow() {
 
   panel.querySelectorAll('.analysis-group-toggle').forEach(toggle=>toggle.addEventListener('click',()=>{
     const body=toggle.nextElementSibling,opening=body.hidden;
+    if(!phoneGuardMode()&&opening){
+      panel.querySelectorAll('.analysis-group-toggle').forEach(other=>{
+        if(other===toggle)return;
+        const otherBody=other.nextElementSibling;
+        if(otherBody)otherBody.hidden=true;
+        other.setAttribute('aria-expanded','false');
+      });
+    }
     body.hidden=!opening;
     toggle.setAttribute('aria-expanded',String(opening));
   }));
