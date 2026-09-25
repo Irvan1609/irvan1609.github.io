@@ -11,28 +11,49 @@ export function installNavigation(){
   panel.className='nav-command-panel compact-app-menu';
   panel.hidden=true;
   panel.setAttribute('role','region');
-  panel.setAttribute('aria-label','Menu aplikasi');
+  panel.setAttribute('aria-label','Data dan alat');
 
-  const addSection=(title,ids)=>{
+  const sections=[
+    ['File',['pasteBtn','importBtn','importXlsx','newTxt']],
+    ['Edit data',['focusData','addRow','addCol','compactEditor','undoData','redoData','duplicateDataset']],
+    ['Alat',['validateDataset','transformData','outlierData','fieldbookTool']],
+    ['Lainnya',['dataTemplate','analysisHistory','configureDriveBackup','clearData']]
+  ];
+
+  const closeSections=except=>{
+    panel.querySelectorAll('.app-menu-section').forEach(section=>{
+      if(section===except)return;
+      const body=section.querySelector('.app-menu-commands');
+      const toggle=section.querySelector('.app-menu-section-toggle');
+      if(body)body.hidden=true;
+      if(toggle)toggle.setAttribute('aria-expanded','false');
+    });
+  };
+
+  sections.forEach(([title,ids])=>{
     const section=document.createElement('section');
     section.className='app-menu-section';
-    const heading=document.createElement('div');
-    heading.className='app-menu-section-title';
-    heading.textContent=title;
-    section.append(heading);
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='app-menu-section-toggle';
+    toggle.innerHTML=`<span>${title}</span><span class="menu-chevron" aria-hidden="true">⌄</span>`;
+    toggle.setAttribute('aria-expanded','false');
     const commands=document.createElement('div');
     commands.className='app-menu-commands';
+    commands.hidden=true;
     ids.forEach(id=>{
       const command=document.getElementById(id);
       if(command)commands.append(command);
     });
-    section.append(commands);
+    toggle.onclick=()=>{
+      const opening=commands.hidden;
+      closeSections(section);
+      commands.hidden=!opening;
+      toggle.setAttribute('aria-expanded',String(opening));
+    };
+    section.append(toggle,commands);
     panel.append(section);
-  };
-
-  addSection('File',['pasteBtn','importBtn','importXlsx','newTxt']);
-  addSection('Data',['focusData','addRow','addCol','compactEditor','undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']);
-  addSection('Lainnya',['dataTemplate','analysisHistory','configureDriveBackup','clearData']);
+  });
 
   const settingsToggle=document.getElementById('appSettingsToggle');
   if(settingsToggle){
@@ -52,15 +73,16 @@ export function installNavigation(){
   const menuButton=document.createElement('button');
   menuButton.id='appMenuButton';
   menuButton.type='button';
-  menuButton.textContent='Menu';
+  menuButton.textContent='Data';
   menuButton.setAttribute('aria-expanded','false');
   menuButton.setAttribute('aria-controls','appMenu');
-  nav.append(menuButton);
+  nav.insertBefore(menuButton,document.getElementById('projectToggle')||null);
   header.append(panel);
 
   function closeMenus(){
     panel.hidden=true;
     menuButton.setAttribute('aria-expanded','false');
+    closeSections();
     const analysisMenu=document.getElementById('analysisMenu'),openAnalysis=document.getElementById('openAnalysis');
     if(analysisMenu)analysisMenu.hidden=true;
     if(openAnalysis)openAnalysis.setAttribute('aria-expanded','false');
@@ -74,8 +96,8 @@ export function installNavigation(){
   };
 
   panel.addEventListener('click',event=>{
-    const button=event.target.closest('button');
-    if(button&&button.id!=='openSettingsFromMenu')closeMenus();
+    const command=event.target.closest('.app-menu-commands button');
+    if(command&&command.id!=='openSettingsFromMenu')closeMenus();
   });
 
   document.addEventListener('click',event=>{
