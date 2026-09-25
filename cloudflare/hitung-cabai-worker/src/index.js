@@ -127,7 +127,14 @@ async function ensureAuthSchema(env){
       picture_url TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      last_login_at TEXT NOT NULL
+      last_login_at TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      membership_status TEXT NOT NULL DEFAULT 'inactive',
+      membership_expires_at TEXT,
+      membership_source TEXT NOT NULL DEFAULT 'none',
+      access_updated_at TEXT,
+      membership_plan_id TEXT,
+      account_status TEXT NOT NULL DEFAULT 'active'
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub)'),
