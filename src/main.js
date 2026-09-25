@@ -305,13 +305,17 @@ function paintSelection(){
   const range=selectionRange(),wrap=$('#gridWrap');if(!wrap)return;
   wrap.querySelectorAll('td.cell-selected,td.cell-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active'));
   if(!range)return;
-  for(let r=range.r1;r<=range.r2;r++)for(let c=range.c1;c<=range.c2;c++)wrap.querySelector(`td[data-r="${r}"][data-c="${c}"]`)?.classList.add('cell-selected');
+  wrap.querySelectorAll('td[data-r][data-c]').forEach(cell=>{
+    const r=Number(cell.dataset.r),c=Number(cell.dataset.c);
+    if(r>=range.r1&&r<=range.r2&&c>=range.c1&&c<=range.c2)cell.classList.add('cell-selected');
+  });
   const focus=state.selection.focus;wrap.querySelector(`td[data-r="${focus.r}"][data-c="${focus.c}"]`)?.classList.add('cell-active');
   requestAnimationFrame(positionFillHandle);
 }
 function setSelection(r,c,{extend=false,focus=true}={}){
+  if(r<0||c<0||r>=state.rows.length||c>=state.headers.length)return;
   if(!extend||!state.selection.anchor)state.selection.anchor={r,c};
-  state.selection.focus={r,c};paintSelection();
+  state.selection.focus={r,c};ensureGridRowVisible(r);paintSelection();
   const cell=$('#gridWrap')?.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
   if(focus&&cell)selectEditableCell(cell);
 }
@@ -385,8 +389,7 @@ function bindGridArrowNavigation(wrap){
       }
       if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.ctrlKey||event.metaKey)return;
       const next={ArrowUp:[r-1,c],ArrowDown:[r+1,c],ArrowLeft:[r,c-1],ArrowRight:[r,c+1]}[event.key];
-      const target=wrap.querySelector(`[contenteditable="true"][data-r="${next[0]}"][data-c="${next[1]}"]`);
-      if(!target)return;
+      if(next[0]<0||next[0]>=state.rows.length||next[1]<0||next[1]>=state.headers.length)return;
       event.preventDefault();setSelection(next[0],next[1],{extend:event.shiftKey});
     });
   });
