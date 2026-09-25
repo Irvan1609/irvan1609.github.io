@@ -1302,3 +1302,16 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   color:#2f7d55!important;font-size:10px!important;line-height:1!important
 }
 .save-indicator::before{content:none!important}
+
+
+/* LOCAL-FIRST VIRTUAL GRID 2026-09-26 */
+.data-grid .virtual-spacer,
+.data-grid .virtual-spacer td{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  pointer-events:none;
+}
+.grid-container[data-virtualized="1"] .data-grid tbody{
+  contain:layout style;
+}
