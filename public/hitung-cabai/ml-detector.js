@@ -58,7 +58,9 @@ async function session(){
   if(!info?.enabled||!info.modelUrl)return null;
   if(!sessionPromise)sessionPromise=(async()=>{
     const ort=await loadRuntime();
-    return await ort.InferenceSession.create(info.modelUrl,{executionProviders:['wasm']});
+    const separator=String(info.modelUrl).includes('?')?'&':'?';
+    const modelUrl=`${info.modelUrl}${separator}v=${encodeURIComponent(String(info.version||'latest'))}`;
+    return await ort.InferenceSession.create(modelUrl,{executionProviders:['wasm']});
   })();
   return await sessionPromise;
 }
