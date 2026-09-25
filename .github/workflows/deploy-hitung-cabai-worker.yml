@@ -75,12 +75,53 @@ jobs:
           fs.writeFileSync('hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
           NODE
 
+      - name: Prepare optional Worker secrets file
+        id: worker-secrets
+        env:
+          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
+            node <<'NODE'
+            const fs=require('fs');
+            fs.writeFileSync('/tmp/worker-secrets.json',JSON.stringify({MIDTRANS_SERVER_KEY:process.env.MIDTRANS_SERVER_KEY}));
+            NODE
+            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate Midtrans credential when managed by GitHub
+        if: ${{ secrets.MIDTRANS_SERVER_KEY != '' }}
+        env:
+          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          case "$KEY" in
+            \"*\") KEY="${KEY#\"}"; KEY="${KEY%\"}" ;;
+            \'*\') KEY="${KEY#\'}"; KEY="${KEY%\'}" ;;
+          esac
+          if [[ "$KEY" == SB-* ]]; then
+            BASE="https://api.sandbox.midtrans.com"
+          else
+            BASE="https://api.midtrans.com"
+          fi
+          STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -u "$KEY:" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
+          if [ "$STATUS" = "401" ]; then
+            echo "::error::MIDTRANS_SERVER_KEY ditolak Midtrans. Copy ulang Server Key yang benar dari environment merchant yang sesuai."
+            exit 1
+          fi
+          echo "Midtrans credential accepted (probe HTTP $STATUS)."
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config ./hitung-cabai-wrangler.json
+          command: deploy --config ./hitung-cabai-wrangler.json${{ steps.worker-secrets.outputs.args }}
 
       - name: Verify production health
         shell: bash
