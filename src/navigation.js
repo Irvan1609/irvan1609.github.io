@@ -95,7 +95,8 @@ export function installNavigation(){
       viewDatasetMeta:'metadata dataset',
       datasetHistory:'riwayat perubahan dataset',
       deleteDataset:'hapus delete dataset',
-      toggleDatasetMeta:'informasi tanaman perlakuan metadata'
+      toggleDatasetMeta:'informasi tanaman perlakuan metadata',
+      syncDatasets:'sinkronisasi cloud akun dataset cadangan antar perangkat'
     };
     Object.keys(aliases).forEach(id=>{
       const button=document.getElementById(id);if(!button)return;
