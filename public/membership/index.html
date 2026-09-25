@@ -7,7 +7,7 @@
   <title>Membership | Irvan</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-2">
-  <link rel="stylesheet" href="/membership/style.css">
+  <link rel="stylesheet" href="/membership/style.css?v=20260926-4">
 </head>
 <body>
   <header class="subweb-header">
@@ -41,7 +41,7 @@
 
   <div id="qrisModal" class="qris-backdrop" hidden>
     <div class="qris-modal" role="dialog" aria-modal="true" aria-labelledby="qrisTitle">
-      <div class="qris-head"><div><span class="eyebrow">QRIS</span><h2 id="qrisTitle">Pembayaran membership</h2></div><button id="qrisClose" type="button" aria-label="Tutup">✕</button></div>
+      <div class="qris-head"><div><span id="qrisEyebrow" class="eyebrow">QRIS</span><div id="qrisSuccessIcon" class="qris-success-icon" hidden aria-hidden="true">✓</div><h2 id="qrisTitle">Pembayaran membership</h2></div><button id="qrisClose" type="button" aria-label="Tutup">✕</button></div>
       <p id="qrisMessage">Membuat QRIS…</p>
       <img id="qrisImage" alt="QRIS membership" hidden>
       <div id="qrisOrder" class="qris-order"></div>
@@ -50,6 +50,6 @@
   </div>
 
   <script type="module" src="/account.js?v=20260926-2"></script>
-  <script type="module" src="/membership/app.js?v=20260926-6"></script>
+  <script type="module" src="/membership/app.js?v=20260926-7"></script>
 </body>
 </html>
