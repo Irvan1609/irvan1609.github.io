@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 let image=null,photo='',boxes=[],predictedBoxes=[],history=[],start=null,draft=null,activeId=null,dirty=false,db;
 let cameraStream=null,facingMode='environment',torchOn=false,detecting=false,contributing=false;
-let predictionMethod='manual',modelVersion='heuristic-color-v1';
+let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false;
 const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
 
 const status=message=>$('status').textContent=message;
@@ -85,6 +85,32 @@ function applyDetectSettings(){
 function saveDetectSettings(){
   try{localStorage.setItem(DETECT_SETTINGS_KEY,JSON.stringify({target:$('detectColor').value,sensitivity:$('detectSensitivity').value,onLoad:$('detectOnLoad').checked}));}catch{}
 }
+function updateWorkflowState(){
+  const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
+  const auto=$('autoDetect'),mode=$('mode'),zoom=$('zoom'),save=$('save'),mobileSave=$('mobileSave'),send=$('sendToStat');
+  if(auto){auto.disabled=!hasImage||detecting;auto.title=hasImage?'Deteksi ulang akan mengganti kotak hasil deteksi sebelumnya.':'Masukkan foto terlebih dahulu.';}
+  if(mode){mode.disabled=!detected;mode.title=detected?'':'Jalankan deteksi terlebih dahulu.';}
+  if(zoom){zoom.disabled=!hasImage;zoom.title=hasImage?'':'Masukkan foto terlebih dahulu.';}
+  if(save){save.disabled=!canSave;save.title=!hasImage?'Masukkan foto terlebih dahulu.':!detectionRun?'Jalankan deteksi terlebih dahulu.':!hasName?'Isi kode sampel terlebih dahulu.':'';}
+  if(mobileSave)mobileSave.disabled=!canSave;
+  if(send)send.disabled=!canSave;
+  const undoDisabled=!detected||!history.length;
+  if($('undo'))$('undo').disabled=undoDisabled;
+  if($('mobileUndo'))$('mobileUndo').disabled=undoDisabled;
+  document.querySelectorAll('[data-stage]').forEach(node=>{node.dataset.complete='false';node.dataset.active='false';});
+  const stagePhoto=document.querySelector('[data-stage="photo"]'),stageDetect=document.querySelector('[data-stage="detect"]'),stageCorrect=document.querySelector('[data-stage="correct"]'),stageSave=document.querySelector('[data-stage="save"]');
+  if(stagePhoto){stagePhoto.dataset.complete=String(hasImage);stagePhoto.dataset.active=String(!hasImage);}
+  if(stageDetect){stageDetect.dataset.complete=String(detected);stageDetect.dataset.active=String(hasImage&&!detected);}
+  if(stageCorrect){stageCorrect.dataset.complete='false';stageCorrect.dataset.active=String(detected);}
+  if(stageSave){stageSave.dataset.complete=String(hasImage&&!dirty&&Boolean(activeId));stageSave.dataset.active=String(canSave);}
+  document.querySelectorAll('[data-editor-stage]').forEach(node=>{node.dataset.ready='false';node.dataset.complete='false';});
+  const detectPanel=document.querySelector('[data-editor-stage="detect"]'),correctPanel=document.querySelector('[data-editor-stage="correct"]'),savePanel=document.querySelector('[data-editor-stage="save"]');
+  if(detectPanel){detectPanel.dataset.ready=String(hasImage);detectPanel.dataset.complete=String(detected);}
+  if(correctPanel)correctPanel.dataset.ready=String(detected);
+  if(savePanel){savePanel.dataset.ready=String(canSave);savePanel.dataset.complete=String(hasImage&&!dirty&&Boolean(activeId));}
+  const ready=cloudContributionReady();
+  if($('contribute'))$('contribute').disabled=!ready||!detected||contributing;
+}
 function detectionImageData(){
   const maxSide=1000,scale=Math.min(1,maxSide/Math.max(image.naturalWidth,image.naturalHeight));
   const temp=document.createElement('canvas');
@@ -96,7 +122,7 @@ function detectionImageData(){
 async function autoDetectChilies({automatic=false}={}){
   if(!image||detecting)return;
   if(boxes.length&&!automatic&&!confirm('Deteksi ulang akan mengganti kotak yang ada. Lanjutkan?'))return;
-  detecting=true;$('autoDetect').disabled=true;$('autoDetect').textContent='Mendeteksi…';
+  detecting=true;$('autoDetect').textContent='Mendeteksi…';updateWorkflowState();
   status('Mendeteksi cabai pada foto…');
   try{
     await new Promise(resolve=>setTimeout(resolve,20));
@@ -117,17 +143,17 @@ async function autoDetectChilies({automatic=false}={}){
   }catch(error){
     status(error.message||'Deteksi otomatis gagal.');
   }finally{
-    detecting=false;$('autoDetect').disabled=false;$('autoDetect').textContent='Deteksi otomatis';
+    detectionRun=Boolean(image);detecting=false;$('autoDetect').textContent='Deteksi otomatis';updateWorkflowState();
   }
 }
 async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
-  image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;
+  image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;detectionRun=false;
   predictionMethod='manual';modelVersion='heuristic-color-v1';
   $('sample').value=name||nowName();
-  $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);
+  $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
-  else status('Foto siap. Tekan “Deteksi otomatis” atau tambahkan kotak secara manual.');
+  else status('Foto siap. Jalankan “Deteksi otomatis” untuk membuka tahap koreksi dan penyimpanan.');
 }
 async function loadPhotoFile(file,name){
   if(!file)return;
@@ -177,7 +203,7 @@ function paint(){
   boxes.forEach((box,index)=>drawBox(box,index));
   if(draft)drawBox(draft,boxes.length,{preview:true});
   $('count').textContent=String(boxes.length);
-  const disabled=!history.length;
+  const disabled=!detectionRun||!history.length;
   $('undo').disabled=disabled;$('mobileUndo').disabled=disabled;
 }
 function redraw(resize=false){
@@ -245,7 +271,7 @@ $('detectSensitivity').onchange=saveDetectSettings;
 $('detectOnLoad').onchange=saveDetectSettings;
 $('zoom').onchange=()=>redraw(true);
 $('mode').onchange=updateInteractionMode;
-$('sample').oninput=()=>dirty=true;
+$('sample').oninput=()=>{dirty=true;updateWorkflowState();};
 window.addEventListener('resize',()=>redraw(true));
 window.visualViewport?.addEventListener('resize',()=>redraw(true));
 
@@ -338,8 +364,13 @@ async function saveCurrent(){
       reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
-    const synced=sendCurrentToStatistics({quiet:true});
-    status(synced?`Tersimpan: ${boxes.length} buah. Data juga masuk ke Statistical Web → ${synced.dataset}.`:`Tersimpan: ${boxes.length} buah. Data Statistical Web belum tersinkron.`);
+    const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();
+    if(synced){
+      const action=synced.updated?'diperbarui':'ditambahkan';
+      status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);
+    }else{
+      status(`Tersimpan di perangkat ini: ${boxes.length} buah. Data belum dapat dimasukkan ke Statistical Web.`);
+    }
   }catch{status('Penyimpanan gagal. Periksa ruang penyimpanan browser; hasil di layar belum hilang.');}
 }
 $('save').onclick=saveCurrent;$('mobileSave').onclick=saveCurrent;
@@ -366,17 +397,17 @@ async function contributeCurrent(){
 $('contribute').onclick=contributeCurrent;
 function updateCloudState(){
   const ready=cloudContributionReady();
-  $('contribute').disabled=!ready;
   $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+  updateWorkflowState();
 }
 
 
 async function openRecord(row){
   if(!canDiscard())return;
   try{
-    image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);predictedBoxes=(row.predictedBoxes||[]).map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;
+    image=await decodeImage(row.image);photo=row.image;boxes=row.boxes.map(box=>[...box]);predictedBoxes=(row.predictedBoxes||[]).map(box=>[...box]);history=[];activeId=row.id;dirty=false;start=null;draft=null;detectionRun=true;
     predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
-    $('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);
+    $('sample').value=row.name;$('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
     window.scrollTo({top:0,behavior:'smooth'});status(`Sampel dibuka: ${row.boxes.length} buah.`);
   }catch{status('Foto tersimpan tidak dapat dibuka.');}
 }
@@ -441,7 +472,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStre
 
 try{
   applyDetectSettings();updateCloudState();
-  db=await openDB();await list();updateInteractionMode();
+  db=await openDB();await list();updateInteractionMode();updateWorkflowState();
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch{
   status('Penyimpanan browser tidak tersedia. Hasil masih dapat dihitung, tetapi tidak bisa disimpan.');
