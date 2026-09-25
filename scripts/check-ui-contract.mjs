@@ -175,6 +175,17 @@ for(const feature of ['local-dataset-store.js','virtual-grid.js','migrateLargeLo
   if(!main.includes(feature))fail('local-first/virtual grid feature missing '+feature);
 if(!dataTools.includes('StatisticalWebData')||!dataTools.includes('tbody tr:not(.virtual-spacer)'))fail('analysis must read full state with virtual-grid fallback');
 if(!statStyle.includes('.virtual-spacer'))fail('virtual grid spacer styling missing');
+for(const marker of ['/* MOBILE-FIRST FINAL OVERRIDES 2026-09-26 */','.mobile-dataset-backdrop','#mobileMoreButton','.analysis-result-dock','.app-header .nav>button']){
+  if(!statStyle.includes(marker))fail('final mobile Statistical Web styling missing '+marker);
+}
+for(const marker of ['ensureMobileDatasetBackdrop','mobileDatasetBackdrop',"button.textContent=opening?'Tutup':'Dataset'"]){
+  if(!main.includes(marker))fail('mobile dataset drawer behavior missing '+marker);
+}
+for(const marker of ['mobileMoreButton','mobileMorePanel','data-open-command']){
+  if(!navigation.includes(marker))fail('mobile command menu missing '+marker);
+}
+if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader.includes('summary::before'))fail('shared phone header must use compact icon menu');
+if(!chiliHtml.includes('/* MOBILE-FIRST FINAL 2026-09-26 */'))fail('Hitung Cabai phone workspace override missing');
 
 console.log(`UI contract OK: simplified Statistical Web with direct metadata editing, live column typing, drag reorder, and no frozen table.`);
 
