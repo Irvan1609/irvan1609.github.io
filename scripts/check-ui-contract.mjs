@@ -163,7 +163,7 @@ if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')|
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
 if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
-for(const feature of ['bindColumnResize','autoSizeColumn','installFillHandle','openGridFind','openColumnContextMenu','installPanelResize','markGridQuality','COLUMN_WIDTHS_KEY'])
+for(const feature of ['bindColumnResize','autoSizeColumn','installFillHandle','openGridFind','openColumnContextMenu','installPanelResize','gridQualityModel','COLUMN_WIDTHS_KEY'])
   if(!main.includes(feature))fail('spreadsheet UX missing '+feature);
 for(const feature of ['analysisResultDock','analysisDockResults','selectedColumnIndexes'])
   if(!scientific.includes(feature))fail('analysis dock/selected-column workflow missing '+feature);
