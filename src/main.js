@@ -11,7 +11,7 @@ import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip}
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import {installAccountDatasetSync} from './account-dataset-sync.js';
-import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,renameLocalDataset,copyLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots} from './local-dataset-store.js';
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,renameLocalDataset,copyLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import jStat from 'jstat';
 
@@ -66,7 +66,7 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     return String(stored??'');
   }
 };
-function localStoreReady(){return typeof isLocalPointer==='function'&&typeof saveLocalDataset==='function';}
+function localStoreReady(){return typeof indexedDB!=='undefined'&&typeof isLocalPointer==='function'&&typeof saveLocalDataset==='function';}
 function manifestValue(name,content){
   const current=state.files[name];
   return localStoreReady()&&(isLocalPointer(current)||shouldOffloadDataset(content))?localPointer(name):String(content??'');
@@ -947,6 +947,7 @@ function installDataGrid(){
 
 async function boot(){
   loadStorage();
+  if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
   installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
 }
