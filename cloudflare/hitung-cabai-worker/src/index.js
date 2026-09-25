@@ -857,6 +857,42 @@ async function handleMembershipCreatePayment(request,env){
     throw error;
   }
 }
+async function handleMembershipQrImage(request,env,orderId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureMembershipSchema(env);
+  const payment=await env.DB.prepare('SELECT order_id,user_id,midtrans_transaction_id,status FROM membership_payments WHERE order_id=? AND user_id=? LIMIT 1').bind(orderId,user.id).first();
+  if(!payment)return json(request,env,{error:'Pembayaran tidak ditemukan.'},404);
+  if(['settlement','expire','deny','cancel','error'].includes(String(payment.status||'')))return json(request,env,{error:'QRIS tidak lagi aktif untuk transaksi ini.'},410);
+
+  let qrUrl='';
+  try{
+    const status=await midtransMembershipRequest(env,'/v2/'+encodeURIComponent(orderId)+'/status',{method:'GET'});
+    const action=(status.actions||[]).find(item=>item.name==='generate-qr-code-v2')||(status.actions||[]).find(item=>item.name==='generate-qr-code');
+    qrUrl=String(action?.url||'');
+    if(!payment.midtrans_transaction_id&&status.transaction_id){
+      payment.midtrans_transaction_id=String(status.transaction_id).slice(0,160);
+      await env.DB.prepare('UPDATE membership_payments SET midtrans_transaction_id=?,updated_at=? WHERE order_id=?').bind(payment.midtrans_transaction_id,new Date().toISOString(),orderId).run();
+    }
+  }catch(error){
+    console.error('QR status lookup failed',error);
+  }
+  if(!qrUrl&&payment.midtrans_transaction_id){
+    qrUrl=midtransMembershipBase(env)+'/v2/qris/'+encodeURIComponent(payment.midtrans_transaction_id)+'/qr-code';
+  }
+  if(!qrUrl)return json(request,env,{error:'URL QRIS belum tersedia dari Midtrans.'},404);
+
+  let imageResponse=await fetch(qrUrl,{headers:{Accept:'image/png',Authorization:midtransMembershipAuth(env)}});
+  if(!imageResponse.ok)imageResponse=await fetch(qrUrl,{headers:{Accept:'image/png'}});
+  if(!imageResponse.ok)return json(request,env,{error:'Gambar QRIS tidak dapat diambil dari Midtrans.'},502);
+
+  const image=await imageResponse.arrayBuffer();
+  return new Response(image,{status:200,headers:{
+    'Content-Type':imageResponse.headers.get('Content-Type')||'image/png',
+    'Cache-Control':'no-store, max-age=0',
+    ...corsHeaders(request,env)
+  }});
+}
 async function handleMembershipPaymentStatus(request,env,orderId){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
@@ -1323,6 +1359,8 @@ export default {
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/membership/plans')return await handleMembershipPlans(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/membership/payments')return await handleMembershipCreatePayment(request,env);
+      const membershipPaymentQrMatch=url.pathname.match(/^\/v1\/membership\/payments\/(member-[0-9]+-[a-f0-9]{24})\/qr$/i);
+      if(request.method==='GET'&&membershipPaymentQrMatch)return await handleMembershipQrImage(request,env,membershipPaymentQrMatch[1]);
       const membershipPaymentMatch=url.pathname.match(/^\/v1\/membership\/payments\/(member-[0-9]+-[a-f0-9]{24})$/i);
       if(request.method==='GET'&&membershipPaymentMatch)return await handleMembershipPaymentStatus(request,env,membershipPaymentMatch[1]);
       if(request.method==='POST'&&url.pathname==='/v1/membership/webhook')return await handleMembershipWebhook(request,env);
