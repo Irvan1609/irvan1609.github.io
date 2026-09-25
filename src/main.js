@@ -70,6 +70,16 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     const stored=state.files[file]??'';
     if(typeof isLocalPointer==='function'&&isLocalPointer(stored))return await loadLocalDataset(file)??'';
     return String(stored??'');
+  },
+  focusCell:(row,column=0)=>{
+    const r=Math.max(0,Number(row)||0),c=Math.max(0,Number(column)||0);
+    setSelection(r,c,{focus:true});
+    document.querySelector('#gridWrap')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return true;
+  },
+  snapshotActiveDataset:(reason='sebelum analisis')=>{
+    recordEditorHistory(reason,true);
+    return activeDatasetPayload();
   }
 };
 function localStoreReady(){return typeof indexedDB!=='undefined'&&typeof isLocalPointer==='function'&&typeof saveLocalDataset==='function';}
@@ -925,8 +935,14 @@ function installEditorShortcuts(){
     const inField=event.target.matches?.('input,textarea,select')&&!event.target.matches?.('[contenteditable=true]');
     if(modifier&&key==='z'&&!event.shiftKey&&!inField){event.preventDefault();undoEditor();return;}
     if(modifier&&(key==='y'||(key==='z'&&event.shiftKey))&&!inField){event.preventDefault();redoEditor();return;}
-    if(modifier&&key==='s'&&!inField){event.preventDefault();downloadDataset();return;}
+    if(modifier&&key==='s'&&!inField){
+      event.preventDefault();
+      if(event.shiftKey){downloadDataset();return;}
+      persist('simpan manual',true);recordEditorHistory('simpan manual',true);setStatus('✓ Tersimpan di perangkat.');
+      return;
+    }
     if(modifier&&key==='f'&&!inField&&!document.querySelector('.modal-backdrop.open')){event.preventDefault();openGridFind();return;}
+    if(!modifier&&key==='/'&&!inField&&!document.querySelector('.modal-backdrop.open')){event.preventDefault();$('#globalSearchButton')?.click();return;}
     if(modifier&&key==='a'&&!inField&&state.rows.length&&state.headers.length){event.preventDefault();state.selection.anchor={r:0,c:0};state.selection.focus={r:state.rows.length-1,c:state.headers.length-1};paintSelection();return;}
     if(modifier&&key==='enter'&&!inField){event.preventDefault();const run=$('#runScience'),modal=$('#scientificModal');if(modal?.classList.contains('open')&&run&&!run.disabled)run.click();else $('#openAnalysis')?.click();return;}
     if(modifier&&key==='c'&&!inField&&selectionRange()){event.preventDefault();await copySelectedCells();return;}
