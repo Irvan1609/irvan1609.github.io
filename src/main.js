@@ -938,7 +938,7 @@ function installDataGrid(){
 }
 
 async function boot(){
-  initNumberSettings();loadStorage();
+  loadStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
   installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installPaymentGate();installResultExport();installAccountDatasetSync();
 }
