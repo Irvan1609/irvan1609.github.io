@@ -955,7 +955,10 @@ async function handleDevelopPlanUpdate(request,env,planId){
   const priceIdr=Math.max(0,Math.min(100000000,Math.round(Number(body.priceIdr??existing.price_idr)||0)));
   const datasetLimit=Math.max(1,Math.min(5000,Math.round(Number(body.datasetLimit??existing.dataset_limit)||30)));
   const storageLimitBytes=Math.max(1048576,Math.min(10*1024*1024*1024,Math.round(Number(body.storageLimitBytes??existing.storage_limit_bytes)||20971520)));
-  const active=body.active===undefined?Number(existing.active):body.active?1:0,now=new Date().toISOString();
+  let active=body.active===undefined?Number(existing.active):body.active?1:0;
+  if(planId==='manual')active=0;
+  if(active&&priceIdr<=0)return json(request,env,{error:'invalid_public_price',message:'Paket publik harus memiliki harga lebih dari Rp0.'},400);
+  const now=new Date().toISOString();
   await env.DB.prepare(`UPDATE membership_plans SET name=?,description=?,duration_days=?,price_idr=?,dataset_limit=?,storage_limit_bytes=?,active=?,updated_at=? WHERE id=?`)
     .bind(name,description,durationDays,priceIdr,datasetLimit,storageLimitBytes,active,now,planId).run();
   await audit(env,admin,'membership.plan_updated','membership_plan',planId,{durationDays,priceIdr,datasetLimit,storageLimitBytes,active:Boolean(active)});
