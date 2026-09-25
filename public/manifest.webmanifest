@@ -1,0 +1,63 @@
+{
+  "id": "/",
+  "name": "Agrotik · Alat Riset Agronomi",
+  "short_name": "Agrotik",
+  "description": "Aplikasi local-first untuk pengolahan data, analisis statistik, citra pertanian, dan alat penelitian agronomi.",
+  "lang": "id",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f8f6",
+  "theme_color": "#0d5c43",
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/icons/agrotik.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Statistical Web",
+      "short_name": "Statistik",
+      "url": "/stat/",
+      "icons": [
+        {
+          "src": "/icons/agrotik.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Hitung Cabai",
+      "short_name": "Cabai",
+      "url": "/hitung-cabai/",
+      "icons": [
+        {
+          "src": "/icons/agrotik.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Kamera Pengukur",
+      "short_name": "Ukur",
+      "url": "/kamera-pengukur/",
+      "icons": [
+        {
+          "src": "/icons/agrotik.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
