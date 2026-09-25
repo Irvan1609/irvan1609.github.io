@@ -5,49 +5,127 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="theme-color" content="#14253a">
-  <title>Develop Console | Irvan</title>
+  <title>Develop | Irvan</title>
   <link rel="stylesheet" href="/subweb-header.css">
-  <link rel="stylesheet" href="/account.css?v=20260926-1">
-  <link rel="stylesheet" href="/develop/style.css">
+  <link rel="stylesheet" href="/account.css?v=20260926-2">
+  <link rel="stylesheet" href="/develop/style.css?v=20260926-2">
 </head>
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
-      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Develop Console</span></a>
-      <nav class="subweb-nav" aria-label="Navigasi develop"><a href="/stat/">Statistical Web</a><a href="/hitung-cabai/">Hitung Cabai</a></nav>
+      <a class="subweb-brand" href="/" aria-label="Kembali ke portofolio"><span class="subweb-brand-arrow">←</span><span>Develop</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi develop"><a href="/stat/">Statistik</a><a href="/account/">Akun</a></nav>
     </div>
   </header>
+
   <main class="dev-wrap">
     <section class="dev-hero">
-      <div><span class="dev-eyebrow">Admin only</span><h1>Develop Console</h1><p>Ringkasan akun, membership, dataset cloud, aktivitas sesi, dan kontribusi AI.</p></div>
-      <button id="refreshDevelop" type="button">Muat ulang</button>
+      <div><span class="dev-eyebrow">Admin console</span><h1>Develop</h1><p>Pusat kontrol akun, membership, pembayaran, data cloud, AI, server, audit, dan backup.</p></div>
+      <div class="hero-actions"><button id="refreshDevelop" type="button">Muat ulang</button><a class="button-link" href="/account/">Akun admin</a></div>
     </section>
+
     <div id="developGate" class="dev-gate">Memeriksa akses admin…</div>
+
     <div id="developApp" hidden>
-      <section id="statsGrid" class="stats-grid" aria-label="Statistik pengguna"></section>
-      <section class="dev-panel">
-        <div class="panel-head">
-          <div><h2>Pengguna</h2><p>Kelola akses membership dan lihat penggunaan dataset per akun.</p></div>
-          <input id="userSearch" type="search" autocomplete="off" placeholder="Cari nama atau email…">
-        </div>
-        <div class="table-wrap">
-          <table class="users-table">
-            <thead><tr><th>Pengguna</th><th>Akses</th><th>Dataset</th><th>Login terakhir</th><th>Membership</th></tr></thead>
-            <tbody id="usersBody"></tbody>
-          </table>
+      <nav class="dev-tabs" aria-label="Modul develop">
+        <button class="active" data-tab="overview" type="button">Overview</button>
+        <button data-tab="users" type="button">Users</button>
+        <button data-tab="membership" type="button">Membership</button>
+        <button data-tab="payments" type="button">Payments</button>
+        <button data-tab="datasets" type="button">Datasets</button>
+        <button data-tab="ai" type="button">Hitung Cabai / AI</button>
+        <button data-tab="server" type="button">Server</button>
+        <button data-tab="audit" type="button">Audit Log</button>
+        <button data-tab="backups" type="button">Backups</button>
+      </nav>
+
+      <section class="dev-view active" data-view="overview">
+        <div id="statsGrid" class="stats-grid"></div>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Status sistem</h2><p>Health Worker dan fitur backend.</p></div></div>
+            <div id="overviewHealth" class="key-values"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Penggunaan aplikasi</h2><p>Estimasi berbasis data D1, bukan meter resmi Cloudflare.</p></div></div>
+            <div id="overviewUsage" class="key-values"></div>
+          </article>
         </div>
       </section>
-      <section class="dev-panel">
-        <div class="panel-head"><div><h2>Detail dataset pengguna</h2><p id="datasetOwner">Pilih pengguna untuk melihat daftar dataset cloud.</p></div></div>
-        <div id="userDatasets" class="dataset-list"><span class="muted">Belum ada pengguna dipilih.</span></div>
+
+      <section class="dev-view" data-view="users">
+        <div class="dev-panel">
+          <div class="panel-head">
+            <div><h2>Pengguna</h2><p>Membership, status akun, sesi, dataset, dan support view read-only.</p></div>
+            <input id="userSearch" type="search" autocomplete="off" placeholder="Cari nama atau email…">
+          </div>
+          <div class="table-wrap">
+            <table class="users-table">
+              <thead><tr><th>Pengguna</th><th>Akses</th><th>Dataset</th><th>Login terakhir</th><th>Membership</th><th>Akun</th><th>Support</th></tr></thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Support view</h2><p id="supportTitle">Pilih pengguna. Mode ini hanya membaca ringkasan, tidak impersonasi.</p></div></div>
+          <div id="supportView" class="support-view muted">Belum ada pengguna dipilih.</div>
+        </div>
       </section>
-      <section class="dev-panel dev-system">
-        <div><h2>Server</h2><p>Endpoint develop hanya menerima session akun dengan role admin. URL halaman ini bukan mekanisme keamanan.</p></div>
-        <div id="serverState" class="server-state">Memeriksa Worker…</div>
+
+      <section class="dev-view" data-view="membership">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Paket membership</h2><p>Harga, durasi, kuota dataset, dan penyimpanan disimpan sebagai konfigurasi server.</p></div></div>
+          <div id="planGrid" class="plan-grid"></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="payments">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Pembayaran membership</h2><p>Transaksi QRIS membership dan status penerapan akses.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Order</th><th>Pengguna</th><th>Paket</th><th>Nominal</th><th>Status</th><th>Dibuat</th><th>Berlaku</th></tr></thead><tbody id="paymentsBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="datasets">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Dataset cloud</h2><p>Metadata seluruh dataset; isi data tidak ditampilkan di tabel admin.</p></div><input id="datasetSearch" type="search" placeholder="Cari dataset atau email…"></div>
+          <div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Pengguna</th><th>Ukuran</th><th>Revisi</th><th>Terakhir diperbarui</th><th>Status</th></tr></thead><tbody id="datasetsBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="ai">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Kontribusi Hitung Cabai / AI</h2><p>Ringkasan kandidat data training tanpa membuka gambar secara otomatis.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Sampel</th><th>Final</th><th>Prediksi</th><th>Koreksi</th><th>Quality</th><th>Model</th><th>Status</th><th>Waktu</th></tr></thead><tbody id="aiBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="server">
+        <div class="stats-grid compact" id="usageGrid"></div>
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
+          <pre id="healthJson" class="code-box">—</pre>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="audit">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Audit Log</h2><p>Tindakan administratif dan operasi sensitif yang dicatat server.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Admin/aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="backups">
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Backup & disaster recovery</h2><p>Ekspor logis selalu tersedia. Snapshot R2 tersedia jika binding BACKUPS dikonfigurasi pada Worker.</p></div><div class="inline-actions"><button id="exportBackup" type="button">Unduh backup sekarang</button><button id="createSnapshot" type="button">Buat snapshot R2</button></div></div>
+          <div id="backupState" class="muted"></div>
+          <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Status</th><th>Ukuran</th><th>Objek</th><th>Aksi</th></tr></thead><tbody id="backupsBody"></tbody></table></div>
+        </div>
       </section>
     </div>
   </main>
-  <script type="module" src="/account.js?v=20260926-1"></script>
-  <script type="module" src="/develop/app.js"></script>
+
+  <script type="module" src="/account.js?v=20260926-2"></script>
+  <script type="module" src="/develop/app.js?v=20260926-2"></script>
 </body>
 </html>
