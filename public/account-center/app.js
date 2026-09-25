@@ -30,6 +30,7 @@ function renderProfile(summary){
   member.textContent=user.role==='admin'?'Membership permanen':membership.active?'Membership aktif':'Akun gratis';
   member.className='badge '+((user.role==='admin'||membership.active)?'member':'');
   $('#upgradeMembership').hidden=user.role==='admin';
+  $('#cancelMembership').hidden=user.role==='admin'||!membership.active;
   $('#metricDatasets').textContent=Number(summary.usage?.datasetCount||0).toLocaleString('id-ID');
   $('#metricStorage').textContent=bytes(summary.usage?.storageBytes||0);
   $('#metricDatasetLimit').textContent=summary.quota?.datasetLimit===null?'∞':Number(summary.quota?.datasetLimit||0).toLocaleString('id-ID');
@@ -70,6 +71,19 @@ async function exportAccount(){
 }
 $('#refreshAccount').onclick=loadAll;
 $('#revokeOthers').onclick=async()=>{if(!confirm('Keluar dari semua perangkat lain?'))return;const button=$('#revokeOthers');button.disabled=true;try{const result=await api('/v1/account/sessions/revoke-others',{method:'POST',body:'{}'});alert((result.revoked||0)+' sesi dicabut.');await loadSessions();}catch(error){alert(error.message);}finally{button.disabled=false;}};
+$('#cancelMembership').onclick=async()=>{
+  const button=$('#cancelMembership');
+  const confirmed=confirm('Batalkan membership sekarang?\n\nAkses Cloud Sync dan manfaat membership akan berhenti segera. Pembayaran yang sudah selesai tidak otomatis dikembalikan.');
+  if(!confirmed)return;
+  button.disabled=true;button.textContent='Membatalkan…';
+  try{
+    await api('/v1/account/membership/cancel',{method:'POST',body:'{}'});
+    await window.IrvanAccount?.refresh?.();
+    alert('Membership berhasil dibatalkan.');
+    await loadAll();
+  }catch(error){alert(error.message||'Membership tidak dapat dibatalkan.');}
+  finally{button.disabled=false;button.textContent='Batalkan membership';}
+};
 $('#exportAccount').onclick=async()=>{const b=$('#exportAccount');b.disabled=true;try{await exportAccount();}catch(error){alert(error.message);}finally{b.disabled=false;}};
 $('#logoutAccount').onclick=()=>window.IrvanAccount?.logout?.();
 document.addEventListener('accountchange',()=>setTimeout(loadAll,0));
