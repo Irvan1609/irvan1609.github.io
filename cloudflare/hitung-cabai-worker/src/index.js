@@ -312,14 +312,10 @@ function midtransServerKey(env){
   }
   return value;
 }
-function detectedMidtransEnvironment(env){
-  const key=midtransServerKey(env);
-  if(key.startsWith('SB-'))return 'sandbox';
-  if(key&&key.toLowerCase().includes('-server-'))return 'production';
+function midtransEnvironment(env){
   const configured=String(env.MIDTRANS_ENV||'sandbox').trim().toLowerCase();
   return configured==='production'?'production':'sandbox';
 }
-function midtransEnvironment(env){return detectedMidtransEnvironment(env);}
 function midtransMembershipConfigured(env){return Boolean(midtransServerKey(env));}
 function midtransMembershipBase(env){return midtransEnvironment(env)==='production'?'https://api.midtrans.com':'https://api.sandbox.midtrans.com';}
 function midtransCredentialHint(env){
@@ -328,10 +324,8 @@ function midtransCredentialHint(env){
   const lower=key.toLowerCase();
   const clientKey=lower.includes('-client-');
   const serverKey=lower.includes('-server-');
-  const sandboxKey=key.startsWith('SB-');
-  const keyEnvironment=sandboxKey?'sandbox':'production';
-  if(clientKey)return {ok:false,code:'client_key_used',message:'MIDTRANS_SERVER_KEY berisi Client Key. Gunakan Server Key dari Midtrans Settings → Access Keys.',environment,keyType:'client',keyEnvironment};
-  return {ok:true,code:'ok',message:'Environment Midtrans dipilih otomatis dari Server Key.',environment,keyType:serverKey?'server':'unknown',keyEnvironment:serverKey?keyEnvironment:'unknown'};
+  if(clientKey)return {ok:false,code:'client_key_used',message:'MIDTRANS_SERVER_KEY berisi Client Key. Gunakan Server Key dari Midtrans Settings → Access Keys.',environment,keyType:'client'};
+  return {ok:true,code:'ok',message:'Environment Midtrans mengikuti MIDTRANS_ENV secara eksplisit.',environment,keyType:serverKey?'server':'unknown'};
 }
 function midtransMembershipAuth(env){
   const key=midtransServerKey(env);
@@ -1427,7 +1421,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.7'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.8'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
