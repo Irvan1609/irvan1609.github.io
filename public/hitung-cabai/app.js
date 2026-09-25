@@ -437,8 +437,8 @@ window.addEventListener('beforeunload',event=>{stopCamera();if(dirty){event.prev
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStream)stopCamera();});
 
 try{
-  applyDetectSettings();
-  db=await openDB();await list();updateInteractionMode();updateCloudState();
+  applyDetectSettings();updateCloudState();
+  db=await openDB();await list();updateInteractionMode();
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch{
   status('Penyimpanan browser tidak tersedia. Hasil masih dapat dihitung, tetapi tidak bisa disimpan.');
