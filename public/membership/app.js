@@ -29,12 +29,21 @@ function renderStatus(summary){
   el.textContent='Akun gratis · cloud sync nonaktif';el.className='membership-status';
 }
 function renderPlans(paymentConfigured){
-  const grid=$('#plansGrid'),user=window.IrvanAccount?.user;
-  if(user?.role==='admin'){grid.hidden=true;$('#membershipGate').hidden=false;$('#membershipGate').textContent='Akun admin sudah memiliki seluruh manfaat membership secara permanen.';return;}
-  if(!plans.length){grid.hidden=true;$('#membershipGate').hidden=false;$('#membershipGate').textContent='Belum ada paket membership yang diaktifkan oleh admin.';return;}
-  grid.innerHTML=plans.map(plan=>'<article class="plan-card"><h2>'+esc(plan.name)+'</h2><p>'+esc(plan.description||'')+'</p><div class="price">'+esc(money(plan.priceIdr))+'</div><div class="duration">'+Number(plan.durationDays)+' hari</div><div class="plan-features"><span>✓ Maks. '+Number(plan.datasetLimit).toLocaleString('id-ID')+' dataset cloud</span><span>✓ Penyimpanan '+esc(bytes(plan.storageLimitBytes))+'</span><span>✓ Analisis termasuk selama membership aktif</span></div><button type="button" data-buy="'+esc(plan.id)+'"'+(!paymentConfigured?' disabled':'')+'>'+(paymentConfigured?'Bayar dengan QRIS':'QRIS belum dikonfigurasi')+'</button></article>').join('');
-  grid.querySelectorAll('[data-buy]').forEach(button=>button.onclick=()=>buy(button.dataset.buy));
-  grid.hidden=false;$('#membershipGate').hidden=true;
+  const grid=$('#plansGrid'),user=window.IrvanAccount?.user,isAdmin=user?.role==='admin';
+  if(!plans.length){
+    grid.hidden=true;$('#membershipGate').hidden=false;
+    $('#membershipGate').textContent=isAdmin
+      ?'Belum ada paket publik yang aktif. Atur harga > Rp0 dan centang “Aktifkan untuk pembelian publik” di Develop → Membership.'
+      :'Belum ada paket membership yang diaktifkan oleh admin.';
+    return;
+  }
+  grid.innerHTML=plans.map(plan=>'<article class="plan-card"><h2>'+esc(plan.name)+'</h2><p>'+esc(plan.description||'')+'</p><div class="price">'+esc(money(plan.priceIdr))+'</div><div class="duration">'+Number(plan.durationDays)+' hari</div><div class="plan-features"><span>✓ Maks. '+Number(plan.datasetLimit).toLocaleString('id-ID')+' dataset cloud</span><span>✓ Penyimpanan '+esc(bytes(plan.storageLimitBytes))+'</span><span>✓ Analisis termasuk selama membership aktif</span></div><button type="button" data-buy="'+esc(plan.id)+'"'+((!paymentConfigured||isAdmin)?' disabled':'')+'>'+(isAdmin?'Admin · tidak perlu membeli':(paymentConfigured?'Bayar dengan QRIS':'QRIS belum dikonfigurasi'))+'</button></article>').join('');
+  if(!isAdmin)grid.querySelectorAll('[data-buy]').forEach(button=>button.onclick=()=>buy(button.dataset.buy));
+  grid.hidden=false;$('#membershipGate').hidden=!isAdmin;
+  if(isAdmin){
+    $('#membershipGate').dataset.state='info';
+    $('#membershipGate').textContent='Mode preview admin: paket publik tetap ditampilkan, tetapi akun admin tidak perlu membeli membership.';
+  }
 }
 function openModal(){const m=$('#qrisModal');m.hidden=false;}
 function closeModal(){clearTimeout(pollTimer);pollTimer=null;$('#qrisModal').hidden=true;currentOrder='';}
