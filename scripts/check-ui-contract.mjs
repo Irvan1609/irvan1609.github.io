@@ -40,7 +40,7 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
   'pasteModal','closeModal','cancelPaste','applyPaste','pasteArea',
-  'openAnalysis','globalSearch','globalSearchResults','focusData','renameDataset','deleteDataset','datasetNameForm',
+  'openAnalysis','globalSearchButton','globalSearchModal','closeGlobalSearch','globalSearch','globalSearchResults','focusData','renameDataset','deleteDataset','datasetNameForm',
   'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','toggleDatasetMeta','datasetMetaEditor',
   'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels',
   'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
@@ -59,12 +59,12 @@ if (!/\brole="status"/.test(statusTag) || !/\baria-live="polite"/.test(statusTag
 const errorTag = html.match(/<div\b[^>]*\bid="errorBox"[^>]*>/)?.[0] || '';
 if (!/\brole="alert"/.test(errorTag)) fail('main error box needs alert semantics');
 
-for (const [modalId,titleId] of [['pasteModal','pasteModalTitle'],['datasetNameModal','datasetNameTitle'],['datasetViewModal','datasetViewTitle'],['columnNameModal','columnNameTitle']]) {
+for (const [modalId,titleId] of [['globalSearchModal','globalSearchTitle'],['pasteModal','pasteModalTitle'],['datasetNameModal','datasetNameTitle'],['datasetViewModal','datasetViewTitle'],['columnNameModal','columnNameTitle']]) {
   if(!html.includes(`id="${modalId}"`)||!html.includes(`aria-labelledby="${titleId}"`)||!html.includes(`id="${titleId}"`))fail(`#${modalId} needs an accessible title`);
 }
-if((html.match(/role="dialog"/g)||[]).length<4||(html.match(/aria-modal="true"/g)||[]).length<4)fail('core Statistical Web modals need dialog semantics');
+if((html.match(/role="dialog"/g)||[]).length<5||(html.match(/aria-modal="true"/g)||[]).length<5)fail('core Statistical Web modals need dialog semantics');
 
-for (const id of ['closeModal','closeDatasetName','closeDatasetView','closeColumnName']) {
+for (const id of ['closeGlobalSearch','closeModal','closeDatasetName','closeDatasetView','closeColumnName']) {
   if (!new RegExp(`<button[^>]*id="${id}"[^>]*aria-label="[^"]+"`).test(html)) fail(`#${id} needs an accessible name`);
 }
 
@@ -74,7 +74,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==2||!nav.includes('openAnalysis')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Analisis plus mobile Dataset control');
+if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay compact: Analisis, Cari, and Dataset controls');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
@@ -128,7 +128,7 @@ if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statis
 const toolsInit = main.indexOf('installDataTools();');
 const navInit = main.indexOf('installNavigation();');
 if (toolsInit < 0 || navInit < 0 || toolsInit > navInit) fail('Data tools must be installed before navigation so app-menu commands exist when the menu is assembled');
-for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu','globalSearch','globalSearchResults','searchIndex','data-column-header']) {
+for (const marker of ['appMenuButton','compact-app-menu','validateDataset','dataTemplate','analysisHistory','focusData','openSettingsFromMenu','globalSearchButton','globalSearchModal','globalSearch','globalSearchResults','globalIndex','data-column-header']) {
   if (!navigation.includes(marker)) fail(`navigation.js missing compact app-menu contract: ${marker}`);
 }
 
@@ -158,6 +158,7 @@ for (const marker of ['detectChapterOne','renderPreview','downloadAllButton','ne
 if(!main.includes('toggleFocusMode')||!main.includes('toggleDatasetMetaEditor'))fail('responsive focus/metadata controls are missing');
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.focus-data-mode')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/focus/collapse styles are missing');
 if(!html.includes('placeholder="Cari fitur, analisis, dataset, kolom…"'))fail('global search must advertise its broad scope');
+if(!statStyle.includes('.global-search-dialog')||!statStyle.includes('.global-search-item'))fail('global search dialog styles are missing');
 console.log(`UI contract OK: polished /stat shell, grouped analysis menu, one global search across features/analyses/datasets/columns, mobile layout, and scientific workflow are present.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
