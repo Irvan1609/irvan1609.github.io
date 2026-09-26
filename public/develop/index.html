@@ -35,6 +35,7 @@
         <button data-tab="datasets" type="button">Datasets</button>
         <button data-tab="ai" type="button">Hitung Cabai / AI</button>
         <button data-tab="server" type="button">Server</button>
+        <button data-tab="security" type="button">Security</button>
         <button data-tab="audit" type="button">Audit Log</button>
         <button data-tab="backups" type="button">Backups</button>
       </nav>
@@ -111,6 +112,20 @@
         </div>
       </section>
 
+      <section class="dev-view" data-view="security">
+        <div class="stats-grid compact" id="securityGrid"></div>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Kontrol keamanan</h2><p>Status kontrol sesi, CSRF, rate limit, Turnstile, dan backup.</p></div></div>
+            <div id="securityControls" class="key-values"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Peristiwa 24 jam</h2><p>Ringkasan audit server. Event edge yang ditolak tidak ditulis ke D1 agar serangan tidak menghasilkan write amplification.</p></div></div>
+            <div id="securityEvents" class="key-values"></div>
+          </article>
+        </div>
+      </section>
+
       <section class="dev-view" data-view="audit">
         <div class="dev-panel">
           <div class="panel-head"><div><h2>Audit Log</h2><p>Tindakan administratif dan operasi sensitif yang dicatat server.</p></div></div>
@@ -129,6 +144,6 @@
   </main>
 
   <script type="module" src="/account.js?v=20260926-5"></script>
-  <script type="module" src="/develop/app.js?v=20260926-4"></script>
+  <script type="module" src="/develop/app.js?v=20260926-6"></script>
 </body>
 </html>
