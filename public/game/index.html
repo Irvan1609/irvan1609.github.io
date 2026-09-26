@@ -51,11 +51,11 @@
     </section>
 
     <nav class="game-quick-nav" aria-label="Menu game">
-      <button id="quickField" type="button">🌱 <span>Lahan</span></button>
-      <button id="quickLab" type="button">🔬 <span>Lab</span></button>
-      <button id="quickMap" type="button">🗺 <span>Peta</span></button>
-      <button id="quickSocial" type="button">👥 <span>Sosial</span><i id="socialBadge" hidden></i></button>
-      <button id="quickMore" type="button">••• <span>Lain</span></button>
+      <button id="quickField" type="button" title="Lahan" aria-label="Lahan">🌱</button>
+      <button id="quickLab" type="button" title="Lab" aria-label="Lab">🔬</button>
+      <button id="quickMap" type="button" title="Peta" aria-label="Peta">🗺</button>
+      <button id="quickSocial" type="button" title="Sosial" aria-label="Sosial">👥<i id="socialBadge" hidden></i></button>
+      <button id="quickMore" type="button" title="Lainnya" aria-label="Lainnya">•••</button>
     </nav>
 
     <section class="hud" aria-label="Status permainan">
@@ -94,10 +94,11 @@
           <span id="activeToolStatus">Ketuk alat → petak</span>
         </div>
         <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
-          <button type="button" draggable="true" data-field-tool="plant" title="Tanam"><span class="tool-icon">🌱</span><span>Tanam</span></button>
-          <button type="button" draggable="true" data-field-tool="water" title="Air"><span class="tool-icon">💧</span><span>Air</span></button>
-          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk"><span class="tool-icon">N</span><span>Pupuk</span></button>
-          <button type="button" draggable="true" data-field-tool="scout" title="Scout"><span class="tool-icon">◎</span><span>Periksa</span></button>
+          <button type="button" draggable="true" data-field-tool="plant" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span></button>
+          <button type="button" draggable="true" data-field-tool="water" title="Air" aria-label="Air"><span class="tool-icon">💧</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
+          <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Dua belas petak lahan"></div>
         <div class="day-actions">
@@ -192,9 +193,9 @@
       </div>
       <div id="socialApp" hidden>
         <nav class="social-tabs" aria-label="Menu sosial">
-          <button type="button" data-social-tab="rank" aria-pressed="true">🏆 Peringkat</button>
-          <button type="button" data-social-tab="friends" aria-pressed="false">👥 Teman</button>
-          <button type="button" data-social-tab="search" aria-pressed="false">＋ Cari</button>
+          <button type="button" data-social-tab="rank" aria-pressed="true" title="Peringkat" aria-label="Peringkat">🏆</button>
+          <button type="button" data-social-tab="friends" aria-pressed="false" title="Teman" aria-label="Teman">👥</button>
+          <button type="button" data-social-tab="search" aria-pressed="false" title="Cari pemain" aria-label="Cari pemain">＋</button>
         </nav>
         <div id="socialContent" class="social-content"></div>
       </div>

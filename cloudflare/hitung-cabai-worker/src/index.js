@@ -1905,6 +1905,39 @@ async function handleGameAidClaim(request,env,aidId){
   await env.DB.prepare('UPDATE game_aids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),aidId,user.id).run();
   return json(request,env,{ok:true});
 }
+async function handleGameInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const [raids,aids,friends]=await env.DB.batch([
+    env.DB.prepare(`SELECT r.id,r.created_at,u.id AS attacker_id,u.name AS attacker_name,u.picture_url AS attacker_picture
+      FROM game_raids r JOIN users u ON u.id=r.attacker_id
+      WHERE r.target_id=? AND r.claimed_at IS NULL ORDER BY r.created_at ASC LIMIT 10`).bind(user.id),
+    env.DB.prepare(`SELECT a.id,a.created_at,u.id AS helper_id,u.name AS helper_name,u.picture_url AS helper_picture
+      FROM game_aids a JOIN users u ON u.id=a.helper_id
+      WHERE a.target_id=? AND a.claimed_at IS NULL ORDER BY a.created_at ASC LIMIT 10`).bind(user.id),
+    env.DB.prepare("SELECT COUNT(*) AS total FROM game_friends WHERE friend_id=? AND status='pending'").bind(user.id)
+  ]);
+  return json(request,env,{
+    raids:(raids.results||[]).map(row=>({id:row.id,createdAt:row.created_at,attacker:{id:row.attacker_id,name:row.attacker_name||'Teman',picture:row.attacker_picture||''}})),
+    aids:(aids.results||[]).map(row=>({id:row.id,createdAt:row.created_at,helper:{id:row.helper_id,name:row.helper_name||'Teman',picture:row.helper_picture||''}})),
+    friendRequests:Number(friends.results?.[0]?.total||0)
+  });
+}
+async function handleGameInboxClaim(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'inbox');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null);
+  const raidIds=Array.isArray(body?.raidIds)?body.raidIds.filter(validDatasetId).slice(0,10):[];
+  const aidIds=Array.isArray(body?.aidIds)?body.aidIds.filter(validDatasetId).slice(0,10):[];
+  const now=new Date().toISOString(),statements=[];
+  for(const id of raidIds)statements.push(env.DB.prepare('UPDATE game_raids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(now,id,user.id));
+  for(const id of aidIds)statements.push(env.DB.prepare('UPDATE game_aids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(now,id,user.id));
+  if(statements.length)await env.DB.batch(statements);
+  return json(request,env,{ok:true,raids:raidIds.length,aids:aidIds.length});
+}
 
 export default {
   async scheduled(event,env,ctx){
@@ -1916,7 +1949,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.14'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.15'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
       if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
       const csrfFailure=await csrfGuard(request,env,url);
@@ -1951,6 +1984,8 @@ export default {
       if(request.method==='POST'&&gameFriendAccept)return await handleGameFriendAccept(request,env,gameFriendAccept[1]);
       const gameFriendMatch=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})$/i);
       if(request.method==='DELETE'&&gameFriendMatch)return await handleGameFriendRemove(request,env,gameFriendMatch[1]);
+      if(request.method==='GET'&&url.pathname==='/v1/game/inbox')return await handleGameInbox(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/game/inbox/claim')return await handleGameInboxClaim(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/game/raids/inbox')return await handleGameRaidInbox(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/game/aids/inbox')return await handleGameAidInbox(request,env);
       const gameRaidClaim=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})\/claim$/i);
