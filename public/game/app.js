@@ -323,6 +323,12 @@ function load(){
     merged.simulationSeed=Number(raw.simulationSeed)||hashString('academy:'+String(raw.season||1));
     if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
     merged.vault=merged.vault.map(seed=>({...seed,stock:Math.max(0,Number.isFinite(Number(seed.stock))?Math.round(Number(seed.stock)):(seed.parents?.length?6:24)),viability:clamp(Number(seed.viability)||96,0,100),ageSeasons:Math.max(0,Math.round(Number(seed.ageSeasons)||0)),genome:normalizeGenome(seed.genome,seed.id,merged.simulationSeed)}));
+    merged.field=merged.field.map((crop,index)=>{
+      if(!crop)return null;
+      const seed={...(crop.seed||{}),genome:normalizeGenome(crop.seed?.genome,crop.seed?.id||('plot-'+index),merged.simulationSeed)};
+      const uidValue=crop.uid||('legacy-plant-'+index);
+      return {...crop,uid:uidValue,seed,samples:Array.isArray(crop.samples)&&crop.samples.length?crop.samples:makeSubsamples({plotUid:merged.plotRegistry?.[index]?.uid||('P'+index),plantUid:uidValue,species:crop.species||merged.species,simulationSeed:merged.simulationSeed})};
+    });
     merged.tech=Array.isArray(merged.tech)?merged.tech:[];
     merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
     merged.lineage=Array.isArray(merged.lineage)?merged.lineage:[];
@@ -332,7 +338,7 @@ function load(){
     merged.fieldPressure={...base.fieldPressure,...(raw.fieldPressure||{})};
     merged.weatherMemory={...base.weatherMemory,...(raw.weatherMemory||{})};
     merged.seasonStartRp=Number.isFinite(Number(raw.seasonStartRp))?Number(raw.seasonStartRp):Number(merged.rp||0);
-    merged.selectionPool=Array.isArray(raw.selectionPool)?raw.selectionPool:[];
+    merged.selectionPool=(Array.isArray(raw.selectionPool)?raw.selectionPool:[]).map(item=>({...item,seed:item?.seed?{...item.seed,stock:Math.max(0,Number(item.seed.stock)||6),viability:clamp(Number(item.seed.viability)||97,0,100),ageSeasons:Math.max(0,Number(item.seed.ageSeasons)||0),genome:normalizeGenome(item.seed.genome,item.seed.id||item.id,merged.simulationSeed)}:item.seed}));
     merged.experimentHistory=Array.isArray(raw.experimentHistory)?raw.experimentHistory:[];
     merged.seasonStats={...base.seasonStats,...(merged.seasonStats||{})};
     merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
@@ -996,7 +1002,7 @@ function openGameHelp(){
 }
 
 function seedEvidence(seed){
-  const commercial=!seed?.parents?.length&&Number(seed?.generation||0)===0;
+  const commercial=!seed?.parents?.length&&Number(seed?.generation||0)===0&&String(seed?.source||'')==='Starter';
   if(commercial)return {level:4,label:'Deskripsi varietas'};
   const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0),stressTests=Number(seed?.stressTests||0),label=evidenceLabel({tests,generation,stressTests});
   return {level:label==='Relatif stabil'?4:label==='Didukung pengujian'?3:label==='Indikasi'?2:1,label};
