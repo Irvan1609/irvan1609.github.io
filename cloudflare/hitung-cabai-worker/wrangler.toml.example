@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-09-25"
 
 [vars]
-ALLOWED_ORIGINS = "https://irvan1609.github.io"
+ALLOWED_ORIGINS = "https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev"
 ADMIN_EMAILS = "andyirvan1609@gmail.com"
 GOOGLE_REDIRECT_URI = "https://hitung-cabai-api.andyirvan1609.workers.dev/v1/auth/google/callback"
 MIDTRANS_ENV = "sandbox"
