@@ -91,6 +91,31 @@ jobs:
           echo "image_bucket=$IMAGE_BUCKET" >> "$GITHUB_OUTPUT"
           echo "backup_bucket=$BACKUP_BUCKET" >> "$GITHUB_OUTPUT"
 
+      - name: Configure backup lifecycle
+        if: steps.r2.outputs.backup_bucket != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_BUCKET: ${{ steps.r2.outputs.backup_bucket }}
+        shell: bash
+        run: |
+          set -u
+          LIST="$(npx --yes wrangler@4 r2 bucket lifecycle list "$BACKUP_BUCKET" 2>&1 || true)"
+          ensure_rule() {
+            local id="$1" prefix="$2" days="$3"
+            if printf '%s' "$LIST" | grep -Fq "$id"; then
+              echo "R2 lifecycle '$id' sudah ada."
+              return 0
+            fi
+            if npx --yes wrangler@4 r2 bucket lifecycle add "$BACKUP_BUCKET" "$id" "$prefix" --expire-days "$days" --force; then
+              echo "R2 lifecycle '$id' dibuat."
+            else
+              echo "::warning::Lifecycle '$id' tidak dapat dibuat; deploy Worker tetap dilanjutkan."
+            fi
+          }
+          ensure_rule "agrotik-daily-30d" "d1-logical/" 30
+          ensure_rule "agrotik-monthly-365d" "d1-monthly/" 365
+
       - name: Generate production Wrangler config
         env:
           D1_DATABASE_ID: ${{ steps.d1.outputs.database_id }}
