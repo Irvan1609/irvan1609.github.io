@@ -792,9 +792,24 @@ function experimentTableHtml(){
     return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
   }).join('')}</tbody></table></div>`;
 }
+function experimentInlinePreviewHtml(){
+  const exp=state.experiment;if(!exp||exp.kind==='competition')return '';
+  const available=exp.parameters.filter(parameter=>exp.units.filter(unit=>Number.isFinite(Number(String(unit.observations?.[parameter]??'').replace(',','.')))).length>=Math.max(4,exp.treatments.length));
+  const parameter=available.includes('Hasil')?'Hasil':available[0];if(!parameter)return '';
+  const result=analyzeExperiment(exp,parameter);if(!result.ok)return '';
+  const p=result.p===null?'—':result.p<.001?'&lt;0,001':result.p.toLocaleString('id-ID',{maximumFractionDigits:3});
+  const audit=auditDesign(exp,state.plotRegistry),spatial=audit.find(item=>item.code==='heterogeneous-field'),missing=audit.find(item=>item.code==='missing');
+  let why='';
+  if(spatial)why=spatial.text;
+  else if(missing)why=missing.text;
+  else if(result.means.some(row=>row.n<3))why='Ulangan efektif rendah membuat estimasi rerata dan BNT kurang presisi.';
+  else if(result.significant)why='Sinyal perlakuan terdeteksi. Interpretasikan arah rerata dan uji lanjut sesuai hipotesis; jangan menyimpulkan semua perlakuan berbeda.';
+  else why='Bukti belum cukup untuk menolak H₀. Hasil tidak signifikan tetap informatif; jangan memaksa perbedaan.';
+  return `<section class="stat-preview"><header><b>📊 ${esc(parameter)}</b><span>n=${result.n}</span></header><div class="stat-preview-metrics"><span>F <b>${Number(result.anova[0].f).toFixed(2)}</b></span><span>p <b>${p}</b></span><span>CV <b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></span><span>BNT <b>${result.lsd.toFixed(2)}</b></span></div><p>${esc(why)}</p></section>`;
+}
 function experimentSummaryHtml(){
   const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
-  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>`;
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>${experimentInlinePreviewHtml()}`;
 }
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
@@ -921,6 +936,13 @@ function startDaily(){
   state.env=daily.env;state.weather=rollWeather(state.env);state.mission={type:'yield',target:daily.target,text:'Daily target',unit:'kg'};
   state.monoSeedId=null;closeMetaModal();addLog('Daily Seed '+daily.key+' dimulai.');render();
 }
+function startDailyBreeding(){
+  if(!challengeCanStart()){toast('Daily Breeding hanya dapat dimulai pada awal musim kosong');return;}
+  const daily=dailyDefinition(),plan=dailyBreedingPlan(daily.key,hashString('breeding:'+daily.key));
+  state.daily={key:daily.key,type:'breeding',target:'2 finalis',previous:Number(state.records['daily-breeding:'+daily.key]||0)};
+  closeMetaModal();breedingCup.start({...plan,dailyKey:daily.key});
+}
+
 function doPrestige(){
   if(!prestigeAvailable())return;
   const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
@@ -1300,12 +1322,13 @@ function openWorldMap(){
 }
 function challengeHtml(){
   const daily=dailyDefinition();
-  return `<div class="challenge-grid">${Object.entries(CHALLENGES).map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Tekanan +${Math.round((ch.pressure||0)*100)}% · Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><button data-daily-start ${challengeCanStart()?'':'disabled'}>Mulai Daily</button></div>`;
+  return `<div class="challenge-grid">${Object.entries(CHALLENGES).map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Tekanan +${Math.round((ch.pressure||0)*100)}% · Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><div class="daily-actions"><button data-daily-start ${challengeCanStart()?'':'disabled'}>🌾 Daily Farm</button><button data-daily-breeding ${challengeCanStart()?'':'disabled'}>🧬 Daily Breeding · 24 petak</button></div></div>`;
 }
 function openChallenges(){
   openMetaModal('RUN MODES','Challenge & Daily Seed',challengeHtml());
   $('#metaModalBody').querySelectorAll('[data-challenge]').forEach(button=>button.onclick=()=>startChallenge(button.dataset.challenge));
   $('#metaModalBody').querySelector('[data-daily-start]')?.addEventListener('click',startDaily);
+  $('#metaModalBody').querySelector('[data-daily-breeding]')?.addEventListener('click',startDailyBreeding);
 }
 function openRival(){
   openMetaModal('RIVAL SCIENTIST','Kompetitor musim ini',`<div class="rival-grid">${RIVALS.map(r=>`<button data-rival="${r.id}" class="${state.rival===r.id?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)} · ${esc(r.program)}</span><small>${esc(rivalProgramStatus(r,state.season))} · target ≈ ${round((r.base+r.growth*Math.max(0,state.season-1))*activeLocation().yield,1)} kg</small></button>`).join('')}</div><p class="meta-note">Rival menjalankan program pemuliaan offline yang maju setiap musim. Tidak memakai AI/server.</p>`);
@@ -1832,7 +1855,7 @@ function updateCrossPreview(){
   const genotype=hasTech('genome')
     ?`<div class="genotype-preview">${Object.entries(lociInfo()).map(([locus,meta])=>{const ga=normalizeGenome(a.genome,a.id)[locus].join('/'),gb=b?normalizeGenome(b.genome,b.id)[locus].join('/'):'—';return `<span><b>${locus}</b> ${esc(ga)}${b?' × '+esc(gb):''}<small>${esc(meta.name)}</small></span>`;}).join('')}</div>`
     :'<small class="genome-locked">⌬ Genotipe lokus disembunyikan sampai Genome Lab terbuka.</small>';
-  $('#crossPreview').innerHTML=`<b>${esc(preview.title)} · ${cost} RP</b><p>${esc(preview.text)}</p><div class="cross-genetic-kpi"><span>A Hom ${Math.round(sa.homozygosity*100)}%</span>${sb?`<span>B Hom ${Math.round(sb.homozygosity*100)}%</span>`:''}</div>${genotype}`;
+  $('#crossPreview').innerHTML=`<b>${esc(preview.title)} · ${cost} RP</b><p>${esc(preview.text)}</p><small class="linkage-note">YLD–MAT dan WUE–DIS terpaut; rekombinasi tidak selalu memisahkan sifat. Selfing meningkatkan inbreeding dan homozigositas.</small><div class="cross-genetic-kpi"><span>A Hom ${Math.round(sa.homozygosity*100)}%</span>${sb?`<span>B Hom ${Math.round(sb.homozygosity*100)}%</span>`:''}</div>${genotype}`;
 }
 function crossSeeds(){
   clearUndo();
