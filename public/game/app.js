@@ -1456,7 +1456,7 @@ function seedEvidence(seed){
   if(commercial)return {level:4,label:'Deskripsi varietas'};
   const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0),stressTests=Number(seed?.stressTests||0),hom=genomeStats(seed?.genome).homozygosity;
   const stable=tests>=3&&generation>=4&&stressTests>=1&&hom>=.75;
-  const level=stable?4:tests>=2?3:tests>=1?2:1;
+  const level=stable?4:(tests>=2&&generation>=2&&hom>=.55)?3:tests>=1?2:1;
   const label=stable?'Relatif stabil':level===3?'Didukung pengujian':level===2?'Indikasi':'Belum diketahui';
   return {level,label:label+' · Hom '+Math.round(hom*100)+'%'};
 }
@@ -1907,9 +1907,12 @@ function candidateFrom(crop,yieldValue,index=state.selectedPlot){
   };
 }
 function selectionCandidate(index,crop,yieldValue){
-  const seed=candidateFrom(crop,yieldValue,index),exp=experimentUnit(index)?state.experiment:null,accuracy=exp?designPrecisionScore(exp)/100:Math.min(.9,.58+seedEvidence(seed).level*.08),entry={
+  const seed=candidateFrom(crop,yieldValue,index),exp=experimentUnit(index)?state.experiment:null,accuracy=exp?designPrecisionScore(exp)/100:Math.min(.9,.58+seedEvidence(seed).level*.08);
+  const anthesis=Number(crop.anthesisBioDay)||null,silking=Number(crop.silkingBioDay)||null,asi=anthesis&&silking?round(silking-anthesis,1):null;
+  const entry={
     id:uid('candidate'),season:state.season,plot:index,plotUid:plotMeta(index).uid,plantUid:crop.uid,yield:yieldValue,
-    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),accuracy:round(accuracy,2),seed,selected:false
+    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),accuracy:round(accuracy,2),anthesis,silking,asi,
+    environment:state.env?.name||'',location:activeLocation().name,seed,selected:false
   };
   state.selectionPool=[entry,...state.selectionPool].slice(0,64);return entry;
 }
@@ -1953,7 +1956,7 @@ function openSelection(){
   const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺 Hasil</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥ Sehat</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ Indeks</button></div>`;
   openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',selectionLearningHtml()+controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
     const ev=seedEvidence(item.seed),score=selectionScore(item,mode);
-    return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span><span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · ${esc(item.seed.generationLabel||('G'+item.seed.generation))}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬'}</button></article>`;
+    return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div class="candidate-metrics"><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>◈ ${Math.round(item.disease)}%</span><span>◎ ${Math.round((item.accuracy??.7)*100)}%</span>${item.asi===null?'':`<span>ASI ${Number(item.asi).toFixed(1)} h</span>`}<span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · ${esc(item.seed.generationLabel||('G'+item.seed.generation))} · ${esc(item.environment||'lingkungan belum dicatat')}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓ Terpilih':'🧬 Pilih'}</button></article>`;
   }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>'));
   $('#metaModalBody').querySelector('[data-selection-response]')?.addEventListener('click',()=>openProfessorCase('response'));
   $('#metaModalBody').querySelectorAll('[data-selection-mode]').forEach(button=>button.onclick=()=>{state.selectionMode=button.dataset.selectionMode;save();openSelection();});
