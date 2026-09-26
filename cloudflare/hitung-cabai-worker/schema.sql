@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS contributions (
   sample TEXT NOT NULL,
   image BLOB NOT NULL,
   image_object_key TEXT,
+  image_hash TEXT,
+  image_ref_id TEXT,
   image_size_bytes INTEGER NOT NULL DEFAULT 0,
   storage_backend TEXT NOT NULL DEFAULT 'd1',
   mime_type TEXT NOT NULL,
@@ -26,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created
 CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status);
 CREATE INDEX IF NOT EXISTS idx_contributions_status_created ON contributions(status,created_at);
 CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status);
+CREATE INDEX IF NOT EXISTS idx_contributions_image_hash ON contributions(image_hash);
 
 
 CREATE TABLE IF NOT EXISTS users (
@@ -185,3 +188,16 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
+
+CREATE TABLE IF NOT EXISTS cloud_controls (
+  id INTEGER PRIMARY KEY CHECK(id=1),
+  mode TEXT NOT NULL DEFAULT 'auto',
+  effective_mode TEXT NOT NULL DEFAULT 'normal',
+  features_json TEXT NOT NULL DEFAULT '{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}',
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
+
+INSERT OR IGNORE INTO cloud_controls (id,mode,effective_mode,features_json,note,updated_at)
+VALUES (1,'auto','normal','{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}','','1970-01-01T00:00:00.000Z');
