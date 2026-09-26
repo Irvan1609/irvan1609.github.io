@@ -769,7 +769,7 @@ function openStatisticsLab(parameter=null){
   $('#metaModalBody').querySelector('[data-h2-case]')?.addEventListener('click',()=>openProfessorCase('heritability'));
   $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
 }
-function experimentTableHtmlfunction experimentTableHtml(){
+function experimentTableHtml(){
   const exp=state.experiment;if(!exp)return '';
   const repLabel=['rak','frak','split'].includes(exp.design)?'K':'U';
   return `<div class="experiment-table-wrap"><table class="experiment-table"><thead><tr><th>P</th><th>Perlakuan</th><th>${repLabel}</th><th>🧪</th>${exp.parameters.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${exp.units.map(unit=>{
@@ -861,8 +861,6 @@ function openExperiment(){
   $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';experimentDraft=null;experimentWizardStep=1;render();closeMetaModal();}};
   $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
-
-function hasTech
 
 function hasTech(id){return state.tech.includes(id);}
 function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
@@ -1457,7 +1455,7 @@ function openQuickMore(){
     if(key==='music')openMusicPicker();
   });
 }
-function openEconomyInfofunction openEconomyInfo(){
+function openEconomyInfo(){
   const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
   const cropProfile=SPECIES[state.species]||SPECIES.maize;
   openMetaModal('EKONOMI LAPANGAN','Rupiah & harga acuan',`<div class="economy-grid">
