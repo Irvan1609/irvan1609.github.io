@@ -28,6 +28,9 @@ if(app.includes('Hipotesis sebelum menghitung'))fail('statistics learning must n
 for(const marker of ['id="phenologyStatus"','id="criticalTask"','id="timeStop"','id="skip3Days"','id="nextCritical"','>Tenaga<'])if(!html.includes(marker))fail('agronomic time UI missing '+marker);
 for(const marker of ['GAME_SAVE_VERSION=8','seasonLengthFor','nitrogenTimingEfficiency','Prakiraan 3 hari','criticalTasks','criticalStopReason','stepOneDay','advanceDays','reproStress'])if(!app.includes(marker))fail('agronomic time engine missing '+marker);
 for(const marker of ['openCareCenter','batchCare','carePriority','careCandidates','applyCareAction'])if(!app.includes(marker))fail('strategic care engine missing '+marker);
+for(const marker of ["theme:'system'","function preferredTheme()","function applyTheme()",'data-comfort="theme"','prefers-color-scheme: light'])if(!app.includes(marker))fail('theme preference system missing '+marker);
+for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!css.includes(marker))fail('light dark theme styling missing '+marker);
+
 for(const marker of ['<span>Rawat</span>','id="attentionCount"'])if(!html.includes(marker))fail('strategic care entry UI missing '+marker);
 for(const marker of ['FIELD ZERO CARE CENTER 2026-09-26','.care-choice','.field-tool-dock [data-field-tool="water"]'])if(!css.includes(marker))fail('strategic care styling missing '+marker);
 if(!app.includes("$('#attentionToggle').onclick=openCareCenter;"))fail('Rawat button must open the care center');
