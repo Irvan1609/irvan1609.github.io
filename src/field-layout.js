@@ -240,6 +240,94 @@ function ensureModal(){
     const keep=selectedRow;refreshData();if(Number.isInteger(keep)&&keep<current.rows.length)selectRow(keep);
   });
 }
+
+function groupLabelForRow(index){
+  const row=current?.rows?.[index];if(!row)return '';
+  return config.group>=0?String(row[config.group]??'').trim()||'Tanpa kelompok':'Semua petak';
+}
+function rawGroupOrder(label){
+  const rows=[];current.rows.forEach((row,index)=>{if(groupLabelForRow(index)===label)rows.push(index);});
+  const saved=Array.isArray(config.order?.[label])?config.order[label].map(Number).filter(index=>rows.includes(index)):[];
+  return [...saved,...rows.filter(index=>!saved.includes(index))];
+}
+function movePlotTo(source,target){
+  const sourceGroup=groupLabelForRow(source),targetGroup=groupLabelForRow(target);
+  if(!sourceGroup||sourceGroup!==targetGroup)return;
+  const order=rawGroupOrder(sourceGroup),from=order.indexOf(source),to=order.indexOf(target);
+  if(from<0||to<0||from===to)return;
+  order.splice(from,1);order.splice(to,0,source);
+  config={...config,order:{...config.order,[sourceGroup]:order},serpentine:false};
+  writeConfig(current,config);renderControls();renderMap();
+}
+function moveSelectedPlot(direction){
+  if(!Number.isInteger(selectedRow))return;
+  const group=groupLabelForRow(selectedRow),order=rawGroupOrder(group),from=order.indexOf(selectedRow),to=from+direction;
+  if(from<0||to<0||to>=order.length)return;
+  [order[from],order[to]]=[order[to],order[from]];
+  config={...config,order:{...config.order,[group]:order},serpentine:false};
+  writeConfig(current,config);renderControls();renderMap();renderEditor(selectedRow);
+}
+function selectVisible(){
+  selectedRows.clear();
+  $('#fieldMap')?.querySelectorAll('[data-field-row]').forEach(plot=>selectedRows.add(Number(plot.dataset.fieldRow)));
+  renderMap();renderBatchEditor();
+}
+function statusOptions(selected='',includeKeep=false){
+  const list=[['normal','Normal'],['missing','Petak kosong'],['dead','Tanaman mati'],['damaged','Rusak'],['harvested','Panen'],['border','Border']];
+  return (includeKeep?'<option value="">Jangan ubah status</option>':'')+list.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
+}
+function renderBatchEditor(){
+  if(!multiMode)return;
+  const host=$('#fieldPlotEditor');if(!host)return;
+  const measures=measurementColumns(current),count=selectedRows.size;
+  host.innerHTML=`
+    <div class="field-editor-head"><div><small>Mode massal</small><strong>${count} plot dipilih</strong><span>Klik plot untuk menambah/mengurangi pilihan</span></div></div>
+    <div class="field-batch-toolbar"><button type="button" data-batch-select-visible>Pilih terlihat</button><button type="button" data-batch-clear>Kosongkan pilihan</button></div>
+    <div class="field-batch-editor" data-batch-editor>
+      <label>Parameter<select data-batch-column><option value="-1">Tanpa mengubah nilai</option>${measures.map(item=>`<option value="${item.index}">${esc(item.header)}</option>`).join('')}</select></label>
+      <label>Nilai<input data-batch-value autocomplete="off" inputmode="decimal" placeholder="Nilai untuk semua plot"></label>
+      <label>Status<select data-batch-status>${statusOptions('',true)}</select></label>
+      <button type="button" class="primary" data-batch-apply ${count?'':'disabled'}>Terapkan ke ${count} plot</button>
+      <p class="field-editor-status" id="fieldBatchStatus"></p>
+    </div>`;
+}
+function applyBatch(){
+  const rows=[...selectedRows].filter(index=>index>=0&&index<current.rows.length);
+  if(!rows.length)return;
+  const col=Number($('#fieldPlotEditor [data-batch-column]')?.value??-1);
+  const value=String($('#fieldPlotEditor [data-batch-value]')?.value??'').trim();
+  const status=String($('#fieldPlotEditor [data-batch-status]')?.value||'');
+  const changes=col>=0?rows.map(row=>({row,col,value})):[];
+  const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
+  if(!result?.ok){const out=$('#fieldBatchStatus');if(out)out.textContent=result?.error||'Perubahan massal gagal.';return;}
+  if(status){
+    const statuses={...config.statuses};for(const row of rows)statuses[row]=status;
+    config={...config,statuses};writeConfig(current,config);
+  }
+  refreshData(false);renderMap();renderBatchEditor();
+  const out=$('#fieldBatchStatus');if(out)out.textContent=`✓ ${rows.length} plot diperbarui.`;
+}
+function exportLayout(){
+  const payload={version:2,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=(String(current.name||'dataset').replace(/[^a-z0-9._-]+/gi,'-')||'dataset')+'-denah.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+async function importLayout(event){
+  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+  try{
+    const payload=JSON.parse(await file.text());
+    if(!payload||typeof payload!=='object'||!payload.config)throw Error('File denah tidak valid.');
+    config=normalizeConfig(current,payload.config);writeConfig(current,config);renderControls();renderMap();
+    if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+  }catch(error){alert(error.message||'File denah tidak dapat dibaca.');}
+}
+function resetLayout(){
+  if(!confirm('Reset susunan fisik denah? Status dan catatan plot tetap dipertahankan.'))return;
+  const base=defaultConfig(current);
+  config={...config,columns:base.columns,serpentine:true,north:'N',roadEvery:0,order:{}};
+  writeConfig(current,config);layoutEditMode=false;$('#fieldLayoutEdit')?.setAttribute('aria-pressed','false');renderControls();renderMap();
+}
+
 function readControls(){
   if(!current)return;
   config={...config,
