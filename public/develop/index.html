@@ -107,9 +107,22 @@
 
       <section class="dev-view" data-view="server">
         <div class="stats-grid compact" id="usageGrid"></div>
-        <div class="dev-panel">
-          <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
-          <pre id="healthJson" class="code-box">—</pre>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Cloud Budget</h2><p>Mode hemat dan emergency switch tanpa redeploy.</p></div><button id="saveCloudControl" type="button">Simpan</button></div>
+            <div class="form-grid">
+              <label>Mode<select id="cloudBudgetMode"><option value="auto">Auto</option><option value="normal">Normal</option><option value="economy">Hemat</option><option value="emergency">Darurat</option></select></label>
+              <label><input id="featureDatasetSync" type="checkbox"> Dataset sync</label>
+              <label><input id="featureAiUpload" type="checkbox"> Upload AI</label>
+              <label><input id="featureGameCloud" type="checkbox"> Cloud game</label>
+              <label><input id="featurePayments" type="checkbox"> Pembayaran</label>
+            </div>
+            <div id="cloudBudgetState" class="muted"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
+            <pre id="healthJson" class="code-box">—</pre>
+          </article>
         </div>
       </section>
 
@@ -145,6 +158,6 @@
   </main>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/develop/app.js?v=20260926-8"></script>
+  <script type="module" src="/develop/app.js?v=20260926-9"></script>
 </body>
 </html>
