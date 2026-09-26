@@ -311,7 +311,7 @@ function doPrestige(){
   if(!prestigeAvailable())return;
   const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
   const unlocked=[...state.unlockedLocations],discoveries=[...state.discoveredTraits],achievements=[...state.achievements],tech=[...state.tech].slice(0,Math.min(2+legacy,state.tech.length));
-  const next=freshState();next.legacy=legacy;next.legacyScore=score;next.coins=90+legacy*12;next.rp=legacy*5;next.vault=uniqueSeeds([...STARTER_SEEDS,...carry]);next.unlockedLocations=unlocked;next.discoveredTraits=discoveries;next.achievements=achievements;next.tech=tech;next.collection=structuredClone(state.collection);next.lineage=state.lineage.slice(-40);
+  const next=freshState();next.legacy=legacy;next.legacyScore=score;next.coins=90+legacy*12;next.rp=legacy*5;next.vault=uniqueSeeds([...structuredClone(STARTER_SEEDS),...structuredClone(carry)]);next.unlockedLocations=unlocked;next.discoveredTraits=discoveries;next.achievements=achievements;next.tech=tech;next.collection=structuredClone(state.collection);next.lineage=state.lineage.slice(-40);
   state=next;awardAchievement('legacy');closeMetaModal();$('#recapModal').hidden=true;render();toast('New Game+ '+legacy+' dimulai');
 }
 function uniqueSeeds(seeds){const seen=new Set();return seeds.filter(seed=>{if(seen.has(seed.id))return false;seen.add(seed.id);return true;});}
@@ -502,7 +502,7 @@ function renderGenomeLab(){
     $('#startGenome').onclick=startGenomePuzzle;return;
   }
   const p=state.genomePuzzle;
-  host.innerHTML=`<div class="genome-puzzle"><div class="genome-markers">${p.markers.map(base=>`<b>${esc(base)}</b>`).join('')}</div><small>Marker terdeteksi. Trait laten mana yang paling sesuai?</small><div class="genome-choices">${p.candidates.map(id=>`<button type="button" data-genome-choice="${id}">${esc(traitMeta(id).icon+' '+traitMeta(id).name)}</button>`).join('')}</div></div>`;
+  host.innerHTML=`<div class="genome-puzzle"><div class="genome-markers">${p.markers.map(base=>`<b>${esc(base)}</b>`).join('')}</div><small>Cocokkan marker hasil sequencing dengan pola referensi. Satu marker dapat mengalami noise.</small><div class="genome-choices">${p.candidates.map(id=>`<button type="button" data-genome-choice="${id}"><b>${esc(traitMeta(id).icon+' '+traitMeta(id).name)}</b><small>${esc(GENOME_SIG[id].join(' · '))}</small></button>`).join('')}</div></div>`;
   host.querySelectorAll('[data-genome-choice]').forEach(button=>button.onclick=()=>solveGenome(button.dataset.genomeChoice));
 }
 function renderEvolution(){
