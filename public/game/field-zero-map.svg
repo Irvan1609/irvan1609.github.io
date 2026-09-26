@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" role="img" aria-labelledby="title desc">
+<title id="title">Field Zero research farm landscape</title>
+<desc id="desc">Stylized mountains, village, research farm, irrigation canal and field landscape used behind interactive plots.</desc>
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset=".52" stop-color="#d8efff"/><stop offset="1" stop-color="#f4f6dc"/></linearGradient>
+  <linearGradient id="mount" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4c84a1"/><stop offset="1" stop-color="#4d775e"/></linearGradient>
+  <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f9a69"/><stop offset="1" stop-color="#2f684c"/></linearGradient>
+  <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8dbf66"/><stop offset=".5" stop-color="#659445"/><stop offset="1" stop-color="#477239"/></linearGradient>
+  <linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6bc9ed"/><stop offset=".5" stop-color="#2d8db5"/><stop offset="1" stop-color="#166681"/></linearGradient>
+  <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c89d68"/><stop offset="1" stop-color="#9a6f43"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#173b27" flood-opacity=".28"/></filter>
+  <pattern id="paddy" width="64" height="36" patternUnits="userSpaceOnUse"><rect width="64" height="36" fill="#78a84d"/><path d="M0 29 Q16 19 32 29 T64 29" fill="none" stroke="#9bcf66" stroke-width="4" opacity=".7"/></pattern>
+</defs>
+
+<rect width="1600" height="1200" fill="url(#sky)"/>
+<g opacity=".62" fill="#fff">
+  <ellipse cx="260" cy="105" rx="125" ry="34"/><ellipse cx="370" cy="110" rx="90" ry="28"/>
+  <ellipse cx="1190" cy="90" rx="150" ry="38"/><ellipse cx="1320" cy="102" rx="92" ry="28"/>
+</g>
+
+<path d="M0 410 L180 268 300 340 455 174 640 342 835 214 1015 366 1190 190 1390 354 1600 248 1600 560 0 560Z" fill="url(#mount)"/>
+<path d="M0 468 Q190 350 360 438 T710 422 T1060 430 T1600 390 L1600 625 0 625Z" fill="url(#hill)"/>
+<path d="M0 520 Q260 472 520 512 T1040 500 T1600 530 L1600 702 0 702Z" fill="#4e8055" opacity=".95"/>
+
+<path d="M0 560 Q260 520 475 562 Q690 610 930 568 Q1210 514 1600 572 L1600 720 Q1320 690 1110 726 Q870 770 635 714 Q350 650 0 708Z" fill="url(#water)" opacity=".9"/>
+<path d="M0 610 Q260 574 510 622 T990 624 T1600 616" fill="none" stroke="#c0ecf6" stroke-width="6" opacity=".45"/>
+
+<!-- village -->
+<g filter="url(#shadow)" opacity=".96">
+  <g transform="translate(1080 454)">
+    <rect x="0" y="40" width="90" height="56" rx="3" fill="#f2e1be"/><path d="M-8 44 45 8 98 44Z" fill="#a34f38"/><rect x="18" y="59" width="18" height="37" fill="#6b4b37"/><rect x="58" y="58" width="18" height="18" fill="#7fb3c6"/>
+  </g>
+  <g transform="translate(1185 470)">
+    <rect x="0" y="36" width="78" height="48" rx="3" fill="#f4e6c9"/><path d="M-7 40 39 10 85 40Z" fill="#b65b3c"/><rect x="12" y="54" width="17" height="30" fill="#71513e"/><rect x="50" y="51" width="16" height="16" fill="#7caec1"/>
+  </g>
+  <g transform="translate(1285 448)">
+    <rect x="0" y="45" width="98" height="60" rx="3" fill="#efe3cb"/><path d="M-9 49 49 10 107 49Z" fill="#97442f"/><rect x="42" y="65" width="19" height="40" fill="#684735"/>
+  </g>
+  <g transform="translate(1420 416)">
+    <rect x="28" y="80" width="70" height="90" rx="4" fill="#f5efe2"/><path d="M18 84 63 50 108 84Z" fill="#9c4a34"/><rect x="55" y="90" width="16" height="80" fill="#d9d9d5"/>
+    <rect x="55" y="16" width="16" height="76" fill="#ececea"/><path d="M46 20 63 0 80 20Z" fill="#6d7c6f"/><circle cx="63" cy="42" r="6" fill="#6b91a5"/>
+  </g>
+</g>
+
+<!-- farm ground -->
+<path d="M0 690 Q380 610 800 676 Q1190 728 1600 642 L1600 1200 0 1200Z" fill="url(#ground)"/>
+<g opacity=".5"><path d="M20 760 Q320 696 620 738 T1210 722 T1600 700" fill="none" stroke="#c5d687" stroke-width="22"/><path d="M0 812 Q320 748 610 790 T1130 774 T1600 756" fill="none" stroke="#41703e" stroke-width="9"/></g>
+
+<!-- paddies left / right -->
+<path d="M0 720 250 676 310 1010 0 1090Z" fill="url(#paddy)" opacity=".85"/>
+<path d="M1280 690 1600 620 1600 1040 1335 1012Z" fill="url(#paddy)" opacity=".82"/>
+
+<!-- main dirt route -->
+<path d="M680 660 C650 760 626 870 632 1200 L935 1200 C936 1000 918 840 870 660Z" fill="url(#road)" opacity=".7"/>
+<path d="M690 670 C692 810 705 970 720 1200" fill="none" stroke="#e0c18e" stroke-width="10" opacity=".45"/>
+
+<!-- irrigation canal right -->
+<path d="M1325 652 C1282 770 1300 860 1262 960 C1235 1034 1260 1110 1222 1200 L1415 1200 C1432 1090 1390 1020 1424 920 C1454 830 1434 748 1470 630Z" fill="#315d50" opacity=".45"/>
+<path d="M1371 645 C1338 768 1354 857 1324 952 C1300 1028 1320 1102 1288 1200 L1364 1200 C1381 1096 1354 1028 1388 930 C1415 846 1400 744 1433 636Z" fill="url(#water)"/>
+<path d="M1381 660 C1360 790 1371 862 1342 960" fill="none" stroke="#b9f1ff" stroke-width="5" opacity=".62"/>
+
+<!-- nursery -->
+<g transform="translate(225 690)" filter="url(#shadow)">
+  <rect x="0" y="36" width="250" height="122" rx="8" fill="#e6efe1" fill-opacity=".72" stroke="#d9efe3" stroke-width="8"/>
+  <path d="M-8 43 126 0 260 43" fill="#c8ddd2" fill-opacity=".72" stroke="#e7f3ed" stroke-width="8"/>
+  <path d="M46 34v124M92 20v138M138 14v144M184 26v132M230 38v120" stroke="#6d8778" stroke-width="4" opacity=".72"/>
+  <g fill="#3f8d48"><circle cx="50" cy="121" r="13"/><circle cx="88" cy="126" r="15"/><circle cx="132" cy="118" r="14"/><circle cx="178" cy="125" r="16"/><circle cx="217" cy="117" r="13"/></g>
+</g>
+
+<!-- research shed -->
+<g transform="translate(655 654)" filter="url(#shadow)">
+  <rect x="0" y="72" width="300" height="152" rx="8" fill="#d9b17b"/>
+  <path d="M-22 84 152 0 325 84Z" fill="#a95032"/>
+  <path d="M18 92h264v17H18z" fill="#7b3929" opacity=".55"/>
+  <rect x="34" y="126" width="72" height="98" fill="#6f4936"/><rect x="136" y="122" width="116" height="72" rx="4" fill="#e8e5cf"/>
+  <path d="M152 142h82M152 160h62M152 178h91" stroke="#6c8e83" stroke-width="7" stroke-linecap="round"/>
+  <rect x="265" y="167" width="76" height="40" rx="8" fill="#e4672f"/><circle cx="280" cy="207" r="17" fill="#353d35"/><circle cx="326" cy="207" r="17" fill="#353d35"/>
+</g>
+
+<!-- water reservoir -->
+<g transform="translate(1110 690)" filter="url(#shadow)">
+  <ellipse cx="92" cy="75" rx="116" ry="70" fill="#708477"/>
+  <ellipse cx="92" cy="65" rx="100" ry="55" fill="url(#water)"/>
+  <ellipse cx="92" cy="62" rx="84" ry="42" fill="#68c6e6" opacity=".9"/>
+  <path d="M92 0v55" stroke="#dfe9e5" stroke-width="12"/><path d="M92 10 q-52 30 0 52 q52-22 0-52" fill="none" stroke="#eaf9ff" stroke-width="6" opacity=".85"/>
+</g>
+
+<!-- trees / foreground -->
+<g fill="#2e6c3b">
+  <circle cx="80" cy="680" r="74"/><circle cx="145" cy="724" r="64"/><circle cx="1535" cy="690" r="78"/><circle cx="1492" cy="766" r="58"/>
+  <circle cx="112" cy="1100" r="88"/><circle cx="1540" cy="1110" r="95"/>
+</g>
+<g fill="#3d8748" opacity=".85">
+  <circle cx="58" cy="640" r="38"/><circle cx="195" cy="660" r="34"/><circle cx="1510" cy="630" r="42"/><circle cx="1440" cy="720" r="34"/>
+</g>
+
+<!-- fences hinting central research zone -->
+<g fill="none" stroke="#765336" stroke-width="11" opacity=".75">
+  <path d="M300 860 H1220"/><path d="M300 1170 H1200"/>
+</g>
+<g stroke="#68462f" stroke-width="13" opacity=".8">
+  <path d="M330 840v55M520 840v55M710 840v55M900 840v55M1090 840v55M1190 840v55"/>
+  <path d="M330 1148v55M520 1148v55M710 1148v55M900 1148v55M1090 1148v55M1190 1148v55"/>
+</g>
+</svg>
