@@ -3,6 +3,7 @@ import {ACCOUNT_CONFIG} from './account-config.js';
 const TOKEN_KEY='irvan_account_session_v1'; // legacy localStorage key; migrated on load
 const SESSION_FALLBACK_KEY='irvan_account_session_fallback_v2';
 const CSRF_KEY='irvan_account_csrf_v2';
+const FALLBACK_EXPIRES_KEY='irvan_account_fallback_expires_v2';
 const USER_KEY='irvan_account_user_v1';
 const LOGIN_STATE_KEY='irvan_account_login_state_v1';
 const AUTH_READY_CACHE_KEY='irvan_account_auth_ready_v1';
@@ -22,13 +23,20 @@ function loadStored(){
   const legacy=localStorage.getItem(TOKEN_KEY)||'';
   token=sessionStorage.getItem(SESSION_FALLBACK_KEY)||legacy;
   csrfToken=sessionStorage.getItem(CSRF_KEY)||'';
+  const fallbackExpires=Date.parse(sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'');
+  if(token&&Number.isFinite(fallbackExpires)&&fallbackExpires<=Date.now()){
+    token='';csrfToken='';
+    sessionStorage.removeItem(SESSION_FALLBACK_KEY);
+    sessionStorage.removeItem(CSRF_KEY);
+    sessionStorage.removeItem(FALLBACK_EXPIRES_KEY);
+  }
   currentUser=safeJson(localStorage.getItem(USER_KEY),null);
   if(legacy){
     try{sessionStorage.setItem(SESSION_FALLBACK_KEY,legacy);}catch{}
     localStorage.removeItem(TOKEN_KEY);
   }
 }
-function saveSession(nextToken,user,nextCsrf=''){
+function saveSession(nextToken,user,nextCsrf='',fallbackExpiresAt=''){
   token=nextToken||'';
   csrfToken=nextCsrf||'';
   currentUser=user||null;
@@ -36,6 +44,7 @@ function saveSession(nextToken,user,nextCsrf=''){
   try{
     if(token)sessionStorage.setItem(SESSION_FALLBACK_KEY,token);else sessionStorage.removeItem(SESSION_FALLBACK_KEY);
     if(csrfToken)sessionStorage.setItem(CSRF_KEY,csrfToken);else sessionStorage.removeItem(CSRF_KEY);
+    if(token&&fallbackExpiresAt)sessionStorage.setItem(FALLBACK_EXPIRES_KEY,fallbackExpiresAt);else sessionStorage.removeItem(FALLBACK_EXPIRES_KEY);
   }catch{}
   if(currentUser)localStorage.setItem(USER_KEY,JSON.stringify(currentUser));else localStorage.removeItem(USER_KEY);
 }
@@ -227,7 +236,7 @@ async function exchangeCallback(){
     }else{
       // Compatibility fallback for browsers that block cross-site cookies.
       // Token is scoped to this tab/session and is never persisted in localStorage.
-      saveSession(data.token,data.user,data.csrfToken||'');
+      saveSession(data.token,data.user,data.csrfToken||'',data.fallbackExpiresAt||'');
     }
     sessionStorage.removeItem(LOGIN_STATE_KEY);
     render();
@@ -244,8 +253,10 @@ async function refreshSession(){
     if(!response.ok)throw Error('Sesi berakhir');
     const data=await response.json();
     if(!data.authenticated||!data.user)throw Error('Sesi berakhir');
-    const nextToken=data.token||token;
-    saveSession(nextToken,data.user,data.csrfToken||csrfToken);
+    const cookieActive=data.authSource==='cookie';
+    const nextToken=cookieActive?'':(data.token||token);
+    const fallbackExpiresAt=cookieActive?'':(data.fallbackExpiresAt||sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'');
+    saveSession(nextToken,data.user,data.csrfToken||csrfToken,fallbackExpiresAt);
     render();
     return currentUser;
   }catch{

@@ -16,6 +16,8 @@ const workerDeploy=fs.readFileSync('.github/workflows/deploy-hitung-cabai-worker
 const securityWorkflow=fs.readFileSync('.github/workflows/security.yml','utf8');
 const pagesWorkflow=fs.readFileSync('.github/workflows/deploy.yml','utf8');
 const gitignore=fs.readFileSync('.gitignore','utf8');
+const social=fs.readFileSync('public/game/social.js','utf8');
+const ruleset=fs.readFileSync('.github/rulesets/master-protection.json','utf8');
 
 for(const marker of [
   'MAX_IMAGE_BYTES=850000',
@@ -32,7 +34,11 @@ for(const marker of [
   'sessionCookie(',
   'rotateSessionIfNeeded',
   'sessionClientMeta',
-  'handleDevelopSecurity'
+  'handleDevelopSecurity',
+  'BEARER_FALLBACK_HOURS=8',
+  'SameSite=None; Partitioned',
+  "if(cookie)return {token:cookie,source:'cookie'}",
+  'authSource:credential.source'
 ]) requireText(worker,marker,'Worker security');
 
 const unsafeDatasetLookup='SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1';
@@ -82,9 +88,14 @@ for(const file of ['public/hitung-cabai/cloud-config.js','public/account-config.
 }
 
 if(account.includes("localStorage.setItem(TOKEN_KEY"))fail('session token must not be persisted in localStorage');
-for(const marker of ['SESSION_FALLBACK_KEY','credentials:\'include\'','X-Agrotik-CSRF','request:authFetch'])
+for(const marker of ['SESSION_FALLBACK_KEY','FALLBACK_EXPIRES_KEY','credentials:\'include\'','X-Agrotik-CSRF','request:authFetch'])
   requireText(account,marker,'Browser session hardening');
+if(social.includes("headers.set('Authorization'"))fail('Field Zero social must use the hardened account request instead of constructing bearer headers');
+for(const marker of ['window.IrvanAccount?.request','window.IrvanAccount?.authenticated'])
+  requireText(social,marker,'Field Zero session compatibility');
+for(const marker of ['"Protect master"','"refs/heads/master"','"required_status_checks"','"verify"','"security"'])
+  requireText(ruleset,marker,'Master ruleset template');
 for(const marker of ['Content-Security-Policy:','Strict-Transport-Security:','X-Frame-Options: DENY'])
   requireText(headers,marker,'Pages security headers');
 
-console.log('Security contract OK: ownership, HttpOnly/session fallback, CSRF, rotation, request caps, rate limits, Turnstile, CSP and secret scanning are wired.');
+console.log('Security contract OK: ownership, HttpOnly+Partitioned cookie, short bearer fallback, CSRF, rotation, request caps, rate limits, Turnstile, CSP, social-session compatibility and secret scanning are wired.');

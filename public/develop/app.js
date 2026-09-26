@@ -181,7 +181,8 @@ async function loadSecurity(){
   $('#securityGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></article>').join('');
   const controls=data.controls||{};
   $('#securityControls').innerHTML=[
-    ['Cookie HttpOnly',controls.httpOnlyCookie?'Aktif':'Tidak'],['CSRF',controls.csrf?'Aktif':'Tidak'],
+    ['Cookie HttpOnly',controls.httpOnlyCookie?'Aktif':'Tidak'],['Cookie Partitioned',controls.partitionedCookie?'Aktif':'Tidak'],
+    ['CSRF',controls.csrf?'Aktif':'Tidak'],['Fallback bearer',String(controls.bearerFallbackHours||0)+' jam'],
     ['Rotasi sesi',String(controls.sessionRotationHours||0)+' jam'],['Turnstile',controls.turnstile?'Aktif':'Belum'],
     ['Rate limit kontribusi',controls.contributionRateLimit?'Aktif':'Belum'],['Rate limit dataset',controls.datasetRateLimit?'Aktif':'Belum'],
     ['R2 backup',controls.r2Backups?'Aktif':'Belum']

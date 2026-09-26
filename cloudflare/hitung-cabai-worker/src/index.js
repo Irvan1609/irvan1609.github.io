@@ -6,6 +6,7 @@ const MAX_DATASET_REQUEST_BYTES=4_500_000;
 const MAX_DATASETS_PER_USER=120;
 const SESSION_DAYS=30;
 const SESSION_ROTATE_HOURS=24;
+const BEARER_FALLBACK_HOURS=8;
 const SESSION_COOKIE='__Host-agrotik_session';
 const CSRF_HEADER='X-Agrotik-CSRF';
 const STATE_MINUTES=10;
@@ -130,15 +131,15 @@ function cookieValue(request,name){
   return '';
 }
 function sessionCredential(request){
-  const bearer=bearerToken(request);
-  if(bearer)return {token:bearer,source:'bearer'};
   const cookie=cookieValue(request,SESSION_COOKIE);
-  return cookie?{token:cookie,source:'cookie'}:{token:'',source:'none'};
+  if(cookie)return {token:cookie,source:'cookie'};
+  const bearer=bearerToken(request);
+  return bearer?{token:bearer,source:'bearer'}:{token:'',source:'none'};
 }
 function sessionToken(request){return sessionCredential(request).token;}
 function sessionCookie(token,maxAge=SESSION_DAYS*86400){
   const value=encodeURIComponent(String(token||''));
-  return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${Math.max(0,Math.floor(maxAge))}; HttpOnly; Secure; SameSite=None`;
+  return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${Math.max(0,Math.floor(maxAge))}; HttpOnly; Secure; SameSite=None; Partitioned`;
 }
 function clearSessionCookie(){return sessionCookie('',0);}
 async function csrfTokenFor(token){return sha256('agrotik-csrf:'+String(token||''));}
@@ -856,6 +857,13 @@ async function userFromSession(request,env,credential=sessionCredential(request)
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
   if(row&&row.account_status!=='active')return null;
+  if(row&&credential.source==='bearer'){
+    const created=Date.parse(row.session_created_at||'');
+    if(!Number.isFinite(created)||nowMs-created>BEARER_FALLBACK_HOURS*3600000){
+      await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run().catch(()=>{});
+      return null;
+    }
+  }
   if(row&&row.access_updated_at&&Date.parse(row.access_updated_at)>Date.parse(row.session_created_at||'')){
     await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run();
     return null;
@@ -980,8 +988,9 @@ async function handleAuthExchange(request,env){
     return json(request,env,{error:'account_suspended',message:'Akun ini sedang ditangguhkan.'},403);
   }
   const csrfToken=await csrfTokenFor(sessionToken);
+  const fallbackExpiresAt=new Date(Date.now()+BEARER_FALLBACK_HOURS*3600000).toISOString();
   await audit(env,user,'auth.login','session',sessionId,{device:sessionDeviceLabel(sessionMeta.userAgent),ipHashPrefix:sessionMeta.ipHash.slice(0,12)});
-  return json(request,env,{ok:true,token:sessionToken,csrfToken,expiresAt,user:publicUser(user)},200,{'Set-Cookie':sessionCookie(sessionToken)});
+  return json(request,env,{ok:true,token:sessionToken,csrfToken,expiresAt,fallbackExpiresAt,user:publicUser(user)},200,{'Set-Cookie':sessionCookie(sessionToken)});
 }
 async function handleAuthSession(request,env){
   const credential=sessionCredential(request);
@@ -989,11 +998,14 @@ async function handleAuthSession(request,env){
   if(!row)return json(request,env,{authenticated:false},401,credential.source==='cookie'?{'Set-Cookie':clearSessionCookie()}:{});
   const rotated=await rotateSessionIfNeeded(request,env,row,credential);
   if(rotated){
-    const payload={authenticated:true,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
-    if(rotated.source==='bearer')payload.token=rotated.token;
+    const payload={authenticated:true,authSource:rotated.source,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
+    if(rotated.source==='bearer'){
+      payload.token=rotated.token;
+      payload.fallbackExpiresAt=new Date(Date.now()+BEARER_FALLBACK_HOURS*3600000).toISOString();
+    }
     return json(request,env,payload,200,{'Set-Cookie':sessionCookie(rotated.token)});
   }
-  return json(request,env,{authenticated:true,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
+  return json(request,env,{authenticated:true,authSource:credential.source,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
 }
 async function handleAuthLogout(request,env){
   const credential=sessionCredential(request),row=await userFromSession(request,env,credential);
@@ -1358,7 +1370,7 @@ async function handleDevelopSecurity(request,env){
     users:{total:Number(users?.total||0),suspended:Number(users?.suspended||0),loggedIn7d:Number(users?.logged_in_7d||0)},
     events24h:events,
     controls:{
-      httpOnlyCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
+      httpOnlyCookie:true,partitionedCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,bearerFallbackHours:BEARER_FALLBACK_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
       contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
       r2Backups:Boolean(env.BACKUPS),edgeAbuseEventsPersisted:false
     },

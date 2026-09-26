@@ -6,7 +6,6 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt
 const CACHE_PREFIX='agrotik_fz_social_v3:',RANK_TTL=10*60*1000,FRIENDS_TTL=30*60*1000,INBOX_TTL=5*60*1000,PROFILE_TTL=12*60*60*1000;
 let user=null,currentTab='rank',friendsCache={friends:[],incoming:[],outgoing:[]},busy=false,lastInboxCheck=0;
 
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function cacheKey(name){return CACHE_PREFIX+(user?.id||'anon')+':'+name;}
 function readCache(name,ttl){
   try{const item=JSON.parse(localStorage.getItem(cacheKey(name))||'null');return item&&Date.now()-item.at<ttl?item.data:null;}catch{return null;}
@@ -14,10 +13,9 @@ function readCache(name,ttl){
 function writeCache(name,data){try{localStorage.setItem(cacheKey(name),JSON.stringify({at:Date.now(),data}));}catch{}return data;}
 function clearCache(name){try{localStorage.removeItem(cacheKey(name));}catch{}}
 async function api(path,options={}){
-  const session=token();if(!session)throw Error('Masuk dulu.');
-  const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session);
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers});
+  const request=window.IrvanAccount?.request;
+  if(!window.IrvanAccount?.authenticated||!request)throw Error('Masuk dulu.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const error=Error(data.error||'Aksi gagal.');error.status=response.status;error.data=data;throw error;}
   return data;
@@ -42,7 +40,7 @@ function open(){
 }
 function close(){$('#socialModal').hidden=true;}
 function renderGate(){
-  const authenticated=Boolean(user&&token());$('#socialGate').hidden=authenticated;$('#socialApp').hidden=!authenticated;
+  const authenticated=Boolean(user&&window.IrvanAccount?.authenticated);$('#socialGate').hidden=authenticated;$('#socialApp').hidden=!authenticated;
   if(authenticated)renderTab();
 }
 async function submitProfile(profile=window.FieldZeroGame?.getProfile?.(),force=false){
