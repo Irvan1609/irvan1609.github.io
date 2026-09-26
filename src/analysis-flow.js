@@ -59,8 +59,34 @@ function analysisButton(item){
   const [type,value,label,mark]=item;
   return `<button type="button" class="analysis-compact-item" data-analysis-open="${keyOf(item)}"><span>${mark}</span><b>${label}</b></button>`;
 }
+function smartAnalysis(){
+  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
+  if(!data?.headers?.length||!data?.rows?.length)return null;
+  const values=index=>data.rows.map(row=>String(row?.[index]??'').trim()).filter(Boolean);
+  const numeric=index=>{const list=values(index);return list.length>0&&list.every(value=>Number.isFinite(Number(value.replace(',','.'))));};
+  const structural=header=>/(^|\b)(id|petak|plot|unit|kode|no|nomor|baris|row)(\b|$)/i.test(String(header||''));
+  const categorical=data.headers.map((header,index)=>({header,index})).filter(item=>values(item.index).length&&!numeric(item.index)&&!structural(item.header));
+  const find=regex=>data.headers.findIndex(header=>regex.test(String(header||'')));
+  let a=find(/(^|\b)(perlakuan|treatment|genotip|genotype|varietas|variety|faktor\s*a)(\b|$)/i);
+  if(a<0)a=categorical[0]?.index??-1;
+  const rep=find(/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i);
+  let b=find(/(^|\b)(faktor\s*b|factor\s*b|sub\s*plot|subplot|anak\s*petak)(\b|$)/i);
+  if(b===a)b=-1;
+  const parameterCount=data.headers.reduce((count,_,index)=>count+(numeric(index)&&index!==rep?1:0),0);
+  if(a<0)return {key:'advanced:descriptive',label:'Statistik Deskriptif',parameterCount};
+  const key=b>=0?(rep>=0?'design:frak':'design:fral'):(rep>=0?'design:rak':'design:ral');
+  const label=byKey.get(key)?.[2]||'Analisis';
+  return {key,label,parameterCount};
+}
+function refreshSmartSuggestion(){
+  const host=$('#analysisSmartSuggestion');if(!host)return;
+  const smart=smartAnalysis();
+  if(!smart){host.hidden=true;host.innerHTML='';return;}
+  host.hidden=false;
+  host.innerHTML=`<span><b>Saran dari struktur data: ${smart.label}</b><small>${smart.parameterCount} parameter numerik terdeteksi · periksa sebelum menjalankan</small></span><button type="button" data-analysis-smart-key="${smart.key}">Gunakan</button>`;
+}
 function panelMarkup(){
-  return `<div class="analysis-group-board">
+  return `<div id="analysisSmartSuggestion" class="analysis-smart-suggestion" hidden></div><div class="analysis-group-board">
       ${analysisGroups.map(group=>`<section class="analysis-compact-group"><div class="analysis-compact-group-title">${group.title}</div><div class="analysis-compact-items">${group.items.map(analysisButton).join('')}</div></section>`).join('')}
     </div>`;
 }
@@ -74,8 +100,9 @@ export function installAnalysisFlow(){
   function closeMenu(){panel.hidden=true;open.setAttribute('aria-expanded','false');}
   function openMenu(){
     document.dispatchEvent(new Event('close-navigation'));
+    refreshSmartSuggestion();
     panel.hidden=false;open.setAttribute('aria-expanded','true');
-    requestAnimationFrame(()=>panel.querySelector('.analysis-compact-item')?.focus());
+    requestAnimationFrame(()=>panel.querySelector('[data-analysis-smart-key],.analysis-compact-item')?.focus());
   }
   async function openDescriptor(item,sourceButton=null){
     if(!item)return;
@@ -99,6 +126,8 @@ export function installAnalysisFlow(){
 
   open.addEventListener('click',()=>panel.hidden?openMenu():closeMenu());
   panel.addEventListener('click',async event=>{
+    const smart=event.target.closest('[data-analysis-smart-key]');
+    if(smart){await openDescriptor(byKey.get(smart.dataset.analysisSmartKey),smart);return;}
     const button=event.target.closest('[data-analysis-open]');
     if(button)await openDescriptor(byKey.get(button.dataset.analysisOpen),button);
   });
@@ -111,6 +140,7 @@ export function installAnalysisFlow(){
     const recipe=event.detail?.recipe;if(!recipe)return;
     try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error(error);}
   });
+  document.addEventListener('stat-dataset-changed',refreshSmartSuggestion);
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
