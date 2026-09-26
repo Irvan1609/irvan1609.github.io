@@ -233,7 +233,12 @@ function ensureModal(){
   });
   document.addEventListener('keydown',event=>{
     const modal=$('#fieldLayoutModal');if(!modal?.classList.contains('open'))return;
-    if(event.key==='Escape'&&!event.target.closest('input,select,textarea'))closeFieldLayout();
+    const inField=!!event.target.closest('input,select,textarea');
+    if(event.key==='Escape'&&!inField){closeFieldLayout();return;}
+    if(!inField&&event.key==='ArrowLeft'){event.preventDefault();stepEditor(-1);return;}
+    if(!inField&&event.key==='ArrowRight'){event.preventDefault();stepEditor(1);return;}
+    if(!inField&&(event.key==='s'||event.key==='S')){event.preventDefault();$('#fieldLayoutEdit')?.click();return;}
+    if(!inField&&(event.key==='m'||event.key==='M')){event.preventDefault();$('#fieldMultiToggle')?.click();}
   });
   document.addEventListener('stat-dataset-changed',()=>{
     if(!$('#fieldLayoutModal')?.classList.contains('open')||dirty)return;
@@ -476,12 +481,15 @@ function refreshData(render=true){
 }
 function closeFieldLayout(){
   if(dirty&&!confirm('Ada perubahan plot yang belum disimpan. Tutup tanpa menyimpan?'))return;
-  $('#fieldLayoutModal')?.classList.remove('open');document.body.classList.remove('field-layout-open');dirty=false;
+  $('#fieldLayoutModal')?.classList.remove('open');document.body.classList.remove('field-layout-open');
+  dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();selectedRow=null;
 }
 export function openFieldLayout(){
   ensureModal();refreshData();
   $('#fieldLayoutDataset').textContent=`${current.name||'Dataset'} · ${current.rows.length} baris`;
   $('#fieldLayoutModal').classList.add('open');document.body.classList.add('field-layout-open');
-  selectedRow=null;dirty=false;$('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';
-  renderMap();
+  selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();
+  $('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');
+  $('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';
+  renderControls();renderMap();
 }
