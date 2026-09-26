@@ -36,17 +36,18 @@ export function calibratorLayout(profile){
 }
 export function grayPatchRects(profile){
   const {activeWidth:w,activeHeight:h}=profile;
-  const patchW=Math.max(10,Math.min(18,w/10)),patchH=8,gap=3,total=patchW*6+gap*5;
-  const startX=Math.max(2,(w-total)/2),y=Math.max(6,h-20);
+  const patchW=Math.max(8,Math.min(14,w/10)),patchH=6,gap=2,total=patchW*6+gap*5;
+  const startX=Math.max(2,(w-total)/2),y=Math.max(2,h-9);
   return Array.from({length:6},(_,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,target:[245,210,170,130,90,50][i]}));
 }
 export function colorPatchRects(profile){
-  const {activeWidth:w,activeHeight:h}=profile;
-  const patchW=Math.max(10,Math.min(18,w/10)),patchH=8,gap=3,total=patchW*6+gap*5;
-  const startX=Math.max(2,(w-total)/2),y=Math.max(6,h-31);
+  const {activeWidth:w}=profile;
+  const patchW=Math.max(8,Math.min(14,w/10)),patchH=6,gap=2,total=patchW*6+gap*5;
+  const startX=Math.max(2,(w-total)/2),y=3;
   const colors=['#d14a48','#4d8f55','#4a6fd1','#d3b247','#8a59a8','#4aa5a8'];
   return colors.map((fill,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,fill}));
 }
+function xml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));}
 export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
   const p=profile,m=p.margin,w=p.width,h=p.height,aw=p.activeWidth,ah=p.activeHeight;
   const gs=grayPatchRects(p),cs=colorPatchRects(p);
