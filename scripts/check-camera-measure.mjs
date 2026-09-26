@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {alignmentCheck} from '../public/pengukur/alignment.js';
+import {alignmentCheck,scaleCheck} from '../public/pengukur/alignment.js';
 import {cameraGuide,installLiveCamera} from '../public/pengukur/live-camera.js';
 import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/pengukur/geometry.js';
-import {PAPER_SIZES,paperProfile,buildCalibratorSvg,grayPatchRects} from '../public/pengukur/paper.js';
-import {imageQuality,segmentObject,morphology,repeatability} from '../public/pengukur/image-tools.js';
+import {PAPER_SIZES,paperProfile,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects} from '../public/pengukur/paper.js';
+import {imageQuality,segmentObject,morphology,repeatability,segmentObjects,colorStats,validationSummary} from '../public/pengukur/image-tools.js';
+import {measurementsToStatistics} from '../public/pengukur/stat-sync.js';
 
 const p=[[45,30],[620,100],[590,910],[100,800]],h=homography(p);
 [[0,0],[WIDTH,0],[WIDTH,HEIGHT],[0,HEIGHT]].forEach((q,i)=>{const v=project(h,...q);assert.ok(Math.hypot(v[0]-p[i][0],v[1]-p[i][1])<1e-7);});
@@ -22,9 +23,12 @@ for(const id of ['a5','a4','a3','letter','legal','f4']){
   assert.match(svg,/>10<\/text>/);
   assert.match(svg,/v 1\.25/);
   assert.equal(grayPatchRects(profile).length,6);
+  assert.match(svg,/>0<\/text>/);
+  assert.ok(svg.includes(profile.width+' × '+profile.height+' mm'));
 }
 const custom=paperProfile('custom','landscape',{width:200,height:300,margin:20});
 assert.equal(custom.width,300);assert.equal(custom.height,200);assert.equal(custom.activeWidth,260);assert.equal(custom.activeHeight,160);
+assert.match(buildLensCheckerboardSvg(paperProfile('a4')),/TARGET KALIBRASI LENSA/);
 
 const data=new Uint8ClampedArray(210*297*4);data.fill(255);
 for(const [x,y] of [[15,15],[195,15],[195,282],[15,282]])for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const i=((y+dy)*210+x+dx)*4;data[i]=208;data[i+1]=0;data[i+2]=208;data[i+3]=255;}
@@ -33,6 +37,8 @@ assert.throws(()=>homography([[0,0],[1,1],[2,2],[3,3]]));
 assert.equal(alignmentCheck([[0,0],[180,0],[180,267],[0,267]],180/267).retake,false);
 assert.equal(alignmentCheck([[30,0],[150,0],[180,267],[0,267]],180/267).retake,true);
 assert.equal(alignmentCheck([],180/267),null);
+const sc=scaleCheck([[0,0],[180,0],[180,267],[0,267]],180,267);
+assert.equal(sc.differencePct,0);assert.equal(sc.consistent,true);
 
 const profile=paperProfile('a4'),target=cameraGuide(null,480,640,profile).target;
 assert.equal(cameraGuide(target,480,640,profile).ready,true);
@@ -54,12 +60,25 @@ assert.ok(metrics.circularity>0&&metrics.circularity<=1.2);
 const rep=repeatability([{sampleId:'S1',type:'length',primaryValue:10},{sampleId:'S1',type:'length',primaryValue:11},{sampleId:'S2',type:'length',primaryValue:9}]);
 assert.equal(rep.length,1);assert.equal(rep[0].n,2);
 
+const multi={width:100,height:80,data:new Uint8ClampedArray(100*80*4)};
+for(let i=0;i<100*80;i++)multi.data.set([245,245,245,255],i*4);
+for(const [xa,xb,ya,yb,r,g,b] of [[20,34,20,36,190,30,30],[60,78,30,50,40,145,55]])for(let y=ya;y<yb;y++)for(let x=xa;x<xb;x++)multi.data.set([r,g,b,255],4*(y*100+x));
+const detected=segmentObjects(multi,{roi:{x:5,y:5,width:90,height:70},threshold:40,minPixels:30,maxObjects:10,ppm:5});
+assert.equal(detected.objects.length,2);
+assert.ok(colorStats(multi,detected.mask).s>0);
+const valid=validationSummary([{type:'length',unit:'mm',primaryValue:10,referenceValue:10.2},{type:'length',unit:'mm',primaryValue:20,referenceValue:19.8}]);
+assert.equal(valid.length,1);assert.equal(valid[0].n,2);
+
+const memory=new Map(),storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
+const statOut=measurementsToStatistics(storage,[{sampleId:'S1',type:'object',primaryValue:12,unit:'mm²',metrics:{area:12},research:{genotype:'G1'}}]);
+assert.equal(statOut.rowCount,1);assert.equal(statOut.dataset,'Pengukur');
+
 const html=fs.readFileSync('public/pengukur/index.html','utf8');
 const app=fs.readFileSync('public/pengukur/app.js','utf8');
 const style=fs.readFileSync('public/pengukur/style.css','utf8');
 const old=fs.readFileSync('public/kamera-pengukur/index.html','utf8');
-for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','sendField'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
-for(const marker of ['segmentObject','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','batchFiles','calibration','fieldContext'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
+for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
+for(const marker of ['segmentObject','segmentObjects','colorStats','validationSummary','measurementsToStatistics','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','batchFiles','calibration','fieldContext'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
 for(const marker of ['measure-toolbar','morphology-card','quality-gate','repeatability','@media(max-width:820px)'])assert.ok(style.includes(marker),'Pengukur CSS missing '+marker);
 assert.ok(old.includes('/pengukur/'),'Legacy camera route must redirect to /pengukur/');
 
@@ -73,4 +92,4 @@ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevi
 installLiveCamera({onCapture:()=>assert.fail('No capture expected'),getProfile:()=>profile});
 const opening=elements.openLive.onclick();elements.closeLive.onclick();resolveCamera({getTracks:()=>[{stop:()=>stopped++}]});await opening;
 assert.equal(stopped,1);assert.equal(elements.livePanel.hidden,true);
-console.log('Pengukur tests OK: multi-paper calibration, projective mapping, quality gate, morphology, repeatability, camera lifecycle and legacy redirect.');
+console.log('Pengukur tests OK: scales, lens target, projective mapping, quality gate, color, multi-object morphology, validation, stat bridge, camera lifecycle and legacy redirect.');
