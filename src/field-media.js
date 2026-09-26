@@ -43,3 +43,22 @@ export async function listFieldPhotos(dataset,uid){
 export async function deleteFieldPhoto(id){
   const database=await db(),tx=database.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(String(id));await txDone(tx);database.close();
 }
+
+export async function renameFieldMediaDataset(previous,next){
+  if(!previous||!next||String(previous)===String(next))return;
+  const database=await db(),tx=database.transaction(STORE,'readwrite'),store=tx.objectStore(STORE),index=store.index('dataset_uid'),range=IDBKeyRange.bound([String(previous),''],[String(previous),'\uffff']),request=index.openCursor(range);
+  await new Promise((resolve,reject)=>{
+    request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve();return;}const row={...cursor.value,dataset:String(next)};store.put(row);store.delete(cursor.primaryKey);cursor.continue();};
+    request.onerror=()=>reject(request.error);
+  });
+  await txDone(tx);database.close();
+}
+export async function deleteFieldMediaDataset(dataset){
+  if(!dataset)return;
+  const database=await db(),tx=database.transaction(STORE,'readwrite'),store=tx.objectStore(STORE),index=store.index('dataset_uid'),range=IDBKeyRange.bound([String(dataset),''],[String(dataset),'\uffff']),request=index.openCursor(range);
+  await new Promise((resolve,reject)=>{
+    request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve();return;}store.delete(cursor.primaryKey);cursor.continue();};
+    request.onerror=()=>reject(request.error);
+  });
+  await txDone(tx);database.close();
+}
