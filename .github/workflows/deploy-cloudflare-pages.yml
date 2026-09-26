@@ -58,7 +58,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          LIST="$(npx --yes wrangler@4 pages project list --json)"
+          set +e
+          LIST="$(npx --yes wrangler@4 pages project list --json 2>&1)"
+          LIST_STATUS=$?
+          set -e
+          if [ "$LIST_STATUS" -ne 0 ]; then
+            echo "::warning::Cloudflare API token belum memiliki akses Pages. Tambahkan Account > Cloudflare Pages > Edit (Pages Write), lalu workflow akan mencoba lagi pada push berikutnya."
+            printf '%s\n' "$LIST"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "project=" >> "$GITHUB_OUTPUT"
+            echo "url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
           if printf '%s' "$LIST" | jq -e '.[] | select(.name=="agrotik")' >/dev/null 2>&1; then
             PROJECT="agrotik"
           elif printf '%s' "$LIST" | jq -e '.[] | select(.name=="agrotik-irvan1609")' >/dev/null 2>&1; then
@@ -83,6 +95,7 @@ jobs:
           echo "Cloudflare Pages project: $PROJECT"
 
       - name: Deploy dist to Cloudflare Pages
+        if: steps.pages-project.outputs.available == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -97,9 +110,15 @@ jobs:
             --commit-message="Agrotik production deploy"
 
       - name: Publish deployment summary
+        if: always()
         env:
+          PAGES_AVAILABLE: ${{ steps.pages-project.outputs.available }}
           PAGES_URL: ${{ steps.pages-project.outputs.url }}
         run: |
           echo "### Agrotik Cloudflare Pages" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Production URL: $PAGES_URL" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${PAGES_AVAILABLE:-false}" = "true" ]; then
+            echo "Production URL: $PAGES_URL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Deployment tertunda: Cloudflare API token memerlukan Pages Write." >> "$GITHUB_STEP_SUMMARY"
+          fi
