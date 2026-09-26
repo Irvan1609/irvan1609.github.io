@@ -15,6 +15,10 @@ const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
 const SESSION_TOUCH_MINUTES=15;
 const CLEANUP_INTERVAL_MS=6*60*60*1000;
+const DEFAULT_IDEMPOTENCY_RETENTION_DAYS=14;
+const DEFAULT_AUDIT_RETENTION_DAYS=90;
+const DEFAULT_DELETED_DATASET_RETENTION_DAYS=30;
+const DEFAULT_CLOUD_RETRY_SECONDS=300;
 const ADMIN_EMAIL_DEFAULT='andyirvan1609@gmail.com';
 let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
@@ -211,6 +215,31 @@ async function cleanupAuth(env,{force=false}={}){
     env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(now)
   ]).catch(()=>{});
 }
+function positiveInt(value,fallback,min=1,max=3650){
+  const parsed=Math.floor(Number(value));
+  return Number.isFinite(parsed)&&parsed>=min&&parsed<=max?parsed:fallback;
+}
+function retentionPolicy(env){
+  return {
+    idempotencyDays:positiveInt(env.IDEMPOTENCY_RETENTION_DAYS,DEFAULT_IDEMPOTENCY_RETENTION_DAYS),
+    auditDays:positiveInt(env.AUDIT_RETENTION_DAYS,DEFAULT_AUDIT_RETENTION_DAYS),
+    deletedDatasetDays:positiveInt(env.DELETED_DATASET_RETENTION_DAYS,DEFAULT_DELETED_DATASET_RETENTION_DAYS),
+    retrySeconds:positiveInt(env.CLOUD_RETRY_SECONDS,DEFAULT_CLOUD_RETRY_SECONDS,30,3600)
+  };
+}
+async function cleanupCloudData(env){
+  await ensureAuthSchema(env);await ensureDatasetSchema(env);await ensureOperationsSchema(env);
+  const policy=retentionPolicy(env),now=Date.now();
+  const isoDaysAgo=days=>new Date(now-days*86400000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM idempotent_operations WHERE created_at < ?').bind(isoDaysAgo(policy.idempotencyDays)),
+    env.DB.prepare('DELETE FROM audit_logs WHERE created_at < ?').bind(isoDaysAgo(policy.auditDays)),
+    env.DB.prepare('DELETE FROM user_datasets WHERE deleted_at IS NOT NULL AND deleted_at < ?').bind(isoDaysAgo(policy.deletedDatasetDays))
+  ]);
+}
 async function ensureAuthSchema(env){
   if(AUTH_SCHEMA_READY)return;
   await env.DB.batch([
@@ -268,7 +297,8 @@ async function ensureAuthSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at)')
   ]);
   const info=await env.DB.prepare('PRAGMA table_info(users)').all();
   const columns=new Set((info.results||[]).map(row=>row.name));
@@ -389,7 +419,8 @@ async function ensureMembershipSchema(env){
       FOREIGN KEY(plan_id) REFERENCES membership_plans(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user ON membership_payments(user_id,created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user_status_created ON membership_payments(user_id,status,created_at)')
   ]);
   const paymentInfo=await env.DB.prepare('PRAGMA table_info(membership_payments)').all();
   const paymentColumns=new Set((paymentInfo.results||[]).map(row=>row.name));
@@ -422,6 +453,7 @@ async function ensureOperationsSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action,created_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS backup_runs (
       id TEXT PRIMARY KEY,
       object_key TEXT,
@@ -438,7 +470,8 @@ async function ensureOperationsSchema(env){
       created_at TEXT NOT NULL,
       PRIMARY KEY(operation_id,scope)
     )`),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at)')
   ]);
   OPERATIONS_SCHEMA_READY=true;
 }
@@ -560,6 +593,7 @@ async function ensureDatasetSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_updated ON user_datasets(user_id,updated_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted ON user_datasets(user_id,deleted_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted_updated ON user_datasets(user_id,deleted_at,updated_at)'),
     env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_user_datasets_active_name ON user_datasets(user_id,name) WHERE deleted_at IS NULL')
   ]);
   DATASET_SCHEMA_READY=true;
@@ -1343,17 +1377,22 @@ function safeJsonText(value){try{return JSON.parse(value||'{}');}catch{return {}
 async function handleDevelopUsage(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
-  await ensureDatasetSchema(env);
+  await ensureDatasetSchema(env);await ensureContributionSchema(env);
   const [datasets,sessions,users,contrib]=await Promise.all([
     env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
     env.DB.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active FROM sessions`).bind(new Date().toISOString()).first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
-    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(image)),0) AS bytes FROM contributions').first()
+    env.DB.prepare(`SELECT COUNT(*) AS n,
+      COALESCE(SUM(CASE WHEN storage_backend='r2' THEN image_size_bytes ELSE length(image) END),0) AS bytes,
+      COALESCE(SUM(length(image)),0) AS d1_bytes,
+      COALESCE(SUM(CASE WHEN storage_backend='r2' THEN image_size_bytes ELSE 0 END),0) AS r2_bytes
+      FROM contributions`).first()
   ]);
   return json(request,env,{estimated:{
     users:Number(users?.n||0),datasets:Number(datasets?.datasets||0),datasetBytes:Number(datasets?.bytes||0),datasetRevisionWrites:Number(datasets?.revisions||0),
-    sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),contributionImageBytes:Number(contrib?.bytes||0)
-  },note:'Ini estimasi penggunaan aplikasi dari D1, bukan meter resmi kuota akun Cloudflare.'});
+    sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),
+    contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0)
+  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),note:'Estimasi penggunaan aplikasi; meter kuota resmi Cloudflare tetap dibaca dari dashboard Cloudflare.'});
 }
 async function handleDevelopSecurity(request,env){
   const access=await requireAdminUser(request,env);
@@ -1384,7 +1423,7 @@ async function handleDevelopSecurity(request,env){
     controls:{
       httpOnlyCookie:true,partitionedCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,bearerFallbackHours:BEARER_FALLBACK_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
       contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
-      r2Backups:Boolean(env.BACKUPS),edgeAbuseEventsPersisted:false
+      r2Backups:Boolean(env.BACKUPS),r2ContributionImages:Boolean(env.IMAGES),scheduledRetention:true,idempotentSync:true,edgeAbuseEventsPersisted:false
     },
     lastBackup:lastBackup?{status:lastBackup.status,sizeBytes:Number(lastBackup.size_bytes||0),createdAt:lastBackup.created_at}:null
   });
@@ -1428,7 +1467,7 @@ async function buildBackupPayload(env){
     env.DB.prepare('SELECT * FROM membership_plans').all(),
     env.DB.prepare('SELECT * FROM membership_payments').all(),
     env.DB.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5000').all(),
-    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at FROM contributions ORDER BY created_at`).all()
+    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,created_at FROM contributions ORDER BY created_at`).all()
   ]);
   return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
@@ -1570,6 +1609,9 @@ async function ensureContributionSchema(env){
     id TEXT PRIMARY KEY,
     sample TEXT NOT NULL,
     image BLOB NOT NULL,
+    image_object_key TEXT,
+    image_size_bytes INTEGER NOT NULL DEFAULT 0,
+    storage_backend TEXT NOT NULL DEFAULT 'd1',
     mime_type TEXT NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
@@ -1589,9 +1631,14 @@ async function ensureContributionSchema(env){
   const info=await env.DB.prepare('PRAGMA table_info(contributions)').all(),columns=new Set((info.results||[]).map(row=>row.name));
   if(!columns.has('edit_token_hash'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN edit_token_hash TEXT').run();
   if(!columns.has('updated_at'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN updated_at TEXT').run();
+  if(!columns.has('image_object_key'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_object_key TEXT').run();
+  if(!columns.has('image_size_bytes'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_size_bytes INTEGER NOT NULL DEFAULT 0').run();
+  if(!columns.has('storage_backend'))await env.DB.prepare("ALTER TABLE contributions ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'd1'").run();
   await env.DB.batch([
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status_created ON contributions(status,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status)')
   ]);
   CONTRIBUTION_SCHEMA_READY=true;
 }
@@ -1630,15 +1677,31 @@ async function handleContribution(request,env){
   const method=String(form.get('prediction_method')||'unknown').slice(0,40);
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
   const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount),editToken=randomToken(24),editTokenHash=await sha256(editToken);
-  const bytes=await image.arrayBuffer();
+  const bytes=await image.arrayBuffer(),imageSizeBytes=bytes.byteLength;
+  const extension=image.type==='image/png'?'png':image.type==='image/jpeg'?'jpg':'webp';
+  const imageObjectKey=env.IMAGES?`contributions/${createdAt.slice(0,7).replace('-','/')}/${id}.${extension}`:null;
+  let storageBackend='d1',storedImage=bytes;
+  if(imageObjectKey){
+    try{
+      await env.IMAGES.put(imageObjectKey,bytes,{httpMetadata:{contentType:image.type},customMetadata:{contributionId:id,createdAt}});
+      storageBackend='r2';storedImage=new Uint8Array(0);
+    }catch(error){
+      console.warn('R2 image write failed; falling back to D1',error?.message||error);
+    }
+  }
 
-  await env.DB.prepare(`INSERT INTO contributions
-    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
-    .run();
+  try{
+    await env.DB.prepare(`INSERT INTO contributions
+      (id,sample,image,image_object_key,image_size_bytes,storage_backend,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id,sample,storedImage,storageBackend==='r2'?imageObjectKey:null,imageSizeBytes,storageBackend,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
+      .run();
+  }catch(error){
+    if(storageBackend==='r2'&&imageObjectKey)await env.IMAGES.delete(imageObjectKey).catch(()=>{});
+    throw error;
+  }
 
-  const payload={ok:true,id,editToken,qualityScore:score,finalCount};
+  const payload={ok:true,id,editToken,qualityScore:score,finalCount,storageBackend};
   await rememberOperation(env,'contribution:create',operationId,payload);
   return json(request,env,payload);
 }
@@ -1676,9 +1739,17 @@ async function handleManifest(request,env,url){
 }
 async function handleImage(request,env,id){
   if(!authAdmin(request,env))return json(request,env,{error:'Tidak diizinkan.'},401);
-  const row=await env.DB.prepare('SELECT image,mime_type FROM contributions WHERE id=?').bind(id).first();
-  if(!row?.image)return json(request,env,{error:'Foto tidak ditemukan.'},404);
-  return new Response(new Uint8Array(row.image),{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+  await ensureContributionSchema(env);
+  const row=await env.DB.prepare('SELECT image,image_object_key,image_size_bytes,storage_backend,mime_type FROM contributions WHERE id=?').bind(id).first();
+  if(!row)return json(request,env,{error:'Foto tidak ditemukan.'},404);
+  if(row.image_object_key&&env.IMAGES){
+    const object=await env.IMAGES.get(row.image_object_key);
+    if(object)return new Response(object.body,{headers:{'Content-Type':object.httpMetadata?.contentType||row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+  }
+  const legacyBytes=row.image?new Uint8Array(row.image):null;
+  if(legacyBytes?.byteLength)return new Response(legacyBytes,{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+  if(row.image_object_key&&!env.IMAGES)return json(request,env,{error:'image_storage_unavailable',message:'Bucket R2 gambar belum terikat ke Worker.'},503,{'Retry-After':String(retentionPolicy(env).retrySeconds)});
+  return json(request,env,{error:'Foto tidak ditemukan.'},404);
 }
 
 
@@ -2019,15 +2090,21 @@ async function handleGameInboxClaim(request,env){
 
 export default {
   async scheduled(event,env,ctx){
-    if(!env.BACKUPS)return;
-    ctx.waitUntil(createBackupSnapshot(env,null,'scheduled').catch(error=>console.error('scheduled backup failed',error)));
+    ctx.waitUntil((async()=>{
+      await cleanupCloudData(env);
+      if(env.BACKUPS)await createBackupSnapshot(env,null,'scheduled');
+    })().catch(error=>console.error('scheduled maintenance failed',error)));
   },
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request,env)});
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.15'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{
+        ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:true,idempotentSync:true,quotaGuard:true,
+        membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),
+        storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),apiVersion:'2026-09-26.16'
+      },200,{'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
       if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
       const csrfFailure=await csrfGuard(request,env,url);
@@ -2120,6 +2197,10 @@ export default {
       if(url.pathname.startsWith('/v1/membership/')){
         const message=String(error?.message||'Layanan membership sedang bermasalah.').slice(0,300);
         return json(request,env,{error:'membership_upstream_error',message},502);
+      }
+      const retrySeconds=retentionPolicy(env).retrySeconds;
+      if(url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/contributions')||url.pathname.startsWith('/v1/game/')){
+        return json(request,env,{error:'cloud_temporarily_unavailable',message:'Cloud sedang tidak tersedia. Data lokal tetap aman dan sinkronisasi dapat dicoba kembali.',localSafe:true,retryAfterSeconds:retrySeconds},503,{'Retry-After':String(retrySeconds)});
       }
       return json(request,env,{error:'Server tidak dapat memproses permintaan.'},500);
     }

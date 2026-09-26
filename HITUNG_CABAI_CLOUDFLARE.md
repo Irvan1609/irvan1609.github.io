@@ -61,8 +61,10 @@ Workflow `.github/workflows/train-hitung-cabai.yml` berjalan setiap hari pukul 1
 
 Model baru tidak langsung dipromosikan. Training hanya dimulai pada minimal 100 sampel. Model pertama harus mencapai mAP50 ≥ 0,55 dan recall ≥ 0,50 pada validation split deterministik. Setelah ada model produksi, kandidat berikutnya harus mempertahankan mAP50 dan recall serta menunjukkan peningkatan pada setidaknya salah satu metrik.
 
-## 7. Batas Free
+## 7. Batas Free dan strategi storage
 
-Worker dan D1 memiliki batas Free. Ketika batas D1 Free tercapai, operasi gagal sampai kuota harian reset atau data dibersihkan; desain ini tidak bergantung pada R2 sehingga tidak membutuhkan R2 subscription. Foto kontribusi diperkecil menjadi maksimum 1.280 px dan sekitar 850 kB untuk memperlambat pertumbuhan database.
+Worker dan D1 memiliki batas Free. Aplikasi memakai pola **local-first**: analisis dan data kerja tetap tersedia di perangkat, sedangkan cloud digunakan untuk autentikasi, sinkronisasi, metadata, dan fungsi daring. Sinkronisasi memakai operasi delta/idempoten serta circuit breaker; saat Worker/D1 mengembalikan 429/503 atau koneksi berulang kali gagal, retry dijeda dan data lokal tetap dipertahankan.
 
-Untuk penggunaan publik skala besar, D1 bukan penyimpanan gambar tanpa batas. Setelah dataset awal cukup, strategi yang disarankan adalah mempertahankan sampel bernilai tinggi dan mengarsipkan/menghapus data redundan setelah model stabil.
+Foto kontribusi tetap diperkecil menjadi maksimum 1.280 px dan sekitar 850 kB. Jika binding R2 `IMAGES` tersedia, objek gambar baru disimpan di R2 dan D1 hanya menyimpan metadata serta object key. Jika R2 belum tersedia, Worker tetap kompatibel dengan fallback BLOB D1. Data lama yang masih berupa BLOB tetap dapat dibaca.
+
+Maintenance terjadwal membersihkan state OAuth/sesi kedaluwarsa, operasi idempoten lama, audit log lama, dan dataset yang sudah lama berstatus terhapus. Nilai default: idempotency 14 hari, audit 90 hari, dan dataset terhapus 30 hari; semuanya dapat diubah melalui Worker vars.

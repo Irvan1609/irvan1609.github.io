@@ -124,10 +124,22 @@ Worker memeriksa kuota sebelum INSERT/UPDATE dataset. Admin tidak dibatasi kuota
 ## Optimasi Cloudflare
 
 Dataset sync:
-- debounce perubahan sekitar 3,5 detik;
-- sync saat login, tab kembali aktif, koneksi pulih, atau tombol manual;
-- fallback 10 menit hanya ketika halaman terlihat;
-- akun gratis tidak menjalankan polling sync.
+- perubahan kecil dikirim sebagai delta/idempotent operation dan perubahan beruntun digabung sebelum dikirim;
+- sync dijalankan saat login, tab kembali aktif, koneksi pulih, atau tombol manual;
+- circuit breaker menghentikan retry agresif setelah kegagalan berulang atau respons 429/503; `Retry-After` dihormati;
+- selama cloud dijeda/offline, dataset tetap aman dan dapat digunakan dari penyimpanan lokal;
+- akun tanpa entitlement cloud tidak menjalankan polling sync.
+
+Storage:
+- D1 menyimpan akun, metadata, dataset terstruktur, entitlement, dan metadata kontribusi AI;
+- R2 binding `IMAGES` menyimpan foto kontribusi baru bila tersedia; BLOB D1 tetap menjadi fallback kompatibilitas;
+- R2 binding `BACKUPS` menyimpan snapshot logis D1;
+- workflow deploy mencoba menemukan atau membuat bucket `irvan-contribution-images` dan `irvan-backups`; bila token tidak memiliki izin R2, deployment tetap menggunakan fallback.
+
+Retention default:
+- operasi idempoten: 14 hari;
+- audit log: 90 hari;
+- dataset berstatus terhapus: 30 hari.
 
 `sessions.last_seen_at` hanya ditulis maksimal satu kali per 15 menit per sesi.
 
@@ -168,7 +180,7 @@ Setelah deploy Worker terbaru:
   "developConsole": true,
   "accountCenter": true,
   "membershipPayments": true,
-  "apiVersion": "2026-09-26.2"
+  "apiVersion": "2026-09-26.16"
 }
 ```
 

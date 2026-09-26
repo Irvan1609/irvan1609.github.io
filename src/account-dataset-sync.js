@@ -17,6 +17,25 @@ let currentUser=null;
 let syncAllowed=true;
 const pendingPatches=new Map();
 const SYNC_DEBOUNCE_MS=1600;
+const CIRCUIT_FAILURE_LIMIT=3;
+const CIRCUIT_COOLDOWN_MS=60_000;
+let cloudFailureCount=0;
+let circuitOpenUntil=0;
+
+function circuitRemaining(){
+  return Math.max(0,circuitOpenUntil-Date.now());
+}
+function resetCircuit(){
+  cloudFailureCount=0;circuitOpenUntil=0;
+}
+function registerCloudFailure(response=null){
+  cloudFailureCount++;
+  const retryHeader=Number(response?.headers?.get?.('Retry-After'));
+  const retryMs=Number.isFinite(retryHeader)&&retryHeader>0?retryHeader*1000:CIRCUIT_COOLDOWN_MS;
+  if(response?.status===429||response?.status===503||cloudFailureCount>=CIRCUIT_FAILURE_LIMIT){
+    circuitOpenUntil=Math.max(circuitOpenUntil,Date.now()+retryMs);
+  }
+}
 
 const safeObject=(key)=>{
   try{
@@ -175,8 +194,21 @@ function cleanupLegacyLocalLabels(stores,sync,counters){
 async function api(path,options={}){
   const request=window.IrvanAccount?.request;
   if(!request||!window.IrvanAccount?.authenticated)throw Error('Sesi akun tidak tersedia.');
-  const response=await request(path,options);
+  if(circuitRemaining()>0){
+    const seconds=Math.max(1,Math.ceil(circuitRemaining()/1000));
+    const error=Error('Cloud dijeda sementara · data tetap aman di perangkat · coba lagi sekitar '+seconds+' dtk.');
+    error.status=503;error.circuitOpen=true;throw error;
+  }
+  let response;
+  try{
+    response=await request(path,options);
+  }catch(error){
+    registerCloudFailure();
+    throw error;
+  }
   const data=await response.json().catch(()=>({}));
+  if(response.ok)resetCircuit();
+  else if(response.status===429||response.status>=500)registerCloudFailure(response);
   if(response.status===401){
     window.IrvanAccount?.refresh?.();
     throw Error('Sesi akun berakhir. Silakan masuk kembali.');
@@ -268,6 +300,12 @@ function scheduleSync(delay=SYNC_DEBOUNCE_MS){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
+  const remaining=circuitRemaining();
+  if(remaining>0){
+    setSyncStatus('Cloud dijeda sementara · data aman di perangkat','pending');
+    retryTimer=setTimeout(()=>{circuitOpenUntil=0;scheduleSync(0);},remaining+250);
+    return;
+  }
   retryTimer=setTimeout(()=>syncNow(),delay);
 }
 function queuePatch(name,patch){
@@ -404,7 +442,9 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 }
 async function syncNow({manual=false}={}){
   if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
+  if(manual)resetCircuit();
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
+  if(circuitRemaining()>0){scheduleSync();return;}
   if(document.hidden&&!manual)return;
   syncing=true;setSyncStatus('Menyinkronkan…','syncing');
   try{
@@ -480,7 +520,8 @@ async function syncNow({manual=false}={}){
     setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
   }catch(error){
     console.error('Dataset sync failed',error);
-    setSyncStatus(error.message||'Sinkronisasi gagal','error');
+    if(error?.circuitOpen||circuitRemaining()>0)setSyncStatus('Cloud dijeda sementara · data aman di perangkat','pending');
+    else setSyncStatus(error.message||'Sinkronisasi gagal · data lokal tetap aman','error');
     if(!manual)scheduleSync(8000);
   }finally{
     syncing=false;
@@ -537,6 +578,6 @@ export function installAccountDatasetSync(){
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed)scheduleSync(900);});
   window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
-  window.addEventListener('online',()=>scheduleSync(900));
+  window.addEventListener('online',()=>{resetCircuit();scheduleSync(900);});
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
