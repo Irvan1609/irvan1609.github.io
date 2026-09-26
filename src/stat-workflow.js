@@ -2,8 +2,20 @@ const $=selector=>document.querySelector(selector);
 
 function datasetSummary(){
   const data=globalThis.StatisticalWebData?.readActiveDataset?.();
-  if(!data)return {name:'Dataset',rows:0,columns:0};
-  return {name:data.name||data.fileName||'Dataset',rows:Array.isArray(data.rows)?data.rows.length:0,columns:Array.isArray(data.headers)?data.headers.length:0};
+  if(!data)return {name:'Dataset',rows:0,columns:0,blankRate:0,status:'Belum ada data',state:'empty'};
+  const rows=Array.isArray(data.rows)?data.rows:[],headers=Array.isArray(data.headers)?data.headers:[];
+  const sample=rows.slice(0,250);
+  let blank=0,total=0;
+  for(const row of sample)for(let column=0;column<headers.length;column++){
+    total++;
+    if(String(row?.[column]??'').trim()==='')blank++;
+  }
+  const blankRate=total?blank/total:0;
+  let status='Siap',state='ready';
+  if(!rows.length||!headers.length){status='Belum ada data';state='empty';}
+  else if(rows.length<3||headers.length<2){status='Cek struktur';state='warn';}
+  else if(blankRate>=.2){status='Cek nilai kosong';state='warn';}
+  return {name:data.name||data.fileName||'Dataset',rows:rows.length,columns:headers.length,blankRate,status,state,sampled:sample.length<rows.length};
 }
 function analysisDock(){
   return document.querySelector('#analysisResultDock');
@@ -58,8 +70,10 @@ function setActive(stage){
 function update(){
   const strip=document.querySelector('#statWorkflowStrip');if(!strip)return;
   const data=datasetSummary(),dataLabel=strip.querySelector('[data-workflow-data-label]'),resultButton=strip.querySelector('[data-stat-workflow="results"]');
-  if(dataLabel)dataLabel.textContent=data.rows?data.rows+'×'+data.columns:'Kosong';
-  strip.title=data.name;
+  if(dataLabel)dataLabel.textContent=data.rows?`${data.rows}×${data.columns} · ${data.status}`:'Kosong';
+  strip.dataset.dataState=data.state;
+  const blankText=data.blankRate>0?` · nilai kosong ${data.sampled?'~':''}${Math.round(data.blankRate*100)}%`:'';
+  strip.title=`${data.name} · ${data.rows} baris × ${data.columns} kolom${blankText}`;
   if(resultButton){
     resultButton.disabled=!hasResults()&&!document.querySelector('#analysisHistory');
     resultButton.classList.toggle('has-result',hasResults());
@@ -99,6 +113,13 @@ export function installStatWorkflow(){
     else if(event.target.closest('#openAnalysis'))setActive('analysis');
     else if(event.target.closest('#analysisResultDock'))setActive('results');
   },true);
-  globalThis.StatisticalWebWorkflow={openData,openField,openAnalysis,openResults,setActive,update};
+  document.addEventListener('keydown',event=>{
+    if(!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+    if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
+    const action={'1':openData,'2':openField,'3':openAnalysis,'4':openResults}[event.key];
+    if(!action)return;
+    event.preventDefault();action();
+  });
+  globalThis.StatisticalWebWorkflow={openData,openField,openAnalysis,openResults,setActive,update,summary:datasetSummary};
   update();
 }
