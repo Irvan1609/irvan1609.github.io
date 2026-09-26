@@ -20,7 +20,7 @@ function ensureStyles(){
     body>.agrotik-offline{zoom:var(--ui-scale)}
     .app-header{position:relative}
     .nav{position:relative}
-    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border-radius:9px;font-size:17px;line-height:1;margin-left:auto}
+    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:7px;font-size:14px;line-height:1;margin-left:auto}
     #appSettingsToggle[aria-expanded="true"]{background:#eaf1fd;border-color:#9ab3d6;color:#194caa}
     #appSettingsPanel{position:absolute;right:10px;top:calc(100% + 8px);z-index:120;width:min(360px,calc(100vw / var(--ui-scale) - 28px));padding:14px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px #15233426}
     #appSettingsPanel[hidden]{display:none!important}
