@@ -1566,7 +1566,8 @@ async function handleDevelopUsage(request,env){
   return json(request,env,{estimated:{
     users:Number(users?.n||0),datasets:Number(datasets?.datasets||0),datasetBytes:Number(datasets?.bytes||0),datasetRevisionWrites:Number(datasets?.revisions||0),
     sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),
-    contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0)
+    contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0),
+    estimatedD1StorageBytes:Number(datasets?.bytes||0)+Number(contrib?.d1_bytes||0)
   },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),policy,freeTierReference:CLOUDFLARE_FREE_REFERENCE,note:'Estimasi internal aplikasi; angka rows read/write dan request resmi tetap berasal dari Cloudflare Analytics/Dashboard agar monitoring tidak menambah write D1.'});
 }
 async function handleDevelopSecurity(request,env){
@@ -1642,7 +1643,7 @@ async function buildBackupPayload(env){
     env.DB.prepare('SELECT * FROM membership_plans').all(),
     env.DB.prepare('SELECT * FROM membership_payments').all(),
     env.DB.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5000').all(),
-    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,created_at FROM contributions ORDER BY created_at`).all()
+    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,image_sha256,created_at FROM contributions ORDER BY created_at`).all()
   ]);
   return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
@@ -1684,7 +1685,7 @@ async function createBackupSnapshot(env,actor=null,note='manual',{deepVerify=fal
   await ensureOperationsSchema(env);
   if(!env.BACKUPS)throw Error('R2 binding BACKUPS belum dikonfigurasi.');
   const payload=await buildBackupPayload(env),text=JSON.stringify(payload),checksum=await sha256(text),sizeBytes=new TextEncoder().encode(text).byteLength;
-  const id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
+  const id=crypto.randomUUID(),prefix=String(note).includes('monthly-restore-check')?'d1-monthly/':'d1-logical/',key=prefix+new Date().toISOString().slice(0,10)+'/'+id+'.json';
   await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100),sha256:checksum}});
   const validation=await verifyBackupObject(env,key,{expectedChecksum:checksum,deep:deepVerify});
   const status=validation.ok?'success':'invalid',verifiedAt=new Date().toISOString();
