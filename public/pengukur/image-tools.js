@@ -131,3 +131,70 @@ export function repeatability(records){
     return {key,n:v.length,mean,sd,cv:mean?sd/Math.abs(mean)*100:null};
   });
 }
+
+
+function rgbToHsv(r,g,b){
+  r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;let h=0;
+  if(d){if(max===r)h=60*(((g-b)/d)%6);else if(max===g)h=60*((b-r)/d+2);else h=60*((r-g)/d+4);}
+  if(h<0)h+=360;return [h,max?d/max*100:0,max*100];
+}
+function rgbToLab(r,g,b){
+  const lin=v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;};
+  r=lin(r);g=lin(g);b=lin(b);
+  let x=(r*.4124564+g*.3575761+b*.1804375)/.95047,y=(r*.2126729+g*.7151522+b*.072175),z=(r*.0193339+g*.1191920+b*.9503041)/1.08883;
+  const f=t=>t>.008856?t**(1/3):7.787*t+16/116;x=f(x);y=f(y);z=f(z);
+  return [116*y-16,500*(x-y),200*(y-z)];
+}
+function colorStatsFromIndexes(image,indexes){
+  if(!indexes?.length)return null;let r=0,g=0,b=0;
+  for(const k of indexes){r+=image.data[4*k];g+=image.data[4*k+1];b+=image.data[4*k+2];}
+  r/=indexes.length;g/=indexes.length;b/=indexes.length;const [h,s,v]=rgbToHsv(r,g,b),lab=rgbToLab(r,g,b);
+  return {r,g,b,h,s,v,lab};
+}
+export function colorStats(image,mask){
+  const idx=[];for(let i=0;i<mask.length;i++)if(mask[i])idx.push(i);return colorStatsFromIndexes(image,idx);
+}
+export function normalizeSamplePoints(image,points,targets=[243,200,160,122,85,52],radius=5){
+  if(!Array.isArray(points)||points.length!==targets.length)throw Error('Diperlukan enam titik netral ColorChecker dari terang ke gelap.');
+  const rects=points.map((p,i)=>({x:p[0]-radius,y:p[1]-radius,width:radius*2+1,height:radius*2+1,target:targets[i]}));
+  return normalizeGrayPatches(image,rects);
+}
+export function segmentObjects(image,{roi=null,threshold=46,minPixels=80,maxObjects=100,ppm=5}={}){
+  const {width,height,data}=image,r=roi||{x:0,y:0,width,height};
+  const x0=Math.max(1,Math.floor(r.x)),y0=Math.max(1,Math.floor(r.y)),x1=Math.min(width-1,Math.ceil(r.x+r.width)),y1=Math.min(height-1,Math.ceil(r.y+r.height));
+  const samples=[[],[],[]],push=(x,y)=>{const i=4*(y*width+x);for(let c=0;c<3;c++)samples[c].push(data[i+c]);};
+  const step=Math.max(2,Math.floor(Math.min(x1-x0,y1-y0)/60));
+  for(let x=x0;x<x1;x+=step){push(x,y0);push(x,y1-1);}for(let y=y0;y<y1;y+=step){push(x0,y);push(x1-1,y);}
+  const med=a=>{a.sort((a,b)=>a-b);return a[Math.floor(a.length/2)]??255;},bg=samples.map(med);
+  const candidate=new Uint8Array(width*height),seen=new Uint8Array(width*height),union=new Uint8Array(width*height);
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const k=y*width+x,i=4*k,rr=data[i],gg=data[i+1],bb=data[i+2],mx=Math.max(rr,gg,bb),mn=Math.min(rr,gg,bb),sat=mx?1-mn/mx:0;
+    if(rgbDistance([rr,gg,bb],bg)>threshold&&(sat>.12||mx<175))candidate[k]=1;
+  }
+  const objects=[],maxPixels=(x1-x0)*(y1-y0)*.32;
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+    const start=y*width+x;if(!candidate[start]||seen[start])continue;
+    const stack=[start],idx=[];seen[start]=1;let minX=x,maxX=x,minY=y,maxY=y,touches=false;
+    while(stack.length){
+      const k=stack.pop(),xx=k%width,yy=Math.floor(k/width);idx.push(k);minX=Math.min(minX,xx);maxX=Math.max(maxX,xx);minY=Math.min(minY,yy);maxY=Math.max(maxY,yy);
+      if(xx<=x0+1||xx>=x1-2||yy<=y0+1||yy>=y1-2)touches=true;
+      for(const j of [xx>x0?k-1:-1,xx<x1-1?k+1:-1,yy>y0?k-width:-1,yy<y1-1?k+width:-1])if(j>=0&&candidate[j]&&!seen[j]){seen[j]=1;stack.push(j);}
+    }
+    if(idx.length<minPixels||idx.length>maxPixels)continue;
+    const bw=maxX-minX+1,bh=maxY-minY+1;if(bw<3||bh<3)continue;
+    const crop=new Uint8Array(bw*bh);for(const k of idx){const xx=k%width,yy=Math.floor(k/width);crop[(yy-minY)*bw+(xx-minX)]=1;union[k]=1;}
+    const metrics=morphology(crop,bw,bh,ppm);metrics.centroid=[metrics.centroid[0]+minX/ppm,metrics.centroid[1]+minY/ppm];
+    objects.push({metrics,color:colorStatsFromIndexes(image,idx),clipped:touches,pixels:idx.length});
+    if(objects.length>=maxObjects)break;
+  }
+  objects.sort((a,b)=>a.metrics.centroid[1]-b.metrics.centroid[1]||a.metrics.centroid[0]-b.metrics.centroid[0]);
+  return {objects,mask:union,background:bg};
+}
+export function validationSummary(records){
+  const groups=new Map();
+  for(const r of records||[]){const y=Number(r.referenceValue),p=Number(r.primaryValue);if(!Number.isFinite(y)||!Number.isFinite(p))continue;const key=(r.type||'')+'|'+(r.unit||'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push([y,p]);}
+  return [...groups.entries()].filter(([,v])=>v.length>=2).map(([key,v])=>{
+    const n=v.length,meanY=v.reduce((s,x)=>s+x[0],0)/n,errors=v.map(x=>x[1]-x[0]),mae=errors.reduce((s,e)=>s+Math.abs(e),0)/n,bias=errors.reduce((s,e)=>s+e,0)/n,rmse=Math.sqrt(errors.reduce((s,e)=>s+e*e,0)/n);
+    const sse=v.reduce((s,x)=>s+(x[1]-x[0])**2,0),sst=v.reduce((s,x)=>s+(x[0]-meanY)**2,0),r2=sst?1-sse/sst:null;
+    return {key,n,mae,rmse,bias,r2,cvRmse:meanY?rmse/Math.abs(meanY)*100:null};
+  });
+}
