@@ -1669,7 +1669,12 @@ function renderWorkflow(){
 }
 function renderProgressiveUI(){
   document.body.dataset.gameLevel=String(state.level||1);
+  const firstSeason=state.season===1&&!state.onboarding?.complete;
+  document.body.classList.toggle('first-season',firstSeason);
   document.querySelectorAll('[data-unlock-level]').forEach(el=>{el.hidden=(state.level||1)<Number(el.dataset.unlockLevel||1);});
+  ['#quickExperiment','[data-main-action="research"]','[data-main-action="analysis"]'].forEach(selector=>document.querySelectorAll(selector).forEach(el=>{el.hidden=firstSeason;}));
+  document.querySelectorAll('#labHub .selection-panel,#labHub .academy-panel,#labHub .lab-panel').forEach(el=>{el.hidden=firstSeason;});
+  const summary=$('#labHub>summary span b');if(summary)summary.textContent=firstSeason?'🌱 Benih':'🔬 Lab';
 }
 function openAnalysisHub(){
   if(state.experiment){openStatisticsLab();return;}
@@ -1677,7 +1682,7 @@ function openAnalysisHub(){
   location.href='/stat/';
 }
 function render(){
-  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();renderWorkflow();renderProgressiveUI();save();
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();renderWorkflow();renderProgressiveUI();renderAdvanceNotice();save();
 }
 
 function plantSelected(){
