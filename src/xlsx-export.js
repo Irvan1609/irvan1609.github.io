@@ -670,7 +670,7 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
   identityCell.font={name:'Calibri',size:8,italic:true};
   identityCell.alignment={horizontal:'right',vertical:'middle'};
   rowNumber++;
-  sheet.pageSetup.oddFooter={right:'Agrotik · v0.1.0 · https://irvan1609.github.io'};
+  sheet.headerFooter.oddFooter='&RAgrotik · v0.1.0 · https://irvan1609.github.io';
   sheet.pageSetup.printArea=`A1:${sheet.getColumn(width).letter}${rowNumber-1}`;
   return book;
 }
