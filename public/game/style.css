@@ -1162,3 +1162,197 @@ body.battery-saver .plot::before{display:none!important}
 @media(prefers-reduced-motion:reduce){
   .field-world *{animation:none!important;transition:none!important}
 }
+
+
+/* FIELD ZERO ULTRA LITE BOARD 2026-09-26 */
+.game-shell{width:min(1180px,calc(100% - 16px));margin:10px auto 54px}
+body{background:var(--bg)}
+.panel,.field-panel{box-shadow:none!important}
+.field-panel{padding:8px;overflow:visible;border:1px solid var(--line);background:var(--panel)}
+.field-map-heading{position:static;display:flex;align-items:center;margin:0 0 6px;pointer-events:auto}
+.field-map-heading>div:first-child{padding:0;border:0;background:transparent!important;box-shadow:none!important;text-shadow:none}
+.field-map-heading .field-legend{padding:0;border:0;background:transparent}
+.field-world{
+  min-height:0!important;
+  padding:0!important;
+  background:#162a21!important;
+  background-image:none!important;
+  isolation:auto
+}
+.field-world-skyline{display:none!important}
+.field-world-landmarks{
+  position:static!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:4px;
+  height:auto!important;
+  margin:0 0 6px;
+  pointer-events:auto
+}
+.map-landmark,
+.map-landmark.nursery,
+.map-landmark.research,
+.map-landmark.water,
+.map-landmark.analysis{
+  position:static!important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-height:34px;
+  padding:4px 6px;
+  border:1px solid #355044;
+  border-radius:6px;
+  background:#1a3027!important;
+  color:var(--ink);
+  box-shadow:none!important;
+  text-shadow:none;
+  transform:none!important
+}
+.map-landmark>span{grid-row:auto;font-size:15px}
+.map-landmark b{font-size:8px;white-space:nowrap}
+.map-landmark small{display:none}
+.field-map-stage{
+  width:100%!important;
+  margin:0;
+  padding:6px!important;
+  border:1px solid #2f4a3c;
+  border-radius:8px;
+  background:#193026!important;
+  box-shadow:none!important;
+  contain:layout paint
+}
+.field-context{
+  position:static!important;
+  width:100%;
+  max-width:none;
+  margin:0 0 6px;
+  padding:4px;
+  border:1px solid #315043;
+  border-radius:6px;
+  background:#13261f!important;
+  box-shadow:none!important
+}
+.field-grid{gap:6px!important;padding:0!important}
+.field-block{
+  width:100%!important;
+  margin:0!important;
+  padding:5px!important;
+  border:1px solid #456049!important;
+  border-radius:7px!important;
+  background:#3f6138!important;
+  box-shadow:none!important;
+  contain:layout paint style;
+  content-visibility:auto;
+  contain-intrinsic-size:160px
+}
+.field-block+.field-block{margin-top:0!important}
+.field-block::before,.field-block::after{display:none!important}
+.field-block>header{
+  position:static!important;
+  display:flex;
+  justify-content:space-between;
+  gap:5px;
+  margin:0 0 4px;
+  padding:1px 2px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#e8f1e8!important;
+  box-shadow:none!important;
+  text-shadow:none!important
+}
+.field-block>header b{font-size:9px}
+.field-block>header span{font-size:7px;color:#b7c8ba}
+.field-block-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px!important}
+.plot{
+  min-height:72px!important;
+  padding:4px!important;
+  border:1px solid #785c43!important;
+  border-radius:5px!important;
+  background:#60442f!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  transition:none!important;
+  contain:layout paint style
+}
+.plot::before{display:none!important}
+.plot.empty{background:#57402f!important}
+.plot:hover{transform:none!important}
+.plot.selected{border-color:#70dbe6!important;box-shadow:inset 0 0 0 1px #70dbe6!important}
+.plot-canopy{display:none!important;background:none!important}
+.plot-top{position:relative;z-index:2;text-shadow:none!important}
+.plot-top>span:first-child{padding:1px 3px;box-shadow:none!important}
+.plot-crop{
+  position:absolute;
+  left:4px;
+  right:4px;
+  bottom:15px;
+  padding:2px 3px;
+  border-radius:4px;
+  background:#172c22!important
+}
+.plot-crop .plant-icon{font-size:14px}
+.plot-crop b{font-size:7.8px}
+.plot-crop small{font-size:6.5px}
+.plot-health{left:4px;right:4px;bottom:8px;height:2px;transform:none!important}
+.plot-bars{left:4px;right:4px;bottom:3px;transform:none!important}
+.field-tool-dock{
+  position:static!important;
+  transform:none!important;
+  width:100%!important;
+  margin-top:6px;
+  padding:3px;
+  border:1px solid #3a5649;
+  border-radius:7px;
+  background:#142a21!important;
+  box-shadow:none!important
+}
+.field-tool-dock button,.field-tool-analysis{
+  min-height:38px!important;
+  padding:3px!important;
+  border-radius:5px!important
+}
+.field-tool-dock .tool-icon{font-size:17px!important}
+.field-tool-dock small,.field-tool-analysis small{font-size:7px!important}
+.mobile-command-row{position:static!important;margin-top:5px}
+.mobile-command-row button{background:#172e24!important;box-shadow:none!important}
+.day-actions{position:static!important;margin-top:5px!important}
+.day-actions button{min-height:34px;box-shadow:none!important}
+.game-layout>.inspector{box-shadow:none!important;backdrop-filter:none!important}
+.field-world *, .game-quick-nav *, .hud *, .season-bar *{animation:none!important}
+@media(min-width:901px){
+  .game-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:8px}
+  .game-layout>.inspector{
+    position:static!important;
+    width:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+    background:var(--panel)!important
+  }
+}
+@media(max-width:620px){
+  .game-shell{width:100%;margin-top:6px}
+  .field-panel{padding:5px;border-left:0;border-right:0}
+  .field-world-landmarks{grid-template-columns:repeat(4,minmax(0,1fr));gap:3px}
+  .map-landmark{min-height:32px;padding:3px!important}
+  .map-landmark b{display:none}
+  .map-landmark>span{font-size:17px}
+  .field-map-stage{padding:4px!important}
+  .field-context{margin-bottom:4px}
+  .field-block{padding:4px!important;contain-intrinsic-size:190px}
+  .field-block-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px!important}
+  .plot{min-height:70px!important}
+  .field-tool-dock{
+    position:fixed!important;
+    left:6px!important;
+    right:6px!important;
+    bottom:max(5px,env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    margin:0!important;
+    z-index:42
+  }
+  .field-tool-dock button,.field-tool-analysis{min-height:46px!important}
+  .mobile-command-row{display:none!important}
+  .day-actions{padding-bottom:56px!important}
+}
