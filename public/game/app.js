@@ -1,14 +1,15 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
+import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
-const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-1';
+const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-2';
 const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840};
 const COSTS={
   plant:8000,water:5000,waterPrecision:3000,fertilize:6000,fertilizePrecision:4500,
   spray:15000,trader:75000,traderSelected:90000,shield:20000
 };
-const PLANT_COST=COSTS.plant;
+const PLANT_COST=COSTS.plant,COMMERCIAL_SEED_PACK_COST=18000,COMMERCIAL_SEED_PACK_SIZE=8;
 const PLOT_USES={commercial:{icon:'Rp',name:'Produksi'},research:{icon:'📐',name:'Penelitian'},breeding:{icon:'🧬',name:'Pemuliaan'}};
 const SPECIES={maize:{id:'maize',name:'Jagung',latin:'Zea mays',maturityDays:110},chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',maturityDays:145}};
 function makePlotRegistry(){
@@ -52,10 +53,10 @@ const TRAITS={
 };
 const MUTATION_POOL=['heat','vigor','myco','sentinel'];
 const STARTER_SEEDS=[
-  {id:'seed-aruna',name:'Aruna 01',generation:0,traits:['early','nue'],baseYield:14.5,vigor:1.02,source:'Starter'},
-  {id:'seed-savana',name:'Savana D',generation:0,traits:['deep','saver'],baseYield:14,vigor:1,source:'Starter'},
-  {id:'seed-rinjani',name:'Rinjani R',generation:0,traits:['rust','plastic'],baseYield:13.5,vigor:1.03,source:'Starter'},
-  {id:'seed-bima',name:'Bima Dent',generation:0,traits:['giant','prolific'],baseYield:17,vigor:.94,source:'Starter'}
+  {id:'seed-aruna',name:'Aruna 01',generation:0,traits:['early','nue'],baseYield:14.5,vigor:1.02,source:'Starter',stock:24,viability:96,ageSeasons:0},
+  {id:'seed-savana',name:'Savana D',generation:0,traits:['deep','saver'],baseYield:14,vigor:1,source:'Starter',stock:24,viability:96,ageSeasons:0},
+  {id:'seed-rinjani',name:'Rinjani R',generation:0,traits:['rust','plastic'],baseYield:13.5,vigor:1.03,source:'Starter',stock:24,viability:96,ageSeasons:0},
+  {id:'seed-bima',name:'Bima Dent',generation:0,traits:['giant','prolific'],baseYield:17,vigor:.94,source:'Starter',stock:24,viability:96,ageSeasons:0}
 ];
 const ENVIRONMENTS=[
   {id:'transition',name:'Peralihan Sulsel',icon:'◐',desc:'Hujan tidak menentu; keputusan air dan penyakit sama-sama penting.',waterLoss:-1,disease:.035,nLoss:1,yield:1},
@@ -302,7 +303,7 @@ function freshState(){
     log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[]
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index'
   };
 }
 function load(){
@@ -321,6 +322,7 @@ function load(){
     merged.species=SPECIES[raw.species]?raw.species:'maize';
     merged.simulationSeed=Number(raw.simulationSeed)||hashString('academy:'+String(raw.season||1));
     if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
+    merged.vault=merged.vault.map(seed=>({...seed,stock:Math.max(0,Number.isFinite(Number(seed.stock))?Math.round(Number(seed.stock)):(seed.parents?.length?6:24)),viability:clamp(Number(seed.viability)||96,0,100),ageSeasons:Math.max(0,Math.round(Number(seed.ageSeasons)||0)),genome:normalizeGenome(seed.genome,seed.id,merged.simulationSeed)}));
     merged.tech=Array.isArray(merged.tech)?merged.tech:[];
     merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
     merged.lineage=Array.isArray(merged.lineage)?merged.lineage:[];
