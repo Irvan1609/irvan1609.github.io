@@ -44,7 +44,7 @@ for(const page of [html,printHtml,mendeleyHtml,chiliHtml]){
   if(page.includes('agrotik-credit'))fail('module credits must live on dashboard cards only');
 }
 for(const [module,author] of [['Statistical Web','Irvan'],['Hitung Cabai','Irvan'],['Pengukur','Irvan'],['Referensi Mendeley','Kautsar'],['Print Skripsi','Irvan'],['Field Zero','Irvan']]){
-  const pattern=new RegExp('<h3>'+module.replace(/[.*+?^\${}()|[\]\\]/g,'\\  const pattern=new RegExp('<h3>'+module.replace(/[.*+?^$\\{}()|[\\]\\\\]/g,'\\const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);')+'<\\/h3>\\s*<span class="tool-credit">'+author+'<\\/span>');')+'<\\/h3>\\s*<span class="tool-credit">'+author+'<\\/span>');
+  const pattern=new RegExp('<h3>'+module+'<\\/h3>\\s*<span class="tool-credit">'+author+'<\\/span>');
   if(!pattern.test(portfolioHtml))fail('module credits must live on dashboard cards only: '+module);
 }
 
