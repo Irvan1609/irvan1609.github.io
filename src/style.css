@@ -4645,3 +4645,92 @@ body.analysis-results-open{overflow:hidden}
     font-size:16px!important;
   }
 }
+
+
+/* STAT UNIFORM ANALYSIS CARDS 2026-09-26 */
+.analysis-group-board{
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+}
+.analysis-compact-group,
+.analysis-compact-group:first-child{
+  grid-column:auto!important;
+  width:100%!important;
+}
+.analysis-compact-group-title{
+  height:28px!important;
+  min-height:28px!important;
+  padding:4px 7px!important;
+  font-size:9px!important;
+  line-height:1!important;
+}
+.analysis-compact-items,
+.analysis-compact-group:not(:first-child) .analysis-compact-items{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  grid-auto-rows:42px!important;
+  gap:3px!important;
+  padding:4px!important;
+}
+.analysis-compact-item{
+  width:100%!important;
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  grid-template-columns:30px minmax(0,1fr)!important;
+  gap:6px!important;
+  padding:4px 6px!important;
+  border-radius:5px!important;
+  font-size:9.5px!important;
+  line-height:1!important;
+}
+.analysis-compact-item>span{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  min-height:30px!important;
+  border-radius:5px!important;
+  font-size:8px!important;
+  line-height:1!important;
+}
+.analysis-compact-item>b{
+  font-size:9.5px!important;
+  line-height:1.1!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+@media(max-width:900px){
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:44px!important;
+  }
+  .analysis-compact-item{
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+  }
+}
+@media(max-width:600px){
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:46px!important;
+  }
+  .analysis-compact-item{
+    height:46px!important;
+    min-height:46px!important;
+    max-height:46px!important;
+    grid-template-columns:30px minmax(0,1fr)!important;
+    padding:4px 5px!important;
+  }
+  .analysis-compact-item>span{
+    width:30px!important;
+    height:30px!important;
+  }
+  .analysis-compact-item>b{
+    font-size:9.5px!important;
+  }
+}
