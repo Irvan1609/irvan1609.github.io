@@ -179,7 +179,7 @@ function freshState(){
     log:[{day:1,text:'Field Zero aktif. Empat galur starter tersedia di Seed Vault.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']}
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null
   };
 }
 function load(){
@@ -263,6 +263,137 @@ function applyWaterAid(aid){
   addLog('💧 '+String(aid?.helper?.name||'Teman').slice(0,40)+' membantu P'+String(target.index+1).padStart(2,'0')+'.');
   toast('💧 Bantuan teman masuk ke P'+String(target.index+1).padStart(2,'0'));
   beep(520,.07);render();return true;
+}
+
+const STAT_IMPORT_KEY='agrotik_stat_import_queue_v1';
+function experimentUnit(index){return state.experiment?.units?.find(unit=>unit.plot===index)||null;}
+function experimentTreatment(unit){return unit&&state.experiment?.treatments?.find(item=>item.id===unit.treatmentId)||null;}
+function experimentSeedForPlot(index){
+  if(state.experiment?.kind!=='genotype')return null;
+  const treatment=experimentTreatment(experimentUnit(index));return treatment?.seedId?state.vault.find(seed=>seed.id===treatment.seedId)||null:null;
+}
+function experimentBadge(index){
+  const unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!unit||!treatment)return '';
+  const repLabel=state.experiment.design==='rak'?'K':'U';
+  return `<span class="experiment-badge ${unit.applied?'applied':''}" title="${esc(treatment.name)} · ${repLabel}${unit.rep}">${esc(treatment.code)}·${repLabel}${unit.rep}${unit.applied?'✓':''}</span>`;
+}
+function randomizedExperimentUnits(design,treatments,reps){
+  const items=[];
+  if(design==='rak'){
+    for(let rep=1;rep<=reps;rep++)shuffle(treatments).forEach(treatment=>items.push({treatmentId:treatment.id,rep}));
+  }else{
+    const pool=[];for(const treatment of treatments)for(let i=0;i<reps;i++)pool.push(treatment);
+    const counts={};shuffle(pool).forEach(treatment=>{counts[treatment.id]=(counts[treatment.id]||0)+1;items.push({treatmentId:treatment.id,rep:counts[treatment.id]});});
+  }
+  return items.map((item,plot)=>({plot,...item,applied:false,observations:{}}));
+}
+function experimentTreatments(kind,count,custom=''){
+  if(kind==='genotype')return state.vault.slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id}));
+  if(kind==='nitrogen'){
+    const levels=[0,50,100,150,200,250];return levels.slice(0,count).map((dose,index)=>({id:'N'+index,code:'N'+dose,name:'N '+dose+' kg/ha',dose}));
+  }
+  const names=String(custom||'').split(',').map(x=>x.trim()).filter(Boolean);
+  return Array.from({length:count},(_,index)=>({id:'P'+(index+1),code:'P'+(index+1),name:names[index]||('P'+(index+1))}));
+}
+function createExperiment({name,design,kind,count,reps,custom,parameters}){
+  const treatments=experimentTreatments(kind,count,custom),total=treatments.length*reps;
+  if(treatments.length<2||reps<2||total>PLOT_COUNT)throw Error('Gunakan ≥2 perlakuan, ≥2 ulangan, total maksimal 12 petak.');
+  if(kind==='genotype'&&treatments.length<count)throw Error('Benih di Koleksi Benih belum cukup.');
+  const params=unique(String(parameters||'Hasil').split(',').map(x=>x.trim()).filter(Boolean)).slice(0,8);
+  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],units:randomizedExperimentUnits(design,treatments,reps),createdAt:new Date().toISOString()};
+  state.selectedPlot=0;activeFieldTool='';addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+'.');render();openExperiment();
+}
+function applyExperimentTreatment(index){
+  const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return false;
+  if(exp.kind==='genotype'){toast('🌱 = '+treatment.code);return false;}
+  if(unit.applied){toast('🧪✓');return false;}
+  unit.applied=true;
+  const crop=state.field[index];
+  if(exp.kind==='nitrogen'){
+    const bonus=Math.min(50,Math.round((Number(treatment.dose)||0)/5));
+    unit.nBonus=bonus;if(crop)crop.n=clamp(crop.n+bonus);
+  }
+  addLog('P'+String(index+1).padStart(2,'0')+': 🧪 '+treatment.name+'.');beep(500,.05);render();return true;
+}
+function applyPendingExperimentEffect(index,crop){
+  const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return;
+  if(exp.kind==='genotype'){unit.applied=true;return;}
+  if(unit.applied&&exp.kind==='nitrogen')crop.n=clamp(crop.n+(unit.nBonus||Math.min(50,Math.round((Number(treatment.dose)||0)/5))));
+}
+function recordExperimentObservation(index,crop,yieldValue){
+  const exp=state.experiment,unit=experimentUnit(index);if(!exp||!unit)return;
+  const values={
+    hasil:yieldValue,
+    kesehatan:round(crop.health,1),
+    stres:round(crop.stress,1),
+    penyakit:round(crop.disease,1),
+    air:round(crop.water,1),
+    nitrogen:round(crop.n,1)
+  };
+  for(const parameter of exp.parameters){
+    const key=parameter.toLocaleLowerCase('id-ID').replace(/[^a-z0-9]/g,'');
+    if(key.includes('hasil')||key==='yield')unit.observations[parameter]=yieldValue;
+    else if(key.includes('kesehatan')||key==='health')unit.observations[parameter]=values.kesehatan;
+    else if(key.includes('stres')||key==='stress')unit.observations[parameter]=values.stres;
+    else if(key.includes('penyakit')||key==='disease')unit.observations[parameter]=values.penyakit;
+    else if(key==='air'||key.includes('water'))unit.observations[parameter]=values.air;
+    else if(key.includes('nitrogen')||key==='n')unit.observations[parameter]=values.nitrogen;
+  }
+}
+function experimentDataset(){
+  const exp=state.experiment;if(!exp)return null;
+  const repHeader=exp.design==='rak'?'Kelompok':'Ulangan';
+  const headers=['Perlakuan',repHeader,...exp.parameters];
+  const rows=exp.units.map(unit=>{
+    const treatment=experimentTreatment(unit);
+    return [treatment?.name||treatment?.code||'',String(unit.rep),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??''))];
+  });
+  return {name:exp.name,headers,rows,plant:exp.kind==='genotype'?'Uji galur Field Zero':'Field Zero',treatment:`${exp.design.toUpperCase()} · ${exp.treatments.length} perlakuan · ${exp.reps} ${exp.design==='rak'?'kelompok':'ulangan'}`,design:exp.design};
+}
+function sendExperimentToStat(){
+  const payload=experimentDataset();if(!payload)return;
+  try{localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({...payload,source:'field-zero',createdAt:new Date().toISOString()}));location.href='/stat/?from=field-zero&design='+encodeURIComponent(payload.design);}
+  catch{toast('Gagal menyiapkan dataset');}
+}
+function experimentTableHtml(){
+  const exp=state.experiment;if(!exp)return '';
+  const repLabel=exp.design==='rak'?'K':'U';
+  return `<div class="experiment-table-wrap"><table class="experiment-table"><thead><tr><th>P</th><th>Perlakuan</th><th>${repLabel}</th><th>🧪</th>${exp.parameters.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${exp.units.map(unit=>{
+    const t=experimentTreatment(unit);
+    return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function experimentSummaryHtml(){
+  const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span></div>`;
+}
+function openExperiment(){
+  if(!state.experiment){
+    openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form">
+      <label>Mode<select name="kind"><option value="genotype">🌱 Uji galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
+      <label>Rancangan<select name="design"><option value="rak">RAK</option><option value="ral">RAL</option></select></label>
+      <label>Perlakuan<input name="count" type="number" min="2" max="6" value="4"></label>
+      <label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"></label>
+      <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
+      <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
+      <label class="experiment-wide">Parameter<input name="parameters" value="Hasil,Kesehatan,Stres,Penyakit"></label>
+      <button class="primary experiment-wide" type="submit">🎲 Randomisasi</button>
+    </form><p class="meta-note">RAL: acak seluruh petak. RAK: setiap kelompok berisi semua perlakuan.</p>`);
+    $('#experimentForm').onsubmit=event=>{
+      event.preventDefault();const fd=new FormData(event.currentTarget);
+      try{createExperiment({name:fd.get('name'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters')});}
+      catch(error){alert(error.message);}
+    };
+    return;
+  }
+  const exp=state.experiment;
+  openMetaModal('RANCOB AKTIF',exp.name,`${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Data panen terisi otomatis; parameter lain dapat diketik.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{
+    const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}
+  });
+  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{if(confirm('Acak ulang posisi perlakuan? Data pengamatan dikosongkan.')){exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps);render();openExperiment();}};
+  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';render();closeMetaModal();}};
+  $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
 
 function hasTech(id){return state.tech.includes(id);}
@@ -430,10 +561,10 @@ function statusClass(crop){
   return '';
 }
 function toolLabel(tool){
-  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen'})[tool]||'';
+  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen',treatment:'Perlakuan'})[tool]||'';
 }
 function toolSymbol(tool){
-  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺'})[tool]||'•';
+  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺',treatment:'🧪'})[tool]||'•';
 }
 function playHint(){
   if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
