@@ -458,14 +458,9 @@ function blockingAdvanceIssues(){
   const issues=[];
   if(state.pendingEvent)issues.push('kejadian lapang belum diputuskan');
   const exp=state.experiment;
-  if(exp){
-    if(exp.kind==='genotype'){
-      const empty=exp.units.filter(unit=>!state.field[unit.plot]).length;
-      if(empty)issues.push(empty+' petak penelitian belum ditanami');
-    }else{
-      const unapplied=exp.units.filter(unit=>state.field[unit.plot]&&!unit.applied).length;
-      if(unapplied)issues.push(unapplied+' perlakuan belum diterapkan');
-    }
+  if(exp&&exp.kind!=='genotype'){
+    const unapplied=exp.units.filter(unit=>state.field[unit.plot]&&!unit.applied).length;
+    if(unapplied)issues.push(unapplied+' perlakuan belum diterapkan');
   }
   return issues;
 }
@@ -1913,9 +1908,12 @@ function updateFieldPressure(){
   };
 }
 function advanceDay(){
-  clearUndo();if(state.pendingEvent){renderEvent();return;}
+  clearUndo();
+  const blockers=blockingAdvanceIssues();
+  if(blockers.length){renderAdvanceNotice();if(state.pendingEvent)renderEvent();else toast('Selesaikan dulu · '+blockers[0]);return;}
   if(state.day>=state.maxDay){finishSeason();return;}
-  state.day++;harvestCombo=0;state.focus=focusMax(state.level);
+  checkpoint('Sebelum Hari '+(state.day+1));
+  state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=focusMax(state.level);
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
   }else state.weather=deterministicWeather(state.env,state.day);
