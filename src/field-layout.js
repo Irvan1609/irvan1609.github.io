@@ -119,7 +119,7 @@ function visualForPlot(entry,scale){
   if(config.colorMode==='parameter'&&scale){
     const value=Number(String(entry.row[scale.index]??'').replace(',','.'));
     if(Number.isFinite(value)){
-      const ratio=scale.max===scale.min?.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
+      const ratio=scale.max===scale.min?0.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
       return {hue:220-(ratio*220),heat:true,label:String(entry.row[scale.index]??'')};
     }
   }
