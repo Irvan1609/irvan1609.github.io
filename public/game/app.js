@@ -687,16 +687,48 @@ function applyTreatmentModel(crop,treatment){
     if(Number(treatment.dose)>=250){crop.stress=clamp(crop.stress+5,0,120);}
   }
 }
-function createExperiment({name,question,design,kind,count,reps,custom,kindB='water',countB=2,customB='',parameters,frequency=2}){
-  const factorial=['fral','frak','split'].includes(design);if(factorial&&!advancedDesignUnlocked())throw Error('Selesaikan satu percobaan dasar atau capai Level 3 untuk membuka faktorial/RPT.');
-  if(['rak','frak','split'].includes(design))reps=BLOCK_COUNT;
-  const treatments=factorial?factorialTreatments(kind,count,custom,kindB,countB,customB):experimentTreatments(kind,count,custom),total=treatments.length*reps;
-  if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');if(treatments.length<2||reps<2||total>fieldLimit())throw Error('Gunakan ≥2 unit perlakuan, ≥2 ulangan, dan total ≤ petak aktif.');
+function createExperiment({name,question,design,kind,count,reps,custom,kindB='water',countB=2,customB='',checkCount=2,parameters,frequency=2}){
+  const factorial=['fral','frak','split'].includes(design),augmented=design==='aug';
+  if(factorial&&!advancedDesignUnlocked())throw Error('Selesaikan satu percobaan dasar atau capai Level 3 untuk membuka faktorial/RPT.');
+  if(augmented&&state.season<2&&state.level<2)throw Error('Augmented design terbuka mulai musim 2.');
+  if(augmented)kind='genotype';
+  if(['rak','frak','split','aug'].includes(design))reps=BLOCK_COUNT;
+  checkCount=Math.max(1,Math.min(3,Number(checkCount)||2));
+  const treatments=augmented?augmentedTreatments(count,checkCount):(factorial?factorialTreatments(kind,count,custom,kindB,countB,customB):experimentTreatments(kind,count,custom));
+  const total=augmented?Number(count)+checkCount*BLOCK_COUNT:treatments.length*reps;
+  if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
+  if(augmented){
+    if(count<2)throw Error('Gunakan minimal 2 galur baru.');
+    if(speciesVault().length<count+checkCount)throw Error('Koleksi Benih belum cukup: butuh '+checkCount+' check + '+count+' galur baru.');
+    if(total>fieldLimit())throw Error('Augmented membutuhkan '+total+' petak; kapasitas aktif '+fieldLimit()+'.');
+  }else{
+    if(treatments.length<2||reps<2||total>fieldLimit())throw Error('Gunakan ≥2 unit perlakuan, ≥2 ulangan, dan total ≤ petak aktif.');
+    if(kind==='genotype'&&speciesVault().length<count)throw Error('Benih spesies aktif di Koleksi Benih belum cukup.');
+  }
   if(['rak','frak','split'].includes(design)&&treatments.length>PLOTS_PER_BLOCK)throw Error('Rancangan berkelompok maksimal 8 kombinasi per kelompok pada lahan 3×8.');
-  if(kind==='genotype'&&speciesVault().length<count)throw Error('Benih spesies aktif di Koleksi Benih belum cukup.');if(factorial&&kindB==='genotype'&&speciesVault().length<countB)throw Error('Benih spesies aktif untuk Faktor B belum cukup.');if(factorial&&kind==='genotype'&&kindB==='genotype')throw Error('Gunakan genotipe hanya pada salah satu faktor agar identitas tanaman tetap jelas.');
-  const params=unique(String(parameters||recommendedParameters(state.species).slice(0,10).join(',')).split(',').map(x=>x.trim()).filter(Boolean)).slice(0,12),seed=hashString(state.simulationSeed+':'+state.season+':'+String(name||'rancob'));state.plotUse=state.plotUse.map(()=> 'commercial');
-  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',question:String(question||'Apakah perlakuan memengaruhi respons tanaman?').trim().slice(0,180),design,kind,kindB:factorial?kindB:'',factorial,treatments,reps,controlId:kind==='genotype'?'':(treatments[0]?.id||''),factorA:factorial?{kind,levels:count,label:'Faktor A'}:null,factorB:factorial?{kind:kindB,levels:countB,label:'Faktor B'}:null,parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
-  state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});academyMark('design-randomization',{note:'Menerapkan randomisasi, replikasi, dan struktur rancangan'});state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';addLog('📐 '+design.toUpperCase()+' · '+treatments.length+' '+(factorial?'kombinasi':'perlakuan')+' × '+reps+' · petak lain tetap untuk produksi.');render();openExperiment();
+  if(factorial&&kindB==='genotype'&&speciesVault().length<countB)throw Error('Benih spesies aktif untuk Faktor B belum cukup.');
+  if(factorial&&kind==='genotype'&&kindB==='genotype')throw Error('Gunakan genotipe hanya pada salah satu faktor agar identitas tanaman tetap jelas.');
+  const params=unique(String(parameters||recommendedParameters(state.species).slice(0,10).join(',')).split(',').map(x=>x.trim()).filter(Boolean)).slice(0,12),seed=hashString(state.simulationSeed+':'+state.season+':'+String(name||'rancob'));
+  checkpoint('Sebelum membuat '+String(design).toUpperCase());
+  state.plotUse=state.plotUse.map(()=> 'commercial');
+  state.experiment={
+    id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',
+    question:String(question||'Apakah perlakuan memengaruhi respons tanaman?').trim().slice(0,180),
+    design,kind,kindB:factorial?kindB:'',factorial,augmented,checkCount:augmented?checkCount:0,treatments,reps,
+    controlId:augmented?(treatments.find(t=>t.isCheck)?.id||''):(kind==='genotype'?'':(treatments[0]?.id||'')),
+    factorA:factorial?{kind,levels:count,label:'Faktor A'}:null,factorB:factorial?{kind:kindB,levels:countB,label:'Faktor B'}:null,
+    parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,
+    seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false,reviewed:false
+  };
+  state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
+  academyMark('design-randomization',{note:'Menerapkan randomisasi, replikasi, dan struktur rancangan'});
+  if(augmented)academyMark('design-augmented',{note:'Menggunakan check berulang untuk skrining galur baru'});
+  state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';
+  const desc=augmented?(count+' galur baru + '+checkCount+' check × 3 kelompok'):(treatments.length+' '+(factorial?'kombinasi':'perlakuan')+' × '+reps);
+  addLog('📐 '+design.toUpperCase()+' · '+desc+'.');
+  noteBreeder('rancangan',String(design).toUpperCase()+' · '+desc,{experimentId:state.experiment.id});
+  recordDecision('design','Memilih '+String(design).toUpperCase(),desc);
+  render();openExperiment();
 }
 function applyExperimentTreatment(index){
   const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return false;
