@@ -581,7 +581,7 @@ function applySampleMeans(values){
 function companionContext(){
   if(!Number.isInteger(selectedRow))return null;
   const active=activeParameterIndex(),labels=plotLabel(current,current.rows[selectedRow],selectedRow);
-  return {version:1,dataset:keyFor(current),datasetName:current.name,uid:plotUid(selectedRow),row:selectedRow,plot:labels.id,parameter:active>=0?current.headers[active]:'',observer:String(config.observer||''),session:String(config.session?.label||''),returnUrl:location.pathname};
+  return {version:1,dataset:keyFor(current),datasetName:current.name,uid:plotUid(selectedRow),row:selectedRow,plot:labels.id,parameter:active>=0?current.headers[active]:'',observer:String(config.observer||''),session:String(config.session?.label||''),returnUrl:location.pathname+'#field-return'};
 }
 function openCompanion(path,type){
   if(dirty)saveEditor({quiet:true,rerender:false});
