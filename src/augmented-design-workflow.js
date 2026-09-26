@@ -20,7 +20,7 @@ function choose(select,regex,data,exclude=[]){
 }
 function firstCategorical(data,exclude=[]){return data.headers.findIndex((_,index)=>!exclude.includes(index)&&!isNumeric(data,index));}
 function parameterField(data){
-  return `<fieldset><legend>Parameter terpilih</legend><p class="form-help">Semua kolom numerik dipilih otomatis. Kolom Blok dan Genotipe akan dikeluarkan dari parameter.</p><div class="ral-list">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="ral-check"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div></fieldset>`;
+  return `<div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
 }
 function syncParameters(){
   const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
@@ -48,6 +48,35 @@ function fillChecks(data){
 }
 function parseChecks(text){
   return [...new Set(String(text||'').split(/[,;\n]+/).map(value=>value.trim()).filter(Boolean))];
+}
+function uniqueValues(data,index){
+  if(index===null||index===undefined||index<0)return [];
+  return [...new Set(activeRows(data).map(row=>String(row[index]??'').trim()).filter(Boolean))];
+}
+function structurePreview(data){
+  const host=$('#augStructure');
+  if(!host)return;
+  const blockValue=$('#augBlock')?.value,treatmentValue=$('#augTreatment')?.value;
+  if(blockValue===''||treatmentValue===''){
+    host.innerHTML='<div class="aug-review-empty">Pilih blok dan genotipe.</div>';return;
+  }
+  const blockIndex=Number(blockValue),treatmentIndex=Number(treatmentValue),blocks=uniqueValues(data,blockIndex),treatments=uniqueValues(data,treatmentIndex);
+  const checks=parseChecks($('#augChecks')?.value),checkSet=new Set(checks);
+  const tests=treatments.filter(value=>!checkSet.has(value));
+  const rows=activeRows(data),duplicates=[];
+  const seen=new Set();
+  for(const row of rows){
+    const key=String(row[blockIndex]??'').trim()+'\u0000'+String(row[treatmentIndex]??'').trim();
+    if(seen.has(key))duplicates.push(key);else seen.add(key);
+  }
+  const repeatedNonChecks=tests.filter(value=>rows.filter(row=>String(row[treatmentIndex]??'').trim()===value).length>1);
+  const problems=[];
+  if(checks.length<2)problems.push('Minimal 2 check berulang');
+  if(duplicates.length)problems.push(duplicates.length+' unit duplikat');
+  if(repeatedNonChecks.length)problems.push(repeatedNonChecks.length+' test berulang');
+  const status=problems.length?'Periksa':'Siap';
+  host.innerHTML=`<div class="aug-review-status ${problems.length?'warn':'good'}"><b>${status}</b><span>${problems.length?esc(problems.join(' · ')):'Struktur dasar sesuai augmented RCBD'}</span></div>
+    <div class="aug-review-metrics"><span><b>${blocks.length}</b><small>Blok</small></span><span><b>${checks.length}</b><small>Check</small></span><span><b>${tests.length}</b><small>Entry uji</small></span><span><b>${rows.length}</b><small>Plot</small></span></div>`;
 }
 function ket(term){
   if(!Number.isFinite(term?.p))return '';
@@ -85,24 +114,31 @@ function sedTable(out){
 }
 function renderAugmented(out,name,dataName){
   const warning=out.warnings.length?`<div class="analysis-smart-warning"><b>Periksa rancangan:</b> ${out.warnings.map(esc).join(' ')}</div>`:'';
+  const cv=Number.isFinite(out.cv)?fmt(out.cv,2)+'%':'—';
   return `<section class="analysis-result augmented-result" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
     <h3>Augmented RCBD — ${esc(name)}</h3>
     ${resultActions(`augmented-${name}`)}
-    <div class="analysis-lead">N=${out.n}; blok=${out.blocks.length}; check=${out.checks.length}; entry uji=${out.tests.length}; db galat=${out.dfError}; KT galat=${fmt(out.mse)}; CV=${Number.isFinite(out.cv)?fmt(out.cv,2)+'%':'—'}.</div>
+    <div class="aug-result-summary">
+      <span><b>${out.blocks.length}</b><small>Blok</small></span>
+      <span><b>${out.checks.length}</b><small>Check</small></span>
+      <span><b>${out.tests.length}</b><small>Entry uji</small></span>
+      <span><b>${out.dfError}</b><small>db galat</small></span>
+      <span><b>${fmt(out.mse)}</b><small>KT galat</small></span>
+      <span><b>${cv}</b><small>CV</small></span>
+    </div>
     ${warning}
-    <div class="analysis-note"><b>Model:</b> ${esc(out.model)}. Check: ${out.checks.map(esc).join(', ')}. Rerata check terkoreksi = ${fmt(out.checkAdjustedMean)}.</div>
-    <div class="table-caption">ANOVA — perlakuan dikoreksi terhadap blok</div>
-    ${anovaTable(out.treatmentAdjusted)}
-    <div class="table-caption">ANOVA — blok dikoreksi terhadap perlakuan</div>
-    ${anovaTable(out.blockAdjusted)}
-    <div class="table-caption">Rataan genotipe terkoreksi blok</div>
+    <div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmt(out.checkAdjustedMean)}</b></span></div>
+    <div class="aug-anova-grid">
+      <section><div class="table-caption">Perlakuan | dikoreksi blok</div>${anovaTable(out.treatmentAdjusted)}</section>
+      <section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted)}</section>
+    </div>
+    <div class="table-caption aug-main-caption">Adjusted mean genotipe</div>
     ${adjustedMeansTable(out)}
-    <div class="analysis-note">Δ vs rerata check membandingkan setiap entry uji terhadap rerata marginal seluruh check menggunakan ragam kovarians model. ↑/↓ menunjukkan arah selisih; * p &lt; 0,05; ** p &lt; 0,01; tn = tidak nyata. Ranking hanya berdasarkan adjusted mean dan bukan keputusan seleksi otomatis.</div>
-    <div class="table-caption">Efek blok</div>
-    ${blockTable(out)}
-    <div class="table-caption">Ketelitian perbandingan</div>
-    ${sedTable(out)}
-    <div class="analysis-note">BNT ditampilkan per tipe pasangan karena SE beda pada augmented design dapat berbeda antara test dalam blok yang sama, test antarblok, dan test–check. Galur uji tidak memperoleh galat dari replikasi sendiri; presisi berasal dari check berulang yang menghubungkan blok.</div>
+    <div class="analysis-note">Δ vs rerata check memakai rerata marginal seluruh check. ↑/↓ menunjukkan arah; * p &lt; 0,05; ** p &lt; 0,01; tn = tidak nyata. Rank hanya mengurutkan adjusted mean.</div>
+    <div class="aug-secondary-grid">
+      <section><div class="table-caption">Efek blok</div>${blockTable(out)}</section>
+      <section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section>
+    </div>
   </section>`;
 }
 async function showResults(html,title,data,parameterCount){
@@ -127,26 +163,43 @@ async function showResults(html,title,data,parameterCount){
 export function openAugmentedDesign(){
   const data=readDataset();
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
-  openTool('Augmented Design / Augmented RCBD',`<p>Untuk skrining galur awal: <b>entry uji umumnya hanya satu kali</b>, sedangkan <b>check diulang pada beberapa blok</b>. Efek blok diestimasi dari check dan digunakan untuk memperoleh adjusted mean setiap entry.</p>
-    <div class="form-grid">
-      <label>Blok / Kelompok<select id="augBlock">${columnOptions(data)}</select></label>
-      <label>Genotipe / Entry<select id="augTreatment">${columnOptions(data)}</select></label>
-      <label>Check berulang<input id="augChecks" type="text" autocomplete="off" placeholder="mis. T1, T2, T3"></label>
-      <label>Taraf nyata<select id="augAlpha"><option value="0.05">0,05 (5%)</option><option value="0.01">0,01 (1%)</option></select></label>
+  openTool('Augmented Design',`<div class="augmented-workspace">
+    <div class="aug-context">
+      <span class="aug-mark">AD</span>
+      <div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot · check berulang + entry uji tanpa ulangan</small></div>
     </div>
-    <p class="form-help">Pisahkan nama check dengan koma. Jika kolom genotipe diganti, daftar check dideteksi ulang dari genotipe yang muncul lebih dari satu kali.</p>
-    ${parameterField(data)}
-    <button id="runAugmented" class="primary" type="button">Jalankan Augmented Design</button>
+    <div class="aug-config-layout">
+      <section class="aug-card">
+        <div class="aug-card-head"><b>1 · Struktur</b><small>Kolom rancangan</small></div>
+        <div class="aug-form">
+          <label><span>Blok / Kelompok</span><select id="augBlock">${columnOptions(data)}</select></label>
+          <label><span>Genotipe / Entry</span><select id="augTreatment">${columnOptions(data)}</select></label>
+          <label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label>
+          <label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label>
+        </div>
+        <small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul &gt;1 kali. Anda tetap dapat mengubah daftar ini.</small>
+      </section>
+      <section class="aug-card aug-parameter-card">
+        <div class="aug-card-head"><b>2 · Parameter</b><small>Pilih respons numerik</small></div>
+        ${parameterField(data)}
+      </section>
+      <aside class="aug-card aug-review-card">
+        <div class="aug-card-head"><b>3 · Pemeriksaan</b><small>Sebelum analisis</small></div>
+        <div id="augStructure"></div>
+      </aside>
+    </div>
     <div id="augmentedError" role="alert"></div>
-    <div id="augmentedPreview"></div>`);
+    <div class="aug-runbar"><span>Model: μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Jalankan analisis</button></div>
+  </div>`,'augmented');
 
   let treatment=choose($('#augTreatment'),/(genotip|genotype|galur|variet|entry|aksesi|perlakuan|treatment)/i,data);
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
-  fillChecks(data);syncParameters();
-  $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();});
-  $('#augBlock').addEventListener('change',syncParameters);
+  fillChecks(data);syncParameters();structurePreview(data);
+  $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
+  $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});
+  $('#augChecks').addEventListener('input',()=>structurePreview(data));
 
   $('#runAugmented').onclick=async()=>{
     const error=$('#augmentedError');error.innerHTML='';

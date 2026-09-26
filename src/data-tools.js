@@ -116,5 +116,10 @@ export function installDataTools(){
     }catch(e){$('#templateStatus').textContent=e.message;}finally{button.disabled=false;$('#createTemplateDataset').disabled=false;}};
   };
 }
-export function openTool(title,html){$('#dataToolTitle').textContent=title;$('#dataToolBody').innerHTML=html;$('#dataToolModal').classList.add('open');}
+export function openTool(title,html,mode=''){
+  const modal=$('#dataToolModal'),body=$('#dataToolBody');
+  $('#dataToolTitle').textContent=title;body.innerHTML=html;
+  modal.dataset.toolMode=String(mode||'');
+  modal.classList.add('open');
+}
 export function downloadBlob(buffer,name){const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
