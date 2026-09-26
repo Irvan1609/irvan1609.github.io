@@ -113,6 +113,10 @@ export function evidenceLabel({tests=0,generation=0,stressTests=0}={}){
 }
 
 const LOCI=['YLD','MAT','WUE','DIS'];
+const LINKAGE_GROUPS=[
+  {id:'chr1',loci:['YLD','MAT'],recombination:.18},
+  {id:'chr2',loci:['WUE','DIS'],recombination:.24}
+];
 function allele(seed,key,index){return [-1,0,1][Math.floor(unit(hash([seed,key,index].join(':')))*3)];}
 export function founderGenome(seedId,simulationSeed=1){
   return Object.fromEntries(LOCI.map(key=>[key,[allele(simulationSeed+':'+seedId,key,0),allele(simulationSeed+':'+seedId,key,1)]]));
@@ -121,28 +125,35 @@ export function normalizeGenome(genome,seedId='seed',simulationSeed=1){
   if(genome&&LOCI.every(key=>Array.isArray(genome[key])&&genome[key].length===2))return genome;
   return founderGenome(seedId,simulationSeed);
 }
+function linkedGamete(genome,key='gamete'){
+  const g=normalizeGenome(genome,key),gamete={};
+  for(const group of LINKAGE_GROUPS){
+    let homolog=unit(hash(key+':'+group.id+':phase'))<.5?0:1;
+    group.loci.forEach((locus,index)=>{
+      if(index>0&&unit(hash(key+':'+group.id+':recomb:'+index))<group.recombination)homolog=1-homolog;
+      gamete[locus]=g[locus][homolog];
+    });
+  }
+  return gamete;
+}
 export function crossGenome(parentA,parentB,key='cross'){
-  const a=normalizeGenome(parentA,key+':A'),b=normalizeGenome(parentB,key+':B');
-  return Object.fromEntries(LOCI.map((locus,i)=>{
-    const pickA=a[locus][unit(hash(key+':'+locus+':a'))<.5?0:1],pickB=b[locus][unit(hash(key+':'+locus+':b'))<.5?0:1];
-    return [locus,[pickA,pickB]];
-  }));
+  const a=linkedGamete(parentA,key+':A'),b=linkedGamete(parentB,key+':B');
+  return Object.fromEntries(LOCI.map(locus=>[locus,[a[locus],b[locus]]]));
 }
 export function selfGenome(parent,key='self'){
-  const g=normalizeGenome(parent,key);
-  return Object.fromEntries(LOCI.map(locus=>[
-    locus,
-    [g[locus][unit(hash(key+':'+locus+':1'))<.5?0:1],g[locus][unit(hash(key+':'+locus+':2'))<.5?0:1]]
-  ]));
+  const a=linkedGamete(parent,key+':self:1'),b=linkedGamete(parent,key+':self:2');
+  return Object.fromEntries(LOCI.map(locus=>[locus,[a[locus],b[locus]]]));
 }
 export function geneticEffects(genome){
   const g=normalizeGenome(genome,'effects'),value=locus=>(Number(g[locus]?.[0])||0)+(Number(g[locus]?.[1])||0),hetero=locus=>g[locus]?.[0]!==g[locus]?.[1];
+  const heterozygosity=LOCI.filter(hetero).length/LOCI.length,inbreeding=1-heterozygosity,heterosis=heterozygosity*.035;
   return {
-    yield:Math.max(.86,Math.min(1.16,1+value('YLD')*.035+(hetero('YLD')?.018:0))),
+    yield:Math.max(.84,Math.min(1.18,1+value('YLD')*.035+(hetero('YLD')?.018:0)+heterosis-inbreeding*.012)),
     growth:Math.max(.9,Math.min(1.1,1+value('MAT')*.025)),
     waterLoss:Math.max(.88,Math.min(1.12,1-value('WUE')*.035)),
     diseaseRisk:Math.max(.86,Math.min(1.14,1-value('DIS')*.04)),
-    heterozygosity:LOCI.filter(hetero).length/LOCI.length
+    heterozygosity,inbreeding,heterosis,
+    linkageGroups:LINKAGE_GROUPS.map(group=>({id:group.id,loci:[...group.loci],recombination:group.recombination}))
   };
 }
 
