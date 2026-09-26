@@ -1359,10 +1359,58 @@ async function handleDevelopAllDatasets(request,env,url){
 async function handleDevelopContributions(request,env,url){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureContributionSchema(env);
   const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||100));
-  const result=await env.DB.prepare(`SELECT id,sample,width,height,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at
+  const result=await env.DB.prepare(`SELECT id,sample,width,height,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_size_bytes,created_at
     FROM contributions ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
-  return json(request,env,{items:result.results||[]});
+  return json(request,env,{items:result.results||[],imagesR2:Boolean(env.IMAGES)});
+}
+function contributionImageExtension(mimeType){
+  return mimeType==='image/png'?'png':mimeType==='image/jpeg'?'jpg':'webp';
+}
+function contributionImageKey(row){
+  const created=String(row.created_at||new Date().toISOString());
+  return `contributions/${created.slice(0,7).replace('-','/')}/${row.id}.${contributionImageExtension(row.mime_type)}`;
+}
+async function migrateLegacyContributionImages(env,actor=null,limit=25){
+  await ensureContributionSchema(env);
+  if(!env.IMAGES)return {ok:false,error:'r2_not_configured',migrated:0,remaining:null};
+  const batch=Math.min(50,Math.max(1,Number(limit)||25));
+  const rows=await env.DB.prepare(`SELECT id,image,mime_type,created_at
+    FROM contributions
+    WHERE length(image)>0 AND (storage_backend!='r2' OR image_object_key IS NULL)
+    ORDER BY created_at ASC LIMIT ?`).bind(batch).all();
+  let migrated=0,bytes=0;
+  for(const row of rows.results||[]){
+    const imageBytes=row.image?new Uint8Array(row.image):null;
+    if(!imageBytes?.byteLength)continue;
+    const key=contributionImageKey(row);
+    try{
+      await env.IMAGES.put(key,imageBytes,{httpMetadata:{contentType:row.mime_type||'application/octet-stream'},customMetadata:{contributionId:row.id,createdAt:row.created_at||''}});
+      try{
+        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_size_bytes=?,storage_backend='r2',updated_at=COALESCE(updated_at,?) WHERE id=?`)
+          .bind(new Uint8Array(0),key,imageBytes.byteLength,new Date().toISOString(),row.id).run();
+      }catch(error){
+        await env.IMAGES.delete(key).catch(()=>{});
+        throw error;
+      }
+      migrated++;bytes+=imageBytes.byteLength;
+    }catch(error){
+      console.warn('Legacy contribution image migration failed',row.id,error?.message||error);
+      break;
+    }
+  }
+  const remaining=await env.DB.prepare(`SELECT COUNT(*) AS n FROM contributions WHERE length(image)>0 AND (storage_backend!='r2' OR image_object_key IS NULL)`).first();
+  if(actor&&migrated)await audit(env,actor,'contribution.images_migrated','contribution','batch',{migrated,bytes,remaining:Number(remaining?.n||0)});
+  return {ok:true,migrated,bytes,remaining:Number(remaining?.n||0)};
+}
+async function handleDevelopContributionImageMigration(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(!env.IMAGES)return json(request,env,{error:'r2_not_configured',message:'R2 IMAGES belum terikat ke Worker.'},409);
+  const body=await request.json().catch(()=>({}));
+  const result=await migrateLegacyContributionImages(env,access.user,body?.limit||25);
+  return json(request,env,result);
 }
 async function handleDevelopAudit(request,env,url){
   const access=await requireAdminUser(request,env);
@@ -2092,6 +2140,7 @@ export default {
   async scheduled(event,env,ctx){
     ctx.waitUntil((async()=>{
       await cleanupCloudData(env);
+      if(env.IMAGES)await migrateLegacyContributionImages(env,null,25);
       if(env.BACKUPS)await createBackupSnapshot(env,null,'scheduled');
     })().catch(error=>console.error('scheduled maintenance failed',error)));
   },
@@ -2162,6 +2211,7 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/develop/payments')return await handleDevelopPayments(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/datasets')return await handleDevelopAllDatasets(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/contributions')return await handleDevelopContributions(request,env,url);
+      if(request.method==='POST'&&url.pathname==='/v1/develop/contributions/migrate-images')return await handleDevelopContributionImageMigration(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
