@@ -141,11 +141,38 @@ function fieldbookTool(){
 
 function duplicateDataset(){const data=dataset();if(!data.headers.length)return;document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:safeName(data.name)+'-copy',headers:[...data.headers],rows:data.rows.map(r=>[...r])}}));}
 
+function maintainFieldWorkspace(detail={}){
+  const STORE='statistical_web_field_layout_v1',SNAPSHOTS='statistical_web_field_snapshots_v1';
+  const read=key=>{try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}};
+  const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
+  const layouts=read(STORE),snapshots=read(SNAPSHOTS);
+  if(detail.type==='rename'&&detail.previous&&detail.name){
+    if(layouts[detail.previous]){layouts[detail.name]=layouts[detail.previous];delete layouts[detail.previous];write(STORE,layouts);}
+    if(snapshots[detail.previous]){snapshots[detail.name]=snapshots[detail.previous];delete snapshots[detail.previous];write(SNAPSHOTS,snapshots);}
+    void import('./field-media.js').then(mod=>mod.renameFieldMediaDataset?.(detail.previous,detail.name)).catch(()=>{});
+    return;
+  }
+  if(detail.type==='delete'&&detail.name){
+    if(layouts[detail.name]){delete layouts[detail.name];write(STORE,layouts);}
+    if(snapshots[detail.name]){delete snapshots[detail.name];write(SNAPSHOTS,snapshots);}
+    void import('./field-media.js').then(mod=>mod.deleteFieldMediaDataset?.(detail.name)).catch(()=>{});
+    return;
+  }
+  const layout=detail.name?layouts[detail.name]:null,patch=detail.patch;
+  if(!layout||!Array.isArray(layout.uids)||!patch)return;
+  if(patch.kind==='delete_row'){
+    const row=Number(patch.row);if(Number.isInteger(row)&&row>=0&&row<layout.uids.length){layout.uids.splice(row,1);layouts[detail.name]=layout;write(STORE,layouts);}
+  }else if(patch.kind==='append_row'){
+    layout.uids.push(crypto.randomUUID());layouts[detail.name]=layout;write(STORE,layouts);
+  }
+}
+
 export function installDataEnhancements(){
   const toolbar=$('.toolbar');if(!toolbar||$('#validateDataset'))return;
   toolbar.insertAdjacentHTML('beforeend','<button id="undoData">Undo</button><button id="redoData">Redo</button><button id="validateDataset">Validasi dataset</button><button id="transformData">Transformasi</button><button id="outlierData">Diagnostik pencilan</button><button id="duplicateDataset">Duplikat dataset</button><button id="fieldbookTool">Randomisasi / fieldbook</button><button id="fieldLayoutTool">Denah lahan</button>');
   $('#undoData').onclick=undo;$('#redoData').onclick=redo;$('#validateDataset').onclick=validateDataset;$('#transformData').onclick=transformationTool;$('#outlierData').onclick=outlierDiagnostics;$('#duplicateDataset').onclick=duplicateDataset;$('#fieldbookTool').onclick=fieldbookTool;$('#fieldLayoutTool').onclick=async()=>{const button=$('#fieldLayoutTool');button.disabled=true;try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout();}catch(error){console.error(error);openTool('Denah lahan',`<div class="error-box">Denah lahan belum dapat dibuka. Muat ulang halaman lalu coba lagi.</div>`);}finally{button.disabled=false;}};
   let timer=null;const schedule=()=>{clearTimeout(timer);timer=setTimeout(captureSnapshot,120);};
+  document.addEventListener('stat-dataset-changed',event=>maintainFieldWorkspace(event.detail||{}));
   captureSnapshot();document.addEventListener('input',schedule,true);document.addEventListener('change',schedule,true);document.addEventListener('dataset-import',schedule);document.addEventListener('submit',schedule,true);document.addEventListener('click',event=>{if(event.target.closest('[data-delete-row],[data-delete-column],#clearData,#deleteDataset,#applyPaste,#newTxt'))schedule();},true);
   const tree=$('#fileTree'),grid=$('#gridWrap');if(tree)new MutationObserver(schedule).observe(tree,{childList:true,subtree:true});if(grid)new MutationObserver(schedule).observe(grid,{childList:true,subtree:true});
   document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(!mod)return;if(event.key.toLowerCase()==='z'&&!event.shiftKey){event.preventDefault();undo();}else if(event.key.toLowerCase()==='y'||(event.key.toLowerCase()==='z'&&event.shiftKey)){event.preventDefault();redo();}});
