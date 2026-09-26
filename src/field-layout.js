@@ -366,30 +366,41 @@ function renderStats(){
   const complete=progress.filter(item=>item.status==='complete').length;
   const partial=progress.filter(item=>item.status==='partial').length;
   const empty=progress.filter(item=>item.status==='empty').length;
+  const flagged=current.rows.reduce((sum,_,index)=>sum+(plotStatus(index)!=='normal'?1:0),0);
   const measures=measurementColumns(current).length;
-  $('#fieldLayoutStats').innerHTML=`<span><b>${current.rows.length}</b> plot</span><span><b>${measures}</b> parameter</span>${measures?`<span><b>${complete}</b> lengkap</span><span><b>${partial}</b> sebagian</span><span><b>${empty}</b> kosong</span>`:'<span>Tambahkan parameter untuk mulai pengamatan.</span>'}`;
+  $('#fieldLayoutStats').innerHTML=`<span><b>${current.rows.length}</b> plot</span><span><b>${measures}</b> parameter</span>${measures?`<span><b>${complete}</b> lengkap</span><span><b>${partial}</b> sebagian</span><span><b>${empty}</b> kosong</span>`:'<span>Tambahkan parameter untuk mulai pengamatan.</span>'}<span><b>${flagged}</b> status khusus</span>${multiMode?`<span><b>${selectedRows.size}</b> dipilih</span>`:''}`;
 }
 function renderMap(){
   if(!current)return;
   const query=String($('#fieldSearch')?.value||'').trim().toLocaleLowerCase('id-ID');
-  const map=$('#fieldMap');map.className=`field-map field-size-${config.size}`;
+  const scale=heatmapScale(),map=$('#fieldMap');
+  map.className=`field-map field-size-${config.size}${layoutEditMode?' field-layout-editing':''}${multiMode?' field-multi-mode':''}`;
+  const arrow=$('#fieldNorthArrow');if(arrow)arrow.dataset.direction=config.north;
+  const legend=$('#fieldHeatLegend');
+  if(legend){
+    legend.hidden=!scale;
+    if(scale)legend.innerHTML=`<b>${esc(current.headers[scale.index])}</b><span>${esc(String(scale.min))}</span><i></i><span>${esc(String(scale.max))}</span>`;
+  }
   const groups=groupEntries(current);
   let visible=0;
   map.innerHTML=groups.map(([label,entries])=>{
-    const ordered=orderedEntries(entries,config.columns,config.serpentine).filter(entry=>matchingSearch(entry,current,query));
+    const ordered=orderedEntries(entries,config.columns,config.serpentine).filter(entry=>matchingSearch(entry,current,query)&&passesFilter(entry));
     if(!ordered.length)return '';
     visible+=ordered.length;
-    const plots=ordered.map(entry=>{
-      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),color=colorLabel(current,entry.row),hue=hashHue(color);
-      const selected=entry.index===selectedRow?' is-selected':'';
-      const meter=progress.total?`${progress.filled}/${progress.total}`:'struktur';
-      return `<button type="button" class="field-plot field-plot-${progress.status}${selected}" data-field-row="${entry.index}" style="--plot-hue:${hue}" title="Baris ${entry.index+1}">
-        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${meter}</small>
+    const plots=ordered.map((entry,index)=>{
+      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index);
+      const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
+      const draggable=layoutEditMode?' draggable="true"':'';
+      const statusLabel={missing:'Kosong',dead:'Mati',damaged:'Rusak',harvested:'Panen',border:'Border'}[status]||'';
+      const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
+        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}
       </button>`;
+      const road=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1?`<div class="field-road" role="separator"><span>Jalan</span></div>`:'';
+      return plot+road;
     }).join('');
-    return `<section class="field-block"><div class="field-block-head"><b>${esc(label)}</b><span>${ordered.length} plot</span></div><div class="field-block-grid" style="--field-columns:${config.columns}">${plots}</div></section>`;
+    return `<section class="field-block"><div class="field-block-head"><b>${esc(label)}</b><span>${ordered.length} plot${layoutEditMode?' · tarik untuk susun':''}</span></div><div class="field-block-grid" style="--field-columns:${config.columns}">${plots}</div></section>`;
   }).join('');
-  if(!visible)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok.</div>';
+  if(!visible)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok dengan filter.</div>';
   renderStats();
 }
 function fieldInput(data,row,index){
