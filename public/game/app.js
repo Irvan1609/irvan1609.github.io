@@ -1,4 +1,4 @@
-import {startMusic,stopMusic,setMusicTrack,musicTracks} from './music.js';
+import {startMusic,stopMusic,setMusicTrack,musicTracks,isMusicPlaying} from './music.js';
 const STORAGE='agrotik_field_zero_v1';
 const PLOT_COUNT=12,MAX_DAY=12,CROSS_COST=12,PLANT_COST=6;
 
@@ -204,7 +204,7 @@ function load(){
     return merged;
   }catch{return freshState();}
 }
-let state=load(),toastTimer=0,audioContext=null,activeFieldTool='';
+let state=load(),toastTimer=0,audioContext=null,activeFieldTool='',harvestCombo=0;
 
 function save(){try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}}
 function beep(freq=420,duration=.045){
@@ -430,12 +430,15 @@ function statusClass(crop){
   return '';
 }
 function toolLabel(tool){
-  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa'})[tool]||'';
+  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen'})[tool]||'';
+}
+function toolSymbol(tool){
+  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺'})[tool]||'•';
 }
 function playHint(){
   if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
   const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
-  if(ready>=0)return {icon:'🌽',text:'Panen P'+String(ready+1).padStart(2,'0'),action:'plot',index:ready};
+  if(ready>=0)return {icon:'🧺',text:'P'+String(ready+1).padStart(2,'0')+' ✓',action:'tool',tool:'harvest'};
   const lowWater=state.field.findIndex(crop=>crop&&crop.health>0&&crop.water<28);
   if(lowWater>=0)return {icon:'💧',text:'P'+String(lowWater+1).padStart(2,'0')+' butuh air',action:'tool',tool:'water'};
   const lowN=state.field.findIndex(crop=>crop&&crop.health>0&&crop.n<28);
@@ -449,7 +452,7 @@ function playHint(){
 function renderPlayControls(){
   const seed=selectedSeed(),hint=playHint();
   $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
-  $('#activeToolStatus').textContent=activeFieldTool?toolLabel(activeFieldTool)+' aktif · ketuk beberapa petak':'Ketuk alat → petak';
+  $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' ×':'☝ → ▦';
   $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
   $('#playHint').dataset.action=hint.action||'';
   $('#playHint').dataset.tool=hint.tool||'';
@@ -506,7 +509,7 @@ function renderField(){
     if(index>=limit)return `<button type="button" class="plot plot-locked" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>LOCK</span></div><div class="plot-empty-mark">×</div></button>`;
     if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div></button>`;
     const stage=stageOf(crop);
-    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
+    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
   }).join('');
 }
 function renderInspector(){
@@ -668,14 +671,18 @@ function setFieldTool(tool=''){
   activeFieldTool=activeFieldTool===tool?'':tool;
   document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
   renderPlayControls();
-  if(activeFieldTool)toast(toolLabel(activeFieldTool)+' aktif · ketuk beberapa petak');
+  if(activeFieldTool)toast(toolSymbol(activeFieldTool)+' ×');
 }
 function useFieldTool(tool,index,{seedId=''}={}){
   if(index<0||index>=fieldLimit())return false;
   state.selectedPlot=index;
   if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
   if(tool==='plant'){plantSelected();return true;}
-  if(!state.field[index]){toast('Petak kosong');renderField();renderInspector();return false;}
+  if(!state.field[index]){toast('∅');renderField();renderInspector();return false;}
+  if(tool==='harvest'){
+    if(state.field[index].growth<100||state.field[index].health<=0){toast('⏳');renderField();renderInspector();return false;}
+    harvestPlot(index,1,true);return true;
+  }
   if(['water','fertilize','scout'].includes(tool)){cropAction(tool);return true;}
   return false;
 }
@@ -753,13 +760,14 @@ function harvestReason(crop){
 function recordHarvest(index,crop,multiplier=1,announce=true){
   const y=round(yieldFor(crop)*multiplier,1);state.seasonStats.yield=round(state.seasonStats.yield+y,1);state.seasonStats.harvests++;
   if(crop.health>=80)state.seasonStats.healthy++;state.seasonStats.maxYield=Math.max(state.seasonStats.maxYield,y);
-  state.coins+=Math.round(y*1.25);state.rp+=Math.max(1,Math.floor(y/9));state.xp+=Math.max(5,Math.round(y*1.6));state.level=levelFromXp(state.xp);
+  harvestCombo++;const comboBonus=Math.min(5,Math.max(0,harvestCombo-1));
+  state.coins+=Math.round(y*1.25)+comboBonus;state.rp+=Math.max(1,Math.floor(y/9));state.xp+=Math.max(5,Math.round(y*1.6));state.level=levelFromXp(state.xp);
   if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidateFrom(crop,y)};
   allCropTraits(crop).forEach(id=>discoverTrait(id));
   if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
   const reason=harvestReason(crop);
   addLog('P'+String(index+1).padStart(2,'0')+': panen '+y+' kg · '+reason+'.');
-  if(announce)toast('Panen '+y+' kg · '+reason);
+  if(announce)toast('🧺 '+y+' kg'+(harvestCombo>1?' · ×'+harvestCombo:'')+(comboBonus?' · +'+comboBonus+'🪙':''));
   state.field[index]=null;beep(650,.08);return y;
 }
 function harvestPlot(index,multiplier=1,announce=true){
@@ -795,7 +803,7 @@ function processCrop(crop,weather){
 function advanceDay(){
   if(state.pendingEvent)return;
   if(state.day>=state.maxDay){finishSeason();return;}
-  state.day++;state.focus=focusMax(state.level);
+  state.day++;harvestCombo=0;state.focus=focusMax(state.level);
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
   }else state.weather=rollWeather(state.env);
@@ -976,6 +984,11 @@ function bind(){
     if(activeFieldTool){useFieldTool(activeFieldTool,index);return;}
     state.selectedPlot=index;beep(330);renderField();renderInspector();
   });
+  field.addEventListener('dragstart',event=>{
+    const plot=event.target.closest('[data-harvest-drag]');if(!plot)return;
+    event.dataTransfer.setData('fieldzero/harvest-index',plot.dataset.harvestDrag);event.dataTransfer.effectAllowed='move';plot.classList.add('dragging-harvest');
+  });
+  field.addEventListener('dragend',event=>event.target.closest('[data-harvest-drag]')?.classList.remove('dragging-harvest'));
   field.addEventListener('dragover',event=>{const plot=event.target.closest('[data-plot]');if(plot&&!plot.disabled){event.preventDefault();plot.classList.add('drag-target');}});
   field.addEventListener('dragleave',event=>event.target.closest('[data-plot]')?.classList.remove('drag-target'));
   field.addEventListener('drop',event=>{
@@ -985,6 +998,14 @@ function bind(){
   });
   toolDock.addEventListener('click',event=>{const button=event.target.closest('[data-field-tool]');if(button)setFieldTool(button.dataset.fieldTool);});
   toolDock.addEventListener('dragstart',event=>{const button=event.target.closest('[data-field-tool]');if(!button)return;event.dataTransfer.setData('fieldzero/tool',button.dataset.fieldTool);event.dataTransfer.effectAllowed='copy';});
+  const basket=$('#harvestBasket');
+  basket.addEventListener('dragover',event=>{if(event.dataTransfer?.types.includes('fieldzero/harvest-index')){event.preventDefault();basket.classList.add('basket-ready');}});
+  basket.addEventListener('dragleave',()=>basket.classList.remove('basket-ready'));
+  basket.addEventListener('drop',event=>{
+    const raw=event.dataTransfer?.getData('fieldzero/harvest-index');if(raw==='')return;
+    event.preventDefault();basket.classList.remove('basket-ready');const index=Number(raw);
+    if(Number.isInteger(index))harvestPlot(index,1,true);
+  });
   vault.addEventListener('click',event=>{
     const rename=event.target.closest('[data-rename-seed]');
     if(rename){
@@ -999,7 +1020,10 @@ function bind(){
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
   $('#saveBestSeed').onclick=saveBestCandidate;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
-  $('#soundToggle').onclick=()=>{state.sound=!state.sound;save();renderHud();if(state.sound){startMusic(state.musicTrack||'morning');beep(520,.05);}else stopMusic();};
+  $('#soundToggle').onclick=async()=>{
+    if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);toast('♫');}
+    else{state.sound=false;save();renderHud();stopMusic();toast('♪×');}
+  };
   $('#newRun').onclick=()=>{if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();render();notifyGameProfile();toast('Run baru dimulai');};
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;
   $('#quickField').onclick=()=>document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -1011,7 +1035,7 @@ function bind(){
     if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}
     if(event.key==='Escape'){setFieldTool('');closeMetaModal();}
   });
-  document.addEventListener('pointerdown',()=>{if(state.sound)startMusic(state.musicTrack||'morning');},{once:true});
+  document.addEventListener('pointerdown',event=>{if(event.target.closest('#soundToggle'))return;if(state.sound&&!isMusicPlaying())startMusic(state.musicTrack||'morning');},{once:true});
   window.addEventListener('beforeunload',()=>{save();stopMusic();});
 }
 
