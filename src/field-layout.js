@@ -310,7 +310,7 @@ function movePlotTo(source,target){
   if(!sourceGroup||sourceGroup!==targetGroup)return;
   const order=rawGroupOrder(sourceGroup),from=order.indexOf(source),to=order.indexOf(target);
   if(from<0||to<0||from===to)return;
-  order.splice(from,1);order.splice(to,0,source);
+  pushLayoutHistory('susun plot');order.splice(from,1);order.splice(to,0,source);
   config={...config,order:{...config.order,[sourceGroup]:order.map(plotKey)},serpentine:false};
   writeConfig(current,config);renderControls();renderMap();
 }
@@ -318,7 +318,7 @@ function moveSelectedPlot(direction){
   if(!Number.isInteger(selectedRow))return;
   const group=groupLabelForRow(selectedRow),order=rawGroupOrder(group),from=order.indexOf(selectedRow),to=from+direction;
   if(from<0||to<0||to>=order.length)return;
-  [order[from],order[to]]=[order[to],order[from]];
+  pushLayoutHistory('geser plot');[order[from],order[to]]=[order[to],order[from]];
   config={...config,order:{...config.order,[group]:order.map(plotKey)},serpentine:false};
   writeConfig(current,config);renderControls();renderMap();renderEditor(selectedRow);
 }
@@ -355,8 +355,10 @@ function applyBatch(){
   const changes=col>=0?rows.map(row=>({row,col,value})):[];
   const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
   if(!result?.ok){const out=$('#fieldBatchStatus');if(out)out.textContent=result?.error||'Perubahan massal gagal.';return;}
+  if(col>=0&&value===''&&!confirm(`Nilai kosong akan diterapkan ke ${rows.length} plot dan dapat menghapus data parameter terpilih. Lanjutkan?`))return;
+  if((col>=0||status)&&rows.length>1&&!confirm(`Terapkan perubahan massal ke ${rows.length} plot?`))return;
   if(status){
-    const statuses={...config.statuses};for(const row of rows)statuses[plotKey(row)]=status;
+    pushLayoutHistory('status massal');const statuses={...config.statuses};for(const row of rows)statuses[plotKey(row)]=status;
     config={...config,statuses};writeConfig(current,config);
   }
   refreshData(false);renderMap();renderBatchEditor();
@@ -372,20 +374,24 @@ async function importLayout(event){
   try{
     const payload=JSON.parse(await file.text());
     if(!payload||typeof payload!=='object'||!payload.config)throw Error('File denah tidak valid.');
-    config=normalizeConfig(current,payload.config);writeConfig(current,config);renderControls();renderMap();
+    if(Number(payload.rows)!==current.rows.length)throw Error(`Jumlah plot berbeda: file ${payload.rows}, dataset ${current.rows.length}.`);
+    const incoming=Array.isArray(payload.headers)?payload.headers.map(String):[];
+    if(incoming.length!==current.headers.length||incoming.some((header,index)=>header!==String(current.headers[index])))throw Error('Struktur kolom file denah berbeda dari dataset aktif.');
+    if(payload.dataset&&String(payload.dataset)!==keyFor(current)&&!confirm('Nama dataset pada file denah berbeda. Struktur plot cocok. Tetap impor?'))return;
+    pushLayoutHistory('impor denah');config=normalizeConfig(current,payload.config);writeConfig(current,config);renderControls();renderMap();
     if(Number.isInteger(selectedRow))renderEditor(selectedRow);
   }catch(error){alert(error.message||'File denah tidak dapat dibaca.');}
 }
 function resetLayout(){
   if(!confirm('Reset susunan fisik denah? Status dan catatan plot tetap dipertahankan.'))return;
-  const base=defaultConfig(current);
-  config={...config,columns:base.columns,serpentine:true,north:'N',roadEvery:0,order:{}};
+  const base=defaultConfig(current);pushLayoutHistory('reset susunan');
+  config={...config,columns:base.columns,serpentine:true,north:'N',roadEvery:0,order:{},roadAfter:{},flipX:false,flipY:false};
   writeConfig(current,config);layoutEditMode=false;$('#fieldLayoutEdit')?.setAttribute('aria-pressed','false');renderControls();renderMap();
 }
 
 function readControls(){
   if(!current)return;
-  config={...config,
+  pushLayoutHistory('ubah pengaturan denah');config={...config,
     id:Number($('#fieldIdColumn').value),
     group:Number($('#fieldGroupColumn').value),
     color:Number($('#fieldColorColumn').value),
@@ -415,6 +421,7 @@ function renderControls(){
   $('#fieldPlotSize').value=config.size;
   $('#fieldSerpentine').checked=config.serpentine;
   $('#fieldHeatmapWrap').hidden=config.colorMode!=='parameter';
+  if($('#fieldUndo'))$('#fieldUndo').disabled=!layoutUndo.length;if($('#fieldRedo'))$('#fieldRedo').disabled=!layoutRedo.length;
 }
 function renderStats(){
   const progress=current.rows.map(row=>rowProgress(current,row));
@@ -498,8 +505,9 @@ function selectRow(index){
   $('#fieldPlotEditor').scrollTop=0;
   requestAnimationFrame(()=>$('#fieldPlotEditor [data-field-col]:not([disabled])')?.focus({preventScroll:true}));
 }
-function saveEditor(){
+function saveEditor({quiet=false,rerender=true}={}){
   if(!Number.isInteger(selectedRow)||!current?.rows[selectedRow])return;
+  clearTimeout(autoSaveTimer);
   const values=[...current.rows[selectedRow]];
   $('#fieldPlotEditor').querySelectorAll('[data-field-col]').forEach(input=>{values[Number(input.dataset.fieldCol)]=input.value.trim();});
   const result=api()?.replaceRow?.(selectedRow,values,'edit plot dari denah lahan');
@@ -507,13 +515,17 @@ function saveEditor(){
   if(!result?.ok){if(status)status.textContent=result?.error||'Data belum dapat disimpan.';return;}
   const nextStatus=String($('#fieldPlotEditor [data-field-status]')?.value||'normal');
   const nextNote=String($('#fieldPlotEditor [data-field-note]')?.value||'').trim();
-  const statuses={...config.statuses},notes={...config.notes};
-  const key=plotKey(selectedRow);delete statuses[selectedRow];delete notes[selectedRow];
+  const statuses={...config.statuses},notes={...config.notes},meta={...config.plotMeta};
+  const key=plotKey(selectedRow),beforeStatus=plotStatus(selectedRow),beforeNote=plotNote(selectedRow);
+  if(beforeStatus!==nextStatus||beforeNote!==nextNote)pushLayoutHistory('status/catatan plot');
+  delete statuses[selectedRow];delete notes[selectedRow];
   if(nextStatus==='normal')delete statuses[key];else statuses[key]=nextStatus;
   if(nextNote)notes[key]=nextNote;else delete notes[key];
-  config={...config,statuses,notes};writeConfig(current,config);
-  dirty=false;refreshData(false);renderMap();renderEditor(selectedRow);
-  const freshStatus=$('#fieldEditorStatus');if(freshStatus)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';
+  meta[key]={...(meta[key]||{}),updatedAt:new Date().toISOString(),observer:String(config.observer||'')};
+  config={...config,statuses,notes,plotMeta:meta};writeConfig(current,config);
+  dirty=false;refreshData(false);renderMap();
+  if(rerender)renderEditor(selectedRow);
+  const freshStatus=$('#fieldEditorStatus');if(freshStatus&&!quiet)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';
 }
 function stepEditor(direction){
   if(!current?.rows.length)return;
