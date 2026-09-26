@@ -1078,7 +1078,7 @@ function renderInspector(){
 }
 function renderVault(){
   $('#vaultCount').textContent=state.vault.length;
-  $('#vaultList').innerHTML=state.vault.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>G${seed.generation}</small></div><small>${seed.baseYield.toFixed(1)} potensi</small><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}">${seed.id===state.selectedSeedId?'✓ Dipilih':'Pilih'}</button><button type="button" data-rename-seed="${esc(seed.id)}" title="Nama varietas">✎</button></div></article>`).join('');
+  $('#vaultList').innerHTML=state.vault.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>G${seed.generation}</small></div><small>🌱 ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${seed.baseYield.toFixed(1)}</small><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}" title="Nama varietas">✎</button></div></article>`).join('');
   const opts=state.vault.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · G${seed.generation}</option>`).join('');
   const a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;
   if(state.vault.some(seed=>seed.id===av))a.value=av;if(state.vault.some(seed=>seed.id===bv))b.value=bv;
@@ -1417,12 +1417,19 @@ function selectCandidate(id){
   state.selectedSeedId=item.seed.id;rememberLineage(item.seed);item.seed.traits.forEach(discoverTrait);
   save();render();toast('🧬 '+item.seed.name+' disimpan');
 }
+function selectionScore(item,mode=state.selectionMode||'index'){
+  if(mode==='yield')return Number(item.yield)||0;
+  if(mode==='health')return Number(item.health)||0;
+  return (Number(item.yield)||0)*4+(Number(item.health)||0)*.4-(Number(item.stress)||0)*.3-(Number(item.disease)||0)*.2;
+}
 function openSelection(){
-  const items=selectionCandidates().slice(0,30);
-  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',items.length?`<div class="selection-list">${items.map(item=>{
-    const ev=seedEvidence(item.seed);
-    return `<article class="${item.selected?'selected':''}"><header><b>${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span></div><small>${esc(ev.label)} · G${item.seed.generation}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬 Simpan'}</button></article>`;
-  }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>');
+  const mode=state.selectionMode||'index',items=selectionCandidates().slice(0,48).sort((a,b)=>selectionScore(b,mode)-selectionScore(a,mode)).slice(0,30);
+  const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ</button></div>`;
+  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
+    const ev=seedEvidence(item.seed),score=selectionScore(item,mode);
+    return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span><span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · G${item.seed.generation}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬'}</button></article>`;
+  }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>'));
+  $('#metaModalBody').querySelectorAll('[data-selection-mode]').forEach(button=>button.onclick=()=>{state.selectionMode=button.dataset.selectionMode;save();openSelection();});
   $('#metaModalBody').querySelectorAll('[data-select-candidate]').forEach(button=>button.onclick=()=>{selectCandidate(button.dataset.selectCandidate);openSelection();});
 }
 function harvestReason(crop){
@@ -1466,18 +1473,18 @@ function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
   if(!crop||crop.health<=0)return;
   crop.stressLog={water:0,n:0,disease:0,heat:0,burn:0,...(crop.stressLog||{})};
   if(crop.burned>0){crop.stressLog.burn++;crop.burned=Math.max(0,crop.burned-1);}
-  const traits=allCropTraits(crop),loc=activeLocation(),challenge=activeChallenge(),pressure=pressureLevel(),memory=state.weatherMemory||{},streakBoost=Number(challenge.streakBoost||1);
+  const traits=allCropTraits(crop),loc=activeLocation(),challenge=activeChallenge(),pressure=pressureLevel(),memory=state.weatherMemory||{},streakBoost=Number(challenge.streakBoost||1),gFx=geneticEffects(crop.seed.genome);
   const droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
-  const waterLoss=traitValue(traits,'waterLoss',1)*(crop.waterSensitivity||1),nLoss=traitValue(traits,'nLoss',1)*(crop.nDemand||1);
-  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1},fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
+  const waterLoss=traitValue(traits,'waterLoss',1)*(crop.waterSensitivity||1)*(gFx.waterLoss||1),nLoss=traitValue(traits,'nLoss',1)*(crop.nDemand||1);
+  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1,history:[]},carry=plotCarryover(meta),fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
   const heatStreak=memory.hot>=2?-(memory.hot-1)*3.2*streakBoost:0,dryStreak=memory.dry>=3?-(memory.dry-2)*1.8*streakBoost:0;
   const rawWater=(weather.water<0?(weather.water+seasonalWater+heatStreak+dryStreak)*waterLoss*(fx.waterLoss||1)*(1-droughtRes):weather.water+seasonalWater)+(fx.waterDaily||0),waterDelta=rawWater*(meta.moisture||1);
   crop.water=clamp(crop.water+waterDelta);
   const wetN=memory.wet>=2?(memory.wet-1)*1.4*streakBoost:0;
-  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0)+wetN)*nLoss*(fx.nLoss||1)*(2-(meta.fertility||1)));
+  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0)+wetN)*nLoss*(fx.nLoss||1)*(2-(carry.fertility||1)));
   const neighborPressure=infectedNeighbors(index,diseaseSnapshot)*.025*Number(challenge.spreadBoost||1),wetDisease=memory.wet>=2?(memory.wet-1)*.018*streakBoost:0;
   const carryDisease=(Number(state.fieldPressure?.pathogen)||0)*.0018;
-  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0)+neighborPressure+wetDisease+carryDisease)*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1)*pressure;
+  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0)+neighborPressure+wetDisease+carryDisease+(carry.diseasePressure||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1)*(gFx.diseaseRisk||1)*pressure;
   if(simUnit('disease',state.season,state.day,index,crop.uid||crop.seed.id)<diseaseRisk)crop.disease=clamp(crop.disease+8+simUnit('disease-load',state.season,state.day,index,crop.uid||crop.seed.id)*12);
   else crop.disease=Math.max(0,crop.disease-(pressure>1.35?1.5:2.5));
   let damage=0,stress=0;
@@ -1491,8 +1498,8 @@ function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
   crop.health=clamp(crop.health-damage*damagePressure*(1-guard));
   crop.stress=clamp(crop.stress+stress*(1+(pressure-1)*.35),0,120);
   const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.65+.18*crop.water/100+.17*crop.n/100;
-  const firstHarvestBoost=state.achievements.includes('first')?1:1.3,siteFactor=.94+.06*(meta.fertility||1),fatiguePenalty=1-Math.min(.08,(Number(state.fieldPressure?.fatigue)||0)*.0012);
-  crop.growth=clamp(crop.growth+15.1*firstHarvestBoost*crop.seed.vigor*growthTrait*healthFactor*resourceFactor*siteFactor*fatiguePenalty*(fx.growth||1),0,110);crop.age++;
+  const firstHarvestBoost=state.achievements.includes('first')?1:1.3,siteFactor=.94+.06*(carry.fertility||1),fatiguePenalty=1-Math.min(.08,(Number(state.fieldPressure?.fatigue)||0)*.0012);
+  crop.growth=clamp(crop.growth+15.1*firstHarvestBoost*crop.seed.vigor*growthTrait*(gFx.growth||1)*healthFactor*resourceFactor*siteFactor*fatiguePenalty*(fx.growth||1),0,110);crop.age++;
 }
 function updateFieldPressure(){
   const crops=state.field.filter(Boolean),count=Math.max(1,crops.length),avgDisease=crops.reduce((sum,c)=>sum+(Number(c.disease)||0),0)/count,avgStress=crops.reduce((sum,c)=>sum+(Number(c.stress)||0),0)/count;
@@ -1783,6 +1790,11 @@ function bind(){
     if(Number.isInteger(index))harvestPlot(index,1,true);
   });
   vault.addEventListener('click',event=>{
+    const buy=event.target.closest('[data-buy-seed]');
+    if(buy){
+      const seed=state.vault.find(item=>item.id===buy.dataset.buySeed);if(!seed||state.coins<COMMERCIAL_SEED_PACK_COST)return;
+      state.coins-=COMMERCIAL_SEED_PACK_COST;state.seasonStats.cost=(state.seasonStats.cost||0)+COMMERCIAL_SEED_PACK_COST;seed.stock=(seed.stock||0)+COMMERCIAL_SEED_PACK_SIZE;seed.viability=Math.max(seed.viability||0,95);save();render();toast('🌱 +'+COMMERCIAL_SEED_PACK_SIZE);return;
+    }
     const rename=event.target.closest('[data-rename-seed]');
     if(rename){
       const seed=state.vault.find(item=>item.id===rename.dataset.renameSeed);if(!seed)return;
