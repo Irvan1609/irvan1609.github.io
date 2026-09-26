@@ -10,6 +10,9 @@ let qrisObjectUrl='';
 let currentQrUrl='';
 let successAudioContext=null;
 let successHandledOrder='';
+let serverPaymentConfigured=false;
+
+function paymentsAllowed(){return window.IrvanCloudPolicy?.features?.payments!==false;}
 
 function armSuccessSound(){
   try{
@@ -58,7 +61,7 @@ function renderStatus(summary){
   el.textContent='Akun gratis · cloud sync nonaktif';el.className='membership-status';
 }
 function renderPlans(paymentConfigured){
-  const grid=$('#plansGrid'),user=window.IrvanAccount?.user,isAdmin=user?.role==='admin';
+  const grid=$('#plansGrid'),user=window.IrvanAccount?.user,isAdmin=user?.role==='admin',payReady=Boolean(paymentConfigured&&paymentsAllowed());
   if(!plans.length){
     grid.hidden=true;$('#membershipGate').hidden=false;
     $('#membershipGate').textContent=isAdmin
@@ -66,7 +69,7 @@ function renderPlans(paymentConfigured){
       :'Belum ada paket membership yang diaktifkan oleh admin.';
     return;
   }
-  grid.innerHTML=plans.map(plan=>'<article class="plan-card"><h2>'+esc(plan.name)+'</h2><p>'+esc(plan.description||'')+'</p><div class="price">'+esc(money(plan.priceIdr))+'</div><div class="duration">'+Number(plan.durationDays)+' hari</div><div class="plan-features"><span>✓ Maks. '+Number(plan.datasetLimit).toLocaleString('id-ID')+' dataset cloud</span><span>✓ Penyimpanan '+esc(bytes(plan.storageLimitBytes))+'</span><span>✓ Analisis termasuk selama membership aktif</span></div><button type="button" data-buy="'+esc(plan.id)+'"'+((!paymentConfigured||isAdmin)?' disabled':'')+'>'+(isAdmin?'Admin · tidak perlu membeli':(paymentConfigured?'Bayar dengan QRIS':'QRIS belum dikonfigurasi'))+'</button></article>').join('');
+  grid.innerHTML=plans.map(plan=>'<article class="plan-card"><h2>'+esc(plan.name)+'</h2><p>'+esc(plan.description||'')+'</p><div class="price">'+esc(money(plan.priceIdr))+'</div><div class="duration">'+Number(plan.durationDays)+' hari</div><div class="plan-features"><span>✓ Maks. '+Number(plan.datasetLimit).toLocaleString('id-ID')+' dataset cloud</span><span>✓ Penyimpanan '+esc(bytes(plan.storageLimitBytes))+'</span><span>✓ Analisis termasuk selama membership aktif</span></div><button type="button" data-buy="'+esc(plan.id)+'"'+((!payReady||isAdmin)?' disabled':'')+'>'+(isAdmin?'Admin · tidak perlu membeli':(!paymentsAllowed()?'Pembayaran dijeda':(paymentConfigured?'Bayar dengan QRIS':'QRIS belum dikonfigurasi')))+'</button></article>').join('');
   if(!isAdmin)grid.querySelectorAll('[data-buy]').forEach(button=>button.onclick=()=>buy(button.dataset.buy));
   grid.hidden=false;$('#membershipGate').hidden=!isAdmin;
   if(isAdmin){
@@ -108,6 +111,7 @@ function openModal(){const m=$('#qrisModal');m.hidden=false;const modal=m.queryS
 function closeModal(){clearTimeout(pollTimer);pollTimer=null;pollAttempts=0;if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}currentQrUrl='';$('#qrisCopyUrl').hidden=true;$('#qrisImage').removeAttribute('src');$('#qrisImage').onerror=null;$('#qrisModal').hidden=true;currentOrder='';}
 async function buy(planId){
   if(!window.IrvanAccount?.authenticated){alert('Masuk dengan Google terlebih dahulu.');return;}
+  if(!paymentsAllowed()){alert('Pembayaran baru sedang dijeda. Membership yang sudah aktif tidak terpengaruh.');return;}
   armSuccessSound();
   successHandledOrder='';
   pollAttempts=0;
@@ -175,9 +179,10 @@ async function loadAll(){
   try{
     const planData=await api('/v1/membership/plans');
     plans=planData.items||[];
+    serverPaymentConfigured=Boolean(planData.paymentConfigured);
     let summary=null;
     if(window.IrvanAccount?.authenticated)summary=await api('/v1/account/summary');
-    renderStatus(summary);renderPlans(Boolean(planData.paymentConfigured));
+    renderStatus(summary);renderPlans(serverPaymentConfigured);
   }catch(error){$('#membershipGate').hidden=false;$('#membershipGate').dataset.state='error';$('#membershipGate').textContent=error.message||'Paket membership tidak dapat dimuat.';$('#plansGrid').hidden=true;}
 }
 async function copyQrUrl(){
@@ -195,6 +200,7 @@ async function copyQrUrl(){
 $('#qrisClose').onclick=closeModal;$('#qrisDone').onclick=closeModal;$('#qrisCheck').onclick=checkPayment;$('#qrisCopyUrl').onclick=copyQrUrl;
 $('#qrisModal').addEventListener('click',event=>{if(event.target===$('#qrisModal'))closeModal();});
 document.addEventListener('accountchange',()=>setTimeout(loadAll,0));
+document.addEventListener('cloudpolicychange',()=>{if(plans.length)renderPlans(serverPaymentConfigured);});
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden&&currentOrder){
     clearTimeout(pollTimer);
