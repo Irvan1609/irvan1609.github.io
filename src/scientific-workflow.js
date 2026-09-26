@@ -12,7 +12,7 @@ import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from '
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
 import {enhanceResultOS} from './result-os.js';
-const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
+const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1',UI_MODE='statistical_web_analysis_ui_mode_v2';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
   'rak-bnj05':{design:'rak',posthoc:'bnj',alpha:.05},
@@ -24,6 +24,8 @@ function phoneGuardMode(){
     || false;
 }
 let currentDesign='ral',data=null,revision=0,pendingPreset='';
+function analysisUiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
+function setAnalysisUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
 
 function datasetFingerprint(dataset){
   const d=dataset||{headers:[],rows:[]};let hash=2166136261;
@@ -322,6 +324,26 @@ function updateScienceParameterCount(){
   target.textContent=selected.length?`${selected.length}/${available.length}`:'0 dipilih';
   target.dataset.empty=selected.length?'false':'true';
 }
+function syncSimpleParameter(forceSingle=false){
+  const select=$('#scienceSimpleParameter');if(!select)return;
+  const inputs=[...document.querySelectorAll('#scienceParameters input')].filter(input=>!input.disabled&&isNumericColumn(Number(input.value)));
+  const previous=select.value;
+  select.innerHTML=inputs.map(input=>`<option value="${input.value}">${esc(data.headers[Number(input.value)])}</option>`).join('');
+  let selected=inputs.find(input=>input.value===previous)||inputs.find(input=>input.checked)||inputs[0];
+  if(selected)select.value=selected.value;
+  if(forceSingle&&selected){
+    inputs.forEach(input=>{input.checked=input===selected;const transform=document.querySelector(`[data-transform-param="${input.value}"]`);if(transform)transform.disabled=input!==selected;});
+  }
+  updateScienceParameterCount();
+}
+function applyScienceUiMode(mode=analysisUiMode()){
+  const modal=$('#scientificModal');if(!modal)return;
+  const complete=mode==='complete';setAnalysisUiMode(mode);
+  modal.classList.toggle('science-complete-mode',complete);modal.classList.toggle('science-simple-mode',!complete);
+  const button=$('#scienceModeToggle');if(button)button.textContent=complete?'Mode Sederhana':'Mode Lengkap';
+  const advanced=$('#scienceAdvancedOptions');if(advanced)advanced.open=complete;
+  syncSimpleParameter(!complete);
+}
 function syncParameterRoleExclusions(initial=false){
   const roles=roleIndices();
   document.querySelectorAll('#scienceParameters input').forEach(input=>{
@@ -332,6 +354,7 @@ function syncParameterRoleExclusions(initial=false){
     const transform=document.querySelector(`[data-transform-param="${index}"]`);
     if(transform)transform.disabled=isRole||!input.checked;
   });
+  syncSimpleParameter(analysisUiMode()==='simple');
   updateScienceParameterCount();
 }
 function levelsForA(){if($('#scienceA').value==='')return [];const i=Number($('#scienceA').value);return [...new Set(data.rows.map(r=>String(r[i]??'').trim()).filter(Boolean))];}
@@ -557,8 +580,10 @@ export function openScientific(design){
   const runButton=$('#runScience');
   if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
   else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
+  applyScienceUiMode();
+  syncSimpleParameter(analysisUiMode()==='simple');
   $('#scientificModal').classList.add('open');
-  globalThis.StatisticalWebWorkflow?.setActive?.('analysis');
+  globalThis.StatisticalWebWorkflow?.setActive?.('setup');
   validate();
 }
 export function openScientificRecipe(recipe){
@@ -591,13 +616,31 @@ export function openScientificRecipe(recipe){
 }
 
 export function installScientificWorkflow(){
-  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><div><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><div class="analysis-dock-actions"><button id="analysisDockData" type="button">▦ Data</button><button id="analysisDockAnalysis" type="button">Σ Analisis lain</button><button id="closeAnalysisDock" type="button" aria-label="Tutup hasil">✕</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside><div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle"><div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span><select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Preset</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div><div class="modal-body analysis-workspace-body"><div class="science-layout"><main id="scienceFields" class="science-config"><section class="science-card"><div class="science-card-head"><span class="science-step">1</span><b>Rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section><section class="science-card"><div class="science-card-head"><span class="science-step">2</span><b>Parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 dipilih</span></div><div id="scienceParameters" class="ral-list parameter-list science-parameter-list"></div></section><section class="science-card"><div class="science-card-head"><span class="science-step">3</span><b>Uji</b></div><div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label></div><label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Pusat diagnostik residual</b><small>Normalitas, homogenitas, residual, leverage, dan Cook's distance bila tersedia.</small></span></label></section><section class="science-card science-card-advanced"><details><summary><span><b>Kontras / polinomial</b></span><span class="science-details-chevron" aria-hidden="true">⌄</span></summary><div class="science-advanced-body"><div class="science-contrast-box"><label>Jenis<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div></div></details></section></main><aside class="science-review-panel"><div class="science-review-head"><b>Pemeriksaan</b></div><div id="scienceStructure"></div><div id="scienceQuality"></div><button id="validateScience" class="science-validate-button">Periksa</button><div id="scienceValidation"></div></aside></div><div id="scienceResults" data-all-results></div></div><div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Jalankan</button></div></div></div></div>`);
+  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><div><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><div class="analysis-dock-actions"><button id="analysisDockData" type="button">▦ Data</button><button id="analysisDockAnalysis" type="button">Σ Analisis lain</button><button id="closeAnalysisDock" type="button" aria-label="Tutup hasil">✕</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
+  <div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop science-simple-mode"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle">
+    <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><div class="science-head-actions"><button id="scienceModeToggle" type="button">Mode Lengkap</button><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div></div>
+    <div class="modal-body analysis-workspace-body"><main id="scienceFields" class="science-simple-shell">
+      <div class="science-primary-grid">
+        <section class="science-card"><div class="science-card-head"><span class="science-step">1</span><b>Kolom rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section>
+        <section class="science-card science-simple-parameter-card"><div class="science-card-head"><span class="science-step">2</span><b>Parameter</b></div><label class="science-simple-parameter">Parameter respons<select id="scienceSimpleParameter"></select></label><details id="scienceMultiParameters" class="science-multi-parameters"><summary>Beberapa parameter / transformasi</summary><div class="science-card-head science-subhead"><b>Pilih parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 dipilih</span></div><div id="scienceParameters" class="ral-list parameter-list science-parameter-list"></div></details></section>
+      </div>
+      <div class="science-preflight-inline"><div id="scienceStructure"></div><div id="scienceQuality"></div><button id="validateScience" class="science-validate-button" type="button">Periksa</button><div id="scienceValidation"></div></div>
+      <details id="scienceAdvancedOptions" class="science-card science-advanced-options"><summary><b>Pengaturan lanjutan</b><span>Uji lanjut, α, diagnostik, transformasi, kontras</span></summary><div class="science-advanced-body">
+        <div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label><label>Preset<select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Tidak pakai</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></label></div>
+        <label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Diagnostik residual</b><small>Normalitas, homogenitas, leverage, dan Cook's distance.</small></span></label>
+        <div class="science-contrast-box"><label>Kontras / polinomial<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div>
+      </div></details>
+    </main><div id="scienceResults" data-all-results></div></div>
+    <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Analisis</button></div></div>
+  </div></div>`);
   const close=()=>$('#scientificModal').classList.remove('open');$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
   $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
   $('#analysisDockAnalysis').onclick=()=>globalThis.StatisticalWebWorkflow?.openAnalysis?.();
   $('#validateScience').onclick=validate;$('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
-  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncParameterRoleExclusions(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
+  $('#scienceModeToggle').onclick=()=>{applyScienceUiMode(analysisUiMode()==='complete'?'simple':'complete');validate();};
+  $('#scienceSimpleParameter').onchange=event=>{document.querySelectorAll('#scienceParameters input').forEach(input=>{input.checked=input.value===event.target.value;const transform=document.querySelector(`[data-transform-param="${input.value}"]`);if(transform)transform.disabled=!input.checked;});updateScienceParameterCount();saveAnalysisConfig();validate();};
+  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input')){if(analysisUiMode()==='simple')syncSimpleParameter(true);else syncSimpleParameter(false);}if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
   $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
   document.addEventListener('stat-dataset-changed',()=>{
