@@ -1355,9 +1355,8 @@ body.calm-ui .toast{box-shadow:none!important}
   body.calm-ui .game-shell{width:calc(100% - 10px);margin-top:5px}
   body.calm-ui .game-head h1{font-size:17px}
   body.calm-ui .game-quick-nav{
-    position:sticky;
-    top:4px;
-    z-index:40
+    position:static;
+    z-index:auto
   }
   body.calm-ui .game-quick-nav button{min-height:42px;font-size:17px}
   body.calm-ui .hud{grid-template-columns:repeat(5,minmax(0,1fr))}
