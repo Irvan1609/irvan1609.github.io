@@ -1,4 +1,4 @@
-import {PAPER_SIZES,paperProfile,buildCalibratorSvg,grayPatchRects} from './paper.js';
+import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,grayPatchRects} from './paper.js';
 import {PPM,homography,project,detectMarkers,bilinearSample} from './geometry.js';
 import {alignmentCheck,scaleCheck} from './alignment.js';
 import {installLiveCamera} from './live-camera.js';
@@ -23,7 +23,26 @@ const fieldContext=fieldParams.get('agrotik')==='field'?{
 function tell(message){$('status').textContent=message;}
 function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-function safeName(value){return String(value||'foto').replace(/.[^.]+$/,'').replace(/[^p{L}p{N}_-]/gu,'_')||'foto';}
+function safeName(value){return String(value||'foto').replace(/\.[^.]+$/,'').replace(/[^\p{L}\p{N}_-]+/gu,'_')||'foto';}
+function photoLabel(){return $('photoLabel')?.value.trim()||'';}
+function fileStem(value){return String(value||'foto').normalize('NFC').trim().replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/,'').slice(0,100)||'foto';}
+function activePhotoStem(){return fileStem(photoLabel()||$('sampleId')?.value.trim()||filename||'foto');}
+function refreshPhotoLabel(){
+  const label=photoLabel(),name=fileStem(label||filename||'foto');
+  if($('photoFilename'))$('photoFilename').textContent=name+'.jpg';
+  const link=$('printCalibrator');
+  if(link){const u=new URL(link.href,location.href);if(label)u.searchParams.set('label',label);else u.searchParams.delete('label');link.href=u.pathname+u.search;}
+  saveSettings({photoLabel:label});
+}
+function embedRectifiedLabel(image,profile,label){
+  const text=String(label||'').trim().slice(0,80);if(!text)return image;
+  const c=document.createElement('canvas');c.width=image.width;c.height=image.height;const cctx=c.getContext('2d',{willReadFrequently:true});cctx.putImageData(image,0,0);
+  const b=calibratorLayout(profile).label,x=b.x*PPM,y=b.y*PPM,w=b.width*PPM,h=b.height*PPM,pad=Math.max(6,h*.12);
+  cctx.fillStyle='rgba(255,255,255,.97)';cctx.strokeStyle='#111';cctx.lineWidth=Math.max(1,h*.025);cctx.fillRect(x,y,w,h);cctx.strokeRect(x,y,w,h);
+  let font=Math.max(12,Math.min(26,h*.48));cctx.font='700 '+font+'px Arial,sans-serif';while(font>10&&cctx.measureText(text).width>w-pad*2){font-=1;cctx.font='700 '+font+'px Arial,sans-serif';}
+  cctx.fillStyle='#111';cctx.textAlign='center';cctx.textBaseline='middle';cctx.fillText(text,x+w/2,y+h*.56,w-pad*2);
+  return cctx.getImageData(0,0,c.width,c.height);
+}
 function settings(){
   try{return JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');}catch{return{};}
 }
