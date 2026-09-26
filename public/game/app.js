@@ -274,10 +274,57 @@ function load(){
     return merged;
   }catch{return freshState();}
 }
-let state=load(),resumeGapMs=Math.max(0,Date.now()-(Number(state.comfort?.lastSeenAt)||Date.now())),toastTimer=0,audioContext=null,activeFieldTool='',harvestCombo=0,undoState=null,undoTimer=0,notificationQueue=[],interactionBusy=false,replantCache=null;
+let state=load(),resumeGapMs=Math.max(0,Date.now()-(Number(state.comfort?.lastSeenAt)||Date.now())),toastTimer=0,audioContext=null,activeFieldTool='',harvestCombo=0,undoState=null,undoTimer=0,notificationQueue=[],interactionBusy=false,replantCache=null,lastProgressFingerprint='';
 const breedingCup=createBreedingCup({getState:()=>state,esc,uid,randomize:randomizedExperimentUnits,save,render,openModal:openMetaModal,toast,addLog,setTool:value=>{activeFieldTool=value;},sendToStat:sendExperimentToStat,openExperiment});
 
-function save(){try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}}
+function cloudProgressState(source=state){
+  const copy=structuredClone(source);
+  delete copy.comfort;delete copy.sound;delete copy.musicTrack;delete copy.selectedPlot;
+  return copy;
+}
+function progressFingerprint(value=cloudProgressState()){
+  const raw=typeof value==='string'?value:JSON.stringify(value);
+  return raw.length.toString(36)+'-'+hashString(raw).toString(36);
+}
+function exportCloudSave(){return cloudProgressState();}
+function importCloudSave(remote){
+  if(!remote||typeof remote!=='object'||Array.isArray(remote))return false;
+  const localPrefs={
+    comfort:structuredClone(state.comfort||freshState().comfort),
+    sound:state.sound,
+    musicTrack:state.musicTrack,
+    selectedPlot:state.selectedPlot
+  };
+  try{
+    localStorage.setItem(STORAGE,JSON.stringify({...structuredClone(remote),...localPrefs}));
+    state=load();
+    clearUndo();replantCache=null;activeFieldTool='';
+    lastProgressFingerprint=progressFingerprint();
+    applyComfortSettings();render();updateCrossPreview();notifyGameProfile(true);
+    document.dispatchEvent(new CustomEvent('fieldzero-cloud-applied',{detail:{fingerprint:lastProgressFingerprint}}));
+    return true;
+  }catch{return false;}
+}
+function gameProgressSummary(value=state){
+  const field=Array.isArray(value?.field)?value.field:[],history=Array.isArray(value?.history)?value.history:[],vault=Array.isArray(value?.vault)?value.vault:[];
+  return {
+    season:Math.max(1,Number(value?.season)||1),day:Math.max(1,Number(value?.day)||1),level:Math.max(1,Number(value?.level)||1),
+    coins:Math.max(0,Number(value?.coins)||0),rp:Math.max(0,Number(value?.rp)||0),xp:Math.max(0,Number(value?.xp)||0),
+    planted:field.filter(Boolean).length,history:history.length,vault:vault.length,legacy:Math.max(0,Number(value?.legacy)||0)
+  };
+}
+function isFreshProgress(value=state){
+  const p=gameProgressSummary(value);
+  return p.season===1&&p.day===1&&p.level===1&&p.xp===0&&p.rp===0&&p.legacy===0&&p.planted===0&&p.history===0&&p.vault<=STARTER_SEEDS.length;
+}
+function save(){
+  try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}
+  const fingerprint=progressFingerprint();
+  if(lastProgressFingerprint&&fingerprint!==lastProgressFingerprint){
+    document.dispatchEvent(new CustomEvent('fieldzero-save-change',{detail:{fingerprint}}));
+  }
+  lastProgressFingerprint=fingerprint;
+}
 function haptic(ms=8){
   if(state.comfort?.haptic==='off')return;
   const amount=state.comfort?.haptic==='normal'?Math.max(12,ms):Math.min(8,ms);
@@ -1655,8 +1702,12 @@ function bind(){
   window.addEventListener('beforeunload',()=>{rememberSeen();stopMusic();});
 }
 
-window.FieldZeroGame={getProfile:gameProfile,applyBurnRaid:applyRemoteBurn,applyWaterAid,refresh:render};
-applyComfortSettings();bind();render();updateCrossPreview();notifyGameProfile();
+window.FieldZeroGame={
+  getProfile:gameProfile,applyBurnRaid:applyRemoteBurn,applyWaterAid,refresh:render,
+  exportSave:exportCloudSave,importSave:importCloudSave,
+  fingerprintSave:progressFingerprint,getSaveSummary:gameProgressSummary,isFreshSave:isFreshProgress
+};
+applyComfortSettings();bind();render();lastProgressFingerprint=progressFingerprint();updateCrossPreview();notifyGameProfile();document.dispatchEvent(new Event('fieldzero-ready'));
 if(resumeGapMs>30*60*1000){
   const issues=attentionIndexes().length,ready=state.field.filter(crop=>crop&&crop.health>0&&crop.growth>=100).length;
   setTimeout(()=>toast('Kembali · '+ready+' siap panen · '+issues+' perlu perhatian'),350);
