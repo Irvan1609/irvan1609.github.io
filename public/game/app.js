@@ -1,7 +1,7 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects} from './academy.js';
-import {curriculum,generationName,expectedHeterozygosity,observedHeterozygosity,mendelianSummary,pearson,analyzeExperiment,designCoach,interpretationQuestion} from './learning.js';
+import {curriculum,generationName,expectedHeterozygosity,observedHeterozygosity,mendelianSummary,pearson,analyzeExperiment,designCoach,interpretationQuestion,trackQuiz} from './learning.js';
 const STORAGE='agrotik_field_zero_v1';
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
 const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-2';
@@ -1222,6 +1222,19 @@ function openAcademyTrack(id){
   $('#metaModalBody').querySelector('[data-academy-exp]')?.addEventListener('click',openExperiment);
   $('#metaModalBody').querySelector('[data-academy-analysis]')?.addEventListener('click',openExperimentAnalysis);
   $('#metaModalBody').querySelector('[data-academy-cross]')?.addEventListener('click',()=>{closeMetaModal();document.querySelector('#labHub')?.setAttribute('open','');document.querySelector('#parentA')?.scrollIntoView({behavior:'smooth',block:'center'});});
+  const quiz=trackQuiz(id),quizKey=id+':quiz';
+  if(quiz&&!learningDone(quizKey)){
+    const wrap=document.createElement('section');wrap.className='academy-quiz';
+    wrap.innerHTML='<b>'+esc(quiz.prompt)+'</b>'+quiz.options.map((option,i)=>'<button type="button" data-track-answer="'+i+'">'+esc(option)+'</button>').join('')+'<p></p>';
+    $('#metaModalBody').appendChild(wrap);
+    wrap.querySelectorAll('[data-track-answer]').forEach(button=>button.onclick=()=>{
+      state.learning.attempts++;const correct=Number(button.dataset.trackAnswer)===quiz.answer;
+      if(correct){state.learning.correct++;awardLearning(quizKey,10);}
+      wrap.querySelector('p').textContent=(correct?'✓ ':'✗ ')+quiz.explanation;
+      wrap.querySelector('p').className=correct?'correct':'wrong';save();
+      if(correct)setTimeout(()=>openAcademyTrack(id),250);
+    });
+  }
 }
 function experimentAnalysis(parameter=''){
   const exp=state.experiment;if(!exp)return null;
@@ -1267,6 +1280,7 @@ function selfSelectedSeed(){
 }
 function openQuickMore(){
   openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
+    <button data-quick-more="academy">🎓<span>Akademi</span></button>
     <button data-quick-more="run">⚑<span>Challenge</span></button>
     <button data-quick-more="rival">⚔<span>Rival</span></button>
     <button data-quick-more="record">◷<span>Rekor</span></button>
@@ -1278,6 +1292,7 @@ function openQuickMore(){
   </div>`);
   $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
     const key=button.dataset.quickMore;
+    if(key==='academy')openAcademy();
     if(key==='run')openChallenges();
     if(key==='rival')openRival();
     if(key==='record')openRecords();
