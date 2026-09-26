@@ -113,12 +113,14 @@ const EXPEDITIONS={
   high:{name:'Highland Pocket',icon:'▲',days:3,cost:35000,desc:'Cari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
 };
 const CHALLENGES={
-  standard:{name:'Standar',desc:'24 petak · 3 kelompok.',plots:24,maxDay:12,yield:1,reward:1},
-  nofert:{name:'Tanpa Pupuk',desc:'Aksi pemupukan dinonaktifkan.',plots:24,maxDay:12,yield:1.12,reward:1.3,noFertilizer:true},
-  six:{name:'6 Petak',desc:'Hanya enam petak dapat ditanami.',plots:6,maxDay:12,yield:1.08,reward:1.35},
-  sprint:{name:'Sprint 8 Hari',desc:'Musim hanya delapan hari.',plots:24,maxDay:8,yield:1.18,reward:1.45},
-  mono:{name:'Satu Varietas',desc:'Hanya benih yang dipilih saat awal run dapat ditanam.',plots:24,maxDay:12,yield:1.1,reward:1.4,mono:true},
-  trial24:{name:'Breeding Cup · 24 Petak',desc:'Seleksi buta dengan tepat 24 petak.',plots:24,maxDay:12,yield:1,reward:1.2,competition:true}
+  standard:{name:'Standar',desc:'24 petak · kontrak musim makin berat.',plots:24,maxDay:12,yield:1,reward:1,pressure:0},
+  nofert:{name:'Tanpa Pupuk',desc:'24 petak tanpa intervensi pemupukan.',plots:24,maxDay:12,yield:1.08,reward:1.45,noFertilizer:true,pressure:.08},
+  six:{name:'6 Petak',desc:'Hanya enam petak; setiap kegagalan sangat berarti.',plots:6,maxDay:12,yield:1.05,reward:1.55,pressure:.08},
+  sprint:{name:'Sprint 8 Hari',desc:'Delapan hari; sedikit waktu memulihkan kesalahan.',plots:24,maxDay:8,yield:1.12,reward:1.6,pressure:.12},
+  mono:{name:'Satu Varietas',desc:'Satu varietas menghadapi seluruh heterogenitas lahan.',plots:24,maxDay:12,yield:1.06,reward:1.5,mono:true,pressure:.1},
+  ironman:{name:'Iron Field',desc:'Tekanan tinggi · fokus harian -1 · tanpa Undo.',plots:24,maxDay:11,yield:1,reward:1.9,pressure:.24,focusPenalty:1,noUndo:true},
+  crisis:{name:'Musim Krisis',desc:'Cuaca berantai dan penyakit menyebar lebih agresif.',plots:24,maxDay:12,yield:1.04,reward:1.8,pressure:.3,streakBoost:1.45,spreadBoost:1.5},
+  trial24:{name:'Breeding Cup · 24 Petak',desc:'Seleksi buta dengan tepat 24 petak.',plots:24,maxDay:12,yield:1,reward:1.3,competition:true,pressure:.1}
 };
 const BOSSES=[
   {id:'megaDrought',name:'Boss: Kemarau Ekstrem',icon:'☀',desc:'Hari panas berulang dan jeda hujan panjang menekan tanaman.',waterLoss:-13,disease:-.02,nLoss:1,yield:1.12},
@@ -145,7 +147,11 @@ const META_ACHIEVEMENTS={
 Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
 
 
-function focusMax(level){return Math.min(7,4+Math.floor((Math.max(1,level)-1)/3)+(((typeof state!=='undefined'&&state?.legacy)||0)>0?1:0));}
+function focusMax(level){
+  const legacy=((typeof state!=='undefined'&&state?.legacy)||0)>0?1:0,base=Math.min(7,4+Math.floor((Math.max(1,level)-1)/3)+legacy);
+  const penalty=(typeof state!=='undefined'&&state?.challenge&&CHALLENGES[state.challenge])?Number(CHALLENGES[state.challenge].focusPenalty||0):0;
+  return Math.max(3,base-penalty);
+}
 function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
 function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
 function traitValue(traits,key,base=1){
@@ -213,21 +219,69 @@ function weatherPool(envId){
   return map[envId]||map.transition;
 }
 function rollWeather(env){return pick(weatherPool(env.id));}
-function missionFor(season){
-  const difficulty=1+Math.floor((season-1)/2);
-  return pick([
-    {type:'yield',target:55+difficulty*8,text:'Total hasil',unit:'kg'},
-    {type:'harvest',target:4+Math.min(3,difficulty),text:'Jumlah panen',unit:'petak'},
-    {type:'healthy',target:2+Math.min(3,difficulty),text:'Panen sehat ≥80',unit:'petak'}
-  ]);
+function challengeForMission(id='standard'){return CHALLENGES[id]||CHALLENGES.standard;}
+function objectiveValue(objective){
+  if(objective.type==='yield')return state.seasonStats.yield;
+  if(objective.type==='harvest')return state.seasonStats.harvests;
+  if(objective.type==='healthy')return state.seasonStats.healthy;
+  if(objective.type==='margin')return (state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+  if(objective.type==='research')return state.rp-(state.seasonStartRp||0);
+  return 0;
 }
+function missionFor(season,challengeId='standard'){
+  const ch=challengeForMission(challengeId),plots=ch.plots||PLOT_COUNT,tier=Math.min(8,Math.floor((Math.max(1,season)-1)/2));
+  const yieldPerPlot=8.2+tier*.55+(ch.pressure||0)*3.2;
+  const primary={type:'yield',target:Math.round(plots*yieldPerPlot),text:'Hasil',unit:'kg'};
+  const secondary=season%2
+    ?{type:'healthy',target:Math.max(2,Math.ceil(plots*(.35+Math.min(.18,tier*.025)))),text:'Panen sehat ≥80',unit:'petak'}
+    :{type:'harvest',target:Math.max(3,Math.ceil(plots*(.62+Math.min(.16,tier*.02)))),text:'Petak dipanen',unit:'petak'};
+  const objectives=[primary,secondary];
+  if(season>=3&&plots>=12)objectives.push(season%3===0
+    ?{type:'margin',target:25000+tier*8000,text:'Margin',unit:'Rp'}
+    :{type:'research',target:4+Math.ceil(tier/2),text:'Riset baru',unit:'RP'});
+  return {type:'contract',text:'Kontrak musim',unit:'target',objectives};
+}
+function missionObjectives(){return state.mission?.type==='contract'?(state.mission.objectives||[]):[state.mission];}
 function missionValue(){
-  if(state.mission.type==='yield')return state.seasonStats.yield;
-  if(state.mission.type==='harvest')return state.seasonStats.harvests;
-  return state.seasonStats.healthy;
+  const objectives=missionObjectives();
+  if(state.mission?.type==='contract')return objectives.filter(item=>objectiveValue(item)>=item.target).length;
+  return objectiveValue(objectives[0]);
 }
-function missionDone(){return missionValue()>=state.mission.target;}
-
+function missionDone(){const objectives=missionObjectives();return objectives.length>0&&objectives.every(item=>objectiveValue(item)>=item.target);}
+function missionRatio(){
+  const objectives=missionObjectives();if(!objectives.length)return 0;
+  return objectives.reduce((sum,item)=>sum+Math.min(1,Math.max(0,objectiveValue(item))/Math.max(1,item.target)),0)/objectives.length;
+}
+function missionDisplay(){
+  const objectives=missionObjectives();
+  if(state.mission?.type!=='contract'){
+    const item=objectives[0];return {title:item.text+' '+item.target+' '+item.unit,progress:round(objectiveValue(item),1)+'/'+item.target+(missionDone()?' ✓':'')};
+  }
+  const done=objectives.filter(item=>objectiveValue(item)>=item.target).length;
+  const compact=objectives.map(item=>{
+    const value=objectiveValue(item),label=item.type==='margin'?formatRupiah(item.target):item.target+' '+item.unit;
+    return (value>=item.target?'✓':'•')+item.text+' '+label;
+  }).join(' · ');
+  return {title:compact,progress:done+'/'+objectives.length+' target'};
+}
+function pressureLevel(){
+  const carry=state?.fieldPressure||{},ch=activeChallenge?.()||CHALLENGES.standard;
+  const season=Math.max(1,Number(state?.season)||1),progression=Math.min(.38,(season-1)*.035);
+  const carryover=Math.min(.28,(Number(carry.pathogen)||0)*.004+(Number(carry.fatigue)||0)*.003);
+  return round(1+progression+carryover+Number(ch.pressure||0),2);
+}
+function weatherMemoryUpdate(weatherId){
+  const m=state.weatherMemory||{hot:0,wet:0,dry:0};
+  m.hot=weatherId==='hot'?m.hot+1:0;
+  m.wet=['rain','storm','humid'].includes(weatherId)?m.wet+1:0;
+  m.dry=['hot','clear','breeze'].includes(weatherId)?m.dry+1:0;
+  state.weatherMemory=m;return m;
+}
+function pressureLabel(){
+  const p=pressureLevel(),m=state.weatherMemory||{};
+  const streak=m.hot>=2?' · Gelombang panas ×'+m.hot:m.wet>=2?' · Basah ×'+m.wet:m.dry>=3?' · Kering ×'+m.dry:'';
+  return 'Tekanan '+p.toFixed(2)+'×'+streak;
+}
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
