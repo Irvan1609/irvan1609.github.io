@@ -102,6 +102,28 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     setStatus(`✓ Parameter ${header} ditambahkan dari denah lahan.`);
     return {ok:true,header,index:state.headers.length-1};
   },
+  updateCells:(changes,reason='edit massal dari denah lahan')=>{
+    if(!Array.isArray(changes)||!changes.length)return {ok:false,error:'Tidak ada perubahan.'};
+    const clean=[];
+    for(const item of changes){
+      const row=Number(item?.row),col=Number(item?.col);
+      if(!Number.isInteger(row)||row<0||row>=state.rows.length||!Number.isInteger(col)||col<0||col>=state.headers.length)continue;
+      const value=String(item?.value??'');
+      if(String(state.rows[row]?.[col]??'')===value)continue;
+      clean.push({row,col,value});
+    }
+    if(!clean.length)return {ok:true,changed:false,count:0};
+    pushUndo(reason);
+    for(const item of clean)state.rows[item.row][item.col]=item.value;
+    try{
+      const content=serialize();storeDatasetContent(state.active,content);indicateSaved();recordEditorHistory(reason,false);
+      if(clean.length<=250){
+        for(const item of clean)notifyDatasetChange({type:'upsert',name:state.active,reason,patch:{kind:'set_cell',row:item.row,col:item.col,value:item.value}});
+      }else notifyDatasetChange({type:'upsert',name:state.active,reason});
+    }catch(error){showError('Gagal menyimpan perubahan denah.',error);return {ok:false,error:error.message};}
+    renderGrid();setStatus(`✓ ${clean.length} sel diperbarui dari denah lahan.`);
+    return {ok:true,changed:true,count:clean.length};
+  },
   snapshotActiveDataset:(reason='sebelum analisis')=>{
     recordEditorHistory(reason,true);
     return activeDatasetPayload();
