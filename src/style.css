@@ -4074,8 +4074,9 @@ body.analysis-results-open{overflow:hidden}
 
 /* STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS 2026-09-26 */
 .analysis-command-panel{
-  width:min(98vw,1180px)!important;
-  max-height:min(82vh,760px)!important;
+  width:calc(100% - 20px)!important;
+  max-width:none!important;
+  max-height:calc(100dvh - 150px)!important;
   overflow:auto!important;
 }
 .analysis-group-board{
@@ -4083,6 +4084,20 @@ body.analysis-results-open{overflow:hidden}
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:6px;
   padding:5px 0 1px;
+}
+
+@media(min-width:901px){
+  .analysis-group-board{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+    gap:5px;
+    padding:5px;
+  }
+  .analysis-compact-group:first-child{grid-column:auto}
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-template-columns:1fr;
+  }
 }
 .analysis-compact-group{
   min-width:0;
@@ -4214,8 +4229,10 @@ body.analysis-results-open{overflow:hidden}
 
   /* Analysis chooser: larger hit areas and more separation between neighboring choices. */
   .analysis-command-panel{
-    padding:10px!important;
-    max-height:76dvh!important;
+    width:calc(100vw - 14px)!important;
+    max-width:none!important;
+    padding:8px!important;
+    max-height:calc(100dvh - 92px)!important;
   }
   .analysis-menu-head{padding:5px 4px 8px!important}
   .analysis-menu-head b{font-size:14px!important}
