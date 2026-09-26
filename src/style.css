@@ -4185,3 +4185,463 @@ body.analysis-results-open{overflow:hidden}
   .aug-parameter-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .aug-param{min-height:38px!important}
 }
+
+
+/* STAT MOBILE TAP TARGETS 2026-09-26 */
+/* Phone controls remain visually compact, but every interactive target is comfortably tappable. */
+@media(max-width:720px){
+  .analysis-command-panel,
+  .analysis-workspace-modal,
+  .analysis-result-dock,
+  [data-tool-mode="augmented"]{
+    --stat-touch:50px;
+  }
+
+  .analysis-command-panel button,
+  .analysis-command-panel select,
+  .analysis-command-panel summary,
+  .analysis-workspace-modal button,
+  .analysis-workspace-modal select,
+  .analysis-workspace-modal summary,
+  .analysis-result-dock button,
+  .analysis-result-dock select,
+  .analysis-result-dock summary,
+  [data-tool-mode="augmented"] button,
+  [data-tool-mode="augmented"] select,
+  [data-tool-mode="augmented"] summary{
+    touch-action:manipulation;
+  }
+
+  /* Analysis chooser: larger hit areas and more separation between neighboring choices. */
+  .analysis-command-panel{
+    padding:10px!important;
+    max-height:76dvh!important;
+  }
+  .analysis-menu-head{padding:5px 4px 8px!important}
+  .analysis-menu-head b{font-size:14px!important}
+  .analysis-menu-head small{font-size:11px!important;line-height:1.35!important}
+  .analysis-simple-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  .analysis-simple-card{
+    min-height:64px!important;
+    padding:8px 9px!important;
+    border-radius:10px!important;
+    column-gap:9px!important;
+  }
+  .analysis-simple-card>span{
+    width:34px!important;height:34px!important;
+    font-size:10px!important;
+  }
+  .analysis-simple-card>b{
+    font-size:13px!important;
+    line-height:1.2!important;
+  }
+  .analysis-simple-card>small{
+    font-size:10px!important;
+    line-height:1.2!important;
+  }
+  .analysis-factorial-choice,
+  .analysis-other-picker{
+    gap:8px!important;
+    padding:8px!important;
+    margin-top:8px!important;
+  }
+  .analysis-factorial-choice button{
+    min-height:54px!important;
+    padding:8px 10px!important;
+    border-radius:9px!important;
+  }
+  .analysis-factorial-choice b{font-size:13px!important}
+  .analysis-factorial-choice small{font-size:10.5px!important}
+  .analysis-other-picker select{
+    min-height:52px!important;
+    padding:8px 10px!important;
+    border-radius:9px!important;
+    font-size:16px!important;
+  }
+
+  /* Scientific setup: controls are full-width and no longer require precision taps. */
+  .analysis-workspace-backdrop{
+    padding:4px!important;
+  }
+  .analysis-workspace-backdrop>.analysis-workspace-modal{
+    max-height:calc(100dvh - 8px)!important;
+    border-radius:12px!important;
+  }
+  .analysis-workspace-head{
+    min-height:58px!important;
+    padding:7px 9px!important;
+  }
+  .science-close{
+    width:48px!important;
+    min-width:48px!important;
+    height:48px!important;
+    min-height:48px!important;
+    border-radius:10px!important;
+    font-size:20px!important;
+  }
+  .analysis-workspace-body{
+    padding:8px!important;
+  }
+  .science-simple-shell{gap:8px!important}
+  .science-primary-grid{gap:8px!important}
+  .science-simple-shell .science-card{
+    border-radius:10px!important;
+  }
+  .science-card-head{
+    min-height:38px!important;
+    padding:7px 9px!important;
+  }
+  .science-card-head b{font-size:13px!important}
+  .science-role-grid,
+  .science-option-grid{
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .science-role-grid label,
+  .science-option-grid label,
+  .science-simple-parameter{
+    gap:5px!important;
+    font-size:12px!important;
+  }
+  .science-simple-shell select,
+  .science-option-grid select,
+  .science-contrast-box select,
+  .science-preset-select{
+    min-height:50px!important;
+    padding:8px 10px!important;
+    border-radius:9px!important;
+    font-size:16px!important;
+  }
+  .science-simple-parameter{padding:8px!important}
+  .science-multi-parameters,
+  .science-advanced-options{
+    margin:8px 0!important;
+    border-radius:9px!important;
+  }
+  .science-multi-parameters>summary,
+  .science-advanced-options>summary{
+    min-height:50px!important;
+    padding:8px 10px!important;
+    font-size:13px!important;
+  }
+  .science-advanced-options>summary>span{
+    font-size:10px!important;
+    line-height:1.25!important;
+  }
+  .science-parameter-list{
+    padding:4px!important;
+    max-height:34dvh!important;
+  }
+  .science-parameter-list .parameter-row{
+    min-height:54px!important;
+    gap:8px!important;
+    padding:5px!important;
+  }
+  .science-parameter-list .ral-check{
+    min-height:48px!important;
+    padding:7px 8px!important;
+    gap:9px!important;
+  }
+  .science-parameter-list input[type="checkbox"],
+  .science-switch-row input[type="checkbox"]{
+    width:22px!important;
+    height:22px!important;
+    min-width:22px!important;
+  }
+  .science-parameter-list select{
+    min-height:48px!important;
+    font-size:15px!important;
+  }
+  .science-switch-row{
+    min-height:52px!important;
+    padding:8px!important;
+    gap:10px!important;
+  }
+  .science-contrast-box{padding:8px!important}
+  .analysis-workspace-foot{
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .science-foot-actions{
+    gap:8px!important;
+  }
+  .science-foot-actions button{
+    min-height:52px!important;
+    border-radius:10px!important;
+    font-size:14px!important;
+  }
+  .science-run-button{
+    min-width:0!important;
+    font-size:14px!important;
+  }
+
+  /* Result toolbar: large selectors and a single obvious action target. */
+  .analysis-result-toolbar{
+    grid-template-columns:110px minmax(0,1fr)!important;
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .simple-result-view-select{
+    width:110px!important;
+    max-width:110px!important;
+    min-height:50px!important;
+    font-size:16px!important;
+  }
+  .analysis-result-toolbar>[data-result-focus]{
+    min-height:50px!important;
+    font-size:16px!important;
+  }
+  .result-single-actions{
+    grid-column:1/-1!important;
+    width:100%!important;
+  }
+  .result-single-actions>summary{
+    width:100%!important;
+    min-height:50px!important;
+    justify-content:center!important;
+    border-radius:9px!important;
+    font-size:13px!important;
+  }
+  .result-single-actions .result-tools-menu-body{
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+    max-height:66dvh!important;
+    overflow:auto!important;
+    grid-template-columns:1fr!important;
+    gap:6px!important;
+    padding:9px!important;
+    border-radius:12px!important;
+  }
+  .result-single-actions .result-action-select,
+  .result-single-actions .result-significance-filter{
+    grid-column:1!important;
+  }
+  .result-single-actions .result-action-select select{
+    min-height:50px!important;
+    font-size:16px!important;
+  }
+  .result-single-actions button,
+  .result-compact-menu button,
+  .result-card-more-menu button{
+    min-height:50px!important;
+    padding:9px 11px!important;
+    border-radius:8px!important;
+    font-size:13px!important;
+  }
+  .result-significance-filter{
+    gap:6px!important;
+  }
+  .result-significance-filter button{
+    min-height:48px!important;
+    text-align:center!important;
+  }
+
+  /* Parameter result action stays compact visually but gets a real 48px hit box. */
+  .analysis-result>h3,
+  .analysis-result>h4{
+    min-height:50px!important;
+    padding:10px 58px 10px 9px!important;
+    display:flex!important;
+    align-items:center!important;
+  }
+  .analysis-result .result-actions.result-card-actions{
+    top:2px!important;
+    right:4px!important;
+  }
+  .result-card-actions .result-card-more>summary{
+    min-width:48px!important;
+    width:48px!important;
+    min-height:48px!important;
+    height:48px!important;
+    border-radius:9px!important;
+    font-size:20px!important;
+  }
+  .result-card-more-menu{
+    position:fixed!important;
+    left:8px!important;
+    right:8px!important;
+    top:auto!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+    min-width:0!important;
+    max-height:60dvh!important;
+    overflow:auto!important;
+    gap:6px!important;
+    padding:9px!important;
+    border-radius:12px!important;
+  }
+  .mobile-result-nav{
+    gap:8px!important;
+  }
+  .mobile-result-nav button{
+    min-width:52px!important;
+    min-height:48px!important;
+    border-radius:9px!important;
+    font-size:20px!important;
+  }
+
+  /* Result dock header and Augmented use the same touch scale. */
+  .analysis-dock-head{
+    min-height:58px!important;
+    padding:6px 8px!important;
+  }
+  .analysis-dock-head button{
+    min-width:48px!important;
+    min-height:48px!important;
+    padding:6px 9px!important;
+  }
+  .aug-simple-form{
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .aug-simple-form select,
+  .aug-advanced select,
+  .aug-advanced input{
+    min-height:50px!important;
+    padding:8px 10px!important;
+    font-size:16px!important;
+  }
+  .aug-multi-parameters>summary,
+  .aug-advanced>summary{
+    min-height:50px!important;
+    padding:8px 10px!important;
+    font-size:13px!important;
+  }
+  .aug-runbar{
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .aug-runbar button{
+    min-height:52px!important;
+    border-radius:10px!important;
+    font-size:14px!important;
+  }
+}
+
+
+/* STAT MOBILE DOCK TAP TARGETS 2026-09-26 */
+@media(max-width:720px){
+  .app-header .nav{
+    gap:5px!important;
+    padding:6px!important;
+  }
+  .app-header .nav>button{
+    min-height:56px!important;
+    padding:7px 4px!important;
+    border-radius:11px!important;
+    font-size:11.5px!important;
+    touch-action:manipulation;
+  }
+  #openAnalysis::before,
+  #globalSearchButton::before,
+  #projectToggle::before,
+  #mobileMoreButton::before{
+    margin-bottom:3px!important;
+    font-size:19px!important;
+    line-height:20px!important;
+  }
+  .mobile-more-panel button,
+  .nav-command-panel:not(.analysis-command-panel) button{
+    min-height:52px!important;
+    padding:8px 10px!important;
+    border-radius:9px!important;
+    font-size:13px!important;
+    touch-action:manipulation;
+  }
+}
+
+
+/* STAT MOBILE GROUP TAP TARGETS 2026-09-26 */
+@media(max-width:720px){
+  /* Current all-analysis group board. */
+  .analysis-group-board{
+    gap:8px!important;
+    padding:4px 0 2px!important;
+  }
+  .analysis-compact-group{
+    border-radius:10px!important;
+  }
+  .analysis-compact-group-title{
+    min-height:36px!important;
+    padding:7px 9px!important;
+    font-size:11px!important;
+  }
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+    padding:7px!important;
+  }
+  .analysis-compact-item{
+    min-height:58px!important;
+    grid-template-columns:34px minmax(0,1fr)!important;
+    gap:8px!important;
+    padding:8px!important;
+    border-radius:9px!important;
+  }
+  .analysis-compact-item>span{
+    width:34px!important;
+    height:34px!important;
+    border-radius:7px!important;
+    font-size:9.5px!important;
+  }
+  .analysis-compact-item>b{
+    font-size:12px!important;
+    line-height:1.2!important;
+    white-space:normal!important;
+  }
+
+  /* Auto-selected parameter chips need the same comfortable hit area. */
+  .science-parameter-check-grid,
+  .aug-parameter-grid{
+    grid-template-columns:1fr!important;
+    gap:7px!important;
+    padding:7px!important;
+    max-height:38dvh!important;
+  }
+  .science-param-check,
+  .aug-param{
+    min-height:52px!important;
+    padding:8px 9px!important;
+    gap:10px!important;
+    border-radius:9px!important;
+    touch-action:manipulation;
+  }
+  .science-param-check input,
+  .aug-param input{
+    width:22px!important;
+    height:22px!important;
+    min-width:22px!important;
+    flex:0 0 22px!important;
+  }
+  .science-param-check span,
+  .aug-param span{
+    font-size:13px!important;
+    line-height:1.25!important;
+    white-space:normal!important;
+  }
+  .science-transform-details>summary{
+    min-height:50px!important;
+    display:flex!important;
+    align-items:center!important;
+    padding:8px 10px!important;
+    font-size:13px!important;
+    touch-action:manipulation;
+  }
+  .science-transform-grid{
+    gap:8px!important;
+    padding:8px!important;
+  }
+  .science-transform-grid label{
+    gap:6px!important;
+    font-size:12px!important;
+  }
+  .science-transform-grid select{
+    min-height:50px!important;
+    padding:8px 10px!important;
+    font-size:16px!important;
+  }
+}
