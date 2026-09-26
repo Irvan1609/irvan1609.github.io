@@ -734,12 +734,6 @@ function experimentSummaryHtml(){
 }
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
-  if(!state.experiment&&state.season===1&&!state.achievements.includes('first')&&!state.eventFlags.academySkipIntro){
-    openMetaModal('AKADEMI','Rp → 📐 → 🧬 → 📊',`<div class="academy-intro"><b>Musim 1</b><span>Mulai dari produksi dan panen pertama.</span><div><button data-academy-field>Rp Lahan</button><button data-academy-skip>📐 Lewati</button></div></div>`);
-    $('#metaModalBody').querySelector('[data-academy-field]').onclick=()=>{closeMetaModal();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});};
-    $('#metaModalBody').querySelector('[data-academy-skip]').onclick=()=>{state.eventFlags.academySkipIntro=true;save();closeMetaModal();openExperiment();};
-    return;
-  }
   if(!state.experiment){
     openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form">
       <label>Mode<select name="kind"><option value="genotype">🌱 Genetik / galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="water">💧 Air</option><option value="spacing">▦ Jarak tanam</option><option value="mulch">◫ Mulsa</option><option value="soil">△ Tanah</option><option value="disease">◈ Hama/penyakit</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
@@ -757,7 +751,7 @@ function openExperiment(){
     $('#experimentForm').onsubmit=event=>{
       event.preventDefault();const fd=new FormData(event.currentTarget);
       try{createExperiment({name:fd.get('name'),question:fd.get('question'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters'),frequency:Number(fd.get('frequency'))});}
-      catch(error){alert(error.message);}
+      catch(error){toast(error.message);}
     };
     $('#metaModalBody').querySelector('[data-breeding-cup]').onclick=breedingCup.open;
     return;
@@ -767,7 +761,7 @@ function openExperiment(){
   $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{
     const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}
   });
-  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{if(confirm('Acak ulang posisi perlakuan? Data pengamatan dikosongkan.')){exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();}};
+  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{const hasData=exp.units.some(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!==''));if(hasData&&!confirm('Acak ulang? Data pengamatan yang sudah ada akan dikosongkan.'))return;exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();};
   $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';render();closeMetaModal();}};
   $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
@@ -953,6 +947,7 @@ function toolSymbol(tool){
 }
 function playHint(){
   if(breedingCup.active())return {icon:'🏆',text:'Breeding Cup · lanjutkan keputusan',action:'cup'};
+  if(state.pendingEvent)return {icon:'⚠',text:'Kejadian lapang · ketuk untuk tinjau',action:'event'};
   if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
   if(state.experiment&&state.experiment.kind!=='genotype'&&state.experiment.kind!=='competition'){
     const pending=state.experiment.units.find(unit=>!unit.applied);
@@ -987,6 +982,7 @@ function runPlayHint(){
   if(hint.action==='next'){advanceDay();return;}
   if(hint.action==='finish'){finishSeason();return;}
   if(hint.action==='cup'){breedingCup.open();return;}
+  if(hint.action==='event'){renderEvent();return;}
   document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function openSeedVault(){
@@ -1033,11 +1029,11 @@ function renderSeason(){
   $('#weatherText').textContent=WEATHER[state.weather].icon+' '+WEATHER[state.weather].name;$('#weatherEffect').textContent=WEATHER[state.weather].effect;
   const missionView=missionDisplay();$('#missionText').textContent=missionView.title;$('#missionProgress').textContent=missionView.progress;
   $('#forecastText').textContent=weatherRiskPreview()+' · '+pressureLabel();
-  const cupActive=breedingCup.active(),icons={panen:'🧺',penyakit:'◈',air:'💧',n:'N',mati:'×',stres:'!'};
+  const cupActive=breedingCup.active(),eventPending=!!state.pendingEvent,icons={panen:'🧺',penyakit:'◈',air:'💧',n:'N',mati:'×',stres:'!'};
   const alerts=attentionIndexes().slice(0,4).map(item=>(icons[item.issue]||'!')+'P'+String(item.index+1).padStart(2,'0'));
-  $('#finishSeason').hidden=cupActive||state.day<state.maxDay;$('#nextDay').hidden=!cupActive&&state.day>=state.maxDay;
-  $('#nextDay').textContent=cupActive?'🏆 Buka Breeding Cup':('Hari berikutnya →'+(alerts.length?' · '+alerts.join(' '):''));
-  $('#nextDay').title=alerts.length?'Petak perlu perhatian: '+alerts.join(', '):'Lanjutkan satu hari';
+  $('#finishSeason').hidden=cupActive||eventPending||state.day<state.maxDay;$('#nextDay').hidden=!cupActive&&!eventPending&&state.day>=state.maxDay;
+  $('#nextDay').textContent=cupActive?'🏆 Buka Breeding Cup':eventPending?'⚠ Tinjau kejadian':('Hari berikutnya →'+(alerts.length?' · '+alerts.join(' '):''));
+  $('#nextDay').title=eventPending?'Kejadian lapang menunggu keputusan':(alerts.length?'Petak perlu perhatian: '+alerts.join(', '):'Lanjutkan satu hari');
 }
 function plotUseControlHtml(index){
   const unit=experimentUnit(index),active=unit?'research':plotUse(index),meta=plotMeta(index);
@@ -1289,7 +1285,6 @@ function setFieldTool(tool=''){
   document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
   document.querySelector('#fieldGrid')?.classList.toggle('tool-active',!!activeFieldTool);
   renderPlayControls();
-  if(activeFieldTool)toast(toolSymbol(activeFieldTool)+' ×');
 }
 function useFieldTool(tool,index,{seedId=''}={}){
   if(index<0||index>=fieldLimit())return false;
@@ -1297,9 +1292,9 @@ function useFieldTool(tool,index,{seedId=''}={}){
   if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
   if(tool==='plant'){plantSelected();return true;}
   if(tool==='treatment')return applyExperimentTreatment(index);
-  if(!state.field[index]){toast('∅');renderField();renderInspector();return false;}
+  if(!state.field[index]){haptic(4);renderField();renderInspector();return false;}
   if(tool==='harvest'){
-    if(state.field[index].growth<100||state.field[index].health<=0){toast('⏳');renderField();renderInspector();return false;}
+    if(state.field[index].growth<100||state.field[index].health<=0){haptic(4);renderField();renderInspector();return false;}
     harvestPlot(index,1,true);return true;
   }
   if(['water','fertilize','scout'].includes(tool)){cropAction(tool);return true;}
@@ -1309,7 +1304,6 @@ function useFieldTool(tool,index,{seedId=''}={}){
 
 function render(){
   renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();save();
-  if(state.pendingEvent)renderEvent();
 }
 
 function plantSelected(){
@@ -1516,7 +1510,7 @@ function updateFieldPressure(){
   };
 }
 function advanceDay(){
-  clearUndo();if(state.pendingEvent)return;
+  clearUndo();if(state.pendingEvent){renderEvent();return;}
   if(state.day>=state.maxDay){finishSeason();return;}
   state.day++;harvestCombo=0;state.focus=focusMax(state.level);
   if(state.daily){
@@ -1526,9 +1520,9 @@ function advanceDay(){
   const diseaseSnapshot=state.field.map(crop=>Number(crop?.disease)||0);
   state.field.forEach((crop,index)=>processCrop(crop,w,index,diseaseSnapshot));runScheduledExperimentObservation();tickExpedition();
   addLog(w.icon+' '+w.name+'. '+w.effect+'.');
-  const eventChance=state.achievements.includes('first')?(.28+Math.min(.12,state.season*.01)+(state.env.boss?0.08:0)):0.06;
+  const eventChance=state.achievements.includes('first')?(.10+Math.min(.04,Math.max(0,state.season-1)*.004)+(state.env.boss?0.04:0)):0.02;
   if(simUnit('event',state.season,state.day)<eventChance)state.pendingEvent=createEvent();
-  render();if(state.pendingEvent)renderEvent();else toast('Hari '+state.day+' · '+w.name);
+  render();
 }
 function createEvent(){
   const types=['rust','trader','soil','drainage'];
@@ -1816,15 +1810,16 @@ function bind(){
   $('#closeInspectorSheet').onclick=closeInspectorSheet;
   $('#undoAction').onclick=undoLastAction;
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
+  $('#eventModal').addEventListener('click',event=>{if(event.target.id==='eventModal')$('#eventModal').hidden=true;});
   $('#saveBestSeed').onclick=openSelection;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
   $('#soundToggle').onclick=async()=>{
-    if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);toast('♫');}
-    else{state.sound=false;save();renderHud();stopMusic();toast('♪×');}
+    if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);}
+    else{state.sound=false;save();renderHud();stopMusic();}
   };
-  const resetRun=()=>{clearUndo();if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
+  const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
   let resetHold=0,resetHoldDone=false;
-  $('#newRun').addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;resetHoldDone=false;resetHold=setTimeout(()=>{resetHoldDone=true;haptic(20);resetRun();},700);});
+  $('#newRun').addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;resetHoldDone=false;resetHold=setTimeout(()=>{resetHoldDone=true;haptic(20);resetRun(true);},700);});
   ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#newRun').addEventListener(type,()=>{clearTimeout(resetHold);resetHold=0;}));
   $('#newRun').onclick=event=>{if(resetHoldDone){event.preventDefault();return;}if(matchMedia('(pointer:coarse)').matches){toast('Tahan ↺ untuk reset');return;}resetRun();};
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;$('#openSelection').onclick=openSelection;
