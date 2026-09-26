@@ -386,8 +386,14 @@ function renderMap(){
   const arrow=$('#fieldNorthArrow');if(arrow)arrow.dataset.direction=config.north;
   const legend=$('#fieldHeatLegend');
   if(legend){
-    legend.hidden=!scale;
-    if(scale)legend.innerHTML=`<b>${esc(current.headers[scale.index])}</b><span>${esc(String(scale.min))}</span><i></i><span>${esc(String(scale.max))}</span>`;
+    if(scale){
+      legend.hidden=false;legend.innerHTML=`<b>${esc(current.headers[scale.index])}</b><span>${esc(String(scale.min))}</span><i></i><span>${esc(String(scale.max))}</span>`;
+    }else if(config.colorMode==='treatment'){
+      const values=[...new Set(current.rows.map(row=>colorLabel(current,row)).filter(Boolean))].slice(0,8);
+      legend.hidden=!values.length;legend.innerHTML=values.map(value=>`<span class="field-legend-chip" style="--legend-hue:${hashHue(value)}"><i></i>${esc(value)}</span>`).join('');
+    }else if(config.colorMode==='completion'){
+      legend.hidden=false;legend.innerHTML='<span class="field-legend-chip"><i style="--legend-hue:135"></i>Lengkap</span><span class="field-legend-chip"><i style="--legend-hue:42"></i>Sebagian</span><span class="field-legend-chip"><i style="--legend-hue:0"></i>Kosong</span>';
+    }else legend.hidden=true;
   }
   const groups=groupEntries(current);
   let visible=0;
