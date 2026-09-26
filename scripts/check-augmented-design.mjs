@@ -58,3 +58,5 @@ const dataTools=fs.readFileSync(new URL('../src/data-tools.js',import.meta.url),
 assert.ok(dataTools.includes("openTool(title,html,mode=''"),'openTool mode missing');
 const css=fs.readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
 for(const marker of ['AUGMENTED WORKSPACE REFINEMENT','data-tool-mode="augmented"','.aug-result-summary','.aug-anova-grid'])assert.ok(css.includes(marker),`augmented UI CSS missing ${marker}`);
+
+// UI refresh trigger after master syntax repair
