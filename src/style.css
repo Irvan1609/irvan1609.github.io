@@ -3951,3 +3951,49 @@ body.analysis-results-open{overflow:hidden}
   .publication-table-tools,
   .chapter-interpretation-head>button{display:none!important}
 }
+
+
+/* STAT COMPACT CONTROLS 2026-09-26 */
+.analysis-other-picker{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;
+  max-width:560px;margin:5px auto 0;padding:5px;
+  border:1px solid #d8e0e6;border-radius:7px;background:#f8fafb;
+}
+.analysis-other-picker select{
+  min-width:0;min-height:34px!important;padding:4px 7px!important;font-size:10px!important;
+}
+.analysis-other-picker button{min-height:34px!important;padding:4px 10px!important;font-size:9.5px!important}
+.analysis-menu-head{padding-bottom:4px}
+.analysis-menu-head small{font-size:8.5px!important}
+.science-head-actions{display:none!important}
+.result-single-actions{margin-left:auto}
+.result-single-actions>summary{
+  min-height:30px;display:flex;align-items:center;padding:3px 9px;
+  border:1px solid #d5dde4;border-radius:6px;background:#fff;
+  color:#4e6170;font-size:9.5px;font-weight:800;cursor:pointer;list-style:none;
+}
+.result-single-actions>summary::-webkit-details-marker{display:none}
+.result-action-select{display:grid;gap:3px;font-size:8.5px;color:#71808b}
+.result-action-select select{min-height:30px!important;font-size:9.5px!important}
+.result-single-actions .result-tools-menu-body{
+  min-width:260px;display:grid;grid-template-columns:1fr 1fr;gap:4px;
+}
+.result-single-actions .result-action-select,
+.result-single-actions .result-significance-filter{grid-column:1/-1}
+.result-single-actions button{min-height:30px!important;font-size:9px!important}
+.aug-result-toolbar{
+  display:flex;justify-content:flex-end;padding:4px 6px;border-bottom:1px solid #d9e0e5;background:#fafbfc;
+}
+.aug-result-toolbar select{min-height:30px!important;padding:3px 7px!important;font-size:9.5px!important}
+.aug-view-detail .aug-summary-pane{display:none!important}
+.aug-view-detail .aug-anova-pane,.aug-view-detail .aug-detail-pane{display:block!important}
+@media(max-width:720px){
+  .analysis-other-picker{grid-template-columns:1fr;max-width:none}
+  .analysis-other-picker select,.analysis-other-picker button{min-height:40px!important}
+  .result-single-actions{margin-left:0}
+  .result-single-actions>summary{min-height:38px}
+  .result-single-actions .result-tools-menu-body{
+    position:fixed;left:5px;right:5px;bottom:8px;top:auto;min-width:0;
+    grid-template-columns:1fr 1fr;
+  }
+}
