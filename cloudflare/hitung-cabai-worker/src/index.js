@@ -1469,9 +1469,18 @@ async function handleDevelopContributions(request,env,url){
 function contributionImageExtension(mimeType){
   return mimeType==='image/png'?'png':mimeType==='image/jpeg'?'jpg':'webp';
 }
-function contributionImageKey(row){
-  const created=String(row.created_at||new Date().toISOString());
-  return `contributions/${created.slice(0,7).replace('-','/')}/${row.id}.${contributionImageExtension(row.mime_type)}`;
+function contributionImageKey(hash,mimeType){
+  return `contributions/by-sha/${String(hash).slice(0,2)}/${hash}.${contributionImageExtension(mimeType)}`;
+}
+async function storeContributionImageR2(env,bytes,mimeType,{contributionId='',createdAt=''}={}){
+  const hash=await sha256Bytes(bytes),key=contributionImageKey(hash,mimeType);
+  let created=false;
+  const existing=await env.IMAGES.head(key);
+  if(!existing){
+    await env.IMAGES.put(key,bytes,{httpMetadata:{contentType:mimeType||'application/octet-stream'},customMetadata:{sha256:hash,firstContributionId:contributionId,createdAt}});
+    created=true;
+  }
+  return {key,hash,created};
 }
 async function migrateLegacyContributionImages(env,actor=null,limit=25){
   await ensureContributionSchema(env);
@@ -1485,14 +1494,14 @@ async function migrateLegacyContributionImages(env,actor=null,limit=25){
   for(const row of rows.results||[]){
     const imageBytes=row.image?new Uint8Array(row.image):null;
     if(!imageBytes?.byteLength)continue;
-    const key=contributionImageKey(row);
+    let stored=null;
     try{
-      await env.IMAGES.put(key,imageBytes,{httpMetadata:{contentType:row.mime_type||'application/octet-stream'},customMetadata:{contributionId:row.id,createdAt:row.created_at||''}});
+      stored=await storeContributionImageR2(env,imageBytes,row.mime_type,{contributionId:row.id,createdAt:row.created_at||''});
       try{
-        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_size_bytes=?,storage_backend='r2',updated_at=COALESCE(updated_at,?) WHERE id=?`)
-          .bind(new Uint8Array(0),key,imageBytes.byteLength,new Date().toISOString(),row.id).run();
+        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_size_bytes=?,image_sha256=?,storage_backend='r2',updated_at=COALESCE(updated_at,?) WHERE id=?`)
+          .bind(new Uint8Array(0),stored.key,imageBytes.byteLength,stored.hash,new Date().toISOString(),row.id).run();
       }catch(error){
-        await env.IMAGES.delete(key).catch(()=>{});
+        if(stored.created)await env.IMAGES.delete(stored.key).catch(()=>{});
         throw error;
       }
       migrated++;bytes+=imageBytes.byteLength;
@@ -1760,6 +1769,7 @@ async function ensureContributionSchema(env){
     image BLOB NOT NULL,
     image_object_key TEXT,
     image_size_bytes INTEGER NOT NULL DEFAULT 0,
+    image_sha256 TEXT,
     storage_backend TEXT NOT NULL DEFAULT 'd1',
     mime_type TEXT NOT NULL,
     width INTEGER NOT NULL,
@@ -1782,12 +1792,14 @@ async function ensureContributionSchema(env){
   if(!columns.has('updated_at'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN updated_at TEXT').run();
   if(!columns.has('image_object_key'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_object_key TEXT').run();
   if(!columns.has('image_size_bytes'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_size_bytes INTEGER NOT NULL DEFAULT 0').run();
+  if(!columns.has('image_sha256'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_sha256 TEXT').run();
   if(!columns.has('storage_backend'))await env.DB.prepare("ALTER TABLE contributions ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'd1'").run();
   await env.DB.batch([
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status_created ON contributions(status,created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_image_sha256 ON contributions(image_sha256)')
   ]);
   CONTRIBUTION_SCHEMA_READY=true;
 }
@@ -1827,12 +1839,11 @@ async function handleContribution(request,env){
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
   const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount),editToken=randomToken(24),editTokenHash=await sha256(editToken);
   const bytes=await image.arrayBuffer(),imageSizeBytes=bytes.byteLength;
-  const extension=image.type==='image/png'?'png':image.type==='image/jpeg'?'jpg':'webp';
-  const imageObjectKey=env.IMAGES?`contributions/${createdAt.slice(0,7).replace('-','/')}/${id}.${extension}`:null;
-  let storageBackend='d1',storedImage=bytes;
-  if(imageObjectKey){
+  let storageBackend='d1',storedImage=bytes,imageObjectKey=null,imageHash=await sha256Bytes(bytes),r2Created=false;
+  if(env.IMAGES){
     try{
-      await env.IMAGES.put(imageObjectKey,bytes,{httpMetadata:{contentType:image.type},customMetadata:{contributionId:id,createdAt}});
+      const stored=await storeContributionImageR2(env,bytes,image.type,{contributionId:id,createdAt});
+      imageObjectKey=stored.key;imageHash=stored.hash;r2Created=stored.created;
       storageBackend='r2';storedImage=new Uint8Array(0);
     }catch(error){
       console.warn('R2 image write failed; falling back to D1',error?.message||error);
@@ -1841,16 +1852,16 @@ async function handleContribution(request,env){
 
   try{
     await env.DB.prepare(`INSERT INTO contributions
-      (id,sample,image,image_object_key,image_size_bytes,storage_backend,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(id,sample,storedImage,storageBackend==='r2'?imageObjectKey:null,imageSizeBytes,storageBackend,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
+      (id,sample,image,image_object_key,image_size_bytes,image_sha256,storage_backend,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id,sample,storedImage,storageBackend==='r2'?imageObjectKey:null,imageSizeBytes,imageHash,storageBackend,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
       .run();
   }catch(error){
-    if(storageBackend==='r2'&&imageObjectKey)await env.IMAGES.delete(imageObjectKey).catch(()=>{});
+    if(storageBackend==='r2'&&r2Created&&imageObjectKey)await env.IMAGES.delete(imageObjectKey).catch(()=>{});
     throw error;
   }
 
-  const payload={ok:true,id,editToken,qualityScore:score,finalCount,storageBackend};
+  const payload={ok:true,id,editToken,qualityScore:score,finalCount,storageBackend,deduplicated:storageBackend==='r2'&&!r2Created};
   await rememberOperation(env,'contribution:create',operationId,payload);
   return json(request,env,payload);
 }
