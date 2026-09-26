@@ -26,6 +26,12 @@ const DIAGNOSTICS={
   disease:{name:'Uji penyakit',icon:'◈',cost:850000}
 };
 const PARAMETERS=['Hasil (t ha-1)','ASI (hari)','Penyakit (%)','WUE (kg m-3)','Margin (Rp ha-1)'];
+const FAILURE_ACTIONS={
+  nitrogen:{name:'Tambah N',icon:'N',cost:350000},
+  drainage:{name:'Perbaiki drainase',icon:'≋',cost:450000},
+  protect:{name:'Kendalikan penyakit',icon:'◈',cost:500000}
+};
+const FAILURE_CAUSES=['nitrogen','drainage','protect'];
 const clamp=(v,min=0,max=100)=>Math.max(min,Math.min(max,v));
 const round=(v,d=1)=>Number(Number(v).toFixed(d));
 function hashString(text){
@@ -134,7 +140,7 @@ export function createBreedingCup(api){
     st.challenge='trial24';st.maxDay=12;st.daily=null;st.monoSeedId=null;
     const design=values.design==='ral'?'ral':'rak';
     st.experiment={id:api.uid('exp'),name:'Breeding Cup · '+tender.name,design,kind:'competition',treatments,reps:strategy.reps,parameters:[...PARAMETERS],units:api.randomize(design,treatments,strategy.reps),createdAt:new Date().toISOString()};
-    st.competition={id:api.uid('cup'),seed,strategy:values.strategy,tender:values.tender,management:values.management,design,reps:strategy.reps,initialBudget,budget:initialBudget-cost,spent:cost,stage:'design',trialEnv:ENVS[Math.floor(unit(seed,'trial-env')*ENVS.length)].id,hiddenLines:Array.from({length:strategy.lines},(_,i)=>line(seed,i)),diagnostics:[],selected:[],decisions:[{type:'design',text:design.toUpperCase()+' · '+strategy.name+' · '+management.name}],final:null};
+    st.competition={id:api.uid('cup'),seed,strategy:values.strategy,tender:values.tender,management:values.management,design,reps:strategy.reps,initialBudget,budget:initialBudget-cost,spent:cost,stage:'design',trialEnv:ENVS[Math.floor(unit(seed,'trial-env')*ENVS.length)].id,hiddenLines:Array.from({length:strategy.lines},(_,i)=>line(seed,i)),diagnostics:[],selected:[],decisions:[{type:'design',text:design.toUpperCase()+' · '+strategy.name+' · '+management.name}],failure:{symptom:'Daun menguning dan pertumbuhan terhambat',cause:FAILURE_CAUSES[Math.floor(unit(seed,'failure-cause')*FAILURE_CAUSES.length)],action:null,correct:null},final:null};
     st.selectedPlot=0;api.setTool('');api.addLog('🏆 Breeding Cup dimulai: '+strategy.name+' · tender '+tender.name+'.');api.save();api.render();open();
   }
   function simulate(){
@@ -173,12 +179,12 @@ export function createBreedingCup(api){
   }
   function diagnosticText(type){
     const comp=state().competition,env=ENVS.find(item=>item.id===comp.trialEnv);
-    if(type==='soil')return 'Gradien kesuburan meningkat ke sisi kanan lahan; kelembapan cenderung meningkat ke baris bawah. '+(comp.design==='rak'?'RAK menyebarkan setiap galur di dalam kelompok sehingga sebagian variasi posisi dapat dipisahkan.':'RAL mengacak seluruh petak, tetapi gradien spasial dapat tetap masuk ke galat dan memperbesar ketidakpastian.');
+    if(type==='soil')return 'Gradien kesuburan meningkat ke sisi kanan lahan; kelembapan cenderung meningkat ke baris bawah. '+(comp.design==='rak'?'RAK menyebarkan setiap galur di dalam kelompok sehingga sebagian variasi posisi dapat dipisahkan.':'RAL mengacak seluruh petak, tetapi gradien spasial dapat tetap masuk ke galat dan memperbesar ketidakpastian.')+(comp.failure?.cause==='nitrogen'?' Sampel petak bermasalah menunjukkan N mineral rendah.':comp.failure?.cause==='drainage'?' N mineral cukup, tetapi kadar air tanah sangat tinggi.':' N mineral dan aerasi tidak menjelaskan gejala utama.');
     if(type==='plant'){
       const rows=summaries(),avg=rows.reduce((a,r)=>a+r.se,0)/Math.max(1,rows.length);
-      return 'SE hasil rata-rata '+avg.toFixed(2)+' t ha⁻¹. Ulangan lebih banyak menurunkan ketidakpastian rerata, tetapi mengurangi jumlah galur.';
+      return 'SE hasil rata-rata '+avg.toFixed(2)+' t ha⁻¹. Ulangan lebih banyak menurunkan ketidakpastian rerata, tetapi mengurangi jumlah galur. '+(comp.failure?.cause==='nitrogen'?'Analisis jaringan menunjukkan N daun rendah.':comp.failure?.cause==='drainage'?'N jaringan cukup, tetapi indikator hipoksia akar meningkat.':'N jaringan cukup; pola kerusakan tidak konsisten dengan defisiensi N.');
     }
-    if(type==='disease')return 'Tekanan penyakit musim awal sekitar '+Math.round(env.disease)+'%. Gejala juga dipengaruhi kelembapan, ketahanan genetik, posisi petak, dan galat.';
+    if(type==='disease')return 'Tekanan penyakit musim awal sekitar '+Math.round(env.disease)+'%. Gejala juga dipengaruhi kelembapan, ketahanan genetik, posisi petak, dan galat. '+(comp.failure?.cause==='protect'?'Uji patogen positif pada petak bermasalah.':'Uji patogen tidak menunjukkan infeksi primer sebagai penyebab utama.');
     return '';
   }
   function buyDiagnostic(type){
@@ -187,6 +193,23 @@ export function createBreedingCup(api){
     if(comp.budget<diag.cost){api.toast('Anggaran tidak cukup');return;}
     comp.budget-=diag.cost;comp.spent+=diag.cost;comp.diagnostics.push(type);comp.decisions.push({type:'diagnostic',text:diag.name+' · '+money(diag.cost)});
     api.addLog(diag.icon+' '+diag.name+' dibeli untuk investigasi kegagalan.');api.save();api.render();open();
+  }
+  function resolveFailure(actionId){
+    const comp=state().competition,action=FAILURE_ACTIONS[actionId];
+    if(!comp?.failure||comp.failure.action||!action)return;
+    if(comp.budget<action.cost){api.toast('Anggaran tidak cukup');return;}
+    comp.budget-=action.cost;comp.spent+=action.cost;comp.failure.action=actionId;comp.failure.correct=actionId===comp.failure.cause;
+    const verdict=comp.failure.correct?'tepat':'tidak tepat';
+    comp.decisions.push({type:'failure',text:action.name+' · '+verdict+' · '+money(action.cost)});
+    api.addLog(action.icon+' Tindakan '+action.name+' '+verdict+' untuk gejala lapang.');
+    api.save();api.render();open();
+  }
+  function failureHtml(){
+    const comp=state().competition,failure=comp?.failure;
+    if(!failure)return '';
+    const result=failure.action?'<div class="failure-result '+(failure.correct?'correct':'wrong')+'"><b>'+(failure.correct?'✓ Diagnosis tepat':'! Diagnosis meleset')+'</b><span>Penyebab sebenarnya: '+esc(FAILURE_ACTIONS[failure.cause].name)+'. Biaya tindakan tetap terpakai.</span></div>':'';
+    const actions=failure.action?'':Object.entries(FAILURE_ACTIONS).map(entry=>'<button data-failure-action="'+entry[0]+'" '+(comp.budget<entry[1].cost?'disabled':'')+'><b>'+entry[1].icon+' '+esc(entry[1].name)+'</b><span>'+money(entry[1].cost)+'</span></button>').join('');
+    return '<section class="failure-case"><small>INVESTIGASI KEGAGALAN</small><b>'+esc(failure.symptom)+'</b><p>Gejala sengaja tidak spesifik. Gunakan bukti yang Anda beli sebelum memilih tindakan.</p>'+result+(actions?'<div class="failure-actions">'+actions+'</div>':'')+'</section>';
   }
   function evaluateLine(comp,hiddenLine,tag){
     const observations=[];
@@ -241,6 +264,7 @@ export function createBreedingCup(api){
     const simulateButton=body.querySelector('[data-comp-simulate]');if(simulateButton)simulateButton.onclick=simulate;
     const finalButton=body.querySelector('[data-comp-final]');if(finalButton)finalButton.onclick=finalTest;
     const statButton=body.querySelector('[data-comp-stat]');if(statButton)statButton.onclick=api.sendToStat;
+    body.querySelectorAll('[data-failure-action]').forEach(button=>button.onclick=()=>resolveFailure(button.dataset.failureAction));
     const resetButton=body.querySelector('[data-comp-reset]');if(resetButton)resetButton.onclick=()=>{if(confirm('Akhiri Breeding Cup ini?'))reset();};
   }
   function open(){
@@ -256,7 +280,7 @@ export function createBreedingCup(api){
     const plan=STRATEGIES[comp.strategy],tender=TENDERS[comp.tender],management=MANAGEMENTS[comp.management],env=ENVS.find(e=>e.id===comp.trialEnv);
     let body='<div class="competition-head"><span>🏆 '+esc(tender.name)+'</span><span>📐 '+esc((comp.design||'rak').toUpperCase())+' · '+esc(plan.name)+'</span><span>💰 '+money(comp.budget)+'</span></div><div class="competition-brief"><b>'+esc(management.name)+'</b><span>'+esc(management.desc)+'</span><small>Uji awal: '+esc(env.name)+' · galur tetap anonim.</small></div>';
     if(comp.stage==='design')body+=diagnosticsHtml()+'<div class="competition-actions"><button data-comp-reset>× Akhiri</button><button class="primary" data-comp-simulate>▶ Jalankan uji lapang</button></div><p class="meta-note">Petak sudah diacak dalam RAK. Pemeriksaan tanah bersifat opsional dan mengurangi anggaran.</p>';
-    if(comp.stage==='selection')body+=summaryHtml()+diagnosticsHtml()+'<div class="competition-actions"><button data-comp-stat>📊 /stat · DATA SIMULASI</button><button class="primary" data-comp-final>🔒 Uji akhir rahasia</button></div><p class="meta-note">Pilih tepat 2 galur. Uji akhir memakai tiga lingkungan baru dengan aturan identik untuk semua finalis.</p>';
+    if(comp.stage==='selection')body+=summaryHtml()+failureHtml()+diagnosticsHtml()+'<div class="competition-actions"><button data-comp-stat>📊 /stat · DATA SIMULASI</button><button class="primary" data-comp-final>🔒 Uji akhir rahasia</button></div><p class="meta-note">Pilih tepat 2 galur. Uji akhir memakai tiga lingkungan baru dengan aturan identik untuk semua finalis.</p>';
     if(comp.stage==='final')body+=finalHtml()+'<div class="competition-actions"><button data-comp-stat>📊 /stat · DATA SIMULASI</button><button class="primary" data-comp-reset>↺ Program baru</button></div>';
     api.openModal('BREEDING CUP',comp.stage==='final'?'Uji akhir selesai':'Seleksi buta aktif',body);bind();
   }
