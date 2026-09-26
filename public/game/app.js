@@ -127,7 +127,7 @@ const LOCATIONS={
 };
 const TECH={
   sensor:{name:'Sensor Tanah',icon:'◉',cost:10,requires:[],desc:'Inspector menampilkan risiko stres lebih jelas.',effect:'sensor'},
-  irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi memberi +50 air dan tidak memakai fokus setiap kedua penggunaan.',effect:'irrigation'},
+  irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi memberi +50 air dan tidak memakai tenaga setiap kedua penggunaan.',effect:'irrigation'},
   precisionN:{name:'Pemupukan Presisi',icon:'N',cost:18,requires:['sensor'],desc:'Biaya aplikasi N turun dan dosis lebih efisien.',effect:'precisionN'},
   drone:{name:'Drone Scout',icon:'◇',cost:20,requires:['sensor'],desc:'Scout menghasilkan +2 RP dan peluang membuka mutasi meningkat.',effect:'drone'},
   expedition:{name:'Field Expedition',icon:'↗',cost:22,requires:['sensor'],desc:'Membuka ekspedisi ke lokasi liar.',effect:'expedition'},
@@ -147,7 +147,7 @@ const CHALLENGES={
   six:{name:'6 Petak',desc:'Hanya enam petak; setiap kegagalan sangat berarti.',plots:6,maxDay:12,yield:1.05,reward:1.55,pressure:.08},
   sprint:{name:'Sprint Fenologi',desc:'Musim dipadatkan; sedikit waktu memulihkan kesalahan.',plots:24,maxDay:8,yield:1.12,reward:1.6,pressure:.12},
   mono:{name:'Satu Varietas',desc:'Satu varietas menghadapi seluruh heterogenitas lahan.',plots:24,maxDay:12,yield:1.06,reward:1.5,mono:true,pressure:.1},
-  ironman:{name:'Iron Field',desc:'Tekanan tinggi · fokus harian -1 · tanpa Undo.',plots:24,maxDay:11,yield:1,reward:1.9,pressure:.24,focusPenalty:1,noUndo:true},
+  ironman:{name:'Iron Field',desc:'Tekanan tinggi · tenaga harian -1 · tanpa Undo.',plots:24,maxDay:11,yield:1,reward:1.9,pressure:.24,focusPenalty:1,noUndo:true},
   crisis:{name:'Musim Krisis',desc:'Cuaca berantai dan penyakit menyebar lebih agresif.',plots:24,maxDay:12,yield:1.04,reward:1.8,pressure:.3,streakBoost:1.45,spreadBoost:1.5},
   trial24:{name:'Breeding Cup · 24 Petak',desc:'Seleksi buta dengan tepat 24 petak.',plots:24,maxDay:12,yield:1,reward:1.3,competition:true,pressure:.1}
 };
@@ -2221,12 +2221,12 @@ function eventDefinition(event){
       choices:[['spray','Semprot · '+formatRupiah(actionCost('spray'))],['observe','Amati · +4 riset']]},
     trader:{kicker:'VISITOR',title:'Pedagang benih keliling',text:'Seorang pedagang menawarkan lot benih tanpa silsilah lengkap. Potensinya tidak pasti.',
       choices:[['buy','Beli lot · '+formatRupiah(actionCost('trader'))],['pass','Lewati']]},
-    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion yang berulang di bawah satu petak. Mengambil sampel membutuhkan fokus hari ini.',
-      choices:[['sample','Ambil sampel · 1 fokus'],['ignore','Abaikan']]},
+    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion yang berulang di bawah satu petak. Mengambil sampel membutuhkan tenaga hari ini.',
+      choices:[['sample','Ambil sampel · 1 tenaga'],['ignore','Abaikan']]},
     drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran kecil tersumbat setelah hujan. Tanaman dengan penyakit aktif paling berisiko.',
-      choices:[['drain','Buka drainase · 1 fokus'],['risk','Biarkan']]},
+      choices:[['drain','Buka drainase · 1 tenaga'],['risk','Biarkan']]},
     signal:{kicker:'FIELD ZERO',title:'Sinyal ungu di petak',text:'Selama beberapa detik, sensor, daun, dan tanah menunjukkan pola yang sama. Tidak ada catatan fenomena ini.',
-      choices:[['trace','Lacak sinyal · 2 fokus'],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))] ]},
+      choices:[['trace','Lacak sinyal · 2 tenaga'],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))] ]},
     pathogen:{kicker:'FOLLOW-UP',title:'Sampel patogen kembali',text:'Data observasi karat sebelumnya membuka dua jalur: dokumentasi mendalam atau tindakan cepat.',
       choices:[['publish','Dokumentasikan · +8 RP'],['contain','Kendalikan penyakit']]},
     returnTrader:{kicker:'VISITOR',title:'Pedagang itu kembali',text:'Karena sebelumnya Anda menolak lot pertama, kali ini ia menawarkan galur yang lebih jelas asal-usulnya.',
@@ -2234,7 +2234,7 @@ function eventDefinition(event){
     archive:{kicker:'FIELD ZERO ARCHIVE',title:'Arsip terenkripsi ditemukan',text:'Jejak sinyal membuka satu fragmen arsip. Anda dapat membacanya sekarang atau mengonversi energinya untuk menjaga tanaman.',
       choices:[['readArchive','Baca arsip'],['stabilize','Stabilkan lahan']]},
     bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pilih satu respons prioritas untuk seluruh lahan.',
-      choices:[['defendBoss','Pertahanan kolektif · 2 fokus'],['gambleBoss','Ambil risiko · +10 RP']]}
+      choices:[['defendBoss','Pertahanan kolektif · 2 tenaga'],['gambleBoss','Ambil risiko · +10 RP']]}
   };
   return defs[event.kind]||defs.soil;
 }
