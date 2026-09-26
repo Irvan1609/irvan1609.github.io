@@ -907,6 +907,13 @@ body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none
 
 
 /* FIELD ZERO BREEDING ACADEMY PLUS 2026-09-26 */
+
+.field-tool-dock{grid-template-columns:repeat(7,minmax(0,1fr))}
+@media(max-width:620px){
+  .field-tool-dock{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .field-tool-dock button{min-height:46px}
+}
+
 .academy-metrics{
   display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:4px
 }
