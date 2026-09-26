@@ -774,29 +774,42 @@ function applyEventChoice(choice){
 function finishSeason(){
   if(state.pendingEvent)return;
   for(let i=0;i<state.field.length;i++){const crop=state.field[i];if(crop&&crop.growth>=100&&crop.health>0)recordHarvest(i,crop,.9,false);}
-  const completed=missionDone(),reward=completed?{coins:35,rp:8,xp:45}:{coins:10,rp:2,xp:12};
+  const completed=missionDone(),challenge=activeChallenge(),rewardScale=challenge.reward||1;
+  const reward=completed?{coins:Math.round(35*rewardScale),rp:Math.round(8*rewardScale),xp:Math.round(45*rewardScale)}:{coins:10,rp:2,xp:12};
+  const rivalTarget=computeRivalTarget(),beatRival=state.seasonStats.yield>=rivalTarget,bossWon=!!state.env.boss&&completed;
   state.coins+=reward.coins;state.rp+=reward.rp;state.xp+=reward.xp;state.level=levelFromXp(state.xp);
-  if(['drought','rust','wet','poorN','anomaly'].includes(state.env.id))awardAchievement('survivor');
-  state.history.unshift({season:state.season,env:state.env.name,yield:state.seasonStats.yield,mission:completed});state.history=state.history.slice(0,12);
-  $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai');
-  $('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Panen</small><b>${state.seasonStats.harvests} petak</b></div><div><small>Reward</small><b>+${reward.coins} koin</b></div>`;
+  if(beatRival){state.rivalWins=(state.rivalWins||0)+1;state.rp+=4;awardAchievement('rival');}
+  if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=25;awardAchievement('boss');}}
+  else state.collection.environments=unique([...(state.collection.environments||[]),state.env.id]);
+  if(['drought','rust','wet','poorN','anomaly'].includes(state.env.id)||state.env.boss)awardAchievement('survivor');
+  if(state.daily){awardAchievement('daily');state.records['daily:'+state.daily.key]=Math.max(Number(state.records['daily:'+state.daily.key]||0),state.seasonStats.yield);}
+  updateRecord(state.seasonStats.yield);
+  const previousGhost=recordBest(),ghostDelta=round(state.seasonStats.yield-previousGhost,1);
+  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,mission:completed,rival:rivalTarget,beatRival,boss:!!state.env.boss});state.history=state.history.slice(0,20);
+  if(hasTech('cold')&&state.seasonBest&&!state.vault.some(item=>item.id===state.seasonBest.seed.id)){
+    const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
+  }
+  $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
+  $('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Rival</small><b>${beatRival?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)}</b></div><div><small>Reward</small><b>+${reward.coins} koin</b></div><div><small>Ghost</small><b>${ghostDelta>=0?'+':''}${ghostDelta.toFixed(1)} kg</b></div><div><small>Run</small><b>${esc(state.daily?'Daily':challenge.name)}</b></div><div><small>Lokasi</small><b>${esc(activeLocation().name)}</b></div>`;
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
-    const seed=state.seasonBest.seed;best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
-    saveButton.hidden=false;saveButton.disabled=state.vault.some(item=>item.id===seed.id);
+    const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
+    saveButton.hidden=hasTech('cold');saveButton.disabled=state.vault.some(item=>item.id===seed.id);
   }else{best.innerHTML='';saveButton.hidden=true;}
   $('#recapModal').hidden=false;save();beep(760,.12);
 }
 function saveBestCandidate(){
   if(!state.seasonBest)return;const seed=state.seasonBest.seed;if(state.vault.some(item=>item.id===seed.id))return;
-  state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);$('#saveBestSeed').disabled=true;toast(seed.name+' disimpan ke Seed Vault');renderVault();save();
+  state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);$('#saveBestSeed').disabled=true;toast(seed.name+' disimpan ke Seed Vault');renderVault();save();
 }
 function beginNextSeason(){
-  state.season++;state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.focus=focusMax(state.level);
+  const wasDaily=!!state.daily;
+  state.season++;state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.focus=focusMax(state.level);state.irrigationUses=0;
+  if(wasDaily){state.daily=null;state.challenge='standard';state.maxDay=CHALLENGES.standard.maxDay;state.monoSeedId=null;}
   state.env=newEnvironment(state.season);state.weather=rollWeather(state.env);state.mission=missionFor(state.season);
-  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;
+  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
   if(state.season%3===0){const fragment=LORE[Math.min(LORE.length-1,Math.floor(state.season/3)-1)];if(fragment&&!state.lore.includes(fragment)){state.lore.push(fragment);addLog('Fragment arsip baru ditemukan.');}}
-  addLog('Musim '+state.season+' dimulai: '+state.env.name+'.',1);$('#recapModal').hidden=true;render();toast(state.env.name+' dimulai');
+  addLog('Musim '+state.season+' dimulai: '+state.env.name+(state.env.boss?' [BOSS]':'')+'.',1);$('#recapModal').hidden=true;render();toast(state.env.name+' dimulai');
 }
 
 function updateCrossPreview(){
@@ -808,14 +821,14 @@ function updateCrossPreview(){
 function crossSeeds(){
   const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value);
   if(!a||!b||a.id===b.id||state.rp<CROSS_COST)return;
-  state.rp-=CROSS_COST;let inherited=shuffle(unique([...a.traits,...b.traits])).filter(()=>chance(.58)).slice(0,3);
+  state.rp-=CROSS_COST;const inheritChance=hasTech('breeding')?.72:.58;let inherited=shuffle(unique([...a.traits,...b.traits])).filter(()=>chance(inheritChance)).slice(0,hasTech('breeding')?4:3);
   if(!inherited.length)inherited=[pick(unique([...a.traits,...b.traits]))];
-  if(chance(.16)){
+  if(chance(hasTech('breeding')?.22:.16)){
     const mutation=pick(MUTATION_POOL.filter(id=>!inherited.includes(id)));if(mutation){inherited.push(mutation);discoverTrait(mutation);}
   }
-  if(state.season>=5&&chance(.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
-  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name};
-  state.vault.push(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
+  if(state.season>=5&&chance(hasTech('genome')?.04:.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
+  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id]};
+  state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
 
 function bind(){
