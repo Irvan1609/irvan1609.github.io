@@ -595,6 +595,12 @@ function hashString(text){
 function seededUnit(seed){
   let x=seed>>>0;x+=0x6D2B79F5;x=Math.imul(x^(x>>>15),x|1);x^=x+Math.imul(x^(x>>>7),x|61);return ((x^(x>>>14))>>>0)/4294967296;
 }
+function simUnit(...parts){return seededUnit(hashString([state.simulationSeed,...parts].join(':')));}
+function simPick(list,...parts){return list[Math.min(list.length-1,Math.floor(simUnit(...parts)*list.length))];}
+function deterministicWeather(env,day){
+  const pool=weatherPool(env.id);return pool[Math.min(pool.length-1,Math.floor(simUnit('weather',state.season,day,env.id)*pool.length))];
+}
+
 function dailyDefinition(){
   const key=dailyKey(),seed=hashString('FieldZero:'+key),envs=['drought','wet','rust','poorN','anomaly'];
   const env=ENVIRONMENTS.find(item=>item.id===envs[Math.floor(seededUnit(seed)*envs.length)])||ENVIRONMENTS[0];
@@ -1125,9 +1131,9 @@ function plantSelected(){
   if(!crop){
     const mutationChance=Math.min(.18,.045+state.level*.004+(state.env.id==='anomaly'?.05:0)+(hasTech('genome')?.02:0));
     let mutation=null;
-    if(chance(mutationChance)){
-      const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?pick(pool):null;
-      if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&chance(.08))mutation='zero';
+    if(simUnit('mutation',state.season,index,seed.id)<mutationChance){
+      const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?simPick(pool,'mutation-trait',state.season,index,seed.id):null;
+      if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&simUnit('zero-mutation',state.season,index,seed.id)<.08)mutation='zero';
     }
     crop={
       uid:uid('plant'),species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,
@@ -1183,7 +1189,7 @@ function yieldFor(crop){
   const waterFactor=1-(1-(.72+.28*waterBase))*(crop.waterSensitivity||1),nFactor=1-(1-(.74+.26*nBase))*(crop.nDemand||1);
   let traitYield=traitValue(traits,'yield',1);
   if(crop.n<35)traitYield*=traitValue(traits,'lowNYield',1);
-  const noise=.9+Math.random()*.2;
+  const noise=.9+simUnit('yield',state.season,crop.uid||crop.seed.id)*.2;
   const challenge=activeChallenge(),loc=activeLocation(),legacy=1+(state.legacy||0)*.03;
   const maturityBonus=1+Math.min(.08,Math.max(0,(crop.growth-100)/125));
   return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*maturityBonus*noise,1));
@@ -1268,7 +1274,7 @@ function processCrop(crop,weather,index=-1){
   crop.water=clamp(crop.water+waterDelta);
   crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss*(2-(meta.fertility||1)));
   const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1);
-  if(chance(diseaseRisk))crop.disease=clamp(crop.disease+8+Math.random()*12);
+  if(simUnit('disease',state.season,state.day,index,crop.uid||crop.seed.id)<diseaseRisk)crop.disease=clamp(crop.disease+8+simUnit('disease-load',state.season,state.day,index,crop.uid||crop.seed.id)*12);
   else crop.disease=Math.max(0,crop.disease-2.5);
   let damage=0,stress=0;
   if(crop.water<20){damage+=7*(1-droughtRes);stress+=10;crop.stressLog.water+=2;}else if(crop.water<38){stress+=4;crop.stressLog.water++;}
@@ -1288,11 +1294,11 @@ function advanceDay(){
   state.day++;harvestCombo=0;state.focus=focusMax(state.level);
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
-  }else state.weather=rollWeather(state.env);
+  }else state.weather=deterministicWeather(state.env,state.day);
   const w=WEATHER[state.weather];state.field.forEach((crop,index)=>{processCrop(crop,w,index);if(crop)recordDailyExperimentObservation(index,crop);});tickExpedition();
   addLog(w.icon+' '+w.name+'. '+w.effect+'.');
   const eventChance=state.achievements.includes('first')?(.28+Math.min(.12,state.season*.01)+(state.env.boss?0.08:0)):0.06;
-  if(chance(eventChance))state.pendingEvent=createEvent();
+  if(simUnit('event',state.season,state.day)<eventChance)state.pendingEvent=createEvent();
   render();if(state.pendingEvent)renderEvent();else toast('Hari '+state.day+' · '+w.name);
 }
 function createEvent(){
@@ -1302,7 +1308,7 @@ function createEvent(){
   if(state.eventFlags.traderSkipped)types.push('returnTrader');
   if(state.eventFlags.zeroTrace)types.push('archive');
   if(state.env.boss)types.push('bossChoice');
-  return {kind:pick(types),id:uid('event')};
+  return {kind:simPick(types,'event-kind',state.season,state.day),id:uid('event')};
 }
 function eventDefinition(event){
   const defs={
@@ -1455,13 +1461,14 @@ function updateCrossPreview(){
 function crossSeeds(){
   clearUndo();const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value);
   if(!a||!b||a.id===b.id||state.rp<CROSS_COST)return;
-  state.rp-=CROSS_COST;const inheritChance=hasTech('breeding')?0.72:0.58;let inherited=shuffle(unique([...a.traits,...b.traits])).filter(()=>chance(inheritChance)).slice(0,hasTech('breeding')?4:3);
-  if(!inherited.length)inherited=[pick(unique([...a.traits,...b.traits]))];
-  if(chance(hasTech('breeding')?0.22:0.16)){
-    const mutation=pick(MUTATION_POOL.filter(id=>!inherited.includes(id)));if(mutation){inherited.push(mutation);discoverTrait(mutation);}
+  state.rp-=CROSS_COST;const crossKey=[state.season,a.id,b.id,state.vault.length].join(':'),inheritChance=hasTech('breeding')?0.72:0.58,union=unique([...a.traits,...b.traits]);
+  let inherited=seededShuffle(union,hashString(crossKey)).filter((_,i)=>simUnit('inherit',crossKey,i)<inheritChance).slice(0,hasTech('breeding')?4:3);
+  if(!inherited.length)inherited=[simPick(union,'inherit-fallback',crossKey)];
+  if(simUnit('cross-mutation',crossKey)<(hasTech('breeding')?0.22:0.16)){
+    const pool=MUTATION_POOL.filter(id=>!inherited.includes(id)),mutation=pool.length?simPick(pool,'cross-mutation-trait',crossKey):null;if(mutation){inherited.push(mutation);discoverTrait(mutation);}
   }
-  if(state.season>=5&&chance(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
-  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,species:state.species};
+  if(state.season>=5&&simUnit('cross-zero',crossKey)<(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
+  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+simUnit('cross-name',crossKey)*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+simUnit('cross-yield',crossKey)*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+simUnit('cross-vigor',crossKey)*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,species:state.species};
   state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
 
