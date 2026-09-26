@@ -21,6 +21,8 @@ const CIRCUIT_FAILURE_LIMIT=3;
 const CIRCUIT_COOLDOWN_MS=60_000;
 let cloudFailureCount=0;
 let circuitOpenUntil=0;
+let changeBurst=0;
+let lastChangeAt=0;
 
 function circuitRemaining(){
   return Math.max(0,circuitOpenUntil-Date.now());
@@ -296,9 +298,22 @@ function setSyncStatus(text,state='idle'){
     button.textContent=state==='syncing'?'Menyinkronkan…':'Sinkronkan';
   }
 }
+function cloudPolicy(){
+  return window.IrvanCloudPolicy||{mode:'normal',features:{}};
+}
+function policyAllowsSync(){
+  return cloudPolicy().features?.datasetSync!==false;
+}
+function adaptiveDelay(requested=SYNC_DEBOUNCE_MS){
+  const mode=cloudPolicy().mode||'normal';
+  const burstDelay=changeBurst>=16?7000:changeBurst>=6?3500:SYNC_DEBOUNCE_MS;
+  const floor=mode==='saver'?8000:mode==='emergency'?30000:0;
+  return Math.max(Number(requested)||0,burstDelay,floor);
+}
 function scheduleSync(delay=SYNC_DEBOUNCE_MS){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
+  if(!policyAllowsSync()){setSyncStatus('Cloud dijeda · data aman di perangkat','pending');return;}
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   const remaining=circuitRemaining();
   if(remaining>0){
@@ -306,7 +321,7 @@ function scheduleSync(delay=SYNC_DEBOUNCE_MS){
     retryTimer=setTimeout(()=>{circuitOpenUntil=0;scheduleSync(0);},remaining+250);
     return;
   }
-  retryTimer=setTimeout(()=>syncNow(),delay);
+  retryTimer=setTimeout(()=>syncNow(),adaptiveDelay(delay));
 }
 function queuePatch(name,patch){
   if(!name||!patch||typeof patch!=='object')return;
@@ -443,6 +458,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 async function syncNow({manual=false}={}){
   if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
   if(manual)resetCircuit();
+  if(!policyAllowsSync()){setSyncStatus('Cloud dijeda · data aman di perangkat','pending');return;}
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   if(circuitRemaining()>0){scheduleSync();return;}
   if(document.hidden&&!manual)return;
@@ -517,6 +533,7 @@ async function syncNow({manual=false}={}){
     if(counters.deleted)parts.push(`${counters.deleted} dihapus`);
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
     const syncTime=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    changeBurst=0;
     setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
   }catch(error){
     console.error('Dataset sync failed',error);
@@ -559,7 +576,8 @@ export function installAccountDatasetSync(){
   const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
-    const detail=event.detail||{};
+    const detail=event.detail||{},now=Date.now();
+    changeBurst=now-lastChangeAt<5000?Math.min(30,changeBurst+1):1;lastChangeAt=now;
     if(detail.name&&localOnlyNames().has(normalizeFileName(detail.name))){setSyncStatus('Dataset game tersimpan lokal','idle');return;}
     if(currentUser&&detail.type==='rename'&&detail.previous&&detail.name){
       const sync=loadSyncState(currentUser.id);
@@ -579,5 +597,9 @@ export function installAccountDatasetSync(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed)scheduleSync(900);});
   window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
   window.addEventListener('online',()=>{resetCircuit();scheduleSync(900);});
+  document.addEventListener('cloudpolicychange',()=>{
+    if(!policyAllowsSync()){clearTimeout(retryTimer);setSyncStatus('Cloud dijeda · data aman di perangkat','pending');}
+    else scheduleSync(900);
+  });
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
