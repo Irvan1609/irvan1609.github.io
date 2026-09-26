@@ -78,7 +78,7 @@ if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loa
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
-if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||nav.includes('focusData')||!/>Pilih analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Pilih analisis, Cari, and Dataset');
+if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||nav.includes('focusData')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Analisis, Cari, and Dataset');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
   for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
@@ -97,6 +97,7 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
 for(const marker of ['analysisGroups','analysis-group-board','analysis-compact-group','analysis-compact-item','data-analysis-open'])if(!flow.includes(marker))fail('compact grouped analysis selection missing '+marker);
+if(flow.includes('analysis-menu-head')||flow.includes('Pilih analisis'))fail('analysis chooser must open directly without an instructional heading');
 if(flow.includes('data-open-other'))fail('Lainnya must open directly from the selector without a redundant Buka button');
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana')||flow.includes('data-analysis-mode-toggle'))fail('analysis selection must use one compact interface without mode switches');
 if(!statStyle.includes('STAT COMPACT CONTROLS 2026-09-26')||!statStyle.includes('.analysis-other-picker'))fail('compact analysis picker styles missing');
