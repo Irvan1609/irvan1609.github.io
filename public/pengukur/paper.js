@@ -24,25 +24,25 @@ export function paperProfile(id='a4',orientation='portrait',custom=null){
 }
 export function calibratorLayout(profile){
   const aw=profile.activeWidth,ah=profile.activeHeight;
-  const side=Math.max(6,Math.min(10,aw*.06));
-  const topBand=Math.max(18,Math.min(24,ah*.09));
-  const bottomBand=Math.max(20,Math.min(27,ah*.10));
-  const photo={x:side,y:topBand,width:Math.max(40,aw-side*2),height:Math.max(60,ah-topBand-bottomBand)};
-  const labelH=Math.max(8,Math.min(11,photo.height*.08));
-  const labelW=Math.max(36,Math.min(80,photo.width*.52));
+  const side=Math.max(3,Math.min(10,aw*.06));
+  const topBand=Math.max(8,Math.min(24,ah*.09));
+  const bottomBand=Math.max(10,Math.min(27,ah*.10));
+  const photo={x:side,y:topBand,width:Math.max(10,aw-side*2),height:Math.max(12,ah-topBand-bottomBand)};
+  const labelH=Math.max(4,Math.min(11,photo.height*.08,photo.height*.25));
+  const labelW=Math.max(12,Math.min(80,photo.width*.52,photo.width-4));
   const label={x:photo.x+(photo.width-labelW)/2,y:photo.y+photo.height-labelH-2,width:labelW,height:labelH};
-  const analysis={x:photo.x+5,y:photo.y+5,width:Math.max(20,photo.width-10),height:Math.max(20,label.y-photo.y-8)};
+  const inset=Math.min(5,Math.max(2,photo.width*.04)),analysis={x:photo.x+inset,y:photo.y+inset,width:Math.max(6,photo.width-inset*2),height:Math.max(6,label.y-photo.y-inset-3)};
   return {photo,label,analysis,topBand,bottomBand};
 }
 export function grayPatchRects(profile){
   const {activeWidth:w,activeHeight:h}=profile;
-  const patchW=Math.max(8,Math.min(14,w/10)),patchH=6,gap=2,total=patchW*6+gap*5;
+  const gap=Math.max(1,Math.min(2,w/80)),patchW=Math.max(3,Math.min(14,(w-gap*5-4)/6)),patchH=Math.max(4,Math.min(6,h/20)),total=patchW*6+gap*5;
   const startX=Math.max(2,(w-total)/2),y=Math.max(2,h-9);
   return Array.from({length:6},(_,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,target:[245,210,170,130,90,50][i]}));
 }
 export function colorPatchRects(profile){
   const {activeWidth:w}=profile;
-  const patchW=Math.max(8,Math.min(14,w/10)),patchH=6,gap=2,total=patchW*6+gap*5;
+  const gap=Math.max(1,Math.min(2,w/80)),patchW=Math.max(3,Math.min(14,(w-gap*5-4)/6)),patchH=6,total=patchW*6+gap*5;
   const startX=Math.max(2,(w-total)/2),y=3;
   const colors=['#d14a48','#4d8f55','#4a6fd1','#d3b247','#8a59a8','#4aa5a8'];
   return colors.map((fill,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,fill}));
@@ -66,7 +66,7 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V4',label=''}={}){
   }
   const gray=gs.map(r=>`<rect x="${m+r.x}" y="${m+r.y}" width="${r.width}" height="${r.height}" fill="rgb(${r.target},${r.target},${r.target})" stroke="#444" stroke-width=".15"/>`).join('');
   const color=cs.map(r=>`<rect x="${m+r.x}" y="${m+r.y}" width="${r.width}" height="${r.height}" fill="${r.fill}" stroke="#444" stroke-width=".15"/>`).join('');
-  const check=Math.min(100,Math.max(50,aw*.55)),cx=w/2,checkY=m+15;
+  const check=Math.max(12,Math.min(100,aw*.55,aw-6)),cx=w/2,checkY=m+Math.min(15,layout.topBand-3);
   const lx=m+labelBox.x,ly=m+labelBox.y;
   const labelText=xml(String(label||'').trim().slice(0,80));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">
