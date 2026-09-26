@@ -72,7 +72,7 @@ jobs:
             compatibility_date:'2026-09-25',
             workers_dev:true,
             keep_vars:true,
-            vars:{MIDTRANS_ENV:'sandbox'},
+            vars:{MIDTRANS_ENV:'sandbox',ALLOWED_ORIGINS:'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev'},
             d1_databases:[{
               binding:'DB',
               database_name:'hitung-cabai',
