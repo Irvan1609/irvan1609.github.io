@@ -635,3 +635,78 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
   .experiment-wide{grid-column:auto}
   .experiment-badge{top:22px;font-size:7px}
 }
+
+
+/* FIELD ZERO BREEDING CUP 2026-09-26 */
+@media(min-width:901px){
+  .field-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .plot{min-height:96px}
+}
+.competition-launch{
+  border-color:#8b7432!important;
+  background:#2d2815!important;
+  color:#f0dc7a!important;
+}
+.competition-head{
+  display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px
+}
+.competition-head span{
+  padding:4px 7px;border:1px solid #416052;border-radius:999px;background:#102019;
+  color:#d9e8df;font-size:8.5px;font-weight:850
+}
+.competition-brief,.competition-budget{
+  display:grid;gap:4px;padding:9px;border:1px solid #365447;border-radius:8px;background:#102019
+}
+.competition-brief b,.competition-budget b{font-size:12px}
+.competition-brief span,.competition-budget span,.competition-budget small,.competition-brief small{
+  color:var(--muted);font-size:8.5px;line-height:1.35
+}
+.competition-budget b{color:#e7d875}
+.competition-diagnostics{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:8px 0
+}
+.competition-diagnostics button,.competition-diagnostics article{
+  min-width:0;min-height:58px;padding:7px;border:1px solid #365447;border-radius:8px;background:#12241c;color:var(--ink);text-align:left
+}
+.competition-diagnostics button b,.competition-diagnostics button span,.competition-diagnostics article b{display:block}
+.competition-diagnostics button b,.competition-diagnostics article b{font-size:9px}
+.competition-diagnostics button span{margin-top:4px;color:#e5d27d;font-size:8px}
+.competition-diagnostics article p{margin:5px 0 0;color:var(--muted);font-size:8px;line-height:1.35}
+.competition-actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px
+}
+.competition-actions button{
+  min-height:38px;padding:6px 9px;border:1px solid #365447;border-radius:7px;background:#152a21;color:var(--ink);font-weight:850
+}
+.competition-actions .primary{background:var(--green);color:#0b1711}
+.competition-table input[type="checkbox"]{width:20px;min-height:20px;accent-color:#62c887}
+.competition-podium{display:grid;gap:6px}
+.competition-podium article{
+  display:grid;grid-template-columns:auto 1fr auto;gap:7px;align-items:center;padding:9px;border:1px solid #365447;border-radius:8px;background:#102019
+}
+.competition-podium article>span{font-size:10px;color:#e5d27d}
+.competition-podium article>b{font-size:12px}
+.competition-podium article>strong{font-size:18px;color:#a9e9bd}
+.competition-podium article>small{grid-column:2/4;color:var(--muted);font-size:8px}
+.decision-review{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.decision-review article{padding:9px;border:1px solid #365447;border-radius:8px;background:#102019}
+.decision-review small{display:block;margin-bottom:5px;color:var(--muted);font-size:7.5px}
+.decision-review b{font-size:9px;line-height:1.35}
+.competition-plot-card{display:grid;gap:7px}
+.competition-plot-card>span{font-size:8px;font-weight:900;color:#e5d27d}
+.competition-plot-card>b{font-size:16px}
+.competition-plot-card p{margin:0;color:var(--muted);font-size:9px;line-height:1.4}
+.competition-plot-soil{
+  display:grid;grid-template-columns:1fr auto;gap:4px 8px;padding:7px;border:1px solid #365447;border-radius:7px;background:#102019
+}
+.competition-plot-soil small{font-size:8px;color:var(--muted)}
+.competition-plot-soil b{font-size:9px}
+.plot.soil-high{box-shadow:inset 0 0 0 2px rgba(118,185,126,.34)}
+.plot.soil-low{box-shadow:inset 0 0 0 2px rgba(191,128,91,.36)}
+.plot.soil-mid{box-shadow:inset 0 0 0 1px rgba(179,170,105,.25)}
+@media(max-width:620px){
+  .competition-diagnostics,.decision-review{grid-template-columns:1fr}
+  .competition-actions{grid-template-columns:1fr}
+  .competition-head span{font-size:8px}
+  .competition-podium article{padding:7px}
+}
