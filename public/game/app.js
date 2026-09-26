@@ -584,7 +584,9 @@ function createExperiment({name,question,design,kind,count,reps,custom,parameter
   state.plotUse=state.plotUse.map(()=> 'commercial');
   state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',question:String(question||'Apakah perlakuan memengaruhi respons tanaman?').trim().slice(0,180),design,kind,treatments,reps,controlId:kind==='genotype'?'':(treatments[0]?.id||''),parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
   state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
-  state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+' · petak lain tetap untuk produksi.');render();openExperiment();
+  state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';
+  awardLearning('design:unit',4);awardLearning('design:random',6);awardLearning('design:rep',5);if(design==='rak')awardLearning('design:block',7);
+  addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+' · petak lain tetap untuk produksi.');render();openExperiment();
 }
 function applyExperimentTreatment(index){
   const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return false;
@@ -1269,8 +1271,8 @@ function seedGenerationPanel(seed){
   return `<div class="generation-panel"><header><div><small>Generasi</small><b>${name}</b></div><div><small>Heterozigositas genom</small><b>${Math.round(observed*100)}%</b></div><div><small>Ekspektasi selfing</small><b>${generation?Math.round(expected*100)+'%':'—'}</b></div></header><div class="locus-strip">${loci.map(row=>`<span class="${row.heterozygous?'het':'fixed'}"><b>${esc(row.locus)}</b> ${esc(row.alleles.join('/'))}</span>`).join('')}</div></div>`;
 }
 function selfSelectedSeed(){
-  const parent=selectedSeed();if(!parent||state.rp<4)return;
-  const generation=Math.max(1,Number(parent.generation)||1)+1,key=['self',state.season,parent.id,generation,state.vault.length].join(':');
+  const parent=selectedSeed(),parentGeneration=Math.max(0,Number(parent?.generation)||0);if(!parent||parentGeneration<1||state.rp<4)return;
+  const generation=parentGeneration+1,key=['self',state.season,parent.id,generation,state.vault.length].join(':');
   state.rp-=4;
   const genome=selfGenome(parent.genome,key),fx=geneticEffects(genome);
   const child={
@@ -1280,7 +1282,8 @@ function selfSelectedSeed(){
     vigor:round(parent.vigor*(.98+simUnit('self-vigor',key)*.04)*fx.growth,2)
   };
   state.vault.push(child);state.selectedSeedId=child.id;rememberLineage(parent);rememberLineage(child);
-  state.learning.xp+=5;awardLearning('crossing:fix',6);addLog('✕ '+parent.name+' diselfing → '+child.name+'.');save();render();toast(child.name+' · heterozigositas '+Math.round(observedHeterozygosity(genome)*100)+'%');
+  state.learning.xp+=5;if(generation===2)awardLearning('crossing:f2',8);if(generation>=4)awardLearning('crossing:fix',10);
+  addLog('✕ '+parent.name+' diselfing → '+child.name+'.');save();render();toast(child.name+' · heterozigositas '+Math.round(observedHeterozygosity(genome)*100)+'%');
 }
 function openQuickMore(){
   openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
@@ -1509,6 +1512,7 @@ function selectCandidate(id){
   item.selected=true;
   if(!state.vault.some(seed=>seed.id===item.seed.id))state.vault.push(item.seed);
   state.selectedSeedId=item.seed.id;rememberLineage(item.seed);item.seed.traits.forEach(discoverTrait);
+  awardLearning('breeding:variation',4);awardLearning('breeding:selection',7);
   save();render();toast('🧬 '+item.seed.name+' disimpan');
 }
 function selectionScore(item,mode=state.selectionMode||'index'){
@@ -1777,7 +1781,7 @@ function updateCrossPreview(){
   $('#crossSeeds').disabled=!a||!b||a.id===b.id||state.rp<CROSS_COST;
   const genHost=$('#selectedSeedGenetics');if(genHost)genHost.innerHTML=seedGenerationPanel(selected);
   const selfButton=$('#selfSelectedSeed');if(selfButton){
-    const g=Math.max(1,Number(selected?.generation)||1);selfButton.disabled=!selected||state.rp<4;selfButton.textContent='Selfing '+generationName(g)+' → '+generationName(g+1)+' · 4 RP';
+    const g=Math.max(0,Number(selected?.generation)||0);selfButton.disabled=!selected||g<1||state.rp<4;selfButton.textContent=g<1?'Silangkan dulu untuk membuat F1':'Selfing '+generationName(g)+' → '+generationName(g+1)+' · 4 RP';
   }
   if(!a||!b){$('#crossPreview').textContent='Pilih dua tetua. Persilangan membuat F1; selfing F1 menghasilkan F2 yang bersegregasi.';return;}
   const possible=unique([...a.traits,...b.traits]),hetA=Math.round(observedHeterozygosity(a.genome||{})*100),hetB=Math.round(observedHeterozygosity(b.genome||{})*100);
@@ -1794,7 +1798,7 @@ function crossSeeds(){
   }
   if(state.season>=5&&simUnit('cross-zero',crossKey)<(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
   const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+simUnit('cross-name',crossKey)*900),generation:1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+simUnit('cross-yield',crossKey)*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+simUnit('cross-vigor',crossKey)*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,stressTests:0,species:state.species,stock:8,viability:98,ageSeasons:0,genome:crossGenome(a.genome,b.genome,crossKey)};
-  state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);state.learning.xp+=6;awardLearning('crossing:f1',8);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
+  state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);state.learning.xp+=6;awardLearning('crossing:parent',5);awardLearning('crossing:f1',8);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
 
 function bind(){
