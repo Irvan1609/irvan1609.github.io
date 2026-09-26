@@ -19,6 +19,8 @@ for(const id of ['a5','a4','a3','letter','legal','f4']){
   const svg=buildCalibratorSvg(profile);
   assert.match(svg,new RegExp('width="'+String(profile.width).replace('.','\\.')+'mm"'));
   assert.match(svg,/GARIS CEK/);
+  assert.match(svg,/>10<\/text>/);
+  assert.match(svg,/v 1\.25/);
   assert.equal(grayPatchRects(profile).length,6);
 }
 const custom=paperProfile('custom','landscape',{width:200,height:300,margin:20});
