@@ -131,10 +131,10 @@ function cookieValue(request,name){
   return '';
 }
 function sessionCredential(request){
-  const bearer=bearerToken(request);
-  if(bearer)return {token:bearer,source:'bearer'};
   const cookie=cookieValue(request,SESSION_COOKIE);
-  return cookie?{token:cookie,source:'cookie'}:{token:'',source:'none'};
+  if(cookie)return {token:cookie,source:'cookie'};
+  const bearer=bearerToken(request);
+  return bearer?{token:bearer,source:'bearer'}:{token:'',source:'none'};
 }
 function sessionToken(request){return sessionCredential(request).token;}
 function sessionCookie(token,maxAge=SESSION_DAYS*86400){
@@ -998,14 +998,14 @@ async function handleAuthSession(request,env){
   if(!row)return json(request,env,{authenticated:false},401,credential.source==='cookie'?{'Set-Cookie':clearSessionCookie()}:{});
   const rotated=await rotateSessionIfNeeded(request,env,row,credential);
   if(rotated){
-    const payload={authenticated:true,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
+    const payload={authenticated:true,authSource:rotated.source,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
     if(rotated.source==='bearer'){
       payload.token=rotated.token;
       payload.fallbackExpiresAt=new Date(Date.now()+BEARER_FALLBACK_HOURS*3600000).toISOString();
     }
     return json(request,env,payload,200,{'Set-Cookie':sessionCookie(rotated.token)});
   }
-  return json(request,env,{authenticated:true,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
+  return json(request,env,{authenticated:true,authSource:credential.source,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
 }
 async function handleAuthLogout(request,env){
   const credential=sessionCredential(request),row=await userFromSession(request,env,credential);
