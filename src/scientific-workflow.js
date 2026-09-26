@@ -592,7 +592,12 @@ export function installScientificWorkflow(){
   $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncParameterRoleExclusions(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
   $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
-  document.addEventListener('stat-dataset-changed',()=>{
+  document.addEventListener('click',async event=>{
+  const link=event.target.closest('[data-open-field-row]');if(!link)return;
+  event.preventDefault();
+  try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout({row:Number(link.dataset.openFieldRow)});}catch(error){console.error(error);}
+});
+document.addEventListener('stat-dataset-changed',()=>{
     let current;try{current=readDataset();}catch{return;}
     const fingerprint=datasetFingerprint(current);
     document.querySelectorAll('[data-all-results][data-analysis-fingerprint]').forEach(container=>{
