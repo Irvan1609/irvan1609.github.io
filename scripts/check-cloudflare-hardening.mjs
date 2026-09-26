@@ -14,7 +14,7 @@ for(const marker of [
   'env.IMAGES.put','env.IMAGES.get','cleanupCloudData',
   'IDEMPOTENCY_RETENTION_DAYS','AUDIT_RETENTION_DAYS','DELETED_DATASET_RETENTION_DAYS',
   "quotaGuard:true","idempotentSync:true","cloud_temporarily_unavailable",
-  "Retry-After"
+  "Retry-After","migrateLegacyContributionImages","/v1/develop/contributions/migrate-images"
 ]) requireText(worker,marker,'Worker');
 
 for(const marker of [
@@ -37,7 +37,8 @@ for(const marker of [
 
 for(const marker of [
   'contributionD1ImageBytes','contributionR2ImageBytes',
-  'R2 foto kontribusi','Retention terjadwal','Idempotent sync'
+  'R2 foto kontribusi','Retention terjadwal','Idempotent sync',
+  '/v1/develop/contributions/migrate-images','Migrasi selesai'
 ]) requireText(develop,marker,'Develop UI');
 
 console.log('Cloudflare hardening contract OK: local-first circuit breaker, D1 indexes, R2 image storage, retention, and deploy guards.');
