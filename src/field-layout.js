@@ -242,11 +242,16 @@ function ensureModal(){
 }
 function readControls(){
   if(!current)return;
-  config={
+  config={...config,
     id:Number($('#fieldIdColumn').value),
     group:Number($('#fieldGroupColumn').value),
     color:Number($('#fieldColorColumn').value),
+    colorMode:$('#fieldColorMode').value,
+    heatmap:Number($('#fieldHeatmapColumn').value),
+    filter:$('#fieldFilter').value,
     columns:Math.max(2,Math.min(12,Number($('#fieldColumns').value)||6)),
+    roadEvery:Math.max(0,Math.min(8,Number($('#fieldRoadEvery').value)||0)),
+    north:$('#fieldNorth').value,
     size:$('#fieldPlotSize').value,
     serpentine:$('#fieldSerpentine').checked
   };
@@ -257,9 +262,16 @@ function renderControls(){
   $('#fieldIdColumn').innerHTML=options(current.headers,config.id);
   $('#fieldGroupColumn').innerHTML=options(current.headers,config.group,true);
   $('#fieldColorColumn').innerHTML=options(current.headers,config.color);
+  const measures=measurementColumns(current);
+  $('#fieldHeatmapColumn').innerHTML='<option value="-1">Pilih parameter</option>'+measures.map(item=>`<option value="${item.index}" ${item.index===config.heatmap?'selected':''}>${esc(item.header)}</option>`).join('');
+  $('#fieldColorMode').value=config.colorMode;
+  $('#fieldFilter').value=config.filter;
   $('#fieldColumns').value=String(config.columns);
+  $('#fieldRoadEvery').value=String(config.roadEvery||0);
+  $('#fieldNorth').value=config.north;
   $('#fieldPlotSize').value=config.size;
   $('#fieldSerpentine').checked=config.serpentine;
+  $('#fieldHeatmapWrap').hidden=config.colorMode!=='parameter';
 }
 function renderStats(){
   const progress=current.rows.map(row=>rowProgress(current,row));
