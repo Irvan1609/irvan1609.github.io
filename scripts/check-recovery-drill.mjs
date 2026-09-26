@@ -10,7 +10,11 @@ for(const marker of [
   'PRAGMA integrity_check;',
   'sqlite_master',
   'd1 delete "$TEMP_DB"',
-  'trap cleanup EXIT'
+  'trap cleanup EXIT',
+  'Capture production counts',
+  '/tmp/source-counts.env',
+  'for TABLE in users user_datasets contributions',
+  'test "$RESTORED" = "$EXPECTED"'
 ]) if(!workflow.includes(marker))fail('missing recovery marker '+marker);
 if(/d1 time-travel restore\s+hitung-cabai/.test(workflow))fail('drill must never restore production in place');
 console.log('Recovery drill contract OK: production is read/export only; restore validation occurs in a disposable D1 database.');
