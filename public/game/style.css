@@ -1927,3 +1927,34 @@ body.calm-ui .first-season-note{
   .game-shell #nextCritical{min-width:0}
   .game-shell #finishSeason{grid-column:1/-1;margin-left:0}
 }
+
+
+/* FIELD ZERO CARE CENTER 2026-09-26 */
+.care-center{display:grid;gap:7px}
+.care-center>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border:1px solid #315144;border-radius:8px;background:#102019}
+.care-center>header div{min-width:0}
+.care-center>header small,.care-center>header b{display:block}
+.care-center>header small{color:var(--muted);font-size:8px}
+.care-center>header b{margin-top:2px;font-size:11px}
+.care-center>header>span{flex:0 0 auto;color:var(--green-2);font-size:9px;font-weight:850}
+.care-center>p{margin:0;color:var(--muted);font-size:8.5px}
+.care-choices{display:grid;gap:5px}
+.care-choice{
+  width:100%;min-height:54px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;
+  padding:7px 8px;border:1px solid #355548;border-radius:8px;background:#14291f;color:var(--ink);text-align:left
+}
+.care-choice>span{display:grid;place-items:center;width:32px;height:32px;border-radius:7px;background:#1d342a;font-size:16px;font-weight:900}
+.care-choice div{min-width:0}.care-choice b,.care-choice small,.care-choice em{display:block}
+.care-choice b{font-size:10.5px}.care-choice small{margin-top:2px;color:#a9b9b0;font-size:8.5px;white-space:normal}
+.care-choice em{margin-top:2px;color:var(--muted);font-size:8px;font-style:normal}
+.care-choice:disabled{opacity:.42;cursor:default}
+.care-footer{display:flex;flex-wrap:wrap;gap:5px}
+.care-footer button{min-height:34px;flex:1;padding:5px 8px;border:1px solid #355548;border-radius:7px;background:#172b22;color:var(--ink);font-size:9px;font-weight:800}
+.care-rule{color:var(--muted);font-size:8px;line-height:1.4}
+@media(max-width:620px){
+  .field-tool-dock [data-field-tool="water"],
+  .field-tool-dock [data-field-tool="fertilize"],
+  .field-tool-dock [data-field-tool="scout"]{display:none}
+  .mobile-command-row button{min-height:44px}
+  .care-choice{min-height:58px}
+}
