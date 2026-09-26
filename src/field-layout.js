@@ -82,13 +82,48 @@ function groupEntries(data){
     if(!groups.has(label))groups.set(label,[]);
     groups.get(label).push({row,index});
   });
-  return [...groups.entries()];
+  return [...groups.entries()].map(([label,entries])=>{
+    const order=Array.isArray(config.order?.[label])?config.order[label]:[];
+    if(order.length){const rank=new Map(order.map((row,index)=>[Number(row),index]));entries.sort((a,b)=>(rank.get(a.index)??1e9)-(rank.get(b.index)??1e9)||a.index-b.index);}
+    return [label,entries];
+  });
 }
 function colorLabel(data,row){return config.color>=0?String(row[config.color]??'').trim():'';}
 function plotLabel(data,row,index){
   const id=String(row[config.id]??'').trim()||String(index+1);
   const secondary=colorLabel(data,row);
   return {id,secondary:secondary&&secondary!==id?secondary:''};
+}
+function plotStatus(index){return String(config.statuses?.[index]||'normal');}
+function plotNote(index){return String(config.notes?.[index]||'');}
+function passesFilter(entry){
+  if(config.filter==='all')return true;
+  const status=plotStatus(entry.index),progress=rowProgress(current,entry.row);
+  if(['empty','partial','complete'].includes(config.filter))return progress.status===config.filter;
+  return status===config.filter;
+}
+function heatmapScale(){
+  const index=Number(config.heatmap);
+  if(config.colorMode!=='parameter'||index<0)return null;
+  const values=current.rows.map(row=>Number(String(row[index]??'').replace(',','.'))).filter(Number.isFinite);
+  if(!values.length)return null;
+  const min=Math.min(...values),max=Math.max(...values);
+  return {index,min,max};
+}
+function visualForPlot(entry,scale){
+  const progress=rowProgress(current,entry.row),status=plotStatus(entry.index),color=colorLabel(current,entry.row);
+  if(config.colorMode==='completion'){
+    const hue=progress.status==='complete'?135:progress.status==='partial'?42:0;
+    return {hue,heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur'};
+  }
+  if(config.colorMode==='parameter'&&scale){
+    const value=Number(String(entry.row[scale.index]??'').replace(',','.'));
+    if(Number.isFinite(value)){
+      const ratio=scale.max===scale.min?.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
+      return {hue:220-(ratio*220),heat:true,label:String(entry.row[scale.index]??'')};
+    }
+  }
+  return {hue:hashHue(color),heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur',status};
 }
 function matchingSearch(entry,data,query){
   if(!query)return true;
