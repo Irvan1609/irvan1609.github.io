@@ -13,7 +13,7 @@
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/game/style.css?v=20260926-calm1">
+  <link rel="stylesheet" href="/game/style.css?v=20260926-focus2">
 </head>
 <body class="calm-ui">
   <header class="subweb-header">
@@ -76,6 +76,13 @@
       <div class="today"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span><span id="forecastText">—</span></div>
     </section>
     <button id="playHint" class="play-hint" type="button"><span id="playHintIcon">→</span><b id="playHintText">Pilih Tanam lalu petak kosong</b></button>
+    <div id="gameWorkflow" class="game-workflow" aria-label="Alur permainan">
+      <span data-flow-step="plant">Tanam</span>
+      <span data-flow-step="care">Rawat</span>
+      <span data-flow-step="harvest">Panen</span>
+      <span data-flow-step="analysis">Analisis</span>
+      <span data-flow-step="selection">Seleksi</span>
+    </div>
 
     <section class="meta-strip panel" aria-label="Status run" hidden>
       <div><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b></button></div>
@@ -112,6 +119,11 @@
           <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
           <button id="finishSeason" type="button" hidden>Akhiri musim</button>
         </div>
+        <nav class="field-primary-actions" aria-label="Aksi utama">
+          <button type="button" data-main-action="lab">🔬 <span>Lab</span></button>
+          <button type="button" data-main-action="research">📐 <span>Penelitian</span></button>
+          <button type="button" data-main-action="analysis">📊 <span>Analisis</span></button>
+        </nav>
       </section>
 
       <aside class="inspector panel">
@@ -148,19 +160,19 @@
         </div>
         <div id="crossPreview" class="cross-preview">Pilih 2 benih.</div>
       </section>
-      <section class="panel meta-panel">
+      <section class="panel meta-panel" data-unlock-level="2">
         <div class="panel-head"><div><small>RISET</small><h2>Teknologi</h2></div><span id="techCount" class="count-badge">0</span></div>
         <div id="techTree" class="tech-tree"></div>
       </section>
-      <section class="panel meta-panel">
+      <section class="panel meta-panel" data-unlock-level="2">
         <div class="panel-head"><div><small>FIELD OPERATIONS</small><h2>Ekspedisi</h2></div><span id="expeditionStatus" class="count-badge">Siap</span></div>
         <div id="expeditionPanel"></div>
       </section>
-      <section class="panel meta-panel">
+      <section class="panel meta-panel" data-unlock-level="3">
         <div class="panel-head"><div><small>GENETIC PUZZLE</small><h2>Genome Lab</h2></div><span id="genomeStatus" class="count-badge">Terkunci</span></div>
         <div id="genomeLab"></div>
       </section>
-      <section class="panel meta-panel">
+      <section class="panel meta-panel" data-unlock-level="2">
         <div class="panel-head"><div><small>LINEAGE</small><h2>Silsilah</h2></div><button id="openEvolution" class="mini-button" type="button">Buka</button></div>
         <div id="evolutionPreview" class="evolution-preview"></div>
       </section>
@@ -247,7 +259,7 @@
   </div>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/game/app.js?v=20260926-classic2"></script>
+  <script type="module" src="/game/app.js?v=20260926-focus2"></script>
   <script type="module" src="/game/social.js"></script>
   <script type="module" src="/game/sync.js"></script>
   <script src="/pwa-register.js"></script>
