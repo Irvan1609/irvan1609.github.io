@@ -7,7 +7,7 @@ const field=fs.readFileSync('src/field-layout-v3.js','utf8');
 const css=fs.readFileSync('src/field-layout-v3.css','utf8');
 const media=fs.readFileSync('src/field-layout-media.js','utf8');
 const resultOs=fs.readFileSync('src/result-os.js','utf8');
-const measure=fs.readFileSync('public/kamera-pengukur/app.js','utf8');
+const measure=fs.readFileSync('public/pengukur/app.js','utf8');
 const chili=fs.readFileSync('public/hitung-cabai/app.js','utf8');
 
 assert.match(entry,/field-layout-v3\.js/);

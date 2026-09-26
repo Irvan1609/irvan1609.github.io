@@ -6,7 +6,7 @@ const headers=fs.readFileSync('public/_headers','utf8');
 for(const marker of [
   'Content-Security-Policy:','X-Content-Type-Options: nosniff','Referrer-Policy: strict-origin-when-cross-origin',
   'X-Frame-Options: DENY','Strict-Transport-Security:','Permissions-Policy:','frame-ancestors \'none\'',
-  "object-src 'none'","https://challenges.cloudflare.com","/hitung-cabai/*","camera=(self)","/kamera-pengukur/*"
+  "object-src 'none'","https://challenges.cloudflare.com","/hitung-cabai/*","camera=(self)","/kamera-pengukur/*","/pengukur/*"
 ])if(!headers.includes(marker))fail('missing '+marker);
 if(/script-src[^;\n]*'unsafe-inline'/.test(headers))fail('script-src must not allow unsafe-inline');
 
