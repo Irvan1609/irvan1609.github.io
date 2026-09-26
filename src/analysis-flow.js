@@ -89,7 +89,7 @@ function analysisButton(item){
   const attr={design:'data-design',designExt:'data-design-ext',augmented:'data-augmented',nonparametric:'data-nonparametric',association:'data-association',advanced:'data-advanced',nextgen:'data-nextgen',mixed:'data-mixed',stabilityIndices:'data-stability-indices',power:'data-power'}[type];
   const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
   const pinned=favorites().includes(key);
-  return `<div class="analysis-menu-item-wrap" data-analysis-key="${key}"><button type="button" class="analysis-menu-item" ${attr}${valueAttr} data-analysis-key="${key}"><span class="analysis-item-mark">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span></button><button type="button" class="analysis-favorite" data-favorite-key="${key}" aria-pressed="${pinned}" aria-label="${pinned?'Lepas favorit':'Tambah favorit'}">${pinned?'★':'☆'}</button></div>`;
+  return `<div class="analysis-menu-item-wrap" data-analysis-key="${key}"><button type="button" class="analysis-menu-item" ${attr}${valueAttr} data-analysis-key="${key}" aria-pressed="false"><span class="analysis-item-mark">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span></button><button type="button" class="analysis-favorite" data-favorite-key="${key}" aria-pressed="${pinned}" aria-label="${pinned?'Lepas favorit':'Tambah favorit'}">${pinned?'★':'☆'}</button></div>`;
 }
 function quickChip(key){
   const found=descriptor(key);if(!found)return '';
@@ -124,7 +124,7 @@ function panelMarkup(){
     <div class="analysis-complete-view" data-analysis-complete-view hidden>
       <div id="analysisQuickArea" class="analysis-quick-area">${quickMarkup()}</div>
       <div class="analysis-menu-groups">${groups}</div>
-      <div class="analysis-menu-foot"><span>Mode lengkap · seluruh metode tersedia</span></div>
+      <div class="analysis-menu-foot"><span id="analysisSelectedLabel">Pilih satu metode</span><button id="confirmAnalysis" type="button" class="primary" disabled>Lanjut</button></div>
     </div>`;
 }
 
@@ -133,7 +133,18 @@ export function installAnalysisFlow(){
   const panel=document.createElement('div');panel.id='analysisMenu';panel.className='nav-command-panel analysis-command-panel';panel.hidden=true;
   panel.setAttribute('role','region');panel.setAttribute('aria-label','Analisis');panel.innerHTML=panelMarkup();nav.parentElement.append(panel);
   open.textContent='Analisis';open.setAttribute('aria-controls','analysisMenu');open.setAttribute('aria-expanded','false');
-
+  const confirm=()=>panel.querySelector('#confirmAnalysis'),selectedLabel=()=>panel.querySelector('#analysisSelectedLabel');
+  let selectedButton=null;
+  function resetSelection(){
+    selectedButton=null;
+    panel.querySelectorAll('.analysis-menu-item').forEach(button=>{button.classList.remove('selected');button.setAttribute('aria-pressed','false');});
+    if(confirm())confirm().disabled=true;if(selectedLabel())selectedLabel().textContent='Pilih satu metode';
+  }
+  function choose(button){
+    selectedButton=button;
+    panel.querySelectorAll('.analysis-menu-item').forEach(item=>{const active=item===button;item.classList.toggle('selected',active);item.setAttribute('aria-pressed',String(active));});
+    if(confirm())confirm().disabled=false;if(selectedLabel())selectedLabel().textContent=button.querySelector('b')?.textContent||'Metode dipilih';
+  }
   function refreshQuick(){
     const target=panel.querySelector('#analysisQuickArea');if(target)target.innerHTML=quickMarkup();
     const fav=new Set(favorites());
@@ -154,7 +165,7 @@ export function installAnalysisFlow(){
     const toggle=panel.querySelector('[data-analysis-mode-toggle]');
     if(toggle)toggle.textContent=complete?'Mode Sederhana':'Mode Lengkap';
     panel.dataset.mode=mode;
-    if(complete){refreshQuick();applyGroupCollapse();}
+    if(complete){refreshQuick();applyGroupCollapse();if(phoneGuardMode())resetSelection();}
   }
   function closeMenu(){panel.hidden=true;open.setAttribute('aria-expanded','false');panel.querySelector('[data-factorial-choice]')?.setAttribute('hidden','');}
   function openMenu(){document.dispatchEvent(new Event('close-navigation'));applyMode();panel.hidden=false;open.setAttribute('aria-expanded','true');requestAnimationFrame(()=>panel.querySelector('.analysis-simple-card,.analysis-menu-item')?.focus());}
@@ -175,6 +186,7 @@ export function installAnalysisFlow(){
     }catch(error){console.error('Analisis gagal dimuat',error);alert('Modul '+label+' belum dapat dimuat. Coba lagi.');}
     finally{if(sourceButton)sourceButton.disabled=false;}
   }
+  const openButton=button=>openDescriptor(descriptor(button?.dataset.analysisKey),button);
   async function autoDetect(button){
     button.disabled=true;
     try{
@@ -210,8 +222,9 @@ export function installAnalysisFlow(){
     const toggle=event.target.closest('.analysis-group-toggle');
     if(toggle&&phoneGuardMode()){const body=toggle.nextElementSibling,opening=body?.hidden!==false;if(body)body.hidden=!opening;toggle.setAttribute('aria-expanded',String(opening));return;}
     const button=event.target.closest('.analysis-menu-item');
-    if(button)await openDescriptor(descriptor(button.dataset.analysisKey),button);
+    if(button){if(phoneGuardMode())choose(button);else await openButton(button);}
   });
+  confirm()?.addEventListener('click',()=>openButton(selectedButton));
   document.addEventListener('agrotik-open-analysis',event=>{const key=String(event.detail?.key||'');const found=descriptor(key)||flatItems.find(entry=>entry.item[1]===key);if(found)void openDescriptor(found);});
   document.addEventListener('agrotik-run-recipe',async event=>{const recipe=event.detail?.recipe;if(!recipe)return;try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error(error);}});
   document.addEventListener('close-navigation',closeMenu);
