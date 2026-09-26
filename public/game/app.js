@@ -313,7 +313,7 @@ function freshState(){
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1,'standard'),
     seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0},seasonBest:null,pendingEvent:null,
-    log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
+    log:[{day:1,text:'Musim 1: pilih benih, tanam, rawat, lalu panen. Penelitian dan pemuliaan terbuka setelah alur dasar dikuasai.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
     rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index',
@@ -1690,24 +1690,27 @@ function openSpeciesPicker(){
   const blocked=state.field.some(Boolean)||!!state.experiment;openMetaModal('TANAMAN','🌱 Spesies & kalender',`<div class="species-picker">${Object.values(SPECIES).map(profile=>{const unlocked=speciesUnlocked(profile.id),active=state.species===profile.id;return `<button type="button" data-species="${profile.id}" aria-pressed="${active}" ${!unlocked?'disabled':''}><span>${profile.icon}</span><b>${esc(profile.name)}</b><small><i>${esc(profile.latin)}</i> · ±${profile.maturityDays} hari${unlocked?'':' · terkunci'}</small></button>`;}).join('')}</div><p class="species-note">${blocked?'Kosongkan lahan dan selesaikan rancangan aktif sebelum mengganti spesies.':'Padi dan kedelai terbuka setelah progres rancob dasar. Harga non-jagung merupakan parameter simulasi.'}</p>`);$('#metaModalBody').querySelectorAll('[data-species]').forEach(button=>button.onclick=()=>{const id=button.dataset.species;if(id===state.species)return;if(blocked){toast('Selesaikan musim/rancangan sebelum ganti tanaman');return;}if(!speciesUnlocked(id))return;state.species=id;const seed=speciesVault(id)[0];if(seed)state.selectedSeedId=seed.id;state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,id);save();render();openSpeciesPicker();});
 }
 function openQuickMore(){
-  openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
-    <button data-quick-more="notebook">▤<span>Notebook</span></button>
+  const firstSeason=state.season===1&&!state.onboarding?.complete;
+  const advanced=firstSeason?'':`
     <button data-quick-more="research-history">📐<span>Arsip Riset</span></button>
     <button data-quick-more="generation">🧬<span>Generasi</span></button>
-    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
-    <button data-quick-more="social">👥<span>Sosial</span></button>
-    <button data-quick-more="map">⌖<span>Lokasi</span></button>
     <button data-quick-more="run">⚑<span>Challenge</span></button>
     <button data-quick-more="rival">⚔<span>Rival</span></button>
+    <button data-quick-more="academy">🎓<span>Akademi</span></button>
+    <button data-quick-more="map">⌖<span>Lokasi</span></button>`;
+  openMetaModal('MENU',firstSeason?'Musim 1 · dasar':'Lainnya',`<div class="quick-menu-grid">
+    <button data-quick-more="notebook">▤<span>Notebook</span></button>
+    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
+    ${advanced}
+    <button data-quick-more="social">👥<span>Sosial</span></button>
     <button data-quick-more="record">◷<span>Rekor</span></button>
     <button data-quick-more="legacy">↺<span>Legacy</span></button>
     <button data-quick-more="collection">◆<span>Koleksi</span></button>
-    <button data-quick-more="academy">🎓<span>Akademi</span></button>
     <button data-quick-more="species">🌱<span>Tanaman</span></button>
     <button data-quick-more="economy">Rp<span>Ekonomi</span></button>
     <button data-quick-more="comfort">⚙<span>Kenyamanan</span></button>
     <button data-quick-more="music">♫<span>Audio</span></button>
-  </div>`);
+  </div>${firstSeason?'<p class="first-season-note">Selesaikan musim pertama untuk membuka Penelitian, Akademi, Rival, dan Challenge.</p>':''}`);
   $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
     const key=button.dataset.quickMore;
     if(key==='notebook')openBreederNotebook();
@@ -2259,7 +2262,7 @@ function beginNextSeason(){
   state.season++;if(state.season>=2)state.onboarding={...(state.onboarding||{}),complete:true};
   state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=focusMax(state.level);state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
   state.vault.forEach(seed=>{seed.ageSeasons=(seed.ageSeasons||0)+1;seed.viability=clamp((seed.viability||96)-(hasTech('cold')?1:3),0,100);});
-  if(wasDaily||wasWeekly){state.daily=null;state.weekly=null;state.challenge='standard';state.maxDay=CHALLENGES.standard.maxDay;state.monoSeedId=null;}
+  if(wasDaily||wasWeekly){state.daily=null;state.weekly=null;state.challenge='standard';state.maxDay=CHALLENGES.standard.maxDay;state.monoSeedId=null;if(wasWeekly)state.simulationSeed=hashString('academy:'+state.season+':'+Date.now());}
   state.env=newEnvironment(state.season);state.weather=rollWeather(state.env);state.weatherMemory={hot:0,wet:0,dry:0};state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);state.seasonStartRp=state.rp;state.mission=missionFor(state.season,state.challenge);
   state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
   if(state.season%3===0){const fragment=LORE[Math.min(LORE.length-1,Math.floor(state.season/3)-1)];if(fragment&&!state.lore.includes(fragment)){state.lore.push(fragment);addLog('Fragment arsip baru ditemukan.');}}
