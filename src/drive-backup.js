@@ -1,5 +1,6 @@
 import {openTool} from './data-tools.js';
 const KEY='statistical_web_drive_backup_v1';
+const FIELD_LAYOUT_KEY='statistical_web_field_layout_v1';
 export const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbzxSk-P1EiHLsoBs6giyTOORtdLAV4Nm8sljdM1rkcmTJ0Gz4x8idEYUdq09uEBXLgh/exec';
 export const MAX_BYTES=2*1024*1024;
 let busy=false;
@@ -21,6 +22,25 @@ function config(){
   }catch{return disabled;}
 }
 function status(text){const el=document.getElementById('driveBackupStatus');if(el)el.textContent=text;}
+function fieldLayoutMetadata(dataset){
+  try{
+    if(typeof localStorage==='undefined')return null;
+    const store=JSON.parse(localStorage.getItem(FIELD_LAYOUT_KEY)||'{}');
+    if(!store||typeof store!=='object'||Array.isArray(store))return null;
+    const names=[dataset.fileName,dataset.name,dataset.name?dataset.name+'.csv':''].filter(Boolean).map(String);
+    let value=null;
+    for(const name of names)if(store[name]){value=store[name];break;}
+    if(!value){
+      const target=String(dataset.name||'').replace(/\.(?:csv|txt)$/i,'');
+      const match=Object.entries(store).find(([name])=>String(name).replace(/\.(?:csv|txt)$/i,'')===target);
+      value=match?.[1]||null;
+    }
+    if(!value||value.backupMeta===false)return null;
+    const copy=JSON.parse(JSON.stringify(value));
+    // Foto tetap lokal/IndexedDB; hanya metadata tekstual/angka yang ikut workbook.
+    return copy;
+  }catch{return null;}
+}
 export async function rawWorkbook(dataset){
   if(!dataset.headers?.length||!dataset.rows?.length)throw Error('Dataset kosong.');
   if(dataset.headers.length>16384||dataset.rows.length>100000)throw Error('Dataset melebihi batas cadangan.');
@@ -31,6 +51,14 @@ export async function rawWorkbook(dataset){
   sheet.addRow(dataset.headers.map(v=>String(v??'')));
   dataset.rows.forEach(row=>sheet.addRow(dataset.headers.map((_,i)=>String(row[i]??''))));
   sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];
+  const fieldMeta=fieldLayoutMetadata(dataset);
+  if(fieldMeta){
+    const meta=book.addWorksheet('Metadata denah');
+    meta.addRow(['Agrotik Field Workspace metadata']);meta.addRow(['Dataset',String(dataset.name||'')]);meta.addRow(['Dicadangkan',new Date().toISOString()]);meta.addRow(['Catatan','Foto plot tidak disertakan; foto tetap tersimpan lokal pada perangkat.']);
+    const json=JSON.stringify(fieldMeta),chunk=30000;
+    for(let i=0;i<json.length;i+=chunk)meta.addRow(['JSON '+(Math.floor(i/chunk)+1),json.slice(i,i+chunk)]);
+    meta.getRow(1).font={bold:true};meta.getColumn(1).width=18;meta.getColumn(2).width=100;
+  }
   const bytes=new Uint8Array(await book.xlsx.writeBuffer());
   if(bytes.byteLength>MAX_BYTES)throw Error('Berkas Excel melebihi batas 2 MiB.');
   return bytes;
@@ -60,7 +88,7 @@ export function installDriveBackup(){
   document.getElementById('scienceRunStatus').insertAdjacentHTML('afterend','<p id="driveBackupStatus" class="form-help" role="status"></p>');
   status(config().enabled?'Cadangan Drive aktif: data mentah akan dikirim setelah analisis berhasil.':'Cadangan Drive nonaktif pada browser ini.');
   document.getElementById('configureDriveBackup').onclick=()=>{
-    openTool('Cadangan data mentah ke Drive',`<p>Opsional: kirim dataset aktif dalam Excel setelah analisis berhasil. Tidak mengirim hasil, grafik, dataset lain, atau riwayat. Kolom disimpan sebagai teks agar isi asli tidak berubah.</p><label>URL penerima Google Apps Script<input id="driveBackupEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label><input id="driveBackupEnabled" type="checkbox"> Aktifkan pengiriman otomatis pada browser ini</label><p>Tujuan: folder Irvan1609@github.io. Penerima tanpa login terbuka untuk unggahan publik. Folder tujuan juga dibagikan kepada pemegang tautan. Batas 2 MiB per berkas; data lokal tidak dihapus. Biarkan tab terbuka selama pengiriman.</p><p>Browser tidak dapat memastikan keberhasilan penyimpanan melalui penerima ini. Periksa Drive secara langsung; situs tidak membaca kembali berkas.</p><button id="saveDriveBackup">Simpan pengaturan</button><p id="driveBackupConfigStatus" role="status"></p>`);
+    openTool('Cadangan data mentah ke Drive',`<p>Opsional: kirim dataset aktif dalam Excel setelah analisis berhasil. Metadata Denah Lahan (status, catatan, sesi, UID, GPS, dan panen) ikut bila opsi backup metadata pada Denah aktif; foto tidak diunggah. Tidak mengirim hasil, grafik, dataset lain, atau riwayat. Kolom data disimpan sebagai teks agar isi asli tidak berubah.</p><label>URL penerima Google Apps Script<input id="driveBackupEndpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label><label><input id="driveBackupEnabled" type="checkbox"> Aktifkan pengiriman otomatis pada browser ini</label><p>Tujuan: folder Irvan1609@github.io. Penerima tanpa login terbuka untuk unggahan publik. Folder tujuan juga dibagikan kepada pemegang tautan. Batas 2 MiB per berkas; data lokal tidak dihapus. Biarkan tab terbuka selama pengiriman.</p><p>Browser tidak dapat memastikan keberhasilan penyimpanan melalui penerima ini. Periksa Drive secara langsung; situs tidak membaca kembali berkas.</p><button id="saveDriveBackup">Simpan pengaturan</button><p id="driveBackupConfigStatus" role="status"></p>`);
     const c=config();document.getElementById('driveBackupEndpoint').value=c.endpoint||'';document.getElementById('driveBackupEnabled').checked=!!c.enabled;
     document.getElementById('saveDriveBackup').onclick=()=>{
       const endpoint=document.getElementById('driveBackupEndpoint').value.trim(),enabled=document.getElementById('driveBackupEnabled').checked;
