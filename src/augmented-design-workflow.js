@@ -20,26 +20,25 @@ function choose(select,regex,data,exclude=[]){
 }
 function firstCategorical(data,exclude=[]){return data.headers.findIndex((_,index)=>!exclude.includes(index)&&!isNumeric(data,index));}
 function parameterField(data){
-  return `<div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
+  return `<div class="aug-parameter-head"><span>Parameter numerik dipilih otomatis</span><b id="augParameterCount">0 aktif</b></div><div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
 }
-function syncSimpleAugParameter(forceSingle=false){
-  const select=$('#augSimpleParameter');if(!select)return;
-  const inputs=[...document.querySelectorAll('[data-aug-param]')].filter(input=>!input.disabled);
-  const previous=select.value;
-  select.innerHTML=inputs.map(input=>`<option value="${input.value}">${esc(dataForAug?.headers?.[Number(input.value)]||'Parameter')}</option>`).join('');
-  const selected=inputs.find(input=>input.value===previous)||inputs.find(input=>input.checked)||inputs[0];
-  if(selected)select.value=selected.value;
-  if(forceSingle&&selected)inputs.forEach(input=>{input.checked=input===selected;});
+function updateAugParameterCount(){
+  const inputs=[...document.querySelectorAll('[data-aug-param]')].filter(input=>!input.disabled),selected=inputs.filter(input=>input.checked);
+  const target=$('#augParameterCount');if(target)target.textContent=`${selected.length} aktif`;
 }
-let dataForAug=null;
-function syncParameters(){
+function syncParameters(initial=false){
   const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
   document.querySelectorAll('[data-aug-param]').forEach(input=>{
-    const role=roles.has(Number(input.value));
+    const role=roles.has(Number(input.value)),wasRole=input.dataset.wasRole==='true';
     input.disabled=role;
-    if(role)input.checked=false;
+    input.closest('.aug-param')?.toggleAttribute('hidden',role);
+    if(role){input.checked=false;input.dataset.wasRole='true';}
+    else{
+      if(initial||(wasRole&&input.dataset.userTouched!=='true'))input.checked=true;
+      input.dataset.wasRole='false';
+    }
   });
-  syncSimpleAugParameter(false);
+  updateAugParameterCount();
 }
 function repeatedTreatments(data,index){
   if(index===null||index===undefined||index<0)return [];
@@ -166,16 +165,14 @@ async function showResults(html,title,data,parameterCount){
 export function openAugmentedDesign(){
   const data=readDataset();
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
-  dataForAug=data;
   openTool('Augmented Design',`<div class="augmented-workspace aug-simple-mode">
     <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div></div>
-    <div class="aug-simple-form">
+    <div class="aug-simple-form aug-two-role-form">
       <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
       <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
-      <label><span>Parameter</span><select id="augSimpleParameter"></select></label>
     </div>
+    <section class="aug-card aug-parameter-card">${parameterField(data)}</section>
     <div id="augStructure" class="aug-structure-inline"></div>
-    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Beberapa parameter</summary>${parameterField(data)}</details>
     <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan lanjutan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
     <div id="augmentedError" role="alert"></div>
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
@@ -185,11 +182,11 @@ export function openAugmentedDesign(){
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
-  fillChecks(data);syncParameters();syncSimpleAugParameter(true);structurePreview(data);
+  fillChecks(data);syncParameters(true);structurePreview(data);
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
-  $('#augSimpleParameter').addEventListener('change',event=>{document.querySelectorAll('[data-aug-param]').forEach(input=>{input.checked=input.value===event.target.value;});});
-  $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
-  $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});
+  document.querySelectorAll('[data-aug-param]').forEach(input=>input.addEventListener('change',()=>{input.dataset.userTouched='true';updateAugParameterCount();}));
+  $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters(false);structurePreview(data);});
+  $('#augBlock').addEventListener('change',()=>{syncParameters(false);structurePreview(data);});
   $('#augChecks').addEventListener('input',()=>structurePreview(data));
 
   $('#runAugmented').onclick=async()=>{
