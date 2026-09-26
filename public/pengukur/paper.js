@@ -41,9 +41,9 @@ export function grayPatchRects(profile){
   return Array.from({length:6},(_,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,target:[245,210,170,130,90,50][i]}));
 }
 export function colorPatchRects(profile){
-  const {activeWidth:w}=profile;
-  const gap=Math.max(1,Math.min(2,w/80)),patchW=Math.max(3,Math.min(14,(w-gap*5-4)/6)),patchH=6,total=patchW*6+gap*5;
-  const startX=Math.max(2,(w-total)/2),y=3;
+  const {activeWidth:w}=profile,topBand=calibratorLayout(profile).topBand;
+  const gap=Math.max(1,Math.min(2,w/80)),patchW=Math.max(3,Math.min(14,(w-gap*5-4)/6)),patchH=Math.max(2,Math.min(6,topBand-5)),total=patchW*6+gap*5;
+  const startX=Math.max(2,(w-total)/2),y=2;
   const colors=['#d14a48','#4d8f55','#4a6fd1','#d3b247','#8a59a8','#4aa5a8'];
   return colors.map((fill,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,fill}));
 }
