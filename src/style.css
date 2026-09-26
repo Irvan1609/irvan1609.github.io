@@ -4621,3 +4621,303 @@ body.analysis-results-open{overflow:hidden}
     border-radius:var(--stat-m-radius)!important;
   }
 }
+
+
+/* STAT MOBILE VISUAL RHYTHM FINAL 2026-09-27 */
+/* Final phone layer: one visual scale across editor, analysis setup and results.
+   Touch areas stay generous; only the visual weight is normalized. */
+@media(max-width:720px){
+  :root{
+    --stat-phone-touch:48px;
+    --stat-phone-row:52px;
+    --stat-phone-icon:30px;
+    --stat-phone-gap:6px;
+    --stat-phone-radius:9px;
+    --stat-phone-text:12px;
+    --stat-phone-control-text:12.5px;
+    --stat-phone-title:13px;
+    --stat-phone-small:11px;
+  }
+
+  /* General mobile rhythm. */
+  .app-shell{font-size:var(--stat-phone-text)!important}
+  .app-header .nav{gap:var(--stat-phone-gap)!important;padding:6px!important}
+  .app-header .nav>button{
+    min-height:var(--stat-phone-row)!important;
+    padding:6px 4px!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:var(--stat-phone-text)!important;
+    line-height:1.15!important;
+  }
+  #openAnalysis::before,
+  #globalSearchButton::before,
+  #projectToggle::before,
+  #mobileMoreButton::before{
+    font-size:18px!important;
+    line-height:19px!important;
+  }
+
+  /* Ordinary dialogs and command panels use the same 48 px control height. */
+  .modal-head button,
+  .modal-foot>button,
+  .mobile-more-panel button,
+  .nav-command-panel:not(.analysis-command-panel) button,
+  .result-actions button,
+  .master-result-actions button{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:var(--stat-phone-control-text)!important;
+  }
+  .modal-head>strong,
+  .global-search-dialog .modal-head>strong{
+    font-size:var(--stat-phone-title)!important;
+  }
+  .global-search-item{
+    min-height:var(--stat-phone-touch)!important;
+    padding:7px 9px!important;
+    font-size:var(--stat-phone-text)!important;
+  }
+
+  /* Analysis chooser: same card, heading and icon scale in every group. */
+  .analysis-menu-head b{font-size:var(--stat-phone-title)!important}
+  .analysis-menu-head small{
+    font-size:var(--stat-phone-small)!important;
+    line-height:1.3!important;
+  }
+  .analysis-compact-group-title{
+    height:32px!important;
+    min-height:32px!important;
+    padding:6px 8px!important;
+    font-size:var(--stat-phone-text)!important;
+    line-height:1.2!important;
+  }
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-auto-rows:var(--stat-phone-row)!important;
+    gap:var(--stat-phone-gap)!important;
+    padding:6px!important;
+  }
+  .analysis-compact-item,
+  .analysis-simple-card{
+    height:var(--stat-phone-row)!important;
+    min-height:var(--stat-phone-row)!important;
+    max-height:var(--stat-phone-row)!important;
+    padding:6px 7px!important;
+    border-radius:var(--stat-phone-radius)!important;
+  }
+  .analysis-compact-item{
+    grid-template-columns:var(--stat-phone-icon) minmax(0,1fr)!important;
+    gap:7px!important;
+  }
+  .analysis-compact-item>span,
+  .analysis-simple-card>span{
+    width:var(--stat-phone-icon)!important;
+    min-width:var(--stat-phone-icon)!important;
+    height:var(--stat-phone-icon)!important;
+    min-height:var(--stat-phone-icon)!important;
+    font-size:9px!important;
+    border-radius:7px!important;
+  }
+  .analysis-compact-item>b,
+  .analysis-simple-card>b{
+    font-size:var(--stat-phone-text)!important;
+    line-height:1.2!important;
+  }
+  .analysis-simple-card>small{font-size:var(--stat-phone-small)!important}
+  .analysis-factorial-choice button,
+  .analysis-other-picker select{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+  }
+  .analysis-factorial-choice b{font-size:var(--stat-phone-text)!important}
+  .analysis-factorial-choice small{font-size:var(--stat-phone-small)!important}
+
+  /* Scientific workflow typography: four levels only — title, body, helper, form field. */
+  .analysis-workspace-head{
+    min-height:52px!important;
+    padding:6px 8px!important;
+  }
+  .science-title-stack>strong{font-size:var(--stat-phone-title)!important}
+  .analysis-workspace-modal .science-context>span{
+    font-size:var(--stat-phone-small)!important;
+  }
+  .science-close{
+    width:var(--stat-phone-touch)!important;
+    min-width:var(--stat-phone-touch)!important;
+    height:var(--stat-phone-touch)!important;
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:18px!important;
+  }
+  .analysis-workspace-body{padding:7px!important}
+  .science-simple-shell,
+  .science-primary-grid,
+  .science-role-grid,
+  .science-option-grid{gap:var(--stat-phone-gap)!important}
+  .science-card-head{
+    min-height:36px!important;
+    padding:6px 8px!important;
+  }
+  .analysis-workspace-modal .science-card-head b{
+    font-size:var(--stat-phone-title)!important;
+  }
+  .analysis-workspace-modal .science-card-head small,
+  .analysis-workspace-modal .science-switch-row small,
+  .analysis-workspace-modal .science-card-advanced>details>summary small,
+  .analysis-workspace-modal .science-review-head>small,
+  .analysis-workspace-modal .science-param-auto-note,
+  .analysis-workspace-modal .science-advanced-options>summary>span{
+    font-size:var(--stat-phone-small)!important;
+    line-height:1.25!important;
+  }
+  .analysis-workspace-modal .science-simple-parameter,
+  .analysis-workspace-modal .science-role-grid label,
+  .analysis-workspace-modal .science-option-grid label,
+  .analysis-workspace-modal .science-switch-row b,
+  .analysis-workspace-modal .science-subdetails>summary,
+  .analysis-workspace-modal .science-multi-parameters>summary,
+  .analysis-workspace-modal .science-advanced-options>summary,
+  .analysis-workspace-modal .science-param-check span,
+  .analysis-workspace-modal .science-transform-details>summary,
+  .analysis-workspace-modal .science-transform-grid label,
+  .analysis-workspace-modal .science-review-panel .structure-grid span,
+  .analysis-workspace-modal .science-review-panel .structure-df,
+  .analysis-workspace-modal .science-review-panel #scienceValidation{
+    font-size:var(--stat-phone-text)!important;
+    line-height:1.3!important;
+  }
+  .science-multi-parameters>summary,
+  .science-advanced-options>summary,
+  .science-transform-details>summary,
+  .science-parameter-list .parameter-row,
+  .science-switch-row,
+  .science-param-check,
+  .aug-param{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+  }
+  .science-param-check input,
+  .aug-param input,
+  .science-parameter-list input[type="checkbox"],
+  .science-switch-row input[type="checkbox"]{
+    width:20px!important;
+    height:20px!important;
+    min-width:20px!important;
+  }
+
+  /* Native form text remains 16px to avoid browser zoom; all fields share the same height. */
+  .analysis-workspace-modal select,
+  .analysis-workspace-modal input:not([type="checkbox"]),
+  .analysis-workspace-modal textarea,
+  [data-tool-mode="augmented"] select,
+  [data-tool-mode="augmented"] input:not([type="checkbox"]),
+  .global-search-dialog input,
+  .font-size-setting select{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:16px!important;
+  }
+
+  /* Footer and run actions carry identical weight. */
+  .analysis-workspace-foot,
+  .science-foot-actions,
+  .aug-runbar{gap:var(--stat-phone-gap)!important}
+  .science-foot-actions button,
+  .aug-runbar button{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:var(--stat-phone-control-text)!important;
+  }
+
+  /* Augmented uses the same hierarchy as the normal scientific workflow. */
+  [data-tool-mode="augmented"] .aug-context b,
+  [data-tool-mode="augmented"] .aug-card-head b,
+  [data-tool-mode="augmented"] .aug-review-status b,
+  [data-tool-mode="augmented"] .aug-result-summary b{
+    font-size:var(--stat-phone-title)!important;
+  }
+  [data-tool-mode="augmented"] .aug-form label>span,
+  [data-tool-mode="augmented"] .aug-simple-form label>span,
+  [data-tool-mode="augmented"] .aug-multi-parameters>summary,
+  [data-tool-mode="augmented"] .aug-advanced>summary,
+  [data-tool-mode="augmented"] .aug-param{
+    font-size:var(--stat-phone-text)!important;
+  }
+  [data-tool-mode="augmented"] .aug-context small,
+  [data-tool-mode="augmented"] .aug-card-head small,
+  [data-tool-mode="augmented"] .aug-help,
+  [data-tool-mode="augmented"] .aug-review-empty,
+  [data-tool-mode="augmented"] .aug-review-status,
+  [data-tool-mode="augmented"] .aug-review-metrics small,
+  [data-tool-mode="augmented"] .aug-runbar>span,
+  [data-tool-mode="augmented"] .aug-result-summary small,
+  [data-tool-mode="augmented"] .aug-model-line,
+  [data-tool-mode="augmented"] .aug-parameter-head{
+    font-size:var(--stat-phone-small)!important;
+  }
+
+  /* Results: toolbar, cards and table typography no longer jump between sizes. */
+  .analysis-result-toolbar{
+    gap:var(--stat-phone-gap)!important;
+    padding:6px!important;
+  }
+  .result-single-actions>summary,
+  .result-single-actions button,
+  .result-compact-menu button,
+  .result-card-more-menu button,
+  .result-significance-filter button{
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+    font-size:var(--stat-phone-control-text)!important;
+  }
+  .analysis-result>h3,
+  .analysis-result>h4{
+    min-height:var(--stat-phone-touch)!important;
+    padding:8px 56px 8px 9px!important;
+    font-size:var(--stat-phone-title)!important;
+    line-height:1.25!important;
+  }
+  .result-card-actions .result-card-more>summary,
+  .mobile-result-nav button,
+  .analysis-dock-head button{
+    min-width:var(--stat-phone-touch)!important;
+    min-height:var(--stat-phone-touch)!important;
+    border-radius:var(--stat-phone-radius)!important;
+  }
+  .analysis-result-dock .analysis-dock-kicker{font-size:var(--stat-phone-small)!important}
+  .analysis-result-dock .analysis-dock-head strong{font-size:var(--stat-phone-title)!important}
+  .analysis-result-dock .analysis-dock-actions button,
+  .analysis-result-dock .result-single-actions>summary,
+  .analysis-result-dock .result-single-actions button,
+  .analysis-result-dock .result-action-select{
+    font-size:var(--stat-phone-control-text)!important;
+  }
+  .analysis-result-dock .analysis-note,
+  .analysis-result-dock .analysis-result-meta,
+  .analysis-result-dock .result-table,
+  .analysis-result-dock .anova-table,
+  [data-tool-mode="augmented"] .aug-anova-grid .anova-table,
+  [data-tool-mode="augmented"] .aug-secondary-grid .result-table,
+  [data-tool-mode="augmented"] .augmented-means-table{
+    font-size:var(--stat-phone-text)!important;
+  }
+  .analysis-result-dock .table-caption,
+  .analysis-result-dock .figure-caption,
+  [data-tool-mode="augmented"] .aug-main-caption,
+  [data-tool-mode="augmented"] .aug-anova-grid .table-caption,
+  [data-tool-mode="augmented"] .aug-secondary-grid .table-caption{
+    font-size:var(--stat-phone-small)!important;
+  }
+
+  /* The Data Font setting changes table density only; surrounding UI keeps this rhythm. */
+  html[data-data-font="small"]{
+    --data-font-size:11px;
+  }
+  html[data-data-font="large"]{
+    --data-font-size:13px;
+  }
+  .data-grid,
+  .analysis-result .result-table{
+    font-size:var(--data-font-size)!important;
+  }
+}
