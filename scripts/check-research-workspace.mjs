@@ -20,7 +20,7 @@ const quality=computeProjectQuality(project,audit,{snapshotCount:1});
 assert.ok(quality.overall>=70&&quality.consistency===100&&quality.reproducibility>=90);
 const mixed=inspectDatasetForResearch({headers:['A','Y'],rows:[['x','1'],['y','oops'],['z','3']]});
 assert.ok(mixed.findings.some(item=>/campuran/i.test(item.message)));
-const dirty=inspectDatasetForResearch({headers:['Plot ID','Perlakuan','Hasil'],rows:[['A1','P0','1,2'],['A1','P0','1.3'],['A3','P0','99'],['A4','P1','2']]});
+const dirty=inspectDatasetForResearch({headers:['Plot ID','Perlakuan','Hasil'],rows:[['A1','P0','1,2'],['A1','P0','1.3'],['A3','P0','1.5'],['A4','P0','1.6'],['A5','P1','1.7'],['A6','P1','1.8'],['A7','P1','1.9'],['A8','P1','99']]});
 assert.ok(dirty.findings.some(item=>item.code==='duplicate-unit-id'));
 assert.ok(dirty.findings.some(item=>item.code==='mixed-decimal'));
 assert.ok(dirty.findings.some(item=>item.code==='iqr-outlier'));
