@@ -253,8 +253,9 @@ async function refreshSession(){
     if(!response.ok)throw Error('Sesi berakhir');
     const data=await response.json();
     if(!data.authenticated||!data.user)throw Error('Sesi berakhir');
-    const nextToken=data.token||token;
-    const fallbackExpiresAt=data.fallbackExpiresAt||sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'';
+    const cookieActive=data.authSource==='cookie';
+    const nextToken=cookieActive?'':(data.token||token);
+    const fallbackExpiresAt=cookieActive?'':(data.fallbackExpiresAt||sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'');
     saveSession(nextToken,data.user,data.csrfToken||csrfToken,fallbackExpiresAt);
     render();
     return currentUser;
