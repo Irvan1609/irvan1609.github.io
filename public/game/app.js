@@ -2169,13 +2169,13 @@ function applyEventChoice(choice){
 }
 
 function finishSeason(){
-  if(state.pendingEvent)return;clearUndo();updateFieldPressure();
+  if(state.pendingEvent)return;clearUndo();checkpoint('Sebelum rekap Musim '+state.season);updateFieldPressure();
   for(let i=0;i<state.field.length;i++){const crop=state.field[i];if(crop&&crop.growth>=100&&crop.health>0)recordHarvest(i,crop,.9,false);}
   const completed=missionDone(),contractRatio=missionRatio(),challenge=activeChallenge(),rewardScale=challenge.reward||1;
   const reward=completed
     ?{coins:Math.round(75000*rewardScale),rp:Math.round(8*rewardScale),xp:Math.round(45*rewardScale)}
     :{coins:Math.round((8000+26000*contractRatio)*Math.min(1.2,rewardScale)),rp:Math.floor(3*contractRatio),xp:Math.round(6+16*contractRatio)};
-  const rivalTarget=computeRivalTarget(),beatRival=state.seasonStats.yield>=rivalTarget,bossWon=!!state.env.boss&&completed;
+  const rivalTarget=computeRivalTarget(),rivalScore=playerRivalScore(),beatRival=rivalScore>=rivalTarget,bossWon=!!state.env.boss&&completed,researchQuality=state.experiment?experimentQualityScore():null;
   state.coins+=reward.coins;state.rp+=reward.rp;state.xp+=reward.xp;state.level=levelFromXp(state.xp);
   if(beatRival){state.rivalWins=(state.rivalWins||0)+1;state.rp+=4;awardAchievement('rival');}
   if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=50000;awardAchievement('boss');}}
@@ -2183,16 +2183,20 @@ function finishSeason(){
   if(['drought','rust','wet','poorN','anomaly'].includes(state.env.id)||state.env.boss)awardAchievement('survivor');
   const previousGhost=recordBest();
   if(state.daily){awardAchievement('daily');state.records['daily:'+state.daily.key]=Math.max(Number(state.records['daily:'+state.daily.key]||0),state.seasonStats.yield);}
+  if(state.weekly){awardAchievement('weekly');state.records['weekly:'+state.weekly.key]=Math.max(Number(state.records['weekly:'+state.weekly.key]||0),rivalScore);}
   updateRecord(state.seasonStats.yield);
-  const ghostDelta=round(state.seasonStats.yield-previousGhost,1);
-  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,revenue:state.seasonStats.revenue||0,cost:state.seasonStats.cost||0,marketPrice:state.marketPrice,mission:completed,contractRatio:round(contractRatio,2),rival:rivalTarget,beatRival,boss:!!state.env.boss,pressure:structuredClone(state.fieldPressure)});state.history=state.history.slice(0,20);
+  const ghostDelta=round(state.seasonStats.yield-previousGhost,1),review=seasonDecisionReview(researchQuality);
+  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,revenue:state.seasonStats.revenue||0,cost:state.seasonStats.cost||0,marketPrice:state.marketPrice,mission:completed,contractRatio:round(contractRatio,2),rival:rivalTarget,rivalScore,beatRival,rivalMetric:currentRival().metric,boss:!!state.env.boss,quality:researchQuality,review,pressure:structuredClone(state.fieldPressure)});state.history=state.history.slice(0,20);
+  noteBreeder('rekap','Musim '+state.season+' · hasil '+state.seasonStats.yield.toFixed(1)+' kg · skor rival '+rivalScore.toFixed(1),{review});
   if(hasTech('cold')&&state.seasonBest&&!state.vault.some(item=>item.id===state.seasonBest.seed.id)){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
   }
   $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
-  const seasonMargin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0),researchQuality=state.experiment?experimentQualityScore():null;
+  const seasonMargin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
   $('#recapStats').innerHTML=`<div><small>Hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Pendapatan</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b></div><div><small>Biaya</small><b>${formatRupiah(state.seasonStats.cost||0)}</b></div><div><small>Margin</small><b>${formatRupiah(seasonMargin)}</b></div><div><small>Target</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Mutu riset</small><b>${researchQuality===null?'—':researchQuality+'%'}</b></div>`;
   const carryNote=document.createElement('p');carryNote.className='recap-note';carryNote.textContent='Carry-over lahan · patogen '+state.fieldPressure.pathogen.toFixed(1)+' · stres '+state.fieldPressure.fatigue.toFixed(1);$('#recapStats').append(carryNote);
+  const rivalCard=document.createElement('div');rivalCard.innerHTML='<small>Rival · '+esc(currentRival().style)+'</small><b>'+rivalScore.toFixed(1)+' / '+rivalTarget.toFixed(1)+'</b>';$('#recapStats').append(rivalCard);
+  const reviewBox=document.createElement('section');reviewBox.className='decision-review';reviewBox.innerHTML='<b>Keputusan → akibat</b>'+review.map(item=>'<span>'+esc(item)+'</span>').join('');$('#recapStats').append(reviewBox);
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
