@@ -485,6 +485,9 @@ async function ensureOperationsSchema(env){
       object_key TEXT,
       status TEXT NOT NULL,
       size_bytes INTEGER NOT NULL DEFAULT 0,
+      checksum_sha256 TEXT,
+      verified_at TEXT,
+      validation_json TEXT NOT NULL DEFAULT '{}',
       note TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     )`),
@@ -497,9 +500,81 @@ async function ensureOperationsSchema(env){
       PRIMARY KEY(operation_id,scope)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT
+    )`)
   ]);
+  const backupInfo=await env.DB.prepare('PRAGMA table_info(backup_runs)').all();
+  const backupColumns=new Set((backupInfo.results||[]).map(row=>row.name));
+  if(!backupColumns.has('checksum_sha256'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN checksum_sha256 TEXT').run();
+  if(!backupColumns.has('verified_at'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN verified_at TEXT').run();
+  if(!backupColumns.has('validation_json'))await env.DB.prepare("ALTER TABLE backup_runs ADD COLUMN validation_json TEXT NOT NULL DEFAULT '{}'").run();
+  await env.DB.prepare('INSERT OR IGNORE INTO app_settings (key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL)')
+    .bind('cloud_policy',JSON.stringify(DEFAULT_CLOUD_POLICY),new Date().toISOString()).run();
   OPERATIONS_SCHEMA_READY=true;
+}
+function normalizeCloudPolicy(value){
+  const raw=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  const budgetMode=['auto','normal','saver','emergency'].includes(raw.budgetMode)?raw.budgetMode:'auto';
+  return {
+    budgetMode,
+    datasetSync:raw.datasetSync!==false,
+    aiUpload:raw.aiUpload!==false,
+    gameSocial:raw.gameSocial!==false,
+    gameCloudSave:raw.gameCloudSave!==false,
+    payments:raw.payments!==false
+  };
+}
+async function cloudPolicy(env,{force=false}={}){
+  if(!force&&CLOUD_POLICY_CACHE&&Date.now()-CLOUD_POLICY_CACHE_AT<CLOUD_POLICY_CACHE_MS)return CLOUD_POLICY_CACHE;
+  await ensureOperationsSchema(env);
+  const row=await env.DB.prepare("SELECT value_json,updated_at FROM app_settings WHERE key='cloud_policy' LIMIT 1").first();
+  let value=DEFAULT_CLOUD_POLICY;
+  try{value=normalizeCloudPolicy(JSON.parse(row?.value_json||'{}'));}catch{value=normalizeCloudPolicy(DEFAULT_CLOUD_POLICY);}
+  CLOUD_POLICY_CACHE={...value,updatedAt:row?.updated_at||null};
+  CLOUD_POLICY_CACHE_AT=Date.now();
+  return CLOUD_POLICY_CACHE;
+}
+function effectiveCloudPolicy(policy){
+  const runtimeEmergency=Date.now()<RUNTIME_CLOUD_PRESSURE_UNTIL;
+  const mode=runtimeEmergency?'emergency':(policy.budgetMode==='auto'?'normal':policy.budgetMode);
+  const saver=mode==='saver',emergency=mode==='emergency';
+  return {
+    mode,
+    configuredMode:policy.budgetMode,
+    runtimeEmergency,
+    features:{
+      datasetSync:Boolean(policy.datasetSync&&!emergency),
+      aiUpload:Boolean(policy.aiUpload&&!saver&&!emergency),
+      gameSocial:Boolean(policy.gameSocial&&!saver&&!emergency),
+      gameCloudSave:Boolean(policy.gameCloudSave&&!emergency),
+      payments:Boolean(policy.payments&&!emergency)
+    },
+    updatedAt:policy.updatedAt||null
+  };
+}
+async function currentCloudPolicy(env,options){
+  return effectiveCloudPolicy(await cloudPolicy(env,options));
+}
+function featurePaused(request,env,feature,policy){
+  const retry=retentionPolicy(env).retrySeconds;
+  return json(request,env,{error:'feature_paused',feature,mode:policy.mode,localSafe:true,message:'Fitur cloud sedang dijeda untuk menghemat kuota. Fitur lokal tetap dapat digunakan.',retryAfterSeconds:retry},503,{'Retry-After':String(retry)});
+}
+function nextUtcMidnight(){
+  const now=new Date();
+  return Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1);
+}
+function detectD1QuotaPressure(error){
+  const message=String(error?.message||error||'');
+  if(/D1.*free tier|exceeded.*(?:row read|row write)|daily.*D1/i.test(message)){
+    RUNTIME_CLOUD_PRESSURE_UNTIL=Math.max(RUNTIME_CLOUD_PRESSURE_UNTIL,nextUtcMidnight());
+    return true;
+  }
+  return false;
 }
 function validOperationId(value){return /^[0-9a-f-]{36}$/i.test(String(value||''));}
 async function replayOperation(env,scope,operationId){
