@@ -506,3 +506,26 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
 
 .social-player-actions button span{font-size:8px;font-weight:800}
 @media(max-width:620px){.social-player-actions button span{display:none}}
+
+
+/* FIELD ZERO COMPETITIVE + MUSIC 2026-09-26 */
+.music-picker{display:grid;gap:6px}
+.music-picker button{
+  min-height:54px;padding:8px 10px;border:1px solid #315144;border-radius:8px;
+  background:#102019;color:var(--ink);text-align:left
+}
+.music-picker button b,.music-picker button span{display:block}
+.music-picker button b{font-size:10.5px}
+.music-picker button span{margin-top:3px;color:var(--muted);font-size:8.5px}
+.music-picker button.active{border-color:var(--green);background:#1b392c}
+.seed-card-actions{display:grid;grid-template-columns:1fr auto;gap:4px;margin-top:7px}
+.seed-card-actions button{width:auto!important;margin-top:0!important;min-height:28px}
+.seed-card-actions button:last-child{min-width:30px;padding:3px 7px}
+.social-player-actions .aid-button{border-color:#3c6682;background:#152a37}
+.social-player-actions .aid-button:hover{background:#1c3747}
+.social-player-actions .burn-button{border-color:#7a4b30}
+@media(max-width:620px){
+  .music-picker button{min-height:50px}
+  .social-player-actions{gap:3px}
+  .social-player-actions button{min-width:32px}
+}
