@@ -2063,37 +2063,16 @@ function plantSelected(){
 function cropAction(action){
   const crop=selectedCrop();if(!crop)return;
   if(action==='harvest'){clearUndo();harvestPlot(state.selectedPlot,1,true);return;}
-  if(action==='scout'){
-    clearUndo();if(crop.health<=0||state.focus<1)return;
-    state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
-    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': periksa menemukan '+traitMeta(crop.mutation).name+'.');}
-    else addLog('P'+(state.selectedPlot+1)+': periksa selesai; penyakit '+Math.round(crop.disease)+'%.');
-    crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));beep(540);render();toast('◎ P'+String(state.selectedPlot+1).padStart(2,'0')+' · penyakit '+Math.round(crop.disease)+'%');return;
-  }
   const snapshot=structuredClone(state);
   if(action==='remove'){
     state.field[state.selectedPlot]=null;state.seasonStats.failed++;addLog('P'+(state.selectedPlot+1)+': tanaman mati dibersihkan.');
     offerUndo(snapshot,'Bersihkan P'+String(state.selectedPlot+1).padStart(2,'0'));render();return;
   }
   if(crop.health<=0)return;
-  if(action==='water'){
-    const focusCost=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,cost=actionCost(hasTech('irrigation')?'waterPrecision':'water');
-    if(state.focus<focusCost||state.coins<cost)return;
-    crop.water=clamp(crop.water+(hasTech('irrigation')?50:38));state.focus-=focusCost;state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;
-    state.irrigationUses++;crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?5:2));addLog('P'+(state.selectedPlot+1)+': irigasi · '+formatRupiah(cost)+'.');beep(360);
-    offerUndo(snapshot,'Irigasi P'+String(state.selectedPlot+1).padStart(2,'0'));
-    toast('💧 P'+String(state.selectedPlot+1).padStart(2,'0')+' · air '+Math.round(crop.water)+'%');
-  }
-  if(action==='fertilize'){
-    if(activeChallenge().noFertilizer){toast('Challenge melarang pupuk');return;}
-    const cost=actionCost(hasTech('precisionN')?'fertilizePrecision':'fertilize');if(state.focus<1||state.coins<cost)return;
-    const highN=crop.n>75,timing=nitrogenTimingEfficiency(crop),addition=(hasTech('precisionN')?46:34)*timing;crop.n=Math.min(110,crop.n+addition);state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;state.focus--;
-    if(highN){crop.stress=clamp(crop.stress+8,0,120);crop.health=clamp(crop.health-3);addLog('P'+(state.selectedPlot+1)+': N berlebih meningkatkan stres.');}
-    else if(timing<.95){addLog('P'+(state.selectedPlot+1)+': pemupukan N · efisiensi timing '+Math.round(timing*100)+'% · '+formatRupiah(cost)+'.');recordDecision('pemupukan','N H'+state.day,'Efisiensi timing '+Math.round(timing*100)+'%');}
-    else addLog('P'+(state.selectedPlot+1)+': pemupukan N pada jendela efektif · '+formatRupiah(cost)+'.');
-    beep(440);offerUndo(snapshot,'Pemupukan P'+String(state.selectedPlot+1).padStart(2,'0'));
-    toast('N P'+String(state.selectedPlot+1).padStart(2,'0')+' · '+Math.round(crop.n)+'%');
-  }
+  const index=state.selectedPlot,applied=applyCareAction(action,index);
+  if(!applied){if(action==='fertilize'&&activeChallenge().noFertilizer)toast('Challenge melarang pupuk');return;}
+  if(action==='water')offerUndo(snapshot,'Irigasi P'+String(index+1).padStart(2,'0'));
+  if(action==='fertilize')offerUndo(snapshot,'Pemupukan P'+String(index+1).padStart(2,'0'));
   render();
 }
 function yieldFor(crop){
@@ -2612,7 +2591,7 @@ function bind(){
   vault.addEventListener('dragstart',event=>{const card=event.target.closest('[data-seed-drag]');if(!card)return;event.dataTransfer.setData('fieldzero/seed',card.dataset.seedDrag);event.dataTransfer.effectAllowed='copy';});
   $('#nextDay').onclick=()=>breedingCup.active()?breedingCup.open():state.pendingEvent?renderEvent():advanceDays(1);$('#skip3Days').onclick=()=>advanceDays(3);$('#nextCritical').onclick=()=>advanceDays(30,{untilCritical:true});$('#finishSeason').onclick=finishSeason;
   $('#smartAction').onclick=()=>{runSmartAction();openInspectorSheet();};
-  $('#attentionToggle').onclick=toggleAttention;
+  $('#attentionToggle').onclick=openCareCenter;
   $('#prevPlot').onclick=()=>selectPlotOffset(-1);
   $('#nextPlot').onclick=()=>selectPlotOffset(1);
   $('#nextIssuePlot').onclick=selectNextIssue;
