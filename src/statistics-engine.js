@@ -216,5 +216,5 @@ export function analyzeParameter(observations,options,index,name){
     contrasts=options.contrastMode==='polynomial'?polynomialContrasts(cells,options.levels,mse,dfE):plannedContrasts(cells,options.contrasts,mse,dfE);
     notes.push('Kontras terencana diuji dengan galat model tanpa mensyaratkan F keseluruhan nyata; p yang ditampilkan belum disesuaikan untuk pengujian multipel.');
   }
-  return {name,design,alpha,posthoc,N,grand,cv:Math.sqrt(mse)/Math.abs(grand)*100,cvWhole:split?Math.sqrt(msea)/Math.abs(grand)*100:null,terms,cells,comparisons,contrasts,assumptions,diagnostics,residuals,fitted,wholeResiduals,observations:obs.map(o=>({a:o.a,b:o.b,rep:o.rep,y:o.y})),notes,factorA:A,factorB:B,replicates:R};
+  return {name,design,alpha,posthoc,N,grand,cv:Math.sqrt(mse)/Math.abs(grand)*100,cvWhole:split?Math.sqrt(msea)/Math.abs(grand)*100:null,terms,cells,comparisons,contrasts,assumptions,diagnostics,residuals,fitted,wholeResiduals,observations:obs.map(o=>({a:o.a,b:o.b,rep:o.rep,y:o.y,row:o.row})),notes,factorA:A,factorB:B,replicates:R};
 }
