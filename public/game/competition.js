@@ -134,13 +134,13 @@ export function createBreedingCup(api){
     const strategy=STRATEGIES[values.strategy]||STRATEGIES.balanced;
     const tender=TENDERS[values.tender]||TENDERS.drought;
     const management=MANAGEMENTS[values.management]||MANAGEMENTS.standard;
-    const seed=hashString(api.uid('cup')+':'+st.season);
+    const dailyKey=String(values.dailyKey||''),providedSeed=Number(values.seed),seed=Number.isFinite(providedSeed)?(providedSeed>>>0):hashString(api.uid('cup')+':'+st.season);
     const treatments=Array.from({length:strategy.lines},(_,i)=>({id:'B'+String(i+1).padStart(2,'0'),code:'G'+String(i+1).padStart(2,'0'),name:'Galur '+String(i+1).padStart(2,'0')}));
-    const cost=designCost(values.strategy,values.management),initialBudget=12000000;
-    st.challenge='trial24';st.maxDay=12;st.daily=null;st.monoSeedId=null;
+    const cost=designCost(values.strategy,values.management),initialBudget=Math.max(6000000,Number(values.budget)||12000000);
+    st.challenge='trial24';st.maxDay=12;st.daily=dailyKey?{...(st.daily||{}),key:dailyKey,type:'breeding'}:null;st.monoSeedId=null;
     const design=values.design==='ral'?'ral':'rak';
     st.experiment={id:api.uid('exp'),name:'Breeding Cup · '+tender.name,design,kind:'competition',treatments,reps:strategy.reps,parameters:[...PARAMETERS],units:api.randomize(design,treatments,strategy.reps),createdAt:new Date().toISOString()};
-    st.competition={id:api.uid('cup'),seed,strategy:values.strategy,tender:values.tender,management:values.management,design,reps:strategy.reps,initialBudget,budget:initialBudget-cost,spent:cost,stage:'design',trialEnv:ENVS[Math.floor(unit(seed,'trial-env')*ENVS.length)].id,hiddenLines:Array.from({length:strategy.lines},(_,i)=>line(seed,i)),diagnostics:[],selected:[],decisions:[{type:'design',text:design.toUpperCase()+' · '+strategy.name+' · '+management.name}],failure:{symptom:'Daun menguning dan pertumbuhan terhambat',cause:FAILURE_CAUSES[Math.floor(unit(seed,'failure-cause')*FAILURE_CAUSES.length)],action:null,correct:null},final:null};
+    st.competition={id:api.uid('cup'),seed,dailyKey:dailyKey||null,strategy:values.strategy,tender:values.tender,management:values.management,design,reps:strategy.reps,initialBudget,budget:initialBudget-cost,spent:cost,stage:'design',trialEnv:ENVS[Math.floor(unit(seed,'trial-env')*ENVS.length)].id,hiddenLines:Array.from({length:strategy.lines},(_,i)=>line(seed,i)),diagnostics:[],selected:[],decisions:[{type:'design',text:design.toUpperCase()+' · '+strategy.name+' · '+management.name}],failure:{symptom:'Daun menguning dan pertumbuhan terhambat',cause:FAILURE_CAUSES[Math.floor(unit(seed,'failure-cause')*FAILURE_CAUSES.length)],action:null,correct:null},final:null};
     st.selectedPlot=0;api.setTool('');api.addLog('🏆 Breeding Cup dimulai: '+strategy.name+' · tender '+tender.name+'.');api.save();api.render();open();
   }
   function simulate(){
@@ -236,10 +236,12 @@ export function createBreedingCup(api){
     const bestDecision=keptTrialBest?'Mempertahankan '+trial[0].code+' berdasarkan bukti fenotipik terbaik pada uji awal.':(comp.diagnostics.length?'Menggunakan '+DIAGNOSTICS[comp.diagnostics[0]].name+' untuk membaca variasi non-genetik.':'Menjaga randomisasi RAK pada seluruh 24 petak.');
     const mistake=rejectedBest?'Melepas '+oracleBest.code+'; uji rahasia menunjukkan skor '+oracleBest.score+', lebih tinggi daripada kandidat yang lolos.':'Biaya keputusan terbesar berasal dari '+MANAGEMENTS[comp.management].name+' dan diagnostik: '+money(comp.spent)+'.';
     comp.final={results,oracleBest:{id:oracleBest.id,code:oracleBest.code,score:oracleBest.score},bestDecision,mistake,completedAt:new Date().toISOString()};
-    comp.stage='final';comp.decisions.push({type:'final',text:'Uji akhir rahasia selesai pada 3 lingkungan.'});api.save();api.render();open();
+    comp.stage='final';comp.decisions.push({type:'final',text:'Uji akhir rahasia selesai pada 3 lingkungan.'});
+    if(comp.dailyKey){const st=state(),key='daily-breeding:'+comp.dailyKey,best=Number(results[0]?.score)||0;st.records[key]=Math.max(Number(st.records[key]||0),best);st.reputation=Math.max(0,Number(st.reputation||0)+2);st.partnerTrust=clamp(Number(st.partnerTrust??50)+2,0,100);}
+    api.save();api.render();open();
   }
   function reset(){
-    const st=state();st.competition=null;st.experiment=null;st.challenge='standard';st.maxDay=12;st.selectedPlot=0;api.setTool('');api.save();api.render();api.openExperiment();
+    const st=state();st.competition=null;st.experiment=null;st.challenge='standard';st.maxDay=12;st.selectedPlot=0;if(st.daily?.type==='breeding')st.daily=null;api.setTool('');api.save();api.render();api.openExperiment();
   }
   function diagnosticsHtml(){
     const comp=state().competition;
@@ -278,7 +280,7 @@ export function createBreedingCup(api){
       return;
     }
     const plan=STRATEGIES[comp.strategy],tender=TENDERS[comp.tender],management=MANAGEMENTS[comp.management],env=ENVS.find(e=>e.id===comp.trialEnv);
-    let body='<div class="competition-head"><span>🏆 '+esc(tender.name)+'</span><span>📐 '+esc((comp.design||'rak').toUpperCase())+' · '+esc(plan.name)+'</span><span>💰 '+money(comp.budget)+'</span></div><div class="competition-brief"><b>'+esc(management.name)+'</b><span>'+esc(management.desc)+'</span><small>Uji awal: '+esc(env.name)+' · galur tetap anonim.</small></div>';
+    let body='<div class="competition-head"><span>🏆 '+esc(tender.name)+'</span><span>📐 '+esc((comp.design||'rak').toUpperCase())+' · '+esc(plan.name)+'</span><span>💰 '+money(comp.budget)+'</span>'+(comp.dailyKey?'<span>🧬 DAILY '+esc(comp.dailyKey)+'</span>':'')+'</div><div class="competition-brief"><b>'+esc(management.name)+'</b><span>'+esc(management.desc)+'</span><small>Uji awal: '+esc(env.name)+' · galur tetap anonim.</small></div>';
     if(comp.stage==='design')body+=diagnosticsHtml()+'<div class="competition-actions"><button data-comp-reset>× Akhiri</button><button class="primary" data-comp-simulate>▶ Jalankan uji lapang</button></div><p class="meta-note">Petak sudah diacak dalam RAK. Pemeriksaan tanah bersifat opsional dan mengurangi anggaran.</p>';
     if(comp.stage==='selection')body+=summaryHtml()+failureHtml()+diagnosticsHtml()+'<div class="competition-actions"><button data-comp-stat>📊 /stat · DATA SIMULASI</button><button class="primary" data-comp-final>🔒 Uji akhir rahasia</button></div><p class="meta-note">Pilih tepat 2 galur. Uji akhir memakai tiga lingkungan baru dengan aturan identik untuk semua finalis.</p>';
     if(comp.stage==='final')body+=finalHtml()+'<div class="competition-actions"><button data-comp-stat>📊 /stat · DATA SIMULASI</button><button class="primary" data-comp-reset>↺ Program baru</button></div>';
