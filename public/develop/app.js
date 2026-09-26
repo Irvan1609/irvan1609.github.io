@@ -188,6 +188,9 @@ function renderCloudPolicy(data){
     ['D1 rows read/hari',Number(ref.d1RowsReadPerDay||0).toLocaleString('id-ID')],
     ['D1 rows write/hari',Number(ref.d1RowsWrittenPerDay||0).toLocaleString('id-ID')],
     ['D1 storage',bytes(ref.d1StorageBytes||0)],
+    ['R2 storage/bulan',bytes(ref.r2StorageBytes||0)],
+    ['R2 Class A/bulan',Number(ref.r2ClassAOperationsPerMonth||0).toLocaleString('id-ID')],
+    ['R2 Class B/bulan',Number(ref.r2ClassBOperationsPerMonth||0).toLocaleString('id-ID')],
     ['Pages build/bulan',Number(ref.pagesBuildsPerMonth||0).toLocaleString('id-ID')]
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
 }
@@ -212,9 +215,11 @@ async function saveCloudPolicy(){
   }catch(error){alert(error.message);}finally{button.disabled=false;}
 }
 async function loadServer(){
-  const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudPolicy()]),u=result[0].estimated||{},ref=result[0].freeTierReference||{};
+  const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudPolicy()]),usage=result[0],u=usage.estimated||{},ref=usage.freeTierReference||{},storage=usage.storage||{};
   const d1Pct=ref.d1StorageBytes?Math.min(100,(Number(u.estimatedD1StorageBytes||0)/Number(ref.d1StorageBytes))*100):0;
-  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['D1 estimasi',bytes(u.estimatedD1StorageBytes)],['D1 storage',d1Pct.toFixed(d1Pct>=10?1:2)+'%'],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Users',u.users]];
+  const r2Pct=ref.r2StorageBytes?Math.min(100,(Number(storage.r2ObservedBytes||0)/Number(ref.r2StorageBytes))*100):0;
+  const r2Label=storage.r2Partial?'≥ '+bytes(storage.r2ObservedBytes):bytes(storage.r2ObservedBytes);
+  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['D1 estimasi',bytes(u.estimatedD1StorageBytes)],['D1 storage',d1Pct.toFixed(d1Pct>=10?1:2)+'%'],['R2 teramati',r2Label],['R2 storage',r2Pct.toFixed(r2Pct>=10?1:2)+'%'],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Users',u.users]];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
 async function loadSecurity(){
