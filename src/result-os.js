@@ -174,7 +174,7 @@ function decorateTables(container){
     table.classList.toggle('result-table-narrow',cols>0&&cols<=4);
     wrap.dataset.resultRole=roleForTable(wrap);
     if(wrap.querySelector(':scope > .result-os-copy-table'))return;
-    const button=document.createElement('button');button.type='button';button.className='result-os-copy-table';button.textContent='Salin tabel';button.setAttribute('aria-label','Salin tabel ini');wrap.prepend(button);
+    const button=document.createElement('button');button.type='button';button.className='result-os-copy-table';button.textContent='⧉';button.title='Salin tabel';button.setAttribute('aria-label','Salin tabel ini');wrap.prepend(button);
   });
 }
 function installFieldPlotLinks(container){
@@ -267,24 +267,21 @@ export function enhanceResultOS(container,reports,options={}){
   const shell=document.createElement('section');shell.className='result-os-shell';shell.dataset.resultOs='';
   shell.innerHTML=
     '<div class="result-os-command">'+
-      '<div class="result-os-tabs" role="navigation" aria-label="Bagian hasil">'+
+      '<input type="search" data-os-search placeholder="Cari hasil…" aria-label="Cari pada hasil">'+
+      '<details class="result-os-menu"><summary>Bagian</summary><div class="result-os-menu-body" role="navigation" aria-label="Bagian hasil">'+
         '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="parameter">Parameter</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="chart">Grafik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
-      '</div>'+
-      '<div class="result-os-tools">'+
-        '<input type="search" data-os-search placeholder="Cari hasil…" aria-label="Cari pada hasil">'+
-        '<button type="button" data-os-focus aria-pressed="false">Fokus</button>'+
-        '<button type="button" data-os-split aria-pressed="false">Split</button>'+
-        '<button type="button" data-os-important aria-pressed="false">Penting</button>'+
-        '<button type="button" data-os-examiner aria-pressed="false">Penguji</button>'+
+      '</div></details>'+
+      '<details class="result-os-menu"><summary>Tampilan</summary><div class="result-os-menu-body">'+
+        '<button type="button" data-os-focus aria-pressed="false">Fokus parameter</button>'+
+        '<button type="button" data-os-split aria-pressed="false">Dua kolom</button>'+
+        '<button type="button" data-os-important aria-pressed="false">Hanya penting</button>'+
+        '<button type="button" data-os-examiner aria-pressed="false">Mode penguji</button>'+
         '<button type="button" data-os-proxy="compare" aria-pressed="false">Bandingkan</button>'+
         '<button type="button" data-os-proxy="thesis" aria-pressed="false">Skripsi</button>'+
         '<button type="button" data-os-proxy="presentation" aria-pressed="false">Presentasi</button>'+
-        '<button type="button" data-os-smart aria-pressed="false">Urut nyata</button>'+
-        '<button type="button" data-os-collapse-ns aria-pressed="false">Ringkas tn</button>'+
-        '<button type="button" data-os-copy-word>Salin Word</button>'+
-        '<button type="button" data-os-share>Bagikan</button>'+
-        '<button type="button" data-os-history>Versi</button>'+
-      '</div>'+
+        '<button type="button" data-os-smart aria-pressed="false">Urutkan nyata</button>'+
+        '<button type="button" data-os-collapse-ns aria-pressed="false">Ringkas tidak nyata</button>'+
+      '</div></details>'+
     '</div>'+
     renderInsights(reports,!!options.stale)+
     renderNavigator(reports,pins)+
