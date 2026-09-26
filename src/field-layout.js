@@ -185,19 +185,45 @@ function ensureModal(){
     if(Number.isInteger(row))api()?.focusCell?.(row,0);
   };
   $('#fieldAddParameter').onclick=addParameter;
-  for(const id of ['fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColumns','fieldPlotSize','fieldSerpentine']){
+  $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
+  $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
+  $('#fieldPrint').onclick=()=>window.print();
+  $('#fieldExportLayout').onclick=exportLayout;
+  $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
+  $('#fieldResetLayout').onclick=resetLayout;
+  $('#fieldLayoutImportInput').onchange=importLayout;
+  for(const id of ['fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
   $('#fieldMap').addEventListener('click',event=>{
     const plot=event.target.closest('[data-field-row]');if(!plot)return;
-    selectRow(Number(plot.dataset.fieldRow));
+    const row=Number(plot.dataset.fieldRow);
+    if(multiMode){
+      if(selectedRows.has(row))selectedRows.delete(row);else selectedRows.add(row);
+      renderMap();renderBatchEditor();return;
+    }
+    selectRow(row);
   });
-  $('#fieldPlotEditor').addEventListener('input',()=>{dirty=true;});
+  $('#fieldMap').addEventListener('dragstart',event=>{
+    const plot=event.target.closest('[data-field-row]');if(!layoutEditMode||!plot)return;
+    dragRow=Number(plot.dataset.fieldRow);event.dataTransfer.effectAllowed='move';plot.classList.add('is-dragging');
+  });
+  $('#fieldMap').addEventListener('dragend',event=>{event.target.closest('[data-field-row]')?.classList.remove('is-dragging');dragRow=null;});
+  $('#fieldMap').addEventListener('dragover',event=>{if(layoutEditMode&&event.target.closest('[data-field-row]'))event.preventDefault();});
+  $('#fieldMap').addEventListener('drop',event=>{
+    const target=event.target.closest('[data-field-row]');if(!layoutEditMode||!target||!Number.isInteger(dragRow))return;
+    event.preventDefault();movePlotTo(dragRow,Number(target.dataset.fieldRow));dragRow=null;
+  });
+  $('#fieldPlotEditor').addEventListener('input',event=>{if(!event.target.closest('[data-batch-editor]'))dirty=true;});
   $('#fieldPlotEditor').addEventListener('click',event=>{
     if(event.target.closest('[data-field-save]'))saveEditor();
     if(event.target.closest('[data-field-prev]'))stepEditor(-1);
     if(event.target.closest('[data-field-next]'))stepEditor(1);
+    const move=event.target.closest('[data-field-move]');if(move)moveSelectedPlot(Number(move.dataset.fieldMove));
+    if(event.target.closest('[data-batch-apply]'))applyBatch();
+    if(event.target.closest('[data-batch-select-visible]'))selectVisible();
+    if(event.target.closest('[data-batch-clear]')){selectedRows.clear();renderMap();renderBatchEditor();}
     if(event.target.closest('[data-field-open-row]')){
       const row=selectedRow;closeFieldLayout();if(Number.isInteger(row))api()?.focusCell?.(row,0);
     }
