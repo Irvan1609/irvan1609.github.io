@@ -8,6 +8,16 @@ const PROFILES={
     id:'chili',sampleCount:3,
     parameters:['TT','DB','JD','UB','JBu','PB','DBu','BB','Hasil'],
     labels:{TT:'Tinggi tanaman',DB:'Diameter batang',JD:'Jumlah daun',UB:'Umur berbunga',JBu:'Jumlah buah',PB:'Panjang buah',DBu:'Diameter buah',BB:'Bobot buah',Hasil:'Hasil'}
+  },
+  rice:{
+    id:'rice',sampleCount:3,
+    parameters:['TT','JA','JAP','PM','GI','GH','BB','Hasil'],
+    labels:{TT:'Tinggi tanaman',JA:'Jumlah anakan',JAP:'Anakan produktif',PM:'Panjang malai',GI:'Gabah isi',GH:'Gabah hampa',BB:'Bobot biji',Hasil:'Hasil'}
+  },
+  soybean:{
+    id:'soybean',sampleCount:3,
+    parameters:['TT','DB','JD','JC','PI','PH','BB','Hasil'],
+    labels:{TT:'Tinggi tanaman',DB:'Diameter batang',JD:'Jumlah daun',JC:'Jumlah cabang',PI:'Polong isi',PH:'Polong hampa',BB:'Bobot biji',Hasil:'Hasil'}
   }
 };
 function hash(text){
@@ -50,6 +60,23 @@ export function sampleMeasurements({species='maize',crop,sample,bioDay=1,yieldVa
       fruitWeight=fruitSet?Number((fruitSet*(1.4+growth*.012)*health*(sample?.fruitFx||1)).toFixed(1)):'';
     return {...base,UB:flowering,JBu:fruitSet,PB:length,DBu:diameter,BB:fruitWeight,Hasil:yieldValue};
   }
+  if(species==='rice'){
+    const tillers=Math.max(1,Math.round((1+growth*.15)*health*(sample?.reproductiveFx||1))),
+      productive=growth>=55?Math.max(0,Math.round(tillers*(.55+.35*health))):'',
+      panicle=growth>=65?Number((12+growth*.13*(sample?.fruitFx||1)).toFixed(1)):'',
+      filled=growth>=78?Math.max(0,Math.round((35+growth*1.05)*health*(sample?.reproductiveFx||1)*(1-disease/190))):'',
+      empty=growth>=78?Math.max(0,Math.round(Number(filled||0)*(.07+disease/220))):'',
+      seedWeight=growth>=78?Number((Number(filled||0)*.024*(.9+.1*water/100)).toFixed(2)):'';
+    return {TT:base.TT,JA:tillers,JAP:productive,PM:panicle,GI:filled,GH:empty,BB:seedWeight,Hasil:yieldValue};
+  }
+  if(species==='soybean'){
+    const branches=Math.max(1,Math.round((1+growth*.045)*health*(sample?.leafFx||1))),
+      podReady=growth>=62,
+      filled=podReady?Math.max(0,Math.round((4+growth*.32)*health*(sample?.reproductiveFx||1)*(1-disease/180))):'',
+      empty=podReady?Math.max(0,Math.round(Number(filled||0)*(.05+disease/180))):'',
+      seedWeight=podReady?Number((Number(filled||0)*.48*(.9+.1*water/100)).toFixed(1)):'';
+    return {...base,JC:branches,PI:filled,PH:empty,BB:seedWeight,Hasil:yieldValue};
+  }
   const anthesis=crop?.anthesisBioDay||'',silking=crop?.silkingBioDay||'',asi=anthesis&&silking?silking-anthesis:'',
     earReady=growth>=78,earLength=earReady?Number((7+growth*.11*(sample?.reproductiveFx||1)).toFixed(1)):'',
     earDiameter=earReady?Number((2.2+growth*.018*(sample?.reproductiveFx||1)).toFixed(1)):'',
@@ -65,15 +92,18 @@ export function aggregateSamples(samples,parameter){
 }
 export function plotCarryover(meta={}){
   const history=Array.isArray(meta.history)?meta.history.slice(-3):[];
-  let fertility=Number(meta.fertility)||1,diseasePressure=0,organic=0;
+  let fertility=Number(meta.fertility)||1,diseasePressure=0,organic=0,drainage=Number(meta.drainage)||1,compaction=Number(meta.compaction)||.2,pH=Number(meta.pH)||6;
   for(const row of history){
     const treatment=String(row.treatment||'').toLowerCase(),use=String(row.use||'');
-    if(/kompos|pupuk kandang|organik/.test(treatment)){fertility+=.015;organic+=1;}
+    if(/kompos|pupuk kandang|organik/.test(treatment)){fertility+=.015;organic+=1;compaction=Math.max(.08,compaction-.015);}
+    if(/kapur|pengapuran/.test(treatment))pH=Math.min(7,pH+.08);
+    if(/drainase/.test(treatment))drainage=Math.min(1.18,drainage+.03);
+    if(/olah tanah intensif|pemadatan/.test(treatment))compaction=Math.min(.55,compaction+.025);
     if(/n 200|n 250|nitrogen/.test(treatment))fertility-=.008;
     if(Number(row.health)<65)diseasePressure+=.025;
     if(use==='commercial')fertility-=.004;
   }
-  return {fertility:Math.max(.82,Math.min(1.18,fertility)),diseasePressure:Math.min(.12,diseasePressure),organic};
+  return {fertility:Math.max(.82,Math.min(1.18,fertility)),diseasePressure:Math.min(.12,diseasePressure),organic,drainage:Math.max(.72,Math.min(1.2,drainage)),compaction:Math.max(.06,Math.min(.6,compaction)),pH:Math.max(4.5,Math.min(7.5,pH))};
 }
 export function evidenceLabel({tests=0,generation=0,stressTests=0}={}){
   if(tests>=3&&generation>=4&&stressTests>=1)return 'Relatif stabil';
