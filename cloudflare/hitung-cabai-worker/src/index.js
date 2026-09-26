@@ -15,6 +15,7 @@ let DATASET_SCHEMA_READY=false;
 let MEMBERSHIP_SCHEMA_READY=false;
 let OPERATIONS_SCHEMA_READY=false;
 let CONTRIBUTION_SCHEMA_READY=false;
+let GAME_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
@@ -218,6 +219,47 @@ async function ensureAuthSchema(env){
       .bind(new Date().toISOString(),email).run();
   }
   AUTH_SCHEMA_READY=true;
+}
+
+async function ensureGameSchema(env){
+  if(GAME_SCHEMA_READY)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_profiles (
+      user_id TEXT PRIMARY KEY,
+      score INTEGER NOT NULL DEFAULT 0,
+      best_yield REAL NOT NULL DEFAULT 0,
+      season INTEGER NOT NULL DEFAULT 1,
+      level INTEGER NOT NULL DEFAULT 1,
+      legacy INTEGER NOT NULL DEFAULT 0,
+      location TEXT NOT NULL DEFAULT 'zero',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_profiles_score ON game_profiles(score DESC,updated_at ASC)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_friends (
+      user_id TEXT NOT NULL,
+      friend_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(user_id,friend_id),
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(friend_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_friends_friend ON game_friends(friend_id,status,updated_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_raids (
+      id TEXT PRIMARY KEY,
+      attacker_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      claimed_at TEXT,
+      FOREIGN KEY(attacker_id) REFERENCES users(id),
+      FOREIGN KEY(target_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_target ON game_raids(target_id,claimed_at,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_pair ON game_raids(attacker_id,target_id,created_at)')
+  ]);
+  GAME_SCHEMA_READY=true;
 }
 
 async function ensureMembershipSchema(env){
