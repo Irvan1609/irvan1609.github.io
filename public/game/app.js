@@ -665,12 +665,17 @@ function advanceDay(){
   }else state.weather=rollWeather(state.env);
   const w=WEATHER[state.weather];state.field.forEach(crop=>processCrop(crop,w));tickExpedition();
   addLog(w.icon+' '+w.name+'. '+w.effect+'.');
-  const eventChance=.28+Math.min(.12,state.season*.01)+(state.env.boss?.08:0);
+  const eventChance=.28+Math.min(.12,state.season*.01)+(state.env.boss?0.08:0);
   if(chance(eventChance))state.pendingEvent=createEvent();
   render();if(state.pendingEvent)renderEvent();else toast('Hari '+state.day+' · '+w.name);
 }
 function createEvent(){
-  const types=['rust','trader','soil','drainage'];if(state.season>=3)types.push('signal');
+  const types=['rust','trader','soil','drainage'];
+  if(state.season>=3||state.eventFlags.sampledSoil)types.push('signal');
+  if(state.eventFlags.rustObserved)types.push('pathogen');
+  if(state.eventFlags.traderSkipped)types.push('returnTrader');
+  if(state.eventFlags.zeroTrace)types.push('archive');
+  if(state.env.boss)types.push('bossChoice');
   return {kind:pick(types),id:uid('event')};
 }
 function eventDefinition(event){
@@ -684,13 +689,22 @@ function eventDefinition(event){
     drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran kecil tersumbat setelah hujan. Tanaman dengan penyakit aktif paling berisiko.',
       choices:[['drain','Buka drainase · 1 fokus'],['risk','Biarkan']]},
     signal:{kicker:'FIELD ZERO',title:'Sinyal ungu di petak',text:'Selama beberapa detik, sensor, daun, dan tanah menunjukkan pola yang sama. Tidak ada catatan fenomena ini.',
-      choices:[['trace','Lacak sinyal · 2 fokus'],['shield','Lindungi tanaman · 8 koin']]}
+      choices:[['trace','Lacak sinyal · 2 fokus'],['shield','Lindungi tanaman · 8 koin']]},
+    pathogen:{kicker:'FOLLOW-UP',title:'Sampel patogen kembali',text:'Data observasi karat sebelumnya membuka dua jalur: dokumentasi mendalam atau tindakan cepat.',
+      choices:[['publish','Dokumentasikan · +8 RP'],['contain','Kendalikan penyakit']]},
+    returnTrader:{kicker:'VISITOR',title:'Pedagang itu kembali',text:'Karena sebelumnya Anda menolak lot pertama, kali ini ia menawarkan galur yang lebih jelas asal-usulnya.',
+      choices:[['buyBetter','Beli galur terseleksi · 18 koin'],['declineAgain','Tolak lagi']]},
+    archive:{kicker:'FIELD ZERO ARCHIVE',title:'Arsip terenkripsi ditemukan',text:'Jejak sinyal membuka satu fragmen arsip. Anda dapat membacanya sekarang atau mengonversi energinya untuk menjaga tanaman.',
+      choices:[['readArchive','Baca arsip'],['stabilize','Stabilkan lahan']]},
+    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pilih satu respons prioritas untuk seluruh lahan.',
+      choices:[['defendBoss','Pertahanan kolektif · 2 fokus'],['gambleBoss','Ambil risiko · +10 RP']]}
   };
   return defs[event.kind]||defs.soil;
 }
 function canEventChoice(kind,choice){
   if(choice==='spray')return state.coins>=10;if(choice==='buy')return state.coins>=22;
-  if(choice==='sample'||choice==='drain')return state.focus>=1;if(choice==='trace')return state.focus>=2;if(choice==='shield')return state.coins>=8;
+  if(choice==='sample'||choice==='drain')return state.focus>=1;if(choice==='trace'||choice==='defendBoss')return state.focus>=2;if(choice==='shield')return state.coins>=8;
+  if(choice==='buyBetter')return state.coins>=18;
   return true;
 }
 function renderEvent(){
@@ -709,17 +723,17 @@ function applyEventChoice(choice){
   let note='';
   if(event.kind==='rust'){
     if(choice==='spray'){state.coins-=10;state.field.forEach(c=>{if(c)c.disease=Math.max(0,c.disease-22);});note='Tekanan penyakit ditekan.';}
-    else{state.rp+=4;state.field.forEach(c=>{if(c)c.disease=clamp(c.disease+5);});note='Data penyakit dikumpulkan.';}
+    else{state.rp+=4;state.eventFlags.rustObserved=true;state.field.forEach(c=>{if(c)c.disease=clamp(c.disease+5);});note='Data penyakit dikumpulkan. Follow-up mungkin muncul.';}
   }
   if(event.kind==='trader'){
-    if(choice==='buy'){state.coins-=22;const seed=traderSeed();state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);note=seed.name+' masuk Seed Vault.';}
-    else note='Lot benih dilewati.';
+    if(choice==='buy'){state.coins-=22;const seed=traderSeed();state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);note=seed.name+' masuk Seed Vault.';}
+    else{state.eventFlags.traderSkipped=true;note='Lot benih dilewati. Pedagang mengingat keputusan ini.';}
   }
   if(event.kind==='soil'){
     if(choice==='sample'){
       state.focus--;state.rp+=6;const item=randomLivingCrop();
       if(item&&chance(.38)&&!item.crop.mutation){item.crop.mutation=pick(MUTATION_POOL.filter(id=>!item.crop.seed.traits.includes(id)));item.crop.revealed=true;discoverTrait(item.crop.mutation);}
-      note='Sampel menghasilkan +6 riset.';
+      state.eventFlags.sampledSoil=true;note='Sampel menghasilkan +6 riset dan membuka jalur event baru.';
     }else note='Sinyal tanah tidak ditindaklanjuti.';
   }
   if(event.kind==='drainage'){
@@ -730,8 +744,29 @@ function applyEventChoice(choice){
     if(choice==='trace'){
       state.focus-=2;state.rp+=10;const item=randomLivingCrop();
       if(item){item.crop.mutation='zero';item.crop.revealed=true;discoverTrait('zero');}
-      note=item?'Resonansi Zero ditemukan pada P'+(item.index+1)+'.':'Jejak sinyal dikonversi menjadi +10 riset.';
+      state.eventFlags.zeroTrace=true;note=item?'Resonansi Zero ditemukan pada P'+(item.index+1)+'. Jalur arsip terbuka.':'Jejak sinyal dikonversi menjadi +10 riset.';
     }else{state.coins-=8;state.field.forEach(c=>{if(c)c.health=clamp(c.health+7);});note='Tanaman dilindungi dari anomali.';}
+  }
+  if(event.kind==='pathogen'){
+    if(choice==='publish'){state.rp+=8;state.xp+=18;note='Dataset patogen didokumentasikan: +8 RP.';}
+    else{state.field.forEach(c=>{if(c)c.disease=Math.max(0,c.disease-28);});note='Tekanan penyakit dikendalikan.';}
+    state.eventFlags.rustObserved=false;
+  }
+  if(event.kind==='returnTrader'){
+    if(choice==='buyBetter'){
+      state.coins-=18;const seed=traderSeed();seed.name='Selected-'+seed.name;seed.baseYield=round(seed.baseYield*1.08,1);seed.source='Pedagang terseleksi';state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);note=seed.name+' masuk Seed Vault.';
+    }else note='Pedagang pergi. Jalur dagang berakhir untuk sementara.';
+    state.eventFlags.traderSkipped=false;
+  }
+  if(event.kind==='archive'){
+    if(choice==='readArchive'){
+      const fragment=LORE.find(item=>!state.lore.includes(item))||pick(LORE);if(!state.lore.includes(fragment))state.lore.push(fragment);state.rp+=5;note='Fragmen arsip dibuka: +5 RP.';
+    }else{state.field.forEach(c=>{if(c){c.health=clamp(c.health+10);c.stress=Math.max(0,c.stress-10);}});note='Lahan distabilkan oleh energi anomali.';}
+    state.eventFlags.zeroTrace=false;
+  }
+  if(event.kind==='bossChoice'){
+    if(choice==='defendBoss'){state.focus-=2;state.field.forEach(c=>{if(c){c.health=clamp(c.health+8);c.water=clamp(c.water+12);c.disease=Math.max(0,c.disease-10);}});note='Pertahanan kolektif mengurangi tekanan boss.';}
+    else{state.rp+=10;state.field.forEach(c=>{if(c)c.stress=clamp(c.stress+8,0,120);});note='Risiko diambil: +10 RP, stres tanaman meningkat.';}
   }
   addLog(note);state.pendingEvent=null;$('#eventModal').hidden=true;beep(580,.06);render();
 }
