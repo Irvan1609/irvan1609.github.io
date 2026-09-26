@@ -2340,7 +2340,7 @@ async function cloudFeatureGate(request,env,url){
   if(!relevant)return null;
   const policy=await currentCloudPolicy(env);
   if(url.pathname.startsWith('/v1/datasets')&&!policy.features.datasetSync)return featurePaused(request,env,'datasetSync',policy);
-  if(url.pathname==='/v1/contributions'&&request.method==='POST'&&!policy.features.aiUpload)return featurePaused(request,env,'aiUpload',policy);
+  if(url.pathname.startsWith('/v1/contributions')&&['POST','PATCH'].includes(request.method)&&!policy.features.aiUpload)return featurePaused(request,env,'aiUpload',policy);
   if(url.pathname.startsWith('/v1/game/')){
     if(url.pathname==='/v1/game/save'&&!policy.features.gameCloudSave)return featurePaused(request,env,'gameCloudSave',policy);
     if(url.pathname!=='/v1/game/save'&&!policy.features.gameSocial)return featurePaused(request,env,'gameSocial',policy);
