@@ -18,7 +18,7 @@ let CONTRIBUTION_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
 
 function allowedOrigins(env){
-  return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io').split(',').map(v=>v.trim()).filter(Boolean));
+  return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev').split(',').map(v=>v.trim()).filter(Boolean));
 }
 function corsHeaders(request,env){
   const origin=request.headers.get('Origin')||'';
