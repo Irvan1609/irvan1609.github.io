@@ -60,13 +60,25 @@ async function processRaids(){
     return pending;
   }catch(error){console.warn('Raid inbox failed',error);return 0;}
 }
+async function processAids(){
+  if(!user)return 0;
+  try{
+    const data=await api('/v1/game/aids/inbox');let pending=0;
+    for(const aid of data.items||[]){
+      const applied=window.FieldZeroGame?.applyWaterAid?.(aid);
+      if(applied)await api('/v1/game/aids/'+encodeURIComponent(aid.id)+'/claim',{method:'POST'});
+      else pending++;
+    }
+    return pending;
+  }catch(error){console.warn('Aid inbox failed',error);return 0;}
+}
 async function refreshSocial(force=false){
   if(!user||busy)return;
   if(!force&&Date.now()-lastLoad<20000)return;
   busy=true;
   try{
-    const [friends,pendingRaids]=await Promise.all([loadFriends(),processRaids()]);
-    lastLoad=Date.now();setBadge((friends.incoming?.length||0)+pendingRaids);
+    const [friends,pendingRaids,pendingAids]=await Promise.all([loadFriends(),processRaids(),processAids()]);
+    lastLoad=Date.now();setBadge((friends.incoming?.length||0)+pendingRaids+pendingAids);
     if(!$('#socialModal').hidden)await renderTab();
   }catch(error){
     if(!$('#socialModal').hidden)$('#socialContent').innerHTML=`<div class="social-empty">${esc(error.message)}</div>`;
@@ -85,7 +97,7 @@ async function renderFriends(){
   try{
     friendsCache=await loadFriends();
     const incoming=(friendsCache.incoming||[]).map(player=>playerRow(player,{actions:`<button data-friend-accept="${esc(player.id)}" title="Terima teman" aria-label="Terima teman">✓ <span>Terima</span></button><button data-friend-remove="${esc(player.id)}" title="Tolak" aria-label="Tolak">×</button>`})).join('');
-    const friends=(friendsCache.friends||[]).map(player=>playerRow(player,{actions:`<button class="burn-button" data-friend-burn="${esc(player.id)}" title="Raid: bakar ringan satu petak" aria-label="Raid bakar ringan">🔥 <span>Raid</span></button><button data-friend-remove="${esc(player.id)}" title="Hapus teman" aria-label="Hapus teman">×</button>`})).join('');
+    const friends=(friendsCache.friends||[]).map(player=>playerRow(player,{actions:`<button class="aid-button" data-friend-aid="${esc(player.id)}" title="Bantu menyiram satu petak" aria-label="Bantu menyiram">💧 <span>Bantu</span></button><button class="burn-button" data-friend-burn="${esc(player.id)}" title="Raid: bakar ringan satu petak" aria-label="Raid bakar ringan">🔥 <span>Raid</span></button><button data-friend-remove="${esc(player.id)}" title="Hapus teman" aria-label="Hapus teman">×</button>`})).join('');
     const outgoing=(friendsCache.outgoing||[]).map(player=>playerRow(player,{actions:'<small>Menunggu</small>'})).join('');
     $('#socialContent').innerHTML=`${incoming?`<div class="social-section"><small>PERMINTAAN</small>${incoming}</div>`:''}<div class="social-section"><small>TEMAN</small>${friends||'<div class="social-empty">Belum ada teman.</div>'}</div>${outgoing?`<div class="social-section"><small>TERKIRIM</small>${outgoing}</div>`:''}`;
   }catch(error){$('#socialContent').innerHTML=`<div class="social-empty">${esc(error.message)}</div>`;}
@@ -137,6 +149,18 @@ async function burnFriend(id,button){
     button.disabled=false;
   }
 }
+async function aidFriend(id,button){
+  button.disabled=true;
+  try{
+    await api('/v1/game/aids/'+encodeURIComponent(id),{method:'POST'});
+    button.textContent='✓';setTimeout(()=>{button.innerHTML='💧 <span>Bantu</span>';button.disabled=false;},1400);
+  }catch(error){
+    if(error.status===429&&error.data?.retryAfterSec){
+      const hours=Math.max(1,Math.ceil(error.data.retryAfterSec/3600));alert('Bantuan tersedia lagi sekitar '+hours+' jam.');
+    }else alert(error.message);
+    button.disabled=false;
+  }
+}
 function onAccount(event){
   user=event.detail?.authenticated?event.detail.user:null;renderGate();
   if(user){submitProfile();refreshSocial(true);}else setBadge(0);
@@ -146,15 +170,16 @@ function bind(){
   $('#socialLogin').onclick=()=>window.IrvanAccount?.login?.();
   document.querySelectorAll('[data-social-tab]').forEach(button=>button.onclick=()=>{currentTab=button.dataset.socialTab;renderTab();});
   $('#socialContent').addEventListener('click',event=>{
-    const add=event.target.closest('[data-friend-add]'),accept=event.target.closest('[data-friend-accept]'),remove=event.target.closest('[data-friend-remove]'),burn=event.target.closest('[data-friend-burn]');
+    const add=event.target.closest('[data-friend-add]'),accept=event.target.closest('[data-friend-accept]'),remove=event.target.closest('[data-friend-remove]'),burn=event.target.closest('[data-friend-burn]'),aid=event.target.closest('[data-friend-aid]');
     if(add)friendAction('add',add.dataset.friendAdd);
     if(accept)friendAction('accept',accept.dataset.friendAccept);
     if(remove&&confirm('Hapus teman/permintaan?'))friendAction('remove',remove.dataset.friendRemove);
     if(burn)burnFriend(burn.dataset.friendBurn,burn);
+    if(aid)aidFriend(aid.dataset.friendAid,aid);
   });
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('fieldzero-profile',event=>submitProfile(event.detail));
-  document.addEventListener('fieldzero-field-change',()=>processRaids().then(count=>setBadge((friendsCache.incoming?.length||0)+count)));
+  document.addEventListener('fieldzero-field-change',()=>Promise.all([processRaids(),processAids()]).then(([raids,aids])=>setBadge((friendsCache.incoming?.length||0)+raids+aids)));
   document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
