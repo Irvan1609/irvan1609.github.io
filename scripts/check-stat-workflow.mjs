@@ -13,17 +13,17 @@ for(const marker of ["installStatWorkflow","./stat-workflow.js"])if(!main.includ
 for(const marker of [
   'id="statWorkflowStrip"',
   'data-stat-workflow="data"',
-  'data-stat-workflow="field"',
+  'data-stat-workflow="setup"',
   'data-stat-workflow="analysis"',
   'data-stat-workflow="results"',
   'StatisticalWebWorkflow',
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['data-check-data','if(!compact)','if(!phoneGuardMode())return'])if(!flow.includes(marker))fail('analysis flow missing '+marker);
+for(const marker of ['data-analysis-simple-view','data-analysis-complete-view','data-analysis-mode-toggle','data-simple-analysis="factorial"','data-simple-analysis="more"','Mode Lengkap'])if(!flow.includes(marker))fail('simple analysis flow missing '+marker);
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open'])if(!scientific.includes(marker))fail('results workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view="summary"','result-view-summary'])if(!scientific.includes(marker))fail('simple results workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
-for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','inset:max(6px','STAT DESKTOP OPEN CATEGORIES + PREFLIGHT','.analysis-data-check'])if(!css.includes(marker))fail('workflow styling missing '+marker);
+for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT SIMPLE-FIRST UI','.analysis-simple-grid','.science-simple-parameter','.simple-result-tabs'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
-console.log('Stat workflow check OK: Data → Denah → Analisis → Hasil is linked and results use the full-screen workspace.');
+console.log('Stat workflow check OK: Data → Analisis → Atur → Hasil uses simple-first selection, progressive setup, and compact result views.');
