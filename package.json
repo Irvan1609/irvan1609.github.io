@@ -12,7 +12,8 @@
     "test:dist": "node scripts/check-dist.mjs && node scripts/check-public-build.mjs",
     "test:statistics": "node scripts/check-statistics.mjs && node scripts/check-report-layout.mjs && node scripts/check-export-rich.mjs && node scripts/check-export-filename.mjs && node scripts/check-association.mjs && node scripts/check-advanced.mjs && node scripts/check-regression-quality.mjs && node scripts/check-stability.mjs && node scripts/check-mixed.mjs && node scripts/check-templates.mjs && node scripts/check-design-extensions.mjs && node scripts/check-planning-nonparametric.mjs && node scripts/check-xlsx-formulas.mjs && node scripts/check-insights-quality.mjs && node scripts/check-thesis-features.mjs && node scripts/check-audit-diagnostics.mjs",
     "test:drive-backup": "node scripts/check-drive-backup.mjs",
-    "verify": "npm run check:syntax && npm run test:ui && npm run test:statistics && npm run test:drive-backup && npm run build && npm run test:dist"
+    "verify": "npm run check:syntax && npm run test:security && npm run test:ui && npm run test:statistics && npm run test:drive-backup && npm run build && npm run test:dist",
+    "test:security": "node scripts/check-security-contract.mjs"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
