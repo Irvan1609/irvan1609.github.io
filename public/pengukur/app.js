@@ -69,7 +69,6 @@ function restoreSettings(){
   if(s.orientation)$('orientation').value=s.orientation;
   if(s.custom){$('customWidth').value=s.custom.width||210;$('customHeight').value=s.custom.height||297;$('customMargin').value=s.custom.margin||15;}
   if(s.lens){$('lensName').value=s.lens.name||'Default';$('lensK1').value=s.lens.k1||0;$('lensK2').value=s.lens.k2||0;}
-  if(s.photoLabel){if($('photoLabel'))$('photoLabel').value=s.photoLabel;if($('livePhotoLabel'))$('livePhotoLabel').value=s.photoLabel;}
   const research=s.research||{};for(const id of RESEARCH_IDS){const key=id==='experimentId'?'experiment':id;if($(id))$(id).value=research[key]||'';}
   $('customPaper').hidden=$('paperSize').value!=='custom';
 }
