@@ -327,32 +327,25 @@ function roleIndices(){return new Set([$('#scienceA').value,$('#scienceB').value
 function updateScienceParameterCount(){
   const target=$('#scienceParameterCount');if(!target)return;
   const inputs=[...document.querySelectorAll('#scienceParameters input')],available=inputs.filter(input=>!input.disabled),selected=available.filter(input=>input.checked);
-  target.textContent=selected.length?`${selected.length}/${available.length}`:'0 dipilih';
+  target.textContent=selected.length?`${selected.length} aktif`:'0 aktif';
   target.dataset.empty=selected.length?'false':'true';
-}
-function syncSimpleParameter(forceSingle=false){
-  const select=$('#scienceSimpleParameter');if(!select)return;
-  const inputs=[...document.querySelectorAll('#scienceParameters input')].filter(input=>!input.disabled&&isNumericColumn(Number(input.value)));
-  const previous=select.value;
-  select.innerHTML=inputs.map(input=>`<option value="${input.value}">${esc(data.headers[Number(input.value)])}</option>`).join('');
-  let selected=inputs.find(input=>input.value===previous)||inputs.find(input=>input.checked)||inputs[0];
-  if(selected)select.value=selected.value;
-  if(forceSingle&&selected){
-    inputs.forEach(input=>{input.checked=input===selected;const transform=document.querySelector(`[data-transform-param="${input.value}"]`);if(transform)transform.disabled=input!==selected;});
-  }
-  updateScienceParameterCount();
 }
 function syncParameterRoleExclusions(initial=false){
   const roles=roleIndices();
   document.querySelectorAll('#scienceParameters input').forEach(input=>{
-    const index=Number(input.value),isRole=roles.has(index);
+    const index=Number(input.value),isRole=roles.has(index),wasRole=input.dataset.wasRole==='true';
     input.disabled=isRole;
-    if(isRole)input.checked=false;
-    else if(initial)input.checked=isNumericColumn(index);
+    input.closest('.science-param-check')?.toggleAttribute('hidden',isRole);
+    if(isRole){
+      input.checked=false;
+      input.dataset.wasRole='true';
+    }else{
+      if(initial||(wasRole&&input.dataset.userTouched!=='true'))input.checked=isNumericColumn(index);
+      input.dataset.wasRole='false';
+    }
     const transform=document.querySelector(`[data-transform-param="${index}"]`);
     if(transform)transform.disabled=isRole||!input.checked;
   });
-  syncSimpleParameter(false);
   updateScienceParameterCount();
 }
 function levelsForA(){if($('#scienceA').value==='')return [];const i=Number($('#scienceA').value);return [...new Set(data.rows.map(r=>String(r[i]??'').trim()).filter(Boolean))];}
@@ -557,19 +550,18 @@ export function openScientific(design){
   $('#scienceRepLabel').textContent=grouped?'Kelompok':'Ulangan';
   $('#scienceRepHelp').textContent=grouped?'Blok ANOVA.':'ID pengamatan.';
   const transformOptions=transformationOptions().map(item=>`<option value="${item.value}">${esc(item.label)}</option>`).join('');
-  $('#scienceParameters').innerHTML=data.headers.map((h,i)=>`<div class="parameter-row"><label class="ral-check"><input type="checkbox" value="${i}"><span>${esc(h)}</span></label><select data-transform-param="${i}" aria-label="Transformasi ${esc(h)}" disabled>${transformOptions}</select></div>`).join('');
+  const numericColumns=data.headers.map((h,i)=>({h,i})).filter(item=>isNumericColumn(item.i));
+  $('#scienceParameters').innerHTML=numericColumns.map(({h,i})=>`<label class="science-param-check"><input type="checkbox" value="${i}" checked><span>${esc(h)}</span></label>`).join('');
+  $('#scienceTransforms').innerHTML=numericColumns.map(({h,i})=>`<label><span>${esc(h)}</span><select data-transform-param="${i}" aria-label="Transformasi ${esc(h)}" disabled>${transformOptions}</select></label>`).join('');
   $('#scienceAssumptions').checked=false;
   $('#sciencePosthoc').value='none';$('#scienceAlpha').value='0.05';
   $('#scienceContrastMode').value='none';$('#scienceContrastMode').disabled=multi;$('#scienceContrastHelp').textContent=multi?'Kontras/polinomial tersedia pada rancangan satu faktor RAL/RAK.':'';
   const restored=restoreAnalysisConfig(design);
   syncParameterRoleExclusions(!restored);
-  if(!restored){
-    const selected=selectedColumnIndexes().filter(index=>isNumericColumn(index)&&!roleIndices().has(index));
-    if(selected.length){
-      document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=selected.includes(Number(input.value)));
-      syncParameterRoleExclusions(false);
-    }
-  }else syncParameterRoleExclusions(false);
+  if(restored){
+    document.querySelectorAll('#scienceParameters input').forEach(input=>input.dataset.userTouched='true');
+    syncParameterRoleExclusions(false);
+  }
   $('#sciencePreset').value='';
   if(pendingPreset&&PRESETS[pendingPreset]?.design===design){
     const value=pendingPreset;pendingPreset='';applyAnalysisPreset(value);
@@ -578,7 +570,6 @@ export function openScientific(design){
   const runButton=$('#runScience');
   if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
   else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
-  syncSimpleParameter(true);
   $('#scientificModal').classList.add('open');
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
   validate();
@@ -619,12 +610,13 @@ export function installScientificWorkflow(){
     <div class="modal-body analysis-workspace-body"><main id="scienceFields" class="science-simple-shell">
       <div class="science-primary-grid">
         <section class="science-card"><div class="science-card-head"><b>Rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section>
-        <section class="science-card science-simple-parameter-card"><div class="science-card-head"><b>Parameter</b></div><label class="science-simple-parameter">Parameter respons<select id="scienceSimpleParameter"></select></label><details id="scienceMultiParameters" class="science-multi-parameters"><summary>Parameter lainnya / transformasi</summary><div class="science-card-head science-subhead"><b>Pilih parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 dipilih</span></div><div id="scienceParameters" class="ral-list parameter-list science-parameter-list"></div></details></section>
+        <section class="science-card science-simple-parameter-card"><div class="science-card-head"><b>Parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 aktif</span></div><div class="science-param-auto-note">Parameter numerik dipilih otomatis</div><div id="scienceParameters" class="science-parameter-check-grid"></div></section>
       </div>
       <div class="science-preflight-inline"><div id="scienceStructure"></div><div id="scienceQuality"></div><div id="scienceValidation"></div></div>
       <details id="scienceAdvancedOptions" class="science-card science-advanced-options"><summary><b>Pengaturan</b><span>Uji lanjut · α · diagnostik · kontras</span></summary><div class="science-advanced-body">
         <div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label><label>Preset<select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Tidak pakai</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></label></div>
         <label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Diagnostik residual</b><small>Normalitas, homogenitas, leverage, dan Cook's distance.</small></span></label>
+        <details class="science-transform-details"><summary>Transformasi parameter</summary><div id="scienceTransforms" class="science-transform-grid"></div></details>
         <div class="science-contrast-box"><label>Kontras / polinomial<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div>
       </div></details>
     </main><div id="scienceResults" data-all-results></div></div>
@@ -635,11 +627,21 @@ export function installScientificWorkflow(){
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
   $('#analysisDockAnalysis').onclick=()=>globalThis.StatisticalWebWorkflow?.openAnalysis?.();
   $('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
-  $('#scienceSimpleParameter').onchange=event=>{document.querySelectorAll('#scienceParameters input').forEach(input=>{input.checked=input.value===event.target.value;const transform=document.querySelector(`[data-transform-param="${input.value}"]`);if(transform)transform.disabled=!input.checked;});updateScienceParameterCount();saveAnalysisConfig();validate();};
   $('#scientificModal').addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();if(!$('#runScience').disabled)$('#runScience').click();}
   });
-  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncSimpleParameter(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
+  $('#scienceFields').onchange=event=>{
+    $('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';
+    if(['scienceA','scienceB','scienceRep'].includes(event.target.id))syncParameterRoleExclusions(false);
+    if(event.target.matches('#scienceParameters input')){
+      event.target.dataset.userTouched='true';
+      const transform=document.querySelector(`[data-transform-param="${event.target.value}"]`);
+      if(transform)transform.disabled=!event.target.checked;
+      updateScienceParameterCount();
+    }
+    if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();
+    saveAnalysisConfig();validate();
+  };
   $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
   document.addEventListener('stat-dataset-changed',()=>{
