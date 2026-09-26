@@ -862,8 +862,6 @@ function openExperiment(){
   $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
 
-function hasTech
-
 function hasTech(id){return state.tech.includes(id);}
 function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
 function activeLocation(){return LOCATIONS[state.location]||LOCATIONS.zero;}
@@ -1457,7 +1455,7 @@ function openQuickMore(){
     if(key==='music')openMusicPicker();
   });
 }
-function openEconomyInfofunction openEconomyInfo(){
+function openEconomyInfo(){
   const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
   const cropProfile=SPECIES[state.species]||SPECIES.maize;
   openMetaModal('EKONOMI LAPANGAN','Rupiah & harga acuan',`<div class="economy-grid">
