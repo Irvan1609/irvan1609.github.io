@@ -724,7 +724,7 @@ function renderMap(){
       const draggable=layoutEditMode?' draggable="true"':'';
       const statusLabel={missing:'Kosong',dead:'Mati',damaged:'Rusak',harvested:'Panen',border:'Border'}[status]||'';
       const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
-        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}
+        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}${meta.photoCount?'<i class="field-plot-photo">▣</i>':''}${meta.gps?'<i class="field-plot-gps">⌖</i>':''}
       </button>`;
       const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
       const road=(automatic||manual)?`<div class="field-road" role="separator"><span>${manual?'Jalan manual':'Jalan'}</span></div>`:'';
@@ -766,10 +766,18 @@ function renderEditor(rowIndex){
     <div class="field-editor-fields">
       ${measures.length?`<div class="field-editor-section"><b>${active>=0?esc(activeHeader):'Pengamatan'}</b>${measures.map(item=>fieldInput(current,row,item.index,{active:item.active,readonly:item.readonly})).join('')}${quickScore}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
       <div class="field-condition-quick"><button type="button" data-field-status-quick="normal">Normal</button><button type="button" data-field-status-quick="dead">Mati</button><button type="button" data-field-status-quick="damaged">Rusak</button><button type="button" data-field-status-quick="harvested">Panen</button></div>
+      <div class="field-editor-tools">
+        <button type="button" data-field-photo>Foto</button>
+        <button type="button" data-field-gps>${meta.gps?'GPS ✓':'GPS'}</button>
+        <button type="button" data-field-road-toggle>${config.roadAfter?.[plotKey(rowIndex)]?'Hapus jalan':'Jalan sesudah'}</button>
+        <button type="button" data-field-camera-measure>Kamera ukur</button>
+        <button type="button" data-field-chili>Hitung cabai</button>
+      </div>
+      <div id="fieldMediaTimeline" class="field-media-timeline"></div>
       <div class="field-editor-meta">
         <label><span>Status plot</span><select data-field-status>${statusOptions(plotStatus(rowIndex))}</select></label>
         <label><span>Catatan lapang</span><textarea data-field-note rows="2" placeholder="Mis. rebah, serangan, petak pinggir…">${esc(plotNote(rowIndex))}</textarea></label>
-        <small class="field-meta-stamp">${meta.updatedAt?'Terakhir '+esc(new Date(meta.updatedAt).toLocaleString('id-ID'))+(meta.observer?' · '+esc(meta.observer):''):'Belum pernah disimpan'}</small>
+        <small class="field-meta-stamp">${meta.updatedAt?'Terakhir '+esc(new Date(meta.updatedAt).toLocaleString('id-ID'))+(meta.observer?' · '+esc(meta.observer):''):'Belum pernah disimpan'}${meta.gps?` · GPS ±${Math.round(Number(meta.gps.accuracy)||0)} m`:''}</small>
       </div>
       <details class="field-editor-identity" ${config.fieldMode?'':'open'}><summary>Identitas plot</summary>${structural.map(item=>fieldInput(current,row,item.index)).join('')}</details>
     </div>
