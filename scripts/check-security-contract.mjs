@@ -40,7 +40,7 @@ for(const marker of [
 for(const marker of [
   "gitleaks/gitleaks-action@v3",
   'fetch-depth: 0',
-  'npm run test:security'
+  'npm run verify'
 ]) requireText(securityWorkflow,marker,'Security workflow');
 
 for(const marker of [
