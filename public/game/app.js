@@ -1531,6 +1531,10 @@ function openSpeciesPicker(){
 }
 function openQuickMore(){
   openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
+    <button data-quick-more="notebook">▤<span>Notebook</span></button>
+    <button data-quick-more="research-history">📐<span>Arsip Riset</span></button>
+    <button data-quick-more="generation">🧬<span>Generasi</span></button>
+    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
     <button data-quick-more="social">👥<span>Sosial</span></button>
     <button data-quick-more="map">⌖<span>Lokasi</span></button>
     <button data-quick-more="run">⚑<span>Challenge</span></button>
@@ -1546,6 +1550,10 @@ function openQuickMore(){
   </div>`);
   $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
     const key=button.dataset.quickMore;
+    if(key==='notebook')openBreederNotebook();
+    if(key==='research-history')openExperimentHistory();
+    if(key==='generation')openGenerationCompare();
+    if(key==='recovery')openRecoveryCenter();
     if(key==='social'){closeMetaModal();$('#quickSocial')?.click();}
     if(key==='map')openWorldMap();
     if(key==='run')openChallenges();
