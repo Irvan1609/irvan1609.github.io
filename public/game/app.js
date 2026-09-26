@@ -64,8 +64,62 @@ const LORE=[
   'Catatan 17: benih dari petak 07 menunjukkan respons yang tidak muncul pada induknya.',
   'Catatan 24: “Zero” mungkin bukan nama lokasi. Mungkin nama perlakuan yang dihapus dari arsip.'
 ];
+const LOCATIONS={
+  zero:{name:'Field Zero',icon:'ψ',desc:'Lahan asal. Seimbang, tetapi anomali dapat muncul.',unlock:0,yield:1,disease:0,waterLoss:0,nLoss:0},
+  lowland:{name:'Dataran Rendah',icon:'▱',desc:'Panas dan produktif. Trait tahan panas bernilai tinggi.',unlock:2,yield:1.07,disease:.01,waterLoss:-3,nLoss:0},
+  dryland:{name:'Lahan Kering',icon:'△',desc:'Air sangat terbatas, reward riset lebih besar.',unlock:3,yield:1.04,disease:-.02,waterLoss:-7,nLoss:1,rp:1.2},
+  paddy:{name:'Sawah Drainase',icon:'≋',desc:'Air cukup, tetapi kelembapan meningkatkan penyakit.',unlock:4,yield:1.09,disease:.05,waterLoss:6,nLoss:1},
+  highland:{name:'Dataran Tinggi',icon:'▲',desc:'Sejuk, pertumbuhan lambat, kualitas benih lebih baik.',unlock:5,yield:1.12,disease:.02,waterLoss:1,nLoss:0,quality:1.08}
+};
+const TECH={
+  sensor:{name:'Sensor Tanah',icon:'◉',cost:10,requires:[],desc:'Inspector menampilkan risiko stres lebih jelas.',effect:'sensor'},
+  irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi memberi +50 air dan tidak memakai fokus setiap kedua penggunaan.',effect:'irrigation'},
+  precisionN:{name:'Pemupukan Presisi',icon:'N',cost:18,requires:['sensor'],desc:'Biaya pupuk turun menjadi 3 koin dan tambahan N lebih besar.',effect:'precisionN'},
+  drone:{name:'Drone Scout',icon:'◇',cost:20,requires:['sensor'],desc:'Scout menghasilkan +2 RP dan peluang membuka mutasi meningkat.',effect:'drone'},
+  expedition:{name:'Field Expedition',icon:'↗',cost:22,requires:['sensor'],desc:'Membuka ekspedisi ke lokasi liar.',effect:'expedition'},
+  genome:{name:'Genome Lab',icon:'⌬',cost:24,requires:['drone'],desc:'Membuka puzzle genom untuk menemukan trait laten.',effect:'genome'},
+  cold:{name:'Cold Storage',icon:'❄',cost:26,requires:['precisionN'],desc:'Kandidat terbaik musim otomatis tersimpan jika vault belum memilikinya.',effect:'cold'},
+  breeding:{name:'Marker Breeding',icon:'×',cost:30,requires:['genome'],desc:'Persilangan lebih sering mewarisi trait langka.',effect:'breeding'}
+};
+const EXPEDITIONS={
+  river:{name:'Riparian Strip',icon:'≋',days:2,cost:8,desc:'Cari mikroba dan galur toleran genangan.',traits:['myco','rust'],rewardRp:[4,8]},
+  ridge:{name:'Dry Ridge',icon:'△',days:3,cost:10,desc:'Cari akar dalam dan toleransi panas.',traits:['deep','heat'],rewardRp:[6,10]},
+  oldlab:{name:'Stasiun Lama',icon:'⌂',days:4,cost:14,desc:'Lokasi eksperimen terbengkalai dengan peluang artefak langka.',traits:['sentinel','vigor','zero'],rewardRp:[8,14]},
+  high:{name:'Highland Pocket',icon:'▲',days:3,cost:12,desc:'Cari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
+};
+const CHALLENGES={
+  standard:{name:'Standar',desc:'Tanpa pembatas.',plots:12,maxDay:12,yield:1,reward:1},
+  nofert:{name:'Tanpa Pupuk',desc:'Aksi pemupukan dinonaktifkan.',plots:12,maxDay:12,yield:1.12,reward:1.3,noFertilizer:true},
+  six:{name:'6 Petak',desc:'Hanya enam petak dapat ditanami.',plots:6,maxDay:12,yield:1.08,reward:1.35},
+  sprint:{name:'Sprint 8 Hari',desc:'Musim hanya delapan hari.',plots:12,maxDay:8,yield:1.18,reward:1.45},
+  mono:{name:'Satu Varietas',desc:'Hanya benih yang dipilih saat awal run dapat ditanam.',plots:12,maxDay:12,yield:1.1,reward:1.4,mono:true}
+};
+const BOSSES=[
+  {id:'megaDrought',name:'Boss: Kekeringan 47°C',icon:'☀',desc:'Air menghilang sangat cepat selama satu musim.',waterLoss:-12,disease:-.02,nLoss:1,yield:1.18},
+  {id:'rustWave',name:'Boss: Gelombang Karat',icon:'◉',desc:'Tekanan penyakit ekstrem dan berulang.',waterLoss:0,disease:.22,nLoss:0,yield:1.2},
+  {id:'flood',name:'Boss: Flood Pulse',icon:'☂',desc:'Genangan, kelembapan, dan kehilangan N serempak.',waterLoss:12,disease:.13,nLoss:5,yield:1.22}
+];
+const RIVALS=[
+  {id:'nara',name:'Dr. Nara',style:'Stabil',base:58,growth:5},
+  {id:'bima',name:'Bima Lab',style:'Agresif',base:66,growth:6.5},
+  {id:'sora',name:'Sora Seed Co.',style:'Breeding',base:62,growth:7.2}
+];
+const GENOME_SIG={
+  heat:['A','T','T','G'],vigor:['G','C','A','G'],myco:['C','G','G','T'],sentinel:['T','A','C','C'],zero:['ψ','A','ψ','G']
+};
+const META_ACHIEVEMENTS={
+  explorer:{name:'Explorer',desc:'Selesaikan ekspedisi pertama.'},
+  technologist:{name:'Technologist',desc:'Buka empat teknologi.'},
+  boss:{name:'Boss Breaker',desc:'Menang pada Boss Season.'},
+  rival:{name:'Peer Review',desc:'Kalahkan rival satu musim.'},
+  legacy:{name:'New Game+',desc:'Lakukan prestige pertama.'},
+  genome:{name:'Genome Reader',desc:'Selesaikan puzzle Genome Lab.'},
+  daily:{name:'Daily Trial',desc:'Selesaikan Daily Seed.'}
+};
+Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
 
-function focusMax(level){return Math.min(6,4+Math.floor((Math.max(1,level)-1)/3));}
+
+function focusMax(level){return Math.min(7,4+Math.floor((Math.max(1,level)-1)/3)+(state?.legacy||0>0?1:0));}
 function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
 function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
 function traitValue(traits,key,base=1){
@@ -80,6 +134,9 @@ function traitSum(traits,key){
 function unique(list){return [...new Set(list)];}
 
 function newEnvironment(season){
+  if(season>0&&season%5===0){
+    const boss=structuredClone(BOSSES[(Math.floor(season/5)-1)%BOSSES.length]);boss.boss=true;return boss;
+  }
   const pool=season>=4?ENVIRONMENTS:ENVIRONMENTS.filter(env=>env.id!=='anomaly');
   return structuredClone(pick(pool));
 }
@@ -113,22 +170,36 @@ function missionDone(){return missionValue()>=state.mission.target;}
 function freshState(){
   const env=newEnvironment(1);
   return {
-    version:1,season:1,day:1,maxDay:MAX_DAY,coins:78,rp:0,xp:0,level:1,focus:4,sound:false,
+    version:2,season:1,day:1,maxDay:MAX_DAY,coins:78,rp:0,xp:0,level:1,focus:4,sound:false,
     field:Array.from({length:PLOT_COUNT},()=>null),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1),
     seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0},seasonBest:null,pendingEvent:null,
-    log:[{day:1,text:'Field Zero aktif. Empat galur starter tersedia di Seed Vault.'}],history:[]
+    log:[{day:1,text:'Field Zero aktif. Empat galur starter tersedia di Seed Vault.'}],history:[],
+    location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
+    challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']}
   };
 }
 function load(){
   try{
     const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
-    if(!raw||raw.version!==1)return freshState();
-    raw.level=levelFromXp(raw.xp||0);raw.focus=Math.min(raw.focus??4,focusMax(raw.level));
-    if(!Array.isArray(raw.field)||raw.field.length!==PLOT_COUNT)raw.field=Array.from({length:PLOT_COUNT},()=>null);
-    if(!Array.isArray(raw.vault)||!raw.vault.length)raw.vault=structuredClone(STARTER_SEEDS);
-    return {...freshState(),...raw};
+    if(!raw)return freshState();
+    const base=freshState(),merged={...base,...raw,version:2};
+    merged.level=levelFromXp(merged.xp||0);
+    if(!Array.isArray(merged.field)||merged.field.length!==PLOT_COUNT)merged.field=Array.from({length:PLOT_COUNT},()=>null);
+    if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
+    merged.tech=Array.isArray(merged.tech)?merged.tech:[];
+    merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
+    merged.lineage=Array.isArray(merged.lineage)?merged.lineage:[];
+    merged.records=merged.records&&typeof merged.records==='object'?merged.records:{};
+    merged.eventFlags=merged.eventFlags&&typeof merged.eventFlags==='object'?merged.eventFlags:{};
+    merged.collection={...base.collection,...(merged.collection||{})};
+    merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
+    merged.location=LOCATIONS[merged.location]?merged.location:'zero';
+    merged.maxDay=CHALLENGES[merged.challenge].maxDay;
+    merged.focus=Math.min(merged.focus??4,Math.min(7,4+Math.floor((Math.max(1,merged.level)-1)/3)+(merged.legacy>0?1:0)));
+    return merged;
   }catch{return freshState();}
 }
 let state=load(),toastTimer=0,audioContext=null;
