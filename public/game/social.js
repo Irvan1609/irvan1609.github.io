@@ -76,7 +76,7 @@ async function renderRank(){
   $('#socialContent').innerHTML='<div class="social-loading">…</div>';
   try{
     const data=await api('/v1/game/leaderboard?limit=25');
-    const rows=(data.items||[]).map((player,index)=>playerRow(player,{rank:'#'+(index+1)})).join('');
+    const rows=(data.items||[]).map((player,index)=>playerRow(player,{rank:index===0?'🥇':index===1?'🥈':index===2?'🥉':'#'+(index+1)})).join('');
     $('#socialContent').innerHTML=`<div class="social-me-rank">Rank saya <b>${data.myRank?'#'+data.myRank:'—'}</b></div><div class="social-list">${rows||'<div class="social-empty">Belum ada skor.</div>'}</div>`;
   }catch(error){$('#socialContent').innerHTML=`<div class="social-empty">${esc(error.message)}</div>`;}
 }
@@ -84,8 +84,8 @@ async function renderFriends(){
   $('#socialContent').innerHTML='<div class="social-loading">…</div>';
   try{
     friendsCache=await loadFriends();
-    const incoming=(friendsCache.incoming||[]).map(player=>playerRow(player,{actions:`<button data-friend-accept="${esc(player.id)}">✓</button><button data-friend-remove="${esc(player.id)}">×</button>`})).join('');
-    const friends=(friendsCache.friends||[]).map(player=>playerRow(player,{actions:`<button class="burn-button" data-friend-burn="${esc(player.id)}" title="Bakar satu petak">🔥</button><button data-friend-remove="${esc(player.id)}" title="Hapus teman">×</button>`})).join('');
+    const incoming=(friendsCache.incoming||[]).map(player=>playerRow(player,{actions:`<button data-friend-accept="${esc(player.id)}" title="Terima teman" aria-label="Terima teman">✓ <span>Terima</span></button><button data-friend-remove="${esc(player.id)}" title="Tolak" aria-label="Tolak">×</button>`})).join('');
+    const friends=(friendsCache.friends||[]).map(player=>playerRow(player,{actions:`<button class="burn-button" data-friend-burn="${esc(player.id)}" title="Raid: bakar ringan satu petak" aria-label="Raid bakar ringan">🔥 <span>Raid</span></button><button data-friend-remove="${esc(player.id)}" title="Hapus teman" aria-label="Hapus teman">×</button>`})).join('');
     const outgoing=(friendsCache.outgoing||[]).map(player=>playerRow(player,{actions:'<small>Menunggu</small>'})).join('');
     $('#socialContent').innerHTML=`${incoming?`<div class="social-section"><small>PERMINTAAN</small>${incoming}</div>`:''}<div class="social-section"><small>TEMAN</small>${friends||'<div class="social-empty">Belum ada teman.</div>'}</div>${outgoing?`<div class="social-section"><small>TERKIRIM</small>${outgoing}</div>`:''}`;
   }catch(error){$('#socialContent').innerHTML=`<div class="social-empty">${esc(error.message)}</div>`;}
@@ -101,9 +101,9 @@ function renderSearch(){
       host.innerHTML=(data.items||[]).map(player=>{
         let actions='';
         if(friendIds.has(player.id))actions='<small>Teman</small>';
-        else if(incomingIds.has(player.id))actions=`<button data-friend-accept="${esc(player.id)}">✓</button>`;
+        else if(incomingIds.has(player.id))actions=`<button data-friend-accept="${esc(player.id)}" title="Terima teman">✓ <span>Terima</span></button>`;
         else if(outIds.has(player.id))actions='<small>Menunggu</small>';
-        else actions=`<button data-friend-add="${esc(player.id)}">＋</button>`;
+        else actions=`<button data-friend-add="${esc(player.id)}" title="Tambah teman">＋ <span>Tambah</span></button>`;
         return playerRow(player,{actions});
       }).join('')||'<div class="social-empty">Tidak ditemukan.</div>';
     }catch(error){host.innerHTML=`<div class="social-empty">${esc(error.message)}</div>`;}
@@ -125,7 +125,7 @@ async function friendAction(action,id){
   }catch(error){alert(error.message);}
 }
 async function burnFriend(id,button){
-  if(!confirm('🔥 Bakar ringan satu petak teman ini?'))return;
+  if(!confirm('Raid pemain ini? Satu petak hanya terkena kerusakan ringan.'))return;
   button.disabled=true;
   try{
     await api('/v1/game/raids/'+encodeURIComponent(id),{method:'POST'});
