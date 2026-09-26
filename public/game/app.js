@@ -830,12 +830,34 @@ function experimentRawDataset(){
   for(const unit of exp.units){const treatment=experimentTreatment(unit),material=unit.material||{},seed=state.field[unit.plot]?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),plantUid=material.plantUid||state.field[unit.plot]?.uid||'',fa=treatment?.factorA?.name||'',fb=treatment?.factorB?.name||'';for(const entry of unit.timeline||[]){for(const [parameter,value] of Object.entries(entry.values||{}))rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan','ULANGAN/UNIT ANALISIS',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value??''),entry.status||'observed',ACADEMY_MODEL_VERSION]);for(const sample of entry.samples||[])for(const [parameter,value] of Object.entries(sample.values||{})){if(value===''||value===undefined)continue;rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,sample.id,String(unit.plot+1),plotUse(unit.plot),'tanaman_individu','SUBSAMPEL · BUKAN ULANGAN',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value),entry.status||'observed',ACADEMY_MODEL_VERSION]);}}}
   return {name:'SIMULASI · '+exp.name+' · data mentah',headers,rows,plant:species.name+' ('+species.latin+') · DATA SIMULASI GAME',treatment:'DATA MENTAH + SUBSAMPEL · DATA SIMULASI GAME',design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
+function fieldHeterogeneity(){
+  const plots=(state.plotRegistry||[]).slice(0,fieldLimit());if(!plots.length)return 0;
+  const spread=key=>{const vals=plots.map(p=>Number(p[key])||0),mean=vals.reduce((a,b)=>a+b,0)/vals.length;if(!mean)return 0;const sd=Math.sqrt(vals.reduce((sum,v)=>sum+(v-mean)**2,0)/vals.length);return sd/Math.abs(mean);};
+  return clamp((spread('fertility')*3+spread('moisture')*3+spread('pH'))/7,0,1);
+}
+function designPrecisionScore(exp=state.experiment){
+  if(!exp)return 0;
+  const hetero=fieldHeterogeneity(),counts=Object.values(exp.units.reduce((acc,unit)=>(acc[unit.treatmentId]=(acc[unit.treatmentId]||0)+1,acc),{}));
+  const complete=exp.units.filter(unit=>exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()!=='')).length/Math.max(1,exp.units.length);
+  let structural=.78;
+  if(exp.design==='rak')structural=.82+hetero*.16;
+  if(exp.design==='ral')structural=.9-hetero*.38;
+  if(exp.design==='frak')structural=.84+hetero*.12;
+  if(exp.design==='fral')structural=.88-hetero*.28;
+  if(exp.design==='split')structural=.82+hetero*.08;
+  if(exp.design==='aug'){
+    const checks=exp.treatments.filter(t=>t.isCheck),coverage=checks.length?checks.every(t=>exp.units.filter(u=>u.treatmentId===t.id).length===BLOCK_COUNT):false;
+    structural=coverage?.9:.62;
+  }
+  const balance=exp.design==='aug'?1:(counts.length&&Math.max(...counts)===Math.min(...counts)?1:.72);
+  return Math.round(clamp((structural*.68+balance*.17+(.55+.45*complete)*.15)*100,35,99));
+}
 function experimentQualityScore(){
   const exp=state.experiment;if(!exp)return 0;
   const complete=exp.units.filter(unit=>exp.parameters.every(parameter=>String(unit.observations?.[parameter]??'').trim()!=='')).length/Math.max(1,exp.units.length);
   const applied=exp.kind==='genotype'&&!exp.factorial?1:exp.units.filter(unit=>unit.applied).length/Math.max(1,exp.units.length);
-  const counts=Object.values(exp.units.reduce((acc,unit)=>(acc[unit.treatmentId]=(acc[unit.treatmentId]||0)+1,acc),{})),balanced=counts.length&&Math.max(...counts)===Math.min(...counts)?1:.6;
-  return Math.round((complete*.55+applied*.25+balanced*.2)*100);
+  const precision=designPrecisionScore(exp)/100;
+  return Math.round((complete*.5+applied*.2+precision*.3)*100);
 }
 function sendExperimentToStat(){
   const summary=experimentDataset(),raw=experimentRawDataset();if(!summary||!raw)return;
@@ -928,8 +950,9 @@ function experimentTableHtml(){
   }).join('')}</tbody></table></div>`;
 }
 function experimentSummaryHtml(){
-  const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
-  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>`;
+  const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length,precision=designPrecisionScore(exp);
+  const hetero=fieldHeterogeneity(),designNote=exp.design==='ral'&&hetero>.04?'RAL pada lahan heterogen menurunkan presisi':exp.design==='rak'&&hetero>.04?'RAK memisahkan sebagian variasi antarkelompok':exp.design==='aug'?'Check berulang mengoreksi perbedaan kelompok':'Presisi mengikuti randomisasi, replikasi, dan kelengkapan data';
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>◎ Presisi ${precision}%</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span></div><p class="design-precision-note">${esc(designNote)}</p>`;
 }
 let experimentWizardStep=1;
 let experimentDraft=null;
@@ -1844,11 +1867,11 @@ function candidateFrom(crop,yieldValue,index=state.selectedPlot){
   };
 }
 function selectionCandidate(index,crop,yieldValue){
-  const seed=candidateFrom(crop,yieldValue,index),entry={
+  const seed=candidateFrom(crop,yieldValue,index),exp=experimentUnit(index)?state.experiment:null,accuracy=exp?designPrecisionScore(exp)/100:Math.min(.9,.58+seedEvidence(seed).level*.08),entry={
     id:uid('candidate'),season:state.season,plot:index,plotUid:plotMeta(index).uid,plantUid:crop.uid,yield:yieldValue,
-    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),seed,selected:false
+    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),accuracy:round(accuracy,2),seed,selected:false
   };
-  state.selectionPool=[entry,...state.selectionPool].slice(0,48);return entry;
+  state.selectionPool=[entry,...state.selectionPool].slice(0,64);return entry;
 }
 function selectionCandidates(season=null){
   return state.selectionPool.filter(item=>season===null||Number(item.season)===Number(season));
@@ -1869,9 +1892,10 @@ function selectCandidate(id){
   save();render();toast('🧬 '+item.seed.name+' disimpan');
 }
 function selectionScore(item,mode=state.selectionMode||'index'){
-  if(mode==='yield')return Number(item.yield)||0;
+  const accuracy=clamp(Number(item.accuracy??.7),.35,1);
+  if(mode==='yield')return (Number(item.yield)||0)*(.65+.35*accuracy);
   if(mode==='health')return Number(item.health)||0;
-  return (Number(item.yield)||0)*4+(Number(item.health)||0)*.4-(Number(item.stress)||0)*.3-(Number(item.disease)||0)*.2;
+  return (Number(item.yield)||0)*(2.7+1.3*accuracy)+(Number(item.health)||0)*.4-(Number(item.stress)||0)*.3-(Number(item.disease)||0)*.2;
 }
 function selectionDifferential(){
   const all=selectionCandidates();if(!all.length)return null;
