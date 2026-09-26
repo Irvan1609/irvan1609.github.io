@@ -171,16 +171,10 @@ function cleanupLegacyLocalLabels(stores,sync,counters){
     counters.localChanged=true;
   }
 }
-function token(){
-  return window.IrvanAccount?.getToken?.()||'';
-}
 async function api(path,options={}){
-  const session=token();
-  if(!session)throw Error('Sesi akun tidak tersedia.');
-  const headers=new Headers(options.headers||{});
-  headers.set('Authorization',`Bearer ${session}`);
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers});
+  const request=window.IrvanAccount?.request;
+  if(!request||!window.IrvanAccount?.authenticated)throw Error('Sesi akun tidak tersedia.');
+  const response=await request(path,options);
   const data=await response.json().catch(()=>({}));
   if(response.status===401){
     window.IrvanAccount?.refresh?.();
