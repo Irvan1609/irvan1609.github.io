@@ -2311,7 +2311,7 @@ export default {
         ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:true,idempotentSync:true,quotaGuard:true,
         membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),
         storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),apiVersion:'2026-09-26.17'
-      },200,{'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
+      },200,{'Cache-Control':'no-store'});
       if(request.method==='GET'&&url.pathname==='/v1/cloud/status')return await handleCloudStatus(request,env);
       if(url.pathname.startsWith('/v1/datasets')){
         const guard=await cloudFeatureGuard(request,env,'datasetSync');if(guard)return guard;
