@@ -189,13 +189,16 @@ function visualForPlot(entry,scale){
     const hue=progress.status==='complete'?135:progress.status==='partial'?42:0;
     return {hue,heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur'};
   }
-  if(config.colorMode==='parameter'&&scale){
-    const value=scale.values.get(entry.index);
-    if(Number.isFinite(value)){
-      const ratio=scale.max===scale.min?0.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
-      const label=scale.transform==='percentile'?Math.round(value)+'%':Number(value).toLocaleString('id-ID',{maximumFractionDigits:3});
-      return {hue:220-(ratio*220),heat:true,label};
+  if(config.colorMode==='parameter'){
+    if(scale){
+      const value=scale.values.get(entry.index);
+      if(Number.isFinite(value)){
+        const ratio=scale.max===scale.min?0.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
+        const label=scale.transform==='percentile'?Math.round(value)+'%':Number(value).toLocaleString('id-ID',{maximumFractionDigits:3});
+        return {hue:220-(ratio*220),heat:true,label};
+      }
     }
+    return {hue:0,heat:false,heatMissing:true,label:'—'};
   }
   return {hue:hashHue(color),heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur',status};
 }
@@ -824,6 +827,8 @@ function renderMap(){
       legend.hidden=!values.length;legend.innerHTML=values.map(value=>`<button type="button" class="field-legend-chip" data-field-highlight="${esc(value)}" style="--legend-hue:${hashHue(value)}"><i></i>${esc(value)}</button>`).join('');
     }else if(config.colorMode==='completion'){
       legend.hidden=false;legend.innerHTML='<span class="field-legend-chip"><i style="--legend-hue:135"></i>Lengkap</span><span class="field-legend-chip"><i style="--legend-hue:42"></i>Sebagian</span><span class="field-legend-chip"><i style="--legend-hue:0"></i>Kosong</span>';
+    }else if(config.colorMode==='parameter'){
+      legend.hidden=false;legend.innerHTML='<span>Nilai heatmap belum tersedia.</span>';
     }else legend.hidden=true;
   }
   const groups=groupEntries(current),objects=(config.objects||[]);
@@ -842,7 +847,7 @@ function renderMap(){
       const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
       const draggable=layoutEditMode?' draggable="true"':'';
       const statusLabel={missing:'Kosong',dead:'Mati',damaged:'Rusak',harvested:'Panen',border:'Border'}[status]||'';
-      const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
+      const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':visual.heatMissing?' is-heatmap-missing':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
         <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}${factorB&&factorB!==labels.secondary?`<u>${esc(factorB)}</u>`:''}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}${meta.photoCount?'<i class="field-plot-photo">▣</i>':''}${meta.gps?'<i class="field-plot-gps">⌖</i>':''}
       </button>`;
       const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
