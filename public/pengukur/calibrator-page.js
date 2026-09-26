@@ -1,0 +1,10 @@
+import {paperProfile,buildCalibratorSvg} from './paper.js';
+const q=new URLSearchParams(location.search),id=q.get('paper')||'a4',orientation=q.get('orientation')||'portrait';
+const custom=id==='custom'?{width:Number(q.get('width'))||210,height:Number(q.get('height'))||297,margin:Number(q.get('margin'))||15}:null;
+const profile=paperProfile(id,orientation,custom),svg=buildCalibratorSvg(profile,{id:'AGROTIK-CAL-V3-'+profile.id.toUpperCase()});
+document.documentElement.style.setProperty('--paper-w',profile.width+'mm');document.documentElement.style.setProperty('--paper-h',profile.height+'mm');
+const style=document.createElement('style');style.textContent='@page{size:'+profile.width+'mm '+profile.height+'mm;margin:0}';document.head.appendChild(style);
+document.getElementById('sheet').innerHTML=svg;
+document.getElementById('note').textContent=profile.name+' '+(profile.orientation==='portrait'?'Portrait':'Landscape')+' · '+profile.width+' × '+profile.height+' mm · area marker '+profile.activeWidth+' × '+profile.activeHeight+' mm. Cetak 100% / actual size dan ukur garis cek.';
+document.getElementById('print').onclick=()=>window.print();
+document.getElementById('download').onclick=()=>{const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kalibrator-'+profile.id+'-'+profile.orientation+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};

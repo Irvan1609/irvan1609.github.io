@@ -23,7 +23,7 @@ for(const marker of ['startLogin','refreshSession','logout','accountchange','LOG
 if(!config.includes('https://hitung-cabai-api.andyirvan1609.workers.dev'))fail('account API endpoint missing');
 if(!css.includes('.account-login')||!css.includes('.account-menu')||!css.includes('@media(max-width:520px)'))fail('responsive account CSS missing');
 
-for(const page of ['index.html','stat/index.html','public/hitung-cabai/index.html','public/kamera-pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
+for(const page of ['index.html','stat/index.html','public/hitung-cabai/index.html','public/pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
   const html=fs.readFileSync(page,'utf8');
   if(!html.includes('/account.css')||!html.includes('/account.js'))fail(page+' does not load account UI');
 }
