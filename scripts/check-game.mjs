@@ -54,8 +54,24 @@ if((html.match(/id="socialModal"/g)||[]).length!==1)fail('social modal must exis
 for(const id of ['maize','chili','rice','soybean'])if(speciesProfile(id).id!==id)fail('species profile missing '+id);
 for(const marker of ['JA','JAP','PM','GI','GH'])if(!recommendedParameters('rice').includes(marker))fail('rice parameter missing '+marker);
 for(const marker of ['JC','PI','PH'])if(!recommendedParameters('soybean').includes(marker))fail('soybean parameter missing '+marker);
-if(!app.includes("['rak','frak','split'].includes")||!app.includes("design==='split'"))fail('advanced experimental randomization missing');
-if(!app.includes("design:summary.design")||!app.includes("dataLabel:'DATA SIMULASI GAME'"))fail('advanced /stat handoff metadata missing');
+if(!app.includes("['rak','frak','split','aug'].includes")||!app.includes("design==='split'")||!app.includes("design==='aug'"))fail('advanced experimental randomization missing');
+if(!app.includes("design:statDesign")||!app.includes("statDesign=summary.design==='aug'?'augmented':summary.design")||!app.includes("dataLabel:'DATA SIMULASI GAME'"))fail('advanced /stat handoff metadata missing');
+for(const marker of ['RECOVERY_STORAGE','RECOVERY_LIMIT=3','checkpoint(','restoreCheckpoint','openRecoveryCenter','noteBreeder','recordDecision','openBreederNotebook','openExperimentHistory','openGenerationCompare','seasonDecisionReview'])if(!app.includes(marker))fail('recovery/notebook system missing '+marker);
+for(const marker of ['augmentedTreatments','design===\'aug\'','role:\'check\'','role:\'entry\'','augmentedAnalysis','adjusted:raw-blockMean+grand','designPrecisionScore','fieldHeterogeneity'])if(!app.includes(marker))fail('augmented/precision system missing '+marker);
+for(const marker of ['weeklyDefinition','startWeekly','FieldZeroWeekly','playerRivalScore','metric:\'stability\'','metric:\'profit\'','metric:\'breeding\''])if(!app.includes(marker))fail('competitive strategy system missing '+marker);
+for(const marker of ['id="advanceNotice"','id="prevPlot"','id="nextPlot"','id="nextIssuePlot"'])if(!html.includes(marker))fail('field navigation/advance guard missing '+marker);
+for(const marker of ['FIELD ZERO SYSTEMS PASS','.advance-notice','.augmented-ranking','.recovery-list','.breeder-notebook','.generation-compare','.candidate-metrics'])if(!css.includes(marker))fail('systems UI styling missing '+marker);
+if(html.includes('field-zero-world.svg')||html.includes('class="field-world"'))fail('classic game shell must not load immersive map artwork');
+
+const dynamicIds=new Set(['academyStatParameter','openCupFromPlot','seedSelect','plantSelected','openCollectionBook','startGenome','experimentForm']);
+const htmlIds=new Set([...html.matchAll(/id="([^"]+)"/g)].map(match=>match[1]));
+for(const match of app.matchAll(/\$\('#([^']+)'\)\.(?:onclick|onchange|oninput|addEventListener)/g)){
+  if(!htmlIds.has(match[1])&&!dynamicIds.has(match[1]))fail('static control binding has no DOM target: '+match[1]);
+}
+if(Buffer.byteLength(app,'utf8')>260000)fail('game app exceeds 260 KB performance budget');
+if(Buffer.byteLength(css,'utf8')>100000)fail('game CSS exceeds 100 KB performance budget');
+if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
+
 const demoExp={
   design:'ral',kind:'genotype',
   treatments:[{id:'A',code:'A',name:'A'},{id:'B',code:'B',name:'B'},{id:'C',code:'C',name:'C'}],
@@ -80,4 +96,4 @@ if(!f2||f2.generationLabel!=='F2'||f2.homozygosity<0||f2.homozygosity>1)fail('F2
 const bc=makeProgeny({...founderA,...f1,generation:1,parents:['A','B']},founderA,'backcross','demo-bc');
 if(!bc||bc.generationLabel!=='BC1')fail('backcross generation invalid');
 
-console.log('Field Zero check OK: professor academy v2, four crop species, visual field map, one-factor/factorial/split-plot randomization, ANOVA pedagogy, F1/F2/backcross, subsampling, /stat export and cloud saves are wired.');
+console.log('Field Zero check OK: calm field-first UI, recovery saves, augmented design, design precision, breeding generations, strategy rivals, weekly seed, /stat export and local-first cloud sync are wired within performance budgets.');
