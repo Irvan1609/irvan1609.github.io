@@ -50,3 +50,9 @@ bucket_name = "irvan-backups"
 # Daily maintenance always runs; logical backup is added when BACKUPS is configured.
 [triggers]
 crons = ["0 18 * * *"]
+
+
+# Setelah bucket BACKUPS tersedia, workflow production memasang lifecycle:
+# - d1-logical/  -> 30 hari
+# - d1-monthly/  -> 365 hari
+# Foto pada bucket IMAGES tidak diberi expiry otomatis.
