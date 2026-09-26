@@ -3320,9 +3320,3 @@ body.analysis-results-open{overflow:hidden}
     padding:5px 6px!important;
   }
 }
-
-/* Research OS quality dashboard */
-.research-quality-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:7px 0}
-.research-quality-grid span{display:grid;gap:1px;padding:5px 6px;border:1px solid var(--border);border-radius:5px;background:#fafbfc;font-size:10px;color:var(--muted)}
-.research-quality-grid b{font-size:13px;color:var(--text)}
-@media(max-width:650px){.research-quality-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
