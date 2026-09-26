@@ -1,10 +1,10 @@
-import {paperProfile,buildCalibratorSvg} from './paper.js';
-const q=new URLSearchParams(location.search),id=q.get('paper')||'a4',orientation=q.get('orientation')||'portrait';
+import {paperProfile,buildCalibratorSvg,buildLensCheckerboardSvg} from './paper.js';
+const q=new URLSearchParams(location.search),id=q.get('paper')||'a4',orientation=q.get('orientation')||'portrait',target=q.get('target')||'measure';
 const custom=id==='custom'?{width:Number(q.get('width'))||210,height:Number(q.get('height'))||297,margin:Number(q.get('margin'))||15}:null;
-const profile=paperProfile(id,orientation,custom),svg=buildCalibratorSvg(profile,{id:'AGROTIK-CAL-V3-'+profile.id.toUpperCase()});
+const profile=paperProfile(id,orientation,custom),svg=target==='lens'?buildLensCheckerboardSvg(profile):buildCalibratorSvg(profile,{id:'AGROTIK-CAL-V3-'+profile.id.toUpperCase()});
 document.documentElement.style.setProperty('--paper-w',profile.width+'mm');document.documentElement.style.setProperty('--paper-h',profile.height+'mm');
 const style=document.createElement('style');style.textContent='@page{size:'+profile.width+'mm '+profile.height+'mm;margin:0}';document.head.appendChild(style);
 document.getElementById('sheet').innerHTML=svg;
-document.getElementById('note').textContent=profile.name+' '+(profile.orientation==='portrait'?'Portrait':'Landscape')+' · '+profile.width+' × '+profile.height+' mm · area marker '+profile.activeWidth+' × '+profile.activeHeight+' mm. Cetak 100% / actual size dan ukur garis cek.';
+document.getElementById('note').textContent=target==='lens'?profile.name+' '+profile.width+' × '+profile.height+' mm · target checkerboard lensa. Cetak 100% / actual size; ambil foto pada beberapa posisi/sudut untuk evaluasi distorsi.':profile.name+' '+(profile.orientation==='portrait'?'Portrait':'Landscape')+' · '+profile.width+' × '+profile.height+' mm · area marker '+profile.activeWidth+' × '+profile.activeHeight+' mm. Cetak 100% / actual size dan ukur garis cek.';
 document.getElementById('print').onclick=()=>window.print();
-document.getElementById('download').onclick=()=>{const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kalibrator-'+profile.id+'-'+profile.orientation+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+document.getElementById('download').onclick=()=>{const blob=new Blob([svg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(target==='lens'?'target-lensa-':'kalibrator-')+profile.id+'-'+profile.orientation+'.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
