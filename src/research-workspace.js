@@ -58,21 +58,6 @@ function numericShare(values){
   if(!values.length)return 0;
   return values.filter(value=>Number.isFinite(parseNumber(value))).length/values.length;
 }
-function quantile(values,q){
-  if(!values.length)return NaN;
-  const x=[...values].sort((a,b)=>a-b),pos=(x.length-1)*q,lo=Math.floor(pos),hi=Math.ceil(pos);
-  return lo===hi?x[lo]:x[lo]+(x[hi]-x[lo])*(pos-lo);
-}
-function duplicateValueCount(values){
-  const seen=new Set();let duplicates=0;
-  for(const value of values){const key=String(value).trim().toLowerCase();if(!key)continue;if(seen.has(key))duplicates++;else seen.add(key);}
-  return duplicates;
-}
-function decimalStyle(values){
-  let comma=0,dot=0;
-  for(const value of values){const raw=String(value).trim();if(/^-?\d+,\d+$/.test(raw))comma++;if(/^-?\d+\.\d+$/.test(raw))dot++;}
-  return {comma,dot,mixed:comma>0&&dot>0};
-}
 export function inspectDatasetForResearch(dataset){
   const headers=Array.isArray(dataset?.headers)?dataset.headers:[],rows=Array.isArray(dataset?.rows)?dataset.rows:[];
   const findings=[];let blankRows=0,blankCells=0;
@@ -85,38 +70,19 @@ export function inspectDatasetForResearch(dataset){
     if(signatures.has(signature))duplicateRows++;else signatures.set(signature,index);
   });
   const columns=headers.map((name,index)=>{
-    const label=String(name||`Kolom ${index+1}`),values=valuesByColumn({rows},index),share=numericShare(values),kind=share>=.8?'numeric':share<=.2?'categorical':'mixed',unique=new Set(values).size,style=decimalStyle(values);
-    const profile={index,name:label,kind,n:values.length,numericShare:share,unique,decimalStyle:style};
-    if(kind==='mixed')findings.push({level:'warn',code:'mixed-type',column:index,message:`${label}: campuran nilai numerik dan teks; periksa tipe data.`});
-    if(style.mixed)findings.push({level:'warn',code:'mixed-decimal',column:index,message:`${label}: tanda desimal koma dan titik digunakan bersamaan.`});
-    if(kind==='numeric'){
-      const numeric=values.map(parseNumber).filter(Number.isFinite),q1=quantile(numeric,.25),q3=quantile(numeric,.75),iqr=q3-q1,lo=q1-1.5*iqr,hi=q3+1.5*iqr;
-      const outliers=iqr>0?numeric.filter(value=>value<lo||value>hi).length:0;
-      Object.assign(profile,{q1,q3,outliers});
-      if(outliers)findings.push({level:'info',code:'iqr-outlier',column:index,message:`${label}: ${outliers} nilai berada di luar pagar IQR 1,5×; periksa secara agronomis sebelum memutuskan tindakan.`});
-    }
-    if(kind==='categorical'&&unique>=2&&unique<=30){
-      const counts=new Map();for(const value of values)counts.set(value,(counts.get(value)||0)+1);
-      const freq=[...counts.values()],min=Math.min(...freq),max=Math.max(...freq);
-      profile.balance={min,max,ratio:max?min/max:1};
-      if(max-min>1&&min/max<.8)findings.push({level:'warn',code:'unbalanced-levels',column:index,message:`${label}: frekuensi taraf tidak seimbang (minimum ${min}, maksimum ${max}); pastikan sesuai rancangan atau kehilangan unit percobaan yang terdokumentasi.`});
-    }
-    if(/(^|\b)(id|kode|unit|plot|petak|sampel|sample)(\b|$)/i.test(label)){
-      const duplicates=duplicateValueCount(values);
-      profile.duplicateIds=duplicates;
-      if(duplicates)findings.push({level:'error',code:'duplicate-unit-id',column:index,message:`${label}: ${duplicates} ID unit berulang; identitas unit percobaan seharusnya unik.`});
-    }
-    return profile;
+    const values=valuesByColumn({rows},index),share=numericShare(values),kind=share>=.8?'numeric':share<=.2?'categorical':'mixed';
+    if(kind==='mixed')findings.push({level:'warn',message:`${name}: campuran nilai numerik dan teks; periksa tipe data.`});
+    return {index,name:String(name||`Kolom ${index+1}`),kind,n:values.length,numericShare:share,unique:new Set(values).size};
   });
-  if(!headers.length)findings.push({level:'error',code:'no-columns',message:'Dataset belum mempunyai kolom.'});
-  if(!rows.length)findings.push({level:'error',code:'no-rows',message:'Dataset belum mempunyai baris pengamatan.'});
-  if(blankRows)findings.push({level:'info',code:'blank-rows',message:`${blankRows} baris kosong terdeteksi.`});
-  if(blankCells)findings.push({level:'warn',code:'blank-cells',message:`${blankCells} sel kosong terdeteksi pada baris yang berisi data.`});
-  if(duplicateRows)findings.push({level:'warn',code:'duplicate-rows',message:`${duplicateRows} baris identik terdeteksi; pastikan bukan duplikasi unit percobaan.`});
+  if(!headers.length)findings.push({level:'error',message:'Dataset belum mempunyai kolom.'});
+  if(!rows.length)findings.push({level:'error',message:'Dataset belum mempunyai baris pengamatan.'});
+  if(blankRows)findings.push({level:'info',message:`${blankRows} baris kosong terdeteksi.`});
+  if(blankCells)findings.push({level:'warn',message:`${blankCells} sel kosong terdeteksi pada baris yang berisi data.`});
+  if(duplicateRows)findings.push({level:'warn',message:`${duplicateRows} baris identik terdeteksi; pastikan bukan duplikasi unit percobaan.`});
   const duplicatedHeaders=headers.filter((name,index)=>headers.findIndex(other=>String(other).toLowerCase()===String(name).toLowerCase())!==index);
-  if(duplicatedHeaders.length)findings.push({level:'error',code:'duplicate-headers',message:'Nama kolom duplikat terdeteksi.'});
-  const errors=findings.filter(item=>item.level==='error').length,warnings=findings.filter(item=>item.level==='warn').length,infos=findings.filter(item=>item.level==='info').length;
-  return {rows:rows.length,columns:headers.length,blankRows,blankCells,duplicateRows,columnProfiles:columns,findings,errors,warnings,infos,status:errors?'Perlu diperbaiki':warnings?'Perlu diperiksa':'Baik'};
+  if(duplicatedHeaders.length)findings.push({level:'error',message:'Nama kolom duplikat terdeteksi.'});
+  const errors=findings.filter(item=>item.level==='error').length,warnings=findings.filter(item=>item.level==='warn').length;
+  return {rows:rows.length,columns:headers.length,blankRows,blankCells,duplicateRows,columnProfiles:columns,findings,errors,warnings,status:errors?'Perlu diperbaiki':warnings?'Perlu diperiksa':'Baik'};
 }
 
 export function inferAnalysisSuggestions(dataset){
@@ -125,8 +91,7 @@ export function inferAnalysisSuggestions(dataset){
   const replicate=categorical.find(column=>/(ulangan|rep(?:licate|lication)?|kelompok|blok|block)/i.test(column.name))
     || audit.columnProfiles.find(column=>/(ulangan|rep(?:licate|lication)?|kelompok|blok|block)/i.test(column.name));
   const factorCandidates=categorical.filter(column=>column!==replicate&&column.unique>=2&&column.unique<=30);
-  const suggestions=[],hasMainPlot=headers.some(name=>/(petak\s*utama|main\s*plot|whole\s*plot|faktor\s*a)/i.test(name)),hasSubPlot=headers.some(name=>/(anak\s*petak|sub\s*plot|subplot|faktor\s*b)/i.test(name));
-  if(hasMainPlot&&hasSubPlot&&replicate)suggestions.push({key:'split',label:'Split Plot / RPT',reason:'Nama kolom menunjukkan petak utama, anak petak, dan blok/ulangan.'});
+  const suggestions=[];
   if(factorCandidates.length>=2&&replicate)suggestions.push({key:'frak',label:'Faktorial RAK',reason:'Terdeteksi ≥2 faktor kategorik dan kolom blok/ulangan.'});
   else if(factorCandidates.length>=2)suggestions.push({key:'fral',label:'Faktorial RAL',reason:'Terdeteksi ≥2 faktor kategorik tanpa indikator blok yang jelas.'});
   else if(factorCandidates.length&&replicate)suggestions.push({key:'rak',label:'RAK',reason:'Terdeteksi faktor perlakuan dan kolom blok/ulangan.'});
@@ -134,17 +99,6 @@ export function inferAnalysisSuggestions(dataset){
   if(numeric.length>=2)suggestions.push({key:'correlation',label:'Korelasi / regresi',reason:'Terdapat sedikitnya dua kolom numerik.'});
   if(headers.some(name=>/(lokasi|environment|lingkungan)/i.test(name))&&headers.some(name=>/(genotip|genotype|varietas|variety)/i.test(name)))suggestions.push({key:'combined',label:'ANOVA gabungan / multilokasi',reason:'Nama kolom menunjukkan struktur genotipe × lingkungan.'});
   return suggestions.slice(0,4);
-}
-
-export function computeProjectQuality(project,datasetAudit,{snapshotCount=0}={}){
-  const p=normalizeProject(project||{}),audit=datasetAudit||{};
-  const metadataFields=[p.metadata.crop,p.metadata.location,p.metadata.season,p.metadata.design,p.metadata.objective],metadataFilled=metadataFields.filter(Boolean).length;
-  const completeness=Math.round(Math.max(0,Math.min(100,100-(audit.blankCells||0)/Math.max(1,(audit.rows||0)*(audit.columns||0))*100)));
-  const consistency=Math.max(0,100-(audit.errors||0)*30-(audit.warnings||0)*10);
-  const reproducibility=Math.min(100,(p.recipes.length?40:0)+(p.trace.some(item=>item.type==='analysis')?30:0)+(snapshotCount?20:0)+(p.datasets.length?10:0));
-  const metadata=Math.round(metadataFilled/metadataFields.length*100);
-  const overall=Math.round(completeness*.3+consistency*.3+reproducibility*.25+metadata*.15);
-  return {overall,completeness,consistency,reproducibility,metadata};
 }
 
 export function computeProjectCompleteness(project,datasetAudit,{snapshotCount=0}={}){
@@ -218,7 +172,7 @@ function projectOptions(items,active){
 async function renderWorkspace(){
   if(!modal)return;
   const dataset=activeDataset(),audit=inspectDatasetForResearch(dataset||{}),items=projects(),project=activeProjectOrCreate();
-  const snapshots=dataset?.fileName?await listLocalSnapshots(dataset.fileName,20).catch(()=>[]):[],score=computeProjectCompleteness(project,audit,{snapshotCount:snapshots.length}),quality=computeProjectQuality(project,audit,{snapshotCount:snapshots.length});
+  const snapshots=dataset?.fileName?await listLocalSnapshots(dataset.fileName,20).catch(()=>[]):[],score=computeProjectCompleteness(project,audit,{snapshotCount:snapshots.length});
   const suggestions=inferAnalysisSuggestions(dataset||{});
   modal.querySelector('[data-project-select]').innerHTML=projectOptions(items,project.id);
   modal.querySelector('[data-project-name]').value=project.name;
@@ -227,7 +181,7 @@ async function renderWorkspace(){
   modal.querySelector('[data-project-dataset-count]').textContent=`${project.datasets.length} dataset`;
   modal.querySelector('[data-project-current]').textContent=dataset?.name||'Tidak ada dataset aktif';
   modal.querySelector('[data-project-membership]').textContent=dataset?.fileName&&project.datasets.includes(dataset.fileName)?'Dataset aktif sudah masuk proyek':'Dataset aktif belum masuk proyek';
-  modal.querySelector('[data-inspector]').innerHTML=`<div class="research-status ${audit.errors?'bad':audit.warnings?'warn':'good'}"><b>${esc(audit.status)}</b><span>${audit.rows} baris × ${audit.columns} kolom</span></div><div class="research-quality-grid"><span><b>${quality.completeness}%</b>Kelengkapan data</span><span><b>${quality.consistency}%</b>Konsistensi</span><span><b>${quality.reproducibility}%</b>Reproducibility</span><span><b>${quality.metadata}%</b>Metadata</span></div>${audit.findings.length?`<ul>${audit.findings.slice(0,12).map(item=>`<li class="${item.level}">${esc(item.message)}</li>`).join('')}</ul>`:'<p>Tidak ditemukan masalah data dasar.</p>'}`;
+  modal.querySelector('[data-inspector]').innerHTML=`<div class="research-status ${audit.errors?'bad':audit.warnings?'warn':'good'}"><b>${esc(audit.status)}</b><span>${audit.rows} baris × ${audit.columns} kolom</span></div>${audit.findings.length?`<ul>${audit.findings.map(item=>`<li class="${item.level}">${esc(item.message)}</li>`).join('')}</ul>`:'<p>Tidak ditemukan masalah data dasar.</p>'}`;
   modal.querySelector('[data-guidance]').innerHTML=suggestions.length?suggestions.map(item=>`<button type="button" data-analysis-suggestion="${esc(item.key)}"><b>${esc(item.label)}</b><span>${esc(item.reason)}</span></button>`).join(''):'<p>Belum cukup struktur data untuk memberi saran deterministik.</p>';
   modal.querySelector('[data-recipes]').innerHTML=project.recipes.length?project.recipes.map(recipe=>`<div class="research-list-row"><div><b>${esc(recipe.name)}</b><small>${esc(recipe.dataset)} · ${formatDate(recipe.date)}</small></div><button type="button" data-run-recipe="${esc(recipe.id)}">Jalankan ulang</button></div>`).join(''):'<p>Recipe akan tersimpan otomatis setelah analisis dijalankan.</p>';
   modal.querySelector('[data-snapshots]').innerHTML=snapshots.length?snapshots.map(item=>`<div class="research-list-row"><div><b>${esc(item.reason||'Snapshot')}</b><small>${formatDate(item.date)}</small></div><button type="button" data-restore-snapshot="${esc(item.id)}">Buka salinan</button></div>`).join(''):'<p>Belum ada snapshot manual untuk dataset aktif.</p>';
@@ -284,7 +238,7 @@ function installModal(){
   node.innerHTML=`<div class="modal research-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="researchWorkspaceTitle">
     <div class="modal-head"><div><strong id="researchWorkspaceTitle">Project Workspace</strong><small>Semua metadata, recipe, snapshot, dan jejak di bawah ini disimpan lokal di perangkat.</small></div><button type="button" data-close-workspace aria-label="Tutup">✕</button></div>
     <div class="modal-body research-workspace-body">
-      <section class="research-project-hero"><div><label>Proyek<select data-project-select></select></label><label>Nama proyek<input data-project-name maxlength="100"></label></div><div class="research-score"><b data-project-score>0%</b><span>Kesiapan proyek</span><small data-project-dataset-count>0 dataset</small></div></section>
+      <section class="research-project-hero"><div><label>Proyek<select data-project-select></select></label><label>Nama proyek<input data-project-name maxlength="100"></label></div><div class="research-score"><b data-project-score>0%</b><span>Kelengkapan</span><small data-project-dataset-count>0 dataset</small></div></section>
       <div class="research-action-row"><button type="button" data-new-project>Proyek baru</button><button type="button" data-attach-dataset>Masukkan dataset aktif</button><button type="button" data-snapshot>Snapshot</button><button type="button" data-export-project>Ekspor .agrotik</button><label class="button-like">Impor .agrotik<input data-import-project type="file" accept=".agrotik,application/json" hidden></label><button type="button" data-field-mode aria-pressed="false">Field Mode</button></div>
       <p class="research-current"><b data-project-current>—</b><span data-project-membership></span></p>
       <section class="research-section"><h3>Metadata penelitian</h3><div class="research-meta-grid"><label>Tanaman<input data-project-meta="crop"></label><label>Lokasi<input data-project-meta="location"></label><label>Musim / periode<input data-project-meta="season"></label><label>Rancangan<input data-project-meta="design"></label><label class="wide">Tujuan penelitian<textarea data-project-meta="objective" rows="2"></textarea></label></div></section>
