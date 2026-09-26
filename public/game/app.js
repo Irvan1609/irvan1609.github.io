@@ -186,7 +186,8 @@ function load(){
   try{
     const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
     if(!raw)return freshState();
-    const base=freshState(),merged={...base,...raw,version:2};
+    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:2};
+    if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
     merged.level=levelFromXp(merged.xp||0);
     if(!Array.isArray(merged.field)||merged.field.length!==PLOT_COUNT)merged.field=Array.from({length:PLOT_COUNT},()=>null);
     if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
@@ -447,7 +448,7 @@ function playHint(){
 function renderPlayControls(){
   const seed=selectedSeed(),hint=playHint();
   $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
-  $('#activeToolStatus').textContent=activeFieldTool?toolLabel(activeFieldTool)+' aktif · pilih petak':'Ketuk alat → petak';
+  $('#activeToolStatus').textContent=activeFieldTool?toolLabel(activeFieldTool)+' aktif · ketuk beberapa petak':'Ketuk alat → petak';
   $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
   $('#playHint').dataset.action=hint.action||'';
   $('#playHint').dataset.tool=hint.tool||'';
@@ -522,7 +523,7 @@ function renderInspector(){
   const knownExtra=crop.revealed&&crop.mutation?[crop.mutation]:[];
   const mutationText=crop.mutation?(crop.revealed?traitMeta(crop.mutation).name:'Belum diketahui'):'Tidak terdeteksi';
   const fertilizerCost=hasTech('precisionN')?3:5,waterFocus=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,scoutReward=2+(hasTech('drone')?2:0);
-  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hasTech('sensor')?` · risiko ${crop.water<25||crop.n<25||crop.disease>35?'TINGGI':'rendah'}`:''} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||crop.health<=0?'disabled':''}>💧 Irigasi · ${waterFocus} fokus</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${fertilizerCost} koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Scout · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Tumbuh ${Math.round(crop.growth)}%</p>`;
+  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hasTech('sensor')?` · risiko ${crop.water<25||crop.n<25||crop.disease>35?'TINGGI':'rendah'}`:''} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||crop.health<=0?'disabled':''}>💧 Irigasi · ${waterFocus} fokus</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${fertilizerCost} koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Periksa · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Tumbuh ${Math.round(crop.growth)}%</p>`;
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction));
 }
 function renderVault(){
@@ -540,7 +541,7 @@ function renderDiscoveries(){
   const traitCards=Object.entries(TRAITS).map(([id,t])=>`<div class="discovery ${state.discoveredTraits.includes(id)?'':'locked'}"><b>${state.discoveredTraits.includes(id)?esc(t.icon+' '+t.name):'?'}</b><span>${state.discoveredTraits.includes(id)?esc(t.desc):'Belum ditemukan'}</span></div>`).join('');
   const achCards=Object.entries(ACHIEVEMENTS).map(([id,a])=>`<div class="discovery ${state.achievements.includes(id)?'':'locked'}"><b>${state.achievements.includes(id)?'◆ '+esc(a.name):'◇ ???'}</b><span>${state.achievements.includes(id)?esc(a.desc):'Achievement terkunci'}</span></div>`).join('');
   const lore=state.lore.length?`<div class="discovery-grid">${state.lore.map(text=>`<div class="discovery"><b>Fragment</b><span>${esc(text)}</span></div>`).join('')}</div>`:'';
-  $('#discoveries').innerHTML=`<div class="collection-toolbar"><button id="openCollectionBook" type="button">Buka Collection Book</button><span>${state.discoveredTraits.length} trait · ${state.achievements.length} achievement</span></div><div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
+  $('#discoveries').innerHTML=`<div class="collection-toolbar"><button id="openCollectionBook" type="button">Buka Koleksi</button><span>${state.discoveredTraits.length} trait · ${state.achievements.length} achievement</span></div><div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
   $('#openCollectionBook').onclick=openCollectionBook;
   $('#discoveryCount').textContent=(state.discoveredTraits.length+state.achievements.length);
 }
@@ -563,7 +564,7 @@ function renderTechTree(){
 }
 function renderExpedition(){
   const host=$('#expeditionPanel');
-  if(!expeditionAvailable()){host.innerHTML='<div class="meta-empty">Buka <b>Field Expedition</b> di Tech Tree.</div>';$('#expeditionStatus').textContent='Terkunci';return;}
+  if(!expeditionAvailable()){host.innerHTML='<div class="meta-empty">Buka <b>Ekspedisi</b> di Teknologi.</div>';$('#expeditionStatus').textContent='Terkunci';return;}
   if(state.expedition){
     const ex=EXPEDITIONS[state.expedition.id],done=state.expedition.total-state.expedition.remaining;
     $('#expeditionStatus').textContent=state.expedition.remaining+' hari';
@@ -666,7 +667,7 @@ function setFieldTool(tool=''){
   activeFieldTool=activeFieldTool===tool?'':tool;
   document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
   renderPlayControls();
-  if(activeFieldTool)toast(toolLabel(activeFieldTool)+' · pilih petak');
+  if(activeFieldTool)toast(toolLabel(activeFieldTool)+' aktif · ketuk beberapa petak');
 }
 function useFieldTool(tool,index,{seedId=''}={}){
   if(index<0||index>=fieldLimit())return false;
@@ -716,8 +717,8 @@ function cropAction(action){
   }
   if(action==='scout'){
     if(state.focus<1)return;state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
-    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': scout menemukan '+traitMeta(crop.mutation).name+'.');}
-    else addLog('P'+(state.selectedPlot+1)+': scout selesai; penyakit '+Math.round(crop.disease)+'%.');
+    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': periksa menemukan '+traitMeta(crop.mutation).name+'.');}
+    else addLog('P'+(state.selectedPlot+1)+': periksa selesai; penyakit '+Math.round(crop.disease)+'%.');
     crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));beep(540);
   }
   render();
