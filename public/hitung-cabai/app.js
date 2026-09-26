@@ -430,8 +430,8 @@ async function saveCurrent(){
     activeId=id;dirty=false;await list();
     const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(synced){
-      const action=synced.updated?'diperbarui':'ditambahkan';
-      status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);
+      if(synced.field)status(`Tersimpan: ${boxes.length} buah untuk plot ${fieldContext?.plot||name}. Tekan “Kirim ke plot” untuk kembali ke Denah Lahan.`);
+      else{const action=synced.updated?'diperbarui':'ditambahkan';status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);}
     }else{
       status(`Tersimpan di perangkat ini: ${boxes.length} buah. Data belum dapat dimasukkan ke Statistical Web.`);
     }
