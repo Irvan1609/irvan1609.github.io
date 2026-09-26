@@ -171,11 +171,15 @@ function ensureModal(){
         <div class="field-layout-head-actions">
           <button id="fieldUndo" type="button" title="Undo denah" aria-label="Undo denah">↶</button>
           <button id="fieldRedo" type="button" title="Redo denah" aria-label="Redo denah">↷</button>
+          <button id="fieldModeToggle" type="button" aria-pressed="false">Lapangan</button>
           <button id="fieldLayoutEdit" type="button" aria-pressed="false">Susun</button>
           <button id="fieldMultiToggle" type="button" aria-pressed="false">Multi</button>
           <button id="fieldAddParameter" type="button">+ Parameter</button>
           <button id="fieldOpenTable" type="button">Tabel</button>
           <details class="field-layout-more"><summary>Lainnya</summary><div>
+            <button id="fieldValidateBlocks" type="button">Periksa blok</button>
+            <button id="fieldCreateSessionColumn" type="button">Parameter waktu</button>
+            <button id="fieldSamplePlants" type="button">Sampel tanaman</button>
             <button id="fieldPrint" type="button">Cetak</button>
             <button id="fieldExportLayout" type="button">Ekspor denah</button>
             <button id="fieldImportLayout" type="button">Impor denah</button>
@@ -185,6 +189,9 @@ function ensureModal(){
         </div>
       </header>
       <div class="field-layout-controls">
+        <label>Pengamat<input id="fieldObserver" type="text" placeholder="Nama / inisial" autocomplete="off"></label>
+        <label>Sesi<input id="fieldSessionLabel" type="text" placeholder="mis. 28 HST" autocomplete="off"></label>
+        <label>Parameter aktif<select id="fieldActiveParameter"></select></label>
         <label>ID plot<select id="fieldIdColumn"></select></label>
         <label>Kelompok<select id="fieldGroupColumn"></select></label>
         <label>Warna<select id="fieldColorColumn"></select></label>
@@ -217,6 +224,10 @@ function ensureModal(){
     if(Number.isInteger(row))api()?.focusCell?.(row,0);
   };
   $('#fieldAddParameter').onclick=addParameter;
+  $('#fieldModeToggle').onclick=toggleFieldMode;
+  $('#fieldValidateBlocks').onclick=validateBlocks;
+  $('#fieldCreateSessionColumn').onclick=createSessionColumn;
+  $('#fieldSamplePlants').onclick=setupSamplePlants;
   $('#fieldUndo').onclick=undoLayout;$('#fieldRedo').onclick=redoLayout;
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
@@ -225,7 +236,7 @@ function ensureModal(){
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
   $('#fieldLayoutImportInput').onchange=importLayout;
-  for(const id of ['fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
+  for(const id of ['fieldObserver','fieldSessionLabel','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
@@ -256,6 +267,8 @@ function ensureModal(){
     if(event.target.closest('[data-field-save]'))saveEditor();
     if(event.target.closest('[data-field-prev]'))stepEditor(-1);
     if(event.target.closest('[data-field-next]'))stepEditor(1);
+    if(event.target.closest('[data-field-next-incomplete]'))nextIncomplete();
+    const score=event.target.closest('[data-quick-score]');if(score){const input=$('#fieldPlotEditor [data-field-active-input]');if(input){input.value=score.dataset.quickScore;input.dispatchEvent(new Event('input',{bubbles:true}));saveEditor({quiet:true,rerender:false});}}
     const move=event.target.closest('[data-field-move]');if(move)moveSelectedPlot(Number(move.dataset.fieldMove));
     if(event.target.closest('[data-batch-apply]'))applyBatch();
     if(event.target.closest('[data-batch-select-visible]'))selectVisible();
