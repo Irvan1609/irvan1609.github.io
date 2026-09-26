@@ -36,7 +36,9 @@ for(const marker of [
   'sessionClientMeta',
   'handleDevelopSecurity',
   'BEARER_FALLBACK_HOURS=8',
-  'SameSite=None; Partitioned'
+  'SameSite=None; Partitioned',
+  "if(cookie)return {token:cookie,source:'cookie'}",
+  'authSource:credential.source'
 ]) requireText(worker,marker,'Worker security');
 
 const unsafeDatasetLookup='SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1';
