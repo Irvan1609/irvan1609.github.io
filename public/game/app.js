@@ -753,6 +753,25 @@ function statisticsResultHtml(result){
   const p=result.p===null?'—':result.p<.001?'<0,001':result.p.toLocaleString('id-ID',{maximumFractionDigits:4});
   return `<div class="stat-kpis"><div><small>F perlakuan</small><b>${Number(result.anova[0].f).toFixed(2)}</b></div><div><small>p-value</small><b>${p}</b></div><div><small>CV</small><b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></div><div><small>BNT 5%</small><b>${result.lsd.toFixed(2)}</b></div>${result.heritability===null?'':`<div><small>H² galur</small><b>${(result.heritability*100).toFixed(0)}%</b></div>`}</div><div class="anova-table-wrap"><table class="anova-table"><thead><tr><th>Sumber</th><th>db</th><th>JK</th><th>KT</th><th>F</th></tr></thead><tbody>${result.anova.map(row=>`<tr><td>${esc(row.source)}</td><td>${row.df}</td><td>${Number(row.ss).toFixed(2)}</td><td>${row.ms===null?'—':Number(row.ms).toFixed(2)}</td><td>${row.f===null?'—':Number(row.f).toFixed(2)}</td></tr>`).join('')}</tbody></table></div><div class="treatment-means">${result.means.map(row=>`<span><b>${esc(row.code)}</b> ${row.mean.toFixed(2)} <small>n=${row.n}</small></span>`).join('')}</div>`;
 }
+function experimentCorrelation(paramA,paramB){
+  const exp=state.experiment;if(!exp||!paramA||!paramB||paramA===paramB)return null;
+  const pairs=exp.units.map(unit=>{
+    const a=Number(String(unit.observations?.[paramA]??'').replace(',','.')),b=Number(String(unit.observations?.[paramB]??'').replace(',','.'));
+    return Number.isFinite(a)&&Number.isFinite(b)?[a,b]:null;
+  }).filter(Boolean);
+  if(pairs.length<4)return null;
+  const xs=pairs.map(p=>p[0]),ys=pairs.map(p=>p[1]),mx=xs.reduce((a,b)=>a+b,0)/xs.length,my=ys.reduce((a,b)=>a+b,0)/ys.length;
+  const num=pairs.reduce((sum,[x,y])=>sum+(x-mx)*(y-my),0),dx=Math.sqrt(pairs.reduce((sum,[x])=>sum+(x-mx)**2,0)),dy=Math.sqrt(pairs.reduce((sum,[,y])=>sum+(y-my)**2,0));
+  if(!dx||!dy)return null;
+  return {r:num/(dx*dy),n:pairs.length,paramA,paramB};
+}
+function correlationTeachingHtml(selected){
+  const exp=state.experiment;if(!exp)return '';
+  const candidates=exp.parameters.filter(p=>p!==selected),found=candidates.map(p=>experimentCorrelation(selected,p)).find(Boolean);
+  if(!found)return '';
+  const strength=Math.abs(found.r)>=.7?'kuat':Math.abs(found.r)>=.4?'sedang':'lemah';
+  return `<section class="stat-correlation"><header><b>↗ Korelasi unit percobaan</b><span>n=${found.n}</span></header><p>${esc(selected)} ↔ ${esc(found.paramB)}: <b>r = ${found.r.toFixed(2)}</b> · asosiasi ${strength}.</p><small>Hitungan menggunakan satu nilai per unit percobaan, bukan memperlakukan subsampel sebagai ulangan tambahan.</small><button type="button" data-correlation-case>Uji interpretasi korelasi</button></section>`;
+}
 function openStatisticsLab(parameter=null){
   const exp=state.experiment;if(!exp)return;
   const available=exp.parameters.filter(p=>exp.units.filter(u=>Number.isFinite(Number(String(u.observations?.[p]??'').replace(',','.')))).length>=2);
@@ -774,13 +793,17 @@ function openStatisticsLab(parameter=null){
   }
   const conclusion=result.significant?'Tolak H₀: setidaknya ada satu rerata perlakuan yang berbeda.':'Gagal menolak H₀: bukti belum cukup untuk menyatakan rerata perlakuan berbeda.';
   const interpreted=!!state.academy?.answers?.[interpretKey];
-  openMetaModal('LAB STATISTIK','ANOVA · '+selected,selector+statisticsResultHtml(result)+`<section class="stat-interpretation"><b>Interpretasi</b><p>${interpreted?esc(conclusion):'Pilih kesimpulan berdasarkan p-value, bukan hanya urutan rerata.'}</p></section>${interpreted?'':`<section class="academy-question"><div><button data-stat-conclusion="sig">Tolak H₀: minimal satu rerata berbeda</button><button data-stat-conclusion="ns">Gagal menolak H₀: bukti perbedaan belum cukup</button><button data-stat-conclusion="all">Semua perlakuan berbeda satu sama lain</button></div></section>`}<p class="meta-note">BNT 5% dipakai sebagai latihan perbandingan rerata setelah ANOVA. H² hanya ditampilkan pada uji galur seimbang. /stat tetap menjadi ruang analisis lengkap.</p>`);
+  openMetaModal('LAB STATISTIK','ANOVA · '+selected,selector+statisticsResultHtml(result)+correlationTeachingHtml(selected)+`<section class="stat-interpretation"><b>Interpretasi</b><p>${interpreted?esc(conclusion):'Pilih kesimpulan berdasarkan p-value, bukan hanya urutan rerata.'}</p></section>${interpreted?'':`<section class="academy-question"><div><button data-stat-conclusion="sig">Tolak H₀: minimal satu rerata berbeda</button><button data-stat-conclusion="ns">Gagal menolak H₀: bukti perbedaan belum cukup</button><button data-stat-conclusion="all">Semua perlakuan berbeda satu sama lain</button></div></section>`}<div class="professor-stat-actions"><button type="button" data-posthoc-case>Uji lanjut?</button><button type="button" data-assumption-case>Residual & asumsi</button>${result.heritability===null?'':'<button type="button" data-h2-case>Interpretasi H²</button>'}</div><p class="meta-note">BNT 5% dipakai sebagai latihan perbandingan rerata setelah ANOVA. H² hanya ditampilkan pada uji galur seimbang. /stat tetap menjadi ruang analisis lengkap.</p>`);
   $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
   $('#metaModalBody').querySelectorAll('[data-stat-conclusion]').forEach(button=>button.onclick=()=>{
     const correct=(result.significant&&button.dataset.statConclusion==='sig')||(!result.significant&&button.dataset.statConclusion==='ns');
     academyAnswer(interpretKey,correct,()=>academyMark('stats-interpret',{note:'Interpretasi F dan p-value'}));
     if(correct)openStatisticsLab(selected);
   });
+  $('#metaModalBody').querySelector('[data-correlation-case]')?.addEventListener('click',()=>openProfessorCase('correlation'));
+  $('#metaModalBody').querySelector('[data-posthoc-case]')?.addEventListener('click',()=>openProfessorCase('posthoc'));
+  $('#metaModalBody').querySelector('[data-assumption-case]')?.addEventListener('click',()=>openProfessorCase('assumption'));
+  $('#metaModalBody').querySelector('[data-h2-case]')?.addEventListener('click',()=>openProfessorCase('heritability'));
 }
 function experimentTableHtml(){
   const exp=state.experiment;if(!exp)return '';
@@ -1642,13 +1665,25 @@ function selectionScore(item,mode=state.selectionMode||'index'){
   if(mode==='health')return Number(item.health)||0;
   return (Number(item.yield)||0)*4+(Number(item.health)||0)*.4-(Number(item.stress)||0)*.3-(Number(item.disease)||0)*.2;
 }
+function selectionDifferential(){
+  const all=selectionCandidates();if(!all.length)return null;
+  const selected=all.filter(item=>item.selected);if(!selected.length)return null;
+  const populationMean=all.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/all.length;
+  const selectedMean=selected.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/selected.length;
+  return {populationMean,selectedMean,s:selectedMean-populationMean,nPopulation:all.length,nSelected:selected.length};
+}
+function selectionLearningHtml(){
+  const d=selectionDifferential();if(!d)return '';
+  return `<section class="selection-differential"><b>ΔG Latihan · Diferensial seleksi</b><div><span>Populasi <strong>${d.populationMean.toFixed(1)} kg</strong></span><span>Terpilih <strong>${d.selectedMean.toFixed(1)} kg</strong></span><span>S <strong>${d.s>=0?'+':''}${d.s.toFixed(1)} kg</strong></span></div><small>S bukan respons genetik aktual. Dalam model sederhana, respons harapan sering ditulis R ≈ h²S.</small><button type="button" data-selection-response>Uji konsep respons seleksi</button></section>`;
+}
 function openSelection(){
   const mode=state.selectionMode||'index',items=selectionCandidates().slice(0,48).sort((a,b)=>selectionScore(b,mode)-selectionScore(a,mode)).slice(0,30);
   const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ</button></div>`;
-  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
+  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',selectionLearningHtml()+controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
     const ev=seedEvidence(item.seed),score=selectionScore(item,mode);
     return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span><span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · ${esc(item.seed.generationLabel||('G'+item.seed.generation))}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬'}</button></article>`;
   }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>'));
+  $('#metaModalBody').querySelector('[data-selection-response]')?.addEventListener('click',()=>openProfessorCase('response'));
   $('#metaModalBody').querySelectorAll('[data-selection-mode]').forEach(button=>button.onclick=()=>{state.selectionMode=button.dataset.selectionMode;save();openSelection();});
   $('#metaModalBody').querySelectorAll('[data-select-candidate]').forEach(button=>button.onclick=()=>{selectCandidate(button.dataset.selectCandidate);openSelection();});
 }
