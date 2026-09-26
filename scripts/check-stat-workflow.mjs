@@ -13,18 +13,18 @@ for(const marker of ["installStatWorkflow","./stat-workflow.js"])if(!main.includ
 for(const marker of [
   'id="statWorkflowStrip"',
   'data-stat-workflow="data"',
-  'data-stat-workflow="setup"',
   'data-stat-workflow="analysis"',
   'data-stat-workflow="results"',
   'StatisticalWebWorkflow',
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['analysis-group-board','analysis-compact-group','analysis-compact-item','Rancangan Percobaan','Hubungan & Regresi','Genetik & Multilokasi'])if(!flow.includes(marker))fail('visible grouped analysis flow missing '+marker);
+for(const marker of ['analysis-group-board','analysis-compact-group','analysis-compact-item','analysisSmartSuggestion','smartAnalysis','Rancangan Percobaan','Hubungan & Regresi','Genetik & Multilokasi'])if(!flow.includes(marker))fail('visible grouped/smart analysis flow missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis','modelFormula','preflightGuardrails','reproducibility'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
-for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS','STAT UNIFORM ANALYSIS CARDS 2026-09-26','.analysis-group-board','grid-template-columns:repeat(5,minmax(0,1fr))!important','height:42px!important','.science-parameter-check-grid','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */'])if(!css.includes(marker))fail('workflow styling missing '+marker);
+for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS','STAT UNIFORM ANALYSIS CARDS 2026-09-26','.analysis-group-board','grid-template-columns:repeat(5,minmax(0,1fr))!important','height:42px!important','.science-parameter-check-grid','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */','STAT WORKSPACE CONSOLIDATION 2026-09-27','.analysis-smart-suggestion','.analysis-guardrail'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
-console.log('Stat workflow check OK: all analyses stay visible in compact groups and eligible numeric parameters auto-select.');
+if(workflow.includes('data-stat-workflow="setup"'))fail('setup must be consolidated into the analysis stage');
+console.log('Stat workflow check OK: three-stage workflow, smart suggestion, visible analysis groups, and auto-selected numeric parameters.');
