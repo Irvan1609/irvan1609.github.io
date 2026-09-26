@@ -1117,12 +1117,21 @@ function dailyDefinition(){
 function currentRival(){
   const found=RIVALS.find(rival=>rival.id===state.rival)||RIVALS[0];return found;
 }
+function playerRivalScore(rival=currentRival()){
+  const harvests=Math.max(1,Number(state.seasonStats.harvests)||0),yieldPerPlot=(Number(state.seasonStats.yield)||0)/Math.max(1,harvests);
+  const healthyRatio=(Number(state.seasonStats.healthy)||0)/harvests,margin=(Number(state.seasonStats.revenue)||0)-(Number(state.seasonStats.cost)||0);
+  const quality=state.experiment?experimentQualityScore():0,candidates=selectionCandidates(state.season),selected=candidates.filter(item=>item.selected).length;
+  if(rival.metric==='stability')return round(yieldPerPlot*4+healthyRatio*28+quality*.28-Math.max(0,Number(state.fieldPressure?.pathogen)||0)*.12,1);
+  if(rival.metric==='profit')return round(yieldPerPlot*4.6+Math.max(-20,margin/10000)+healthyRatio*12,1);
+  const evidence=candidates.length?candidates.reduce((sum,item)=>sum+seedEvidence(item.seed).level,0)/candidates.length:0;
+  return round(yieldPerPlot*2.7+selected*10+evidence*5+quality*.18,1);
+}
 function computeRivalTarget(){
-  const rival=currentRival(),loc=activeLocation(),challenge=activeChallenge(),boss=state.env?.boss?1.14:1,fieldScale=Math.max(1,(challenge.plots||PLOT_COUNT)/6);
-  const noise=.94+seededUnit(hashString(state.season+':'+state.location+':'+rival.id))*0.12;
-  const base=(rival.base+rival.growth*Math.max(0,state.season-1))*fieldScale*loc.yield*boss*noise;
-  const recent=(state.history||[]).slice(0,3).map(item=>Number(item.yield)||0).filter(Boolean);
-  const adaptive=recent.length?(recent.reduce((a,b)=>a+b,0)/recent.length)*(0.94+Math.min(.08,(state.rivalWins||0)*.012)):0;
+  const rival=currentRival(),loc=activeLocation(),boss=state.env?.boss?1.08:1,pressure=1+Number(activeChallenge().pressure||0)*.35;
+  const noise=.96+seededUnit(hashString('rival:'+state.season+':'+state.location+':'+rival.id))*0.08;
+  const base=(rival.base+rival.growth*Math.max(0,state.season-1))*Math.max(.92,loc.yield)*boss*pressure*noise;
+  const recent=(state.history||[]).slice(0,3).map(item=>Number(item.rivalScore)||0).filter(Boolean);
+  const adaptive=recent.length?(recent.reduce((a,b)=>a+b,0)/recent.length)*(1+Math.min(.08,(state.rivalWins||0)*.01)):0;
   return round(Math.max(base,adaptive),1);
 }
 function runRecordKey(){
@@ -1554,7 +1563,7 @@ function renderMetaStrip(){
   $('#locationName').textContent=loc.icon+' '+loc.name;
   $('#runModeName').textContent=state.daily?'Daily Seed':challenge.name;
   $('#runModeHint').textContent=state.daily?state.daily.key:challenge.desc;
-  $('#rivalName').textContent=rival.name;state.rivalTarget=computeRivalTarget();$('#rivalScore').textContent='Target '+state.rivalTarget+' kg';
+  $('#rivalName').textContent=rival.name;state.rivalTarget=computeRivalTarget();$('#rivalScore').textContent=rival.style+' · '+state.rivalTarget+' poin';
   const ghost=recordBest();$('#ghostScore').textContent=ghost?ghost.toFixed(1)+' kg':'Belum ada';
   $('#legacyValue').textContent=state.legacy||0;
 }
@@ -1627,8 +1636,8 @@ function openChallenges(){
   $('#metaModalBody').querySelector('[data-daily-start]')?.addEventListener('click',startDaily);
 }
 function openRival(){
-  openMetaModal('RIVAL SCIENTIST','Kompetitor musim ini',`<div class="rival-grid">${RIVALS.map(r=>`<button data-rival="${r.id}" class="${state.rival===r.id?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)}</span><small>Target saat ini ≈ ${round((r.base+r.growth*Math.max(0,state.season-1))*activeLocation().yield,1)} kg</small></button>`).join('')}</div><p class="meta-note">Rival dihitung offline dari musim, lokasi, dan gaya riset. Tidak memakai AI/server.</p>`);
-  $('#metaModalBody').querySelectorAll('[data-rival]').forEach(button=>button.onclick=()=>{state.rival=button.dataset.rival;closeMetaModal();render();});
+  openMetaModal('RIVAL SCIENTIST','Strategi kompetitor',`<div class="rival-grid">${RIVALS.map(r=>{const active=state.rival===r.id,target=(()=>{const current=state.rival;state.rival=r.id;const v=computeRivalTarget();state.rival=current;return v;})();return `<button data-rival="${r.id}" class="${active?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)}</span><small>${esc(r.desc)} · target skor ${target.toFixed(1)}</small></button>`;}).join('')}</div><p class="meta-note">Skor rival berbeda menurut strategi: stabilitas, efisiensi ekonomi, atau kemajuan pemuliaan. Semuanya dihitung deterministik dan offline.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-rival]').forEach(button=>button.onclick=()=>{state.rival=button.dataset.rival;state.rivalTarget=computeRivalTarget();closeMetaModal();render();});
 }
 function openRecords(){
   const rows=Object.entries(state.records).sort((a,b)=>b[1]-a[1]);
