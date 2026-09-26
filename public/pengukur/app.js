@@ -178,23 +178,23 @@ async function scanSampleCode(){
 
 function rectify(){
   if(!original||points.length!==4)return;
-  const p=getProfile();tell('Meluruskan citra…');
+  const p=getProfile(),layout=calibratorLayout(p);tell('Meluruskan citra…');
   try{
     const h=homography(points,p.activeWidth,p.activeHeight),w=Math.round(p.activeWidth*PPM),hgt=Math.round(p.activeHeight*PPM),out=new ImageData(w,hgt);
     for(let y=0;y<hgt;y++)for(let x=0;x<w;x++){
       const [u,v]=project(h,(x+.5)/PPM,(y+.5)/PPM),k=4*(y*w+x);
       if(!bilinearSample(original,u,v,out.data,k))throw Error('Bidang keluar foto. Periksa marker.');
     }
-    result.width=w;result.height=hgt;cleanResult=out;activeMask=null;activeObjects=[];measurePoints=[];activeMeasurement=null;rctx.putImageData(cleanResult,0,0);
+    result.width=w;result.height=hgt;cleanResult=embedRectifiedLabel(out,p,photoLabel());activeMask=null;activeObjects=[];measurePoints=[];activeMeasurement=null;rctx.putImageData(cleanResult,0,0);
     const rawScale=scaleDiagnostics();
     calibration={
-      version:4,tool:'Agrotik Pengukur',paper:p,pixelsPerMm:PPM,sourcePixels:[original.width,original.height],sourcePoints:points.map(x=>[...x]),
-      outputPixels:[w,hgt],mappingOutputMmToSourcePixels:h,lensProfile:currentLens(),quality,rawScale,geometryScope:'paper-plane-only',
+      version:5,tool:'Agrotik Pengukur',paper:p,pixelsPerMm:PPM,sourcePixels:[original.width,original.height],sourcePoints:points.map(x=>[...x]),
+      outputPixels:[w,hgt],mappingOutputMmToSourcePixels:h,lensProfile:currentLens(),quality,rawScale,geometryScope:'paper-plane-only',exportCropMm:layout.photo,photoLabel:photoLabel(),
       colorCorrection:{applied:false,type:null},createdAt:new Date().toISOString()
     };
     $('download').disabled=$('metadata').disabled=$('normalizeColor').disabled=$('colorChecker').disabled=$('detectAllObjects').disabled=false;
     $('saveAllObjects').disabled=true;
-    $('resultInfo').textContent=`${p.name} · area marker ${p.activeWidth} × ${p.activeHeight} mm · ${w} × ${hgt}px · ${PPM} px/mm${rawScale?` · X/Y awal Δ ${rawScale.differencePct.toFixed(1)}%`:''}`;
+    $('resultInfo').textContent=`${p.name} · marker ${p.activeWidth} × ${p.activeHeight} mm · area foto ${layout.photo.width.toFixed(1)} × ${layout.photo.height.toFixed(1)} mm · ${PPM} px/mm${rawScale?` · X/Y awal Δ ${rawScale.differencePct.toFixed(1)}%`:''}`;
     $('distance').textContent='Pilih mode pengukuran lalu titik pada hasil.';tell('Kalibrasi selesai. Mulai pengukuran atau segmentasi objek.');
     return true;
   }catch(error){tell(error.message);return false;}
@@ -341,8 +341,8 @@ function startColorChecker(){
 function detectAllObjects(){
   if(!cleanResult)return 0;
   try{
-    const p=getProfile(),preset=$('objectPreset').value,minArea={general:4,leaf:12,fruit:5,seed:.8,cob:35}[preset]||4;
-    const roi={x:12*PPM,y:18*PPM,width:Math.max(20,(p.activeWidth-24)*PPM),height:Math.max(20,(p.activeHeight-70)*PPM)};
+    const p=getProfile(),area=calibratorLayout(p).analysis,preset=$('objectPreset').value,minArea={general:4,leaf:12,fruit:5,seed:.8,cob:35}[preset]||4;
+    const roi={x:Math.round(area.x*PPM),y:Math.round(area.y*PPM),width:Math.max(20,Math.round(area.width*PPM)),height:Math.max(20,Math.round(area.height*PPM))};
     const found=segmentObjects(cleanResult,{roi,threshold:Number($('segmentThreshold').value),minPixels:Math.max(15,Math.round(minArea*PPM*PPM)),maxObjects:120,ppm:PPM});
     activeObjects=found.objects;activeMask=found.mask;measurePoints=[];activeMeasurement=null;colorPickMode=false;colorPatchPoints=[];
     $('saveMeasurement').disabled=true;$('saveAllObjects').disabled=!activeObjects.length;$('cancelMeasure').disabled=!activeObjects.length;
@@ -375,7 +375,10 @@ function sendStat(){
   catch(error){tell('Gagal mengirim ke /stat: '+error.message);}
 }
 function calibratedBlob(callback){
-  if(!cleanResult)return callback(null);const c=document.createElement('canvas');c.width=result.width;c.height=result.height;c.getContext('2d').putImageData(cleanResult,0,0);c.toBlob(callback,'image/png');
+  if(!cleanResult)return callback(null);
+  const p=getProfile(),crop=calibratorLayout(p).photo,full=document.createElement('canvas');full.width=result.width;full.height=result.height;full.getContext('2d').putImageData(cleanResult,0,0);
+  const sx=Math.round(crop.x*PPM),sy=Math.round(crop.y*PPM),sw=Math.round(crop.width*PPM),sh=Math.round(crop.height*PPM),out=document.createElement('canvas');out.width=sw;out.height=sh;
+  out.getContext('2d').drawImage(full,sx,sy,sw,sh,0,0,sw,sh);out.toBlob(callback,'image/png');
 }
 function resolveFieldValue(record,param){
   const p=String(param||'').toLowerCase(),m=record.metrics||{};
