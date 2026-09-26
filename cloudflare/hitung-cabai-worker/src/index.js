@@ -1,6 +1,8 @@
 const MAX_IMAGE_BYTES=850000;
+const MAX_CONTRIBUTION_REQUEST_BYTES=1_500_000;
 const MAX_BOXES=1500;
 const MAX_DATASET_BYTES=2_000_000;
+const MAX_DATASET_REQUEST_BYTES=4_500_000;
 const MAX_DATASETS_PER_USER=120;
 const SESSION_DAYS=30;
 const STATE_MINUTES=10;
@@ -34,6 +36,35 @@ function json(request,env,payload,status=200,extraHeaders={}){
 }
 function redirect(location,status=302){
   return new Response(null,{status,headers:{Location:location,'Cache-Control':'no-store'}});
+}
+function requestTooLarge(request,maxBytes){
+  const raw=request.headers.get('Content-Length');
+  if(!raw)return false;
+  const bytes=Number(raw);
+  return Number.isFinite(bytes)&&bytes>maxBytes;
+}
+async function rateLimitAllowed(env,binding,key){
+  const limiter=env?.[binding];
+  if(!limiter?.limit)return true;
+  try{
+    const result=await limiter.limit({key:String(key||'anonymous').slice(0,192)});
+    return result?.success!==false;
+  }catch(error){
+    console.warn('Rate limiter unavailable:',binding,error?.message||error);
+    return true;
+  }
+}
+function anonymousRateKey(request){
+  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
+  const ua=(request.headers.get('User-Agent')||'').slice(0,96);
+  return ip+'|'+ua;
+}
+async function datasetMutationGuard(request,env,user){
+  if(requestTooLarge(request,MAX_DATASET_REQUEST_BYTES))return json(request,env,{error:'Permintaan dataset terlalu besar.'},413);
+  if(!(await rateLimitAllowed(env,'DATASET_RATE_LIMITER','dataset:'+user.id))){
+    return json(request,env,{error:'Terlalu banyak perubahan dataset. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
+  return null;
 }
 function validBoxes(value){
   if(!Array.isArray(value)||value.length>MAX_BOXES)return false;
@@ -561,6 +592,8 @@ async function handleDatasetPut(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -574,7 +607,7 @@ async function handleDatasetPut(request,env,id){
   let metaJson;
   try{metaJson=parseDatasetMeta(body?.meta);}catch(error){return json(request,env,{error:error.message},413);}
   const now=new Date().toISOString();
-  const existing=await env.DB.prepare('SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1').bind(id).first();
+  const existing=await env.DB.prepare('SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
   const incomingBytes=new TextEncoder().encode(content+metaJson).byteLength;
   const existingBytes=existing?new TextEncoder().encode(String(existing.content||'')+String(existing.meta_json||'')).byteLength:0;
   const quotaCheck=await enforceDatasetQuota(env,user,{incomingBytes,existingBytes,isNew:!existing});
@@ -586,7 +619,6 @@ async function handleDatasetPut(request,env,id){
   },413);
 
   if(existing){
-    if(existing.user_id!==user.id)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
     if(expectedRevision===null||Number(existing.revision)!==expectedRevision){
       const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
       return json(request,env,{error:'revision_conflict',current:current?datasetPayload(current):null},409);
@@ -615,6 +647,8 @@ async function handleDatasetPatch(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
   const body=await request.json().catch(()=>null),expectedRevision=Number(body?.expectedRevision),operationId=String(body?.operationId||''),operations=body?.operations;
@@ -642,6 +676,8 @@ async function handleDatasetDelete(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -1358,6 +1394,10 @@ function parseJsonField(form,name,fallback=[]){
 }
 
 async function handleContribution(request,env){
+  if(requestTooLarge(request,MAX_CONTRIBUTION_REQUEST_BYTES))return json(request,env,{error:'Permintaan unggahan terlalu besar.'},413);
+  if(!(await rateLimitAllowed(env,'CONTRIBUTION_RATE_LIMITER',anonymousRateKey(request)))){
+    return json(request,env,{error:'Terlalu banyak unggahan. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
   if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
   await ensureContributionSchema(env);
   const form=await request.formData(),image=form.get('image'),operationId=String(form.get('operation_id')||'');
