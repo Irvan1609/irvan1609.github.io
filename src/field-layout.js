@@ -502,6 +502,8 @@ function resetLayout(){
 function readControls(){
   if(!current)return;
   pushLayoutHistory('ubah pengaturan denah');config={...config,
+    observer:String($('#fieldObserver').value||'').trim(),
+    session:{...config.session,label:String($('#fieldSessionLabel').value||'').trim(),parameter:Number($('#fieldActiveParameter').value),date:config.session?.date||new Date().toISOString().slice(0,10)},
     id:Number($('#fieldIdColumn').value),
     group:Number($('#fieldGroupColumn').value),
     color:Number($('#fieldColorColumn').value),
@@ -518,10 +520,13 @@ function readControls(){
   if(Number.isInteger(selectedRow))renderEditor(selectedRow);
 }
 function renderControls(){
+  $('#fieldObserver').value=String(config.observer||'');
+  $('#fieldSessionLabel').value=String(config.session?.label||'');
+  const measures=measurementColumns(current);
+  $('#fieldActiveParameter').innerHTML='<option value="-1">Semua parameter</option>'+measures.map(item=>`<option value="${item.index}" ${item.index===Number(config.session?.parameter)?'selected':''}>${esc(item.header)}</option>`).join('');
   $('#fieldIdColumn').innerHTML=options(current.headers,config.id);
   $('#fieldGroupColumn').innerHTML=options(current.headers,config.group,true);
   $('#fieldColorColumn').innerHTML=options(current.headers,config.color);
-  const measures=measurementColumns(current);
   $('#fieldHeatmapColumn').innerHTML='<option value="-1">Pilih parameter</option>'+measures.map(item=>`<option value="${item.index}" ${item.index===config.heatmap?'selected':''}>${esc(item.header)}</option>`).join('');
   $('#fieldColorMode').value=config.colorMode;
   $('#fieldFilter').value=config.filter;
@@ -531,6 +536,8 @@ function renderControls(){
   $('#fieldPlotSize').value=config.size;
   $('#fieldSerpentine').checked=config.serpentine;
   $('#fieldHeatmapWrap').hidden=config.colorMode!=='parameter';
+  $('#fieldLayoutModal')?.classList.toggle('field-mode',config.fieldMode===true);
+  $('#fieldModeToggle')?.setAttribute('aria-pressed',String(config.fieldMode===true));
   if($('#fieldUndo'))$('#fieldUndo').disabled=!layoutUndo.length;if($('#fieldRedo'))$('#fieldRedo').disabled=!layoutRedo.length;
 }
 function renderStats(){
