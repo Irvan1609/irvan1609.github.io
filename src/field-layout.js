@@ -838,7 +838,7 @@ function renderMap(){
   const legend=$('#fieldHeatLegend');
   if(legend){
     if(scale){
-      legend.hidden=false;legend.innerHTML=`<b>${esc(current.headers[scale.index])}</b><span>${esc(String(scale.min))}</span><i></i><span>${esc(String(scale.max))}</span>`;
+      legend.hidden=false;legend.innerHTML=`<b>${esc(scale.label)}</b><span>${esc(Number(scale.min).toLocaleString('id-ID',{maximumFractionDigits:3}))}</span><i></i><span>${esc(Number(scale.max).toLocaleString('id-ID',{maximumFractionDigits:3}))}</span>`;
     }else if(config.colorMode==='treatment'){
       const values=[...new Set(current.rows.map(row=>colorLabel(current,row)).filter(Boolean))].slice(0,8);
       legend.hidden=!values.length;legend.innerHTML=values.map(value=>`<button type="button" class="field-legend-chip" data-field-highlight="${esc(value)}" style="--legend-hue:${hashHue(value)}"><i></i>${esc(value)}</button>`).join('');
