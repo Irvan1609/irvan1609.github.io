@@ -75,6 +75,33 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     document.querySelector('#gridWrap')?.scrollIntoView({behavior:'smooth',block:'center'});
     return true;
   },
+  replaceRow:(row,values,reason='edit denah lahan')=>{
+    const r=Number(row);
+    if(!Number.isInteger(r)||r<0||r>=state.rows.length)return {ok:false,error:'Baris dataset tidak ditemukan.'};
+    if(!Array.isArray(values)||values.length!==state.headers.length)return {ok:false,error:'Jumlah nilai tidak sesuai kolom dataset.'};
+    const next=values.map(value=>String(value??''));
+    const current=state.rows[r]||[];
+    if(next.every((value,index)=>value===String(current[index]??'')))return {ok:true,changed:false,row:r};
+    pushUndo(reason);
+    state.rows[r]=next;
+    persist(reason,true,{kind:'set_range',row:r,col:0,values:[next]});
+    renderGrid();
+    setStatus(`✓ Baris ${r+1} diperbarui dari denah lahan.`);
+    return {ok:true,changed:true,row:r};
+  },
+  appendColumn:(name,reason='tambah parameter dari denah lahan')=>{
+    const base=String(name??'').trim();
+    if(!base)return {ok:false,error:'Nama parameter belum diisi.'};
+    if(state.headers.some(header=>header.toLocaleLowerCase('id-ID')===base.toLocaleLowerCase('id-ID')))return {ok:false,error:'Nama kolom sudah ada.'};
+    let header=base;
+    try{header=validateColumnNames([...state.headers,base]).at(-1)||base;}catch(error){return {ok:false,error:error.message};}
+    pushUndo(reason);
+    state.headers.push(header);state.rows.forEach(row=>row.push(''));
+    persist(reason,true);
+    renderGrid();
+    setStatus(`✓ Parameter ${header} ditambahkan dari denah lahan.`);
+    return {ok:true,header,index:state.headers.length-1};
+  },
   snapshotActiveDataset:(reason='sebelum analisis')=>{
     recordEditorHistory(reason,true);
     return activeDatasetPayload();
