@@ -516,8 +516,13 @@ async function ensureOperationsSchema(env){
   if(!backupColumns.has('checksum_sha256'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN checksum_sha256 TEXT').run();
   if(!backupColumns.has('verified_at'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN verified_at TEXT').run();
   if(!backupColumns.has('validation_json'))await env.DB.prepare("ALTER TABLE backup_runs ADD COLUMN validation_json TEXT NOT NULL DEFAULT '{}'").run();
-  await env.DB.prepare('INSERT OR IGNORE INTO app_settings (key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL)')
-    .bind('cloud_policy',JSON.stringify(DEFAULT_CLOUD_POLICY),new Date().toISOString()).run();
+  const settingsNow=new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare('INSERT OR IGNORE INTO app_settings (key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL)')
+      .bind('cloud_policy',JSON.stringify(DEFAULT_CLOUD_POLICY),settingsNow),
+    env.DB.prepare('INSERT OR IGNORE INTO app_settings (key,value_json,updated_at,updated_by) VALUES (?,?,?,NULL)')
+      .bind('cloud_auto_state',JSON.stringify({mode:'normal',reason:'baseline',storageRatio:0}),settingsNow)
+  ]);
   OPERATIONS_SCHEMA_READY=true;
 }
 function normalizeCloudPolicy(value){
@@ -535,20 +540,30 @@ function normalizeCloudPolicy(value){
 async function cloudPolicy(env,{force=false}={}){
   if(!force&&CLOUD_POLICY_CACHE&&Date.now()-CLOUD_POLICY_CACHE_AT<CLOUD_POLICY_CACHE_MS)return CLOUD_POLICY_CACHE;
   await ensureOperationsSchema(env);
-  const row=await env.DB.prepare("SELECT value_json,updated_at FROM app_settings WHERE key='cloud_policy' LIMIT 1").first();
-  let value=DEFAULT_CLOUD_POLICY;
+  const rows=await env.DB.prepare("SELECT key,value_json,updated_at FROM app_settings WHERE key IN ('cloud_policy','cloud_auto_state')").all();
+  const map=new Map((rows.results||[]).map(row=>[row.key,row]));
+  const row=map.get('cloud_policy'),autoRow=map.get('cloud_auto_state');
+  let value=DEFAULT_CLOUD_POLICY,auto={mode:'normal',reason:'baseline',storageRatio:0};
   try{value=normalizeCloudPolicy(JSON.parse(row?.value_json||'{}'));}catch{value=normalizeCloudPolicy(DEFAULT_CLOUD_POLICY);}
-  CLOUD_POLICY_CACHE={...value,updatedAt:row?.updated_at||null};
+  try{
+    const parsed=JSON.parse(autoRow?.value_json||'{}');
+    if(['normal','saver','emergency'].includes(parsed?.mode))auto={mode:parsed.mode,reason:String(parsed.reason||'baseline'),storageRatio:Number(parsed.storageRatio)||0};
+  }catch{}
+  CLOUD_POLICY_CACHE={...value,updatedAt:row?.updated_at||null,auto:{...auto,updatedAt:autoRow?.updated_at||null}};
   CLOUD_POLICY_CACHE_AT=Date.now();
   return CLOUD_POLICY_CACHE;
 }
 function effectiveCloudPolicy(policy){
   const runtimeEmergency=Date.now()<RUNTIME_CLOUD_PRESSURE_UNTIL;
-  const mode=runtimeEmergency?'emergency':(policy.budgetMode==='auto'?'normal':policy.budgetMode);
+  const autoMode=['normal','saver','emergency'].includes(policy.auto?.mode)?policy.auto.mode:'normal';
+  const mode=runtimeEmergency?'emergency':(policy.budgetMode==='auto'?autoMode:policy.budgetMode);
   const saver=mode==='saver',emergency=mode==='emergency';
   return {
     mode,
     configuredMode:policy.budgetMode,
+    autoMode,
+    autoReason:policy.auto?.reason||'baseline',
+    autoStorageRatio:Number(policy.auto?.storageRatio)||0,
     runtimeEmergency,
     features:{
       datasetSync:Boolean(policy.datasetSync&&!emergency),
@@ -562,6 +577,31 @@ function effectiveCloudPolicy(policy){
 }
 async function currentCloudPolicy(env,options){
   return effectiveCloudPolicy(await cloudPolicy(env,options));
+}
+async function refreshCloudAutoState(env){
+  await ensureDatasetSchema(env);await ensureContributionSchema(env);await ensureOperationsSchema(env);
+  const [datasets,images]=await Promise.all([
+    env.DB.prepare("SELECT COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes FROM user_datasets").first(),
+    env.DB.prepare("SELECT COALESCE(SUM(length(image)),0) AS bytes FROM contributions").first()
+  ]);
+  const estimatedBytes=Number(datasets?.bytes||0)+Number(images?.bytes||0),limit=CLOUDFLARE_FREE_REFERENCE.d1StorageBytes;
+  const ratio=limit>0?estimatedBytes/limit:0;
+  const mode=ratio>=.95?'emergency':ratio>=.80?'saver':'normal';
+  const reason=mode==='emergency'?'d1_storage_95pct':mode==='saver'?'d1_storage_80pct':'baseline';
+  const next={mode,reason,storageRatio:Number(ratio.toFixed(6)),estimatedD1Bytes:estimatedBytes},now=new Date().toISOString();
+  const existing=await env.DB.prepare("SELECT value_json FROM app_settings WHERE key='cloud_auto_state' LIMIT 1").first();
+  let same=false;
+  try{
+    const prev=JSON.parse(existing?.value_json||'{}');
+    same=prev.mode===next.mode&&prev.reason===next.reason&&Number(prev.estimatedD1Bytes||0)===estimatedBytes;
+  }catch{}
+  if(!same){
+    await env.DB.prepare(`INSERT INTO app_settings (key,value_json,updated_at,updated_by) VALUES ('cloud_auto_state',?,?,NULL)
+      ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at,updated_by=NULL`)
+      .bind(JSON.stringify(next),now).run();
+    CLOUD_POLICY_CACHE=null;CLOUD_POLICY_CACHE_AT=0;
+  }
+  return next;
 }
 function featurePaused(request,env,feature,policy){
   const retry=retentionPolicy(env).retrySeconds;
@@ -2353,6 +2393,7 @@ export default {
   async scheduled(event,env,ctx){
     ctx.waitUntil((async()=>{
       await cleanupCloudData(env);
+      await refreshCloudAutoState(env);
       if(env.IMAGES)await migrateLegacyContributionImages(env,null,25);
       if(env.BACKUPS){
         const monthlyRestoreCheck=new Date().getUTCDate()===1;
