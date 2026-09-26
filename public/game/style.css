@@ -904,3 +904,86 @@ body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none
 .selection-modes button[aria-pressed=true]{border-color:#79b995;background:#1d3c2e}
 .seed-item>small{font-variant-numeric:tabular-nums}
 .seed-card-actions{grid-template-columns:1fr auto auto}
+
+
+/* FIELD ZERO BREEDING ACADEMY PLUS 2026-09-26 */
+.academy-metrics{
+  display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:4px
+}
+.academy-metrics span{
+  display:inline-flex!important;align-items:center;gap:3px;margin:0!important;padding:2px 5px;
+  border:1px solid #315044;border-radius:999px;background:#102019;color:#b9cec3!important;
+  font-size:8px!important;font-weight:800
+}
+.academy-metrics b{font-size:8px!important}
+
+.field-landscape{
+  position:relative;display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:5px;
+  min-height:28px;margin:0 0 6px;padding:4px 7px;border:1px solid #29483a;border-radius:8px;
+  background:linear-gradient(90deg,#14261d,#17291f 48%,#12231b);overflow:hidden
+}
+.field-landscape span{
+  position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;min-width:0;
+  color:#8fa99b;font-size:7.5px;font-weight:800;white-space:nowrap
+}
+.field-landscape .field-north{color:#d7c678}
+.field-landscape .field-path{overflow:hidden;text-overflow:ellipsis;letter-spacing:.08em}
+.field-landscape .field-canal{color:#79aeca}
+.field-landscape::after{
+  content:"";position:absolute;left:8%;right:8%;bottom:4px;height:1px;
+  background:repeating-linear-gradient(90deg,#46685a 0 7px,transparent 7px 12px);opacity:.55
+}
+
+.field-tool-dock button[data-field-tool="select"]{border-color:#665278;background:#241e2b}
+.field-tool-dock button[data-field-tool="select"][aria-pressed="true"]{border-color:#d2a9ef;background:#4b3158}
+.plant-icon{
+  display:inline-block;transform:scale(var(--plant-scale,1));transform-origin:center bottom;
+  transition:transform .14s,filter .14s
+}
+.plot.phenotype-dry .plant-icon{transform:scale(var(--plant-scale,1)) rotate(7deg);filter:saturate(.58) brightness(.92)}
+.plot.phenotype-low-n .plant-icon{filter:saturate(.5) sepia(.34) brightness(1.08)}
+.plot.phenotype-disease{background-image:radial-gradient(circle at 82% 25%,rgba(174,91,76,.22) 0 2px,transparent 3px)}
+.plot.phenotype-disease .plant-icon{filter:saturate(.72) contrast(1.08)}
+.plot.phenotype-vigorous .plant-icon{filter:saturate(1.08) drop-shadow(0 1px 3px rgba(112,190,138,.28))}
+.plot.phenotype-flowering .plant-icon{transform:scale(var(--plant-scale,1)) translateY(-1px)}
+.plot.selection-marked{
+  border-color:#a889bf!important;box-shadow:inset 0 0 0 1px rgba(213,174,240,.32)
+}
+.plot.selection-marked::after{
+  content:"★";position:absolute;right:4px;bottom:3px;color:#e1c26f;font-size:10px;line-height:1
+}
+.seed-stage-line{margin-top:3px;color:#8ea69a;font-size:8px;line-height:1.3}
+
+.stat-preview{
+  display:grid;gap:6px;margin:0 0 8px;padding:8px;border:1px solid #315144;border-radius:8px;background:#0f1f18
+}
+.stat-preview.muted{grid-template-columns:auto 1fr;align-items:center;color:#91a79b;font-size:8.5px}
+.stat-preview header{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.stat-preview header b{font-size:9.5px}.stat-preview header span{color:var(--muted);font-size:8px}
+.stat-preview-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.stat-preview-metrics span{
+  display:flex;justify-content:space-between;gap:4px;padding:4px 5px;border:1px solid #29483a;
+  border-radius:6px;background:#13251d;color:#91aa9e;font-size:7.5px
+}
+.stat-preview-metrics b{color:#dbe9e1;font-size:8.5px}
+.stat-mini{display:grid;gap:3px}
+.stat-mini-row{display:grid;grid-template-columns:32px 1fr 38px;align-items:center;gap:5px;font-size:7.5px}
+.stat-mini-row>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-mini-row>small{text-align:right;color:#a9beb3;font-size:7.5px}
+.stat-mini-track{position:relative;height:6px;border-radius:999px;background:#0a1510;overflow:visible}
+.stat-mini-track i{position:absolute;top:1px;height:4px;border-radius:999px;background:#628f78;min-width:2px}
+.stat-mini-track em{position:absolute;top:-1px;width:1px;height:8px;background:#e4d477}
+.stat-preview p{margin:0!important;color:#9fb2a8!important;font-size:8px!important;line-height:1.35!important}
+
+.daily-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.daily-actions button{width:100%;margin:0}
+.season-review{margin:8px 0 0}
+.action-grid button[aria-pressed="true"]{border-color:#a889bf;background:#33233e;color:#ead9f4}
+
+@media(max-width:620px){
+  .field-landscape{grid-template-columns:auto 1fr auto;padding:4px 6px}
+  .field-landscape .field-warehouse,.field-landscape .field-water-source{display:none}
+  .academy-metrics{gap:3px}
+  .stat-preview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .daily-actions{grid-template-columns:1fr}
+}
