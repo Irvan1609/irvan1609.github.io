@@ -258,5 +258,23 @@ function refreshData(render=true){current=dataset();const saved=readStore()[keyF
 function closeFieldLayout({skipValidation=false}={}){if(dirty&&!saveEditor({quiet:true}))return;if(!skipValidation&&Number.isInteger(selectedRow)&&activeColumn()>=0){const group=groupLabelForRow(selectedRow),missing=current.rows.map((row,index)=>({row,index})).filter(x=>groupLabelForRow(x.index)===group&&!activeFilled(x.row));if(missing.length&&!confirm(`${group} masih memiliki ${missing.length} plot belum terisi untuk ${activeParameterName()}. Tutup denah?`))return;}revokePhotoUrls();$('#fieldLayoutModal')?.classList.remove('open','field-mode');document.body.classList.remove('field-layout-open');dirty=false;multiMode=false;layoutEditMode=false;fieldMode=false;selectedRows.clear();selectedRow=null;}
 export function openFieldLayout(options={}){ensureModal();globalThis.StatisticalWebWorkflow?.setActive?.('field');refreshData();$('#fieldLayoutDataset').textContent=`${current.name||'Dataset'} · ${current.rows.length} baris`;$('#fieldLayoutModal').classList.add('open');document.body.classList.add('field-layout-open');selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;fieldMode=false;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');$('#fieldModeToggle').setAttribute('aria-pressed','false');$('#fieldModeToggle').textContent='Field';$('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';renderControls();renderMap();updateUndoButtons();const target=String(options.plotUid||new URLSearchParams(location.search).get('field_plot')||'');if(target){const row=rowByUid(target);if(row>=0)selectRow(row,{force:true,skipSave:true});}checkHandoff();}
 
-// Public hook used by Result OS/outlier diagnostics and QR deep links.
-globalThis.AgrotikFieldLayout={open:(options={})=>openFieldLayout(options),openPlot:identifier=>{ensureModal();refreshData(false);let row=rowByUid(String(identifier));if(row<0)row=current.rows.findIndex((r,i)=>plotLabel(current,r,i).id===String(identifier));openFieldLayout({plotUid:row>=0?plotUid(row):''});return row>=0;}};
+export function openFieldHeatmap(parameter,mode='raw'){
+  ensureModal();refreshData(false);
+  const target=String(parameter??'').trim();
+  let index=Number.isInteger(Number(parameter))?Number(parameter):-1;
+  if(index<0||index>=current.headers.length)index=current.headers.findIndex(header=>String(header||'').trim().toLocaleLowerCase('id-ID')===target.toLocaleLowerCase('id-ID'));
+  if(index<0||index>=current.headers.length)return false;
+  const allowed=new Set(['raw','mean','residual','zscore','percentile']);
+  const before=clone(config);
+  config.colorMode='parameter';config.heatmap=index;config.activeParameter=index;config.heatmapMode=allowed.has(mode)?mode:'raw';
+  commitConfig('buka heatmap dari hasil analisis',before);
+  openFieldLayout();
+  return true;
+}
+
+// Public hook used by Result OS/outlier diagnostics, heatmaps, and QR deep links.
+globalThis.AgrotikFieldLayout={
+  open:(options={})=>openFieldLayout(options),
+  openPlot:identifier=>{ensureModal();refreshData(false);let row=rowByUid(String(identifier));if(row<0)row=current.rows.findIndex((r,i)=>plotLabel(current,r,i).id===String(identifier));openFieldLayout({plotUid:row>=0?plotUid(row):''});return row>=0;},
+  openHeatmap:(parameter,mode='raw')=>openFieldHeatmap(parameter,mode)
+};
