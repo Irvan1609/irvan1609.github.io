@@ -790,9 +790,22 @@ function experimentTableHtml(){
     return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
   }).join('')}</tbody></table></div>`;
 }
+function experimentInlinePreviewHtml(){
+  const exp=state.experiment;if(!exp||exp.kind==='competition'||exp.factorial)return '';
+  const available=exp.parameters.filter(parameter=>exp.units.filter(unit=>Number.isFinite(Number(String(unit.observations?.[parameter]??'').replace(',','.')))).length>=Math.max(4,exp.treatments.length));
+  const parameter=available.includes('Hasil')?'Hasil':available[0];if(!parameter)return '';
+  const result=analyzeExperiment(exp,parameter);if(!result.ok)return '';
+  const p=result.p===null?'—':result.p<.001?'&lt;0,001':result.p.toLocaleString('id-ID',{maximumFractionDigits:3});
+  const audit=auditDesign(exp,state.plotRegistry),spatial=audit.find(item=>item.code==='heterogeneous-field'),missing=audit.find(item=>item.code==='missing');
+  let why='';
+  if(spatial)why=spatial.text;else if(missing)why=missing.text;else if(result.means.some(row=>row.n<3))why='Ulangan efektif rendah membuat estimasi rerata dan BNT kurang presisi.';
+  else if(result.significant)why='Sinyal perlakuan terdeteksi. Interpretasikan arah rerata dan uji lanjut sesuai hipotesis; jangan menyimpulkan semua perlakuan berbeda.';
+  else why='Bukti belum cukup untuk menolak H₀. Hasil tidak signifikan tetap informatif; jangan memaksa perbedaan.';
+  return `<section class="stat-preview"><header><b>📊 ${esc(parameter)}</b><span>n=${result.n}</span></header><div class="stat-preview-metrics"><span>F <b>${Number(result.anova[0].f).toFixed(2)}</b></span><span>p <b>${p}</b></span><span>CV <b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></span><span>BNT <b>${result.lsd.toFixed(2)}</b></span></div><p>${esc(why)}</p></section>`;
+}
 function experimentSummaryHtml(){
   const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
-  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>`;
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>${experimentInlinePreviewHtml()}`;
 }
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
@@ -1835,6 +1848,17 @@ function applyEventChoice(choice){
   addLog(note);state.pendingEvent=null;$('#eventModal').hidden=true;beep(580,.06);render();
 }
 
+function seasonDecisionReview(completed,protocolQuality){
+  const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0),marked=selectionCandidates(state.season).filter(item=>item.selected).length;
+  let best=completed?'Kontrak musim diselesaikan dengan target utama tercapai.':'Program tetap berjalan meski target musim belum lengkap.';
+  if(marked)best='Mempertahankan '+marked+' kandidat seleksi berdasarkan pengamatan lapang.';
+  if(protocolQuality>=70)best='Rancangan percobaan mencapai mutu protokol '+protocolQuality+'%, sehingga keputusan lebih dapat dipertanggungjawabkan.';
+  let mistake='Tidak ada kesalahan dominan yang terdeteksi pada musim ini.';
+  if(state.experiment&&protocolQuality<50)mistake='Mutu protokol hanya '+protocolQuality+'%; data terlalu tidak lengkap untuk kesimpulan kuat.';
+  else if(state.seasonStats.failed>=3)mistake=state.seasonStats.failed+' petak gagal; kehilangan unit mengurangi hasil dan informasi.';
+  else if(margin<0)mistake='Margin negatif '+formatRupiah(Math.abs(margin))+'; biaya input melampaui pendapatan.';
+  return {best,mistake};
+}
 function finishSeason(){
   if(state.pendingEvent)return;clearUndo();updateFieldPressure();
   for(let i=0;i<state.field.length;i++){const crop=state.field[i];if(crop&&crop.growth>=100&&crop.health>0)recordHarvest(i,crop,.9,false);}
@@ -1844,6 +1868,10 @@ function finishSeason(){
     :{coins:Math.round((8000+26000*contractRatio)*Math.min(1.2,rewardScale)),rp:Math.floor(3*contractRatio),xp:Math.round(6+16*contractRatio)};
   const rivalTarget=computeRivalTarget(),beatRival=state.seasonStats.yield>=rivalTarget,bossWon=!!state.env.boss&&completed;
   state.coins+=reward.coins;state.rp+=reward.rp;state.xp+=reward.xp;state.level=levelFromXp(state.xp);
+  const protocolQuality=state.experiment&&state.experiment.kind!=='competition'?experimentQualityScore():0;
+  const repDelta=(completed?2:-1)+(protocolQuality>=70?2:0)+(state.seasonBest?1:0);state.reputation=Math.max(0,(state.reputation||0)+repDelta);
+  if(protocolQuality>=75&&state.experiment&&!state.experiment.publicationCredited){state.publications=(state.publications||0)+1;state.experiment.publicationCredited=true;}
+  state.partnerTrust=clamp((state.partnerTrust??50)+(completed?3:-2)+(protocolQuality>=70?1:0),0,100);
   if(beatRival){state.rivalWins=(state.rivalWins||0)+1;state.rp+=4;awardAchievement('rival');}
   if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=50000;awardAchievement('boss');}}
   else state.collection.environments=unique([...(state.collection.environments||[]),state.env.id]);
@@ -1857,7 +1885,7 @@ function finishSeason(){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
   }
   $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
-  $('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Kontrak</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Rival</small><b>${state.seasonStats.yield>=rivalTarget?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)} kg</b></div><div><small>Insentif</small><b>+${formatRupiah(reward.coins)}</b></div><div><small>Patogen carry-over</small><b>${state.fieldPressure.pathogen.toFixed(1)}</b></div><div><small>Residu stres lahan</small><b>${state.fieldPressure.fatigue.toFixed(1)}</b></div>`;
+  const review=seasonDecisionReview(completed,protocolQuality);$('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Kontrak</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Reputasi</small><b>★ ${state.reputation||0}</b></div><div><small>Publikasi</small><b>▤ ${state.publications||0}</b></div><div><small>Rival</small><b>${state.seasonStats.yield>=rivalTarget?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)} kg</b></div><div><small>Insentif</small><b>+${formatRupiah(reward.coins)}</b></div></div><div class="decision-review season-review"><article><small>KEPUTUSAN TERBAIK</small><b>✓ ${esc(review.best)}</b></article><article><small>KESALAHAN TERMAHAL</small><b>! ${esc(review.mistake)}</b></article></div>`;
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
@@ -1898,7 +1926,7 @@ function updateCrossPreview(){
   const genotype=hasTech('genome')
     ?`<div class="genotype-preview">${Object.entries(lociInfo()).map(([locus,meta])=>{const ga=normalizeGenome(a.genome,a.id)[locus].join('/'),gb=b?normalizeGenome(b.genome,b.id)[locus].join('/'):'—';return `<span><b>${locus}</b> ${esc(ga)}${b?' × '+esc(gb):''}<small>${esc(meta.name)}</small></span>`;}).join('')}</div>`
     :'<small class="genome-locked">⌬ Genotipe lokus disembunyikan sampai Genome Lab terbuka.</small>';
-  $('#crossPreview').innerHTML=`<b>${esc(preview.title)} · ${cost} RP</b><p>${esc(preview.text)}</p><div class="cross-genetic-kpi"><span>A Hom ${Math.round(sa.homozygosity*100)}%</span>${sb?`<span>B Hom ${Math.round(sb.homozygosity*100)}%</span>`:''}</div>${genotype}`;
+  $('#crossPreview').innerHTML=`<b>${esc(preview.title)} · ${cost} RP</b><p>${esc(preview.text)}</p><small class="linkage-note">YLD–MAT dan WUE–DIS terpaut; rekombinasi tidak selalu memisahkan sifat. Selfing meningkatkan inbreeding dan homozigositas.</small><div class="cross-genetic-kpi"><span>A Hom ${Math.round(sa.homozygosity*100)}%</span>${sb?`<span>B Hom ${Math.round(sb.homozygosity*100)}%</span>`:''}</div>${genotype}`;
 }
 function crossSeeds(){
   clearUndo();
