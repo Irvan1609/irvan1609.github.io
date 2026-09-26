@@ -1,4 +1,4 @@
-const VERSION='20260926-field-zero-professor-v2';
+const VERSION='20260926-field-zero-academy-plus-v5';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
