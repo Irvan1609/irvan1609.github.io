@@ -1448,6 +1448,7 @@ body.calm-ui.inspector-engaged .game-layout{
   grid-template-columns:minmax(0,1fr) 250px!important
 }
 body.calm-ui.inspector-engaged .inspector{display:block}
+body.calm-ui.inspector-engaged #closeInspectorSheet{display:grid;place-items:center}
 
 body.calm-ui .research-steps{
   display:grid;
