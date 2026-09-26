@@ -1,5 +1,5 @@
 import './field-layout.css';
-import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto,renameFieldMediaDataset,deleteFieldMediaDataset} from './field-media.js';
+import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto} from './field-media.js';
 import {qrSvg} from './qr-lite.js';
 
 const STORE='statistical_web_field_layout_v1',SNAPSHOT_STORE='statistical_web_field_snapshots_v1';
@@ -368,25 +368,8 @@ function ensureModal(){
     if(!inField&&(event.key==='s'||event.key==='S')){event.preventDefault();$('#fieldLayoutEdit')?.click();return;}
     if(!inField&&(event.key==='m'||event.key==='M')){event.preventDefault();$('#fieldMultiToggle')?.click();}
   },true);
-  document.addEventListener('stat-dataset-changed',event=>{
-    const detail=event.detail||{},patch=detail.patch,store=readStore();
-    if(detail.type==='rename'&&detail.previous&&detail.name){
-      if(store[detail.previous]){store[detail.name]=store[detail.previous];delete store[detail.previous];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}}
-      const snapshots=snapshotStore();if(snapshots[detail.previous]){snapshots[detail.name]=snapshots[detail.previous];delete snapshots[detail.previous];try{localStorage.setItem(SNAPSHOT_STORE,JSON.stringify(snapshots));}catch{}}
-      void renameFieldMediaDataset(detail.previous,detail.name).catch(()=>{});
-    }else if(detail.type==='delete'&&detail.name){
-      if(store[detail.name]){delete store[detail.name];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}}
-      const snapshots=snapshotStore();if(snapshots[detail.name]){delete snapshots[detail.name];try{localStorage.setItem(SNAPSHOT_STORE,JSON.stringify(snapshots));}catch{}}
-      void deleteFieldMediaDataset(detail.name).catch(()=>{});
-    }
-    const data=dataset(),key=keyFor(data),saved=store[key];
-    if(saved&&Array.isArray(saved.uids)){
-      if(patch?.kind==='delete_row'){const row=Number(patch.row);if(Number.isInteger(row)&&row>=0)saved.uids.splice(row,1);}
-      else if(patch?.kind==='append_row')saved.uids.push(crypto.randomUUID());
-      if(patch?.kind==='delete_row'||patch?.kind==='append_row')try{store[key]=saved;localStorage.setItem(STORE,JSON.stringify(store));}catch{}
-    }
-    if(!$('#fieldLayoutModal')?.classList.contains('open'))return;
-    if(dirty)return;
+  document.addEventListener('stat-dataset-changed',()=>{
+    if(!$('#fieldLayoutModal')?.classList.contains('open')||dirty)return;
     const keep=selectedRow;refreshData();
     if(multiMode)renderBatchEditor();else if(Number.isInteger(keep)&&keep<current.rows.length){selectedRow=keep;renderEditor(keep);}
   });
