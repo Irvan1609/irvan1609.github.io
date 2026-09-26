@@ -62,9 +62,9 @@
 
     <section class="hud" aria-label="Status permainan">
       <div><small>Musim</small><b id="seasonValue">1</b></div>
-      <div><small>Hari</small><b id="dayValue">1/12</b></div>
+      <div><small>Hari</small><b id="dayValue">H1/120</b></div>
       <div><small>Kas</small><b id="coinValue">Rp150 rb</b></div>
-      <div><small>Fokus</small><b id="focusValue">4/4</b></div>
+      <div><small>Tenaga</small><b id="focusValue">3/3</b></div>
       <div><small>Riset</small><b id="rpValue">0</b></div>
       <div><small>Level</small><b id="levelValue">1</b></div><div class="market-cell"><small>Jagung</small><b id="marketValue">Rp5.500/kg</b></div>
       <div class="xp-cell"><small>XP</small><span class="xp-track"><i id="xpBar"></i></span><b id="xpValue">0/100</b></div>
@@ -116,8 +116,14 @@
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
         <div id="advanceNotice" class="advance-notice" role="status" hidden></div>
-        <div class="day-actions">
-          <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
+        <div class="time-panel" aria-label="Kalender lapang">
+          <div class="time-main"><small id="phenologyStatus">H1 · Belum ditanam</small><b id="criticalTask">Tanam petak sebelum mempercepat waktu</b></div>
+          <span id="timeStop">Auto-stop aktif</span>
+        </div>
+        <div class="day-actions" aria-label="Kontrol waktu">
+          <button id="nextDay" class="primary" type="button">+1 Hari</button>
+          <button id="skip3Days" type="button">+3 Hari</button>
+          <button id="nextCritical" type="button">⏩ Ke kejadian</button>
           <button id="finishSeason" type="button" hidden>Akhiri musim</button>
         </div>
         <nav class="field-primary-actions" aria-label="Aksi utama">
