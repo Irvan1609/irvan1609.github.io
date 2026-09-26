@@ -85,39 +85,69 @@
       <div><button id="openPrestige" type="button"><b id="legacyValue">0</b></button></div>
     </section>
 
-    <div class="game-layout">
-      <section class="field-panel panel">
-        <div class="panel-head">
-          <div><small>FIELD ZERO</small><h2>Lahan</h2></div>
+    <div class="game-layout map-layout">
+      <section class="field-panel panel farm-map-panel">
+        <div class="map-panel-head panel-head">
+          <div><small>FIELD ZERO · STASIUN PENELITIAN</small><h2>Denah lahan</h2></div>
           <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot sick"></i>Masalah</span></div>
         </div>
-        <div class="field-context">
-          <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
-          <span id="activeToolStatus">Ketuk alat → petak</span>
+
+        <div id="farmMapScene" class="farm-map-scene">
+          <div class="map-atmosphere" aria-hidden="true"></div>
+          <div class="map-landmarks" aria-label="Fasilitas lapangan">
+            <button id="mapNursery" class="map-landmark nursery" type="button" title="Buka Rumah Benih">
+              <span class="map-landmark-icon">🌱</span><b>Rumah Benih</b><small>Nursery</small>
+            </button>
+            <button id="mapResearchHub" class="map-landmark research" type="button" title="Buka penelitian">
+              <span class="map-landmark-icon">🔬</span><b>Gudang / Penelitian</b><small>Rancob & pemuliaan</small>
+            </button>
+            <button id="mapWaterSource" class="map-landmark water" type="button" title="Aktifkan irigasi">
+              <span class="map-landmark-icon">💧</span><b>Sumber Air</b><small>Irigasi</small>
+            </button>
+            <button id="mapWorld" class="map-landmark world" type="button" title="Buka peta lokasi">
+              <span class="map-landmark-icon">🗺</span><b>Peta</b><small>Lokasi riset</small>
+            </button>
+          </div>
+
+          <div class="field-context map-field-context">
+            <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
+            <span id="activeToolStatus">Ketuk alat → petak</span>
+          </div>
+
+          <div class="map-field-board">
+            <div class="map-field-title"><span>LAHAN PERCOBAAN</span><small>3 kelompok · 24 petak</small></div>
+            <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
+          </div>
+
+          <button id="mapAnalysis" class="map-analysis-button" type="button" title="Analisis data percobaan di Statistical Web">
+            <span>▥</span><b>Analisis</b><small>/stat</small>
+          </button>
+
+          <div class="mobile-command-row map-command-row" aria-label="Aksi cepat">
+            <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
+            <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
+          </div>
+
+          <div class="day-actions map-day-actions">
+            <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
+            <button id="finishSeason" type="button" hidden>Akhiri musim</button>
+          </div>
         </div>
-        <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
-          <button type="button" draggable="true" data-field-tool="plant" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span></button>
-          <button type="button" draggable="true" data-field-tool="water" title="Air" aria-label="Air"><span class="tool-icon">💧</span></button>
-          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span></button>
-          <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
-          <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
-          <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span></button>
-        </div>
-        <div class="mobile-command-row" aria-label="Aksi cepat">
-          <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
-          <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
-        </div>
-        <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
-        <div class="day-actions">
-          <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
-          <button id="finishSeason" type="button" hidden>Akhiri musim</button>
+
+        <div id="toolDock" class="field-tool-dock map-tool-dock" aria-label="Alat lapangan">
+          <button type="button" draggable="true" data-field-tool="plant" data-label="Tanam" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span></button>
+          <button type="button" draggable="true" data-field-tool="water" data-label="Siram" title="Air" aria-label="Air"><span class="tool-icon">💧</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" data-label="Pupuk" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" data-label="Amati" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
+          <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" data-label="Panen" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
+          <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" data-label="Perlakuan" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span></button>
         </div>
       </section>
 
-      <aside class="inspector panel">
+      <aside class="inspector panel map-inspector">
         <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><div class="inspector-head-actions"><span id="plotStage" class="stage-badge">—</span><button id="closeInspectorSheet" type="button" aria-label="Tutup detail petak">×</button></div></div>
         <div id="inspectorBody" class="inspector-body">
-          <div class="empty-inspector">Pilih petak.</div>
+          <div class="empty-inspector">Pilih petak pada denah.</div>
         </div>
       </aside>
     </div>
