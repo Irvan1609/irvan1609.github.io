@@ -64,6 +64,14 @@
       <div class="today"><small>Hari ini</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span></div>
     </section>
 
+    <section class="meta-strip panel" aria-label="Mode dan progres meta">
+      <div><small>Lokasi</small><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b><span>Ubah wilayah</span></button></div>
+      <div><small>Run</small><button id="openChallenges" type="button"><b id="runModeName">Standar</b><span id="runModeHint">Tanpa pembatas</span></button></div>
+      <div><small>Rival</small><button id="openRival" type="button"><b id="rivalName">Dr. Nara</b><span id="rivalScore">Target —</span></button></div>
+      <div><small>Ghost</small><button id="openRecords" type="button"><b id="ghostScore">Belum ada</b><span>Rekor terbaik</span></button></div>
+      <div><small>Legacy</small><button id="openPrestige" type="button"><b id="legacyValue">0</b><span>New Game+</span></button></div>
+    </section>
+
     <div class="game-layout">
       <section class="field-panel panel">
         <div class="panel-head">
@@ -106,6 +114,25 @@
       </section>
     </section>
 
+    <section class="meta-grid">
+      <section class="panel meta-panel">
+        <div class="panel-head"><div><small>RESEARCH TREE</small><h2>Tech Tree</h2></div><span id="techCount" class="count-badge">0</span></div>
+        <div id="techTree" class="tech-tree"></div>
+      </section>
+      <section class="panel meta-panel">
+        <div class="panel-head"><div><small>FIELD OPERATIONS</small><h2>Ekspedisi</h2></div><span id="expeditionStatus" class="count-badge">Siap</span></div>
+        <div id="expeditionPanel"></div>
+      </section>
+      <section class="panel meta-panel">
+        <div class="panel-head"><div><small>GENETIC PUZZLE</small><h2>Genome Lab</h2></div><span id="genomeStatus" class="count-badge">Terkunci</span></div>
+        <div id="genomeLab"></div>
+      </section>
+      <section class="panel meta-panel">
+        <div class="panel-head"><div><small>LINEAGE</small><h2>Evolution Tree</h2></div><button id="openEvolution" class="mini-button" type="button">Lihat semua</button></div>
+        <div id="evolutionPreview" class="evolution-preview"></div>
+      </section>
+    </section>
+
     <section class="lower-grid">
       <details class="panel compact-panel" open>
         <summary><span><small>REKAMAN LAPANG</small><b>Log musim</b></span><span>⌄</span></summary>
@@ -126,6 +153,13 @@
       <h2 id="eventTitle">Kejadian</h2>
       <p id="eventText"></p>
       <div id="eventChoices" class="event-choices"></div>
+    </section>
+  </div>
+
+  <div id="metaModal" class="event-backdrop" hidden>
+    <section class="event-card meta-modal-card" role="dialog" aria-modal="true" aria-labelledby="metaModalTitle">
+      <div class="modal-head"><div><span id="metaModalKicker" class="event-kicker">FIELD ZERO</span><h2 id="metaModalTitle">Panel</h2></div><button id="closeMetaModal" class="icon-button" type="button" aria-label="Tutup">×</button></div>
+      <div id="metaModalBody" class="meta-modal-body"></div>
     </section>
   </div>
 
