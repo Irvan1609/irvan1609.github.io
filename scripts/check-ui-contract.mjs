@@ -102,7 +102,7 @@ if(!statStyle.includes('STAT COMPACT CONTROLS 2026-09-26')||!statStyle.includes(
 for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','/* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */','@media(min-width:901px)','grid-template-columns:repeat(5,minmax(0,1fr))!important','.analysis-group-items[hidden]','grid-template-columns:1fr!important'])if(!statStyle.includes(marker))fail('desktop all-column analysis panel missing '+marker);
 for(const marker of ['analysisOtherSelect','data-analysis-more','data-analysis-factorial','data-analysis-open'])if(!flow.includes(marker))fail('compact analysis workflow missing '+marker);
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
-for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Genetik & Multilokasi","'association','correlation'","'association','path'"])if(!flow.includes(required))fail('analysis flow missing grouped analysis menu requirement: '+required);
+for(const required of ["Rancangan khusus","Hubungan & regresi","Pemuliaan & multilokasi","Perencanaan","'association','correlation'","'association','path'"])if(!flow.includes(required))fail('analysis flow missing compact grouped picker requirement: '+required);
 if(!flow.includes("openScientificLazy(value)")&&!flow.includes("openScientific(button.dataset.design)"))fail('analysis flow must open the selected scientific design, directly or lazily');
 for(const marker of ["import('./scientific-workflow.js')","import('./association-workflow.js')","import('./advanced-workflow.js')","import('./nextgen-workflow.js')"])if(!flow.includes(marker))fail('analysis flow must lazy-load heavy analysis modules: '+marker);
 
