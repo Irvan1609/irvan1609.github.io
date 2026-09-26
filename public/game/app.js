@@ -446,7 +446,7 @@ function applyTreatmentModel(crop,treatment){
     if(Number(treatment.dose)>=250){crop.stress=clamp(crop.stress+5,0,120);}
   }
 }
-function createExperiment({name,design,kind,count,reps,custom,parameters}){
+function createExperiment({name,design,kind,count,reps,custom,parameters,frequency=2}){
   if(design==='rak')reps=BLOCK_COUNT;
   const treatments=experimentTreatments(kind,count,custom),total=treatments.length*reps;
   if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
@@ -455,7 +455,7 @@ function createExperiment({name,design,kind,count,reps,custom,parameters}){
   if(kind==='genotype'&&treatments.length<count)throw Error('Benih di Koleksi Benih belum cukup.');
   const params=unique(String(parameters||'TT,DB,JD,Penyakit,Hasil').split(',').map(x=>x.trim()).filter(Boolean)).slice(0,10),seed=hashString(state.simulationSeed+':'+state.season+':'+String(name||'rancob'));
   state.plotUse=state.plotUse.map(()=> 'commercial');
-  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
+  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
   state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
   state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+' · petak lain tetap untuk produksi.');render();openExperiment();
 }
@@ -506,12 +506,29 @@ function recordDailyExperimentObservation(index,crop,{yieldValue='',force=false}
   const exp=state.experiment,unit=experimentUnit(index);if(!exp||!unit||!crop)return;
   unit.timeline=Array.isArray(unit.timeline)?unit.timeline:[];
   if(!force&&unit.timeline.some(row=>row.day===state.day))return;
+  if(crop.health<=0){unit.missingStatus='TANAMAN MATI';unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:{},status:'missing-dead'});return;}
   const values=simulatedObservationValues(index,crop,yieldValue),measured={};
   for(const parameter of exp.parameters){
     const value=parameterValue(parameter,values);
     if(value!==''&&value!==undefined){measured[parameter]=value;if(!String(parameter).toLowerCase().includes('hasil')||yieldValue!=='')unit.observations[parameter]=value;}
   }
-  unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:measured,status:crop.health<=0?'missing-dead':'observed'});
+  unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:measured,status:'observed'});
+}
+function runScheduledExperimentObservation(){
+  const exp=state.experiment;if(!exp||state.day<=1||state.day%exp.measureEvery!==0)return;
+  const units=exp.units.filter(unit=>state.field[unit.plot]),measureParams=exp.parameters.filter(parameter=>!String(parameter).toLocaleLowerCase('id-ID').includes('hasil'));
+  if(!units.length||!measureParams.length)return;
+  const cost=units.length*measureParams.length*(exp.measurementUnitCost||250);
+  if(state.coins<cost){
+    for(const unit of units){
+      unit.missingStatus='ANGGARAN PENGAMATAN';
+      unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:{},status:'missing-budget'});
+    }
+    addLog('📋 Pengamatan H'+state.day+' terlewat: anggaran kurang '+formatRupiah(cost)+'.');return;
+  }
+  state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;exp.observationCost=(exp.observationCost||0)+cost;
+  units.forEach(unit=>recordDailyExperimentObservation(unit.plot,state.field[unit.plot]));
+  addLog('📋 Pengamatan H'+state.day+' · '+units.length+' petak · '+formatRupiah(cost)+'.');
 }
 function recordExperimentObservation(index,crop,yieldValue){
   const unit=experimentUnit(index);if(!unit)return;
@@ -569,7 +586,7 @@ function experimentTableHtml(){
 }
 function experimentSummaryHtml(){
   const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
-  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span></div>`;
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>`;
 }
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
@@ -579,6 +596,7 @@ function openExperiment(){
       <label>Rancangan<select name="design"><option value="rak">RAK</option><option value="ral">RAL</option></select></label>
       <label>Perlakuan<input name="count" type="number" min="2" max="8" value="4"></label>
       <label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"><small>RAK = Kelompok I–III</small></label>
+      <label>Frekuensi ukur<select name="frequency"><option value="1">Setiap hari</option><option value="2" selected>2 hari</option><option value="3">3 hari</option><option value="4">4 hari</option></select></label>
       <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
       <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
       <label class="experiment-wide">Parameter<input name="parameters" value="TT,DB,JD,Penyakit,Hasil"></label>
@@ -587,7 +605,7 @@ function openExperiment(){
     </form><p class="meta-note">RAK memakai 3 kelompok × 8 petak dan randomisasi terpisah dalam tiap kelompok. Petak yang tidak masuk percobaan tetap dapat dipakai untuk Rp produksi atau 🧬 pemuliaan.</p>`);
     $('#experimentForm').onsubmit=event=>{
       event.preventDefault();const fd=new FormData(event.currentTarget);
-      try{createExperiment({name:fd.get('name'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters')});}
+      try{createExperiment({name:fd.get('name'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters'),frequency:Number(fd.get('frequency'))});}
       catch(error){alert(error.message);}
     };
     $('#metaModalBody').querySelector('[data-breeding-cup]').onclick=breedingCup.open;
@@ -1318,7 +1336,7 @@ function advanceDay(){
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
   }else state.weather=deterministicWeather(state.env,state.day);
-  const w=WEATHER[state.weather];state.field.forEach((crop,index)=>{processCrop(crop,w,index);if(crop)recordDailyExperimentObservation(index,crop);});tickExpedition();
+  const w=WEATHER[state.weather];state.field.forEach((crop,index)=>processCrop(crop,w,index));runScheduledExperimentObservation();tickExpedition();
   addLog(w.icon+' '+w.name+'. '+w.effect+'.');
   const eventChance=state.achievements.includes('first')?(.28+Math.min(.12,state.season*.01)+(state.env.boss?0.08:0)):0.06;
   if(simUnit('event',state.season,state.day)<eventChance)state.pendingEvent=createEvent();
