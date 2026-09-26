@@ -297,7 +297,8 @@ function experimentTreatments(kind,count,custom=''){
 }
 function createExperiment({name,design,kind,count,reps,custom,parameters}){
   const treatments=experimentTreatments(kind,count,custom),total=treatments.length*reps;
-  if(treatments.length<2||reps<2||total>PLOT_COUNT)throw Error('Gunakan ≥2 perlakuan, ≥2 ulangan, total maksimal 12 petak.');
+  if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
+  if(treatments.length<2||reps<2||total>fieldLimit())throw Error('Gunakan ≥2 perlakuan, ≥2 ulangan, total tidak boleh melebihi petak aktif.');
   if(kind==='genotype'&&treatments.length<count)throw Error('Benih di Koleksi Benih belum cukup.');
   const params=unique(String(parameters||'Hasil').split(',').map(x=>x.trim()).filter(Boolean)).slice(0,8);
   state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],units:randomizedExperimentUnits(design,treatments,reps),createdAt:new Date().toISOString()};
@@ -568,6 +569,10 @@ function toolSymbol(tool){
 }
 function playHint(){
   if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
+  if(state.experiment&&state.experiment.kind!=='genotype'){
+    const pending=state.experiment.units.find(unit=>!unit.applied);
+    if(pending)return {icon:'🧪',text:'P'+String(pending.plot+1).padStart(2,'0')+' · '+(experimentTreatment(pending)?.code||''),action:'tool',tool:'treatment'};
+  }
   const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
   if(ready>=0)return {icon:'🧺',text:'P'+String(ready+1).padStart(2,'0')+' ✓',action:'tool',tool:'harvest'};
   const lowWater=state.field.findIndex(crop=>crop&&crop.health>0&&crop.water<28);
