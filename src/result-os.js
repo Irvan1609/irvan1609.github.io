@@ -160,6 +160,8 @@ async function copyWord(container){
 function roleForTable(wrap){
   const table=wrap.querySelector('table');if(!table)return 'technical';
   if(wrap.closest('[data-bab4-table]'))return 'bab4';
+  if(wrap.closest('[data-os-compare-panel]'))return 'compare';
+  if(table.classList.contains('result-heatmap-table'))return 'heatmap';
   if(table.classList.contains('anova-table'))return 'anova';
   if(table.classList.contains('posthoc-table')||table.classList.contains('contrast-summary-table')||table.classList.contains('contrast-calculation-table'))return 'posthoc';
   return 'technical';
@@ -195,15 +197,16 @@ function setupPinButtons(container,datasetName,pins,grid,originalRank,state){
     const heading=section.querySelector(':scope > h3');if(!heading||heading.querySelector('[data-os-pin]'))continue;
     const button=document.createElement('button');button.type='button';button.className='result-pin-toggle';button.dataset.osPin=section.dataset.parameter;button.textContent=pins.has(section.dataset.parameter)?'★':'☆';button.title='Sematkan hasil ke atas';heading.append(button);
   }
-  container.addEventListener('click',event=>{
+  const pinHandler=event=>{
     const button=event.target.closest('[data-os-pin]');if(!button)return;
     event.preventDefault();event.stopPropagation();
     const name=button.dataset.osPin;
     if(pins.has(name))pins.delete(name);else pins.add(name);
     writePins(datasetName,pins);button.textContent=pins.has(name)?'★':'☆';applyOrder();
-  });
+  };
+  container.addEventListener('click',pinHandler);
   applyOrder();
-  return applyOrder;
+  return {applyOrder,cleanup:()=>container.removeEventListener('click',pinHandler)};
 }
 function syncCompare(container){
   const selected=[...container.querySelectorAll('[data-os-compare-choice]:checked')].map(input=>input.dataset.osCompareChoice);
@@ -272,7 +275,8 @@ export function enhanceResultOS(container,reports,options={}){
   if(stale)stale.after(shell);else container.prepend(shell);
 
   decorateTables(container);
-  const applyPinnedOrder=setupPinButtons(container,datasetName,pins,grid,originalRank,state);
+  const pinSetup=setupPinButtons(container,datasetName,pins,grid,originalRank,state);
+  const applyPinnedOrder=pinSetup.applyOrder;
   syncCompare(container);
 
   const focusSelect=container.querySelector('[data-result-focus]');
@@ -392,6 +396,7 @@ export function enhanceResultOS(container,reports,options={}){
     container.removeEventListener('click',clickHandler);container.removeEventListener('input',inputHandler);container.removeEventListener('change',changeHandler);
     container.removeEventListener('touchstart',touchStartHandler);container.removeEventListener('touchend',touchEndHandler);
     document.removeEventListener('keydown',keyHandler);
+    pinSetup.cleanup();
     if(head){head.removeEventListener('touchstart',headStartHandler);head.removeEventListener('touchend',headEndHandler);}
   };
 }
