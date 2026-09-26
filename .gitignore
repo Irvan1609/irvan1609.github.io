@@ -1,0 +1,28 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+credentials.json
+*.secrets.json
+**/wrangler.toml
+!**/wrangler.toml.example
+
+# Dependencies and generated output
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
