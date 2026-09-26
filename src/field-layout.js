@@ -239,6 +239,7 @@ function ensureModal(){
             <button id="fieldPrint" type="button">Cetak</button>
             <button id="fieldSnapshot" type="button">Simpan snapshot</button>
             <button id="fieldRestoreSnapshot" type="button">Pulihkan snapshot</button>
+            <button id="fieldExportGeoJson" type="button">Ekspor GPS / GeoJSON</button>
             <button id="fieldExportLayout" type="button">Ekspor denah</button>
             <button id="fieldImportLayout" type="button">Impor denah</button>
             <button id="fieldResetLayout" type="button">Reset susunan</button>
@@ -296,7 +297,7 @@ function ensureModal(){
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
   $('#fieldPrint').onclick=()=>window.print();$('#fieldPrintQr').onclick=printQrLabels;
   $('#fieldSnapshot').onclick=saveFieldSnapshot;$('#fieldRestoreSnapshot').onclick=restoreFieldSnapshot;
-  $('#fieldExportLayout').onclick=exportLayout;
+  $('#fieldExportGeoJson').onclick=exportGeoJson;$('#fieldExportLayout').onclick=exportLayout;
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
   $('#fieldLayoutImportInput').onchange=importLayout;$('#fieldPhotoInput').onchange=saveSelectedPhoto;
@@ -704,6 +705,18 @@ function restoreFieldSnapshot(){
   pushLayoutHistory('pulihkan snapshot');config=normalizeConfig(current,cloneConfig(list[choice].config));writeConfig(current,config);renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
 }
 
+function exportGeoJson(){
+  const features=[];
+  current.rows.forEach((row,index)=>{
+    const uid=plotUid(index),meta=config.plotMeta?.[uid]||{},gps=meta.gps;if(!gps||!Number.isFinite(Number(gps.lat))||!Number.isFinite(Number(gps.long)))return;
+    const labels=plotLabel(current,row,index);
+    features.push({type:'Feature',geometry:{type:'Point',coordinates:[Number(gps.long),Number(gps.lat)]},properties:{uid,plot:labels.id,group:groupLabelForRow(index),treatment:colorLabel(current,row),status:plotStatus(index),note:plotNote(index),accuracy:Number(gps.accuracy)||null,observed_at:gps.at||meta.updatedAt||null,observer:meta.observer||''}});
+  });
+  if(!features.length)return alert('Belum ada plot dengan koordinat GPS.');
+  const geo={type:'FeatureCollection',name:String(current.name||'Denah Lahan'),features},blob=new Blob([JSON.stringify(geo,null,2)],{type:'application/geo+json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=(String(current.name||'dataset').replace(/[^a-z0-9._-]+/gi,'-')||'dataset')+'-plot-gps.geojson';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
 function exportLayout(){
   const payload={version:2,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -950,7 +963,12 @@ function stepEditor(direction){
   let index=route.indexOf(selectedRow);
   if(index<0)index=direction>0?-1:0;
   index=(index+direction+route.length)%route.length;
-  selectRow(route[index]);
+  const next=route[index],fromGroup=Number.isInteger(selectedRow)?groupLabelForRow(selectedRow):'',toGroup=groupLabelForRow(next);
+  if(fromGroup&&toGroup&&fromGroup!==toGroup){
+    const entries=groupEntries(current).find(([label])=>label===fromGroup)?.[1]||[],missing=entries.filter(entry=>rowIncomplete(entry.index));
+    if(missing.length){const status=$('#fieldEditorStatus');if(status)status.textContent=`⚠ ${fromGroup}: ${missing.length} plot masih belum lengkap.`;}
+  }
+  selectRow(next);
 }
 function addParameter(){
   const name=prompt('Nama parameter baru, misalnya Tinggi Tanaman (cm):','');
