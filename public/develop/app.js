@@ -35,7 +35,9 @@ async function loadHealth(){
   $('#healthJson').textContent=JSON.stringify(data,null,2);
   $('#overviewHealth').innerHTML=[
     ['Service',data.service||'—'],['API',data.apiVersion||'—'],['Auth',data.authConfigured?'Aktif':'Nonaktif'],
-    ['Dataset Sync',data.datasetSync?'Aktif':'Nonaktif'],['Membership',data.membershipAccess?'Aktif':'Nonaktif'],
+    ['Dataset Sync',data.datasetSync?'Aktif':'Nonaktif'],['Mode cloud',data.cloudMode||'—'],
+    ['Quota guard',data.quotaGuard?'Aktif':'Nonaktif'],['R2 foto',data.storage?.imagesR2?'Aktif':'Fallback D1'],
+    ['R2 backup',data.storage?.backupsR2?'Aktif':'Belum'],['Membership',data.membershipAccess?'Aktif':'Nonaktif'],
     ['Develop',data.developConsole?'Aktif':'Nonaktif'],['QRIS membership',data.membershipPayments?'Terkonfigurasi':'Belum']
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
   return data;
@@ -56,7 +58,8 @@ async function loadOverview(){
   $('#statsGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+Number(item[1]||0).toLocaleString('id-ID')+'</b></article>').join('');
   $('#overviewUsage').innerHTML=[
     ['Ukuran dataset',bytes(usage.datasetBytes)],['Revisi dataset',Number(usage.datasetRevisionWrites||0).toLocaleString('id-ID')],
-    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto kontribusi',bytes(usage.contributionImageBytes)],
+    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto total',bytes(usage.contributionImageBytes)],
+    ['Foto di D1',bytes(usage.contributionD1ImageBytes)],['Foto di R2',bytes(usage.contributionR2ImageBytes)],
     ['Midtrans env',midtrans.environment||'—'],['Midtrans key',midtrans.keyType||'—'],
     ['Midtrans auth',midtrans.verified?'Terverifikasi':(midtrans.message||'Belum terverifikasi')]
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
@@ -168,7 +171,7 @@ async function loadAI(){
 }
 async function loadServer(){
   const result=await Promise.all([api('/v1/develop/usage'),loadHealth()]),u=result[0].estimated||{};
-  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto bytes',bytes(u.contributionImageBytes)],['Users',u.users]];
+  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Foto total',bytes(u.contributionImageBytes)],['Users',u.users]];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
 async function loadSecurity(){
@@ -185,7 +188,8 @@ async function loadSecurity(){
     ['CSRF',controls.csrf?'Aktif':'Tidak'],['Fallback bearer',String(controls.bearerFallbackHours||0)+' jam'],
     ['Rotasi sesi',String(controls.sessionRotationHours||0)+' jam'],['Turnstile',controls.turnstile?'Aktif':'Belum'],
     ['Rate limit kontribusi',controls.contributionRateLimit?'Aktif':'Belum'],['Rate limit dataset',controls.datasetRateLimit?'Aktif':'Belum'],
-    ['R2 backup',controls.r2Backups?'Aktif':'Belum']
+    ['R2 foto kontribusi',controls.r2ContributionImages?'Aktif':'Fallback D1'],['R2 backup',controls.r2Backups?'Aktif':'Belum'],
+    ['Retention terjadwal',controls.scheduledRetention?'Aktif':'Belum'],['Idempotent sync',controls.idempotentSync?'Aktif':'Belum']
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
   const events=Object.entries(data.events24h||{}).sort((a,b)=>b[1]-a[1]);
   $('#securityEvents').innerHTML=events.length?events.map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join(''):'<div class="muted">Belum ada peristiwa audit dalam 24 jam.</div>';
