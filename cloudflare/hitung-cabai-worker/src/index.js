@@ -1863,7 +1863,7 @@ async function handleGameProfilePut(request,env){
 function parseGameSavePayload(value){
   if(!value||typeof value!=='object'||Array.isArray(value))return null;
   const version=Math.round(Number(value.version)||0),season=Math.round(Number(value.season)||0),day=Math.round(Number(value.day)||0);
-  if(version<3||version>20||season<1||season>500||day<1||day>40)return null;
+  if(version<3||version>20||season<1||season>500||day<1||day>200)return null;
   if(!Array.isArray(value.field)||value.field.length<1||value.field.length>48)return null;
   if(!Array.isArray(value.vault)||value.vault.length<1||value.vault.length>300)return null;
   const text=JSON.stringify(value);
