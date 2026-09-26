@@ -137,7 +137,7 @@ export function createBreedingCup(api){
     const seed=hashString(api.uid('cup')+':'+st.season);
     const treatments=Array.from({length:strategy.lines},(_,i)=>({id:'B'+String(i+1).padStart(2,'0'),code:'G'+String(i+1).padStart(2,'0'),name:'Galur '+String(i+1).padStart(2,'0')}));
     const cost=designCost(values.strategy,values.management),initialBudget=12000000;
-    st.challenge='trial24';st.maxDay=12;st.daily=null;st.monoSeedId=null;
+    st.challenge='trial24';st.maxDay=api.seasonDays?.('trial24')||120;st.daily=null;st.monoSeedId=null;
     const design=values.design==='ral'?'ral':'rak';
     st.experiment={id:api.uid('exp'),name:'Breeding Cup · '+tender.name,design,kind:'competition',treatments,reps:strategy.reps,parameters:[...PARAMETERS],units:api.randomize(design,treatments,strategy.reps),createdAt:new Date().toISOString()};
     st.competition={id:api.uid('cup'),seed,strategy:values.strategy,tender:values.tender,management:values.management,design,reps:strategy.reps,initialBudget,budget:initialBudget-cost,spent:cost,stage:'design',trialEnv:ENVS[Math.floor(unit(seed,'trial-env')*ENVS.length)].id,hiddenLines:Array.from({length:strategy.lines},(_,i)=>line(seed,i)),diagnostics:[],selected:[],decisions:[{type:'design',text:design.toUpperCase()+' · '+strategy.name+' · '+management.name}],failure:{symptom:'Daun menguning dan pertumbuhan terhambat',cause:FAILURE_CAUSES[Math.floor(unit(seed,'failure-cause')*FAILURE_CAUSES.length)],action:null,correct:null},final:null};
@@ -239,7 +239,7 @@ export function createBreedingCup(api){
     comp.stage='final';comp.decisions.push({type:'final',text:'Uji akhir rahasia selesai pada 3 lingkungan.'});api.save();api.render();open();
   }
   function reset(){
-    const st=state();st.competition=null;st.experiment=null;st.challenge='standard';st.maxDay=12;st.selectedPlot=0;api.setTool('');api.save();api.render();api.openExperiment();
+    const st=state();st.competition=null;st.experiment=null;st.challenge='standard';st.maxDay=api.seasonDays?.('standard')||120;st.selectedPlot=0;api.setTool('');api.save();api.render();api.openExperiment();
   }
   function diagnosticsHtml(){
     const comp=state().competition;
