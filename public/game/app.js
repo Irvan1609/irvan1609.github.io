@@ -1770,10 +1770,15 @@ function beginNextSeason(){
 }
 
 function updateCrossPreview(){
-  const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value);
+  const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value),selected=selectedSeed();
   $('#crossSeeds').disabled=!a||!b||a.id===b.id||state.rp<CROSS_COST;
-  if(!a||!b){$('#crossPreview').textContent='Pilih dua benih berbeda. Keturunannya mewarisi sebagian trait dan mungkin mengalami mutasi.';return;}
-  const possible=unique([...a.traits,...b.traits]);$('#crossPreview').innerHTML=`Potensi trait: <span class="trait-row">${possible.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</span>`;
+  const genHost=$('#selectedSeedGenetics');if(genHost)genHost.innerHTML=seedGenerationPanel(selected);
+  const selfButton=$('#selfSelectedSeed');if(selfButton){
+    const g=Math.max(1,Number(selected?.generation)||1);selfButton.disabled=!selected||state.rp<4;selfButton.textContent='Selfing '+generationName(g)+' → '+generationName(g+1)+' · 4 RP';
+  }
+  if(!a||!b){$('#crossPreview').textContent='Pilih dua tetua. Persilangan membuat F1; selfing F1 menghasilkan F2 yang bersegregasi.';return;}
+  const possible=unique([...a.traits,...b.traits]),hetA=Math.round(observedHeterozygosity(a.genome||{})*100),hetB=Math.round(observedHeterozygosity(b.genome||{})*100);
+  $('#crossPreview').innerHTML=`<b>${esc(a.name)} × ${esc(b.name)}</b><small>Heterozigositas tetua: A ${hetA}% · B ${hetB}% · keturunan pertama = F1</small><span class="trait-row">${possible.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</span>`;
 }
 function crossSeeds(){
   clearUndo();const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value);
@@ -1785,8 +1790,8 @@ function crossSeeds(){
     const pool=MUTATION_POOL.filter(id=>!inherited.includes(id)),mutation=pool.length?simPick(pool,'cross-mutation-trait',crossKey):null;if(mutation){inherited.push(mutation);discoverTrait(mutation);}
   }
   if(state.season>=5&&simUnit('cross-zero',crossKey)<(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
-  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+simUnit('cross-name',crossKey)*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+simUnit('cross-yield',crossKey)*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+simUnit('cross-vigor',crossKey)*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,stressTests:0,species:state.species,stock:8,viability:98,ageSeasons:0,genome:crossGenome(a.genome,b.genome,crossKey)};
-  state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
+  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+simUnit('cross-name',crossKey)*900),generation:1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+simUnit('cross-yield',crossKey)*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+simUnit('cross-vigor',crossKey)*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,stressTests:0,species:state.species,stock:8,viability:98,ageSeasons:0,genome:crossGenome(a.genome,b.genome,crossKey)};
+  state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);state.learning.xp+=6;awardLearning('crossing:f1',8);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
 
 function bind(){
@@ -1904,6 +1909,7 @@ function bind(){
   $('#eventModal').addEventListener('click',event=>{if(event.target.id==='eventModal')$('#eventModal').hidden=true;});
   $('#saveBestSeed').onclick=openSelection;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
+  $('#selfSelectedSeed').onclick=selfSelectedSeed;
   $('#soundToggle').onclick=async()=>{
     if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);}
     else{state.sound=false;save();renderHud();stopMusic();}
