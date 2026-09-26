@@ -22,6 +22,7 @@ function plotMeta(index){return state.plotRegistry?.[index]||makePlotRegistry()[
 function plotUse(index){return state.plotUse?.[index]||'commercial';}
 function setPlotUse(index,use){
   if(!PLOT_USES[use]||experimentUnit(index))return false;
+  if(use==='research'){toast('📐 Buat rancangan dulu');return false;}
   state.plotUse[index]=use;save();renderField();renderInspector();return true;
 }
 
