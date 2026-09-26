@@ -390,3 +390,116 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
   .social-player{grid-template-columns:auto minmax(0,1fr) auto}
   .social-rank{grid-row:1/2;width:24px}
 }
+
+
+/* FIELD ZERO UX CLEANUP 2026-09-26 */
+.play-hint{
+  width:100%;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:-1px 0 8px;
+  padding:7px 10px;
+  border:1px solid #3d604f;
+  border-radius:9px;
+  background:#183126;
+  color:var(--ink);
+  text-align:left;
+}
+.play-hint>span{
+  width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;
+  border-radius:6px;background:#244536;color:var(--green-2);font-weight:900
+}
+.play-hint b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px}
+.field-context{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:7px;
+  margin-bottom:5px;
+}
+.field-context>button{
+  min-width:0;max-width:55%;height:32px;display:flex;align-items:center;gap:6px;
+  padding:4px 8px;border:1px solid #365749;border-radius:7px;background:#102019;color:var(--ink)
+}
+.field-context>button b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px}
+.field-context>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:9px}
+.field-tool-dock .tool-icon{
+  width:20px;height:20px;display:grid;place-items:center;border-radius:5px;background:#203a2e;
+  font-size:11px;font-weight:900
+}
+.field-tool-dock button[aria-pressed=true] .tool-icon{background:#315e45}
+.lab-hub{background:rgba(17,31,25,.96)}
+.lab-hub>summary{padding:9px 11px}
+.lab-hub[open]>summary{border-bottom:1px solid var(--line)}
+.lab-hub .meta-panel{box-shadow:none}
+.help-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.help-steps>div{
+  display:grid;gap:5px;place-items:center;padding:12px 8px;border:1px solid #315144;border-radius:8px;background:#102019;text-align:center
+}
+.help-steps b{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#244536;color:var(--green-2);font-size:10px}
+.help-steps span{font-size:10px;font-weight:800}
+.help-note{margin-top:8px!important;text-align:center;font-size:9px!important}
+.game-layout{align-items:start}
+.inspector{position:sticky;top:66px}
+.seed-item{min-width:160px}
+.seed-item .trait-row{max-height:42px;overflow:hidden}
+.meta-grid>.vault-panel,.meta-grid>.lab-panel{padding:10px}
+.social-player-actions button{white-space:nowrap}
+@media(max-width:900px){
+  .inspector{position:static}
+}
+@media(max-width:620px){
+  .game-head{margin-bottom:6px;align-items:center}
+  .game-head .kicker{display:none}
+  .game-head p{display:none}
+  .game-head h1{margin:0;font-size:22px}
+  .head-actions{gap:4px}
+  .icon-button{width:36px;height:36px}
+  .hud{grid-template-columns:repeat(3,1fr)}
+  .hud .xp-cell{display:none!important}
+  .season-bar{grid-template-columns:repeat(3,1fr);gap:4px}
+  .season-climate{grid-column:auto}
+  .season-climate>span{font-size:18px}
+  .season-bar>div{padding:6px 7px}
+  .season-bar div>span{display:none}
+  .season-bar b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .season-bar small{font-size:7.5px}
+  .play-hint{min-height:36px;margin-bottom:6px}
+  .game-layout{gap:6px}
+  .field-panel{padding:7px}
+  .panel-head{margin-bottom:6px}
+  .field-context{margin-bottom:4px}
+  .field-context>button{height:34px;max-width:58%}
+  .field-tool-dock{top:55px;margin-bottom:5px;padding:4px}
+  .field-tool-dock button{min-height:46px}
+  .field-tool-dock .tool-icon{width:22px;height:22px}
+  .field-grid{grid-template-columns:repeat(4,1fr);gap:4px}
+  .plot{min-height:82px;padding:5px}
+  .plot-crop{margin:4px 0 3px}
+  .plant-icon{font-size:18px}
+  .plot-crop small{display:none}
+  .plot-bars{margin-top:4px}
+  .inspector{padding:7px}
+  .inspector .panel-head{margin-bottom:5px}
+  .empty-inspector{min-height:64px}
+  .crop-stats{grid-template-columns:repeat(4,1fr);gap:3px}
+  .stat-box{padding:5px 4px;text-align:center}
+  .stat-box span{font-size:7px}.stat-box b{font-size:10px}
+  .action-grid button[data-crop-action="water"],
+  .action-grid button[data-crop-action="fertilize"],
+  .action-grid button[data-crop-action="scout"]{display:none}
+  .action-grid{grid-template-columns:1fr;margin-top:5px}
+  .seed-card-preview{padding:6px}
+  .seed-card-preview p{display:none}
+  .trait{font-size:8px;padding:2px 5px}
+  .lab-hub>.meta-grid{padding:0 6px 6px}
+  .meta-grid>.vault-panel,.meta-grid>.lab-panel,.meta-panel{padding:7px}
+  .seed-item{min-width:145px}
+  .help-steps{grid-template-columns:1fr}
+  .help-steps>div{grid-template-columns:auto 1fr;justify-items:start;padding:8px 10px;text-align:left}
+}
+@media(max-width:419px){
+  .field-grid{grid-template-columns:repeat(3,1fr)}
+}
