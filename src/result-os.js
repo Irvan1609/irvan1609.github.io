@@ -195,9 +195,20 @@ async function openFieldPlot(identifier){
   if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
   return globalThis.AgrotikFieldLayout?.openPlot?.(identifier);
 }
-async function openFieldHeatmap(parameter,mode='raw'){
+async function openFieldHeatmap(parameter,mode='raw',values=null){
   if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
-  return globalThis.AgrotikFieldLayout?.openHeatmap?.(parameter,mode);
+  return globalThis.AgrotikFieldLayout?.openHeatmap?.(parameter,mode,values);
+}
+function exactResidualMap(report){
+  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
+  if(!data?.rows?.length||!Array.isArray(report?.residuals)||!Array.isArray(report?.observations)||report.residuals.length!==report.observations.length)return null;
+  const values=Array(data.rows.length).fill(null);
+  for(let i=0;i<report.observations.length;i++){
+    const row=Number(report.observations[i]?.row),value=Number(report.residuals[i]);
+    if(!Number.isInteger(row)||row<1||row>values.length||!Number.isFinite(value))return null;
+    values[row-1]=value;
+  }
+  return values;
 }
 function setupPinButtons(container,datasetName,pins,grid,originalRank,state){
   const sections=[...container.querySelectorAll('.analysis-result')];
@@ -278,7 +289,7 @@ export function enhanceResultOS(container,reports,options={}){
       '<details class="result-os-menu result-os-more"><summary aria-label="Aksi lainnya">⋯</summary><div class="result-os-menu-body" role="navigation" aria-label="Aksi hasil lainnya">'+
         '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
         '<button type="button" data-os-command="audit">Periksa hasil</button><button type="button" data-os-command="history">Versi hasil</button><button type="button" data-os-command="print">PDF / Cetak</button>'+
-        '<button type="button" data-os-command="field-raw">Denah · nilai</button><button type="button" data-os-command="field-residual">Denah · residual</button>'+
+        '<button type="button" data-os-command="field-raw">Denah · nilai</button><button type="button" data-os-command="field-residual">Denah · residual model</button>'+
       '</div></details>'+
     '</div>'+
     renderInsights(reports,!!options.stale)+
@@ -326,7 +337,12 @@ export function enhanceResultOS(container,reports,options={}){
       if(action==='print'){container.querySelector('[data-print-results]')?.click();return;}
       if(action==='field-raw'||action==='field-residual'){
         const parameter=focusSelect?.value||reports[0]?.name||'';
-        await openFieldHeatmap(parameter,action==='field-residual'?'residual':'raw');return;
+        if(action==='field-raw'){await openFieldHeatmap(parameter,'raw');return;}
+        if(options.stale){alert('Residual model tidak dibuka karena dataset telah berubah. Hitung ulang analisis terlebih dahulu.');return;}
+        const report=reports.find(item=>String(item.name)===String(parameter))||reports[0];
+        const residuals=exactResidualMap(report);
+        if(!residuals){alert('Residual model per plot belum tersedia pada versi hasil ini. Hitung ulang analisis untuk membuat peta residual yang tepat.');return;}
+        await openFieldHeatmap(parameter,'residual',residuals);return;
       }
     }
     const proxy=event.target.closest('[data-os-proxy]');
