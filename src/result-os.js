@@ -195,6 +195,10 @@ async function openFieldPlot(identifier){
   if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
   return globalThis.AgrotikFieldLayout?.openPlot?.(identifier);
 }
+async function openFieldHeatmap(parameter,mode='raw'){
+  if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
+  return globalThis.AgrotikFieldLayout?.openHeatmap?.(parameter,mode);
+}
 function setupPinButtons(container,datasetName,pins,grid,originalRank,state){
   const sections=[...container.querySelectorAll('.analysis-result')];
   const applyOrder=()=>{
@@ -268,8 +272,13 @@ export function enhanceResultOS(container,reports,options={}){
   shell.innerHTML=
     '<div class="result-os-command">'+
       '<input type="search" data-os-search placeholder="Cari hasil…" aria-label="Cari pada hasil">'+
-      '<details class="result-os-menu"><summary>Bagian</summary><div class="result-os-menu-body" role="navigation" aria-label="Bagian hasil">'+
-        '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="parameter">Parameter</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="chart">Grafik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
+      '<button type="button" class="result-os-primary-action" data-os-command="copy">Salin</button>'+
+      '<button type="button" class="result-os-primary-action" data-os-command="export">Ekspor</button>'+
+      '<button type="button" class="result-os-primary-action" data-os-jump="chart">Grafik</button>'+
+      '<details class="result-os-menu result-os-more"><summary aria-label="Aksi lainnya">⋯</summary><div class="result-os-menu-body" role="navigation" aria-label="Aksi hasil lainnya">'+
+        '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
+        '<button type="button" data-os-command="audit">Periksa hasil</button><button type="button" data-os-command="history">Versi hasil</button><button type="button" data-os-command="print">PDF / Cetak</button>'+
+        '<button type="button" data-os-command="field-raw">Denah · nilai</button><button type="button" data-os-command="field-residual">Denah · residual</button>'+
       '</div></details>'+
     '</div>'+
     renderInsights(reports,!!options.stale)+
@@ -307,6 +316,19 @@ export function enhanceResultOS(container,reports,options={}){
     if(insight){const target=filterButtons.find(button=>button.dataset.resultFilter===insight.dataset.osFilter);target?.click();return;}
     const jump=event.target.closest('[data-os-jump]');
     if(jump){jumpTarget(container,jump.dataset.osJump)?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    const command=event.target.closest('[data-os-command]');
+    if(command){
+      const action=command.dataset.osCommand;
+      if(action==='copy'){container.querySelector('[data-os-copy-word]')?.click();return;}
+      if(action==='export'){container.querySelector('[data-result-action="export-all"]')?.click();return;}
+      if(action==='audit'){container.querySelector('[data-thesis-check]')?.click();return;}
+      if(action==='history'){container.querySelector('[data-os-history]')?.click();return;}
+      if(action==='print'){container.querySelector('[data-print-results]')?.click();return;}
+      if(action==='field-raw'||action==='field-residual'){
+        const parameter=focusSelect?.value||reports[0]?.name||'';
+        await openFieldHeatmap(parameter,action==='field-residual'?'residual':'raw');return;
+      }
+    }
     const proxy=event.target.closest('[data-os-proxy]');
     if(proxy){container.querySelector(modeProxy[proxy.dataset.osProxy])?.click();setTimeout(syncModeButtons,0);return;}
     const focusButton=event.target.closest('[data-os-focus]');
