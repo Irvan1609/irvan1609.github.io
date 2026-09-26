@@ -179,7 +179,7 @@ function freshState(){
     log:[{day:1,text:'Field Zero aktif. Empat galur starter tersedia di Seed Vault.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']}
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null
   };
 }
 function load(){
@@ -263,6 +263,138 @@ function applyWaterAid(aid){
   addLog('💧 '+String(aid?.helper?.name||'Teman').slice(0,40)+' membantu P'+String(target.index+1).padStart(2,'0')+'.');
   toast('💧 Bantuan teman masuk ke P'+String(target.index+1).padStart(2,'0'));
   beep(520,.07);render();return true;
+}
+
+const STAT_IMPORT_KEY='agrotik_stat_import_queue_v1';
+function experimentUnit(index){return state.experiment?.units?.find(unit=>unit.plot===index)||null;}
+function experimentTreatment(unit){return unit&&state.experiment?.treatments?.find(item=>item.id===unit.treatmentId)||null;}
+function experimentSeedForPlot(index){
+  if(state.experiment?.kind!=='genotype')return null;
+  const treatment=experimentTreatment(experimentUnit(index));return treatment?.seedId?state.vault.find(seed=>seed.id===treatment.seedId)||null:null;
+}
+function experimentBadge(index){
+  const unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!unit||!treatment)return '';
+  const repLabel=state.experiment.design==='rak'?'K':'U';
+  return `<span class="experiment-badge ${unit.applied?'applied':''}" title="${esc(treatment.name)} · ${repLabel}${unit.rep}">${esc(treatment.code)}·${repLabel}${unit.rep}${unit.applied?'✓':''}</span>`;
+}
+function randomizedExperimentUnits(design,treatments,reps){
+  const items=[];
+  if(design==='rak'){
+    for(let rep=1;rep<=reps;rep++)shuffle(treatments).forEach(treatment=>items.push({treatmentId:treatment.id,rep}));
+  }else{
+    const pool=[];for(const treatment of treatments)for(let i=0;i<reps;i++)pool.push(treatment);
+    const counts={};shuffle(pool).forEach(treatment=>{counts[treatment.id]=(counts[treatment.id]||0)+1;items.push({treatmentId:treatment.id,rep:counts[treatment.id]});});
+  }
+  return items.map((item,plot)=>({plot,...item,applied:false,observations:{}}));
+}
+function experimentTreatments(kind,count,custom=''){
+  if(kind==='genotype')return state.vault.slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id}));
+  if(kind==='nitrogen'){
+    const levels=[0,50,100,150,200,250];return levels.slice(0,count).map((dose,index)=>({id:'N'+index,code:'N'+dose,name:'N '+dose+' kg/ha',dose}));
+  }
+  const names=String(custom||'').split(',').map(x=>x.trim()).filter(Boolean);
+  return Array.from({length:count},(_,index)=>({id:'P'+(index+1),code:'P'+(index+1),name:names[index]||('P'+(index+1))}));
+}
+function createExperiment({name,design,kind,count,reps,custom,parameters}){
+  const treatments=experimentTreatments(kind,count,custom),total=treatments.length*reps;
+  if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
+  if(treatments.length<2||reps<2||total>fieldLimit())throw Error('Gunakan ≥2 perlakuan, ≥2 ulangan, total tidak boleh melebihi petak aktif.');
+  if(kind==='genotype'&&treatments.length<count)throw Error('Benih di Koleksi Benih belum cukup.');
+  const params=unique(String(parameters||'Hasil').split(',').map(x=>x.trim()).filter(Boolean)).slice(0,8);
+  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],units:randomizedExperimentUnits(design,treatments,reps),createdAt:new Date().toISOString()};
+  state.selectedPlot=0;activeFieldTool='';addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+'.');render();openExperiment();
+}
+function applyExperimentTreatment(index){
+  const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return false;
+  if(exp.kind==='genotype'){toast('🌱 = '+treatment.code);return false;}
+  if(unit.applied){toast('🧪✓');return false;}
+  unit.applied=true;
+  const crop=state.field[index];
+  if(exp.kind==='nitrogen'){
+    const bonus=Math.min(50,Math.round((Number(treatment.dose)||0)/5));
+    unit.nBonus=bonus;if(crop)crop.n=clamp(crop.n+bonus);
+  }
+  addLog('P'+String(index+1).padStart(2,'0')+': 🧪 '+treatment.name+'.');beep(500,.05);render();return true;
+}
+function applyPendingExperimentEffect(index,crop){
+  const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return;
+  if(exp.kind==='genotype'){unit.applied=true;return;}
+  if(unit.applied&&exp.kind==='nitrogen')crop.n=clamp(crop.n+(unit.nBonus||Math.min(50,Math.round((Number(treatment.dose)||0)/5))));
+}
+function recordExperimentObservation(index,crop,yieldValue){
+  const exp=state.experiment,unit=experimentUnit(index);if(!exp||!unit)return;
+  const values={
+    hasil:yieldValue,
+    kesehatan:round(crop.health,1),
+    stres:round(crop.stress,1),
+    penyakit:round(crop.disease,1),
+    air:round(crop.water,1),
+    nitrogen:round(crop.n,1)
+  };
+  for(const parameter of exp.parameters){
+    const key=parameter.toLocaleLowerCase('id-ID').replace(/[^a-z0-9]/g,'');
+    if(key.includes('hasil')||key==='yield')unit.observations[parameter]=yieldValue;
+    else if(key.includes('kesehatan')||key==='health')unit.observations[parameter]=values.kesehatan;
+    else if(key.includes('stres')||key==='stress')unit.observations[parameter]=values.stres;
+    else if(key.includes('penyakit')||key==='disease')unit.observations[parameter]=values.penyakit;
+    else if(key==='air'||key.includes('water'))unit.observations[parameter]=values.air;
+    else if(key.includes('nitrogen')||key==='n')unit.observations[parameter]=values.nitrogen;
+  }
+}
+function experimentDataset(){
+  const exp=state.experiment;if(!exp)return null;
+  const repHeader=exp.design==='rak'?'Kelompok':'Ulangan';
+  const headers=['Perlakuan',repHeader,...exp.parameters];
+  const rows=exp.units.map(unit=>{
+    const treatment=experimentTreatment(unit);
+    return [treatment?.name||treatment?.code||'',String(unit.rep),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??''))];
+  });
+  return {name:exp.name,headers,rows,plant:exp.kind==='genotype'?'Uji galur Field Zero':'Field Zero',treatment:`${exp.design.toUpperCase()} · ${exp.treatments.length} perlakuan · ${exp.reps} ${exp.design==='rak'?'kelompok':'ulangan'}`,design:exp.design};
+}
+function sendExperimentToStat(){
+  const payload=experimentDataset();if(!payload)return;
+  try{localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({...payload,source:'field-zero',createdAt:new Date().toISOString()}));location.href='/stat/?from=field-zero&design='+encodeURIComponent(payload.design);}
+  catch{toast('Gagal menyiapkan dataset');}
+}
+function experimentTableHtml(){
+  const exp=state.experiment;if(!exp)return '';
+  const repLabel=exp.design==='rak'?'K':'U';
+  return `<div class="experiment-table-wrap"><table class="experiment-table"><thead><tr><th>P</th><th>Perlakuan</th><th>${repLabel}</th><th>🧪</th>${exp.parameters.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${exp.units.map(unit=>{
+    const t=experimentTreatment(unit);
+    return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function experimentSummaryHtml(){
+  const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
+  return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span></div>`;
+}
+function openExperiment(){
+  if(!state.experiment){
+    openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form">
+      <label>Mode<select name="kind"><option value="genotype">🌱 Uji galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
+      <label>Rancangan<select name="design"><option value="rak">RAK</option><option value="ral">RAL</option></select></label>
+      <label>Perlakuan<input name="count" type="number" min="2" max="6" value="4"></label>
+      <label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"></label>
+      <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
+      <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
+      <label class="experiment-wide">Parameter<input name="parameters" value="Hasil,Kesehatan,Stres,Penyakit"></label>
+      <button class="primary experiment-wide" type="submit">🎲 Randomisasi</button>
+    </form><p class="meta-note">RAL: acak seluruh petak. RAK: setiap kelompok berisi semua perlakuan.</p>`);
+    $('#experimentForm').onsubmit=event=>{
+      event.preventDefault();const fd=new FormData(event.currentTarget);
+      try{createExperiment({name:fd.get('name'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters')});}
+      catch(error){alert(error.message);}
+    };
+    return;
+  }
+  const exp=state.experiment;
+  openMetaModal('RANCOB AKTIF',exp.name,`${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Data panen terisi otomatis; parameter lain dapat diketik.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{
+    const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}
+  });
+  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{if(confirm('Acak ulang posisi perlakuan? Data pengamatan dikosongkan.')){exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps);render();openExperiment();}};
+  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';render();closeMetaModal();}};
+  $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
 
 function hasTech(id){return state.tech.includes(id);}
@@ -430,13 +562,17 @@ function statusClass(crop){
   return '';
 }
 function toolLabel(tool){
-  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen'})[tool]||'';
+  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen',treatment:'Perlakuan'})[tool]||'';
 }
 function toolSymbol(tool){
-  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺'})[tool]||'•';
+  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺',treatment:'🧪'})[tool]||'•';
 }
 function playHint(){
   if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
+  if(state.experiment&&state.experiment.kind!=='genotype'){
+    const pending=state.experiment.units.find(unit=>!unit.applied);
+    if(pending)return {icon:'🧪',text:'P'+String(pending.plot+1).padStart(2,'0')+' · '+(experimentTreatment(pending)?.code||''),action:'tool',tool:'treatment'};
+  }
   const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
   if(ready>=0)return {icon:'🧺',text:'P'+String(ready+1).padStart(2,'0')+' ✓',action:'tool',tool:'harvest'};
   const lowWater=state.field.findIndex(crop=>crop&&crop.health>0&&crop.water<28);
@@ -450,7 +586,8 @@ function playHint(){
   return {icon:'→',text:'Lanjut ke hari '+(state.day+1),action:'next'};
 }
 function renderPlayControls(){
-  const seed=selectedSeed(),hint=playHint();
+  const seed=selectedSeed(),hint=playHint(),expTool=$('#experimentTool');
+  if(expTool)expTool.hidden=!state.experiment||state.experiment.kind==='genotype';
   $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
   $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' ×':'☝ → ▦';
   $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
@@ -507,9 +644,9 @@ function renderField(){
   $('#fieldGrid').innerHTML=state.field.map((crop,index)=>{
     const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'',burned=crop?.burned>0?' burned':'';
     if(index>=limit)return `<button type="button" class="plot plot-locked" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>LOCK</span></div><div class="plot-empty-mark">×</div></button>`;
-    if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div></button>`;
+    if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div>${experimentBadge(index)}</button>`;
     const stage=stageOf(crop);
-    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
+    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${experimentBadge(index)}${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
   }).join('');
 }
 function renderInspector(){
@@ -517,9 +654,9 @@ function renderInspector(){
   $('#plotTitle').textContent='Petak '+String(plot).padStart(2,'0');
   $('#plotStage').textContent=stageOf(crop);
   if(!crop){
-    const seed=selectedSeed();
+    const assigned=experimentSeedForPlot(state.selectedPlot),seed=assigned||selectedSeed();
     const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
-    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${PLANT_COST}`}</button></div>`;
+    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${PLANT_COST}`}</button></div>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;
     return;
@@ -679,6 +816,7 @@ function useFieldTool(tool,index,{seedId=''}={}){
   state.selectedPlot=index;
   if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
   if(tool==='plant'){plantSelected();return true;}
+  if(tool==='treatment')return applyExperimentTreatment(index);
   if(!state.field[index]){toast('∅');renderField();renderInspector();return false;}
   if(tool==='harvest'){
     if(state.field[index].growth<100||state.field[index].health<=0){toast('⏳');renderField();renderInspector();return false;}
@@ -695,7 +833,7 @@ function render(){
 }
 
 function plantSelected(){
-  const seed=selectedSeed(),challenge=activeChallenge();
+  const assignedSeed=experimentSeedForPlot(state.selectedPlot),seed=assignedSeed||selectedSeed(),challenge=activeChallenge();
   if(!seed||state.field[state.selectedPlot]||state.selectedPlot>=fieldLimit()||state.focus<1||state.coins<PLANT_COST)return;
   if(challenge.mono&&state.monoSeedId&&seed.id!==state.monoSeedId){toast('Challenge hanya mengizinkan satu varietas');return;}
   const mutationChance=Math.min(.18,.045+state.level*.004+(state.env.id==='anomaly'?.05:0)+(hasTech('genome')?.02:0));
@@ -708,6 +846,7 @@ function plantSelected(){
   state.field[state.selectedPlot]={
     seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,stressLog:{water:0,n:0,disease:0,heat:0,burn:0}
   };
+  applyPendingExperimentEffect(state.selectedPlot,state.field[state.selectedPlot]);
   state.coins-=PLANT_COST;state.focus--;addLog('P'+String(state.selectedPlot+1).padStart(2,'0')+': '+seed.name+' ditanam.');beep(410);render();document.dispatchEvent(new Event('fieldzero-field-change'));
 }
 function cropAction(action){
@@ -766,7 +905,7 @@ function recordHarvest(index,crop,multiplier=1,announce=true){
   if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidateFrom(crop,y)};
   allCropTraits(crop).forEach(id=>discoverTrait(id));
   if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
-  const reason=harvestReason(crop);
+  const reason=harvestReason(crop);recordExperimentObservation(index,crop,y);
   addLog('P'+String(index+1).padStart(2,'0')+': panen '+y+' kg · '+reason+'.');
   if(announce)toast('🧺 '+y+' kg'+(harvestCombo>1?' · ×'+harvestCombo:'')+(comboBonus?' · +'+comboBonus+'🪙':''));
   state.field[index]=null;beep(650,.08);return y;
@@ -1083,7 +1222,7 @@ function bind(){
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;
   $('#quickField').onclick=()=>document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
   $('#quickLab').onclick=()=>{const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
-  $('#quickMap').onclick=openWorldMap;$('#quickMore').onclick=openQuickMore;
+  $('#quickMap').onclick=openWorldMap;$('#quickExperiment').onclick=openExperiment;$('#quickMore').onclick=openQuickMore;
   $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{

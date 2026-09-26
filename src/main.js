@@ -22,6 +22,7 @@ const META_KEY='statistical_web_dataset_meta_v1';
 const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
+const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
 let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
 const $=s=>document.querySelector(s);
@@ -997,6 +998,20 @@ function installEditorShortcuts(){
   });
 }
 
+function consumeExternalDatasetImport(){
+  let detail=null;
+  try{detail=JSON.parse(localStorage.getItem(EXTERNAL_IMPORT_KEY)||'null');}catch{}
+  if(!detail||detail.source!=='field-zero'||!Array.isArray(detail.headers)||!Array.isArray(detail.rows))return false;
+  document.dispatchEvent(new CustomEvent('dataset-import',{detail}));
+  if(detail.importResult?.ok){
+    try{localStorage.removeItem(EXTERNAL_IMPORT_KEY);}catch{}
+    const design=String(detail.design||'').toUpperCase();
+    setStatus(`✓ Dataset Field Zero dibuka${design?` · lanjutkan Analisis → ${design}`:''}.`);
+    return true;
+  }
+  return false;
+}
+
 function installDataGrid(){
   document.addEventListener('stat-cloud-sync-applied',event=>{
     loadStorage();
@@ -1053,7 +1068,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installPaymentGate();installResultExport();
+  installDataGrid();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js')

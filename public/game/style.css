@@ -598,3 +598,40 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
 }
 @media(max-width:340px){.field-grid{grid-template-columns:repeat(2,1fr)}.game-quick-nav button{font-size:15px}}
 @media(pointer:coarse){button,[role="button"],summary{touch-action:manipulation}[draggable="true"]{-webkit-user-drag:none}}
+
+
+/* FIELD ZERO RANCOB LEARNING 2026-09-26 */
+.game-quick-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+.field-tool-dock{grid-template-columns:repeat(6,minmax(0,1fr))}
+.experiment-badge{
+  position:absolute;left:5px;top:24px;max-width:calc(100% - 10px);padding:2px 5px;
+  border:1px solid #5e5a32;border-radius:999px;background:#272516;color:#e6d98b;
+  font-size:7.5px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.experiment-badge.applied{border-color:#3f7158;background:#173227;color:#9ee6b8}
+.experiment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.experiment-form label{display:grid;gap:4px;color:var(--muted);font-size:8.5px;font-weight:800}
+.experiment-form input,.experiment-form select{
+  min-width:0;min-height:38px;padding:6px 8px;border:1px solid #365447;border-radius:7px;background:#0f1e18;color:var(--ink)
+}
+.experiment-wide{grid-column:1/-1}
+.experiment-status{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 7px}
+.experiment-status span{padding:4px 7px;border:1px solid #365447;border-radius:999px;background:#102019;color:#c8dbd0;font-size:8.5px;font-weight:850}
+.experiment-table-wrap{overflow:auto;border:1px solid #2d4b3e;border-radius:8px}
+.experiment-table{width:100%;border-collapse:collapse;min-width:560px;background:#0f1d17}
+.experiment-table th,.experiment-table td{padding:5px 6px;border-bottom:1px solid #203a2e;text-align:left;font-size:8.5px}
+.experiment-table th{position:sticky;top:0;background:#15271f;color:#9eb4a8;z-index:1}
+.experiment-table td small{display:block;color:var(--muted);font-size:7.5px}
+.experiment-table input{width:72px;min-height:30px;padding:3px 5px;border:1px solid #315144;border-radius:5px;background:#0b1712;color:var(--ink);font-size:12px}
+.experiment-actions{display:grid;grid-template-columns:auto auto 1fr;gap:5px;margin-top:8px}
+.experiment-actions button{min-height:36px;padding:5px 9px;border:1px solid #365447;border-radius:7px;background:#152a21;color:var(--ink);font-weight:850}
+.experiment-actions .primary{background:var(--green);color:#0b1711}
+.field-tool-dock button[data-field-tool="treatment"]{border-color:#6a5c7b;background:#251d2b}
+.field-tool-dock button[data-field-tool="treatment"][aria-pressed=true]{border-color:#c5a7e1;background:#422d50}
+@media(max-width:620px){
+  .game-quick-nav{grid-template-columns:repeat(6,1fr)}
+  .field-tool-dock{grid-template-columns:repeat(6,1fr)}
+  .experiment-form{grid-template-columns:1fr}
+  .experiment-wide{grid-column:auto}
+  .experiment-badge{top:22px;font-size:7px}
+}
