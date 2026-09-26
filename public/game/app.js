@@ -821,12 +821,12 @@ function recordExperimentObservation(index,crop,yieldValue){
   unit.missingStatus='';
 }
 function experimentDataset(){
-  const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,blocked=['rak','frak','split'].includes(exp.design),repHeader=blocked?'Kelompok':'Ulangan',factorial=!!exp.factorial,headers=[...(factorial?['Faktor A','Faktor B',repHeader]:['Perlakuan',repHeader]),'ExperimentID','Musim','PlotUID','PlantUID','Petak','Aktivitas','TingkatData','Spesies','Varietas/Galur','Generasi',...exp.parameters,'StatusData','CatatanStatistik','ModelSimulasi'];
+  const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,blocked=['rak','frak','split','aug'].includes(exp.design),repHeader=blocked?'Kelompok':'Ulangan',factorial=!!exp.factorial,headers=[...(factorial?['Faktor A','Faktor B',repHeader]:['Perlakuan',repHeader]),'ExperimentID','Musim','PlotUID','PlantUID','Petak','Aktivitas','TingkatData','Spesies','Varietas/Galur','Generasi',...exp.parameters,'StatusData','CatatanStatistik','ModelSimulasi'];
   const rows=exp.units.map(unit=>{const treatment=experimentTreatment(unit),crop=state.field[unit.plot],material=unit.material||{},seed=crop?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),missing=exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()==='')?'BELUM LENGKAP':'LENGKAP',designCells=factorial?[treatment?.factorA?.name||'',treatment?.factorB?.name||'',String(unit.rep)]:[treatment?.name||treatment?.code||'',String(unit.rep)];return [...designCells,exp.id,String(state.season),plotMeta(unit.plot).uid,crop?.uid||material.plantUid||'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??'')),missing,'ANOVA memakai unit percobaan; tanaman sampel adalah subsampel',ACADEMY_MODEL_VERSION];});
   return {name:'SIMULASI · '+exp.name,headers,rows,plant:species.name+' ('+species.latin+') · DATA SIMULASI GAME',treatment:'DATA SIMULASI GAME · '+exp.design.toUpperCase()+' · '+exp.treatments.length+' '+(factorial?'kombinasi':'perlakuan')+' · '+exp.reps+' '+(blocked?'kelompok':'ulangan')+' · Pertanyaan: '+(exp.question||'—'),design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
 function experimentRawDataset(){
-  const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,repHeader=['rak','frak','split'].includes(exp.design)?'Kelompok':'Ulangan',headers=['ExperimentID','Musim',repHeader,'PlotUID','PlantUID','SamplePlantUID','Petak','Aktivitas','TingkatData','PeranStatistik','Spesies','Varietas/Galur','Generasi','Perlakuan','FaktorA','FaktorB','HariGame','HSTSimulasi','Parameter','Nilai','StatusData','ModelSimulasi'],rows=[];
+  const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,repHeader=['rak','frak','split','aug'].includes(exp.design)?'Kelompok':'Ulangan',headers=['ExperimentID','Musim',repHeader,'PlotUID','PlantUID','SamplePlantUID','Petak','Aktivitas','TingkatData','PeranStatistik','Spesies','Varietas/Galur','Generasi','Perlakuan','FaktorA','FaktorB','HariGame','HSTSimulasi','Parameter','Nilai','StatusData','ModelSimulasi'],rows=[];
   for(const unit of exp.units){const treatment=experimentTreatment(unit),material=unit.material||{},seed=state.field[unit.plot]?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),plantUid=material.plantUid||state.field[unit.plot]?.uid||'',fa=treatment?.factorA?.name||'',fb=treatment?.factorB?.name||'';for(const entry of unit.timeline||[]){for(const [parameter,value] of Object.entries(entry.values||{}))rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan','ULANGAN/UNIT ANALISIS',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value??''),entry.status||'observed',ACADEMY_MODEL_VERSION]);for(const sample of entry.samples||[])for(const [parameter,value] of Object.entries(sample.values||{})){if(value===''||value===undefined)continue;rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,sample.id,String(unit.plot+1),plotUse(unit.plot),'tanaman_individu','SUBSAMPEL · BUKAN ULANGAN',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value),entry.status||'observed',ACADEMY_MODEL_VERSION]);}}}
   return {name:'SIMULASI · '+exp.name+' · data mentah',headers,rows,plant:species.name+' ('+species.latin+') · DATA SIMULASI GAME',treatment:'DATA MENTAH + SUBSAMPEL · DATA SIMULASI GAME',design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
@@ -918,11 +918,51 @@ function correlationTeachingHtml(selected){
   const strength=Math.abs(found.r)>=.7?'kuat':Math.abs(found.r)>=.4?'sedang':'lemah';
   return `<section class="stat-correlation"><header><b>↗ Korelasi unit percobaan</b><span>n=${found.n}</span></header><p>${esc(selected)} ↔ ${esc(found.paramB)}: <b>r = ${found.r.toFixed(2)}</b> · asosiasi ${strength}.</p><small>Hitungan menggunakan satu nilai per unit percobaan, bukan memperlakukan subsampel sebagai ulangan tambahan.</small><button type="button" data-correlation-case>Uji interpretasi korelasi</button></section>`;
 }
+function augmentedAnalysis(exp,parameter){
+  const numeric=unit=>{const value=Number(String(unit.observations?.[parameter]??'').replace(',','.'));return Number.isFinite(value)?value:null;};
+  const checks=exp.treatments.filter(t=>t.isCheck),entries=exp.treatments.filter(t=>!t.isCheck);
+  if(!checks.length||!entries.length)return {ok:false,error:'Check atau galur baru belum tersedia.'};
+  const blockMeans={};
+  for(let block=1;block<=BLOCK_COUNT;block++){
+    const vals=exp.units.filter(u=>u.block===block&&checks.some(t=>t.id===u.treatmentId)).map(numeric).filter(v=>v!==null);
+    if(vals.length)blockMeans[block]=vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
+  const checkVals=exp.units.filter(u=>checks.some(t=>t.id===u.treatmentId)).map(numeric).filter(v=>v!==null);
+  if(Object.keys(blockMeans).length<BLOCK_COUNT||checkVals.length<checks.length*2)return {ok:false,error:'Data check belum cukup di setiap kelompok.'};
+  const grand=checkVals.reduce((a,b)=>a+b,0)/checkVals.length;
+  const sd=Math.sqrt(checkVals.reduce((sum,v)=>sum+(v-grand)**2,0)/Math.max(1,checkVals.length-1)),cv=grand?sd/Math.abs(grand)*100:null;
+  const rows=exp.units.filter(u=>u.role==='entry').map(unit=>{
+    const raw=numeric(unit),t=exp.treatments.find(x=>x.id===unit.treatmentId),blockMean=blockMeans[unit.block];
+    if(raw===null||!Number.isFinite(blockMean))return null;
+    return {code:t?.code||'',name:t?.name||'',block:unit.block,raw,adjusted:raw-blockMean+grand};
+  }).filter(Boolean).sort((a,b)=>b.adjusted-a.adjusted);
+  if(!rows.length)return {ok:false,error:'Belum ada data galur baru yang dapat disesuaikan.'};
+  return {ok:true,rows,grand,cv,blockMeans};
+}
+function augmentedAnalysisHtml(result,parameter){
+  return `<div class="stat-kpis"><div><small>Rerata check</small><b>${result.grand.toFixed(2)}</b></div><div><small>CV check</small><b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></div><div><small>Galur dinilai</small><b>${result.rows.length}</b></div></div><div class="augmented-ranking"><header><b>Nilai tersesuaikan · ${esc(parameter)}</b><span>Raw − check blok + check umum</span></header>${result.rows.slice(0,12).map((row,index)=>`<div><strong>#${index+1}</strong><b>${esc(row.code)} · ${esc(row.name)}</b><span>K${row.block} · mentah ${row.raw.toFixed(2)} → <em>${row.adjusted.toFixed(2)}</em></span></div>`).join('')}</div><p class="meta-note">Check berulang memperkirakan perbedaan lingkungan antarkelompok. Galur baru tetap tidak mempunyai galat ulangan sendiri, sehingga keputusan seleksi harus dibaca sebagai skrining awal.</p>`;
+}
 function openStatisticsLab(parameter=null){
   const exp=state.experiment;if(!exp){location.href='/stat/';return;}
   const available=exp.parameters.filter(p=>exp.units.filter(u=>Number.isFinite(Number(String(u.observations?.[p]??'').replace(',','.')))).length>=2);
   const selected=parameter&&exp.parameters.includes(parameter)?parameter:(available.includes('Hasil')?'Hasil':available[0]||exp.parameters[0]);
-  const result=analyzeExperiment(exp,selected),selector=`<label class="stat-parameter-select">Parameter<select id="academyStatParameter">${exp.parameters.map(p=>`<option value="${esc(p)}" ${p===selected?'selected':''}>${esc(p)}</option>`).join('')}</select></label>`;
+  const selector=`<label class="stat-parameter-select">Parameter<select id="academyStatParameter">${exp.parameters.map(p=>`<option value="${esc(p)}" ${p===selected?'selected':''}>${esc(p)}</option>`).join('')}</select></label>`;
+  if(exp.design==='aug'){
+    const aug=augmentedAnalysis(exp,selected);
+    if(!aug.ok){
+      openMetaModal('ANALISIS AUGMENTED','Data belum cukup',selector+`<div class="meta-empty">${esc(aug.error)}</div><div class="analysis-shortcuts"><button type="button" data-back-research>📐 Kembali ke penelitian</button><button type="button" data-exp-stat>↗ Buka /stat</button></div>`);
+      $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+      $('#metaModalBody').querySelector('[data-back-research]')?.addEventListener('click',openExperiment);
+      $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
+      return;
+    }
+    exp.reviewed=true;save();renderWorkflow();academyMark('stats-interpret',{xp:4,rp:0,note:'Membaca adjusted mean augmented design'});
+    openMetaModal('ANALISIS AUGMENTED','📊 '+selected,selector+augmentedAnalysisHtml(aug,selected)+`<div class="analysis-shortcuts"><button type="button" data-exp-stat class="primary">↗ Analisis lengkap /stat</button></div>`);
+    $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+    $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
+    return;
+  }
+  const result=analyzeExperiment(exp,selected);
   if(!result.ok){
     openMetaModal('ANALISIS','Data belum cukup',selector+`<div class="meta-empty">${esc(result.error)}</div><div class="analysis-shortcuts"><button type="button" data-back-research>📐 Kembali ke penelitian</button><button type="button" data-open-stat>↗ Buka /stat</button></div>`);
     $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
