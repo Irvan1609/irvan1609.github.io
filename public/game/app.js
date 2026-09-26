@@ -119,7 +119,7 @@ const META_ACHIEVEMENTS={
 Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
 
 
-function focusMax(level){return Math.min(7,4+Math.floor((Math.max(1,level)-1)/3)+(state?.legacy||0>0?1:0));}
+function focusMax(level){return Math.min(7,4+Math.floor((Math.max(1,level)-1)/3)+(((typeof state!=='undefined'&&state?.legacy)||0)>0?1:0));}
 function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
 function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
 function traitValue(traits,key,base=1){
@@ -229,6 +229,143 @@ function discoverTrait(id){
   state.discoveredTraits.push(id);state.rp+=3;toast('Trait ditemukan: '+traitMeta(id).name);
   if(id==='zero')awardAchievement('zero');else awardAchievement('anomaly');
 }
+function hasTech(id){return state.tech.includes(id);}
+function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
+function activeLocation(){return LOCATIONS[state.location]||LOCATIONS.zero;}
+function techCount(){return state.tech.length;}
+function fieldLimit(){return Math.min(PLOT_COUNT,activeChallenge().plots||PLOT_COUNT);}
+function dailyKey(){
+  const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function hashString(text){
+  let h=2166136261;for(const ch of String(text)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;
+}
+function seededUnit(seed){
+  let x=seed>>>0;x+=0x6D2B79F5;x=Math.imul(x^(x>>>15),x|1);x^=x+Math.imul(x^(x>>>7),x|61);return ((x^(x>>>14))>>>0)/4294967296;
+}
+function dailyDefinition(){
+  const key=dailyKey(),seed=hashString('FieldZero:'+key),envs=['drought','wet','rust','poorN','anomaly'];
+  const env=ENVIRONMENTS.find(item=>item.id===envs[Math.floor(seededUnit(seed)*envs.length)])||ENVIRONMENTS[0];
+  const target=70+Math.floor(seededUnit(seed+17)*45);
+  return {key,env:structuredClone(env),target,name:'Daily '+key,challenge:['six','nofert','sprint'][Math.floor(seededUnit(seed+91)*3)]};
+}
+function currentRival(){
+  const found=RIVALS.find(rival=>rival.id===state.rival)||RIVALS[0];return found;
+}
+function computeRivalTarget(){
+  const rival=currentRival(),loc=activeLocation(),challenge=activeChallenge(),boss=state.env?.boss?1.16:1;
+  const noise=.92+seededUnit(hashString(state.season+':'+state.location+':'+rival.id))*0.16;
+  return round((rival.base+rival.growth*Math.max(0,state.season-1))*loc.yield*challenge.reward*boss*noise,1);
+}
+function runRecordKey(){
+  const mode=state.daily?'daily:'+state.daily.key:state.challenge;
+  return state.location+'|'+mode;
+}
+function recordBest(){
+  const key=runRecordKey();return Number(state.records[key]||0);
+}
+function updateRecord(value){
+  const key=runRecordKey(),old=Number(state.records[key]||0);
+  if(value>old)state.records[key]=round(value,1);
+}
+function prestigeAvailable(){return state.season>=6&&state.achievements.length>=4;}
+function locationUnlocked(id){return state.unlockedLocations.includes(id);}
+function canUnlockLocation(id){
+  const loc=LOCATIONS[id];return !!loc&&state.level>=loc.unlock&&!locationUnlocked(id);
+}
+function unlockLocation(id){
+  const loc=LOCATIONS[id];if(!canUnlockLocation(id))return;
+  const cost=Math.max(6,loc.unlock*4);if(state.rp<cost){toast('Butuh '+cost+' RP');return;}
+  state.rp-=cost;state.unlockedLocations.push(id);state.collection.locations=unique([...(state.collection.locations||[]),id]);toast(loc.name+' terbuka');beep(650,.08);render();
+}
+function travelLocation(id){
+  if(!locationUnlocked(id)||!LOCATIONS[id])return;
+  if(state.field.some(Boolean)){toast('Kosongkan lahan sebelum pindah lokasi');return;}
+  state.location=id;state.collection.locations=unique([...(state.collection.locations||[]),id]);addLog('Tim pindah ke '+LOCATIONS[id].name+'.');closeMetaModal();render();
+}
+function techReady(id){
+  const tech=TECH[id];return tech&&!hasTech(id)&&tech.requires.every(hasTech)&&state.rp>=tech.cost;
+}
+function unlockTech(id){
+  const tech=TECH[id];if(!tech||hasTech(id))return;
+  if(!tech.requires.every(hasTech)){toast('Prasyarat belum terbuka');return;}
+  if(state.rp<tech.cost){toast('Butuh '+tech.cost+' RP');return;}
+  state.rp-=tech.cost;state.tech.push(id);if(state.tech.length>=4)awardAchievement('technologist');
+  addLog('Riset membuka '+tech.name+'.');toast(tech.name+' terbuka');beep(720,.08);render();
+}
+function challengeCanStart(){return !state.field.some(Boolean)&&state.day===1&&state.seasonStats.harvests===0;}
+function startChallenge(id){
+  const challenge=CHALLENGES[id];if(!challenge||!challengeCanStart()){toast('Challenge hanya dapat diganti pada awal musim kosong');return;}
+  state.challenge=id;state.daily=null;state.maxDay=challenge.maxDay;state.monoSeedId=challenge.mono?state.selectedSeedId:null;
+  state.mission=missionFor(state.season);closeMetaModal();addLog('Challenge: '+challenge.name+'.');render();
+}
+function startDaily(){
+  if(!challengeCanStart()){toast('Daily Seed hanya dapat dimulai pada awal musim kosong');return;}
+  const daily=dailyDefinition(),stored=state.records['daily:'+daily.key]||0;
+  state.daily={key:daily.key,target:daily.target,previous:stored};state.challenge=daily.challenge;state.maxDay=CHALLENGES[daily.challenge].maxDay;
+  state.env=daily.env;state.weather=rollWeather(state.env);state.mission={type:'yield',target:daily.target,text:'Daily target',unit:'kg'};
+  state.monoSeedId=null;closeMetaModal();addLog('Daily Seed '+daily.key+' dimulai.');render();
+}
+function doPrestige(){
+  if(!prestigeAvailable())return;
+  const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
+  const unlocked=[...state.unlockedLocations],discoveries=[...state.discoveredTraits],achievements=[...state.achievements],tech=[...state.tech].slice(0,Math.min(2+legacy,state.tech.length));
+  const next=freshState();next.legacy=legacy;next.legacyScore=score;next.coins=90+legacy*12;next.rp=legacy*5;next.vault=uniqueSeeds([...STARTER_SEEDS,...carry]);next.unlockedLocations=unlocked;next.discoveredTraits=discoveries;next.achievements=achievements;next.tech=tech;next.collection=structuredClone(state.collection);next.lineage=state.lineage.slice(-40);
+  state=next;awardAchievement('legacy');closeMetaModal();$('#recapModal').hidden=true;render();toast('New Game+ '+legacy+' dimulai');
+}
+function uniqueSeeds(seeds){const seen=new Set();return seeds.filter(seed=>{if(seen.has(seed.id))return false;seen.add(seed.id);return true;});}
+function expeditionAvailable(){return hasTech('expedition');}
+function startExpedition(id){
+  const ex=EXPEDITIONS[id];if(!ex||!expeditionAvailable()||state.expedition)return;
+  if(state.coins<ex.cost){toast('Butuh '+ex.cost+' koin');return;}
+  state.coins-=ex.cost;state.expedition={id,remaining:ex.days,total:ex.days};addLog('Ekspedisi berangkat ke '+ex.name+'.');render();
+}
+function tickExpedition(){
+  if(!state.expedition)return;
+  state.expedition.remaining--;
+  if(state.expedition.remaining>0)return;
+  const ex=EXPEDITIONS[state.expedition.id],range=ex.rewardRp,reward=range[0]+Math.floor(Math.random()*(range[1]-range[0]+1));
+  state.rp+=reward;let note='Ekspedisi kembali: +'+reward+' RP.';
+  if(chance(.62)){
+    const trait=pick(ex.traits),seed={id:uid('seed'),name:'Wild-'+Math.floor(100+Math.random()*900),generation:0,traits:[trait],baseYield:round(12.5+Math.random()*5.5,1),vigor:round(.96+Math.random()*.14,2),source:'Ekspedisi '+ex.name,parents:[]};
+    if(trait==='zero'&&state.season<5)seed.traits=['sentinel'];
+    state.vault.push(seed);seed.traits.forEach(discoverTrait);note+=' Benih liar '+seed.name+' ditemukan.';
+  }
+  if(chance(.3)){const fragment=pick(LORE);if(!state.lore.includes(fragment))state.lore.push(fragment);}
+  state.expeditionHistory.unshift({name:ex.name,season:state.season,reward});state.expeditionHistory=state.expeditionHistory.slice(0,8);state.expedition=null;awardAchievement('explorer');addLog(note);toast(note);
+}
+function makeGenomePuzzle(){
+  if(!hasTech('genome'))return null;
+  const seed=selectedSeed(),candidates=shuffle(['heat','vigor','myco','sentinel','zero']).slice(0,3);
+  const answer=pick(candidates),sig=GENOME_SIG[answer];
+  return {id:uid('genome'),seedId:seed.id,answer,candidates,markers:sig.map((base,i)=>chance(.18)&&base!=='ψ'?pick(['A','T','G','C']):base)};
+}
+function startGenomePuzzle(){
+  if(!hasTech('genome')){toast('Buka Genome Lab di Tech Tree');return;}
+  if(state.rp<5){toast('Butuh 5 RP untuk sequencing');return;}
+  state.rp-=5;state.genomePuzzle=makeGenomePuzzle();renderGenomeLab();save();
+}
+function solveGenome(choice){
+  const puzzle=state.genomePuzzle;if(!puzzle)return;
+  if(choice===puzzle.answer){
+    const seed=state.vault.find(item=>item.id===puzzle.seedId),trait=choice;
+    if(seed&&!seed.traits.includes(trait)){seed.traits.push(trait);discoverTrait(trait);}
+    state.rp+=8;state.xp+=35;awardAchievement('genome');toast('Lokus cocok: '+traitMeta(trait).name);
+  }else{toast('Marker tidak cocok. Data tersimpan untuk percobaan berikutnya.');state.rp+=1;}
+  state.genomePuzzle=null;render();beep(choice===puzzle.answer?760:250,.09);
+}
+function lineageNode(seed){
+  return {id:seed.id,name:seed.name,generation:seed.generation||0,parents:[...(seed.parents||[])],traits:[...(seed.traits||[])],source:seed.source||''};
+}
+function rememberLineage(seed){
+  const node=lineageNode(seed),i=state.lineage.findIndex(item=>item.id===node.id);if(i>=0)state.lineage[i]=node;else state.lineage.push(node);state.lineage=state.lineage.slice(-100);
+}
+function applyLocationToEnv(env){
+  const loc=activeLocation();env.waterLoss=(env.waterLoss||0)+(loc.waterLoss||0);env.disease=(env.disease||0)+(loc.disease||0);env.nLoss=(env.nLoss||0)+(loc.nLoss||0);env.yield=(env.yield||1)*(loc.yield||1);return env;
+}
+function rivalName(){return currentRival().name;}
+
 function selectedSeed(){return state.vault.find(seed=>seed.id===state.selectedSeedId)||state.vault[0];}
 function selectedCrop(){return state.field[state.selectedPlot]||null;}
 function allCropTraits(crop){return unique([...(crop?.seed?.traits||[]),...(crop?.mutation?[crop.mutation]:[])]);}
