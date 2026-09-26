@@ -838,17 +838,48 @@ function refreshData(render=true){
   config=normalizeConfig(current,saved);
   if(render){renderControls();renderMap();}
 }
+
+function ensureReturnColumn(preferred,fallback){
+  let index=current.headers.findIndex(header=>String(header).toLocaleLowerCase('id-ID')===String(preferred||'').toLocaleLowerCase('id-ID'));
+  if(index<0&&fallback instanceof RegExp)index=current.headers.findIndex(header=>fallback.test(String(header)));
+  if(index>=0)return index;
+  const name=String(preferred||'').trim()||'Pengukuran';
+  const result=api()?.appendColumn?.(name,'tambah parameter dari alat lapang');
+  if(!result?.ok)return -1;
+  refreshData(false);return Number(result.index);
+}
+function consumeFieldReturn(){
+  let payload=null;
+  try{payload=JSON.parse(localStorage.getItem('agrotik_field_return_v1')||'null');}catch{}
+  if(!payload||String(payload.dataset)!==keyFor(current))return null;
+  const row=config.uids.findIndex(uid=>String(uid)===String(payload.uid));
+  if(row<0||row>=current.rows.length)return null;
+  let col=-1;
+  if(payload.type==='chili_count')col=ensureReturnColumn(payload.parameter||'Jumlah Cabai',/(jumlah.*cabai|cabai.*jumlah|jumlah.*buah)/i);
+  else if(payload.type==='camera_measure')col=ensureReturnColumn(payload.parameter||'Pengukuran (mm)',/(panjang|jarak|diameter|lebar).*(mm|cm)?/i);
+  if(col<0)return null;
+  const result=api()?.updateCells?.([{row,col,value:String(payload.value??'')}],'hasil alat lapang ke denah');
+  if(result?.ok){
+    try{localStorage.removeItem('agrotik_field_return_v1');sessionStorage.removeItem('agrotik_field_context_v1');}catch{}
+    refreshData(false);config={...config,session:{...config.session,parameter:col}};writeConfig(current,config);return row;
+  }
+  return null;
+}
+
 function closeFieldLayout(){
   if(dirty&&!confirm('Ada perubahan plot yang belum disimpan. Tutup tanpa menyimpan?'))return;
   $('#fieldLayoutModal')?.classList.remove('open');document.body.classList.remove('field-layout-open');
   dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();selectedRow=null;
 }
-export function openFieldLayout(){
+export function openFieldLayout(options={}){
   ensureModal();refreshData();
+  const returnedRow=consumeFieldReturn();
   $('#fieldLayoutDataset').textContent=`${current.name||'Dataset'} · ${current.rows.length} baris`;
   $('#fieldLayoutModal').classList.add('open');document.body.classList.add('field-layout-open');
-  selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();
+  selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();layoutUndo.length=0;layoutRedo.length=0;
   $('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');
   $('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';
   renderControls();renderMap();
+  const target=Number.isInteger(returnedRow)?returnedRow:Number(options.row);
+  if(Number.isInteger(target)&&target>=0&&target<current.rows.length)selectRow(target);
 }
