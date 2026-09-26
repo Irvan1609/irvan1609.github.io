@@ -172,9 +172,45 @@ async function loadAI(){
   const queue=[...items].sort((a,b)=>aiReviewPriority(a).rank-aiReviewPriority(b).rank||Number(a.quality_score||0)-Number(b.quality_score||0)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#aiBody').innerHTML=queue.length?queue.map(item=>{const priority=aiReviewPriority(item);return '<tr><td><b>'+priority.label+'</b></td><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>';}).join(''):'<tr><td colspan="9">Belum ada kontribusi AI.</td></tr>';
 }
+async function loadCloudControl(){
+  const data=await api('/v1/develop/cloud-control');
+  $('#cloudBudgetMode').value=data.mode||'auto';
+  $('#featureDatasetSync').checked=Boolean(data.features?.datasetSync);
+  $('#featureAiUpload').checked=Boolean(data.features?.aiUpload);
+  $('#featureGameCloud').checked=Boolean(data.features?.gameCloud);
+  $('#featurePayments').checked=Boolean(data.features?.payments);
+  const p=Math.max(0,Number(data.storage?.pressure||0)*100);
+  $('#cloudBudgetState').textContent='Efektif: '+(data.effectiveMode||'normal')+' · data aplikasi D1 '+bytes(data.storage?.appD1Bytes||0)+' / soft budget '+bytes(data.storage?.softLimitBytes||0)+' ('+p.toFixed(1)+'%)';
+  return data;
+}
+async function saveCloudControl(){
+  const button=$('#saveCloudControl');button.disabled=true;
+  try{
+    const data=await api('/v1/develop/cloud-control',{method:'PUT',body:JSON.stringify({
+      mode:$('#cloudBudgetMode').value,
+      features:{
+        datasetSync:$('#featureDatasetSync').checked,
+        aiUpload:$('#featureAiUpload').checked,
+        gameCloud:$('#featureGameCloud').checked,
+        payments:$('#featurePayments').checked
+      }
+    })});
+    loaded.delete('server');await loadServer();
+    return data;
+  }catch(error){alert(error.message);}finally{button.disabled=false;}
+}
 async function loadServer(){
-  const result=await Promise.all([api('/v1/develop/usage'),loadHealth()]),u=result[0].estimated||{};
-  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Foto total',bytes(u.contributionImageBytes)],['Users',u.users]];
+  const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudControl()]),usage=result[0],u=usage.estimated||{},budget=usage.softBudget||{},ref=usage.platformReference||{};
+  const cards=[
+    ['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],
+    ['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],
+    ['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],
+    ['Foto duplikat hemat',u.deduplicatedImages||0],['Soft budget',Math.round(Number(budget.pressure||0)*100)+'%'],
+    ['Ref Worker/hari',Number(ref.workersFreeRequestsPerDay||0).toLocaleString('id-ID')],
+    ['Ref D1 read/hari',Number(ref.d1FreeRowsReadPerDay||0).toLocaleString('id-ID')],
+    ['Ref D1 write/hari',Number(ref.d1FreeRowsWrittenPerDay||0).toLocaleString('id-ID')],
+    ['Users',u.users]
+  ];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
 async function loadSecurity(){
@@ -205,7 +241,7 @@ async function loadBackups(){
   const data=await api('/v1/develop/backups'),items=data.items||[];
   $('#backupState').textContent=data.r2Configured?'R2 BACKUPS aktif. Snapshot manual dan terjadwal dapat disimpan.':'R2 BACKUPS belum dikonfigurasi. Ekspor logis manual tetap tersedia.';
   $('#createSnapshot').disabled=!data.r2Configured;
-  $('#backupsBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(item.object_key||'—')+'</td><td>'+(data.r2Configured?'<button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada snapshot R2.</td></tr>';
+  $('#backupsBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+(item.verified?' ✓':'')+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(item.object_key||'—')+(item.checksum_sha256?'<small title="'+esc(item.checksum_sha256)+'"> · SHA-256</small>':'')+'</td><td>'+(data.r2Configured?'<button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada snapshot R2.</td></tr>';
   $('#backupsBody').querySelectorAll('[data-backup]').forEach(button=>button.onclick=()=>downloadBackup('/v1/develop/backups/'+encodeURIComponent(button.dataset.backup)+'/download','irvan-backup-'+button.dataset.backup+'.json'));
 }
 async function downloadBackup(path,fileName){
@@ -239,6 +275,7 @@ async function init(){
 document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.tab));
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
 $('#refreshHealth').onclick=loadHealth;
+$('#saveCloudControl').onclick=saveCloudControl;
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
 $('#migrateAiImages').onclick=async()=>{

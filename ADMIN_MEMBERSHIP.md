@@ -185,3 +185,15 @@ Setelah deploy Worker terbaru:
 ```
 
 `membershipPayments` akan `false` sampai `MIDTRANS_SERVER_KEY` dipasang.
+
+## Cloud Budget & emergency control
+
+Panel Develop > Server sekarang menyediakan mode `Auto`, `Normal`, `Hemat`, dan `Darurat` tanpa redeploy Worker. Sakelar independen tersedia untuk dataset sync, upload AI, cloud game, dan pembuatan pembayaran baru. Webhook pembayaran yang sudah berjalan tetap diterima agar transaksi lama tidak hilang.
+
+Mode Auto memakai soft budget internal data aplikasi D1. Dashboard membedakan estimasi internal ini dari meter resmi Cloudflare; rows read/write harian dan Worker requests resmi tetap harus dibaca melalui Cloudflare Analytics/dashboard.
+
+Sinkronisasi Statistical Web bersifat adaptif: perubahan beruntun ditahan lebih lama dan digabung, tidak berjalan ketika tab tersembunyi, menghormati circuit breaker/Retry-After, lalu dilanjutkan ketika aplikasi aktif kembali.
+
+Foto kontribusi dihitung SHA-256. Foto identik menggunakan referensi objek yang sama sehingga BLOB/R2 tidak diduplikasi. Migrasi foto lama juga menghitung hash dan melakukan deduplikasi.
+
+Snapshot R2 diverifikasi dengan SHA-256 + read-back sebelum dicatat sukses. Snapshot harian memakai prefix `d1-logical/`, snapshot bulanan `d1-monthly/`. Workflow mencoba memasang lifecycle 30 hari untuk harian dan 365 hari untuk bulanan.

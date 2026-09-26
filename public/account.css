@@ -51,3 +51,10 @@
 .account-avatar-frame.glory::after{background:rgba(58,135,198,.08)}
 .account-avatar-frame.bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
 .account-avatar-frame.bronze::after{background:rgba(151,91,45,.06)}
+
+.account-cloud{position:relative;display:inline-flex;align-items:center}
+.account-cloud-button{width:30px;height:30px;padding:0;border:1px solid #cfd9e2;border-radius:7px;background:#fff;font:700 15px/1 system-ui;color:#486273;cursor:pointer}
+.account-cloud-button[data-state="online"]{color:#2f6f49}.account-cloud-button[data-state="economy"]{color:#8a6716}.account-cloud-button[data-state="emergency"],.account-cloud-button[data-state="offline"]{color:#9b3d3d}
+.account-cloud-panel{position:absolute;right:0;top:34px;z-index:80;min-width:170px;padding:8px;border:1px solid #d7e0e7;border-radius:8px;background:#fff;box-shadow:0 6px 18px #0002;font:12px/1.35 system-ui;color:#29414f}
+.account-cloud-panel b,.account-cloud-panel span{display:block}.account-cloud-panel span{margin-top:3px}
+@media(max-width:640px){.account-cloud-button{width:34px;height:34px}.account-cloud-panel{right:-36px}}

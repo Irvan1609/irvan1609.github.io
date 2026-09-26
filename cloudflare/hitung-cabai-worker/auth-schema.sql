@@ -138,6 +138,8 @@ CREATE TABLE IF NOT EXISTS backup_runs (
   object_key TEXT,
   status TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
+  checksum_sha256 TEXT NOT NULL DEFAULT '',
+  verified INTEGER NOT NULL DEFAULT 0,
   note TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
@@ -155,3 +157,16 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
+
+CREATE TABLE IF NOT EXISTS cloud_controls (
+  id INTEGER PRIMARY KEY CHECK(id=1),
+  mode TEXT NOT NULL DEFAULT 'auto',
+  effective_mode TEXT NOT NULL DEFAULT 'normal',
+  features_json TEXT NOT NULL DEFAULT '{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}',
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
+
+INSERT OR IGNORE INTO cloud_controls (id,mode,effective_mode,features_json,note,updated_at)
+VALUES (1,'auto','normal','{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}','','1970-01-01T00:00:00.000Z');

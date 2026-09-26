@@ -17,6 +17,9 @@ let mount=null;
 let menu=null;
 let authReady=false;
 let authChecked=false;
+let cloudState={worker:false,effectiveMode:'unknown',features:{},storage:{},updatedAt:null};
+let cloudCheckedAt=0;
+const CLOUD_STATUS_CACHE_MS=15*60*1000;
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
@@ -121,6 +124,45 @@ function dispatch(){
   };
   document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(currentUser),user:currentUser}}));
 }
+function lastDatasetSync(){
+  try{
+    let latest='';
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i)||'';
+      if(!key.startsWith('statistical_web_cloud_sync_v1:'))continue;
+      const value=safeJson(localStorage.getItem(key),null),at=value?.lastSyncAt||'';
+      if(at&&(!latest||at>latest))latest=at;
+    }
+    return latest;
+  }catch{return '';}
+}
+function cloudIndicator(){
+  const wrap=document.createElement('div');wrap.className='account-cloud';
+  const button=document.createElement('button');button.type='button';button.className='account-cloud-button';button.textContent='☁';button.setAttribute('aria-label','Status cloud');
+  const panel=document.createElement('div');panel.className='account-cloud-panel';panel.hidden=true;
+  const refresh=()=>{
+    const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{};
+    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span>';
+    button.dataset.state=!cloudState.worker?'offline':cloudState.effectiveMode==='emergency'?'emergency':cloudState.effectiveMode==='economy'?'economy':'online';
+    button.title=!cloudState.worker?'Cloud tidak tersedia':('Cloud '+cloudState.effectiveMode);
+  };
+  refresh();
+  button.onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden&&Date.now()-cloudCheckedAt>CLOUD_STATUS_CACHE_MS)void refreshCloudStatus();};
+  wrap.append(button,panel);return wrap;
+}
+function updateCloudIndicator(){
+  const current=mount?.querySelector('.account-cloud');if(!current)return;
+  const fresh=cloudIndicator();current.replaceWith(fresh);
+}
+async function refreshCloudStatus({force=false}={}){
+  if(!endpoint||(!force&&Date.now()-cloudCheckedAt<CLOUD_STATUS_CACHE_MS))return cloudState;
+  try{
+    const response=await fetch(endpoint+'/v1/cloud/status',{headers:{Accept:'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    cloudState={worker:response.ok,effectiveMode:data.effectiveMode||'unknown',features:data.features||{},storage:data.storage||{},updatedAt:data.updatedAt||null};
+  }catch{cloudState={worker:false,effectiveMode:'offline',features:{},storage:{},updatedAt:null};}
+  cloudCheckedAt=Date.now();updateCloudIndicator();return cloudState;
+}
 function closeMenu(){
   if(menu)menu.hidden=true;
   mount?.querySelector('.account-trigger')?.setAttribute('aria-expanded','false');
@@ -135,7 +177,7 @@ function render(){
     button.disabled=!authReady;
     button.title=authChecked&&!authReady?'Login Google belum diaktifkan di server.':'';
     button.onclick=startLogin;
-    mount.append(button);
+    mount.append(cloudIndicator(),button);
     closeMenu();dispatch();return;
   }
 
@@ -156,7 +198,7 @@ function render(){
   menu.querySelector('[data-account-membership]')?.addEventListener('click',()=>{location.assign('/membership/');});
   menu.querySelector('[data-account-develop]')?.addEventListener('click',()=>{location.assign('/develop/');});
   menu.querySelector('[data-account-logout]').onclick=logout;
-  mount.append(trigger,menu);
+  mount.append(cloudIndicator(),trigger,menu);
   dispatch();
 }
 function ensureMount(){
@@ -294,6 +336,9 @@ async function init(){
   }else{
     await checkAuthReady();
   }
+  void refreshCloudStatus({force:true});
+  window.addEventListener('online',()=>void refreshCloudStatus({force:true}));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshCloudStatus();});
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
