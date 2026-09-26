@@ -862,11 +862,11 @@ function experimentQualityScore(){
 }
 function sendExperimentToStat(){
   const summary=experimentDataset(),raw=experimentRawDataset();if(!summary||!raw)return;
-  const score=experimentQualityScore();
+  const score=experimentQualityScore(),statDesign=summary.design==='aug'?'augmented':summary.design;
   if(!state.experiment.researchRewarded&&score>=60){const grant=Math.max(2,Math.round(score/15));state.rp+=grant;state.experiment.researchRewarded=true;addLog('📐 Mutu protokol '+score+'% · hibah +'+grant+' RP.');}
   try{
-    localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({version:2,source:'field-zero',design:summary.design,createdAt:new Date().toISOString(),datasets:[raw,summary]}));
-    save();location.href='/stat/?from=field-zero&design='+encodeURIComponent(summary.design);
+    localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({version:2,source:'field-zero',design:statDesign,createdAt:new Date().toISOString(),datasets:[raw,summary]}));
+    save();location.href='/stat/?from=field-zero&design='+encodeURIComponent(statDesign);
   }catch{toast('Gagal menyiapkan dataset');}
 }
 function academyAnswer(key,correct,onCorrect){
@@ -888,6 +888,11 @@ function openDesignCase(){
 }
 function openExperimentAudit(){
   const exp=state.experiment;if(!exp)return;
+  if(exp.design==='aug'){
+    const checks=exp.treatments.filter(t=>t.isCheck),entries=exp.treatments.filter(t=>!t.isCheck),coverage=checks.every(t=>exp.units.filter(u=>u.treatmentId===t.id).length===BLOCK_COUNT);
+    openMetaModal('AUDIT AUGMENTED','Check & galur baru',`<div class="design-audit-list"><div class="${coverage?'ok':'error'}"><b>${coverage?'✓':'×'}</b><span>${coverage?'Setiap check muncul pada ketiga kelompok.':'Check belum lengkap di setiap kelompok.'}</span></div><div class="${entries.length?'ok':'error'}"><b>${entries.length?'✓':'×'}</b><span>${entries.length} galur baru tanpa ulangan penuh.</span></div><div class="info"><b>i</b><span>Check berulang dipakai untuk mengestimasi efek kelompok; galur baru tetap merupakan skrining awal.</span></div></div>`);
+    return;
+  }
   const findings=auditDesign(exp,state.plotRegistry),concept=conceptForDesign(exp.design),key='audit:'+exp.id;
   openMetaModal('PROFESOR RANCOB','Audit '+exp.design.toUpperCase(),`<section class="design-concept"><b>${esc(concept.title)}</b><p>${esc(concept.text)}</p></section><div class="design-audit-list">${findings.map(item=>`<div class="${item.level}"><b>${item.level==='ok'?'✓':item.level==='error'?'×':item.level==='info'?'i':'!'}</b><span>${esc(item.text)}</span></div>`).join('')}</div><section class="academy-question"><b>Tujuan utama pengelompokan pada RAK adalah...</b><div><button data-audit-answer="wrong1">Membuat rerata perlakuan lebih besar</button><button data-audit-answer="correct">Memisahkan variasi antarkelompok dari galat</button><button data-audit-answer="wrong2">Menghilangkan kebutuhan randomisasi</button></div></section>`);
   $('#metaModalBody').querySelectorAll('[data-audit-answer]').forEach(button=>button.onclick=()=>{
@@ -984,7 +989,7 @@ function openStatisticsLab(parameter=null){
 }
 function experimentTableHtml(){
   const exp=state.experiment;if(!exp)return '';
-  const repLabel=['rak','frak','split'].includes(exp.design)?'K':'U';
+  const repLabel=['rak','frak','split','aug'].includes(exp.design)?'K':'U';
   return `<div class="experiment-table-wrap"><table class="experiment-table"><thead><tr><th>P</th><th>Perlakuan</th><th>${repLabel}</th><th>🧪</th>${exp.parameters.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${exp.units.map(unit=>{
     const t=experimentTreatment(unit);
     return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
@@ -1084,7 +1089,7 @@ function openExperiment(){
   const audit=$('#metaModalBody').querySelector('[data-exp-audit]'),anova=$('#metaModalBody').querySelector('[data-exp-anova]');
   if(audit&&!factorial)audit.onclick=openExperimentAudit;
   if(anova&&!factorial)anova.onclick=()=>openStatisticsLab();
-  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';experimentDraft=null;experimentWizardStep=1;render();closeMetaModal();}};
+  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){checkpoint('Sebelum menghapus '+exp.name);archiveActiveExperiment();state.experiment=null;activeFieldTool='';experimentDraft=null;experimentWizardStep=1;render();closeMetaModal();}};
   $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
 
