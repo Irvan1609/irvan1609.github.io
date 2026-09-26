@@ -13,7 +13,7 @@
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/game/style.css?v=20260926-ultralite1">
+  <link rel="stylesheet" href="/game/style.css?v=20260926-classic1">
 </head>
 <body>
   <header class="subweb-header">
@@ -87,48 +87,30 @@
 
     <div class="game-layout">
       <section class="field-panel panel">
-        <div class="panel-head field-map-heading">
-          <div><small>FIELD ZERO</small><h2>Lahan Penelitian</h2></div>
+        <div class="panel-head">
+          <div><small>FIELD ZERO</small><h2>Lahan</h2></div>
           <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot sick"></i>Masalah</span></div>
         </div>
-
-        <div class="field-world">
-          <div class="field-world-skyline" aria-hidden="true"></div>
-          <div class="field-world-landmarks" aria-label="Fasilitas lahan">
-            <button id="mapNursery" class="map-landmark nursery" type="button" title="Buka koleksi benih"><span>🌱</span><b>Rumah Benih</b><small>Nursery</small></button>
-            <button id="mapResearch" class="map-landmark research" type="button" title="Buka laboratorium"><span>🔬</span><b>Gudang Riset</b><small>Pemuliaan</small></button>
-            <button id="mapWater" class="map-landmark water" type="button" title="Pilih alat irigasi"><span>💧</span><b>Sumber Air</b><small>Irigasi</small></button>
-            <a id="mapAnalysis" class="map-landmark analysis" href="/stat/" title="Buka Statistical Web"><span>▥</span><b>Analisis</b><small>/stat</small></a>
-          </div>
-
-          <div class="field-map-stage">
-            <div class="field-context">
-              <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
-              <span id="activeToolStatus">Ketuk alat → petak</span>
-            </div>
-
-            <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
-
-            <div class="mobile-command-row" aria-label="Aksi cepat">
-              <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
-              <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
-            </div>
-
-            <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
-              <button type="button" draggable="true" data-field-tool="plant" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span><small>Tanam</small></button>
-              <button type="button" draggable="true" data-field-tool="water" title="Air" aria-label="Air"><span class="tool-icon">💧</span><small>Siram</small></button>
-              <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span><small>Pupuk</small></button>
-              <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span><small>Amati</small></button>
-              <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🌽</span><small>Panen</small></button>
-              <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span><small>Perlakuan</small></button>
-              <a class="field-tool-analysis" href="/stat/" title="Analisis di Statistical Web"><span class="tool-icon">▥</span><small>Analisis</small></a>
-            </div>
-
-            <div class="day-actions">
-              <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
-              <button id="finishSeason" type="button" hidden>Akhiri musim</button>
-            </div>
-          </div>
+        <div class="field-context">
+          <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
+          <span id="activeToolStatus">Ketuk alat → petak</span>
+        </div>
+        <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
+          <button type="button" draggable="true" data-field-tool="plant" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span></button>
+          <button type="button" draggable="true" data-field-tool="water" title="Air" aria-label="Air"><span class="tool-icon">💧</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
+          <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
+          <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span></button>
+        </div>
+        <div class="mobile-command-row" aria-label="Aksi cepat">
+          <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
+          <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
+        </div>
+        <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
+        <div class="day-actions">
+          <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
+          <button id="finishSeason" type="button" hidden>Akhiri musim</button>
         </div>
       </section>
 
@@ -251,6 +233,27 @@
     </section>
   </div>
 
+  <div id="socialModal" class="event-backdrop" hidden>
+    <section class="event-card social-card" role="dialog" aria-modal="true" aria-labelledby="socialTitle">
+      <div class="modal-head">
+        <div><span class="event-kicker">FIELD ZERO ONLINE</span><h2 id="socialTitle">Sosial</h2></div>
+        <button id="closeSocial" class="icon-button" type="button" aria-label="Tutup">×</button>
+      </div>
+      <div id="socialGate" class="social-gate">
+        <b>Masuk untuk bermain bersama.</b>
+        <button id="socialLogin" class="primary" type="button">Masuk Google</button>
+      </div>
+      <div id="socialApp" hidden>
+        <nav class="social-tabs" aria-label="Menu sosial">
+          <button type="button" data-social-tab="rank" aria-pressed="true" title="Peringkat" aria-label="Peringkat">🏆</button>
+          <button type="button" data-social-tab="friends" aria-pressed="false" title="Teman" aria-label="Teman">👥</button>
+          <button type="button" data-social-tab="search" aria-pressed="false" title="Cari pemain" aria-label="Cari pemain">＋</button>
+        </nav>
+        <div id="socialContent" class="social-content"></div>
+      </div>
+    </section>
+  </div>
+
   <div id="recapModal" class="event-backdrop" hidden>
     <section class="event-card recap-card" role="dialog" aria-modal="true" aria-labelledby="recapTitle">
       <span class="event-kicker">SEASON REPORT</span>
@@ -265,7 +268,7 @@
   </div>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/game/app.js?v=20260926-lite3"></script>
+  <script type="module" src="/game/app.js?v=20260926-classic1"></script>
   <script type="module" src="/game/social.js"></script>
   <script type="module" src="/game/sync.js"></script>
   <script src="/pwa-register.js"></script>
