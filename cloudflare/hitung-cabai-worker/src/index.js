@@ -293,6 +293,7 @@ async function ensureGameSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_profiles (
       user_id TEXT PRIMARY KEY,
       score INTEGER NOT NULL DEFAULT 0,
+      score_version INTEGER NOT NULL DEFAULT 2,
       best_yield REAL NOT NULL DEFAULT 0,
       season INTEGER NOT NULL DEFAULT 1,
       level INTEGER NOT NULL DEFAULT 1,
@@ -336,6 +337,9 @@ async function ensureGameSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_target ON game_aids(target_id,claimed_at,created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_pair ON game_aids(helper_id,target_id,created_at)')
   ]);
+  const profileInfo=await env.DB.prepare('PRAGMA table_info(game_profiles)').all();
+  const profileColumns=new Set((profileInfo.results||[]).map(row=>row.name));
+  if(!profileColumns.has('score_version'))await env.DB.prepare('ALTER TABLE game_profiles ADD COLUMN score_version INTEGER NOT NULL DEFAULT 1').run();
   GAME_SCHEMA_READY=true;
 }
 
@@ -1697,10 +1701,11 @@ async function handleGameProfilePut(request,env){
   const profile=parseGameProfile(await request.json().catch(()=>null));
   if(!profile)return json(request,env,{error:'Profil game tidak valid.'},400);
   const now=new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,best_yield,season,level,legacy,location,updated_at)
-    VALUES (?,?,?,?,?,?,?,?)
+  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,score_version,best_yield,season,level,legacy,location,updated_at)
+    VALUES (?,?,2,?,?,?,?,?,?)
     ON CONFLICT(user_id) DO UPDATE SET
-      score=MAX(game_profiles.score,excluded.score),
+      score=excluded.score,
+      score_version=2,
       best_yield=MAX(game_profiles.best_yield,excluded.best_yield),
       season=excluded.season,
       level=excluded.level,
@@ -1718,12 +1723,12 @@ async function handleGameLeaderboard(request,env,url){
   const limit=Math.max(5,Math.min(50,Number(url.searchParams.get('limit'))||20));
   const result=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url
     FROM game_profiles gp JOIN users u ON u.id=gp.user_id
-    WHERE u.account_status='active'
+    WHERE u.account_status='active' AND gp.score_version=2
     ORDER BY gp.score DESC,gp.best_yield DESC,gp.updated_at ASC LIMIT ?`).bind(limit).all();
-  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? LIMIT 1').bind(user.id).first();
+  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? AND score_version=2 LIMIT 1').bind(user.id).first();
   let rank=null;
   if(own){
-    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score>?').bind(Number(own.score)||0).first();
+    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score_version=2 AND score>?').bind(Number(own.score)||0).first();
     rank=(Number(higher?.total)||0)+1;
   }
   return json(request,env,{items:(result.results||[]).map(gamePlayer),myRank:rank});
