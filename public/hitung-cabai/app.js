@@ -10,6 +10,22 @@ let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=fal
 let batchQueue=[],batchTotal=0,batchIndex=0;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='';
 const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
+const FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
+const fieldParams=new URLSearchParams(location.search);
+const fieldContext=fieldParams.get('agrotik')==='field'?{
+  dataset:fieldParams.get('dataset')||'',plot_uid:fieldParams.get('plot_uid')||'',plot_label:fieldParams.get('plot_label')||'',
+  parameter:fieldParams.get('parameter')||'',session_id:fieldParams.get('session_id')||''
+}:null;
+function sendCountToField(){
+  if(!fieldContext||dirty||!activeId)return false;
+  const detail={type:'agrotik-field-handoff',kind:'chili-count',dataset:fieldContext.dataset,plot_uid:fieldContext.plot_uid,
+    plot_label:fieldContext.plot_label,parameter:fieldContext.parameter,session_id:fieldContext.session_id,
+    value:String(boxes.length),unit:'buah',at:new Date().toISOString()};
+  try{localStorage.setItem(FIELD_HANDOFF_KEY,JSON.stringify(detail));}catch{}
+  try{window.opener?.postMessage({type:'agrotik-field-handoff',detail},location.origin);window.opener?.focus?.();}catch{}
+  status('Tersimpan: '+boxes.length+' buah · hasil dikirim ke plot '+(fieldContext.plot_label||'aktif')+'.');
+  return true;
+}
 
 const status=message=>$('status').textContent=message;
 const cloneBoxes=()=>boxes.map(box=>[...box]);
@@ -191,7 +207,7 @@ async function loadPhotoData(dataURL,name){
   const prepared=await optimizePhoto(dataURL);
   image=prepared.image;photo=prepared.url;boxes=[];predictedBoxes=[];history=[];start=null;draft=null;activeId=null;dirty=true;detectionRun=false;confidenceStats=null;
   predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';
-  $('sample').value=name||nowName();
+  $('sample').value=fieldContext?.plot_label||name||nowName();
   $('zoom').value='1';$('mode').value='add';updateInteractionMode();redraw(true);updateWorkflowState();
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
   else status('Foto siap. Jalankan “Deteksi otomatis” untuk membuka tahap koreksi dan penyimpanan.');
@@ -420,7 +436,7 @@ async function saveCurrent(){
       reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
     }));
     activeId=id;dirty=false;await list();
-    const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
+    const synced=fieldContext?null:sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(synced){
       const action=synced.updated?'diperbarui':'ditambahkan';
       status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);
@@ -429,7 +445,8 @@ async function saveCurrent(){
     }
   }catch{status('Penyimpanan gagal. Periksa ruang penyimpanan browser; hasil di layar belum hilang.');}
 }
-$('save').onclick=saveCurrent;$('mobileSave').onclick=saveCurrent;
+async function saveCurrentWithFieldHandoff(){await saveCurrent();sendCountToField();}
+$('save').onclick=saveCurrentWithFieldHandoff;$('mobileSave').onclick=saveCurrentWithFieldHandoff;
 $('sendToStat').onclick=()=>sendCurrentToStatistics();
 
 async function contributeCurrent(){

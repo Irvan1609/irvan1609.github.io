@@ -501,7 +501,7 @@ async function analyze(){
       designLabel:designNames[currentDesign]||currentDesign,options:JSON.parse(JSON.stringify(o)),
       summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null}))
     }}));
-    void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
+    void backupRawDataset({name:data.name,fileName:activeSource?.fileName||'',headers:[...data.headers],rows:data.rows.map(row=>[...row])});
   }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
   finally{
     if(phoneGuardMode()&&$('#scientificModal').classList.contains('open'))validate();

@@ -172,3 +172,7 @@
 .presentation-results-mode .result-os-navigator,
 .presentation-results-mode .result-os-panels{display:none!important}
 .presentation-results-mode .result-os-command{border-color:#cbd5dd}
+
+
+.result-os-field-plot{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.result-os-field-plot:hover,.result-os-field-plot:focus{outline:1px solid currentColor;outline-offset:-1px;background:rgba(70,100,120,.06)}
