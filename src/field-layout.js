@@ -1,5 +1,6 @@
 import './field-layout.css';
 import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto} from './field-media.js';
+import {qrSvg} from './qr-lite.js';
 
 const STORE='statistical_web_field_layout_v1';
 const $=selector=>document.querySelector(selector);
@@ -214,6 +215,7 @@ function ensureModal(){
             <button id="fieldFlipX" type="button">Balik kiri-kanan</button>
             <button id="fieldFlipY" type="button">Balik atas-bawah</button>
             <button id="fieldAddObject" type="button">Objek lahan</button>
+            <button id="fieldPrintQr" type="button">Cetak QR plot</button>
             <button id="fieldPrint" type="button">Cetak</button>
             <button id="fieldExportLayout" type="button">Ekspor denah</button>
             <button id="fieldImportLayout" type="button">Impor denah</button>
@@ -268,7 +270,7 @@ function ensureModal(){
   $('#fieldUndo').onclick=undoLayout;$('#fieldRedo').onclick=redoLayout;
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
-  $('#fieldPrint').onclick=()=>window.print();
+  $('#fieldPrint').onclick=()=>window.print();$('#fieldPrintQr').onclick=printQrLabels;
   $('#fieldExportLayout').onclick=exportLayout;
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
@@ -603,6 +605,18 @@ function applyBatch(){
   refreshData(false);renderMap();renderBatchEditor();
   const out=$('#fieldBatchStatus');if(out)out.textContent=`✓ ${rows.length} plot diperbarui.`;
 }
+function printQrLabels(){
+  $('#fieldQrSheet')?.remove();
+  const sheet=document.createElement('section');sheet.id='fieldQrSheet';sheet.className='field-qr-sheet';
+  sheet.innerHTML='<header><b>Label QR Plot · '+esc(current.name||'Dataset')+'</b><span>Scan untuk membuka plot pada Denah Lahan</span></header><div class="field-qr-grid">'+current.rows.map((row,index)=>{
+    const uid=plotUid(index),labels=plotLabel(current,row,index),group=groupLabelForRow(index),url=location.origin+'/stat/#p='+encodeURIComponent(uid.slice(0,12));
+    return '<article><div class="field-qr-code">'+qrSvg(url,{moduleSize:3,margin:3})+'</div><b>'+esc(labels.id)+'</b><span>'+esc(group)+'</span><small>'+esc(uid.slice(0,12))+'</small></article>';
+  }).join('')+'</div>';
+  document.body.append(sheet);document.body.classList.add('field-qr-print');
+  const cleanup=()=>{document.body.classList.remove('field-qr-print');sheet.remove();window.removeEventListener('afterprint',cleanup);};
+  window.addEventListener('afterprint',cleanup);window.print();setTimeout(()=>{if(document.body.classList.contains('field-qr-print'))cleanup();},30000);
+}
+
 function exportLayout(){
   const payload={version:2,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -880,6 +894,7 @@ export function openFieldLayout(options={}){
   $('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');
   $('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';
   renderControls();renderMap();
-  const target=Number.isInteger(returnedRow)?returnedRow:Number(options.row);
+  let target=Number.isInteger(returnedRow)?returnedRow:Number(options.row);
+  const prefix=String(options.uidPrefix||'').trim();if(prefix)target=config.uids.findIndex(uid=>String(uid).startsWith(prefix));
   if(Number.isInteger(target)&&target>=0&&target<current.rows.length)selectRow(target);
 }
