@@ -20,7 +20,7 @@ for(const marker of [
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['data-analysis-simple-view','data-analysis-complete-view','data-analysis-mode-toggle','data-simple-analysis="factorial"','data-simple-analysis="more"','Mode Lengkap'])if(!flow.includes(marker))fail('simple analysis flow missing '+marker);
+for(const marker of ['data-analysis-simple-view','data-analysis-complete-view','data-analysis-mode-toggle',"simpleCard('factorial'","simpleCard('more'",'Mode Lengkap'])if(!flow.includes(marker))fail('simple analysis flow missing '+marker);
 
 for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view="summary"','result-view-summary'])if(!scientific.includes(marker))fail('simple results workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
