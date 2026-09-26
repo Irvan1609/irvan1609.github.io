@@ -6,3 +6,9 @@ section,article{scroll-margin-top:58px}
 button,input,select,textarea{line-height:1.25}
 .panel,.card,.develop-panel{box-shadow:none}
 @media(max-width:760px){button{min-height:38px}}
+
+/* Cloud budget controls */
+.plan-fields select{width:100%;border:1px solid #cbd5de;border-radius:7px;padding:6px 7px;font-size:11px;background:#fff;color:var(--ink)}
+#cloudFeatureControls .kv{align-items:center}
+#cloudFeatureControls input[type="checkbox"]{width:16px;height:16px;margin:0}
+.backup-verify{padding:6px 8px;font-size:11px}

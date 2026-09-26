@@ -1,6 +1,6 @@
 import {detectChiliBoxesFromImageData} from './detector.js';
 import {detectChiliWithModel} from './ml-detector.js';
-import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260926-3';
+import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260926-4';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
@@ -477,10 +477,11 @@ async function contributeCurrent(){
 }
 $('contribute').onclick=contributeCurrent;
 function updateCloudState(){
-  const ready=cloudContributionReady();
-  $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+  const ready=cloudContributionReady(),paused=window.IrvanCloudPolicy?.features?.aiUpload===false;
+  $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':(paused?'Kontribusi AI dijeda · data lokal tetap berfungsi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.');
   updateWorkflowState();
 }
+document.addEventListener('cloudpolicychange',updateCloudState);
 
 
 async function openRecord(row){

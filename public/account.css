@@ -51,3 +51,12 @@
 .account-avatar-frame.glory::after{background:rgba(58,135,198,.08)}
 .account-avatar-frame.bronze::before{background:linear-gradient(135deg,#744523,#a96735,#d49a62,#8b572d)}
 .account-avatar-frame.bronze::after{background:rgba(151,91,45,.06)}
+
+.account-cloud{width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;padding:0;border:1px solid #d4dde5;border-radius:9px;background:#fff;color:#526577;font:800 14px/1 "Segoe UI",Arial,sans-serif;cursor:pointer}
+.account-cloud:hover,.account-cloud[aria-expanded="true"]{background:#f4f7fa}
+.account-cloud[data-state="online"]{border-color:#bfd9c9;color:#2d6b4a}
+.account-cloud[data-state="saving"]{border-color:#d9ceb1;color:#725a22}
+.account-cloud[data-state="paused"],.account-cloud[data-state="offline"]{border-color:#dfc3c3;color:#8b4545}
+.account-cloud-menu{position:absolute;right:0;top:calc(100% + 7px);z-index:121;width:220px;padding:7px;border:1px solid #d7e0e8;border-radius:11px;background:#fff;box-shadow:0 14px 34px rgba(25,43,61,.14)}
+.account-cloud-menu>div{display:flex;justify-content:space-between;gap:10px;padding:5px 6px;font-size:11px;color:#657687}.account-cloud-menu b{color:#263f55;font-size:11px}
+@media(max-width:680px){.account-cloud{width:34px;height:34px;flex-basis:34px}.account-cloud-menu{right:auto;left:0}}

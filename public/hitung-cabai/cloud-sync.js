@@ -1,4 +1,8 @@
-import {CHILI_CLOUD_CONFIG,cloudContributionReady} from './cloud-config.js?v=20260925-2';
+import {CHILI_CLOUD_CONFIG,cloudContributionReady as cloudContributionConfigured} from './cloud-config.js?v=20260926-4';
+
+function cloudContributionReady(){
+  return cloudContributionConfigured()&&window.IrvanCloudPolicy?.features?.aiUpload!==false;
+}
 
 let turnstileLoader=null;
 let widgetId=null;
@@ -85,7 +89,7 @@ export async function submitTrainingContribution({
   editToken='',
   operationId=crypto.randomUUID()
 }={}){
-  if(!cloudContributionReady())throw Error('Kontribusi cloud belum diaktifkan oleh pengelola.');
+  if(!cloudContributionReady())throw Error(window.IrvanCloudPolicy?.features?.aiUpload===false?'Kontribusi AI sedang dijeda untuk menghemat cloud. Data lokal tetap tersimpan.':'Kontribusi cloud belum diaktifkan oleh pengelola.');
   if(!consent)throw Error('Persetujuan penggunaan data untuk pelatihan belum diberikan.');
   const finalBoxes=cleanBoxes(boxes),initialBoxes=cleanBoxes(predictedBoxes);
   const token=await turnstileToken();

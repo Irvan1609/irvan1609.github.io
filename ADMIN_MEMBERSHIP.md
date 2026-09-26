@@ -185,3 +185,30 @@ Setelah deploy Worker terbaru:
 ```
 
 `membershipPayments` akan `false` sampai `MIDTRANS_SERVER_KEY` dipasang.
+
+
+## Cloud budget & emergency
+
+Develop → Server memiliki kontrol cloud terpusat dengan mode:
+- `Auto`: normal secara default, berubah ke hemat sekitar 80% estimasi kapasitas D1 dan darurat sekitar 95%; error kuota harian D1 juga memicu mode darurat sampai reset UTC.
+- `Normal`: fitur mengikuti toggle admin.
+- `Hemat`: upload kontribusi AI dan fitur sosial Field Zero dijeda; dataset sync dan save game cloud tetap berjalan dengan interval lebih longgar.
+- `Darurat`: dataset sync, upload AI, sosial game, save game cloud, dan transaksi membership baru dijeda. Data/analisis lokal tetap berfungsi.
+
+Toggle terpisah tersedia untuk Dataset Sync, Upload AI, Sosial Game, Save Game Cloud, dan Pembayaran Baru. Kebijakan disimpan di D1 tetapi dibaca melalui cache Worker agar tidak menambah query pada setiap aksi.
+
+Dashboard Server menampilkan estimasi storage aplikasi, storage R2 yang diamati ketika tab Server dibuka, serta referensi Free tier. Request Worker dan rows read/write resmi tetap harus dibaca dari Cloudflare Analytics/Dashboard; aplikasi sengaja tidak menulis counter per request ke D1.
+
+## Deduplikasi foto kontribusi
+
+Foto kontribusi Hitung Cabai dihitung SHA-256 setelah proses resize/kompresi. Jika object dengan hash identik sudah ada di R2, object dipakai ulang dan hanya metadata/anotasi baru yang ditulis ke D1. Foto lama yang dimigrasikan D1 → R2 memakai mekanisme deduplikasi yang sama.
+
+## Verifikasi dan retention backup
+
+Snapshot R2 dibaca ulang setelah dibuat, checksum SHA-256 diverifikasi, JSON divalidasi, dan struktur tabel diperiksa. Snapshot manual menjalankan validasi mendalam. Pada tanggal 1 UTC, snapshot terjadwal juga menjalankan simulasi restore read-only yang memeriksa ID unik dan referensi user tanpa menulis kembali ke database produksi.
+
+Workflow memasang lifecycle pada bucket BACKUPS bila izin R2 tersedia:
+- `d1-logical/`: 30 hari;
+- `d1-monthly/`: 365 hari.
+
+Bucket foto `IMAGES` tidak diberi expiry otomatis karena foto dapat menjadi bagian dataset pelatihan.

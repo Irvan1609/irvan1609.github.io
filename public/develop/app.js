@@ -172,9 +172,54 @@ async function loadAI(){
   const queue=[...items].sort((a,b)=>aiReviewPriority(a).rank-aiReviewPriority(b).rank||Number(a.quality_score||0)-Number(b.quality_score||0)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#aiBody').innerHTML=queue.length?queue.map(item=>{const priority=aiReviewPriority(item);return '<tr><td><b>'+priority.label+'</b></td><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>';}).join(''):'<tr><td colspan="9">Belum ada kontribusi AI.</td></tr>';
 }
+function renderCloudPolicy(data){
+  const configured=data?.configured||{},effective=data?.policy||{},ref=data?.reference||{};
+  $('#cloudBudgetMode').value=configured.budgetMode||'auto';
+  $('#cloudDatasetSync').checked=configured.datasetSync!==false;
+  $('#cloudAiUpload').checked=configured.aiUpload!==false;
+  $('#cloudGameSocial').checked=configured.gameSocial!==false;
+  $('#cloudGameSave').checked=configured.gameCloudSave!==false;
+  $('#cloudPayments').checked=configured.payments!==false;
+  const labels={normal:'Normal',saver:'Hemat',emergency:'Darurat',offline:'Offline'};
+  $('#cloudPolicyState').textContent='Efektif: '+(labels[effective.mode]||effective.mode||'—')+(effective.runtimeEmergency?' · otomatis karena tekanan kuota':'');
+  $('#freeTierReference').innerHTML=[
+    ['Workers request/hari',Number(ref.workersRequestsPerDay||0).toLocaleString('id-ID')],
+    ['CPU/request',Number(ref.workersCpuMsPerRequest||0)+' ms'],
+    ['D1 rows read/hari',Number(ref.d1RowsReadPerDay||0).toLocaleString('id-ID')],
+    ['D1 rows write/hari',Number(ref.d1RowsWrittenPerDay||0).toLocaleString('id-ID')],
+    ['D1 storage',bytes(ref.d1StorageBytes||0)],
+    ['R2 storage/bulan',bytes(ref.r2StorageBytes||0)],
+    ['R2 Class A/bulan',Number(ref.r2ClassAOperationsPerMonth||0).toLocaleString('id-ID')],
+    ['R2 Class B/bulan',Number(ref.r2ClassBOperationsPerMonth||0).toLocaleString('id-ID')],
+    ['Pages build/bulan',Number(ref.pagesBuildsPerMonth||0).toLocaleString('id-ID')]
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+}
+async function loadCloudPolicy(){
+  const data=await api('/v1/develop/cloud-policy');renderCloudPolicy(data);return data;
+}
+async function saveCloudPolicy(){
+  const button=$('#saveCloudPolicy');button.disabled=true;
+  const body={
+    budgetMode:$('#cloudBudgetMode').value,
+    datasetSync:$('#cloudDatasetSync').checked,
+    aiUpload:$('#cloudAiUpload').checked,
+    gameSocial:$('#cloudGameSocial').checked,
+    gameCloudSave:$('#cloudGameSave').checked,
+    payments:$('#cloudPayments').checked
+  };
+  try{
+    const data=await api('/v1/develop/cloud-policy',{method:'PUT',body:JSON.stringify(body)});
+    renderCloudPolicy(data);
+    await window.IrvanAccount?.refreshCloudStatus?.();
+    loaded.delete('overview');loaded.delete('security');
+  }catch(error){alert(error.message);}finally{button.disabled=false;}
+}
 async function loadServer(){
-  const result=await Promise.all([api('/v1/develop/usage'),loadHealth()]),u=result[0].estimated||{};
-  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Foto total',bytes(u.contributionImageBytes)],['Users',u.users]];
+  const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudPolicy()]),usage=result[0],u=usage.estimated||{},ref=usage.freeTierReference||{},storage=usage.storage||{};
+  const d1Pct=ref.d1StorageBytes?Math.min(100,(Number(u.estimatedD1StorageBytes||0)/Number(ref.d1StorageBytes))*100):0;
+  const r2Pct=ref.r2StorageBytes?Math.min(100,(Number(storage.r2ObservedBytes||0)/Number(ref.r2StorageBytes))*100):0;
+  const r2Label=storage.r2Partial?'≥ '+bytes(storage.r2ObservedBytes):bytes(storage.r2ObservedBytes);
+  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['D1 estimasi',bytes(u.estimatedD1StorageBytes)],['D1 storage',d1Pct.toFixed(d1Pct>=10?1:2)+'%'],['R2 teramati',r2Label],['R2 storage',r2Pct.toFixed(r2Pct>=10?1:2)+'%'],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],['Users',u.users]];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
 async function loadSecurity(){
@@ -192,7 +237,9 @@ async function loadSecurity(){
     ['Rotasi sesi',String(controls.sessionRotationHours||0)+' jam'],['Turnstile',controls.turnstile?'Aktif':'Belum'],
     ['Rate limit kontribusi',controls.contributionRateLimit?'Aktif':'Belum'],['Rate limit dataset',controls.datasetRateLimit?'Aktif':'Belum'],
     ['R2 foto kontribusi',controls.r2ContributionImages?'Aktif':'Fallback D1'],['R2 backup',controls.r2Backups?'Aktif':'Belum'],
-    ['Retention terjadwal',controls.scheduledRetention?'Aktif':'Belum'],['Idempotent sync',controls.idempotentSync?'Aktif':'Belum']
+    ['Retention terjadwal',controls.scheduledRetention?'Aktif':'Belum'],['Idempotent sync',controls.idempotentSync?'Aktif':'Belum'],
+    ['Budget policy',controls.budgetPolicy?'Aktif':'Belum'],['Adaptive sync',controls.adaptiveSync?'Aktif':'Belum'],
+    ['Deduplikasi gambar',controls.imageDeduplication?'Aktif':'Belum'],['Verifikasi backup',controls.backupVerification?'Aktif':'Belum']
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
   const events=Object.entries(data.events24h||{}).sort((a,b)=>b[1]-a[1]);
   $('#securityEvents').innerHTML=events.length?events.map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join(''):'<div class="muted">Belum ada peristiwa audit dalam 24 jam.</div>';
@@ -201,12 +248,24 @@ async function loadAudit(){
   const data=await api('/v1/develop/audit?limit=500'),items=data.items||[];
   $('#auditBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.actor_email||item.actor_user_id||'system')+'</td><td>'+esc(item.action)+'</td><td>'+esc((item.target_type||'')+' '+(item.target_id||''))+'</td><td><div class="small-json">'+esc(JSON.stringify(item.detail||{}))+'</div></td></tr>').join(''):'<tr><td colspan="5">Belum ada audit log.</td></tr>';
 }
+async function verifyBackup(id,button){
+  button.disabled=true;
+  try{
+    const data=await api('/v1/develop/backups/'+encodeURIComponent(id)+'/verify',{method:'POST',body:'{}'});
+    alert(data.ok?'Backup terverifikasi ✓':'Verifikasi backup menemukan masalah.');
+  }catch(error){alert(error.message);}finally{button.disabled=false;await loadBackups();}
+}
 async function loadBackups(){
   const data=await api('/v1/develop/backups'),items=data.items||[];
-  $('#backupState').textContent=data.r2Configured?'R2 BACKUPS aktif. Snapshot manual dan terjadwal dapat disimpan.':'R2 BACKUPS belum dikonfigurasi. Ekspor logis manual tetap tersedia.';
+  $('#backupState').textContent=data.r2Configured?'R2 BACKUPS aktif · setiap snapshot dibaca ulang dan diverifikasi checksum.':'R2 BACKUPS belum dikonfigurasi. Ekspor logis manual tetap tersedia.';
   $('#createSnapshot').disabled=!data.r2Configured;
-  $('#backupsBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(item.object_key||'—')+'</td><td>'+(data.r2Configured?'<button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada snapshot R2.</td></tr>';
+  $('#backupsBody').innerHTML=items.length?items.map(item=>{
+    const verified=item.verified_at?(item.status==='success'?'✓ '+dateOnly(item.verified_at):'⚠ '+dateOnly(item.verified_at)):'Belum';
+    const actions=data.r2Configured?'<div class="inline-actions"><button class="backup-verify" type="button" data-verify="'+esc(item.id)+'">Verifikasi</button><button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button></div>':'—';
+    return '<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(verified)+'</td><td>'+esc(item.object_key||'—')+'</td><td>'+actions+'</td></tr>';
+  }).join(''):'<tr><td colspan="6">Belum ada snapshot R2.</td></tr>';
   $('#backupsBody').querySelectorAll('[data-backup]').forEach(button=>button.onclick=()=>downloadBackup('/v1/develop/backups/'+encodeURIComponent(button.dataset.backup)+'/download','irvan-backup-'+button.dataset.backup+'.json'));
+  $('#backupsBody').querySelectorAll('[data-verify]').forEach(button=>button.onclick=()=>verifyBackup(button.dataset.verify,button));
 }
 async function downloadBackup(path,fileName){
   const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
@@ -238,7 +297,8 @@ async function init(){
 }
 document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.tab));
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
-$('#refreshHealth').onclick=loadHealth;
+$('#refreshHealth').onclick=async()=>{await loadHealth();await window.IrvanAccount?.refreshCloudStatus?.();};
+$('#saveCloudPolicy').onclick=saveCloudPolicy;
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
 $('#migrateAiImages').onclick=async()=>{

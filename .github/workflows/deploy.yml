@@ -3,6 +3,18 @@ name: Deploy Vite to GitHub Pages
 on:
   push:
     branches: [master]
+    paths:
+      - "index.html"
+      - "stat/**"
+      - "src/**"
+      - "public/**"
+      - "mendeley/**"
+      - "print-skripsi/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.*"
+      - "scripts/public-build.mjs"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:

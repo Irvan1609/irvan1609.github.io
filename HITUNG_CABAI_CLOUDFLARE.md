@@ -68,3 +68,10 @@ Worker dan D1 memiliki batas Free. Aplikasi memakai pola **local-first**: analis
 Foto kontribusi tetap diperkecil menjadi maksimum 1.280 px dan sekitar 850 kB. Jika binding R2 `IMAGES` tersedia, objek gambar baru disimpan di R2 dan D1 hanya menyimpan metadata serta object key. Jika R2 belum tersedia, Worker tetap kompatibel dengan fallback BLOB D1. Data lama yang masih berupa BLOB tetap dapat dibaca.
 
 Maintenance terjadwal membersihkan state OAuth/sesi kedaluwarsa, operasi idempoten lama, audit log lama, dan dataset yang sudah lama berstatus terhapus. Nilai default: idempotency 14 hari, audit 90 hari, dan dataset terhapus 30 hari; semuanya dapat diubah melalui Worker vars.
+
+
+## 8. Deduplikasi dan mode hemat
+
+Setiap foto kontribusi yang telah diperkecil dihitung SHA-256. Object R2 memakai key berbasis hash sehingga foto yang identik tidak diunggah berulang. Record anotasi tetap terpisah di D1 agar revisi bounding box, model, dan jumlah buah tetap dapat dipelajari.
+
+Kebijakan Cloudflare terpusat dapat menjeda upload AI tanpa mengganggu penyimpanan IndexedDB lokal. Pada mode Hemat, kontribusi AI otomatis nonaktif. Pada mode Darurat, seluruh fitur cloud non-esensial dijeda dan Hitung Cabai tetap dapat mendeteksi, mengoreksi, menyimpan, mengekspor, dan mengirim jumlah buah ke Statistical Web secara lokal.
