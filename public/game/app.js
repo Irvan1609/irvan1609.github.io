@@ -1796,11 +1796,14 @@ function renderSelectionPreview(){
 }
 function selectCandidate(id){
   const item=state.selectionPool.find(candidate=>candidate.id===id);if(!item||item.selected)return;
+  checkpoint('Sebelum seleksi '+item.plotUid);
   item.selected=true;
   if(!state.vault.some(seed=>seed.id===item.seed.id))state.vault.push(item.seed);
   state.selectedSeedId=item.seed.id;rememberLineage(item.seed);item.seed.traits.forEach(discoverTrait);
   academyMark('selection',{note:'Seleksi kandidat berdasarkan data'});
   if(seedEvidence(item.seed).level>=4)academyMark('stability',{note:'Galur relatif stabil setelah pengujian'});
+  noteBreeder('seleksi','Memilih '+item.seed.name+' dari '+item.plotUid,{yield:item.yield,health:item.health,stress:item.stress,accuracy:item.accuracy});
+  recordDecision('selection','Memilih '+item.seed.name,'Hasil '+Number(item.yield).toFixed(1)+' kg · akurasi '+Math.round((item.accuracy??1)*100)+'%');
   save();render();toast('🧬 '+item.seed.name+' disimpan');
 }
 function selectionScore(item,mode=state.selectionMode||'index'){
@@ -2065,20 +2068,29 @@ function saveBestCandidate(){
 }
 function archiveActiveExperiment(){
   const exp=state.experiment;if(!exp)return;
+  const parameter=exp.parameters.includes('Hasil')?'Hasil':exp.parameters[0],means=exp.treatments.map(t=>{
+    const values=exp.units.filter(u=>u.treatmentId===t.id).map(u=>Number(String(u.observations?.[parameter]??'').replace(',','.'))).filter(Number.isFinite);
+    return values.length?{name:t.name||t.code,mean:values.reduce((a,b)=>a+b,0)/values.length}:null;
+  }).filter(Boolean).sort((a,b)=>b.mean-a.mean).slice(0,3);
+  const quality=experimentQualityScore();
   state.experimentHistory=[{
-    id:exp.id,name:exp.name,season:state.season,design:exp.design,kind:exp.kind,quality:experimentQualityScore(),
-    treatments:exp.treatments.length,reps:exp.reps,completed:exp.units.filter(unit=>exp.parameters.every(p=>String(unit.observations?.[p]??'').trim()!=='')).length,total:exp.units.length
-  },...state.experimentHistory].slice(0,20);
+    id:exp.id,name:exp.name,season:state.season,design:exp.design,kind:exp.kind,quality,
+    treatments:exp.treatments.length,reps:exp.reps,completed:exp.units.filter(unit=>exp.parameters.every(p=>String(unit.observations?.[p]??'').trim()!=='')).length,total:exp.units.length,
+    parameters:[...exp.parameters],summary:means.map(row=>row.name+' '+row.mean.toFixed(1)),precision:designPrecisionScore(exp)
+  },...state.experimentHistory.filter(item=>item.id!==exp.id)].slice(0,20);
+  noteBreeder('riset','Mengarsipkan '+exp.name+' · '+exp.design.toUpperCase()+' · mutu '+quality+'%');
 }
 function beginNextSeason(){
+  checkpoint('Akhir Musim '+state.season);
   const wasDaily=!!state.daily;archiveActiveExperiment();
-  state.season++;state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=focusMax(state.level);state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
+  state.season++;if(state.season>=2)state.onboarding={...(state.onboarding||{}),complete:true};
+  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=focusMax(state.level);state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
   state.vault.forEach(seed=>{seed.ageSeasons=(seed.ageSeasons||0)+1;seed.viability=clamp((seed.viability||96)-(hasTech('cold')?1:3),0,100);});
   if(wasDaily){state.daily=null;state.challenge='standard';state.maxDay=CHALLENGES.standard.maxDay;state.monoSeedId=null;}
   state.env=newEnvironment(state.season);state.weather=rollWeather(state.env);state.weatherMemory={hot:0,wet:0,dry:0};state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);state.seasonStartRp=state.rp;state.mission=missionFor(state.season,state.challenge);
   state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
   if(state.season%3===0){const fragment=LORE[Math.min(LORE.length-1,Math.floor(state.season/3)-1)];if(fragment&&!state.lore.includes(fragment)){state.lore.push(fragment);addLog('Fragment arsip baru ditemukan.');}}
-  addLog('Musim '+state.season+' dimulai: '+state.env.name+(state.env.boss?' [BOSS]':'')+'.',1);$('#recapModal').hidden=true;render();toast(state.env.name+' dimulai');
+  addLog('Musim '+state.season+' dimulai: '+state.env.name+(state.env.boss?' [BOSS]':'')+'.',1);noteBreeder('musim','Musim '+state.season+' dimulai · '+state.env.name);$('#recapModal').hidden=true;render();toast(state.season===2?'📐 Penelitian & pemuliaan terbuka':state.env.name+' dimulai');
 }
 
 function crossCost(mode){return mode==='self'?6:mode==='backcross'?10:CROSS_COST;}
@@ -2099,6 +2111,7 @@ function crossSeeds(){
   const mode=$('#crossMode')?.value||'f1',a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value),cost=crossCost(mode);
   if(!state.academy?.completed?.includes('cross-protocol')){openCrossProtocol();return;}
   if(!a||seedSpecies(a)!==state.species||(mode!=='self'&&(!b||seedSpecies(b)!==state.species))||(mode!=='self'&&a.id===b.id)||state.rp<cost)return;
+  checkpoint('Sebelum persilangan '+mode.toUpperCase());
   state.rp-=cost;
   const crossKey=[state.season,mode,a.id,b?.id||a.id,state.vault.length].join(':'),progeny=makeProgeny(a,b,mode,crossKey);
   if(!progeny)return;
@@ -2121,6 +2134,8 @@ function crossSeeds(){
   if(mode==='self')academyMark('cross-self',{note:'Selfing dan segregasi generasi lanjut'});
   if(mode==='backcross')academyMark('cross-backcross',{note:'Backcross ke tetua berulang'});
   addLog('× '+label+' '+child.name+' · Hom '+Math.round(child.homozygosity*100)+'% · Het '+Math.round(child.heterozygosity*100)+'%.');
+  noteBreeder('persilangan',(mode==='self'?a.name:a.name+' × '+b.name)+' → '+child.name+' '+label,{homozygosity:child.homozygosity,heterozygosity:child.heterozygosity});
+  recordDecision('cross',mode==='self'?'Self '+a.name:a.name+' × '+b.name,'Keturunan '+label+' · Hom '+Math.round(child.homozygosity*100)+'%');
   beep(680,.1);render();toast(child.name+' · '+label+' berhasil dibuat');
 }
 
