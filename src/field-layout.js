@@ -341,6 +341,102 @@ function selectVisible(){
   $('#fieldMap')?.querySelectorAll('[data-field-row]').forEach(plot=>selectedRows.add(Number(plot.dataset.fieldRow)));
   renderMap();renderBatchEditor();
 }
+
+function activeParameterIndex(){
+  const index=Number(config?.session?.parameter);
+  return Number.isInteger(index)&&index>=0&&index<current.headers.length&&!structuralHeader(current.headers[index])?index:-1;
+}
+function sampleGroupForIndex(index){
+  const header=current.headers[index];if(!header)return null;
+  return (config.sampleGroups||[]).find(group=>group.members.includes(header)||group.meanHeader===header)||null;
+}
+function observationIndices(){
+  const active=activeParameterIndex();
+  if(active<0)return measurementColumns(current).map(item=>item.index);
+  const group=sampleGroupForIndex(active);
+  if(!group)return [active];
+  return group.members.map(header=>current.headers.indexOf(header)).filter(index=>index>=0);
+}
+function rowIncomplete(index){
+  const row=current.rows[index];if(!row)return false;
+  if(['missing','dead'].includes(plotStatus(index)))return false;
+  const indices=observationIndices();
+  if(!indices.length)return rowProgress(current,row).status!=='complete';
+  return indices.some(col=>String(row[col]??'').trim()==='');
+}
+function nextIncomplete(){
+  const route=[...($('#fieldMap')?.querySelectorAll('[data-field-row]')||[])].map(plot=>Number(plot.dataset.fieldRow)).filter(Number.isInteger);
+  if(!route.length)return;
+  const start=Math.max(-1,route.indexOf(selectedRow));
+  for(let offset=1;offset<=route.length;offset++){
+    const row=route[(start+offset+route.length)%route.length];
+    if(rowIncomplete(row)){selectRow(row);return;}
+  }
+  const status=$('#fieldEditorStatus');if(status)status.textContent='✓ Semua plot pada tampilan ini sudah terisi.';
+}
+function toggleFieldMode(){
+  pushLayoutHistory('mode lapangan');
+  config={...config,fieldMode:!config.fieldMode};writeConfig(current,config);
+  $('#fieldLayoutModal')?.classList.toggle('field-mode',config.fieldMode);
+  $('#fieldModeToggle')?.setAttribute('aria-pressed',String(config.fieldMode));
+  renderControls();renderMap();
+  if(config.fieldMode&&!Number.isInteger(selectedRow))nextIncomplete();
+  else if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+}
+function validateBlocks(){
+  const groups=groupEntries(current),lines=[];
+  for(const [label,entries] of groups){
+    const missing=entries.filter(entry=>rowIncomplete(entry.index));
+    if(missing.length)lines.push(label+': '+missing.length+' belum lengkap — '+missing.slice(0,8).map(entry=>plotLabel(current,entry.row,entry.index).id).join(', ')+(missing.length>8?'…':''));
+    else lines.push(label+': lengkap ✓');
+  }
+  alert(lines.join('\n'));
+}
+function createSessionColumn(){
+  const active=activeParameterIndex(),label=String(config.session?.label||'').trim();
+  if(active<0)return alert('Pilih Parameter aktif terlebih dahulu.');
+  if(!label)return alert('Isi nama sesi, misalnya 28 HST.');
+  const base=String(current.headers[active]),name=base+' '+label;
+  const existing=current.headers.findIndex(header=>header.toLocaleLowerCase('id-ID')===name.toLocaleLowerCase('id-ID'));
+  let index=existing;
+  if(index<0){
+    const result=api()?.appendColumn?.(name,'tambah parameter waktu dari denah');
+    if(!result?.ok)return alert(result?.error||'Parameter waktu belum dapat dibuat.');
+    index=result.index;refreshData(false);
+  }
+  pushLayoutHistory('parameter waktu');
+  config={...config,session:{...config.session,label,parameter:index,date:new Date().toISOString().slice(0,10)}};writeConfig(current,config);
+  renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+}
+function setupSamplePlants(){
+  const active=activeParameterIndex();if(active<0)return alert('Pilih Parameter aktif terlebih dahulu.');
+  const count=Math.max(2,Math.min(20,Number(prompt('Jumlah tanaman sampel per plot:','5'))||0));if(!count)return;
+  const base=String(current.headers[active]).replace(/\s+T\d+$/i,'').replace(/\s+Rerata$/i,'').trim();
+  const members=[];
+  for(let i=1;i<=count;i++){
+    const name=base+' T'+i;
+    let index=current.headers.findIndex(header=>header===name);
+    if(index<0){const result=api()?.appendColumn?.(name,'tambah tanaman sampel');if(!result?.ok)return alert(result?.error||'Kolom sampel gagal dibuat.');refreshData(false);index=result.index;}
+    members.push(name);
+  }
+  const meanHeader=base+' Rerata';
+  let meanIndex=current.headers.findIndex(header=>header===meanHeader);
+  if(meanIndex<0){const result=api()?.appendColumn?.(meanHeader,'tambah rerata sampel');if(!result?.ok)return alert(result?.error||'Kolom rerata gagal dibuat.');refreshData(false);meanIndex=result.index;}
+  pushLayoutHistory('setup tanaman sampel');
+  const others=(config.sampleGroups||[]).filter(group=>group.meanHeader!==meanHeader);
+  config={...config,sampleGroups:[...others,{base,members,meanHeader}],session:{...config.session,parameter:current.headers.indexOf(members[0])}};writeConfig(current,config);
+  renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+}
+function applySampleMeans(values){
+  for(const group of config.sampleGroups||[]){
+    const memberIndexes=group.members.map(header=>current.headers.indexOf(header)).filter(index=>index>=0),meanIndex=current.headers.indexOf(group.meanHeader);
+    if(meanIndex<0||!memberIndexes.length)continue;
+    const nums=memberIndexes.map(index=>Number(String(values[index]??'').replace(',','.')));
+    if(nums.every(Number.isFinite))values[meanIndex]=String(nums.reduce((a,b)=>a+b,0)/nums.length);
+    else values[meanIndex]='';
+  }
+}
+
 function statusOptions(selected='',includeKeep=false){
   const list=[['normal','Normal'],['missing','Petak kosong'],['dead','Tanaman mati'],['damaged','Rusak'],['harvested','Panen'],['border','Border']];
   return (includeKeep?'<option value="">Jangan ubah status</option>':'')+list.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
