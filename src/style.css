@@ -3951,3 +3951,178 @@ body.analysis-results-open{overflow:hidden}
   .publication-table-tools,
   .chapter-interpretation-head>button{display:none!important}
 }
+
+
+/* STAT SINGLE COMPACT UI 2026-09-26 */
+/* One interface: no simple/complete switch. Keep controls dense and reveal secondary tools only on demand. */
+.analysis-command-panel{
+  padding:7px 9px 8px!important;
+}
+.analysis-menu-head{padding:0 1px 4px}
+.analysis-menu-head>div>small{max-width:560px}
+.analysis-unified-view{padding:4px 0 0}
+.analysis-simple-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.analysis-simple-card{
+  min-height:50px!important;
+  grid-template-columns:26px minmax(0,1fr)!important;
+  column-gap:6px!important;
+  padding:5px 6px!important;
+  border-radius:6px!important;
+}
+.analysis-simple-card>span{width:26px!important;height:26px!important;border-radius:5px!important}
+.analysis-simple-foot{justify-content:flex-start!important;padding-top:4px!important}
+.analysis-simple-foot button{padding-left:2px!important}
+.analysis-more-catalog{
+  margin-top:5px;
+  padding-top:5px;
+  border-top:1px solid #e1e6ea;
+}
+.analysis-more-toolbar{
+  display:grid;
+  grid-template-columns:minmax(170px,1fr) auto auto;
+  gap:4px;
+  align-items:center;
+  margin-bottom:5px;
+}
+.analysis-more-toolbar input{
+  width:100%;
+  min-height:30px;
+  padding:4px 7px;
+  border:1px solid #d6dee4;
+  border-radius:6px;
+  background:#fff;
+  font:inherit;
+}
+.analysis-more-toolbar button{min-height:30px!important;padding:4px 7px!important;font-size:9px!important}
+.analysis-quick-history{margin:0 0 5px!important;padding:4px!important}
+.analysis-menu-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.analysis-menu-group{margin:0!important;padding:5px!important;border:1px solid #e2e7eb!important;border-radius:6px!important}
+.analysis-group-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
+.analysis-group-heading b{font-size:9.5px;color:#435867}
+.analysis-group-heading small{font-size:8px;color:#8a969f}
+.analysis-group-items{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px!important}
+.analysis-menu-item-wrap{min-width:0}
+.analysis-menu-item{min-height:31px!important;padding:4px 6px!important}
+.analysis-menu-item-copy b{font-size:9px!important}
+.analysis-favorite{opacity:.25!important}
+.analysis-menu-item-wrap:hover .analysis-favorite,.analysis-favorite:focus{opacity:1!important}
+
+/* Analysis setup: a single compact form. */
+.science-unified-mode .analysis-workspace-body{padding:5px!important}
+.science-unified-mode .science-simple-shell{gap:4px!important}
+.science-unified-mode .science-primary-grid{
+  grid-template-columns:minmax(0,1.25fr) minmax(210px,.75fr)!important;
+  gap:4px!important;
+}
+.science-unified-mode .science-card{
+  margin:0!important;
+  border:1px solid #dde4e9!important;
+  border-radius:6px!important;
+  box-shadow:none!important;
+}
+.science-unified-mode .science-card-head{min-height:26px!important;padding:4px 6px!important}
+.science-unified-mode .science-step{display:none!important}
+.science-unified-mode .form-grid{gap:4px!important;padding:5px!important}
+.science-unified-mode .science-role-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.science-unified-mode .science-role-grid label{min-width:0}
+.science-unified-mode select{min-height:31px!important;padding:3px 6px!important}
+.science-unified-mode .science-simple-parameter{padding:5px!important}
+.science-unified-mode .science-multi-parameters,
+.science-unified-mode .science-advanced-options{margin:4px 0 0!important}
+.science-unified-mode .science-multi-parameters>summary,
+.science-unified-mode .science-advanced-options>summary{min-height:29px!important;padding:4px 6px!important}
+.science-unified-mode #scienceQuality{display:none}
+.science-unified-mode .science-preflight-inline{display:block!important;margin:0!important}
+.science-unified-mode .design-structure{margin:0!important;padding:4px 6px!important}
+.science-unified-mode .design-structure-head>div>b,
+.science-unified-mode .design-structure-head>div>small,
+.science-unified-mode .structure-grid,
+.science-unified-mode .structure-df{display:none!important}
+.science-unified-mode #scienceValidation .analysis-note{
+  margin:3px 0 0!important;
+  padding:4px 6px!important;
+  font-size:9px!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.science-unified-mode #scienceValidation .analysis-note p{display:none}
+.science-unified-mode .science-advanced-body{padding:5px!important}
+.science-unified-mode .science-option-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.analysis-workspace-foot{min-height:42px!important;padding:5px 7px!important}
+.science-back-button,.science-foot-actions #closeScience2{background:transparent!important;border-color:transparent!important;color:#667987!important}
+.science-run-button{min-width:94px}
+
+/* Augmented follows the same visual grammar. */
+.aug-unified-mode .aug-context{padding:5px 7px!important}
+.aug-unified-mode .aug-simple-form{padding:5px 7px!important;gap:4px!important}
+.aug-unified-mode .aug-structure-inline{padding:0 7px 4px!important}
+.aug-unified-mode .aug-multi-parameters,
+.aug-unified-mode .aug-advanced{margin:0 7px 4px!important}
+.aug-unified-mode .aug-runbar{padding:5px 7px!important}
+.aug-unified-mode .aug-runbar button{min-width:94px}
+
+/* Results are a report first. Per-parameter actions collapse to one unobtrusive menu. */
+.analysis-result{position:relative}
+.analysis-result .result-actions.result-card-actions{
+  position:absolute!important;
+  top:3px;
+  right:4px;
+  z-index:18;
+  display:block!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  opacity:.28;
+}
+.analysis-result:hover .result-actions.result-card-actions,
+.analysis-result .result-actions.result-card-actions:focus-within{opacity:1}
+.result-card-actions .result-card-more>summary{
+  width:29px!important;
+  min-width:29px!important;
+  min-height:27px!important;
+  padding:2px!important;
+  background:rgba(255,255,255,.94)!important;
+}
+.result-card-actions .export-status{display:none!important}
+.result-os-command{grid-template-columns:minmax(150px,1fr) auto!important}
+.result-os-count{
+  display:flex;
+  align-items:baseline;
+  gap:3px;
+  min-height:0;
+  padding:0 5px;
+  border-right:1px solid #e2e7eb;
+  color:#657784;
+}
+.result-os-count b{font-size:10px}
+.result-os-count span{font-size:8px}
+.result-os-insights{pointer-events:none}
+.result-os-audit{pointer-events:auto}
+.analysis-result-dock,.analysis-dock-body{max-width:none!important;width:100%!important}
+.analysis-dock-body{padding-left:5px!important;padding-right:5px!important}
+
+/* Fewer simultaneous controls on small screens, but preserve safe touch targets. */
+@media(max-width:900px){
+  .analysis-menu-groups{grid-template-columns:1fr}
+  .science-unified-mode .science-primary-grid{grid-template-columns:1fr!important}
+  .science-unified-mode .science-role-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:720px){
+  .analysis-simple-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .analysis-simple-card{min-height:48px!important}
+  .analysis-more-toolbar{grid-template-columns:1fr 1fr!important}
+  .analysis-more-toolbar input{grid-column:1/-1;min-height:40px}
+  .analysis-more-toolbar button{min-height:40px!important}
+  .analysis-group-items{grid-template-columns:1fr!important}
+  .analysis-menu-item{min-height:40px!important}
+  .science-unified-mode .science-role-grid{grid-template-columns:1fr!important}
+  .science-unified-mode select{min-height:40px!important}
+  .science-unified-mode .science-option-grid{grid-template-columns:1fr!important}
+  .science-unified-mode .science-multi-parameters>summary,
+  .science-unified-mode .science-advanced-options>summary{min-height:40px!important}
+  .analysis-result .result-actions.result-card-actions{opacity:1;top:2px;right:2px}
+  .result-card-actions .result-card-more>summary{width:40px!important;min-width:40px!important;min-height:40px!important}
+}
