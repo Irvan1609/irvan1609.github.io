@@ -1512,6 +1512,204 @@ async function handleImage(request,env,id){
   return new Response(new Uint8Array(row.image),{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
 }
 
+
+function gamePlayer(row){
+  if(!row)return null;
+  return {
+    id:row.user_id||row.id,
+    name:row.name||'Pemain',
+    picture:row.picture_url||'',
+    score:Number(row.score)||0,
+    bestYield:Number(row.best_yield)||0,
+    season:Number(row.season)||1,
+    level:Number(row.level)||1,
+    legacy:Number(row.legacy)||0,
+    location:row.location||'zero',
+    updatedAt:row.updated_at||null
+  };
+}
+async function gameMutationGuard(request,env,user,scope='write'){
+  if(!(await rateLimitAllowed(env,'DATASET_RATE_LIMITER','game:'+scope+':'+user.id))){
+    return json(request,env,{error:'Terlalu banyak aksi game. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
+  return null;
+}
+function parseGameProfile(body){
+  const score=Math.round(Number(body?.score)),bestYield=Number(body?.bestYield),season=Math.round(Number(body?.season)),level=Math.round(Number(body?.level)),legacy=Math.round(Number(body?.legacy)),location=String(body?.location||'zero').slice(0,32);
+  if(!Number.isFinite(score)||score<0||score>1000000000)return null;
+  if(!Number.isFinite(bestYield)||bestYield<0||bestYield>1000000)return null;
+  if(!Number.isInteger(season)||season<1||season>100000)return null;
+  if(!Number.isInteger(level)||level<1||level>100000)return null;
+  if(!Number.isInteger(legacy)||legacy<0||legacy>10000)return null;
+  if(!/^[a-z0-9_-]{1,32}$/i.test(location))return null;
+  return {score,bestYield,season,level,legacy,location};
+}
+async function handleGameProfilePut(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'profile');if(guard)return guard;
+  await ensureGameSchema(env);
+  const profile=parseGameProfile(await request.json().catch(()=>null));
+  if(!profile)return json(request,env,{error:'Profil game tidak valid.'},400);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,best_yield,season,level,legacy,location,updated_at)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      score=MAX(game_profiles.score,excluded.score),
+      best_yield=MAX(game_profiles.best_yield,excluded.best_yield),
+      season=excluded.season,
+      level=excluded.level,
+      legacy=MAX(game_profiles.legacy,excluded.legacy),
+      location=excluded.location,
+      updated_at=excluded.updated_at`)
+    .bind(user.id,profile.score,profile.bestYield,profile.season,profile.level,profile.legacy,profile.location,now).run();
+  const row=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url FROM game_profiles gp JOIN users u ON u.id=gp.user_id WHERE gp.user_id=? LIMIT 1`).bind(user.id).first();
+  return json(request,env,{ok:true,profile:gamePlayer(row)});
+}
+async function handleGameLeaderboard(request,env,url){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const limit=Math.max(5,Math.min(50,Number(url.searchParams.get('limit'))||20));
+  const result=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url
+    FROM game_profiles gp JOIN users u ON u.id=gp.user_id
+    WHERE u.account_status='active'
+    ORDER BY gp.score DESC,gp.best_yield DESC,gp.updated_at ASC LIMIT ?`).bind(limit).all();
+  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? LIMIT 1').bind(user.id).first();
+  let rank=null;
+  if(own){
+    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score>?').bind(Number(own.score)||0).first();
+    rank=(Number(higher?.total)||0)+1;
+  }
+  return json(request,env,{items:(result.results||[]).map(gamePlayer),myRank:rank});
+}
+async function handleGamePlayerSearch(request,env,url){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const query=String(url.searchParams.get('q')||'').trim().slice(0,80);
+  if(query.length<2)return json(request,env,{items:[]});
+  const result=await env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,
+      COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,COALESCE(gp.season,1) AS season,
+      COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+    FROM users u LEFT JOIN game_profiles gp ON gp.user_id=u.id
+    WHERE u.account_status='active' AND u.id!=? AND instr(lower(u.name),lower(?))>0
+    ORDER BY COALESCE(gp.score,0) DESC,u.name ASC LIMIT 12`).bind(user.id,query).all();
+  return json(request,env,{items:(result.results||[]).map(gamePlayer)});
+}
+async function handleGameFriends(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const [friends,incoming,outgoing]=await env.DB.batch([
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.friend_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.user_id=? AND gf.status='accepted' AND u.account_status='active' ORDER BY COALESCE(gp.score,0) DESC,u.name ASC`).bind(user.id),
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.user_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.friend_id=? AND gf.status='pending' AND u.account_status='active' ORDER BY gf.created_at ASC`).bind(user.id),
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.friend_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.user_id=? AND gf.status='pending' AND u.account_status='active' ORDER BY gf.created_at ASC`).bind(user.id)
+  ]);
+  return json(request,env,{
+    friends:(friends.results||[]).map(gamePlayer),
+    incoming:(incoming.results||[]).map(gamePlayer),
+    outgoing:(outgoing.results||[]).map(gamePlayer)
+  });
+}
+async function handleGameFriendRequest(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null),targetId=String(body?.targetUserId||'');
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const target=await env.DB.prepare("SELECT id FROM users WHERE id=? AND account_status='active' LIMIT 1").bind(targetId).first();
+  if(!target)return json(request,env,{error:'Pemain tidak ditemukan.'},404);
+  const current=await env.DB.prepare('SELECT status FROM game_friends WHERE user_id=? AND friend_id=? LIMIT 1').bind(user.id,targetId).first();
+  if(current?.status==='accepted')return json(request,env,{error:'Sudah berteman.'},409);
+  const reverse=await env.DB.prepare('SELECT status FROM game_friends WHERE user_id=? AND friend_id=? LIMIT 1').bind(targetId,user.id).first();
+  if(reverse?.status==='pending')return json(request,env,{error:'Permintaan dari pemain ini sudah menunggu Anda.'},409);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO game_friends (user_id,friend_id,status,created_at,updated_at) VALUES (?,?,'pending',?,?)
+    ON CONFLICT(user_id,friend_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at`).bind(user.id,targetId,now,now).run();
+  return json(request,env,{ok:true});
+}
+async function handleGameFriendAccept(request,env,requesterId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(requesterId)||requesterId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  const pending=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='pending' LIMIT 1").bind(requesterId,user.id).first();
+  if(!pending)return json(request,env,{error:'Permintaan teman tidak ditemukan.'},404);
+  const now=new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE game_friends SET status='accepted',updated_at=? WHERE user_id=? AND friend_id=?").bind(now,requesterId,user.id),
+    env.DB.prepare(`INSERT INTO game_friends (user_id,friend_id,status,created_at,updated_at) VALUES (?,?,'accepted',?,?)
+      ON CONFLICT(user_id,friend_id) DO UPDATE SET status='accepted',updated_at=excluded.updated_at`).bind(user.id,requesterId,now,now)
+  ]);
+  return json(request,env,{ok:true});
+}
+async function handleGameFriendRemove(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM game_friends WHERE user_id=? AND friend_id=?').bind(user.id,targetId),
+    env.DB.prepare('DELETE FROM game_friends WHERE user_id=? AND friend_id=?').bind(targetId,user.id)
+  ]);
+  return json(request,env,{ok:true});
+}
+async function handleGameRaid(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Target tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'raid');if(guard)return guard;
+  await ensureGameSchema(env);
+  const friendship=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='accepted' LIMIT 1").bind(user.id,targetId).first();
+  if(!friendship)return json(request,env,{error:'Raid hanya dapat dilakukan ke teman.'},403);
+  const last=await env.DB.prepare('SELECT created_at FROM game_raids WHERE attacker_id=? AND target_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id,targetId).first();
+  const cooldownMs=12*60*60*1000,lastMs=Date.parse(last?.created_at||'');
+  if(Number.isFinite(lastMs)&&Date.now()-lastMs<cooldownMs){
+    const retry=Math.max(60,Math.ceil((cooldownMs-(Date.now()-lastMs))/1000));
+    return json(request,env,{error:'Raid masih cooldown.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
+  const pending=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_raids WHERE target_id=? AND claimed_at IS NULL').bind(targetId).first();
+  if((Number(pending?.total)||0)>=3)return json(request,env,{error:'Target sudah memiliki terlalu banyak raid yang belum diproses.'},409);
+  const id=crypto.randomUUID(),now=new Date().toISOString();
+  await env.DB.prepare('INSERT INTO game_raids (id,attacker_id,target_id,created_at,claimed_at) VALUES (?,?,?,?,NULL)').bind(id,user.id,targetId,now).run();
+  await audit(env,user,'game.raid','user',targetId,{raidId:id});
+  return json(request,env,{ok:true,raid:{id,createdAt:now,cooldownHours:12}});
+}
+async function handleGameRaidInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const result=await env.DB.prepare(`SELECT r.id,r.created_at,u.id AS attacker_id,u.name AS attacker_name,u.picture_url AS attacker_picture
+    FROM game_raids r JOIN users u ON u.id=r.attacker_id
+    WHERE r.target_id=? AND r.claimed_at IS NULL ORDER BY r.created_at ASC LIMIT 10`).bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,createdAt:row.created_at,attacker:{id:row.attacker_id,name:row.attacker_name||'Teman',picture:row.attacker_picture||''}
+  }))});
+}
+async function handleGameRaidClaim(request,env,raidId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(raidId))return json(request,env,{error:'Raid tidak valid.'},400);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT id FROM game_raids WHERE id=? AND target_id=? AND claimed_at IS NULL LIMIT 1').bind(raidId,user.id).first();
+  if(!row)return json(request,env,{error:'Raid tidak ditemukan.'},404);
+  await env.DB.prepare('UPDATE game_raids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),raidId,user.id).run();
+  return json(request,env,{ok:true});
+}
+
 export default {
   async scheduled(event,env,ctx){
     if(!env.BACKUPS)return;
