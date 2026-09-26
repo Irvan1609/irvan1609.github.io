@@ -999,14 +999,21 @@ function installEditorShortcuts(){
 }
 
 function consumeExternalDatasetImport(){
-  let detail=null;
-  try{detail=JSON.parse(localStorage.getItem(EXTERNAL_IMPORT_KEY)||'null');}catch{}
-  if(!detail||detail.source!=='field-zero'||!Array.isArray(detail.headers)||!Array.isArray(detail.rows))return false;
-  document.dispatchEvent(new CustomEvent('dataset-import',{detail}));
-  if(detail.importResult?.ok){
+  let payload=null;
+  try{payload=JSON.parse(localStorage.getItem(EXTERNAL_IMPORT_KEY)||'null');}catch{}
+  if(!payload||payload.source!=='field-zero')return false;
+  const datasets=Array.isArray(payload.datasets)?payload.datasets:(Array.isArray(payload.headers)&&Array.isArray(payload.rows)?[payload]:[]);
+  if(!datasets.length)return false;
+  let imported=0;
+  for(const source of datasets){
+    if(!source||!Array.isArray(source.headers)||!Array.isArray(source.rows))continue;
+    const detail={...source,source:'field-zero'};document.dispatchEvent(new CustomEvent('dataset-import',{detail}));
+    if(detail.importResult?.ok)imported++;
+  }
+  if(imported===datasets.length){
     try{localStorage.removeItem(EXTERNAL_IMPORT_KEY);}catch{}
-    const design=String(detail.design||'').toUpperCase();
-    setStatus(`✓ Dataset Field Zero dibuka${design?` · lanjutkan Analisis → ${design}`:''}.`);
+    const design=String(payload.design||datasets.at(-1)?.design||'').toUpperCase();
+    setStatus(`✓ ${imported} dataset Field Zero dibuka · DATA SIMULASI GAME${design?` · Analisis → ${design}`:''}.`);
     return true;
   }
   return false;
