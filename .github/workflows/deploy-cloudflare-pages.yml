@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - "index.html"
+      - "stat/**"
       - "src/**"
       - "public/**"
       - "mendeley/**"
