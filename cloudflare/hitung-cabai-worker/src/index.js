@@ -293,6 +293,7 @@ async function ensureGameSchema(env){
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_profiles (
       user_id TEXT PRIMARY KEY,
       score INTEGER NOT NULL DEFAULT 0,
+      score_version INTEGER NOT NULL DEFAULT 2,
       best_yield REAL NOT NULL DEFAULT 0,
       season INTEGER NOT NULL DEFAULT 1,
       level INTEGER NOT NULL DEFAULT 1,
@@ -323,8 +324,22 @@ async function ensureGameSchema(env){
       FOREIGN KEY(target_id) REFERENCES users(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_target ON game_raids(target_id,claimed_at,created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_pair ON game_raids(attacker_id,target_id,created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_pair ON game_raids(attacker_id,target_id,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_aids (
+      id TEXT PRIMARY KEY,
+      helper_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      claimed_at TEXT,
+      FOREIGN KEY(helper_id) REFERENCES users(id),
+      FOREIGN KEY(target_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_target ON game_aids(target_id,claimed_at,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_pair ON game_aids(helper_id,target_id,created_at)')
   ]);
+  const profileInfo=await env.DB.prepare('PRAGMA table_info(game_profiles)').all();
+  const profileColumns=new Set((profileInfo.results||[]).map(row=>row.name));
+  if(!profileColumns.has('score_version'))await env.DB.prepare('ALTER TABLE game_profiles ADD COLUMN score_version INTEGER NOT NULL DEFAULT 1').run();
   GAME_SCHEMA_READY=true;
 }
 
@@ -1665,13 +1680,17 @@ async function gameMutationGuard(request,env,user,scope='write'){
   return null;
 }
 function parseGameProfile(body){
-  const score=Math.round(Number(body?.score)),bestYield=Number(body?.bestYield),season=Math.round(Number(body?.season)),level=Math.round(Number(body?.level)),legacy=Math.round(Number(body?.legacy)),location=String(body?.location||'zero').slice(0,32);
-  if(!Number.isFinite(score)||score<0||score>1000000000)return null;
-  if(!Number.isFinite(bestYield)||bestYield<0||bestYield>1000000)return null;
-  if(!Number.isInteger(season)||season<1||season>100000)return null;
-  if(!Number.isInteger(level)||level<1||level>100000)return null;
-  if(!Number.isInteger(legacy)||legacy<0||legacy>10000)return null;
+  const bestYield=Number(body?.bestYield),season=Math.round(Number(body?.season)),level=Math.round(Number(body?.level)),legacy=Math.round(Number(body?.legacy)),xp=Math.round(Number(body?.xp)),rivalWins=Math.round(Number(body?.rivalWins)),achievements=Math.round(Number(body?.achievements)),totalYield=Number(body?.totalYield),location=String(body?.location||'zero').slice(0,32);
+  if(!Number.isFinite(bestYield)||bestYield<0||bestYield>1500)return null;
+  if(!Number.isInteger(season)||season<1||season>500)return null;
+  if(!Number.isInteger(level)||level<1||level>500)return null;
+  if(!Number.isInteger(legacy)||legacy<0||legacy>50)return null;
+  if(!Number.isInteger(xp)||xp<0||xp>5000000)return null;
+  if(!Number.isInteger(rivalWins)||rivalWins<0||rivalWins>season)return null;
+  if(!Number.isInteger(achievements)||achievements<0||achievements>64)return null;
+  if(!Number.isFinite(totalYield)||totalYield<0||totalYield>season*1500+1500)return null;
   if(!/^[a-z0-9_-]{1,32}$/i.test(location))return null;
+  const score=Math.min(50000000,Math.round(bestYield*120+totalYield*5+level*80+legacy*1500+rivalWins*300+achievements*120+Math.min(xp,1000000)*0.25));
   return {score,bestYield,season,level,legacy,location};
 }
 async function handleGameProfilePut(request,env){
@@ -1682,10 +1701,11 @@ async function handleGameProfilePut(request,env){
   const profile=parseGameProfile(await request.json().catch(()=>null));
   if(!profile)return json(request,env,{error:'Profil game tidak valid.'},400);
   const now=new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,best_yield,season,level,legacy,location,updated_at)
-    VALUES (?,?,?,?,?,?,?,?)
+  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,score_version,best_yield,season,level,legacy,location,updated_at)
+    VALUES (?,?,2,?,?,?,?,?,?)
     ON CONFLICT(user_id) DO UPDATE SET
-      score=MAX(game_profiles.score,excluded.score),
+      score=excluded.score,
+      score_version=2,
       best_yield=MAX(game_profiles.best_yield,excluded.best_yield),
       season=excluded.season,
       level=excluded.level,
@@ -1703,12 +1723,12 @@ async function handleGameLeaderboard(request,env,url){
   const limit=Math.max(5,Math.min(50,Number(url.searchParams.get('limit'))||20));
   const result=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url
     FROM game_profiles gp JOIN users u ON u.id=gp.user_id
-    WHERE u.account_status='active'
+    WHERE u.account_status='active' AND gp.score_version=2
     ORDER BY gp.score DESC,gp.best_yield DESC,gp.updated_at ASC LIMIT ?`).bind(limit).all();
-  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? LIMIT 1').bind(user.id).first();
+  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? AND score_version=2 LIMIT 1').bind(user.id).first();
   let rank=null;
   if(own){
-    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score>?').bind(Number(own.score)||0).first();
+    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score_version=2 AND score>?').bind(Number(own.score)||0).first();
     rank=(Number(higher?.total)||0)+1;
   }
   return json(request,env,{items:(result.results||[]).map(gamePlayer),myRank:rank});
@@ -1806,6 +1826,12 @@ async function handleGameRaid(request,env,targetId){
   const friendship=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='accepted' LIMIT 1").bind(user.id,targetId).first();
   if(!friendship)return json(request,env,{error:'Raid hanya dapat dilakukan ke teman.'},403);
   const last=await env.DB.prepare('SELECT created_at FROM game_raids WHERE attacker_id=? AND target_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id,targetId).first();
+  const shield=await env.DB.prepare('SELECT created_at FROM game_raids WHERE target_id=? ORDER BY created_at DESC LIMIT 1').bind(targetId).first();
+  const shieldMs=2*60*60*1000,shieldAt=Date.parse(shield?.created_at||'');
+  if(Number.isFinite(shieldAt)&&Date.now()-shieldAt<shieldMs){
+    const retry=Math.max(60,Math.ceil((shieldMs-(Date.now()-shieldAt))/1000));
+    return json(request,env,{error:'Target sedang terlindungi setelah raid sebelumnya.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
   const cooldownMs=12*60*60*1000,lastMs=Date.parse(last?.created_at||'');
   if(Number.isFinite(lastMs)&&Date.now()-lastMs<cooldownMs){
     const retry=Math.max(60,Math.ceil((cooldownMs-(Date.now()-lastMs))/1000));
@@ -1839,6 +1865,46 @@ async function handleGameRaidClaim(request,env,raidId){
   await env.DB.prepare('UPDATE game_raids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),raidId,user.id).run();
   return json(request,env,{ok:true});
 }
+async function handleGameAid(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Target tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'aid');if(guard)return guard;
+  await ensureGameSchema(env);
+  const friendship=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='accepted' LIMIT 1").bind(user.id,targetId).first();
+  if(!friendship)return json(request,env,{error:'Bantuan hanya dapat dikirim ke teman.'},403);
+  const last=await env.DB.prepare('SELECT created_at FROM game_aids WHERE helper_id=? AND target_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id,targetId).first();
+  const cooldownMs=6*60*60*1000,lastMs=Date.parse(last?.created_at||'');
+  if(Number.isFinite(lastMs)&&Date.now()-lastMs<cooldownMs){
+    const retry=Math.max(60,Math.ceil((cooldownMs-(Date.now()-lastMs))/1000));
+    return json(request,env,{error:'Bantuan masih cooldown.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
+  const id=crypto.randomUUID(),now=new Date().toISOString();
+  await env.DB.prepare('INSERT INTO game_aids (id,helper_id,target_id,created_at,claimed_at) VALUES (?,?,?,?,NULL)').bind(id,user.id,targetId,now).run();
+  await audit(env,user,'game.aid','user',targetId,{aidId:id});
+  return json(request,env,{ok:true,aid:{id,createdAt:now,cooldownHours:6}});
+}
+async function handleGameAidInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const result=await env.DB.prepare(`SELECT a.id,a.created_at,u.id AS helper_id,u.name AS helper_name,u.picture_url AS helper_picture
+    FROM game_aids a JOIN users u ON u.id=a.helper_id
+    WHERE a.target_id=? AND a.claimed_at IS NULL ORDER BY a.created_at ASC LIMIT 10`).bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,createdAt:row.created_at,helper:{id:row.helper_id,name:row.helper_name||'Teman',picture:row.helper_picture||''}
+  }))});
+}
+async function handleGameAidClaim(request,env,aidId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(aidId))return json(request,env,{error:'Bantuan tidak valid.'},400);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT id FROM game_aids WHERE id=? AND target_id=? AND claimed_at IS NULL LIMIT 1').bind(aidId,user.id).first();
+  if(!row)return json(request,env,{error:'Bantuan tidak ditemukan.'},404);
+  await env.DB.prepare('UPDATE game_aids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),aidId,user.id).run();
+  return json(request,env,{ok:true});
+}
 
 export default {
   async scheduled(event,env,ctx){
@@ -1850,7 +1916,7 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.13'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.14'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
       if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
       const csrfFailure=await csrfGuard(request,env,url);
@@ -1886,10 +1952,15 @@ export default {
       const gameFriendMatch=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})$/i);
       if(request.method==='DELETE'&&gameFriendMatch)return await handleGameFriendRemove(request,env,gameFriendMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/game/raids/inbox')return await handleGameRaidInbox(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/aids/inbox')return await handleGameAidInbox(request,env);
       const gameRaidClaim=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})\/claim$/i);
       if(request.method==='POST'&&gameRaidClaim)return await handleGameRaidClaim(request,env,gameRaidClaim[1]);
+      const gameAidClaim=url.pathname.match(/^\/v1\/game\/aids\/([0-9a-f-]{36})\/claim$/i);
+      if(request.method==='POST'&&gameAidClaim)return await handleGameAidClaim(request,env,gameAidClaim[1]);
       const gameRaidTarget=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})$/i);
       if(request.method==='POST'&&gameRaidTarget)return await handleGameRaid(request,env,gameRaidTarget[1]);
+      const gameAidTarget=url.pathname.match(/^\/v1\/game\/aids\/([0-9a-f-]{36})$/i);
+      if(request.method==='POST'&&gameAidTarget)return await handleGameAid(request,env,gameAidTarget[1]);
       if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/midtrans-diagnostic')return await handleDevelopMidtransDiagnostic(request,env);
