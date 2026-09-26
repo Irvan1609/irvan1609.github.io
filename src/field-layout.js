@@ -1,4 +1,5 @@
 import './field-layout.css';
+import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto} from './field-media.js';
 
 const STORE='statistical_web_field_layout_v1';
 const $=selector=>document.querySelector(selector);
@@ -250,7 +251,7 @@ function ensureModal(){
           <div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>
         </aside>
       </main>
-    </div><input id="fieldLayoutImportInput" type="file" accept=".json,application/json" hidden>`);
+    </div><input id="fieldLayoutImportInput" type="file" accept=".json,application/json" hidden><input id="fieldPhotoInput" type="file" accept="image/*" capture="environment" hidden>`);
   $('#closeFieldLayout').onclick=closeFieldLayout;
   $('#fieldOpenTable').onclick=()=>{
     const row=selectedRow;
@@ -271,12 +272,14 @@ function ensureModal(){
   $('#fieldExportLayout').onclick=exportLayout;
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
-  $('#fieldLayoutImportInput').onchange=importLayout;
+  $('#fieldLayoutImportInput').onchange=importLayout;$('#fieldPhotoInput').onchange=saveSelectedPhoto;
   for(const id of ['fieldObserver','fieldSessionLabel','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldHeatTransform','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
   $('#fieldMap').addEventListener('click',event=>{
+    const removeObject=event.target.closest('[data-remove-field-object]');
+    if(removeObject){pushLayoutHistory('hapus objek lahan');config={...config,objects:(config.objects||[]).filter(item=>String(item.id)!==removeObject.dataset.removeFieldObject)};writeConfig(current,config);renderMap();return;}
     const plot=event.target.closest('[data-field-row]');if(!plot)return;
     const row=Number(plot.dataset.fieldRow);
     if(multiMode){
@@ -310,6 +313,12 @@ function ensureModal(){
     if(event.target.closest('[data-batch-apply]'))applyBatch();
     if(event.target.closest('[data-batch-select-visible]'))selectVisible();
     if(event.target.closest('[data-batch-clear]')){selectedRows.clear();renderMap();renderBatchEditor();}
+    if(event.target.closest('[data-field-road-toggle]'))toggleRoadAfter(selectedRow);
+    if(event.target.closest('[data-field-photo]'))$('#fieldPhotoInput')?.click();
+    if(event.target.closest('[data-field-gps]'))captureGps();
+    if(event.target.closest('[data-field-camera-measure]'))openCompanion('/kamera-pengukur/','camera');
+    if(event.target.closest('[data-field-chili]'))openCompanion('/hitung-cabai/','chili');
+    const deletePhotoButton=event.target.closest('[data-field-photo-delete]');if(deletePhotoButton)removeSelectedPhoto(deletePhotoButton.dataset.fieldPhotoDelete);
     if(event.target.closest('[data-field-open-row]')){
       const row=selectedRow;closeFieldLayout();if(Number.isInteger(row))api()?.focusCell?.(row,0);
     }
