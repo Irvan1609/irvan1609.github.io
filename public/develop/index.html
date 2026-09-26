@@ -107,6 +107,26 @@
 
       <section class="dev-view" data-view="server">
         <div class="stats-grid compact" id="usageGrid"></div>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Budget & Emergency</h2><p>Kontrol cloud tanpa mematikan fungsi lokal.</p></div><button id="saveCloudPolicy" type="button">Simpan</button></div>
+            <div class="plan-fields">
+              <label>Mode<select id="cloudBudgetMode"><option value="auto">Auto</option><option value="normal">Normal</option><option value="saver">Hemat</option><option value="emergency">Darurat</option></select></label>
+            </div>
+            <div class="key-values" id="cloudFeatureControls">
+              <label class="kv"><span>Dataset sync</span><input id="cloudDatasetSync" type="checkbox"></label>
+              <label class="kv"><span>Upload AI</span><input id="cloudAiUpload" type="checkbox"></label>
+              <label class="kv"><span>Sosial game</span><input id="cloudGameSocial" type="checkbox"></label>
+              <label class="kv"><span>Save game cloud</span><input id="cloudGameSave" type="checkbox"></label>
+              <label class="kv"><span>Pembayaran baru</span><input id="cloudPayments" type="checkbox"></label>
+            </div>
+            <div id="cloudPolicyState" class="muted">—</div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Referensi Free Tier</h2><p>Batas referensi, bukan meter resmi akun.</p></div></div>
+            <div id="freeTierReference" class="key-values"></div>
+          </article>
+        </div>
         <div class="dev-panel">
           <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
           <pre id="healthJson" class="code-box">—</pre>
@@ -138,13 +158,13 @@
         <div class="dev-panel">
           <div class="panel-head"><div><h2>Backup & disaster recovery</h2><p>Ekspor logis selalu tersedia. Snapshot R2 tersedia jika binding BACKUPS dikonfigurasi pada Worker.</p></div><div class="inline-actions"><button id="exportBackup" type="button">Unduh backup sekarang</button><button id="createSnapshot" type="button">Buat snapshot R2</button></div></div>
           <div id="backupState" class="muted"></div>
-          <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Status</th><th>Ukuran</th><th>Objek</th><th>Aksi</th></tr></thead><tbody id="backupsBody"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Status</th><th>Ukuran</th><th>Verifikasi</th><th>Objek</th><th>Aksi</th></tr></thead><tbody id="backupsBody"></tbody></table></div>
         </div>
       </section>
     </div>
   </main>
 
-  <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/develop/app.js?v=20260926-8"></script>
+  <script type="module" src="/account.js?v=20260926-7"></script>
+  <script type="module" src="/develop/app.js?v=20260926-9"></script>
 </body>
 </html>
