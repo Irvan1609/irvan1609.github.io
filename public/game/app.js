@@ -238,8 +238,8 @@ function gameProfile(){
   const bestYield=Math.max(Number(state.seasonStats?.yield)||0,...history.map(item=>Number(item.yield)||0));
   return {bestYield:round(bestYield,1),season:state.season,level:state.level,legacy:state.legacy||0,location:state.location,xp:state.xp||0,rivalWins:state.rivalWins||0,achievements:state.achievements?.length||0,totalYield:round(historyYield+currentYield,1)};
 }
-function notifyGameProfile(){
-  document.dispatchEvent(new CustomEvent('fieldzero-profile',{detail:gameProfile()}));
+function notifyGameProfile(force=false){
+  document.dispatchEvent(new CustomEvent('fieldzero-profile',{detail:{...gameProfile(),_forceSync:force}}));
 }
 function applyRemoteBurn(raid){
   const living=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);
@@ -941,7 +941,7 @@ function finishSeason(){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
     saveButton.hidden=hasTech('cold');saveButton.disabled=state.vault.some(item=>item.id===seed.id);
   }else{best.innerHTML='';saveButton.hidden=true;}
-  $('#recapModal').hidden=false;save();notifyGameProfile();beep(760,.12);
+  $('#recapModal').hidden=false;save();notifyGameProfile(true);beep(760,.12);
 }
 function saveBestCandidate(){
   if(!state.seasonBest)return;const seed=state.seasonBest.seed;if(state.vault.some(item=>item.id===seed.id))return;
