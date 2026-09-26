@@ -66,7 +66,7 @@ export function installLiveCamera({onCapture,getProfile,onQuality,getLabel}){
   if(typeof window!=='undefined')window.addEventListener('deviceorientation',onOrientation,{passive:true});
   const setStatus=message=>{if(status&&status.textContent!==message)status.textContent=message;};
   function stop(){
-    generation++;clearTimeout(timer);timer=null;stable=0;capturing=false;
+    generation++;clearTimeout(timer);timer=null;stable=0;capturing=false;lastPoints=null;lastProfile=null;
     stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;
     if(take)take.disabled=true;if(open)open.disabled=false;if(panel)panel.hidden=true;
   }
@@ -78,12 +78,17 @@ export function installLiveCamera({onCapture,getProfile,onQuality,getLabel}){
   }
   function captureNow(){
     if(capturing||!stream||!video.videoWidth)return;
-    capturing=true;const id=generation,c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;c.getContext('2d').drawImage(video,0,0);
+    capturing=true;const id=generation,c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;
+    const cctx=c.getContext('2d');cctx.drawImage(video,0,0);
+    const label=String(getLabel?.()||'').trim();
+    if(label&&lastPoints?.length===4&&lastProfile&&sample.width&&sample.height){
+      const sx=c.width/sample.width,sy=c.height/sample.height,scaled=lastPoints.map(p=>[p[0]*sx,p[1]*sy]);drawEmbeddedLabel(cctx,scaled,lastProfile,label);
+    }
     if(take)take.disabled=true;clearTimeout(timer);
     c.toBlob(blob=>{
       if(id!==generation)return;
       if(!blob){capturing=false;setStatus('Foto gagal dibuat. Coba lagi.');frame();return;}
-      stop();onCapture(new File([blob],'pengukur-'+Date.now()+'.jpg',{type:'image/jpeg'}));
+      const name=fileStem(label||('pengukur-'+Date.now()))+'.jpg';stop();onCapture(new File([blob],name,{type:'image/jpeg'}));
     },'image/jpeg',.94);
   }
   function frame(){
@@ -93,7 +98,7 @@ export function installLiveCamera({onCapture,getProfile,onQuality,getLabel}){
       sample.width=Math.max(2,Math.round(video.videoWidth*scale));sample.height=Math.max(2,Math.round(video.videoHeight*scale));
       overlay.width=sample.width;overlay.height=sample.height;sc.drawImage(video,0,0,sample.width,sample.height);oc.clearRect(0,0,overlay.width,overlay.height);
       let points=null;try{points=detectMarkers(sc.getImageData(0,0,sample.width,sample.height));}catch{}
-      const profile=getProfile(),guide=cameraGuide(points,sample.width,sample.height,profile);
+      const profile=getProfile(),guide=cameraGuide(points,sample.width,sample.height,profile);lastPoints=points?points.map(p=>[...p]):null;lastProfile=profile;
       const image=sc.getImageData(0,0,sample.width,sample.height),alignment=points?alignmentCheck(points,profile.activeWidth/profile.activeHeight):null,q=imageQuality(image,points,alignment);
       const sensor=orientationState(),gate=guide.ready&&q.score>=72&&q.sharpness>=38&&q.exposure>=55&&sensor.ready;
       stable=gate?stable+1:0;const ready=stable>=4;
@@ -104,6 +109,7 @@ export function installLiveCamera({onCapture,getProfile,onQuality,getLabel}){
       guide.target.forEach(p=>{oc.beginPath();oc.arc(...p,8,0,Math.PI*2);oc.stroke();});
       const cx=sample.width/2,cy=sample.height/2;oc.beginPath();oc.moveTo(cx-8,cy);oc.lineTo(cx+8,cy);oc.moveTo(cx,cy-8);oc.lineTo(cx,cy+8);oc.stroke();
       if(points){oc.fillStyle='#00e5ff';points.forEach((p,i)=>{oc.beginPath();oc.arc(...p,4,0,Math.PI*2);oc.fill();oc.fillText(String(i+1),p[0]+6,p[1]-6);});}
+      const label=String(getLabel?.()||'').trim();if(label)drawEmbeddedLabel(oc,points||guide.target,profile,label);
       if(ready&&$('autoCapture')?.checked&&!capturing){setStatus('Quality Gate lolos · mengambil foto otomatis…');captureNow();return;}
     }
     timer=setTimeout(frame,220);
