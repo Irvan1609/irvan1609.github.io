@@ -1004,3 +1004,384 @@ body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none
 .stat-correlation{margin:7px 0;padding:8px;border:1px solid #315144;border-radius:8px;background:#102019}.stat-correlation header{display:flex;justify-content:space-between;gap:6px}.stat-correlation header b{font-size:9px}.stat-correlation header span,.stat-correlation small{color:var(--muted);font-size:7.5px}.stat-correlation p{margin:5px 0;font-size:9px}.stat-correlation button{width:100%;min-height:34px;margin-top:6px}
 .selection-differential{margin:0 0 7px;padding:8px;border:1px solid #315144;border-radius:8px;background:#102019}.selection-differential>b{font-size:9px}.selection-differential>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:6px 0}.selection-differential span{padding:5px;border:1px solid #29483a;border-radius:6px;color:var(--muted);font-size:7.5px}.selection-differential strong{display:block;margin-top:2px;color:var(--ink);font-size:10px}.selection-differential small{display:block;color:var(--muted);font-size:7.5px;line-height:1.4}.selection-differential button{width:100%;min-height:34px;margin-top:6px}
 @media(max-width:620px){.professor-casebook{grid-template-columns:1fr}.selection-differential>div{grid-template-columns:1fr 1fr}.selection-differential>div span:last-child{grid-column:1/-1}}
+
+
+/* FIELD ZERO CALM FOCUS UI 2026-09-26 */
+body.calm-ui{
+  --bg:#101512;
+  --panel:#161d19;
+  --panel-2:#1a231e;
+  --panel-3:#202a24;
+  --line:#2a352e;
+  --ink:#e7eee9;
+  --muted:#8e9c94;
+  --green:#78aa89;
+  --green-2:#a4c7ae;
+  --gold:#c9a75e;
+  background:var(--bg)!important
+}
+body.calm-ui *{text-shadow:none!important}
+body.calm-ui .game-shell{width:min(1120px,calc(100% - 20px));margin:10px auto 56px}
+body.calm-ui .game-head{
+  align-items:center;
+  margin:0 0 6px;
+  padding:0 2px
+}
+body.calm-ui .game-head .kicker,
+body.calm-ui .game-head p{display:none}
+body.calm-ui .game-head h1{
+  margin:0;
+  font-size:20px;
+  letter-spacing:-.02em;
+  font-weight:780
+}
+body.calm-ui .head-actions{gap:3px}
+body.calm-ui .head-actions .icon-button{
+  width:31px;height:31px;
+  border-color:transparent;
+  border-radius:6px;
+  background:transparent;
+  color:var(--muted)
+}
+body.calm-ui .head-actions .icon-button:hover,
+body.calm-ui .head-actions .icon-button:focus-visible{background:#1b241f;color:var(--ink)}
+
+body.calm-ui .game-quick-nav{
+  position:static;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:2px;
+  margin:0 0 6px;
+  padding:2px;
+  border:0;
+  border-radius:7px;
+  background:#141a16;
+  backdrop-filter:none
+}
+body.calm-ui .game-quick-nav button{
+  min-height:38px;
+  padding:3px;
+  border-radius:5px;
+  color:#aab5af;
+  font-size:16px;
+  font-weight:700
+}
+body.calm-ui .game-quick-nav button:hover,
+body.calm-ui .game-quick-nav button:focus-visible{background:#202822;color:var(--ink)}
+
+body.calm-ui .hud{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:0;
+  margin:0 0 5px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  overflow:hidden;
+  background:#151c18
+}
+body.calm-ui .hud>div{
+  padding:6px 8px;
+  border:0;
+  border-right:1px solid #26312b;
+  border-radius:0;
+  background:transparent
+}
+body.calm-ui .hud>div:nth-child(5){border-right:0}
+body.calm-ui .hud>div:nth-child(6),
+body.calm-ui .hud .market-cell,
+body.calm-ui .hud .xp-cell{display:none!important}
+body.calm-ui .hud small{
+  font-size:7.5px;
+  letter-spacing:.04em;
+  text-transform:none;
+  font-weight:650
+}
+body.calm-ui .hud b{
+  margin-top:1px;
+  font-size:12px;
+  font-weight:760
+}
+
+body.calm-ui .season-bar{
+  grid-template-columns:1fr 1.4fr 1fr;
+  gap:0;
+  margin:0 0 5px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  overflow:hidden;
+  background:#141a16
+}
+body.calm-ui .season-bar>div{
+  min-height:42px;
+  padding:6px 8px;
+  border:0;
+  border-right:1px solid #26312b;
+  border-radius:0;
+  background:transparent
+}
+body.calm-ui .season-bar>div:last-child{border-right:0}
+body.calm-ui .season-climate{gap:6px}
+body.calm-ui .season-climate>span{font-size:17px}
+body.calm-ui .season-bar small{
+  font-size:7.5px;
+  letter-spacing:.03em;
+  text-transform:none
+}
+body.calm-ui .season-bar b{font-size:10px}
+body.calm-ui #seasonDesc,
+body.calm-ui #weatherEffect,
+body.calm-ui #forecastText{display:none!important}
+body.calm-ui #missionProgress{
+  margin-top:1px;
+  font-size:8px
+}
+
+body.calm-ui .play-hint{
+  min-height:32px!important;
+  margin:0 0 6px!important;
+  padding:4px 8px!important;
+  border:0!important;
+  border-radius:6px!important;
+  background:#1a241e!important;
+  color:#b9c5be!important;
+  box-shadow:none!important;
+  font-size:9px!important
+}
+body.calm-ui .play-hint b{font-weight:680}
+
+body.calm-ui .panel,
+body.calm-ui .field-panel,
+body.calm-ui .inspector{
+  border-color:var(--line);
+  border-radius:8px;
+  background:var(--panel);
+  box-shadow:none!important
+}
+body.calm-ui .game-layout{gap:6px}
+body.calm-ui .field-panel,
+body.calm-ui .inspector{padding:8px}
+body.calm-ui .panel-head{margin-bottom:6px}
+body.calm-ui .panel-head small{display:none}
+body.calm-ui .panel-head h2{margin:0;font-size:12px;font-weight:760}
+body.calm-ui .field-legend{display:none}
+
+body.calm-ui .field-context{
+  margin:0 0 5px;
+  padding:3px;
+  border:0;
+  border-radius:6px;
+  background:#121814;
+  box-shadow:none!important
+}
+body.calm-ui .field-context>button{
+  min-height:30px;
+  padding:3px 6px;
+  border-color:#2b3931;
+  background:#1a231e
+}
+body.calm-ui #activeToolStatus{
+  color:#88978f;
+  font-size:8.5px
+}
+
+body.calm-ui .field-tool-dock{
+  gap:2px;
+  margin:0 0 5px;
+  padding:2px;
+  border:0;
+  border-radius:6px;
+  background:#121814
+}
+body.calm-ui .field-tool-dock button{
+  min-height:43px;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  padding:3px 2px;
+  border:0;
+  border-radius:5px;
+  background:transparent;
+  color:#aab6af;
+  font-size:13px
+}
+body.calm-ui .field-tool-dock button::after{
+  display:block;
+  font-size:7px;
+  line-height:1;
+  font-weight:650;
+  color:#89978f
+}
+body.calm-ui .field-tool-dock [data-field-tool="plant"]::after{content:"Tanam"}
+body.calm-ui .field-tool-dock [data-field-tool="water"]::after{content:"Air"}
+body.calm-ui .field-tool-dock [data-field-tool="fertilize"]::after{content:"Pupuk"}
+body.calm-ui .field-tool-dock [data-field-tool="scout"]::after{content:"Amati"}
+body.calm-ui .field-tool-dock [data-field-tool="harvest"]::after{content:"Panen"}
+body.calm-ui .field-tool-dock [data-field-tool="treatment"]::after{content:"Perlakuan"}
+body.calm-ui .field-tool-dock button[aria-pressed=true]{
+  border:0;
+  background:#26382e;
+  color:#dfeae3
+}
+body.calm-ui .field-tool-dock .tool-icon{font-size:15px}
+
+body.calm-ui .mobile-command-row{
+  gap:3px;
+  margin-bottom:5px
+}
+body.calm-ui .mobile-command-row button{
+  min-height:30px;
+  padding:3px 7px;
+  border-color:#29372f;
+  background:#171f1b;
+  color:#a7b4ad;
+  font-size:8px
+}
+
+body.calm-ui .field-grid{gap:4px}
+body.calm-ui .field-block{
+  padding:5px;
+  border:1px solid #2b3831;
+  border-radius:6px;
+  background:#131a16
+}
+body.calm-ui .field-block+.field-block{margin-top:5px}
+body.calm-ui .field-block>header{
+  margin-bottom:4px;
+  padding:0 1px;
+  color:#85948c
+}
+body.calm-ui .field-block>header b{font-size:8px}
+body.calm-ui .field-block>header span{font-size:6.8px}
+body.calm-ui .field-block-grid{gap:4px}
+
+body.calm-ui .plot{
+  min-height:78px;
+  padding:5px;
+  border:1px solid #293a31;
+  border-radius:5px;
+  background:#18211c;
+  color:var(--ink);
+  box-shadow:none!important;
+  transform:none!important;
+  transition:none!important
+}
+body.calm-ui .plot.empty{background:#151d19}
+body.calm-ui .plot.selected{
+  border-color:#7ea48b;
+  box-shadow:inset 0 0 0 1px #7ea48b!important
+}
+body.calm-ui .plot.ready{border-color:#8f7849}
+body.calm-ui .plot.stressed{border-color:#7a5840}
+body.calm-ui .plot.sick{border-color:#805454;box-shadow:none!important}
+body.calm-ui .plot-top{font-size:7px;color:#7f8e86}
+body.calm-ui .plot-empty-mark{height:44px;font-size:17px;color:#4f6258}
+body.calm-ui .plot-crop{gap:4px;margin:5px 0 3px}
+body.calm-ui .plot-crop .plant-icon{font-size:17px;filter:none}
+body.calm-ui .plot-crop b{font-size:8px;font-weight:700}
+body.calm-ui .plot-crop small{font-size:6.8px}
+body.calm-ui .plot-bars{display:none}
+body.calm-ui .plot-health{height:2px;margin-top:3px;background:#0e1411}
+body.calm-ui .plot-health i{background:#698d76}
+
+body.calm-ui .day-actions{margin-top:5px}
+body.calm-ui .day-actions button{
+  min-height:34px;
+  padding:5px 9px;
+  border-color:#31443a;
+  border-radius:6px;
+  font-size:9px
+}
+body.calm-ui .day-actions .primary{
+  background:#6f9c7d;
+  border-color:#6f9c7d;
+  color:#0d1711
+}
+
+body.calm-ui .inspector{
+  background:#141b17
+}
+body.calm-ui .inspector .stage-badge{
+  padding:3px 6px;
+  background:#1c2821;
+  font-size:8px
+}
+body.calm-ui .empty-inspector{
+  min-height:120px;
+  padding:10px;
+  border-color:#29372f;
+  font-size:9px
+}
+body.calm-ui .seed-card-preview,
+body.calm-ui .stat-box{
+  border-color:#29382f;
+  background:#111713
+}
+body.calm-ui .action-grid button{
+  min-height:32px;
+  padding:4px 6px;
+  font-size:8px
+}
+
+body.calm-ui .lab-hub,
+body.calm-ui .lower-grid{margin-top:6px}
+body.calm-ui .compact-panel summary{
+  min-height:34px;
+  padding:6px 8px;
+  color:#9aa79f
+}
+body.calm-ui .compact-panel summary small{display:none}
+body.calm-ui .compact-panel summary b{margin:0;font-size:9px}
+body.calm-ui .lab-hub:not([open]),
+body.calm-ui .lower-grid .compact-panel:not([open]){background:#131a16}
+body.calm-ui .meta-grid{gap:6px}
+body.calm-ui .meta-panel{padding:8px}
+
+body.calm-ui .event-backdrop{backdrop-filter:none;background:rgba(5,8,6,.78)}
+body.calm-ui .event-card{
+  border-radius:8px;
+  background:#171e1a;
+  box-shadow:none!important
+}
+body.calm-ui .toast{box-shadow:none!important}
+
+@media(min-width:901px){
+  body.calm-ui .game-layout{
+    grid-template-columns:minmax(0,1fr) 250px
+  }
+}
+@media(max-width:900px){
+  body.calm-ui .game-layout{grid-template-columns:1fr}
+  body.calm-ui .inspector{min-height:0}
+}
+@media(max-width:620px){
+  body.calm-ui .game-shell{width:calc(100% - 10px);margin-top:5px}
+  body.calm-ui .game-head h1{font-size:17px}
+  body.calm-ui .game-quick-nav{
+    position:sticky;
+    top:4px;
+    z-index:40
+  }
+  body.calm-ui .game-quick-nav button{min-height:42px;font-size:17px}
+  body.calm-ui .hud{grid-template-columns:repeat(5,minmax(0,1fr))}
+  body.calm-ui .hud>div{padding:5px 4px;text-align:center}
+  body.calm-ui .hud small{font-size:6.8px}
+  body.calm-ui .hud b{font-size:10px}
+  body.calm-ui .season-bar{grid-template-columns:1fr 1.35fr 1fr}
+  body.calm-ui .season-bar>div{min-height:38px;padding:5px}
+  body.calm-ui .season-climate>span{display:none}
+  body.calm-ui .season-bar b{font-size:8.5px}
+  body.calm-ui .season-bar small,
+  body.calm-ui #missionProgress{font-size:6.8px}
+  body.calm-ui .field-panel,
+  body.calm-ui .inspector{padding:6px}
+  body.calm-ui .field-grid{grid-template-columns:1fr}
+  body.calm-ui .field-block-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+  body.calm-ui .plot{min-height:74px}
+  body.calm-ui .day-actions{
+    position:sticky;
+    bottom:4px;
+    padding:3px;
+    border:1px solid #28362e;
+    border-radius:6px;
+    background:#111713
+  }
+  body.calm-ui .day-actions button{min-height:40px}
+}
