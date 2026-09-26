@@ -15,7 +15,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--green-2);outli
 .game-head p{margin:0;max-width:720px;color:var(--muted);font-size:13px}
 .head-actions{display:flex;gap:6px}.icon-button{width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
 .icon-button[aria-pressed=true]{background:#274b39;color:var(--green-2)}
-.hud{display:grid;grid-template-columns:repeat(6,minmax(72px,1fr)) minmax(160px,1.8fr);gap:6px;margin:10px 0}
+.hud{display:grid;grid-template-columns:repeat(7,minmax(72px,1fr)) minmax(150px,1.6fr);gap:6px;margin:10px 0}
 .hud>div{min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:rgba(20,35,29,.92)}
 .hud small,.panel-head small,.season-bar small,.compact-panel summary small{display:block;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
 .hud b{display:block;margin-top:2px;font-size:16px}
@@ -600,38 +600,83 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
 @media(pointer:coarse){button,[role="button"],summary{touch-action:manipulation}[draggable="true"]{-webkit-user-drag:none}}
 
 
-/* FIELD ZERO RANCOB LEARNING 2026-09-26 */
-.game-quick-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
-.field-tool-dock{grid-template-columns:repeat(6,minmax(0,1fr))}
-.experiment-badge{
-  position:absolute;left:5px;top:24px;max-width:calc(100% - 10px);padding:2px 5px;
-  border:1px solid #5e5a32;border-radius:999px;background:#272516;color:#e6d98b;
-  font-size:7.5px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+/* FIELD ZERO REALISM + COMFORT 2026-09-26 */
+.inspector-head-actions{display:flex;align-items:center;gap:5px}
+#closeInspectorSheet{display:none;width:32px;height:32px;border:1px solid var(--line);border-radius:7px;background:#172b22;color:var(--ink);font-size:18px}
+.mobile-command-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:0 0 6px}
+.mobile-command-row button{
+  min-height:38px;padding:5px 8px;border:1px solid #355548;border-radius:7px;background:#14291f;color:var(--ink);
+  font-size:10px;font-weight:850
 }
-.experiment-badge.applied{border-color:#3f7158;background:#173227;color:#9ee6b8}
-.experiment-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-.experiment-form label{display:grid;gap:4px;color:var(--muted);font-size:8.5px;font-weight:800}
-.experiment-form input,.experiment-form select{
-  min-width:0;min-height:38px;padding:6px 8px;border:1px solid #365447;border-radius:7px;background:#0f1e18;color:var(--ink)
+.mobile-command-row button[aria-pressed=true]{border-color:#c48b45;background:#332717}
+#attentionToggle{display:flex;align-items:center;justify-content:center;gap:5px}
+#attentionToggle b{min-width:18px;height:18px;display:grid;place-items:center;border-radius:999px;background:#263f34;font-size:8px}
+.field-grid.attention-mode .plot.attention-muted{opacity:.28;filter:saturate(.45)}
+.field-grid.attention-mode .plot.attention-hit{border-width:2px;box-shadow:inset 0 0 0 1px #d5a45855}
+.undo-toast{
+  position:fixed;left:50%;bottom:18px;z-index:180;transform:translateX(-50%);
+  width:min(420px,calc(100% - 18px));display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 8px 7px 11px;border:1px solid #526b60;border-radius:9px;background:#102019;color:var(--ink);
+  box-shadow:0 8px 28px #0006;font-size:10px
 }
-.experiment-wide{grid-column:1/-1}
-.experiment-status{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 7px}
-.experiment-status span{padding:4px 7px;border:1px solid #365447;border-radius:999px;background:#102019;color:#c8dbd0;font-size:8.5px;font-weight:850}
-.experiment-table-wrap{overflow:auto;border:1px solid #2d4b3e;border-radius:8px}
-.experiment-table{width:100%;border-collapse:collapse;min-width:560px;background:#0f1d17}
-.experiment-table th,.experiment-table td{padding:5px 6px;border-bottom:1px solid #203a2e;text-align:left;font-size:8.5px}
-.experiment-table th{position:sticky;top:0;background:#15271f;color:#9eb4a8;z-index:1}
-.experiment-table td small{display:block;color:var(--muted);font-size:7.5px}
-.experiment-table input{width:72px;min-height:30px;padding:3px 5px;border:1px solid #315144;border-radius:5px;background:#0b1712;color:var(--ink);font-size:12px}
-.experiment-actions{display:grid;grid-template-columns:auto auto 1fr;gap:5px;margin-top:8px}
-.experiment-actions button{min-height:36px;padding:5px 9px;border:1px solid #365447;border-radius:7px;background:#152a21;color:var(--ink);font-weight:850}
-.experiment-actions .primary{background:var(--green);color:#0b1711}
-.field-tool-dock button[data-field-tool="treatment"]{border-color:#6a5c7b;background:#251d2b}
-.field-tool-dock button[data-field-tool="treatment"][aria-pressed=true]{border-color:#c5a7e1;background:#422d50}
+.undo-toast[hidden]{display:none}
+.undo-toast button{min-height:34px;padding:5px 9px;border:1px solid #6e8d7c;border-radius:7px;background:#234232;color:#ccebd8;font-weight:900}
+.economy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.economy-grid>div{padding:8px;border:1px solid #315144;border-radius:8px;background:#102019}
+.economy-grid small,.economy-grid b,.economy-grid span{display:block}
+.economy-grid small{color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.05em}
+.economy-grid b{margin-top:3px;font-size:12px}.economy-grid span{margin-top:2px;color:var(--muted);font-size:8.5px}
+.comfort-settings{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.comfort-settings label,.audio-mixer label{display:grid;gap:5px;padding:8px;border:1px solid #315144;border-radius:8px;background:#102019;color:var(--muted);font-size:9px;font-weight:800}
+.comfort-settings select{min-height:36px;padding:5px 7px;border:1px solid #365447;border-radius:6px;background:#0f1e18;color:var(--ink)}
+.comfort-settings .toggle-row{display:flex;align-items:center;gap:7px;color:var(--ink)}
+.comfort-settings input[type="range"],.audio-mixer input[type="range"]{width:100%}
+.audio-mixer{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+body.battery-saver *{animation:none!important;transition:none!important}
+body.battery-saver .panel,body.battery-saver .game-quick-nav,body.battery-saver .day-actions{box-shadow:none!important;backdrop-filter:none!important}
+body.density-compact .plot{min-height:82px;padding:5px}
+body.density-compact .plot-crop{margin:4px 0 3px}
+body.density-compact .plot-crop small{display:none}
+body.density-large .plot{min-height:128px}
+body.density-large button{min-height:44px}
+body.color-safe .plot.ready{border-style:double;border-width:3px}
+body.color-safe .plot.sick{background-image:repeating-linear-gradient(45deg,rgba(187,88,88,.12),rgba(187,88,88,.12) 5px,transparent 5px,transparent 10px)}
+body.color-safe .plot.stressed{background-image:repeating-linear-gradient(135deg,rgba(213,142,85,.12),rgba(213,142,85,.12) 5px,transparent 5px,transparent 10px)}
+
 @media(max-width:620px){
-  .game-quick-nav{grid-template-columns:repeat(6,1fr)}
-  .field-tool-dock{grid-template-columns:repeat(6,1fr)}
-  .experiment-form{grid-template-columns:1fr}
-  .experiment-wide{grid-column:auto}
-  .experiment-badge{top:22px;font-size:7px}
+  .market-cell{display:block}
+  .mobile-command-row{grid-template-columns:1fr 1.4fr}
+  body:not(.thumb-left) #smartAction{order:2}
+  body:not(.thumb-left) #attentionToggle{order:1}
+  body.thumb-left #smartAction{order:1}
+  body.thumb-left #attentionToggle{order:2}
+  .inspector{
+    position:fixed!important;
+    left:5px;right:5px;bottom:calc(66px + env(safe-area-inset-bottom));z-index:100;
+    max-height:min(62dvh,540px);min-height:0;overflow:auto;
+    border-radius:14px 14px 10px 10px;
+    transform:translateY(calc(100% + 90px));opacity:0;pointer-events:none;
+    transition:transform .18s ease,opacity .18s ease;
+    box-shadow:0 -12px 34px #0009!important
+  }
+  .inspector.sheet-open{transform:translateY(0);opacity:1;pointer-events:auto}
+  #closeInspectorSheet{display:grid;place-items:center}
+  .inspector .action-grid button{display:block!important;min-height:44px}
+  .undo-toast{bottom:calc(72px + env(safe-area-inset-bottom))}
+  .economy-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .comfort-settings{grid-template-columns:1fr}
+  .audio-mixer{grid-template-columns:1fr 1fr}
+  body.density-auto .plot{min-height:86px}
+}
+@media(orientation:landscape) and (max-height:520px) and (pointer:coarse){
+  .game-shell{margin-bottom:64px}
+  .game-layout{grid-template-columns:minmax(0,1.65fr) minmax(260px,.75fr)}
+  .field-grid{grid-template-columns:repeat(6,1fr)}
+  .plot{min-height:72px}
+  .inspector{
+    top:4px;right:5px;bottom:calc(62px + env(safe-area-inset-bottom));left:auto;
+    width:min(38vw,360px);max-height:none;transform:translateX(calc(100% + 20px))
+  }
+  .inspector.sheet-open{transform:translateX(0)}
+  .game-head,.season-bar{margin-bottom:4px}
 }

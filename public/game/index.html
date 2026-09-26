@@ -54,7 +54,6 @@
       <button id="quickField" type="button" title="Lahan" aria-label="Lahan">🌱</button>
       <button id="quickLab" type="button" title="Lab" aria-label="Lab">🔬</button>
       <button id="quickMap" type="button" title="Peta" aria-label="Peta">🗺</button>
-      <button id="quickExperiment" type="button" title="Rancangan percobaan" aria-label="Rancangan percobaan">📐</button>
       <button id="quickSocial" type="button" title="Sosial" aria-label="Sosial">👥<i id="socialBadge" hidden></i></button>
       <button id="quickMore" type="button" title="Lainnya" aria-label="Lainnya">•••</button>
     </nav>
@@ -62,17 +61,17 @@
     <section class="hud" aria-label="Status permainan">
       <div><small>Musim</small><b id="seasonValue">1</b></div>
       <div><small>Hari</small><b id="dayValue">1/12</b></div>
-      <div><small>Koin</small><b id="coinValue">80</b></div>
+      <div><small>Kas</small><b id="coinValue">Rp150 rb</b></div>
       <div><small>Fokus</small><b id="focusValue">4/4</b></div>
       <div><small>Riset</small><b id="rpValue">0</b></div>
-      <div><small>Level</small><b id="levelValue">1</b></div>
+      <div><small>Level</small><b id="levelValue">1</b></div><div class="market-cell"><small>Jagung</small><b id="marketValue">Rp5.500/kg</b></div>
       <div class="xp-cell"><small>XP</small><span class="xp-track"><i id="xpBar"></i></span><b id="xpValue">0/100</b></div>
     </section>
 
     <section class="season-bar">
       <div class="season-climate"><span id="seasonIcon">☀</span><div><small>Musim</small><b id="seasonName">Normal</b><span id="seasonDesc"></span></div></div>
       <div class="mission"><small>Target</small><b id="missionText">—</b><span id="missionProgress">0/0</span></div>
-      <div class="today"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span></div>
+      <div class="today"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span><span id="forecastText">—</span></div>
     </section>
     <button id="playHint" class="play-hint" type="button"><span id="playHintIcon">→</span><b id="playHintText">Pilih Tanam lalu petak kosong</b></button>
 
@@ -100,7 +99,10 @@
           <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">N</span></button>
           <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
           <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
-          <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span></button>
+        </div>
+        <div class="mobile-command-row" aria-label="Aksi cepat">
+          <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
+          <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Dua belas petak lahan"></div>
         <div class="day-actions">
@@ -110,7 +112,7 @@
       </section>
 
       <aside class="inspector panel">
-        <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><span id="plotStage" class="stage-badge">—</span></div>
+        <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><div class="inspector-head-actions"><span id="plotStage" class="stage-badge">—</span><button id="closeInspectorSheet" type="button" aria-label="Tutup detail petak">×</button></div></div>
         <div id="inspectorBody" class="inspector-body">
           <div class="empty-inspector">Pilih petak.</div>
         </div>
@@ -166,6 +168,7 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="undoToast" class="undo-toast" hidden><span id="undoText">Aksi diterapkan</span><button id="undoAction" type="button">Urungkan</button></div>
 
   <div id="eventModal" class="event-backdrop" hidden>
     <section class="event-card" role="dialog" aria-modal="true" aria-labelledby="eventTitle">
