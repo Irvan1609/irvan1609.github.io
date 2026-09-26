@@ -45,7 +45,7 @@ function defaultConfig(data){
   const group=findColumn(headers,[/kelompok/i,/blok|block/i,/ulangan|rep/i],-1);
   const color=findColumn(headers,[/^perlakuan$/i,/kombinasi/i,/faktor\s*a/i,/varietas/i,/genotip/i,/treatment/i],id);
   const columns=Math.max(2,Math.min(10,Math.ceil(Math.sqrt(Math.max(1,data.rows.length)))));
-  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,roadAfter:{},objects:[],plotMeta:{}};
+  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,roadAfter:{},objects:[],plotMeta:{},sampleGroups:[]};
 }
 function normalizeConfig(data,saved){
   const base={...defaultConfig(data),...(saved||{})},max=Math.max(0,data.headers.length-1);
@@ -71,6 +71,7 @@ function normalizeConfig(data,saved){
   base.roadAfter=base.roadAfter&&typeof base.roadAfter==='object'?base.roadAfter:{};
   base.objects=Array.isArray(base.objects)?base.objects.filter(item=>item&&typeof item==='object').slice(0,100):[];
   base.plotMeta=base.plotMeta&&typeof base.plotMeta==='object'?base.plotMeta:{};
+  base.sampleGroups=Array.isArray(base.sampleGroups)?base.sampleGroups.filter(group=>group&&Array.isArray(group.members)&&group.meanHeader):[];
   return base;
 }
 function structuralHeader(header){
