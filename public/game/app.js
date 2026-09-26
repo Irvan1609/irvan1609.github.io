@@ -375,7 +375,7 @@ function pressureLabel(){
   return 'Tekanan '+p.toFixed(2)+'×'+streak;
 }
 function freshState(){
-  const env=newEnvironment(1),comfort={thumb:'right',density:'auto',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
+  const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
     version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:150000,rp:0,xp:0,level:1,focus:3,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
     field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
@@ -635,6 +635,18 @@ function undoLastAction(){
   const replay=undoState.replay;state=structuredClone(undoState.snapshot);if(replay)replantCache={...replay,expires:Date.now()+12000};
   clearUndo();applyComfortSettings();render();toast('Aksi diurungkan');
 }
+function preferredTheme(){
+  const mode=state.comfort?.theme||'system';
+  if(mode==='light'||mode==='dark')return mode;
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark';
+}
+function applyTheme(){
+  const theme=preferredTheme();
+  document.body.classList.toggle('theme-light',theme==='light');
+  document.body.classList.toggle('theme-dark',theme==='dark');
+  document.documentElement.dataset.theme=theme;
+  document.documentElement.style.colorScheme=theme;
+}
 function applyComfortSettings(){
   const c=state.comfort||{};
   document.body.classList.toggle('thumb-left',c.thumb==='left');
@@ -643,12 +655,15 @@ function applyComfortSettings(){
   document.body.classList.toggle('density-large',c.density==='large');
   document.body.classList.toggle('battery-saver',!!c.battery);
   document.body.classList.toggle('color-safe',!!c.colorSafe);
+  applyTheme();
   setMusicVolume(c.battery?0:Number(c.musicVolume??.65)*.16);
   if(c.battery&&isMusicPlaying())stopMusic();
 }
 function updateComfort(patch){
   state.comfort={...state.comfort,...patch};applyComfortSettings();save();renderHud();
 }
+const systemThemeQuery=window.matchMedia?.('(prefers-color-scheme: light)');
+systemThemeQuery?.addEventListener?.('change',()=>{if((state.comfort?.theme||'system')==='system')applyTheme();});
 function addLog(text,day=state.day){
   state.log.unshift({day,text});state.log=state.log.slice(0,28);
 }
@@ -1839,6 +1854,7 @@ function openEconomyInfo(){
 function openComfortSettings(){
   const c=state.comfort;
   openMetaModal('KENYAMANAN','Kontrol & tampilan',`<div class="comfort-settings">
+    <label>Tema<select data-comfort="theme"><option value="system" ${c.theme==='system'?'selected':''}>Ikuti sistem</option><option value="dark" ${c.theme==='dark'?'selected':''}>Gelap</option><option value="light" ${c.theme==='light'?'selected':''}>Terang</option></select></label>
     <label>Mode ibu jari<select data-comfort="thumb"><option value="right" ${c.thumb==='right'?'selected':''}>Tangan kanan</option><option value="left" ${c.thumb==='left'?'selected':''}>Tangan kiri</option></select></label>
     <label>Kepadatan<select data-comfort="density"><option value="auto" ${c.density==='auto'?'selected':''}>Otomatis</option><option value="compact" ${c.density==='compact'?'selected':''}>Ringkas</option><option value="large" ${c.density==='large'?'selected':''}>Besar</option></select></label>
     <label>Haptic<select data-comfort="haptic"><option value="off" ${c.haptic==='off'?'selected':''}>Mati</option><option value="light" ${c.haptic==='light'?'selected':''}>Ringan</option><option value="normal" ${c.haptic==='normal'?'selected':''}>Normal</option></select></label>
