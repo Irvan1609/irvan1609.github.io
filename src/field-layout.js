@@ -471,9 +471,12 @@ function saveEditor(){
 function stepEditor(direction){
   if(!current?.rows.length)return;
   if(dirty){saveEditor();if(dirty)return;}
-  let next=Number.isInteger(selectedRow)?selectedRow+direction:0;
-  if(next<0)next=current.rows.length-1;if(next>=current.rows.length)next=0;
-  selectRow(next);
+  const route=[...($('#fieldMap')?.querySelectorAll('[data-field-row]')||[])].map(plot=>Number(plot.dataset.fieldRow)).filter(Number.isInteger);
+  if(!route.length)return;
+  let index=route.indexOf(selectedRow);
+  if(index<0)index=direction>0?-1:0;
+  index=(index+direction+route.length)%route.length;
+  selectRow(route[index]);
 }
 function addParameter(){
   const name=prompt('Nama parameter baru, misalnya Tinggi Tanaman (cm):','');
