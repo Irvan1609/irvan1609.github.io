@@ -57,11 +57,42 @@ jobs:
           fi
           echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve optional R2 buckets
+        id: r2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_BUCKET_SECRET: ${{ secrets.CLOUDFLARE_BACKUP_BUCKET }}
+          IMAGE_BUCKET_SECRET: ${{ secrets.CLOUDFLARE_IMAGE_BUCKET }}
+        shell: bash
+        run: |
+          set -u
+          ensure_bucket() {
+            local desired="$1"
+            if npx --yes wrangler@4 r2 bucket info "$desired" --json >/dev/null 2>&1; then
+              printf '%s' "$desired"
+              return 0
+            fi
+            if npx --yes wrangler@4 r2 bucket create "$desired" >/tmp/r2-create.log 2>&1; then
+              printf '%s' "$desired"
+              return 0
+            fi
+            echo "::warning::R2 bucket '$desired' tidak dapat ditemukan/dibuat; Worker akan memakai fallback yang aman." >&2
+            cat /tmp/r2-create.log >&2 || true
+            printf ''
+          }
+          IMAGE_DESIRED="${IMAGE_BUCKET_SECRET:-irvan-contribution-images}"
+          BACKUP_DESIRED="${BACKUP_BUCKET_SECRET:-irvan-backups}"
+          IMAGE_BUCKET="$(ensure_bucket "$IMAGE_DESIRED")"
+          BACKUP_BUCKET="$(ensure_bucket "$BACKUP_DESIRED")"
+          echo "image_bucket=$IMAGE_BUCKET" >> "$GITHUB_OUTPUT"
+          echo "backup_bucket=$BACKUP_BUCKET" >> "$GITHUB_OUTPUT"
+
       - name: Generate production Wrangler config
         env:
           D1_DATABASE_ID: ${{ steps.d1.outputs.database_id }}
-          BACKUP_BUCKET: ${{ secrets.CLOUDFLARE_BACKUP_BUCKET }}
-          IMAGE_BUCKET: ${{ secrets.CLOUDFLARE_IMAGE_BUCKET }}
+          BACKUP_BUCKET: ${{ steps.r2.outputs.backup_bucket }}
+          IMAGE_BUCKET: ${{ steps.r2.outputs.image_bucket }}
         shell: bash
         run: |
           set -euo pipefail
