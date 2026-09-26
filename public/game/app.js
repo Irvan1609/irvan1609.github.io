@@ -893,6 +893,13 @@ function startDaily(){
   state.env=daily.env;state.weather=rollWeather(state.env);state.mission={type:'yield',target:daily.target,text:'Daily target',unit:'kg'};
   state.monoSeedId=null;closeMetaModal();addLog('Daily Seed '+daily.key+' dimulai.');render();
 }
+function startDailyBreeding(){
+  if(!challengeCanStart()){toast('Daily Breeding hanya dapat dimulai pada awal musim kosong');return;}
+  const daily=dailyDefinition(),plan=dailyBreedingPlan(daily.key,hashString('breeding:'+daily.key));
+  state.daily={key:daily.key,type:'breeding',target:'2 finalis',previous:Number(state.records['daily-breeding:'+daily.key]||0)};
+  closeMetaModal();breedingCup.start({...plan,dailyKey:daily.key});
+}
+
 function doPrestige(){
   if(!prestigeAvailable())return;
   const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
@@ -1256,7 +1263,7 @@ function renderInspector(){
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction));bindPlotUseControls();
 }
 function renderVault(){
-  const visible=speciesVault();$('#vaultCount').textContent=visible.length+'/'+state.vault.length;$('#vaultList').innerHTML=visible.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>${seed.generationLabel||('G'+seed.generation)}</small></div><small>${SPECIES[seedSpecies(seed)]?.icon||'🌱'} ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${seed.baseYield.toFixed(1)}</small><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}">✎</button></div></article>`).join('');const opts=visible.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · ${seed.generationLabel||('G'+seed.generation)}</option>`).join(''),a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;if(visible.some(seed=>seed.id===av))a.value=av;if(visible.some(seed=>seed.id===bv))b.value=bv;$('#crossSeeds').disabled=state.rp<crossCost($('#crossMode')?.value||'f1')||!a.value||((($('#crossMode')?.value||'f1')!=='self')&&!b.value)||((($('#crossMode')?.value||'f1')!=='self')&&a.value===b.value);
+  const visible=speciesVault();$('#vaultCount').textContent=visible.length+'/'+state.vault.length;$('#vaultList').innerHTML=visible.map(seed=>{const stg=generationStage(seed),known=seedEvidence(seed).level>=3;return `<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>${esc(stg.label)}</small></div><small>${SPECIES[seedSpecies(seed)]?.icon||'🌱'} ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${known?seed.baseYield.toFixed(1):'?'} · Hom ${Math.round(stg.homozygosity)}%</small><div class="seed-stage-line">${esc(stg.phase)} · ${esc(stg.scope)}</div><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}">✎</button></div></article>`}).join('');const opts=visible.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · ${esc(generationStage(seed).label)}</option>`).join(''),a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;if(visible.some(seed=>seed.id===av))a.value=av;if(visible.some(seed=>seed.id===bv))b.value=bv;$('#crossSeeds').disabled=state.rp<crossCost($('#crossMode')?.value||'f1')||!a.value||((($('#crossMode')?.value||'f1')!=='self')&&!b.value)||((($('#crossMode')?.value||'f1')!=='self')&&a.value===b.value);
 }
 function renderLog(){
   $('#gameLog').innerHTML=state.log.map(row=>`<div class="log-row"><time>H${row.day}</time><span>${esc(row.text)}</span></div>`).join('');
@@ -1313,7 +1320,7 @@ function renderGenomeLab(){
 function renderEvolution(){
   STARTER_SEEDS.forEach(rememberLineage);state.vault.forEach(rememberLineage);
   const recent=[...state.lineage].sort((a,b)=>b.generation-a.generation).slice(0,8);
-  $('#evolutionPreview').innerHTML=recent.map(node=>`<div class="evolution-node"><span>${esc(node.generationLabel||('G'+node.generation))}</span><b>${esc(node.name)}</b><small>${node.parents?.length?node.parents.length+' induk · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small></div>`).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
+  $('#evolutionPreview').innerHTML=recent.map(node=>{const stg=generationStage(node);return `<div class="evolution-node"><span>${esc(stg.label)}</span><b>${esc(node.name)}</b><small>${esc(stg.phase)} · ${node.parents?.length?node.parents.length+' induk · Hom '+Math.round(stg.homozygosity)+'%':esc(node.source||'Founder')}</small></div>`}).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
 }
 function renderAcademyPanel(){
   const tracks=academyTrack(),done=tracks.reduce((sum,module)=>sum+module.done,0),total=tracks.reduce((sum,module)=>sum+module.items.length,0),el=$('#academyStatus');
@@ -1339,15 +1346,16 @@ function openWorldMap(){
 }
 function challengeHtml(){
   const daily=dailyDefinition();
-  return `<div class="challenge-grid">${Object.entries(CHALLENGES).map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Tekanan +${Math.round((ch.pressure||0)*100)}% · Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><button data-daily-start ${challengeCanStart()?'':'disabled'}>Mulai Daily</button></div>`;
+  return `<div class="challenge-grid">${Object.entries(CHALLENGES).map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Tekanan +${Math.round((ch.pressure||0)*100)}% · Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><div class="daily-actions"><button data-daily-start ${challengeCanStart()?'':'disabled'}>🌾 Daily Farm</button><button data-daily-breeding ${challengeCanStart()?'':'disabled'}>🧬 Daily Breeding · 24 petak</button></div></div>`;
 }
 function openChallenges(){
   openMetaModal('RUN MODES','Challenge & Daily Seed',challengeHtml());
   $('#metaModalBody').querySelectorAll('[data-challenge]').forEach(button=>button.onclick=()=>startChallenge(button.dataset.challenge));
   $('#metaModalBody').querySelector('[data-daily-start]')?.addEventListener('click',startDaily);
+  $('#metaModalBody').querySelector('[data-daily-breeding]')?.addEventListener('click',startDailyBreeding);
 }
 function openRival(){
-  openMetaModal('RIVAL SCIENTIST','Kompetitor musim ini',`<div class="rival-grid">${RIVALS.map(r=>`<button data-rival="${r.id}" class="${state.rival===r.id?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)}</span><small>Target saat ini ≈ ${round((r.base+r.growth*Math.max(0,state.season-1))*activeLocation().yield,1)} kg</small></button>`).join('')}</div><p class="meta-note">Rival dihitung offline dari musim, lokasi, dan gaya riset. Tidak memakai AI/server.</p>`);
+  openMetaModal('RIVAL SCIENTIST','Kompetitor musim ini',`<div class="rival-grid">${RIVALS.map(r=>`<button data-rival="${r.id}" class="${state.rival===r.id?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)} · ${esc(r.program)}</span><small>${esc(rivalProgramStatus(r,state.season))} · target ≈ ${round((r.base+r.growth*Math.max(0,state.season-1))*activeLocation().yield,1)} kg</small></button>`).join('')}</div><p class="meta-note">Rival menjalankan program pemuliaan offline yang maju setiap musim. Tidak memakai AI/server.</p>`);
   $('#metaModalBody').querySelectorAll('[data-rival]').forEach(button=>button.onclick=()=>{state.rival=button.dataset.rival;closeMetaModal();render();});
 }
 function openRecords(){
@@ -1360,7 +1368,7 @@ function openPrestige(){
 }
 function openEvolution(){
   const nodes=[...state.lineage].sort((a,b)=>a.generation-b.generation);
-  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>`<article><span>${esc(node.generationLabel||('G'+node.generation))}</span><div><b>${esc(node.name)}</b><small>${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × ')+' · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`).join('')}</div>`);
+  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>{const stg=generationStage(node);return `<article><span>${esc(stg.label)}</span><div><b>${esc(node.name)}</b><small>${esc(stg.phase)} · ${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × ')+' · Hom '+Math.round(stg.homozygosity)+'%':esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`}).join('')}</div>`);
 }
 function openCollectionBook(){
   const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
