@@ -1,6 +1,7 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
+import {generationStage,phenotypeState,contractBrief,rivalProgramStatus,dailyBreedingPlan} from './academy-plus.js';
 const STORAGE='agrotik_field_zero_v1';
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
 const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-3';
@@ -11,7 +12,7 @@ const COSTS={
 };
 const PLANT_COST=COSTS.plant,COMMERCIAL_SEED_PACK_COST=18000,COMMERCIAL_SEED_PACK_SIZE=8;
 const PLOT_USES={commercial:{icon:'Rp',name:'Produksi'},research:{icon:'📐',name:'Penelitian'},breeding:{icon:'🧬',name:'Pemuliaan'}};
-const SPECIES={maize:{id:'maize',name:'Jagung',latin:'Zea mays',maturityDays:110},chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',maturityDays:145}};
+const SPECIES={maize:{id:'maize',name:'Jagung',latin:'Zea mays',maturityDays:110},chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',maturityDays:145},rice:{id:'rice',name:'Padi',latin:'Oryza sativa',maturityDays:115},soybean:{id:'soybean',name:'Kedelai',latin:'Glycine max',maturityDays:95}};
 function makePlotRegistry(){
   return Array.from({length:PLOT_COUNT},(_,index)=>{
     const block=Math.floor(index/PLOTS_PER_BLOCK)+1,slot=index%PLOTS_PER_BLOCK+1;
@@ -129,9 +130,9 @@ const BOSSES=[
   {id:'flood',name:'Boss: Flood Pulse',icon:'☂',desc:'Genangan, kelembapan, dan kehilangan N serempak.',waterLoss:12,disease:.13,nLoss:5,yield:1.22}
 ];
 const RIVALS=[
-  {id:'nara',name:'Dr. Nara',style:'Stabil',base:58,growth:5},
-  {id:'bima',name:'Bima Lab',style:'Agresif',base:66,growth:6.5},
-  {id:'sora',name:'Sora Seed Co.',style:'Breeding',base:62,growth:7.2}
+  {id:'nara',name:'Dr. Nara',style:'Stabil',base:58,growth:5,pace:.88,program:'Stabilitas & adaptasi luas'},
+  {id:'bima',name:'Bima Lab',style:'Agresif',base:66,growth:6.5,pace:1.08,program:'Hasil tinggi & siklus cepat'},
+  {id:'sora',name:'Sora Seed Co.',style:'Breeding',base:62,growth:7.2,pace:1,program:'Persilangan & varietas target'}
 ];
 const GENOME_SIG={
   heat:['A','T','T','G'],vigor:['G','C','A','G'],myco:['C','G','G','T'],sentinel:['T','A','C','C'],zero:['ψ','A','ψ','G']
@@ -238,18 +239,19 @@ function objectiveValue(objective){
   if(objective.type==='research')return state.rp-(state.seasonStartRp||0);
   return 0;
 }
-function missionFor(season,challengeId='standard'){
-  const ch=challengeForMission(challengeId),plots=ch.plots||PLOT_COUNT,tier=Math.min(8,Math.floor((Math.max(1,season)-1)/2));
+function missionFor(season,challengeId='standard',envId='transition'){
+  const ch=challengeForMission(challengeId),plots=ch.plots||PLOT_COUNT,tier=Math.min(8,Math.floor((Math.max(1,season)-1)/2)),brief=contractBrief(season,envId);
   const yieldPerPlot=8.2+tier*.55+(ch.pressure||0)*3.2;
   const primary={type:'yield',target:Math.round(plots*yieldPerPlot),text:'Hasil',unit:'kg'};
-  const secondary=season%2
-    ?{type:'healthy',target:Math.max(2,Math.ceil(plots*(.35+Math.min(.18,tier*.025)))),text:'Panen sehat ≥80',unit:'petak'}
-    :{type:'harvest',target:Math.max(3,Math.ceil(plots*(.62+Math.min(.16,tier*.02)))),text:'Petak dipanen',unit:'petak'};
+  let secondary;
+  if(brief.id==='profit')secondary={type:'margin',target:18000+tier*7000,text:'Margin',unit:'Rp'};
+  else if(brief.id==='early')secondary={type:'harvest',target:Math.max(3,Math.ceil(plots*(.62+Math.min(.16,tier*.02)))),text:'Petak dipanen',unit:'petak'};
+  else secondary={type:'healthy',target:Math.max(2,Math.ceil(plots*(.35+Math.min(.18,tier*.025)))),text:'Panen sehat ≥80',unit:'petak'};
   const objectives=[primary,secondary];
   if(season>=3&&plots>=12)objectives.push(season%3===0
     ?{type:'margin',target:25000+tier*8000,text:'Margin',unit:'Rp'}
     :{type:'research',target:4+Math.ceil(tier/2),text:'Riset baru',unit:'RP'});
-  return {type:'contract',text:'Kontrak musim',unit:'target',objectives};
+  return {type:'contract',text:'Kontrak musim',unit:'target',brief,objectives};
 }
 function missionObjectives(){return state.mission?.type==='contract'?(state.mission.objectives||[]):[state.mission];}
 function missionValue(){
@@ -272,7 +274,7 @@ function missionDisplay(){
     const value=objectiveValue(item),label=item.type==='margin'?formatRupiah(item.target):item.target+' '+item.unit;
     return (value>=item.target?'✓':'•')+item.text+' '+label;
   }).join(' · ');
-  return {title:compact,progress:done+'/'+objectives.length+' target'};
+  const brief=state.mission?.brief;return {title:(brief?brief.icon+' '+brief.client+' · ':'')+compact,progress:done+'/'+objectives.length+' target'};
 }
 function pressureLevel(){
   const carry=state?.fieldPressure||{},ch=activeChallenge?.()||CHALLENGES.standard;
@@ -295,10 +297,10 @@ function pressureLabel(){
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
-    version:6,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
+    version:7,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},reputation:0,publications:0,partnerTrust:50,
     field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
-    env,weather:rollWeather(env),mission:missionFor(1,'standard'),
+    env,weather:rollWeather(env),mission:missionFor(1,'standard',env.id),
     seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0},seasonBest:null,pendingEvent:null,
     log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
@@ -310,7 +312,7 @@ function load(){
   try{
     const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
     if(!raw)return freshState();
-    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:6};
+    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:7};
     if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
     if((Number(raw.version)||2)<3&&Number(raw.coins)<10000)merged.coins=Math.round((Number(raw.coins)||78)*LEGACY_COIN_RP);
     merged.comfort={...base.comfort,...(raw.comfort||{}),lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
