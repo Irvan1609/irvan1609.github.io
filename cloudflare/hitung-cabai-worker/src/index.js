@@ -1312,6 +1312,41 @@ async function handleDevelopUsage(request,env){
     sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),contributionImageBytes:Number(contrib?.bytes||0)
   },note:'Ini estimasi penggunaan aplikasi dari D1, bukan meter resmi kuota akun Cloudflare.'});
 }
+async function handleDevelopSecurity(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureOperationsSchema(env);
+  const now=new Date(),nowIso=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString(),weekAgo=new Date(now.getTime()-7*86400000).toISOString();
+  const [sessions,users,auditRows,lastBackup]=await Promise.all([
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END) AS revoked,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END) AS expiring_24h
+      FROM sessions`).bind(nowIso,nowIso,new Date(now.getTime()+86400000).toISOString()).first(),
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN account_status!='active' THEN 1 ELSE 0 END) AS suspended,
+      SUM(CASE WHEN last_login_at>=? THEN 1 ELSE 0 END) AS logged_in_7d
+      FROM users`).bind(weekAgo).first(),
+    env.DB.prepare(`SELECT action,COUNT(*) AS n FROM audit_logs WHERE created_at>=? GROUP BY action ORDER BY n DESC LIMIT 30`).bind(dayAgo).all(),
+    env.DB.prepare(`SELECT status,size_bytes,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 1`).first()
+  ]);
+  const events=Object.fromEntries((auditRows.results||[]).map(row=>[row.action,Number(row.n||0)]));
+  return json(request,env,{
+    generatedAt:nowIso,
+    sessions:{total:Number(sessions?.total||0),active:Number(sessions?.active||0),revoked:Number(sessions?.revoked||0),expiring24h:Number(sessions?.expiring_24h||0)},
+    users:{total:Number(users?.total||0),suspended:Number(users?.suspended||0),loggedIn7d:Number(users?.logged_in_7d||0)},
+    events24h:events,
+    controls:{
+      httpOnlyCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
+      contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
+      r2Backups:Boolean(env.BACKUPS),edgeAbuseEventsPersisted:false
+    },
+    lastBackup:lastBackup?{status:lastBackup.status,sizeBytes:Number(lastBackup.size_bytes||0),createdAt:lastBackup.created_at}:null
+  });
+}
+
 async function handleDevelopSupportView(request,env,userId){
   const access=await requireAdminUser(request,env),admin=access.user;
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
@@ -1862,6 +1897,7 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/develop/contributions')return await handleDevelopContributions(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
       if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
       const developBackupMatch=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/download$/i);
