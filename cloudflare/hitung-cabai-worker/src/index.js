@@ -1532,6 +1532,22 @@ async function handleDevelopAudit(request,env,url){
   return json(request,env,{items:(result.results||[]).map(row=>({...row,detail:safeJsonText(row.detail_json)}))});
 }
 function safeJsonText(value){try{return JSON.parse(value||'{}');}catch{return {};}}
+async function handleDevelopCloudPolicy(request,env){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(request.method==='GET')return json(request,env,{policy:await currentCloudPolicy(env,{force:true}),reference:CLOUDFLARE_FREE_REFERENCE});
+  const body=await request.json().catch(()=>null);
+  if(!body||typeof body!=='object')return json(request,env,{error:'Policy cloud tidak valid.'},400);
+  const normalized=normalizeCloudPolicy(body),now=new Date().toISOString();
+  await ensureOperationsSchema(env);
+  await env.DB.prepare(`INSERT INTO app_settings (key,value_json,updated_at,updated_by) VALUES ('cloud_policy',?,?,?)
+    ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+    .bind(JSON.stringify(normalized),now,admin.id).run();
+  CLOUD_POLICY_CACHE=null;CLOUD_POLICY_CACHE_AT=0;
+  const effective=await currentCloudPolicy(env,{force:true});
+  await audit(env,admin,'cloud.policy_updated','system','cloud-policy',{policy:normalized,effectiveMode:effective.mode});
+  return json(request,env,{ok:true,policy:effective,reference:CLOUDFLARE_FREE_REFERENCE});
+}
 async function handleDevelopUsage(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
@@ -1546,11 +1562,12 @@ async function handleDevelopUsage(request,env){
       COALESCE(SUM(CASE WHEN storage_backend='r2' THEN image_size_bytes ELSE 0 END),0) AS r2_bytes
       FROM contributions`).first()
   ]);
+  const policy=await currentCloudPolicy(env);
   return json(request,env,{estimated:{
     users:Number(users?.n||0),datasets:Number(datasets?.datasets||0),datasetBytes:Number(datasets?.bytes||0),datasetRevisionWrites:Number(datasets?.revisions||0),
     sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),
     contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0)
-  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),note:'Estimasi penggunaan aplikasi; meter kuota resmi Cloudflare tetap dibaca dari dashboard Cloudflare.'});
+  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),policy,freeTierReference:CLOUDFLARE_FREE_REFERENCE,note:'Estimasi internal aplikasi; angka rows read/write dan request resmi tetap berasal dari Cloudflare Analytics/Dashboard agar monitoring tidak menambah write D1.'});
 }
 async function handleDevelopSecurity(request,env){
   const access=await requireAdminUser(request,env);
@@ -1581,7 +1598,7 @@ async function handleDevelopSecurity(request,env){
     controls:{
       httpOnlyCookie:true,partitionedCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,bearerFallbackHours:BEARER_FALLBACK_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
       contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
-      r2Backups:Boolean(env.BACKUPS),r2ContributionImages:Boolean(env.IMAGES),scheduledRetention:true,idempotentSync:true,edgeAbuseEventsPersisted:false
+      r2Backups:Boolean(env.BACKUPS),r2ContributionImages:Boolean(env.IMAGES),scheduledRetention:true,idempotentSync:true,budgetPolicy:true,adaptiveSync:true,imageDeduplication:true,backupVerification:true,edgeAbuseEventsPersisted:false
     },
     lastBackup:lastBackup?{status:lastBackup.status,sizeBytes:Number(lastBackup.size_bytes||0),createdAt:lastBackup.created_at}:null
   });
