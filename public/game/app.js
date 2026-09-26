@@ -2235,6 +2235,9 @@ function bind(){
   $('#nextDay').onclick=()=>breedingCup.active()?breedingCup.open():advanceDay();$('#finishSeason').onclick=finishSeason;
   $('#smartAction').onclick=()=>{runSmartAction();openInspectorSheet();};
   $('#attentionToggle').onclick=toggleAttention;
+  $('#prevPlot').onclick=()=>selectPlotOffset(-1);
+  $('#nextPlot').onclick=()=>selectPlotOffset(1);
+  $('#nextIssuePlot').onclick=selectNextIssue;
   $('#closeInspectorSheet').onclick=closeInspectorSheet;
   $('#undoAction').onclick=undoLastAction;
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
@@ -2246,7 +2249,7 @@ function bind(){
     if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);}
     else{state.sound=false;save();renderHud();stopMusic();}
   };
-  const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
+  const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;checkpoint('Sebelum reset run');state=freshState();applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
   let resetHold=0,resetHoldDone=false;
   $('#newRun').addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;resetHoldDone=false;resetHold=setTimeout(()=>{resetHoldDone=true;haptic(20);resetRun(true);},700);});
   ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#newRun').addEventListener(type,()=>{clearTimeout(resetHold);resetHold=0;}));
@@ -2268,7 +2271,11 @@ function bind(){
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
     if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}
-    if(event.key==='Escape'){setFieldTool('');closeMetaModal();}
+    if(!event.target.matches('input,select,textarea')&&document.body.classList.contains('inspector-engaged')){
+      if(event.key==='ArrowLeft')selectPlotOffset(-1);
+      if(event.key==='ArrowRight')selectPlotOffset(1);
+    }
+    if(event.key==='Escape'){setFieldTool('');closeMetaModal();closeInspectorSheet();}
   });
   document.addEventListener('pointerdown',event=>{if(event.target.closest('#soundToggle'))return;if(state.sound&&!isMusicPlaying())startMusic(state.musicTrack||'morning');},{once:true});
   const rememberSeen=()=>{state.comfort.lastSeenAt=Date.now();save();};
