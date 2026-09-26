@@ -500,25 +500,25 @@ function recordExperimentObservation(index,crop,yieldValue){
 function experimentDataset(){
   const exp=state.experiment;if(!exp)return null;
   const repHeader=exp.design==='rak'?'Kelompok':'Ulangan',species=SPECIES[state.species]||SPECIES.maize;
-  const headers=['Perlakuan',repHeader,'ExperimentID','Musim','PlotUID','Petak','Aktivitas','Spesies','Varietas/Galur','Generasi',...exp.parameters,'StatusData','ModelSimulasi'];
+  const headers=['Perlakuan',repHeader,'ExperimentID','Musim','PlotUID','PlantUID','Petak','Aktivitas','TingkatData','Spesies','Varietas/Galur','Generasi',...exp.parameters,'StatusData','ModelSimulasi'];
   const rows=exp.units.map(unit=>{
-    const treatment=experimentTreatment(unit),crop=state.field[unit.plot],seed=crop?.seed||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),missing=exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()==='')?'BELUM LENGKAP':'LENGKAP';
-    return [treatment?.name||treatment?.code||'',String(unit.rep),exp.id,String(state.season),plotMeta(unit.plot).uid,String(unit.plot+1),plotUse(unit.plot),species.name,seed?.name||'',String(seed?.generation??''),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??'')),missing,ACADEMY_MODEL_VERSION];
+    const treatment=experimentTreatment(unit),crop=state.field[unit.plot],material=unit.material||{},seed=crop?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),missing=exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()==='')?'BELUM LENGKAP':'LENGKAP';
+    return [treatment?.name||treatment?.code||'',String(unit.rep),exp.id,String(state.season),plotMeta(unit.plot).uid,crop?.uid||material.plantUid||'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??'')),missing,ACADEMY_MODEL_VERSION];
   });
   return {name:'SIMULASI · '+exp.name,headers,rows,plant:`${species.name} (${species.latin}) · DATA SIMULASI GAME`,treatment:`DATA SIMULASI GAME · ${exp.design.toUpperCase()} · ${exp.treatments.length} perlakuan · ${exp.reps} ${exp.design==='rak'?'kelompok':'ulangan'}`,design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
 function experimentRawDataset(){
   const exp=state.experiment;if(!exp)return null;
   const species=SPECIES[state.species]||SPECIES.maize,repHeader=exp.design==='rak'?'Kelompok':'Ulangan';
-  const headers=['ExperimentID','Musim',repHeader,'PlotUID','Petak','Aktivitas','Spesies','Varietas/Galur','Generasi','Perlakuan','HariGame','HSTSimulasi','Parameter','Nilai','StatusData','ModelSimulasi'];
+  const headers=['ExperimentID','Musim',repHeader,'PlotUID','PlantUID','Petak','Aktivitas','TingkatData','Spesies','Varietas/Galur','Generasi','Perlakuan','HariGame','HSTSimulasi','Parameter','Nilai','StatusData','ModelSimulasi'];
   const rows=[];
   for(const unit of exp.units){
-    const treatment=experimentTreatment(unit),seed=state.field[unit.plot]?.seed||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null);
+    const treatment=experimentTreatment(unit),material=unit.material||{},seed=state.field[unit.plot]?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null);
     for(const entry of unit.timeline||[])for(const [parameter,value] of Object.entries(entry.values||{}))rows.push([
-      exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,String(unit.plot+1),plotUse(unit.plot),species.name,seed?.name||'',String(seed?.generation??''),treatment?.name||treatment?.code||'',String(entry.day),String(entry.biologicalDay),parameter,String(value??''),entry.status||'observed',ACADEMY_MODEL_VERSION
+      exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,material.plantUid||state.field[unit.plot]?.uid||'',String(unit.plot+1),plotUse(unit.plot),'pengamatan_berulang',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',String(entry.day),String(entry.biologicalDay),parameter,String(value??''),entry.status||'observed',ACADEMY_MODEL_VERSION
     ]);
   }
-  return {name:'SIMULASI · '+exp.name+' · data mentah',headers,rows:rows.length?rows:[[exp.id,String(state.season),'','','','','','','','','','','','', 'BELUM ADA PENGAMATAN',ACADEMY_MODEL_VERSION]],plant:`${species.name} (${species.latin}) · DATA SIMULASI GAME`,treatment:'DATA MENTAH PENGAMATAN BERULANG · DATA SIMULASI GAME',design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
+  return {name:'SIMULASI · '+exp.name+' · data mentah',headers,rows:rows.length?rows:[[exp.id,String(state.season),'','','','','','pengamatan_berulang','','','','','','','','','BELUM ADA PENGAMATAN',ACADEMY_MODEL_VERSION]],plant:`${species.name} (${species.latin}) · DATA SIMULASI GAME`,treatment:'DATA MENTAH PENGAMATAN BERULANG · DATA SIMULASI GAME',design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
 function experimentQualityScore(){
   const exp=state.experiment;if(!exp)return 0;
@@ -1023,7 +1023,7 @@ function openQuickMore(){
 function openEconomyInfo(){
   const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
   openMetaModal('EKONOMI LAPANGAN','Rupiah & harga acuan',`<div class="economy-grid">
-    <div><small>Luas petak</small><b>${PLOT_AREA_M2} m²</b><span>12 petak ≈ ${PLOT_AREA_M2*PLOT_COUNT} m²</span></div>
+    <div><small>Luas petak</small><b>${PLOT_AREA_M2} m²</b><span>24 petak · 3 kelompok · ${PLOT_AREA_M2*PLOT_COUNT} m²</span></div>
     <div><small>Harga pasar musim</small><b>${formatRupiah(state.marketPrice)}/kg</b><span>Berubah antar musim</span></div>
     <div><small>HPP jagung acuan</small><b>${formatRupiah(PRICE_REFERENCE.cornHpp)}/kg</b><span>Jagung pipilan kering</span></div>
     <div><small>Referensi Sulsel</small><b>${formatRupiah(PRICE_REFERENCE.cornSulsel)}/kg</b><span>Pembelian KA 14%</span></div>
