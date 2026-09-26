@@ -238,7 +238,7 @@ function freshState(){
     log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,competition:null
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,competition:null,selectionPool:[]
   };
 }
 function load(){
@@ -263,6 +263,7 @@ function load(){
     merged.records=merged.records&&typeof merged.records==='object'?merged.records:{};
     merged.eventFlags=merged.eventFlags&&typeof merged.eventFlags==='object'?merged.eventFlags:{};
     merged.collection={...base.collection,...(merged.collection||{})};
+    merged.selectionPool=Array.isArray(raw.selectionPool)?raw.selectionPool:[];
     merged.seasonStats={...base.seasonStats,...(merged.seasonStats||{})};
     merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
     merged.location=LOCATIONS[merged.location]?merged.location:'zero';
@@ -798,10 +799,20 @@ function openGameHelp(){
   </div><p class="help-note">HP: pilih alat lalu ketuk atau geser melintasi petak. Geser dari tanaman siap panen untuk panen cepat. PC: alat/benih juga bisa diseret ke petak.</p>`);
 }
 
+function seedEvidence(seed){
+  const commercial=!seed?.parents?.length&&Number(seed?.generation||0)===0;
+  if(commercial)return {level:4,label:'Deskripsi varietas'};
+  const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0);
+  if(tests>=3&&generation>=4)return {level:4,label:'Relatif stabil'};
+  if(tests>=2)return {level:3,label:'Didukung pengujian'};
+  if(tests>=1)return {level:2,label:'Indikasi'};
+  return {level:1,label:'Belum diketahui'};
+}
 function seedTraitsHtml(seed,extra=[]){
-  return unique([...(seed?.traits||[]),...extra]).map(id=>{
-    const t=traitMeta(id);return `<span class="trait ${t.rarity}">${esc(t.icon)} ${esc(t.name)}</span>`;
-  }).join('');
+  const evidence=seedEvidence(seed),ids=unique([...(seed?.traits||[]),...extra]);
+  if(evidence.level<3)return `<span class="trait-evidence level-${evidence.level}">? ${esc(evidence.label)}</span>`;
+  const visible=evidence.level>=4?ids:ids.slice(0,Math.max(1,Math.ceil(ids.length/2)));
+  return visible.map(id=>{const t=traitMeta(id);return `<span class="trait ${t.rarity}">${esc(t.icon)} ${esc(t.name)}</span>`;}).join('')+`<span class="trait-evidence level-${evidence.level}">${esc(evidence.label)}</span>`;
 }
 
 function renderHud(){
@@ -1099,7 +1110,7 @@ function useFieldTool(tool,index,{seedId=''}={}){
 
 
 function render(){
-  renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();save();
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();save();
   if(state.pendingEvent)renderEvent();
 }
 
@@ -1176,13 +1187,42 @@ function yieldFor(crop){
   const maturityBonus=1+Math.min(.08,Math.max(0,(crop.growth-100)/125));
   return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*maturityBonus*noise,1));
 }
-function candidateFrom(crop,yieldValue){
+function candidateFrom(crop,yieldValue,index=state.selectedPlot){
   const traits=allCropTraits(crop),gain=yieldValue>crop.seed.baseYield?1.04:1;
   return {
-    id:uid('seed'),name:'FZ-'+state.season+'-'+String(state.selectedPlot+1).padStart(2,'0'),generation:(crop.seed.generation||0)+1,
-    traits:unique(traits).slice(0,4),baseYield:round(crop.seed.baseYield*gain*(.97+Math.random()*.06)*(activeLocation().quality||1),1),
-    vigor:round(crop.seed.vigor*(.98+Math.random()*.05),2),source:'Seleksi musim '+state.season,parents:[crop.seed.id]
+    id:uid('seed'),name:'FZ-'+state.season+'-'+String(index+1).padStart(2,'0'),generation:(crop.seed.generation||0)+1,
+    traits:unique(traits).slice(0,4),baseYield:round(crop.seed.baseYield*gain*(.97+seededUnit(hashString(crop.uid+':yield'))*.06)*(activeLocation().quality||1),1),
+    vigor:round(crop.seed.vigor*(.98+seededUnit(hashString(crop.uid+':vigor'))*.05),2),source:'Seleksi musim '+state.season,parents:[crop.seed.id],
+    evidenceTests:Number(crop.seed.evidenceTests||0)+1,species:crop.species||state.species
   };
+}
+function selectionCandidate(index,crop,yieldValue){
+  const seed=candidateFrom(crop,yieldValue,index),entry={
+    id:uid('candidate'),season:state.season,plot:index,plotUid:plotMeta(index).uid,plantUid:crop.uid,yield:yieldValue,
+    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),seed,selected:false
+  };
+  state.selectionPool=[entry,...state.selectionPool].slice(0,48);return entry;
+}
+function selectionCandidates(season=null){
+  return state.selectionPool.filter(item=>season===null||Number(item.season)===Number(season));
+}
+function renderSelectionPreview(){
+  const count=selectionCandidates(state.season).filter(item=>!item.selected).length,el=$('#selectionCount');if(el)el.textContent=String(count);
+}
+function selectCandidate(id){
+  const item=state.selectionPool.find(candidate=>candidate.id===id);if(!item||item.selected)return;
+  item.selected=true;
+  if(!state.vault.some(seed=>seed.id===item.seed.id))state.vault.push(item.seed);
+  state.selectedSeedId=item.seed.id;rememberLineage(item.seed);item.seed.traits.forEach(discoverTrait);
+  save();render();toast('🧬 '+item.seed.name+' disimpan');
+}
+function openSelection(){
+  const items=selectionCandidates().slice(0,30);
+  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',items.length?`<div class="selection-list">${items.map(item=>{
+    const ev=seedEvidence(item.seed);
+    return `<article class="${item.selected?'selected':''}"><header><b>${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span></div><small>${esc(ev.label)} · G${item.seed.generation}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬 Simpan'}</button></article>`;
+  }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>');
+  $('#metaModalBody').querySelectorAll('[data-select-candidate]').forEach(button=>button.onclick=()=>{selectCandidate(button.dataset.selectCandidate);openSelection();});
 }
 function harvestReason(crop){
   const log={water:0,n:0,disease:0,heat:0,burn:0,...(crop?.stressLog||{})};
@@ -1198,7 +1238,10 @@ function recordHarvest(index,crop,multiplier=1,announce=true){
   if(crop.health>=80)state.seasonStats.healthy++;state.seasonStats.maxYield=Math.max(state.seasonStats.maxYield,y);
   harvestCombo++;state.coins+=revenue;if(use==='breeding')state.rp+=Math.max(1,Math.floor(y/12));state.xp+=Math.max(5,Math.round(y*1.6));state.level=levelFromXp(state.xp);
   const selectionEligible=use==='breeding'||(state.experiment?.kind==='genotype'&&!!experimentUnit(index));
-  if(selectionEligible&&(!state.seasonBest||y>state.seasonBest.yield))state.seasonBest={yield:y,seed:candidateFrom(crop,y),plot:index,plantUid:crop.uid};
+  if(selectionEligible){
+    const candidate=selectionCandidate(index,crop,y);
+    if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidate.seed,plot:index,plantUid:crop.uid,candidateId:candidate.id};
+  }
   allCropTraits(crop).forEach(id=>discoverTrait(id));
   if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
   const reason=harvestReason(crop);recordExperimentObservation(index,crop,y);
@@ -1377,7 +1420,7 @@ function finishSeason(){
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
-    saveButton.hidden=hasTech('cold');saveButton.disabled=state.vault.some(item=>item.id===seed.id);
+    saveButton.hidden=!selectionCandidates(state.season).length;saveButton.disabled=false;saveButton.textContent='🧬 Seleksi';
   }else{best.innerHTML='';saveButton.hidden=true;}
   $('#recapModal').hidden=false;save();notifyGameProfile(true);beep(760,.12);
 }
@@ -1410,7 +1453,7 @@ function crossSeeds(){
     const mutation=pick(MUTATION_POOL.filter(id=>!inherited.includes(id)));if(mutation){inherited.push(mutation);discoverTrait(mutation);}
   }
   if(state.season>=5&&chance(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
-  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id]};
+  const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id],evidenceTests:0,species:state.species};
   state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
 
@@ -1521,7 +1564,7 @@ function bind(){
   $('#closeInspectorSheet').onclick=closeInspectorSheet;
   $('#undoAction').onclick=undoLastAction;
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
-  $('#saveBestSeed').onclick=saveBestCandidate;$('#nextSeason').onclick=beginNextSeason;
+  $('#saveBestSeed').onclick=openSelection;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
   $('#soundToggle').onclick=async()=>{
     if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);toast('♫');}
