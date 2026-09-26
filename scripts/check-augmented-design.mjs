@@ -48,7 +48,8 @@ const repeatedTest=[...rows,['B2','T1',126]];
 assert.throws(()=>augmentedRcbAnova(repeatedTest,{checks:['C1','C2']}),/non-check berulang/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augSimpleParameter','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view="summary"','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augSimpleParameter','augAdvanced','augStructure','aug-unified-mode','structurePreview','Rataan terkoreksi genotipe','data-aug-view="summary"','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const obsolete of ['augModeToggle','Mode Lengkap','Mode Sederhana'])assert.ok(!workflow.includes(obsolete),`obsolete Augmented mode remains ${obsolete}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
 for(const marker of ["['augmented','augmented','Augmented Design'","augmented:'AD'","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
