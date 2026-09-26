@@ -493,6 +493,9 @@ async function ensureOperationsSchema(env){
   ]);
   await env.DB.prepare(`INSERT OR IGNORE INTO cloud_controls (id,mode,effective_mode,features_json,note,updated_at)
     VALUES (1,'auto','normal','{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}','','1970-01-01T00:00:00.000Z')`).run();
+  const backupInfo=await env.DB.prepare('PRAGMA table_info(backup_runs)').all(),backupColumns=new Set((backupInfo.results||[]).map(row=>row.name));
+  if(!backupColumns.has('checksum_sha256'))await env.DB.prepare("ALTER TABLE backup_runs ADD COLUMN checksum_sha256 TEXT NOT NULL DEFAULT ''").run();
+  if(!backupColumns.has('verified'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN verified INTEGER NOT NULL DEFAULT 0').run();
   OPERATIONS_SCHEMA_READY=true;
 }
 function parseCloudFeatures(value){
@@ -1637,15 +1640,28 @@ async function buildBackupPayload(env){
   ]);
   return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
-async function createBackupSnapshot(env,actor=null,note='manual'){
+function validateBackupPayload(payload){
+  if(!payload||payload.version!==1||!payload.exportedAt)throw Error('Payload backup tidak valid.');
+  for(const key of ['users','datasets','membershipPlans','membershipPayments','auditLogs','contributionMetadata']){
+    if(!Array.isArray(payload[key]))throw Error('Bagian backup '+key+' tidak valid.');
+  }
+  return true;
+}
+async function createBackupSnapshot(env,actor=null,note='manual',prefix='d1-logical'){
   await ensureOperationsSchema(env);
   if(!env.BACKUPS)throw Error('R2 binding BACKUPS belum dikonfigurasi.');
-  const payload=await buildBackupPayload(env),text=JSON.stringify(payload),id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
-  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100)}});
-  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,note,created_at) VALUES (?,?,?,?,?,?)')
-    .bind(id,key,'success',new TextEncoder().encode(text).byteLength,String(note).slice(0,200),payload.exportedAt).run();
-  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:new TextEncoder().encode(text).byteLength});
-  return {id,key,sizeBytes:new TextEncoder().encode(text).byteLength,createdAt:payload.exportedAt};
+  const payload=await buildBackupPayload(env);validateBackupPayload(payload);
+  const text=JSON.stringify(payload),bytes=new TextEncoder().encode(text),checksum=await sha256Bytes(bytes),id=crypto.randomUUID(),key=prefix+'/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
+  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100),checksum}});
+  const verifyObject=await env.BACKUPS.get(key);
+  if(!verifyObject)throw Error('Objek backup tidak dapat dibaca kembali dari R2.');
+  const verifyText=await verifyObject.text(),verifyChecksum=await sha256Bytes(new TextEncoder().encode(verifyText));
+  if(verifyChecksum!==checksum)throw Error('Checksum backup R2 tidak cocok.');
+  validateBackupPayload(JSON.parse(verifyText));
+  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,checksum_sha256,verified,note,created_at) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(id,key,'success',bytes.byteLength,checksum,1,String(note).slice(0,200),payload.exportedAt).run();
+  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:bytes.byteLength,verified:true,checksum});
+  return {id,key,sizeBytes:bytes.byteLength,checksum,verified:true,createdAt:payload.exportedAt};
 }
 async function handleDevelopBackups(request,env){
   const access=await requireAdminUser(request,env),admin=access.user;
@@ -1655,7 +1671,7 @@ async function handleDevelopBackups(request,env){
     try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual')},201);}
     catch(error){return json(request,env,{error:'backup_unavailable',message:error.message},503);}
   }
-  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
+  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,checksum_sha256,verified,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
   return json(request,env,{items:result.results||[],r2Configured:Boolean(env.BACKUPS)});
 }
 async function handleDevelopBackupDownload(request,env,backupId){
@@ -2277,7 +2293,11 @@ export default {
       await cleanupCloudData(env);
       await refreshAutoBudgetMode(env).catch(error=>console.warn('budget refresh failed',error?.message||error));
       if(env.IMAGES)await migrateLegacyContributionImages(env,null,25);
-      if(env.BACKUPS)await createBackupSnapshot(env,null,'scheduled');
+      if(env.BACKUPS){
+        await createBackupSnapshot(env,null,'scheduled','d1-logical');
+        const now=new Date();
+        if(now.getUTCDate()===1)await createBackupSnapshot(env,null,'monthly','d1-monthly');
+      }
     })().catch(error=>console.error('scheduled maintenance failed',error)));
   },
   async fetch(request,env){
