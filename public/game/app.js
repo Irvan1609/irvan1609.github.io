@@ -563,13 +563,16 @@ function render(){
 }
 
 function plantSelected(){
-  const seed=selectedSeed();if(!seed||state.field[state.selectedPlot]||state.focus<1||state.coins<PLANT_COST)return;
-  const mutationChance=Math.min(.12,.045+state.level*.004+(state.env.id==='anomaly'?.05:0));
+  const seed=selectedSeed(),challenge=activeChallenge();
+  if(!seed||state.field[state.selectedPlot]||state.selectedPlot>=fieldLimit()||state.focus<1||state.coins<PLANT_COST)return;
+  if(challenge.mono&&state.monoSeedId&&seed.id!==state.monoSeedId){toast('Challenge hanya mengizinkan satu varietas');return;}
+  const mutationChance=Math.min(.18,.045+state.level*.004+(state.env.id==='anomaly'?.05:0)+(hasTech('genome')?.02:0));
   let mutation=null;
   if(chance(mutationChance)){
     const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?pick(pool):null;
-    if(state.env.id==='anomaly'&&state.season>=4&&chance(.08))mutation='zero';
+    if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&chance(.08))mutation='zero';
   }
+  rememberLineage(seed);
   state.field[state.selectedPlot]={
     seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0
   };
@@ -579,16 +582,21 @@ function cropAction(action){
   const crop=selectedCrop();if(!crop)return;
   if(action==='remove'){state.field[state.selectedPlot]=null;state.seasonStats.failed++;addLog('P'+(state.selectedPlot+1)+': tanaman mati dibersihkan.');render();return;}
   if(action==='harvest'){harvestPlot(state.selectedPlot,1,true);return;}
-  if(state.focus<1||crop.health<=0)return;
-  if(action==='water'){crop.water=clamp(crop.water+38);state.focus--;crop.stress=Math.max(0,crop.stress-2);addLog('P'+(state.selectedPlot+1)+': irigasi.');beep(360);}
+  if(crop.health<=0)return;
+  if(action==='water'){
+    const free=hasTech('irrigation')&&state.irrigationUses%2===1,focusCost=free?0:1;if(state.focus<focusCost)return;
+    crop.water=clamp(crop.water+(hasTech('irrigation')?50:38));state.focus-=focusCost;state.irrigationUses++;crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?5:2));addLog('P'+(state.selectedPlot+1)+': irigasi'+(free?' otomatis':'')+'.');beep(360);
+  }
   if(action==='fertilize'){
-    if(state.coins<5)return;crop.n=clamp(crop.n+38);state.coins-=5;state.focus--;addLog('P'+(state.selectedPlot+1)+': pemupukan N.');beep(440);
+    if(activeChallenge().noFertilizer){toast('Challenge melarang pupuk');return;}
+    const cost=hasTech('precisionN')?3:5;if(state.focus<1||state.coins<cost)return;
+    crop.n=clamp(crop.n+(hasTech('precisionN')?50:38));state.coins-=cost;state.focus--;addLog('P'+(state.selectedPlot+1)+': pemupukan N presisi.');beep(440);
   }
   if(action==='scout'){
-    state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp');state.rp+=2+bonus;
-    if(crop.mutation&&!crop.revealed){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': scout menemukan '+traitMeta(crop.mutation).name+'.');}
+    if(state.focus<1)return;state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
+    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': scout menemukan '+traitMeta(crop.mutation).name+'.');}
     else addLog('P'+(state.selectedPlot+1)+': scout selesai; penyakit '+Math.round(crop.disease)+'%.');
-    crop.disease=Math.max(0,crop.disease-5);beep(540);
+    crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));beep(540);
   }
   render();
 }
@@ -599,14 +607,15 @@ function yieldFor(crop){
   let traitYield=traitValue(traits,'yield',1);
   if(crop.n<35)traitYield*=traitValue(traits,'lowNYield',1);
   const noise=.9+Math.random()*.2;
-  return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*state.env.yield*noise,1));
+  const challenge=activeChallenge(),loc=activeLocation(),legacy=1+(state.legacy||0)*.03;
+  return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*noise,1));
 }
 function candidateFrom(crop,yieldValue){
   const traits=allCropTraits(crop),gain=yieldValue>crop.seed.baseYield?1.04:1;
   return {
     id:uid('seed'),name:'FZ-'+state.season+'-'+String(state.selectedPlot+1).padStart(2,'0'),generation:(crop.seed.generation||0)+1,
-    traits:unique(traits).slice(0,4),baseYield:round(crop.seed.baseYield*gain*(.97+Math.random()*.06),1),
-    vigor:round(crop.seed.vigor*(.98+Math.random()*.05),2),source:'Seleksi musim '+state.season
+    traits:unique(traits).slice(0,4),baseYield:round(crop.seed.baseYield*gain*(.97+Math.random()*.06)*(activeLocation().quality||1),1),
+    vigor:round(crop.seed.vigor*(.98+Math.random()*.05),2),source:'Seleksi musim '+state.season,parents:[crop.seed.id]
   };
 }
 function recordHarvest(index,crop,multiplier=1,announce=true){
@@ -627,13 +636,13 @@ function harvestPlot(index,multiplier=1,announce=true){
 
 function processCrop(crop,weather){
   if(!crop||crop.health<=0)return;
-  const traits=allCropTraits(crop),droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
+  const traits=allCropTraits(crop),loc=activeLocation(),droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
   const waterLoss=traitValue(traits,'waterLoss',1),nLoss=traitValue(traits,'nLoss',1);
-  const seasonalWater=state.env.waterLoss||0;
+  const seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
   const waterDelta=(weather.water<0?(weather.water+seasonalWater)*waterLoss*(1-droughtRes):weather.water+seasonalWater);
   crop.water=clamp(crop.water+waterDelta);
-  crop.n=clamp(crop.n-(5+(state.env.nLoss||0))*nLoss);
-  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0))*(1-diseaseRes);
+  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss);
+  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0))*(1-diseaseRes);
   if(chance(diseaseRisk))crop.disease=clamp(crop.disease+8+Math.random()*12);
   else crop.disease=Math.max(0,crop.disease-2.5);
   let damage=0,stress=0;
@@ -642,7 +651,7 @@ function processCrop(crop,weather){
   if(weather.heat){damage+=5*(1-heatRes);stress+=6*(1-heatRes);}
   if(weather===WEATHER.storm&&crop.growth>55){damage+=2;stress+=2;}
   if(crop.disease>55){damage+=6;stress+=5;}else if(crop.disease>30){damage+=2;stress+=2;}
-  const guard=traitSum(traits,'healthGuard');crop.health=clamp(crop.health-damage*(1-guard));
+  const guard=traitSum(traits,'healthGuard')+Math.min(.18,(state.legacy||0)*.03);crop.health=clamp(crop.health-damage*(1-guard));
   crop.stress=clamp(crop.stress+stress,0,120);
   const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.65+.18*crop.water/100+.17*crop.n/100;
   crop.growth=clamp(crop.growth+15.5*crop.seed.vigor*growthTrait*healthFactor*resourceFactor,0,110);crop.age++;
@@ -650,10 +659,14 @@ function processCrop(crop,weather){
 function advanceDay(){
   if(state.pendingEvent)return;
   if(state.day>=state.maxDay){finishSeason();return;}
-  state.day++;state.focus=focusMax(state.level);state.weather=rollWeather(state.env);
-  const w=WEATHER[state.weather];state.field.forEach(crop=>processCrop(crop,w));
+  state.day++;state.focus=focusMax(state.level);
+  if(state.daily){
+    const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
+  }else state.weather=rollWeather(state.env);
+  const w=WEATHER[state.weather];state.field.forEach(crop=>processCrop(crop,w));tickExpedition();
   addLog(w.icon+' '+w.name+'. '+w.effect+'.');
-  if(chance(.28+Math.min(.12,state.season*.01)))state.pendingEvent=createEvent();
+  const eventChance=.28+Math.min(.12,state.season*.01)+(state.env.boss?.08:0);
+  if(chance(eventChance))state.pendingEvent=createEvent();
   render();if(state.pendingEvent)renderEvent();else toast('Hari '+state.day+' · '+w.name);
 }
 function createEvent(){
