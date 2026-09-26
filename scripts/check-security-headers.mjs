@@ -8,7 +8,7 @@ for(const marker of [
   'X-Frame-Options: DENY','Strict-Transport-Security:','Permissions-Policy:','frame-ancestors \'none\'',
   "object-src 'none'","https://challenges.cloudflare.com","/hitung-cabai/*","camera=(self)","/kamera-pengukur/*"
 ])if(!headers.includes(marker))fail('missing '+marker);
-if(/script-src[^\n]*'unsafe-inline'/.test(headers))fail('script-src must not allow unsafe-inline');
+if(/script-src[^;\n]*'unsafe-inline'/.test(headers))fail('script-src must not allow unsafe-inline');
 
 const roots=['index.html','stat/index.html','mendeley/index.html','print-skripsi/index.html'];
 function walk(dir){
