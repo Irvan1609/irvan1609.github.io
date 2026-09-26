@@ -5,7 +5,6 @@ const $=selector=>document.querySelector(selector);
 let users=[],plans=[],datasets=[],loaded=new Set(),healthCache=null;
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
 function bytes(value){const n=Number(value)||0;if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(n>=104857600?0:1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
 function dt(value){if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString('id-ID'):'—';}
@@ -14,10 +13,9 @@ function initials(user){return String(user.name||user.email||'?').split(/\s+/).s
 function userAvatar(user){return user.picture?'<img src="'+esc(user.picture)+'" alt="" referrerpolicy="no-referrer">':'<span class="user-fallback">'+esc(initials(user))+'</span>';}
 function accessBadge(user){if(user.role==='admin')return '<span class="badge admin">Admin</span>';if(user.membership?.active)return '<span class="badge member">Membership</span>';return '<span class="badge free">Gratis</span>';}
 async function api(path,options={}){
-  const headers=new Headers(options.headers||{});
-  headers.set('Authorization','Bearer '+token());
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers,cache:'no-store'});
+  const request=window.IrvanAccount?.request;
+  if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(Error(data.message||data.error||('HTTP '+response.status)),{status:response.status,data});
   return data;
