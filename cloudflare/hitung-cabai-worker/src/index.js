@@ -1646,26 +1646,77 @@ async function buildBackupPayload(env){
   ]);
   return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
-async function createBackupSnapshot(env,actor=null,note='manual'){
+function validateBackupPayload(payload,{deep=false}={}){
+  const required=['users','datasets','membershipPlans','membershipPayments','auditLogs','contributionMetadata'];
+  const errors=[];
+  if(!payload||typeof payload!=='object')errors.push('payload');
+  if(Number(payload?.version)!==1)errors.push('version');
+  if(!Number.isFinite(Date.parse(payload?.exportedAt||'')))errors.push('exportedAt');
+  for(const key of required)if(!Array.isArray(payload?.[key]))errors.push(key);
+  if(deep&&errors.length===0){
+    const userIds=new Set(),datasetIds=new Set();
+    for(const user of payload.users){
+      if(!user?.id||userIds.has(user.id))errors.push('users.unique');
+      else userIds.add(user.id);
+    }
+    for(const row of payload.datasets){
+      if(!row?.id||datasetIds.has(row.id))errors.push('datasets.unique');
+      else datasetIds.add(row.id);
+      if(row?.user_id&&!userIds.has(row.user_id))errors.push('datasets.user_ref');
+    }
+    for(const row of payload.membershipPayments)if(row?.user_id&&!userIds.has(row.user_id))errors.push('payments.user_ref');
+  }
+  return {ok:errors.length===0,deep,errors:[...new Set(errors)],counts:Object.fromEntries(required.map(key=>[key,Array.isArray(payload?.[key])?payload[key].length:0]))};
+}
+async function verifyBackupObject(env,key,{expectedChecksum='',deep=false}={}){
+  if(!env.BACKUPS)return {ok:false,deep,errors:['r2_not_configured']};
+  const object=await env.BACKUPS.get(key);
+  if(!object)return {ok:false,deep,errors:['object_missing']};
+  const text=await object.text(),checksum=await sha256(text);
+  let payload=null;
+  try{payload=JSON.parse(text);}catch{return {ok:false,deep,checksum,errors:['json_parse']};}
+  const validation=validateBackupPayload(payload,{deep});
+  if(expectedChecksum&&checksum!==expectedChecksum)validation.errors.push('checksum_mismatch');
+  validation.ok=validation.errors.length===0;
+  return {...validation,checksum,sizeBytes:new TextEncoder().encode(text).byteLength};
+}
+async function createBackupSnapshot(env,actor=null,note='manual',{deepVerify=false}={}){
   await ensureOperationsSchema(env);
   if(!env.BACKUPS)throw Error('R2 binding BACKUPS belum dikonfigurasi.');
-  const payload=await buildBackupPayload(env),text=JSON.stringify(payload),id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
-  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100)}});
-  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,note,created_at) VALUES (?,?,?,?,?,?)')
-    .bind(id,key,'success',new TextEncoder().encode(text).byteLength,String(note).slice(0,200),payload.exportedAt).run();
-  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:new TextEncoder().encode(text).byteLength});
-  return {id,key,sizeBytes:new TextEncoder().encode(text).byteLength,createdAt:payload.exportedAt};
+  const payload=await buildBackupPayload(env),text=JSON.stringify(payload),checksum=await sha256(text),sizeBytes=new TextEncoder().encode(text).byteLength;
+  const id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
+  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100),sha256:checksum}});
+  const validation=await verifyBackupObject(env,key,{expectedChecksum:checksum,deep:deepVerify});
+  const status=validation.ok?'success':'invalid',verifiedAt=new Date().toISOString();
+  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,checksum_sha256,verified_at,validation_json,note,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .bind(id,key,status,sizeBytes,checksum,verifiedAt,JSON.stringify(validation),String(note).slice(0,200),payload.exportedAt).run();
+  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes,verified:validation.ok,deepVerify});
+  if(!validation.ok)throw Error('Snapshot R2 tersimpan tetapi verifikasi backup gagal: '+validation.errors.join(', '));
+  return {id,key,sizeBytes,createdAt:payload.exportedAt,checksum,verifiedAt,validation};
 }
 async function handleDevelopBackups(request,env){
   const access=await requireAdminUser(request,env),admin=access.user;
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
   await ensureOperationsSchema(env);
   if(request.method==='POST'){
-    try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual')},201);}
+    try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual',{deepVerify:true})},201);}
     catch(error){return json(request,env,{error:'backup_unavailable',message:error.message},503);}
   }
-  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
-  return json(request,env,{items:result.results||[],r2Configured:Boolean(env.BACKUPS)});
+  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,checksum_sha256,verified_at,validation_json,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
+  return json(request,env,{items:(result.results||[]).map(row=>({...row,validation:safeJsonText(row.validation_json)})),r2Configured:Boolean(env.BACKUPS)});
+}
+async function handleDevelopBackupVerify(request,env,backupId){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(!env.BACKUPS)return json(request,env,{error:'backup_unavailable'},503);
+  await ensureOperationsSchema(env);
+  const row=await env.DB.prepare('SELECT object_key,checksum_sha256 FROM backup_runs WHERE id=? LIMIT 1').bind(backupId).first();
+  if(!row)return json(request,env,{error:'Backup tidak ditemukan.'},404);
+  const validation=await verifyBackupObject(env,row.object_key,{expectedChecksum:row.checksum_sha256||'',deep:true}),verifiedAt=new Date().toISOString();
+  await env.DB.prepare('UPDATE backup_runs SET status=?,verified_at=?,validation_json=? WHERE id=?')
+    .bind(validation.ok?'success':'invalid',verifiedAt,JSON.stringify(validation),backupId).run();
+  await audit(env,admin,'backup.verified','backup',backupId,{ok:validation.ok,errors:validation.errors||[]});
+  return json(request,env,{ok:validation.ok,verifiedAt,validation},validation.ok?200:409);
 }
 async function handleDevelopBackupDownload(request,env,backupId){
   const access=await requireAdminUser(request,env),admin=access.user;
@@ -2285,7 +2336,10 @@ export default {
     ctx.waitUntil((async()=>{
       await cleanupCloudData(env);
       if(env.IMAGES)await migrateLegacyContributionImages(env,null,25);
-      if(env.BACKUPS)await createBackupSnapshot(env,null,'scheduled');
+      if(env.BACKUPS){
+        const monthlyRestoreCheck=new Date().getUTCDate()===1;
+        await createBackupSnapshot(env,null,monthlyRestoreCheck?'scheduled-monthly-restore-check':'scheduled',{deepVerify:monthlyRestoreCheck});
+      }
     })().catch(error=>console.error('scheduled maintenance failed',error)));
   },
   async fetch(request,env){
@@ -2367,6 +2421,8 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
       if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
+      const developBackupVerify=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/verify$/i);
+      if(request.method==='POST'&&developBackupVerify)return await handleDevelopBackupVerify(request,env,developBackupVerify[1]);
       const developBackupMatch=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/download$/i);
       if(request.method==='GET'&&developBackupMatch)return await handleDevelopBackupDownload(request,env,developBackupMatch[1]);
       const developDatasetsMatch=url.pathname.match(/^\/v1\/develop\/users\/([0-9a-f-]{36})\/datasets$/i);
