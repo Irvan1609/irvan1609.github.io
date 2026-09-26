@@ -412,12 +412,39 @@ function randomizedExperimentUnits(design,treatments,reps,seed=state.simulationS
   return units.sort((a,b)=>a.plot-b.plot);
 }
 function experimentTreatments(kind,count,custom=''){
-  if(kind==='genotype')return state.vault.slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id}));
+  if(kind==='genotype')return state.vault.slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id,effects:{}}));
   if(kind==='nitrogen'){
-    const levels=[0,50,100,150,200,250];return levels.slice(0,count).map((dose,index)=>({id:'N'+index,code:'N'+dose,name:'N '+dose+' kg/ha',dose}));
+    const levels=[0,50,100,150,200,250];return levels.slice(0,count).map((dose,index)=>({id:'N'+index,code:'N'+dose,name:'N '+dose+' kg/ha',dose,effects:{yield:dose===0?.9:dose>=250?.98:1,nLoss:dose>=200?1.04:.98}}));
+  }
+  if(kind==='water'){
+    const levels=[50,75,100,125];return levels.slice(0,count).map((level,index)=>({id:'W'+level,code:'W'+level,name:'Air '+level+'%',effects:{waterDaily:(level-100)/8,waterLoss:level<100?1.08:level>100?.94:1,yield:level===100?1.03:level===75?1:.96}}));
+  }
+  if(kind==='spacing'){
+    const levels=[['J1','50×20 cm',.95,1.08],['J2','70×20 cm',1.02,1],['J3','70×25 cm',1.04,.96],['J4','75×25 cm',1,.94]];
+    return levels.slice(0,count).map(([code,name,yieldFx,waterLoss])=>({id:code,code,name,effects:{yield:yieldFx,waterLoss}}));
+  }
+  if(kind==='mulch'){
+    const levels=[['M0','Tanpa mulsa',1,1,1],['M1','Mulsa organik',.88,.96,1.02],['M2','Mulsa plastik',.78,1.04,1.04],['M3','Plastik + organik',.72,1.02,1.06]];
+    return levels.slice(0,count).map(([code,name,waterLoss,diseaseRisk,yieldFx])=>({id:code,code,name,effects:{waterLoss,diseaseRisk,yield:yieldFx}}));
+  }
+  if(kind==='soil'){
+    const levels=[['S0','Kontrol',1,1],['S1','Kompos',.94,1.04],['S2','Pengapuran',.98,1.02],['S3','Kompos + kapur',.91,1.06]];
+    return levels.slice(0,count).map(([code,name,nLoss,yieldFx])=>({id:code,code,name,effects:{nLoss,yield:yieldFx,growth:yieldFx}}));
+  }
+  if(kind==='disease'){
+    const levels=[['H0','Kontrol',1,1],['H1','Sanitasi',.8,.99],['H2','Biokontrol',.68,.98],['H3','Ambang pengendalian',.58,.97]];
+    return levels.slice(0,count).map(([code,name,diseaseRisk,yieldFx])=>({id:code,code,name,effects:{diseaseRisk,yield:yieldFx}}));
   }
   const names=String(custom||'').split(',').map(x=>x.trim()).filter(Boolean);
-  return Array.from({length:count},(_,index)=>({id:'P'+(index+1),code:'P'+(index+1),name:names[index]||('P'+(index+1))}));
+  return Array.from({length:count},(_,index)=>({id:'P'+(index+1),code:'P'+(index+1),name:names[index]||('P'+(index+1)),effects:{}}));
+}
+function applyTreatmentModel(crop,treatment){
+  if(!crop||!treatment)return;
+  crop.experimentEffects={...(treatment.effects||{})};
+  if(Number.isFinite(Number(treatment.dose))){
+    const bonus=Math.min(50,Math.round(Number(treatment.dose)/5));crop.n=clamp(crop.n+bonus);
+    if(Number(treatment.dose)>=250){crop.stress=clamp(crop.stress+5,0,120);}
+  }
 }
 function createExperiment({name,design,kind,count,reps,custom,parameters}){
   if(design==='rak')reps=BLOCK_COUNT;
@@ -437,17 +464,13 @@ function applyExperimentTreatment(index){
   if(exp.kind==='genotype'){toast('🌱 = '+treatment.code);return false;}
   if(unit.applied){toast('🧪✓');return false;}
   unit.applied=true;
-  const crop=state.field[index];
-  if(exp.kind==='nitrogen'){
-    const bonus=Math.min(50,Math.round((Number(treatment.dose)||0)/5));
-    unit.nBonus=bonus;if(crop)crop.n=clamp(crop.n+bonus);
-  }
-  addLog('P'+String(index+1).padStart(2,'0')+': 🧪 '+treatment.name+'.');beep(500,.05);render();return true;
+  const crop=state.field[index];if(crop)applyTreatmentModel(crop,treatment);
+  addLog(plotMeta(index).uid+': 🧪 '+treatment.name+'.');beep(500,.05);render();return true;
 }
 function applyPendingExperimentEffect(index,crop){
   const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return;
-  if(exp.kind==='genotype'){unit.applied=true;return;}
-  if(unit.applied&&exp.kind==='nitrogen')crop.n=clamp(crop.n+(unit.nBonus||Math.min(50,Math.round((Number(treatment.dose)||0)/5))));
+  if(exp.kind==='genotype'){unit.applied=true;crop.experimentEffects={};return;}
+  if(unit.applied)applyTreatmentModel(crop,treatment);
 }
 function biologicalDay(){const species=SPECIES[state.species]||SPECIES.maize;return Math.max(1,Math.round((state.day/state.maxDay)*species.maturityDays));}
 function parameterValue(parameter,values){
@@ -552,9 +575,9 @@ function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
   if(!state.experiment){
     openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form">
-      <label>Mode<select name="kind"><option value="genotype">🌱 Uji galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
+      <label>Mode<select name="kind"><option value="genotype">🌱 Genetik / galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="water">💧 Air</option><option value="spacing">▦ Jarak tanam</option><option value="mulch">◫ Mulsa</option><option value="soil">△ Tanah</option><option value="disease">◈ Hama/penyakit</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
       <label>Rancangan<select name="design"><option value="rak">RAK</option><option value="ral">RAL</option></select></label>
-      <label>Perlakuan<input name="count" type="number" min="2" max="6" value="4"></label>
+      <label>Perlakuan<input name="count" type="number" min="2" max="8" value="4"></label>
       <label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"><small>RAK = Kelompok I–III</small></label>
       <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
       <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
@@ -1192,7 +1215,7 @@ function yieldFor(crop){
   const noise=.9+simUnit('yield',state.season,crop.uid||crop.seed.id)*.2;
   const challenge=activeChallenge(),loc=activeLocation(),legacy=1+(state.legacy||0)*.03;
   const maturityBonus=1+Math.min(.08,Math.max(0,(crop.growth-100)/125));
-  return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*maturityBonus*noise,1));
+  return Math.max(0,round(crop.seed.baseYield*healthFactor*stressPenalty*waterFactor*nFactor*traitYield*(crop.experimentEffects?.yield||1)*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*maturityBonus*noise,1));
 }
 function candidateFrom(crop,yieldValue,index=state.selectedPlot){
   const traits=allCropTraits(crop),gain=yieldValue>crop.seed.baseYield?1.04:1;
@@ -1269,11 +1292,11 @@ function processCrop(crop,weather,index=-1){
   if(crop.burned>0){crop.stressLog.burn++;crop.burned=Math.max(0,crop.burned-1);}
   const traits=allCropTraits(crop),loc=activeLocation(),droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
   const waterLoss=traitValue(traits,'waterLoss',1)*(crop.waterSensitivity||1),nLoss=traitValue(traits,'nLoss',1)*(crop.nDemand||1);
-  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
-  const rawWater=(weather.water<0?(weather.water+seasonalWater)*waterLoss*(1-droughtRes):weather.water+seasonalWater),waterDelta=rawWater*(meta.moisture||1);
+  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1},fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
+  const rawWater=(weather.water<0?(weather.water+seasonalWater)*waterLoss*(fx.waterLoss||1)*(1-droughtRes):weather.water+seasonalWater)+(fx.waterDaily||0),waterDelta=rawWater*(meta.moisture||1);
   crop.water=clamp(crop.water+waterDelta);
-  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss*(2-(meta.fertility||1)));
-  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1);
+  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss*(fx.nLoss||1)*(2-(meta.fertility||1)));
+  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1);
   if(simUnit('disease',state.season,state.day,index,crop.uid||crop.seed.id)<diseaseRisk)crop.disease=clamp(crop.disease+8+simUnit('disease-load',state.season,state.day,index,crop.uid||crop.seed.id)*12);
   else crop.disease=Math.max(0,crop.disease-2.5);
   let damage=0,stress=0;
@@ -1286,7 +1309,7 @@ function processCrop(crop,weather,index=-1){
   crop.stress=clamp(crop.stress+stress,0,120);
   const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.65+.18*crop.water/100+.17*crop.n/100;
   const firstHarvestBoost=state.achievements.includes('first')?1:1.38,siteFactor=.94+.06*(meta.fertility||1);
-  crop.growth=clamp(crop.growth+15.5*firstHarvestBoost*crop.seed.vigor*growthTrait*healthFactor*resourceFactor*siteFactor,0,110);crop.age++;
+  crop.growth=clamp(crop.growth+15.5*firstHarvestBoost*crop.seed.vigor*growthTrait*healthFactor*resourceFactor*siteFactor*(fx.growth||1),0,110);crop.age++;
 }
 function advanceDay(){
   clearUndo();if(state.pendingEvent)return;
