@@ -48,7 +48,7 @@ export async function renameFieldMediaDataset(previous,next){
   if(!previous||!next||String(previous)===String(next))return;
   const database=await db(),tx=database.transaction(STORE,'readwrite'),store=tx.objectStore(STORE),index=store.index('dataset_uid'),range=IDBKeyRange.bound([String(previous),''],[String(previous),'\uffff']),request=index.openCursor(range);
   await new Promise((resolve,reject)=>{
-    request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve();return;}const row={...cursor.value,dataset:String(next)};store.put(row);store.delete(cursor.primaryKey);cursor.continue();};
+    request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve();return;}const row={...cursor.value,dataset:String(next)};cursor.update(row);cursor.continue();};
     request.onerror=()=>reject(request.error);
   });
   await txDone(tx);database.close();
