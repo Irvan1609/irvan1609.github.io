@@ -857,3 +857,10 @@ body.color-safe .plot.stressed{background-image:repeating-linear-gradient(135deg
   .selection-list{grid-template-columns:1fr}
 }
 @media(max-width:380px){.field-block-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.academy-intro{display:grid;gap:8px;padding:10px;border:1px solid #355548;border-radius:9px;background:#102019}
+.academy-intro>b{font-size:14px}.academy-intro>span{color:var(--muted);font-size:9px}
+.academy-intro>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.academy-intro button{min-height:38px;border:1px solid #416052;border-radius:7px;background:#172b22;color:var(--ink);font-weight:850}
+.experiment-question{margin:0 0 7px!important;padding:7px 8px;border-left:3px solid #6c8c7b;background:#102019;color:#cadbd2!important;font-size:9px!important}
+.experiment-form label small{color:#6f897d;font-size:7.5px;font-weight:650}
