@@ -1720,8 +1720,9 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.11'});
-      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.12'});
+      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
+      if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
@@ -1743,6 +1744,20 @@ export default {
       if(request.method==='DELETE'&&accountSessionMatch)return await handleAccountRevokeSession(request,env,accountSessionMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/account/payments')return await handleAccountPayments(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/account/export')return await handleAccountExport(request,env);
+      if(request.method==='PUT'&&url.pathname==='/v1/game/profile')return await handleGameProfilePut(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/leaderboard')return await handleGameLeaderboard(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/game/players')return await handleGamePlayerSearch(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/game/friends')return await handleGameFriends(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/game/friends')return await handleGameFriendRequest(request,env);
+      const gameFriendAccept=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})\/accept$/i);
+      if(request.method==='POST'&&gameFriendAccept)return await handleGameFriendAccept(request,env,gameFriendAccept[1]);
+      const gameFriendMatch=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})$/i);
+      if(request.method==='DELETE'&&gameFriendMatch)return await handleGameFriendRemove(request,env,gameFriendMatch[1]);
+      if(request.method==='GET'&&url.pathname==='/v1/game/raids/inbox')return await handleGameRaidInbox(request,env);
+      const gameRaidClaim=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})\/claim$/i);
+      if(request.method==='POST'&&gameRaidClaim)return await handleGameRaidClaim(request,env,gameRaidClaim[1]);
+      const gameRaidTarget=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})$/i);
+      if(request.method==='POST'&&gameRaidTarget)return await handleGameRaid(request,env,gameRaidTarget[1]);
       if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/midtrans-diagnostic')return await handleDevelopMidtransDiagnostic(request,env);
