@@ -722,7 +722,7 @@ function exportGeoJson(){
 }
 
 function exportLayout(){
-  const payload={version:2,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
+  const payload={version:3,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=(String(current.name||'dataset').replace(/[^a-z0-9._-]+/gi,'-')||'dataset')+'-denah.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
@@ -957,7 +957,7 @@ function saveEditor({quiet=false,rerender=true}={}){
   config={...config,statuses,notes,plotMeta:meta};writeConfig(current,config);
   dirty=false;refreshData(false);renderMap();
   if(rerender)renderEditor(selectedRow);
-  const freshStatus=$('#fieldEditorStatus');if(freshStatus&&!quiet){const active=activeParameterIndex(),warning=active>=0?numericEntryWarning(active,values[active]):'';freshStatus.textContent=warning||(result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.');}
+  const freshStatus=$('#fieldEditorStatus'),active=activeParameterIndex(),warning=active>=0?numericEntryWarning(active,values[active]):'';if(freshStatus){if(warning)freshStatus.textContent=warning;else if(!quiet)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';}
 }
 function stepEditor(direction){
   if(!current?.rows.length)return;
@@ -968,11 +968,13 @@ function stepEditor(direction){
   if(index<0)index=direction>0?-1:0;
   index=(index+direction+route.length)%route.length;
   const next=route[index],fromGroup=Number.isInteger(selectedRow)?groupLabelForRow(selectedRow):'',toGroup=groupLabelForRow(next);
+  let transitionWarning='';
   if(fromGroup&&toGroup&&fromGroup!==toGroup){
     const entries=groupEntries(current).find(([label])=>label===fromGroup)?.[1]||[],missing=entries.filter(entry=>rowIncomplete(entry.index));
-    if(missing.length){const status=$('#fieldEditorStatus');if(status)status.textContent=`⚠ ${fromGroup}: ${missing.length} plot masih belum lengkap.`;}
+    if(missing.length)transitionWarning=`⚠ ${fromGroup}: ${missing.length} plot masih belum lengkap.`;
   }
   selectRow(next);
+  if(transitionWarning){const status=$('#fieldEditorStatus');if(status)status.textContent=transitionWarning;}
 }
 function addParameter(){
   const name=prompt('Nama parameter baru, misalnya Tinggi Tanaman (cm):','');
@@ -1006,9 +1008,18 @@ function consumeFieldReturn(){
   if(row<0||row>=current.rows.length)return null;
   let col=-1;
   if(payload.type==='chili_count')col=ensureReturnColumn(payload.parameter||'Jumlah Cabai',/(jumlah.*cabai|cabai.*jumlah|jumlah.*buah)/i);
-  else if(payload.type==='camera_measure')col=ensureReturnColumn(payload.parameter||'Pengukuran (mm)',/(panjang|jarak|diameter|lebar).*(mm|cm)?/i);
+  else if(payload.type==='camera_measure')col=ensureReturnColumn(payload.parameter||'Pengukuran (mm)',/(panjang|jarak|diameter|lebar|pengukuran).*(mm|cm|m)?/i);
   if(col<0)return null;
-  const result=api()?.updateCells?.([{row,col,value:String(payload.value??'')}],'hasil alat lapang ke denah');
+  let returnedValue=payload.value;
+  if(payload.type==='camera_measure'){
+    const header=String(current.headers[col]||'');
+    const mm=Number(payload.value);
+    if(Number.isFinite(mm)){
+      if(/\(\s*cm\s*\)|\bcm\b/i.test(header))returnedValue=mm/10;
+      else if(/\(\s*m\s*\)|\bmeter\b/i.test(header))returnedValue=mm/1000;
+    }
+  }
+  const result=api()?.updateCells?.([{row,col,value:String(returnedValue??'')}],'hasil alat lapang ke denah');
   if(result?.ok){
     try{localStorage.removeItem('agrotik_field_return_v1');sessionStorage.removeItem('agrotik_field_context_v1');}catch{}
     refreshData(false);config={...config,session:{...config.session,parameter:col}};writeConfig(current,config);return row;
