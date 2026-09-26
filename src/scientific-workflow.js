@@ -12,7 +12,7 @@ import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from '
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
 import {enhanceResultOS} from './result-os.js';
-const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1',UI_MODE='statistical_web_analysis_ui_mode_v2';
+const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
   'rak-bnj05':{design:'rak',posthoc:'bnj',alpha:.05},
@@ -24,8 +24,6 @@ function phoneGuardMode(){
     || false;
 }
 let currentDesign='ral',data=null,revision=0,pendingPreset='';
-function analysisUiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
-function setAnalysisUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
 
 function datasetFingerprint(dataset){
   const d=dataset||{headers:[],rows:[]};let hash=2166136261;
@@ -95,7 +93,7 @@ function persistResultOrder(container,datasetName){
 function installResultControls(container,reports,datasetName){
   const sections=()=>[...container.querySelectorAll('.analysis-result')],summary=container.querySelector('.analysis-summary');
   const filterButtons=[...container.querySelectorAll('[data-result-filter]')],focus=container.querySelector('[data-result-focus]');
-  const viewButtons=[...container.querySelectorAll('[data-simple-result-view]')],viewSelect=container.querySelector('[data-simple-result-view-select]');
+  const viewSelect=container.querySelector('[data-simple-result-view-select]'),modeSelect=container.querySelector('[data-result-mode-select]');
   const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]'),presentation=container.querySelector('[data-presentation-mode]');
   const prev=container.querySelector('[data-result-prev]'),next=container.querySelector('[data-result-next]'),page=container.querySelector('[data-result-page]');
   let filter='all';
@@ -107,12 +105,10 @@ function installResultControls(container,reports,datasetName){
     for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication'],[presentation,'presentation']])if(button)button.setAttribute('aria-pressed',String(mode===name));
   };
   const setView=view=>{
-    for(const name of ['summary','anova','diagnostic','full'])container.classList.toggle('result-view-'+name,name===view);
-    viewButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.simpleResultView===view)));
+    for(const name of ['summary','full'])container.classList.toggle('result-view-'+name,name===view);
     if(viewSelect)viewSelect.value=view;
     container.scrollTop=0;
   };
-  viewButtons.forEach(button=>button.onclick=()=>setView(button.dataset.simpleResultView));
   if(viewSelect)viewSelect.onchange=()=>setView(viewSelect.value);
   const apply=()=>{
     const list=matching(),wanted=activeFocus(),summaryOnly=container.classList.contains('compare-parameters-mode');
@@ -144,6 +140,7 @@ function installResultControls(container,reports,datasetName){
     setMode(active?'':mode);if(focus&&!active&&mode!=='presentation')focus.value='';apply();
   };};
   modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');modeButton(presentation,'presentation');
+  if(modeSelect)modeSelect.onchange=()=>{setMode(modeSelect.value);if(focus&&modeSelect.value&&modeSelect.value!=='presentation')focus.value='';apply();};
   container.querySelectorAll('[data-summary-parameter]').forEach(button=>button.onclick=()=>{
     if(focus)focus.value=button.dataset.summaryParameter;
     setMode('');apply();
@@ -215,7 +212,7 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   try{const current=readDataset();stale=!!fingerprint&&current?.name===datasetName&&datasetFingerprint(current)!==fingerprint;}catch{}
   container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|presentation-results-mode|phone-parameter-mode|result-view-summary|result-view-anova|result-view-diagnostic|result-view-full)\b/g,'').trim();
   container.classList.add('result-view-summary');
-  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div><div class="analysis-result-toolbar"><select class="simple-result-view-select" data-simple-result-view-select aria-label="Tampilan hasil"><option value="summary">Ringkas</option><option value="anova">ANOVA</option><option value="diagnostic">Diagnostik</option><option value="full">Lengkap</option></select><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select>${resultVersion?`<span class="analysis-version-badge">V${resultVersion}</span>`:''}<div class="result-primary-actions"><details class="result-copy-menu"><summary>Salin</summary><div class="result-compact-menu"><button type="button" data-os-copy-word>Semua hasil ke Word</button><button type="button" data-os-share>Ringkasan hasil</button></div></details><details class="result-export-menu"><summary>Ekspor</summary><div class="result-compact-menu"><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button type="button" data-print-results>PDF / Cetak</button><button data-result-action="export-all-formula">Excel formula</button></div></details><details class="result-tools-menu"><summary aria-label="Tindakan lainnya">⋯</summary><div class="result-compact-menu result-tools-menu-body"><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><button type="button" data-compare-mode aria-pressed="false">Bandingkan parameter</button><button type="button" data-thesis-table-mode aria-pressed="false">Mode skripsi</button><button type="button" data-publication-mode aria-pressed="false">Mode publikasi</button><button type="button" data-presentation-mode aria-pressed="false">Mode presentasi</button><button type="button" data-thesis-check>Periksa hasil</button><button type="button" data-os-history>Versi hasil</button><div class="result-mobile-export-actions"><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button type="button" data-print-results>PDF / Cetak</button><button data-result-action="export-all-formula">Excel formula</button></div></div></details></div><div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
+  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div><div class="analysis-result-toolbar"><select class="simple-result-view-select" data-simple-result-view-select aria-label="Tampilan hasil"><option value="summary">Ringkas</option><option value="full">Detail</option></select><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select>${resultVersion?`<span class="analysis-version-badge">V${resultVersion}</span>`:''}<details class="result-tools-menu result-single-actions"><summary>Aksi</summary><div class="result-compact-menu result-tools-menu-body"><label class="result-action-select">Tampilan<select data-result-mode-select><option value="">Normal</option><option value="compare">Bandingkan</option><option value="thesis">Skripsi</option><option value="publication">Publikasi</option><option value="presentation">Presentasi</option></select></label><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><button type="button" data-os-copy-word>Salin ke Word</button><button type="button" data-os-share>Salin ringkasan</button><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button type="button" data-print-results>PDF / Cetak</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-thesis-check>Periksa hasil</button><button type="button" data-os-history>Versi hasil</button><button hidden type="button" data-compare-mode aria-pressed="false"></button><button hidden type="button" data-thesis-table-mode aria-pressed="false"></button><button hidden type="button" data-publication-mode aria-pressed="false"></button><button hidden type="button" data-presentation-mode aria-pressed="false"></button></div></details><div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
   container.dataset.datasetName=datasetName;container.dataset.analysisFingerprint=fingerprint;container.dataset.resultVersion=String(resultVersion||'');
   markResultsStale(container,stale);
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
@@ -345,15 +342,6 @@ function syncSimpleParameter(forceSingle=false){
   }
   updateScienceParameterCount();
 }
-function applyScienceUiMode(mode=analysisUiMode()){
-  const modal=$('#scientificModal');if(!modal)return;
-  const complete=mode==='complete';setAnalysisUiMode(mode);
-  modal.classList.toggle('science-complete-mode',complete);modal.classList.toggle('science-simple-mode',!complete);
-  const button=$('#scienceModeToggle');if(button)button.textContent=complete?'Mode Sederhana':'Mode Lengkap';
-  const advanced=$('#scienceAdvancedOptions');if(advanced)advanced.open=complete;
-  const multi=$('#scienceMultiParameters');if(multi)multi.open=complete;
-  syncSimpleParameter(!complete);
-}
 function syncParameterRoleExclusions(initial=false){
   const roles=roleIndices();
   document.querySelectorAll('#scienceParameters input').forEach(input=>{
@@ -364,7 +352,7 @@ function syncParameterRoleExclusions(initial=false){
     const transform=document.querySelector(`[data-transform-param="${index}"]`);
     if(transform)transform.disabled=isRole||!input.checked;
   });
-  syncSimpleParameter(analysisUiMode()==='simple');
+  syncSimpleParameter(false);
   updateScienceParameterCount();
 }
 function levelsForA(){if($('#scienceA').value==='')return [];const i=Number($('#scienceA').value);return [...new Set(data.rows.map(r=>String(r[i]??'').trim()).filter(Boolean))];}
@@ -590,8 +578,7 @@ export function openScientific(design){
   const runButton=$('#runScience');
   if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
   else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
-  applyScienceUiMode();
-  syncSimpleParameter(analysisUiMode()==='simple');
+  syncSimpleParameter(true);
   $('#scientificModal').classList.add('open');
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
   validate();
@@ -628,7 +615,7 @@ export function openScientificRecipe(recipe){
 export function installScientificWorkflow(){
   document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><div><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><div class="analysis-dock-actions"><button id="analysisDockData" type="button">▦ Data</button><button id="analysisDockAnalysis" type="button">Σ Analisis lain</button><button id="closeAnalysisDock" type="button" aria-label="Tutup hasil">✕</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
   <div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop science-simple-mode"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle">
-    <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><div class="science-head-actions"><button id="scienceModeToggle" type="button">Mode Lengkap</button><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div></div>
+    <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div>
     <div class="modal-body analysis-workspace-body"><main id="scienceFields" class="science-simple-shell">
       <div class="science-primary-grid">
         <section class="science-card"><div class="science-card-head"><span class="science-step">1</span><b>Kolom rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section>
@@ -648,9 +635,8 @@ export function installScientificWorkflow(){
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
   $('#analysisDockAnalysis').onclick=()=>globalThis.StatisticalWebWorkflow?.openAnalysis?.();
   $('#validateScience').onclick=validate;$('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
-  $('#scienceModeToggle').onclick=()=>{applyScienceUiMode(analysisUiMode()==='complete'?'simple':'complete');validate();};
   $('#scienceSimpleParameter').onchange=event=>{document.querySelectorAll('#scienceParameters input').forEach(input=>{input.checked=input.value===event.target.value;const transform=document.querySelector(`[data-transform-param="${input.value}"]`);if(transform)transform.disabled=!input.checked;});updateScienceParameterCount();saveAnalysisConfig();validate();};
-  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input')){if(analysisUiMode()==='simple')syncSimpleParameter(true);else syncSimpleParameter(false);}if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
+  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncSimpleParameter(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
   $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
   document.addEventListener('stat-dataset-changed',()=>{

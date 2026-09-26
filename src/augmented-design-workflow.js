@@ -5,9 +5,6 @@ import {resultActions} from './result-export.js';
 import {backupRawDataset} from './drive-backup.js';
 
 const $=selector=>document.querySelector(selector);
-const UI_MODE='statistical_web_analysis_ui_mode_v2';
-function analysisUiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
-function setAnalysisUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fmt=(value,digits=3)=>Number.isFinite(value)?formatNumber(value,digits):'—';
 const activeRows=data=>data.rows.filter(row=>row.some(value=>String(value??'').trim()!==''));
@@ -35,15 +32,6 @@ function syncSimpleAugParameter(forceSingle=false){
   if(forceSingle&&selected)inputs.forEach(input=>{input.checked=input===selected;});
 }
 let dataForAug=null;
-function applyAugUiMode(mode=analysisUiMode()){
-  const root=document.querySelector('.augmented-workspace');if(!root)return;
-  const complete=mode==='complete';setAnalysisUiMode(mode);
-  root.classList.toggle('aug-complete-mode',complete);root.classList.toggle('aug-simple-mode',!complete);
-  const toggle=$('#augModeToggle');if(toggle)toggle.textContent=complete?'Mode Sederhana':'Mode Lengkap';
-  const advanced=$('#augAdvanced');if(advanced)advanced.open=complete;
-  const parameters=$('#augMultiParameters');if(parameters)parameters.open=complete;
-  syncSimpleAugParameter(!complete);
-}
 function syncParameters(){
   const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
   document.querySelectorAll('[data-aug-param]').forEach(input=>{
@@ -51,7 +39,7 @@ function syncParameters(){
     input.disabled=role;
     if(role)input.checked=false;
   });
-  syncSimpleAugParameter(analysisUiMode()==='simple');
+  syncSimpleAugParameter(false);
 }
 function repeatedTreatments(data,index){
   if(index===null||index===undefined||index<0)return [];
@@ -140,7 +128,7 @@ function renderAugmented(out,name,dataName){
   const cv=Number.isFinite(out.cv)?fmt(out.cv,2)+'%':'—';
   return `<section class="analysis-result augmented-result aug-view-summary" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
     <h3>Augmented RCBD — ${esc(name)}</h3>
-    <div class="simple-result-tabs" role="tablist"><button type="button" data-aug-view="summary" aria-pressed="true">Rataan</button><button type="button" data-aug-view="anova" aria-pressed="false">ANOVA</button><button type="button" data-aug-view="detail" aria-pressed="false">Detail</button></div>
+    <div class="aug-result-toolbar"><select data-aug-view-select aria-label="Tampilan hasil augmented"><option value="summary">Rataan</option><option value="detail">Detail statistik</option></select></div>
     <div class="aug-summary-pane">
       <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Check</small></span><span><b>${out.tests.length}</b><small>Entry uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmt(out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>CV</small></span></div>
       ${warning}
@@ -161,10 +149,9 @@ async function showResults(html,title,data,parameterCount){
     if(!dock||!body)throw Error('dock unavailable');
     body.innerHTML=html;
     body.dataset.datasetName=data.name||'Dataset';
-    body.querySelectorAll('[data-aug-view]').forEach(button=>button.addEventListener('click',()=>{
-      const section=button.closest('.augmented-result'),mode=button.dataset.augView;
-      section.classList.remove('aug-view-summary','aug-view-anova','aug-view-detail');section.classList.add('aug-view-'+mode);
-      section.querySelectorAll('[data-aug-view]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+    body.querySelectorAll('[data-aug-view-select]').forEach(select=>select.addEventListener('change',()=>{
+      const section=select.closest('.augmented-result'),mode=select.value;
+      section.classList.remove('aug-view-summary','aug-view-detail');section.classList.add('aug-view-'+mode);
       section.scrollIntoView({block:'start'});
     }));
     if(heading)heading.textContent=title;
@@ -181,7 +168,7 @@ export function openAugmentedDesign(){
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
   dataForAug=data;
   openTool('Augmented Design',`<div class="augmented-workspace aug-simple-mode">
-    <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div><button id="augModeToggle" type="button">Mode Lengkap</button></div>
+    <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div></div>
     <div class="aug-simple-form">
       <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
       <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
@@ -198,9 +185,8 @@ export function openAugmentedDesign(){
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
-  fillChecks(data);syncParameters();applyAugUiMode();structurePreview(data);
+  fillChecks(data);syncParameters();syncSimpleAugParameter(true);structurePreview(data);
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
-  $('#augModeToggle').addEventListener('click',()=>{applyAugUiMode(analysisUiMode()==='complete'?'simple':'complete');});
   $('#augSimpleParameter').addEventListener('change',event=>{document.querySelectorAll('[data-aug-param]').forEach(input=>{input.checked=input.value===event.target.value;});});
   $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
   $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});

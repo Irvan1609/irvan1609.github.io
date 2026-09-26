@@ -20,10 +20,11 @@ for(const marker of [
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['data-analysis-simple-view','data-analysis-complete-view','data-analysis-mode-toggle',"simpleCard('factorial'","simpleCard('more'",'Mode Lengkap'])if(!flow.includes(marker))fail('simple analysis flow missing '+marker);
+for(const marker of ['analysis-simple-grid','data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-open-other'])if(!flow.includes(marker))fail('compact analysis flow missing '+marker);
+if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-primary-actions'])if(!scientific.includes(marker))fail('simple results workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select'])if(!scientific.includes(marker))fail('compact results workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
 for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT SIMPLE-FIRST UI','.analysis-simple-grid','.science-simple-parameter','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
-console.log('Stat workflow check OK: Data → Analisis → Atur → Hasil uses simple-first selection, progressive setup, and compact result views.');
+console.log('Stat workflow check OK: one compact analysis interface, progressive setup, and merged result actions are linked.');
