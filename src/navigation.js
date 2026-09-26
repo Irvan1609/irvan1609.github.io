@@ -13,7 +13,7 @@ export function installNavigation(){
 
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
+    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool','fieldLayoutTool']],
     ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
   ]){
     const button=document.createElement('button');
@@ -112,7 +112,8 @@ export function installNavigation(){
       validateDataset:'validasi cek data kesalahan',
       transformData:'transformasi log sqrt akar',
       outlierData:'outlier pencilan',
-      fieldbookTool:'fieldbook buku lapang',
+      fieldbookTool:'fieldbook buku lapang randomisasi rancangan',
+      fieldLayoutTool:'denah lahan plot petak lapangan field map pengamatan input data',
       dataTemplate:'template contoh data',
       analysisHistory:'riwayat analisis history',
       configureDriveBackup:'backup drive cadangan',
