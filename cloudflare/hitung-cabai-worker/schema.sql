@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS contributions (
   image BLOB NOT NULL,
   image_object_key TEXT,
   image_size_bytes INTEGER NOT NULL DEFAULT 0,
+  image_sha256 TEXT,
   storage_backend TEXT NOT NULL DEFAULT 'd1',
   mime_type TEXT NOT NULL,
   width INTEGER NOT NULL,
@@ -26,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created
 CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status);
 CREATE INDEX IF NOT EXISTS idx_contributions_status_created ON contributions(status,created_at);
 CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status);
+CREATE INDEX IF NOT EXISTS idx_contributions_image_sha256 ON contributions(image_sha256);
 
 
 CREATE TABLE IF NOT EXISTS users (
@@ -168,6 +170,9 @@ CREATE TABLE IF NOT EXISTS backup_runs (
   object_key TEXT,
   status TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
+  checksum_sha256 TEXT,
+  verified_at TEXT,
+  validation_json TEXT NOT NULL DEFAULT '{}',
   note TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
@@ -185,3 +190,10 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
