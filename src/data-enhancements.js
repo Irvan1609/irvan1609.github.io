@@ -149,5 +149,10 @@ export function installDataEnhancements(){
   captureSnapshot();document.addEventListener('input',schedule,true);document.addEventListener('change',schedule,true);document.addEventListener('dataset-import',schedule);document.addEventListener('submit',schedule,true);document.addEventListener('click',event=>{if(event.target.closest('[data-delete-row],[data-delete-column],#clearData,#deleteDataset,#applyPaste,#newTxt'))schedule();},true);
   const tree=$('#fileTree'),grid=$('#gridWrap');if(tree)new MutationObserver(schedule).observe(tree,{childList:true,subtree:true});if(grid)new MutationObserver(schedule).observe(grid,{childList:true,subtree:true});
   document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(!mod)return;if(event.key.toLowerCase()==='z'&&!event.shiftKey){event.preventDefault();undo();}else if(event.key.toLowerCase()==='y'||(event.key.toLowerCase()==='z'&&event.shiftKey)){event.preventDefault();redo();}});
+  const openQrPlot=async()=>{
+    const match=location.hash.match(/^#p=([^&]+)/);if(!match)return;
+    try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout({uidPrefix:decodeURIComponent(match[1])});}catch(error){console.error(error);}
+  };
+  window.addEventListener('hashchange',openQrPlot);if(location.hash.startsWith('#p='))setTimeout(openQrPlot,0);
   updateUndoButtons();
 }
