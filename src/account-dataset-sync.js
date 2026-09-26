@@ -16,11 +16,15 @@ let retryTimer=null;
 let currentUser=null;
 let syncAllowed=true;
 const pendingPatches=new Map();
-const SYNC_DEBOUNCE_MS=1600;
+const SYNC_DEBOUNCE_MIN_MS=2500;
+const SYNC_DEBOUNCE_MAX_MS=8000;
+const ACTIVE_EDIT_WINDOW_MS=12000;
 const CIRCUIT_FAILURE_LIMIT=3;
 const CIRCUIT_COOLDOWN_MS=60_000;
 let cloudFailureCount=0;
 let circuitOpenUntil=0;
+let editBurstCount=0;
+let lastEditAt=0;
 
 function circuitRemaining(){
   return Math.max(0,circuitOpenUntil-Date.now());
@@ -296,9 +300,18 @@ function setSyncStatus(text,state='idle'){
     button.textContent=state==='syncing'?'Menyinkronkan…':'Sinkronkan';
   }
 }
-function scheduleSync(delay=SYNC_DEBOUNCE_MS){
+function adaptiveSyncDelay(requested=null){
+  if(Number.isFinite(requested))return Math.max(0,requested);
+  const now=Date.now();
+  if(now-lastEditAt>ACTIVE_EDIT_WINDOW_MS)editBurstCount=0;
+  const pendingOps=[...pendingPatches.values()].reduce((sum,item)=>sum+(item.operations?.length||0),0);
+  const burst=Math.min(10,editBurstCount),pressure=Math.min(10,Math.ceil(pendingOps/10));
+  return Math.min(SYNC_DEBOUNCE_MAX_MS,SYNC_DEBOUNCE_MIN_MS+(burst+pressure)*350);
+}
+function scheduleSync(delay=null){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
+  if(document.hidden){setSyncStatus('Perubahan aman di perangkat · sinkron saat kembali','pending');return;}
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   const remaining=circuitRemaining();
   if(remaining>0){
@@ -306,7 +319,7 @@ function scheduleSync(delay=SYNC_DEBOUNCE_MS){
     retryTimer=setTimeout(()=>{circuitOpenUntil=0;scheduleSync(0);},remaining+250);
     return;
   }
-  retryTimer=setTimeout(()=>syncNow(),delay);
+  retryTimer=setTimeout(()=>syncNow(),adaptiveSyncDelay(delay));
 }
 function queuePatch(name,patch){
   if(!name||!patch||typeof patch!=='object')return;
@@ -570,13 +583,14 @@ export function installAccountDatasetSync(){
     }
     if(detail.patch&&detail.name)queuePatch(detail.name,detail.patch);
     else if(detail.name)pendingPatches.delete(normalizeFileName(detail.name));
+    const now=Date.now();editBurstCount=now-lastEditAt<ACTIVE_EDIT_WINDOW_MS?Math.min(20,editBurstCount+1):1;lastEditAt=now;
     if(currentUser&&syncAllowed)setSyncStatus('Perubahan belum dicadangkan','pending');
     scheduleSync();
   });
   window.addEventListener('storage',event=>{
     if([FILES_KEY,META_KEY,CATEGORY_KEY,TREATMENT_KEY].includes(event.key))scheduleSync(2200);
   });
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed)scheduleSync(900);});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed){editBurstCount=0;scheduleSync(1200);}});
   window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
   window.addEventListener('online',()=>{resetCircuit();scheduleSync(900);});
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
