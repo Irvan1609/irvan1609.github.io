@@ -804,10 +804,12 @@ function renderMap(){
   const blocks=groups.map(([label,entries])=>{
     const ordered=orientEntries(orderedEntries(entries,config.columns,config.serpentine));
     if(!ordered.length)return '';
+    let previousMain=null;
     const plots=ordered.map((entry,index)=>{
+      const main=mainPlotInfo(entry.row),mainBanner=main&&main.main!==previousMain?`<div class="field-main-label"><b>Petak Utama ${esc(main.main)}</b>${main.factor?`<span>A = ${esc(main.factor)}</span>`:''}</div>`:'';if(main)previousMain=main.main;
       const matches=matchingSearch(entry,current,query)&&passesFilter(entry);
       if(matches)visible++;
-      if(!matches)return '<span class="field-plot-placeholder" aria-hidden="true"></span>';
+      if(!matches)return mainBanner+'<span class="field-plot-placeholder" aria-hidden="true"></span>';
       const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index),meta=config.plotMeta?.[plotKey(entry.index)]||{},factorB=factorBLabel(current,entry.row);
       const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
       const draggable=layoutEditMode?' draggable="true"':'';
@@ -817,7 +819,7 @@ function renderMap(){
       </button>`;
       const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
       const road=(automatic||manual)?`<div class="field-road" role="separator"><span>${manual?'Jalan manual':'Jalan'}</span></div>`:'';
-      return plot+road;
+      return mainBanner+plot+road;
     }).join('');
     return `<section class="field-block"><div class="field-block-head"><b>${esc(label)}</b><span>${ordered.length} plot${layoutEditMode?' · tarik untuk susun':''}</span></div><div class="field-block-grid" style="--field-columns:${config.columns}">${plots}</div></section>`;
   }).join('');
