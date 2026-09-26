@@ -3,6 +3,15 @@ import {auditReports} from './analysis-audit.js';
 
 const HISTORY='statistical_web_analysis_history_v1';
 const PIN_STORE='statistical_web_result_pins_v1';
+const STAT_HELP={
+  f:{title:'Nilai F',text:'F adalah rasio kuadrat tengah sumber keragaman terhadap kuadrat tengah galat pembanding yang sesuai. Keputusan inferensial dibaca bersama p-value dan struktur model.'},
+  p:{title:'p-value',text:'p-value adalah peluang memperoleh statistik setidaknya se-ekstrem jika H₀ benar. p < α menunjukkan bukti untuk menolak H₀; p-value bukan ukuran besarnya efek.'},
+  kk:{title:'KK / CV',text:'Koefisien keragaman = √KT galat ÷ |rataan umum| × 100%. Nilai ini menggambarkan variasi residual relatif terhadap rataan dan harus dinilai sesuai karakter serta skala pengukuran.'},
+  se:{title:'SE',text:'Standard error menggambarkan ketelitian estimasi rataan atau selisih. SE berbeda dari SD, karena SD menggambarkan keragaman antarobservasi.'},
+  df:{title:'Derajat bebas',text:'Derajat bebas menentukan banyaknya informasi independen untuk mengestimasi suatu sumber keragaman dan distribusi acuan uji statistik.'},
+  ss:{title:'JK / SS',text:'Jumlah kuadrat mengukur besarnya variasi yang dialokasikan pada suatu sumber dalam model ANOVA.'},
+  ms:{title:'KT / MS',text:'Kuadrat tengah = jumlah kuadrat ÷ derajat bebas. KT galat digunakan sebagai estimasi ragam residual pada uji F yang sesuai.'}
+};
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fmt=(value,digits=2)=>Number.isFinite(Number(value))?Number(value).toLocaleString('id-ID',{minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
@@ -177,6 +186,39 @@ function decorateTables(container){
     const button=document.createElement('button');button.type='button';button.className='result-os-copy-table';button.textContent='⧉';button.title='Salin tabel';button.setAttribute('aria-label','Salin tabel ini');wrap.prepend(button);
   });
 }
+function statHelpKey(label){
+  const value=String(label||'').toLowerCase().replace(/[().:%]/g,' ').replace(/\s+/g,' ').trim();
+  if(value==='f'||value==='f hitung')return 'f';
+  if(value==='p'||value==='p value'||value==='p minimum'||value==='p-value')return 'p';
+  if(value==='kk'||value==='cv'||value==='median kk'||value.includes('koefisien keragaman'))return 'kk';
+  if(value==='se'||value==='se beda'||value.startsWith('se '))return 'se';
+  if(value==='db'||value==='df'||value.includes('derajat bebas'))return 'df';
+  if(value==='jk'||value==='ss'||value.includes('jumlah kuadrat'))return 'ss';
+  if(value==='kt'||value==='ms'||value.includes('kuadrat tengah'))return 'ms';
+  return '';
+}
+function installStatHelp(container){
+  container.querySelectorAll('table').forEach(table=>{
+    const headers=[...(table.tHead?.rows?.[0]?.cells||[])],keys=headers.map(cell=>statHelpKey(cell.textContent));
+    headers.forEach((cell,index)=>{if(keys[index]){cell.dataset.statHelp=keys[index];cell.tabIndex=0;cell.title='Ketuk untuk penjelasan statistik';}});
+    table.querySelectorAll('tbody tr').forEach(row=>[...row.cells].forEach((cell,index)=>{if(keys[index]){cell.dataset.statHelp=keys[index];cell.tabIndex=0;}}));
+  });
+  container.querySelectorAll('.result-os-metric,.aug-result-summary>span').forEach(item=>{const key=statHelpKey(item.querySelector('span,small')?.textContent);if(key){item.dataset.statHelp=key;item.tabIndex=0;}});
+}
+function showStatHelp(target,key){
+  const info=STAT_HELP[key];if(!info)return;
+  let box=document.querySelector('#statHelpPopover');
+  if(!box){box=document.createElement('aside');box.id='statHelpPopover';box.className='stat-help-popover';box.setAttribute('role','status');document.body.append(box);}
+  box.innerHTML='<b>'+esc(info.title)+'</b><span>'+esc(info.text)+'</span>';box.hidden=false;
+  const rect=target.getBoundingClientRect(),margin=8;
+  requestAnimationFrame(()=>{
+    const width=box.offsetWidth||260,height=box.offsetHeight||80;
+    const left=Math.max(margin,Math.min(innerWidth-width-margin,rect.left));
+    const below=rect.bottom+6,top=below+height<innerHeight-margin?below:Math.max(margin,rect.top-height-6);
+    box.style.left=left+'px';box.style.top=top+'px';
+  });
+}
+function hideStatHelp(){const box=document.querySelector('#statHelpPopover');if(box)box.hidden=true;}
 function installFieldPlotLinks(container){
   const data=globalThis.StatisticalWebData?.readActiveDataset?.();
   if(!data?.headers?.length||!data?.rows?.length)return;
@@ -299,6 +341,7 @@ export function enhanceResultOS(container,reports,options={}){
   if(stale)stale.after(shell);else container.prepend(shell);
 
   decorateTables(container);
+  installStatHelp(container);
   installFieldPlotLinks(container);
   const pinSetup=setupPinButtons(container,datasetName,pins,grid,originalRank,state);
   const applyPinnedOrder=pinSetup.applyOrder;
@@ -319,6 +362,9 @@ export function enhanceResultOS(container,reports,options={}){
   };
   let searchTimer=0;
   const clickHandler=async event=>{
+    const help=event.target.closest('[data-stat-help]');
+    if(help){event.preventDefault();showStatHelp(help,help.dataset.statHelp);return;}
+    hideStatHelp();
     const fieldPlot=event.target.closest('[data-os-field-plot]');
     if(fieldPlot){event.preventDefault();await openFieldPlot(fieldPlot.dataset.osFieldPlot);return;}
     const nav=event.target.closest('[data-os-nav]');
@@ -417,6 +463,8 @@ export function enhanceResultOS(container,reports,options={}){
   }
 
   const keyHandler=event=>{
+    const help=event.target?.closest?.('[data-stat-help]');
+    if(help&&(event.key==='Enter'||event.key===' ')){event.preventDefault();showStatHelp(help,help.dataset.statHelp);return;}
     if(container.id!=='analysisDockResults')return;
     const dock=document.querySelector('#analysisResultDock');if(!dock||dock.hidden)return;
     if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
@@ -441,6 +489,7 @@ export function enhanceResultOS(container,reports,options={}){
     container.removeEventListener('click',clickHandler);container.removeEventListener('input',inputHandler);container.removeEventListener('change',changeHandler);
     container.removeEventListener('touchstart',touchStartHandler);container.removeEventListener('touchend',touchEndHandler);
     document.removeEventListener('keydown',keyHandler);
+    hideStatHelp();
     pinSetup.cleanup();
     if(head){head.removeEventListener('touchstart',headStartHandler);head.removeEventListener('touchend',headEndHandler);}
   };
