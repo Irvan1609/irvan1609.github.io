@@ -760,11 +760,12 @@ function openExperiment(){
     return;
   }
   const exp=state.experiment;
-  openMetaModal('RANCOB AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Data panen terisi otomatis; parameter lain dapat diketik.</p>`);
+  openMetaModal('RANCOB AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲 Acak ulang</button><button data-exp-learn>🎓 Statistik Lapang</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Gunakan Statistik Lapang untuk membaca F, CV, H² latihan, rerata, dan kesalahan desain sebelum membuka analisis penuh.</p>`);
   $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{
     const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}
   });
   $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{const hasData=exp.units.some(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!==''));if(hasData&&!confirm('Acak ulang? Data pengamatan yang sudah ada akan dikosongkan.'))return;exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();};
+  $('#metaModalBody').querySelector('[data-exp-learn]').onclick=()=>openExperimentAnalysis();
   $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';render();closeMetaModal();}};
   $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
