@@ -1792,6 +1792,17 @@ function applyEventChoice(choice){
   addLog(note);state.pendingEvent=null;$('#eventModal').hidden=true;beep(580,.06);render();
 }
 
+function seasonDecisionReview(completed,protocolQuality){
+  const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0),marked=selectionCandidates(state.season).filter(item=>item.selected).length;
+  let best=completed?'Kontrak musim diselesaikan dengan target utama tercapai.':'Program tetap berjalan meski target musim belum lengkap.';
+  if(marked)best='Mempertahankan '+marked+' kandidat seleksi berdasarkan pengamatan lapang.';
+  if(protocolQuality>=70)best='Rancangan percobaan mencapai mutu protokol '+protocolQuality+'%, sehingga keputusan lebih dapat dipertanggungjawabkan.';
+  let mistake='Tidak ada kesalahan dominan yang terdeteksi pada musim ini.';
+  if(state.experiment&&protocolQuality<50)mistake='Mutu protokol hanya '+protocolQuality+'%; data terlalu tidak lengkap untuk kesimpulan kuat.';
+  else if(state.seasonStats.failed>=3)mistake=state.seasonStats.failed+' petak gagal; kehilangan unit mengurangi hasil dan informasi.';
+  else if(margin<0)mistake='Margin negatif '+formatRupiah(Math.abs(margin))+'; biaya input melampaui pendapatan.';
+  return {best,mistake};
+}
 function finishSeason(){
   if(state.pendingEvent)return;clearUndo();updateFieldPressure();
   for(let i=0;i<state.field.length;i++){const crop=state.field[i];if(crop&&crop.growth>=100&&crop.health>0)recordHarvest(i,crop,.9,false);}
@@ -1801,6 +1812,10 @@ function finishSeason(){
     :{coins:Math.round((8000+26000*contractRatio)*Math.min(1.2,rewardScale)),rp:Math.floor(3*contractRatio),xp:Math.round(6+16*contractRatio)};
   const rivalTarget=computeRivalTarget(),beatRival=state.seasonStats.yield>=rivalTarget,bossWon=!!state.env.boss&&completed;
   state.coins+=reward.coins;state.rp+=reward.rp;state.xp+=reward.xp;state.level=levelFromXp(state.xp);
+  const protocolQuality=state.experiment&&state.experiment.kind!=='competition'?experimentQualityScore():0;
+  const repDelta=(completed?2:-1)+(protocolQuality>=70?2:0)+(state.seasonBest?1:0);state.reputation=Math.max(0,(state.reputation||0)+repDelta);
+  if(protocolQuality>=75&&state.experiment&&!state.experiment.publicationCredited){state.publications=(state.publications||0)+1;state.experiment.publicationCredited=true;}
+  state.partnerTrust=clamp((state.partnerTrust??50)+(completed?3:-2)+(protocolQuality>=70?1:0),0,100);
   if(beatRival){state.rivalWins=(state.rivalWins||0)+1;state.rp+=4;awardAchievement('rival');}
   if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=50000;awardAchievement('boss');}}
   else state.collection.environments=unique([...(state.collection.environments||[]),state.env.id]);
@@ -1814,7 +1829,7 @@ function finishSeason(){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
   }
   $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
-  $('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Kontrak</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Rival</small><b>${state.seasonStats.yield>=rivalTarget?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)} kg</b></div><div><small>Insentif</small><b>+${formatRupiah(reward.coins)}</b></div><div><small>Patogen carry-over</small><b>${state.fieldPressure.pathogen.toFixed(1)}</b></div><div><small>Residu stres lahan</small><b>${state.fieldPressure.fatigue.toFixed(1)}</b></div>`;
+  const review=seasonDecisionReview(completed,protocolQuality);$('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Kontrak</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Reputasi</small><b>★ ${state.reputation||0}</b></div><div><small>Publikasi</small><b>▤ ${state.publications||0}</b></div><div><small>Rival</small><b>${state.seasonStats.yield>=rivalTarget?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)} kg</b></div><div><small>Insentif</small><b>+${formatRupiah(reward.coins)}</b></div></div><div class="decision-review season-review"><article><small>KEPUTUSAN TERBAIK</small><b>✓ ${esc(review.best)}</b></article><article><small>KESALAHAN TERMAHAL</small><b>! ${esc(review.mistake)}</b></article></div>`;
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
