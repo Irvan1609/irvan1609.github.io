@@ -23,6 +23,7 @@ const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COMPACT_KEY='statistical_web_editor_compact_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
+const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
 let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
 const $=s=>document.querySelector(s);
@@ -998,6 +999,10 @@ function installEditorShortcuts(){
   });
 }
 
+function markDatasetLocalOnly(name){
+  if(!name)return;
+  try{const list=new Set(JSON.parse(localStorage.getItem(LOCAL_ONLY_KEY)||'[]'));list.add(String(name));localStorage.setItem(LOCAL_ONLY_KEY,JSON.stringify([...list]));}catch{}
+}
 function consumeExternalDatasetImport(){
   let payload=null;
   try{payload=JSON.parse(localStorage.getItem(EXTERNAL_IMPORT_KEY)||'null');}catch{}
@@ -1008,7 +1013,7 @@ function consumeExternalDatasetImport(){
   for(const source of datasets){
     if(!source||!Array.isArray(source.headers)||!Array.isArray(source.rows))continue;
     const detail={...source,source:'field-zero'};document.dispatchEvent(new CustomEvent('dataset-import',{detail}));
-    if(detail.importResult?.ok)imported++;
+    if(detail.importResult?.ok){imported++;markDatasetLocalOnly(detail.importResult.name);}
   }
   if(imported===datasets.length){
     try{localStorage.removeItem(EXTERNAL_IMPORT_KEY);}catch{}
