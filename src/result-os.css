@@ -313,41 +313,40 @@
   .result-os-command{grid-template-columns:minmax(0,1fr) auto!important}
 }
 
-
-/* RESULT OS MOBILE TAP TARGETS 2026-09-26 */
+/* RESULT OS MOBILE SCALE SYSTEM 2026-09-26 */
 @media(max-width:720px){
   .result-os-command{
-    gap:8px!important;
-    padding:7px!important;
+    gap:6px!important;
+    padding:6px!important;
   }
   .result-os-command>input[type="search"]{
-    min-height:50px!important;
-    padding:8px 10px!important;
+    min-height:48px!important;
+    padding:7px 9px!important;
     border-radius:9px!important;
     font-size:16px!important;
   }
   .result-os-menu>summary{
-    min-width:50px!important;
-    min-height:50px!important;
-    padding:8px 10px!important;
+    min-width:48px!important;
+    min-height:48px!important;
+    padding:7px 9px!important;
     border-radius:9px!important;
-    font-size:13px!important;
+    font-size:12px!important;
     touch-action:manipulation;
   }
   .result-os-menu-body{
     left:8px!important;
     right:8px!important;
-    bottom:calc(82px + env(safe-area-inset-bottom))!important;
-    max-height:66dvh!important;
-    padding:9px!important;
+    bottom:calc(72px + env(safe-area-inset-bottom))!important;
+    max-height:64dvh!important;
+    padding:8px!important;
     gap:6px!important;
-    border-radius:12px!important;
+    border-radius:11px!important;
   }
   .result-os-menu-body button{
-    min-height:50px!important;
-    padding:9px 11px!important;
+    min-height:48px!important;
+    padding:8px 10px!important;
     border-radius:8px!important;
-    font-size:13px!important;
+    font-size:12px!important;
     touch-action:manipulation;
   }
   .result-os-insights{
@@ -355,10 +354,11 @@
     padding:0 2px 3px!important;
   }
   .result-os-insights>.result-os-count,
-  .result-os-metric,.result-os-audit{
-    min-height:38px!important;
-    padding:5px 8px!important;
-    font-size:10.5px!important;
+  .result-os-metric,
+  .result-os-audit{
+    min-height:34px!important;
+    padding:5px 7px!important;
+    font-size:10px!important;
   }
   .result-os-nav{
     min-height:48px!important;
