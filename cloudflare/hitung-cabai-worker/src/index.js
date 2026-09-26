@@ -2265,6 +2265,21 @@ async function handleGameInboxClaim(request,env){
   return json(request,env,{ok:true,raids:raidIds.length,aids:aidIds.length});
 }
 
+async function cloudFeatureGate(request,env,url){
+  if(url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/account/'))return null;
+  const relevant=url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/contributions')||url.pathname.startsWith('/v1/game/')||url.pathname==='/v1/membership/payments';
+  if(!relevant)return null;
+  const policy=await currentCloudPolicy(env);
+  if(url.pathname.startsWith('/v1/datasets')&&!policy.features.datasetSync)return featurePaused(request,env,'datasetSync',policy);
+  if(url.pathname==='/v1/contributions'&&request.method==='POST'&&!policy.features.aiUpload)return featurePaused(request,env,'aiUpload',policy);
+  if(url.pathname.startsWith('/v1/game/')){
+    if(url.pathname==='/v1/game/save'&&!policy.features.gameCloudSave)return featurePaused(request,env,'gameCloudSave',policy);
+    if(url.pathname!=='/v1/game/save'&&!policy.features.gameSocial)return featurePaused(request,env,'gameSocial',policy);
+  }
+  if(url.pathname==='/v1/membership/payments'&&request.method==='POST'&&!policy.features.payments)return featurePaused(request,env,'payments',policy);
+  return null;
+}
+
 export default {
   async scheduled(event,env,ctx){
     ctx.waitUntil((async()=>{
@@ -2278,15 +2293,20 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{
-        ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:true,idempotentSync:true,quotaGuard:true,
-        membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),
-        storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),apiVersion:'2026-09-26.16'
-      },200,{'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
+      if(request.method==='GET'&&url.pathname==='/v1/health'){
+        const policy=await currentCloudPolicy(env);
+        return json(request,env,{
+          ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:policy.features.datasetSync,idempotentSync:true,quotaGuard:true,
+          membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:policy.features.gameSocial,membershipPayments:midtransMembershipConfigured(env)&&policy.features.payments,midtransEnvironment:midtransEnvironment(env),
+          storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),policy,freeTierReference:CLOUDFLARE_FREE_REFERENCE,apiVersion:'2026-09-26.17'
+        },200,{'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
+      }
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
       if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
       const csrfFailure=await csrfGuard(request,env,url);
       if(csrfFailure)return csrfFailure;
+      const featureFailure=await cloudFeatureGate(request,env,url);
+      if(featureFailure)return featureFailure;
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
@@ -2343,6 +2363,7 @@ export default {
       if(request.method==='POST'&&url.pathname==='/v1/develop/contributions/migrate-images')return await handleDevelopContributionImageMigration(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
+      if((request.method==='GET'||request.method==='PUT')&&url.pathname==='/v1/develop/cloud-policy')return await handleDevelopCloudPolicy(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
       if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
@@ -2373,6 +2394,11 @@ export default {
       return json(request,env,{error:'Endpoint tidak ditemukan.'},404);
     }catch(error){
       console.error(error);
+      const quotaPressure=detectD1QuotaPressure(error);
+      if(quotaPressure){
+        const retry=Math.max(60,Math.ceil((RUNTIME_CLOUD_PRESSURE_UNTIL-Date.now())/1000));
+        return json(request,env,{error:'d1_free_tier_exhausted',message:'Kuota harian D1 terdeteksi habis. Aplikasi masuk mode lokal sampai reset Cloudflare.',localSafe:true,retryAfterSeconds:retry},503,{'Retry-After':String(retry)});
+      }
       if(url.pathname.startsWith('/v1/membership/')){
         const message=String(error?.message||'Layanan membership sedang bermasalah.').slice(0,300);
         return json(request,env,{error:'membership_upstream_error',message},502);
