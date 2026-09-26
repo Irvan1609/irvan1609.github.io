@@ -1384,3 +1384,282 @@ body.calm-ui .toast{box-shadow:none!important}
   }
   body.calm-ui .day-actions button{min-height:40px}
 }
+
+
+/* FIELD ZERO FOCUSED GAMEPLAY FLOW 2026-09-26 */
+body.calm-ui #quickMap,
+body.calm-ui #quickSocial{display:none!important}
+body.calm-ui .game-quick-nav{grid-template-columns:repeat(4,minmax(0,1fr))}
+body.calm-ui .game-quick-nav button{font-size:15px}
+
+body.calm-ui .game-workflow{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:2px;
+  margin:0 0 6px;
+  padding:2px;
+  border:1px solid #27332c;
+  border-radius:6px;
+  background:#121814
+}
+body.calm-ui .game-workflow span{
+  min-width:0;
+  padding:4px 3px;
+  border-radius:4px;
+  color:#65746c;
+  text-align:center;
+  font-size:7.5px;
+  font-weight:700;
+  white-space:nowrap
+}
+body.calm-ui .game-workflow span.active{
+  background:#26352d;
+  color:#dfe8e2
+}
+
+body.calm-ui .field-primary-actions{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:3px;
+  margin-top:5px;
+  padding-top:5px;
+  border-top:1px solid #253129
+}
+body.calm-ui .field-primary-actions button{
+  min-height:36px;
+  padding:4px 6px;
+  border:1px solid #29372f;
+  border-radius:6px;
+  background:#151d19;
+  color:#aeb9b3;
+  font-size:10px;
+  font-weight:720
+}
+body.calm-ui .field-primary-actions button span{margin-left:3px}
+body.calm-ui .field-primary-actions button:hover,
+body.calm-ui .field-primary-actions button:focus-visible{
+  background:#202b24;
+  color:#eef4f0
+}
+
+body.calm-ui .game-layout{grid-template-columns:1fr!important}
+body.calm-ui .inspector{display:none}
+body.calm-ui.inspector-engaged .game-layout{
+  grid-template-columns:minmax(0,1fr) 250px!important
+}
+body.calm-ui.inspector-engaged .inspector{display:block}
+
+body.calm-ui .research-steps{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:3px;
+  margin-bottom:10px
+}
+body.calm-ui .research-steps span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  min-width:0;
+  min-height:32px;
+  padding:4px;
+  border:1px solid #29372f;
+  border-radius:6px;
+  color:#75847c;
+  font-size:8px
+}
+body.calm-ui .research-steps span b{
+  display:grid;
+  place-items:center;
+  width:17px;
+  height:17px;
+  border-radius:50%;
+  background:#1d2722;
+  color:#8c9a92;
+  font-size:7px
+}
+body.calm-ui .research-steps span.active{
+  border-color:#597363;
+  background:#1d2922;
+  color:#e4ebe6
+}
+body.calm-ui .research-steps span.done{color:#9fb0a6}
+body.calm-ui .research-steps span.done b{background:#2c4335;color:#d7e7dc}
+
+body.calm-ui .experiment-wizard{
+  display:grid;
+  gap:8px
+}
+body.calm-ui .experiment-wizard label{
+  display:grid;
+  gap:4px;
+  color:#9ca9a1;
+  font-size:9px;
+  font-weight:700
+}
+body.calm-ui .experiment-wizard input,
+body.calm-ui .experiment-wizard select,
+body.calm-ui .experiment-wizard textarea{
+  width:100%;
+  min-width:0;
+  min-height:38px;
+  padding:7px 8px;
+  border:1px solid #304038;
+  border-radius:6px;
+  background:#111814;
+  color:#e8eee9;
+  font:inherit;
+  resize:vertical
+}
+body.calm-ui .experiment-wizard textarea{line-height:1.45}
+body.calm-ui .experiment-wizard small,
+body.calm-ui .wizard-note{
+  margin:0;
+  color:#7f8d85;
+  font-size:8px;
+  line-height:1.4
+}
+body.calm-ui .wizard-factor-b{
+  display:grid;
+  grid-template-columns:1fr 100px 1fr;
+  gap:6px;
+  padding:7px;
+  border:1px solid #29372f;
+  border-radius:6px;
+  background:#121915
+}
+body.calm-ui .wizard-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:5px;
+  margin-top:2px
+}
+body.calm-ui .wizard-actions button,
+body.calm-ui .experiment-wizard>.competition-launch{
+  min-height:38px;
+  padding:6px 10px;
+  border:1px solid #33483c;
+  border-radius:6px;
+  background:#19231e;
+  color:#dce5df;
+  font-size:9px;
+  font-weight:760
+}
+body.calm-ui .wizard-actions .primary{
+  background:#71977d;
+  border-color:#71977d;
+  color:#0d1611
+}
+body.calm-ui .research-review{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px
+}
+body.calm-ui .research-review>div{
+  padding:7px;
+  border:1px solid #2b3931;
+  border-radius:6px;
+  background:#111713
+}
+body.calm-ui .research-review small,
+body.calm-ui .research-review b{display:block}
+body.calm-ui .research-review small{color:#7f8d85;font-size:7px}
+body.calm-ui .research-review b{margin-top:2px;font-size:10px}
+
+body.calm-ui .focus-experiment-actions,
+body.calm-ui .analysis-shortcuts{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin:7px 0
+}
+body.calm-ui .focus-experiment-actions button,
+body.calm-ui .analysis-shortcuts button{
+  min-height:34px;
+  padding:5px 8px;
+  border:1px solid #304038;
+  border-radius:6px;
+  background:#17201b;
+  color:#cbd5cf;
+  font-size:8px;
+  font-weight:730
+}
+body.calm-ui .focus-experiment-actions .primary,
+body.calm-ui .analysis-shortcuts .primary{
+  background:#6f977b;
+  border-color:#6f977b;
+  color:#0d1711
+}
+body.calm-ui .experiment-data-details{
+  margin-top:7px;
+  border:1px solid #29372f;
+  border-radius:6px;
+  overflow:hidden
+}
+body.calm-ui .experiment-data-details>summary{
+  padding:7px 8px;
+  cursor:pointer;
+  color:#9aa79f;
+  font-size:8.5px;
+  font-weight:760;
+  list-style:none
+}
+body.calm-ui .experiment-data-details>summary::-webkit-details-marker{display:none}
+body.calm-ui .experiment-data-details .experiment-table-wrap{border:0;border-top:1px solid #29372f;border-radius:0}
+body.calm-ui .compact-interpretation{margin-top:7px;padding:7px}
+body.calm-ui .compact-interpretation p{font-size:8.5px}
+
+body.calm-ui .selection-modes{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px
+}
+body.calm-ui .selection-modes button{
+  min-height:34px;
+  font-size:8px
+}
+body.calm-ui .selection-list article{
+  box-shadow:none!important
+}
+
+body.calm-ui .recap-stats{
+  grid-template-columns:repeat(3,minmax(0,1fr))
+}
+body.calm-ui .recap-note{
+  grid-column:1/-1;
+  margin:0;
+  padding:5px 2px 0;
+  color:#7f8d85;
+  font-size:8px
+}
+
+body.calm-ui [data-unlock-level][hidden]{display:none!important}
+
+@media(max-width:900px){
+  body.calm-ui.inspector-engaged .game-layout{grid-template-columns:1fr!important}
+  body.calm-ui.inspector-engaged .inspector{display:block}
+}
+@media(max-width:620px){
+  body.calm-ui .game-workflow span{font-size:6.8px}
+  body.calm-ui .field-primary-actions button{
+    min-height:42px;
+    font-size:9px
+  }
+  body.calm-ui .research-steps{
+    grid-template-columns:repeat(4,minmax(0,1fr))
+  }
+  body.calm-ui .research-steps span{
+    min-height:34px;
+    padding:3px 2px;
+    font-size:6.8px
+  }
+  body.calm-ui .research-steps span b{display:none}
+  body.calm-ui .wizard-factor-b{grid-template-columns:1fr}
+  body.calm-ui .wizard-actions{display:grid;grid-template-columns:1fr 1fr}
+  body.calm-ui .wizard-actions button{min-height:44px}
+  body.calm-ui .research-review{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body.calm-ui .recap-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.calm-ui.inspector-engaged .inspector{
+    display:block
+  }
+}
