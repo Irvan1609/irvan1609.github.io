@@ -47,7 +47,7 @@ function defaultConfig(data){
   const group=findColumn(headers,[/kelompok/i,/blok|block/i,/ulangan|rep/i],-1);
   const color=findColumn(headers,[/^perlakuan$/i,/kombinasi/i,/faktor\s*a/i,/varietas/i,/genotip/i,/treatment/i],id);
   const columns=Math.max(2,Math.min(10,Math.ceil(Math.sqrt(Math.max(1,data.rows.length)))));
-  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,zoom:1,heatTransform:'raw',roadAfter:{},objects:[],plotMeta:{},sampleGroups:[],sumGroups:[],formulas:[]};
+  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,zoom:1,heatTransform:'raw',roadAfter:{},objects:[],plotMeta:{},sampleGroups:[],sumGroups:[],formulas:[],plantLayout:{rows:0,cols:0,rowSpacingCm:0,plantSpacingCm:0,samples:[]}};
 }
 function normalizeConfig(data,saved){
   const base={...defaultConfig(data),...(saved||{})},max=Math.max(0,data.headers.length-1);
@@ -76,6 +76,7 @@ function normalizeConfig(data,saved){
   base.sampleGroups=Array.isArray(base.sampleGroups)?base.sampleGroups.filter(group=>group&&Array.isArray(group.members)&&group.meanHeader):[];
   base.sumGroups=Array.isArray(base.sumGroups)?base.sumGroups.filter(group=>group&&group.prefix&&group.totalHeader):[];
   base.formulas=Array.isArray(base.formulas)?base.formulas.filter(item=>item&&item.type&&item.sourceHeader&&item.targetHeader):[];
+  base.plantLayout=base.plantLayout&&typeof base.plantLayout==='object'?{rows:Math.max(0,Math.min(20,Number(base.plantLayout.rows)||0)),cols:Math.max(0,Math.min(30,Number(base.plantLayout.cols)||0)),rowSpacingCm:Math.max(0,Number(base.plantLayout.rowSpacingCm)||0),plantSpacingCm:Math.max(0,Number(base.plantLayout.plantSpacingCm)||0),samples:Array.isArray(base.plantLayout.samples)?base.plantLayout.samples.map(Number).filter(Number.isInteger):[]}:{rows:0,cols:0,rowSpacingCm:0,plantSpacingCm:0,samples:[]};
   const legacyToUid=new Map();
   data.rows.forEach((row,index)=>{
     const id=String(row[base.id]??'').trim()||'#'+index,group=base.group>=0?String(row[base.group]??'').trim():'all',legacy=group+'::'+id,uid=base.uids[index];
@@ -230,6 +231,7 @@ function ensureModal(){
             <button id="fieldValidateBlocks" type="button">Periksa blok</button>
             <button id="fieldCreateSessionColumn" type="button">Parameter waktu</button>
             <button id="fieldSamplePlants" type="button">Sampel tanaman</button>
+            <button id="fieldPlantLayout" type="button">Layout tanaman</button>
             <button id="fieldHarvestSeries" type="button">Panen berulang</button>
             <button id="fieldProductivity" type="button">Produktivitas</button>
             <button id="fieldFlipX" type="button">Balik kiri-kanan</button>
@@ -291,7 +293,7 @@ function ensureModal(){
   $('#fieldFlipX').onclick=()=>toggleFlip('flipX');$('#fieldFlipY').onclick=()=>toggleFlip('flipY');$('#fieldAddObject').onclick=addFieldObject;
   $('#fieldValidateBlocks').onclick=validateBlocks;
   $('#fieldCreateSessionColumn').onclick=createSessionColumn;
-  $('#fieldSamplePlants').onclick=setupSamplePlants;$('#fieldHarvestSeries').onclick=setupHarvestSeries;$('#fieldProductivity').onclick=setupProductivity;
+  $('#fieldSamplePlants').onclick=setupSamplePlants;$('#fieldPlantLayout').onclick=setupPlantLayout;$('#fieldHarvestSeries').onclick=setupHarvestSeries;$('#fieldProductivity').onclick=setupProductivity;
   $('#fieldUndo').onclick=undoLayout;$('#fieldRedo').onclick=redoLayout;
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
@@ -531,6 +533,29 @@ function ensureColumn(name,reason){
   const result=api()?.appendColumn?.(name,reason);if(!result?.ok)throw Error(result?.error||'Kolom '+name+' gagal dibuat.');
   refreshData(false);return Number(result.index);
 }
+function setupPlantLayout(){
+  const rows=Math.max(1,Math.min(20,Number(prompt('Jumlah baris tanaman per plot:',String(config.plantLayout?.rows||4)))||0));if(!rows)return;
+  const cols=Math.max(1,Math.min(30,Number(prompt('Jumlah tanaman per baris:',String(config.plantLayout?.cols||6)))||0));if(!cols)return;
+  const rowSpacing=Math.max(0,Number(String(prompt('Jarak antarbaris (cm):',String(config.plantLayout?.rowSpacingCm||75))||'0').replace(',','.'))||0);
+  const plantSpacing=Math.max(0,Number(String(prompt('Jarak antartanaman dalam baris (cm):',String(config.plantLayout?.plantSpacingCm||25))||'0').replace(',','.'))||0);
+  const total=rows*cols,active=activeParameterIndex(),group=(config.sampleGroups||[]).find(g=>g.members.includes(current.headers[active]||'')),sampleCount=group?.members?.length||Math.min(5,total);
+  const defaults=config.plantLayout?.samples?.length?config.plantLayout.samples:Array.from({length:sampleCount},(_,i)=>Math.min(total,1+i*Math.max(1,Math.floor((total-1)/Math.max(1,sampleCount-1)))));
+  const raw=prompt('Nomor posisi tanaman sampel (1–'+total+', pisahkan koma):',defaults.join(','))||'';
+  const samples=[...new Set(raw.split(/[,;\s]+/).map(Number).filter(value=>Number.isInteger(value)&&value>=1&&value<=total))];
+  pushLayoutHistory('layout tanaman');config={...config,plantLayout:{rows,cols,rowSpacingCm:rowSpacing,plantSpacingCm:plantSpacing,samples}};writeConfig(current,config);
+  if(Number.isInteger(selectedRow))renderEditor(selectedRow);renderMap();
+}
+function plantLayoutHtml(){
+  const layout=config.plantLayout||{},rows=Number(layout.rows)||0,cols=Number(layout.cols)||0;if(!rows||!cols)return '';
+  const samples=Array.isArray(layout.samples)?layout.samples:[],sampleRank=new Map(samples.map((position,index)=>[position,index+1])),dots=[];
+  for(let position=1;position<=rows*cols;position++){
+    const r=Math.floor((position-1)/cols),c=(position-1)%cols,border=r===0||c===0||r===rows-1||c===cols-1,rank=sampleRank.get(position);
+    dots.push('<span class="field-plant-dot'+(border?' is-border':'')+(rank?' is-sample':'')+'" title="Tanaman '+position+'">'+(rank?'<b>T'+rank+'</b>':'')+'</span>');
+  }
+  const spacing=layout.rowSpacingCm||layout.plantSpacingCm?(Number(layout.rowSpacingCm)||'—')+' × '+(Number(layout.plantSpacingCm)||'—')+' cm':'';
+  return '<details class="field-plant-layout"><summary>Tanaman dalam plot '+(spacing?'· '+esc(spacing):'')+'</summary><div style="--plant-cols:'+cols+'">'+dots.join('')+'</div><small>Lingkar luar = tanaman pinggir · T = tanaman sampel</small></details>';
+}
+
 function setupHarvestSeries(){
   const number=Math.max(1,Math.min(99,Number(prompt('Nomor panen:','1'))||0));if(!number)return;
   try{
@@ -920,6 +945,7 @@ function renderEditor(rowIndex){
       </div>
       <div id="fieldMediaTimeline" class="field-media-timeline"></div>
       ${fieldTaskHtml(meta)}
+      ${plantLayoutHtml()}
       <div class="field-editor-meta">
         <label><span>Status plot</span><select data-field-status>${statusOptions(plotStatus(rowIndex))}</select></label>
         <label><span>Catatan lapang</span><textarea data-field-note rows="2" placeholder="Mis. rebah, serangan, petak pinggir…">${esc(plotNote(rowIndex))}</textarea></label>
