@@ -401,15 +401,15 @@ function sendField(){
   try{localStorage.setItem(FIELD_HANDOFF_KEY,JSON.stringify(detail));}catch{}
   try{window.opener?.postMessage({type:'agrotik-field-handoff',detail},location.origin);window.opener?.focus?.();}catch{}
   tell('Hasil dikirim ke plot '+(fieldContext.plot_label||'aktif')+' · '+detail.value+' '+unit);
-  $('sampleId').value=incrementSampleId($('sampleId').value);
+  $('sampleId').value=incrementSampleId($('sampleId').value);if($('photoLabel')){$('photoLabel').value=$('sampleId').value;refreshPhotoLabel();}
 }
 
-restoreSettings();refreshPaper();renderRecords();
-if(fieldContext?.plot_label){$('sampleId').value=(fieldContext.plot_label||'plot')+'-S01';tell('Mode plot '+fieldContext.plot_label+' · '+(fieldContext.parameter||'parameter pengukuran')+'.');}
+restoreSettings();refreshPaper();renderRecords();refreshPhotoLabel();
+if(fieldContext?.plot_label){$('sampleId').value=(fieldContext.plot_label||'plot')+'-S01';if($('photoLabel')){$('photoLabel').value=$('sampleId').value;refreshPhotoLabel();}tell('Mode plot '+fieldContext.plot_label+' · '+(fieldContext.parameter||'parameter pengukuran')+'.');}
 
 $('paperSize').onchange=refreshPaper;$('orientation').onchange=refreshPaper;
-['customWidth','customHeight','customMargin'].forEach(id=>$(id).onchange=refreshPaper);
-$('downloadCalibrator').onclick=()=>{const p=getProfile();downloadBlob(new Blob([buildCalibratorSvg(p)],{type:'image/svg+xml'}),`kalibrator-${p.name.toLowerCase().replace(/\W+/g,'-')}-${p.orientation}.svg`);};
+['customWidth','customHeight','customMargin'].forEach(id=>$(id).onchange=refreshPaper);if($('photoLabel'))$('photoLabel').oninput=refreshPhotoLabel;
+$('downloadCalibrator').onclick=()=>{const p=getProfile();downloadBlob(new Blob([buildCalibratorSvg(p,{label:photoLabel()})],{type:'image/svg+xml'}),`kalibrator-${p.name.toLowerCase().replace(/\W+/g,'-')}-${p.orientation}.svg`);};
 $('upload').onchange=e=>setBatch(e.target.files);
 $('capture').onchange=e=>{const f=e.target.files?.[0];if(f){batchFiles=[f];batchIndex=0;loadFile(f);}e.target.value='';};
 $('prevPhoto').onclick=()=>moveBatch(-1);$('nextPhoto').onclick=()=>moveBatch(1);
@@ -422,8 +422,8 @@ $('segmentThreshold').oninput=()=>{$('thresholdValue').textContent=$('segmentThr
 $('objectPreset').onchange=()=>{const map={general:46,leaf:38,fruit:50,seed:42,cob:55};$('segmentThreshold').value=map[$('objectPreset').value]||46;$('thresholdValue').textContent=$('segmentThreshold').value;};
 result.addEventListener('click',resultClick);$('finishShape').onclick=finishShape;$('cancelMeasure').onclick=resetMeasurement;$('saveMeasurement').onclick=saveMeasurement;
 $('normalizeColor').onclick=normalizeColor;$('colorChecker').onclick=startColorChecker;$('detectAllObjects').onclick=detectAllObjects;$('saveAllObjects').onclick=()=>saveAllObjects();
-$('download').onclick=()=>calibratedBlob(blob=>downloadBlob(blob,filename+'-calibrated.png'));
-$('metadata').onclick=()=>{if(calibration)downloadBlob(new Blob([JSON.stringify({...calibration,records:records.filter(r=>r.photo===filename)},null,2)],{type:'application/json'}),filename+'-calibration.json');};
+$('download').onclick=()=>calibratedBlob(blob=>downloadBlob(blob,activePhotoStem()+'.png'));
+$('metadata').onclick=()=>{if(calibration)downloadBlob(new Blob([JSON.stringify({...calibration,records:records.filter(r=>r.photo===filename)},null,2)],{type:'application/json'}),activePhotoStem()+'-calibration.json');};
 $('exportCsv').onclick=()=>downloadBlob(new Blob([csv()],{type:'text/csv;charset=utf-8'}),'pengukuran-'+new Date().toISOString().slice(0,10)+'.csv');
 $('exportXls').onclick=()=>downloadBlob(new Blob([excelHtml()],{type:'application/vnd.ms-excel;charset=utf-8'}),'pengukuran-'+new Date().toISOString().slice(0,10)+'.xls');
 $('sendStat').onclick=sendStat;$('processBatch').onclick=processBatchAutomatic;
@@ -431,5 +431,5 @@ $('clearRecords').onclick=()=>{if(confirm('Hapus seluruh riwayat pengukuran loka
 $('sendField').onclick=sendField;
 RESEARCH_IDS.forEach(id=>$(id)?.addEventListener('change',saveResearch));
 
-installLiveCamera({onCapture:file=>{batchFiles=[file];batchIndex=0;loadFile(file);},getProfile,onQuality:q=>quality=q});
+installLiveCamera({onCapture:file=>{batchFiles=[file];batchIndex=0;loadFile(file);},getProfile,getLabel:photoLabel,onQuality:q=>quality=q});
 setMode('length');
