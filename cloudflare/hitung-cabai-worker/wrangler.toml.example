@@ -17,6 +17,22 @@ database_name = "hitung-cabai"
 database_id = "ISI_DATABASE_ID_D1"
 
 
+[[ratelimits]]
+name = "CONTRIBUTION_RATE_LIMITER"
+namespace_id = "91609001"
+
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "DATASET_RATE_LIMITER"
+namespace_id = "91609002"
+
+[ratelimits.simple]
+limit = 180
+period = 60
+
 # Optional but recommended for logical D1 disaster-recovery snapshots.
 [[r2_buckets]]
 binding = "BACKUPS"
