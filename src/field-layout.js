@@ -418,8 +418,13 @@ function renderEditor(rowIndex){
       <span class="field-editor-progress">${progress.total?`${progress.filled}/${progress.total} terisi`:'Belum ada parameter'}</span>
     </div>
     <div class="field-editor-nav"><button type="button" data-field-prev>‹ Sebelumnya</button><button type="button" data-field-next>Berikutnya ›</button></div>
+    ${layoutEditMode?'<div class="field-layout-move"><button type="button" data-field-move="-1">← Geser</button><button type="button" data-field-move="1">Geser →</button></div>':''}
     <div class="field-editor-fields">
       ${measures.length?`<div class="field-editor-section"><b>Pengamatan</b>${measures.map(item=>fieldInput(current,row,item.index)).join('')}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
+      <div class="field-editor-meta">
+        <label><span>Status plot</span><select data-field-status>${statusOptions(plotStatus(rowIndex))}</select></label>
+        <label><span>Catatan lapang</span><textarea data-field-note rows="2" placeholder="Mis. rebah, serangan, petak pinggir…">${esc(plotNote(rowIndex))}</textarea></label>
+      </div>
       <details class="field-editor-identity"><summary>Identitas plot</summary>${structural.map(item=>fieldInput(current,row,item.index)).join('')}</details>
     </div>
     <div class="field-editor-actions"><button type="button" data-field-open-row>Buka di tabel</button><button type="button" class="primary" data-field-save>Simpan</button></div>
@@ -439,8 +444,14 @@ function saveEditor(){
   const result=api()?.replaceRow?.(selectedRow,values,'edit plot dari denah lahan');
   const status=$('#fieldEditorStatus');
   if(!result?.ok){if(status)status.textContent=result?.error||'Data belum dapat disimpan.';return;}
+  const nextStatus=String($('#fieldPlotEditor [data-field-status]')?.value||'normal');
+  const nextNote=String($('#fieldPlotEditor [data-field-note]')?.value||'').trim();
+  const statuses={...config.statuses},notes={...config.notes};
+  if(nextStatus==='normal')delete statuses[selectedRow];else statuses[selectedRow]=nextStatus;
+  if(nextNote)notes[selectedRow]=nextNote;else delete notes[selectedRow];
+  config={...config,statuses,notes};writeConfig(current,config);
   dirty=false;refreshData(false);renderMap();renderEditor(selectedRow);
-  const freshStatus=$('#fieldEditorStatus');if(freshStatus)freshStatus.textContent=result.changed?'✓ Tersimpan ke dataset.':'Tidak ada perubahan.';
+  const freshStatus=$('#fieldEditorStatus');if(freshStatus)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';
 }
 function stepEditor(direction){
   if(!current?.rows.length)return;
