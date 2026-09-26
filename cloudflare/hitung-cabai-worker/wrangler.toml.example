@@ -8,6 +8,10 @@ ADMIN_EMAILS = "andyirvan1609@gmail.com"
 GOOGLE_REDIRECT_URI = "https://hitung-cabai-api.andyirvan1609.workers.dev/v1/auth/google/callback"
 MIDTRANS_ENV = "sandbox"
 MEMBERSHIP_PUBLIC_BASE_URL = "https://hitung-cabai-api.andyirvan1609.workers.dev"
+IDEMPOTENCY_RETENTION_DAYS = "14"
+AUDIT_RETENTION_DAYS = "90"
+DELETED_DATASET_RETENTION_DAYS = "30"
+CLOUD_RETRY_SECONDS = "300"
 # Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, MIDTRANS_SERVER_KEY, TURNSTILE_SECRET,
 # and ADMIN_TOKEN with Wrangler secrets or the Cloudflare dashboard.
 
@@ -33,11 +37,16 @@ namespace_id = "91609002"
 limit = 180
 period = 60
 
+# Recommended: large contribution images live in R2; D1 keeps metadata only.
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "irvan-contribution-images"
+
 # Optional but recommended for logical D1 disaster-recovery snapshots.
 [[r2_buckets]]
 binding = "BACKUPS"
 bucket_name = "irvan-backups"
 
-# Daily logical backup. The scheduled handler skips cleanly when BACKUPS is absent.
+# Daily maintenance always runs; logical backup is added when BACKUPS is configured.
 [triggers]
 crons = ["0 18 * * *"]
