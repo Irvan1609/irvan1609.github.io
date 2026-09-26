@@ -61,6 +61,7 @@ jobs:
         env:
           D1_DATABASE_ID: ${{ steps.d1.outputs.database_id }}
           BACKUP_BUCKET: ${{ secrets.CLOUDFLARE_BACKUP_BUCKET }}
+          IMAGE_BUCKET: ${{ secrets.CLOUDFLARE_IMAGE_BUCKET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -72,7 +73,14 @@ jobs:
             compatibility_date:'2026-09-25',
             workers_dev:true,
             keep_vars:true,
-            vars:{MIDTRANS_ENV:'sandbox',ALLOWED_ORIGINS:'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev'},
+            vars:{
+              MIDTRANS_ENV:'sandbox',
+              ALLOWED_ORIGINS:'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev',
+              IDEMPOTENCY_RETENTION_DAYS:'14',
+              AUDIT_RETENTION_DAYS:'90',
+              DELETED_DATASET_RETENTION_DAYS:'30',
+              CLOUD_RETRY_SECONDS:'300'
+            },
             d1_databases:[{
               binding:'DB',
               database_name:'hitung-cabai',
@@ -85,7 +93,11 @@ jobs:
             triggers:{crons:['0 18 * * *']}
           };
           const backup=(process.env.BACKUP_BUCKET||'').trim();
-          if(backup)config.r2_buckets=[{binding:'BACKUPS',bucket_name:backup}];
+          const images=(process.env.IMAGE_BUCKET||'').trim();
+          const r2=[];
+          if(images)r2.push({binding:'IMAGES',bucket_name:images});
+          if(backup)r2.push({binding:'BACKUPS',bucket_name:backup});
+          if(r2.length)config.r2_buckets=r2;
           fs.writeFileSync('hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
           NODE
 
@@ -147,7 +159,7 @@ jobs:
           set -euo pipefail
           for i in {1..12}; do
             BODY="$(curl -fsS --max-time 15 https://hitung-cabai-api.andyirvan1609.workers.dev/v1/health || true)"
-            if printf '%s' "$BODY" | jq -e '.ok == true and .service == "hitung-cabai-api"' >/dev/null 2>&1; then
+            if printf '%s' "$BODY" | jq -e '.ok == true and .service == "hitung-cabai-api" and .cloudMode == "local-first" and .quotaGuard == true and .idempotentSync == true' >/dev/null 2>&1; then
               echo "$BODY" | jq .
               exit 0
             fi
