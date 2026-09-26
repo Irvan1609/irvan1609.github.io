@@ -1064,10 +1064,10 @@ function academyMark(id,{xp=10,rp=1,note=''}={}){
 function academyTrack(){
   const done=new Set(state.academy?.completed||[]);
   const modules=[
-    {icon:'📐',name:'Rancangan Percobaan',items:['design-choice','design-randomization','design-audit'],labels:['Pilih RAL vs RAK','Randomisasi & replikasi','Audit rancangan']},
-    {icon:'📊',name:'Statistika',items:['stats-h0','stats-interpret'],labels:['Hipotesis ANOVA','Interpretasi F & p']},
-    {icon:'🧬',name:'Pemuliaan',items:['selection','stability'],labels:['Seleksi kandidat','Uji kestabilan galur']},
-    {icon:'×',name:'Persilangan',items:['cross-protocol','cross-f1','cross-self','cross-backcross'],labels:['Protokol silang','F1','Selfing/segregasi','Backcross']}
+    {icon:'📐',name:'Rancangan Percobaan',items:['design-choice','design-randomization','design-audit','design-pseudorep','design-splitplot'],labels:['Pilih RAL vs RAK','Randomisasi & replikasi','Audit rancangan','Hindari pseudoreplikasi','Kenali split-plot']},
+    {icon:'📊',name:'Statistika',items:['stats-h0','stats-interpret','stats-posthoc','stats-correlation','stats-assumption'],labels:['Hipotesis ANOVA','Interpretasi F & p','Keputusan uji lanjut','Korelasi ≠ sebab','Asumsi & residual']},
+    {icon:'🧬',name:'Pemuliaan',items:['selection','stability','breeding-heritability','breeding-ge','breeding-response'],labels:['Seleksi kandidat','Uji kestabilan galur','Interpretasi heritabilitas','Genotipe × lingkungan','Respons seleksi']},
+    {icon:'×',name:'Persilangan',items:['cross-protocol','cross-f1','cross-self','cross-backcross','cross-segregation','cross-inbreeding'],labels:['Protokol silang','F1','Selfing/segregasi','Backcross','Rasio segregasi F2','Fiksasi & inbreeding']}
   ];
   return modules.map(module=>({...module,done:module.items.filter(id=>done.has(id)).length}));
 }
@@ -1085,7 +1085,88 @@ function openAcademy(){
     ['Segregasi','Pemisahan alel pada generasi lanjut sehingga F2 lebih beragam dibanding F1.'],
     ['Backcross','Menyilangkan keturunan kembali ke tetua berulang untuk memulihkan latar genetik sambil mempertahankan alel target.']
   ];
-  openMetaModal('AKADEMI PEMULIAAN','Belajar lewat keputusan',`<div class="academy-progress"><b>${done}/${total} kompetensi</b><span>${state.academy?.xp||0} XP Akademi</span></div><div class="academy-track-grid">${tracks.map(module=>`<article><header><b>${module.icon} ${esc(module.name)}</b><span>${module.done}/${module.items.length}</span></header>${module.items.map((id,index)=>`<div class="${state.academy?.completed?.includes(id)?'done':''}"><span>${state.academy?.completed?.includes(id)?'✓':'○'}</span>${esc(module.labels[index])}</div>`).join('')}</article>`).join('')}</div><details class="academy-glossary"><summary>Glosarium inti</summary>${glossary.map(([term,text])=>`<p><b>${esc(term)}</b><span>${esc(text)}</span></p>`).join('')}</details><p class="meta-note">Akademi tidak memilih strategi untuk Anda. Kompetensi terbuka dari rancangan, data, seleksi, dan persilangan yang benar-benar Anda lakukan.</p>`);
+  openMetaModal('AKADEMI PEMULIAAN','Belajar lewat keputusan',`<div class="academy-progress"><b>${done}/${total} kompetensi</b><span>${state.academy?.xp||0} XP Akademi</span></div><div class="academy-track-grid">${tracks.map(module=>`<article><header><b>${module.icon} ${esc(module.name)}</b><span>${module.done}/${module.items.length}</span></header>${module.items.map((id,index)=>`<div class="${state.academy?.completed?.includes(id)?'done':''}"><span>${state.academy?.completed?.includes(id)?'✓':'○'}</span>${esc(module.labels[index])}</div>`).join('')}</article>`).join('')}</div><details class="academy-glossary"><summary>Glosarium inti</summary>${glossary.map(([term,text])=>`<p><b>${esc(term)}</b><span>${esc(text)}</span></p>`).join('')}</details><div class="academy-actions"><button type="button" data-professor-casebook class="primary">🧠 Casebook Profesor</button>${state.experiment?'<button type="button" data-professor-live>📊 Kasus dari data aktif</button>':''}</div><p class="meta-note">Akademi tidak memilih strategi untuk Anda. Kompetensi terbuka dari rancangan, data, seleksi, dan persilangan yang benar-benar Anda lakukan.</p>`);
+  $('#metaModalBody').querySelector('[data-professor-casebook]').onclick=openProfessorCasebook;
+  $('#metaModalBody').querySelector('[data-professor-live]')?.addEventListener('click',()=>openStatisticsLab());
+}
+const PROFESSOR_CASES={
+  pseudorep:{
+    icon:'📐',title:'Unit percobaan atau subsampel?',competency:'design-pseudorep',
+    scenario:'Satu petak menerima N 150 kg/ha. Dari petak itu Anda mengukur 5 tanaman. Berapa ulangan independen perlakuan N yang tersedia?',
+    options:[['five','5 ulangan karena ada 5 tanaman'],['one','1 unit percobaan; 5 tanaman adalah subsampel'],['zero','0 karena tanaman harus diukur 10 kali']],
+    answer:'one',explanation:'Perlakuan diberikan pada petak. Lima tanaman di dalam petak membantu mengestimasi nilai petak, tetapi tidak menciptakan lima unit yang menerima perlakuan secara independen.'
+  },
+  splitplot:{
+    icon:'▦',title:'Kapan memakai split-plot?',competency:'design-splitplot',
+    scenario:'Anda menguji 5 dosis N yang sulit diaplikasikan pada petak kecil dan 3 varietas yang mudah diacak di dalam setiap dosis N. Struktur rancangan paling logis?',
+    options:[['factorial','RAL faktorial biasa tanpa pembatasan randomisasi'],['split','Split-plot: N petak utama, varietas anak petak'],['sample','Satu petak besar lalu 15 tanaman sampel']],
+    answer:'split',explanation:'Split-plot sesuai ketika satu faktor membutuhkan unit aplikasi lebih besar. Faktor petak utama dan anak petak memiliki strata galat yang berbeda; itu harus dipertahankan saat ANOVA.'
+  },
+  posthoc:{
+    icon:'📊',title:'ANOVA dan uji lanjut',competency:'stats-posthoc',
+    scenario:'ANOVA perlakuan menghasilkan p = 0,31. Apa tindakan statistik yang paling defensif?',
+    options:[['lsd','Tetap lakukan BNT semua pasangan untuk mencari perbedaan'],['stop','Laporkan bukti efek perlakuan belum cukup; jangan fishing pairwise rutin'],['delete','Hapus rerata terendah lalu ulangi ANOVA']],
+    answer:'stop',explanation:'Uji lanjut bukan alat untuk memaksa perbedaan setelah ANOVA tidak mendukung efek perlakuan. Analisis terencana/kontras khusus adalah kasus berbeda dan harus ditentukan secara ilmiah.'
+  },
+  correlation:{
+    icon:'↗',title:'Korelasi atau sebab?',competency:'stats-correlation',
+    scenario:'Tinggi tanaman berkorelasi r = 0,82 dengan hasil. Kesimpulan yang paling tepat?',
+    options:[['cause','Tanaman tinggi pasti menyebabkan hasil tinggi'],['assoc','Ada asosiasi linear kuat; kausalitas memerlukan desain/mekanisme tambahan'],['perfect','82% variasi hasil pasti disebabkan tinggi tanaman']],
+    answer:'assoc',explanation:'Korelasi tidak menentukan arah sebab-akibat dan dapat dipengaruhi variabel lain. r² juga bukan otomatis proporsi sebab biologis.'
+  },
+  assumption:{
+    icon:'≈',title:'Residual lebih penting dari angka cantik',competency:'stats-assumption',
+    scenario:'ANOVA memberi p < 0,05, tetapi residual membentuk pola kipas yang kuat dan satu petak sangat ekstrem. Apa langkah berikutnya?',
+    options:[['ignore','Abaikan diagnostik karena p sudah signifikan'],['inspect','Periksa heteroskedastisitas, outlier, kesalahan data dan model sebelum menyimpulkan'],['delete','Hapus petak ekstrem otomatis']],
+    answer:'inspect',explanation:'Diagnostik residual menguji apakah model sesuai. Titik ekstrem harus diperiksa secara agronomis dan administratif; tidak boleh otomatis dibuang hanya karena mengganggu signifikansi.'
+  },
+  heritability:{
+    icon:'H²',title:'Apa arti heritabilitas tinggi?',competency:'breeding-heritability',
+    scenario:'Dalam satu uji galur, H² luas untuk hasil = 0,78. Apa arti yang paling tepat?',
+    options:[['guarantee','78% hasil setiap tanaman pasti diwariskan ke keturunannya'],['context','Pada populasi dan lingkungan uji ini, perbedaan genetik menjelaskan bagian besar variasi fenotipik'],['yield','Galur dengan H² tinggi otomatis memiliki hasil tertinggi']],
+    answer:'context',explanation:'Heritabilitas adalah sifat populasi, karakter, rancangan, dan lingkungan pengujian. Nilainya bukan jaminan superioritas genotipe atau probabilitas pewarisan individu.'
+  },
+  ge:{
+    icon:'G×E',title:'Genotipe × lingkungan',competency:'breeding-ge',
+    scenario:'Galur A unggul di Bone tetapi turun tajam di Gowa; Galur B selalu sedikit di bawah A di Bone namun stabil di kedua lokasi. Apa pelajaran utamanya?',
+    options:[['ignore','Ranking satu lokasi cukup untuk semua target'],['ge','Ada indikasi G×E; keputusan tergantung target adaptasi luas atau spesifik'],['average','Gabungkan semua data dan abaikan lokasi']],
+    answer:'ge',explanation:'Perubahan respons atau ranking antar lingkungan merupakan inti G×E. Pemulia perlu mendefinisikan target adaptasi dan menguji lintas lingkungan.'
+  },
+  response:{
+    icon:'ΔG',title:'Respons seleksi',competency:'breeding-response',
+    scenario:'Rerata populasi 14 kg/petak. Tetua terpilih rata-rata 18 kg/petak. Apa yang disebut selisih 4 kg itu?',
+    options:[['h2','Heritabilitas'],['s','Diferensial seleksi (S)'],['cv','Koefisien keragaman']],
+    answer:'s',explanation:'S = rerata individu terpilih − rerata populasi. Respons genetik yang diharapkan bergantung pada heritabilitas dan skema seleksi, misalnya R ≈ h²S pada model sederhana.'
+  },
+  segregation:{
+    icon:'F2',title:'Segregasi Mendel',competency:'cross-segregation',
+    scenario:'Satu lokus Aa pada F1 diselfing dengan dominansi lengkap. Rasio genotipe F2 yang diharapkan?',
+    options:[['121','1 AA : 2 Aa : 1 aa'],['31','3 AA : 1 aa'],['111','1 AA : 1 Aa : 1 aa']],
+    answer:'121',explanation:'Selfing Aa × Aa menghasilkan 1:2:1 secara genotipik. Dengan dominansi lengkap, rasio fenotipik menjadi 3 dominan : 1 resesif.'
+  },
+  inbreeding:{
+    icon:'Fₙ',title:'Selfing dan fiksasi',competency:'cross-inbreeding',
+    scenario:'Jika satu lokus heterozigot pada F1 terus diselfing, apa tren heterozigositasnya?',
+    options:[['rise','Meningkat dua kali setiap generasi'],['half','Secara harapan berkurang setengah tiap generasi selfing'],['same','Tetap 100% sampai F6']],
+    answer:'half',explanation:'Untuk lokus awal heterozigot, heterozigositas yang tersisa kira-kira 1/2 pada F2, 1/4 F3, 1/8 F4, dan seterusnya; homozygositas meningkat.'
+  }
+};
+function openProfessorCasebook(){
+  const done=new Set(state.academy?.completed||[]);
+  openMetaModal('CASEBOOK PROFESOR','Uji cara berpikir',`<div class="professor-casebook">${Object.entries(PROFESSOR_CASES).map(([id,item])=>`<button type="button" data-professor-case="${id}" class="${done.has(item.competency)?'done':''}"><span>${item.icon}</span><b>${esc(item.title)}</b><small>${done.has(item.competency)?'✓ Kompetensi dikuasai':'Selesaikan kasus'}</small></button>`).join('')}</div><p class="meta-note">Kasus menguji keputusan yang sering salah dalam penelitian lapang. Jawaban benar memberi kompetensi sekali saja; tidak mengubah hasil percobaan secara otomatis.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-professor-case]').forEach(button=>button.onclick=()=>openProfessorCase(button.dataset.professorCase));
+}
+function openProfessorCase(id){
+  const item=PROFESSOR_CASES[id];if(!item)return openProfessorCasebook();
+  const key='prof-case:'+id;
+  openMetaModal('KASUS PROFESOR',item.icon+' '+item.title,`<section class="professor-case professor-case-advanced"><small>${state.academy?.completed?.includes(item.competency)?'KOMPETENSI SUDAH DIKUASAI':'PILIH JAWABAN PALING DEFENSIF'}</small><b>${esc(item.scenario)}</b><div class="professor-case-actions">${item.options.map(([value,label])=>`<button type="button" data-prof-case-answer="${value}">${esc(label)}</button>`).join('')}</div><p id="profCaseFeedback"></p></section><div class="academy-actions"><button type="button" data-casebook-back>← Casebook</button></div>`);
+  $('#metaModalBody').querySelector('[data-casebook-back]').onclick=openProfessorCasebook;
+  $('#metaModalBody').querySelectorAll('[data-prof-case-answer]').forEach(button=>button.onclick=()=>{
+    const correct=button.dataset.profCaseAnswer===item.answer;
+    academyAnswer(key,correct,()=>academyMark(item.competency,{xp:12,rp:1,note:item.title}));
+    const feedback=$('#profCaseFeedback');feedback.textContent=(correct?'✓ ':'✗ ')+item.explanation;feedback.className=correct?'correct':'wrong';
+    if(correct)setTimeout(()=>openProfessorCase(id),280);
+  });
 }
 function openCrossProtocol(){
   const maize=state.species==='maize';
