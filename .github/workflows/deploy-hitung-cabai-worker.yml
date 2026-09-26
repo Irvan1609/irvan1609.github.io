@@ -211,9 +211,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          EXPECTED_API_VERSION="$(grep -o "apiVersion:'[^']*'" cloudflare/hitung-cabai-worker/src/index.js | head -n1 | cut -d"'" -f2)"
+          test -n "$EXPECTED_API_VERSION"
           for i in {1..12}; do
-            BODY="$(curl -fsS --max-time 15 https://hitung-cabai-api.andyirvan1609.workers.dev/v1/health || true)"
-            if printf '%s' "$BODY" | jq -e '.ok == true and .service == "hitung-cabai-api" and .cloudMode == "local-first" and .quotaGuard == true and .idempotentSync == true' >/dev/null 2>&1; then
+            BODY="$(curl -fsS -H 'Cache-Control: no-cache' --max-time 15 https://hitung-cabai-api.andyirvan1609.workers.dev/v1/health || true)"
+            if printf '%s' "$BODY" | jq -e --arg expected "$EXPECTED_API_VERSION" '.ok == true and .service == "hitung-cabai-api" and .cloudMode == "local-first" and .quotaGuard == true and .idempotentSync == true and .apiVersion == $expected' >/dev/null 2>&1; then
               echo "$BODY" | jq .
               exit 0
             fi
