@@ -1535,7 +1535,10 @@ function safeJsonText(value){try{return JSON.parse(value||'{}');}catch{return {}
 async function handleDevelopCloudPolicy(request,env){
   const access=await requireAdminUser(request,env),admin=access.user;
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
-  if(request.method==='GET')return json(request,env,{policy:await currentCloudPolicy(env,{force:true}),reference:CLOUDFLARE_FREE_REFERENCE});
+  if(request.method==='GET'){
+    const configured=await cloudPolicy(env,{force:true});
+    return json(request,env,{configured:normalizeCloudPolicy(configured),policy:effectiveCloudPolicy(configured),reference:CLOUDFLARE_FREE_REFERENCE});
+  }
   const body=await request.json().catch(()=>null);
   if(!body||typeof body!=='object')return json(request,env,{error:'Policy cloud tidak valid.'},400);
   const normalized=normalizeCloudPolicy(body),now=new Date().toISOString();
@@ -1544,9 +1547,9 @@ async function handleDevelopCloudPolicy(request,env){
     ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
     .bind(JSON.stringify(normalized),now,admin.id).run();
   CLOUD_POLICY_CACHE=null;CLOUD_POLICY_CACHE_AT=0;
-  const effective=await currentCloudPolicy(env,{force:true});
+  const configured=await cloudPolicy(env,{force:true}),effective=effectiveCloudPolicy(configured);
   await audit(env,admin,'cloud.policy_updated','system','cloud-policy',{policy:normalized,effectiveMode:effective.mode});
-  return json(request,env,{ok:true,policy:effective,reference:CLOUDFLARE_FREE_REFERENCE});
+  return json(request,env,{ok:true,configured:normalizeCloudPolicy(configured),policy:effective,reference:CLOUDFLARE_FREE_REFERENCE});
 }
 async function handleDevelopUsage(request,env){
   const access=await requireAdminUser(request,env);
