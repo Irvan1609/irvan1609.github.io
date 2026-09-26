@@ -20,11 +20,11 @@ for(const marker of [
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['analysis-simple-grid','data-analysis-factorial','data-analysis-more','analysisOtherSelect',"addEventListener('change',async event"])if(!flow.includes(marker))fail('compact analysis flow missing '+marker);
+for(const marker of ['analysis-group-board','analysis-compact-group','analysis-compact-item','Rancangan Percobaan','Hubungan & Regresi','Genetik & Multilokasi'])if(!flow.includes(marker))fail('visible grouped analysis flow missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select'])if(!scientific.includes(marker))fail('compact results workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
-for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT SIMPLE-FIRST UI','.analysis-simple-grid','.science-simple-parameter','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */'])if(!css.includes(marker))fail('workflow styling missing '+marker);
+for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS','.analysis-group-board','.science-parameter-check-grid','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
-console.log('Stat workflow check OK: one compact analysis interface, progressive setup, and merged result actions are linked.');
+console.log('Stat workflow check OK: all analyses stay visible in compact groups and eligible numeric parameters auto-select.');
