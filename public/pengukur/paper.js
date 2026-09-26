@@ -48,55 +48,51 @@ export function colorPatchRects(profile){
   return colors.map((fill,i)=>({x:startX+i*(patchW+gap),y,width:patchW,height:patchH,fill}));
 }
 function xml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));}
-export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
-  const p=profile,m=p.margin,w=p.width,h=p.height,aw=p.activeWidth,ah=p.activeHeight;
-  const gs=grayPatchRects(p),cs=colorPatchRects(p);
+export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V4',label=''}={}){
+  const p=profile,m=p.margin,w=p.width,h=p.height,aw=p.activeWidth,ah=p.activeHeight,layout=calibratorLayout(p);
+  const gs=grayPatchRects(p),cs=colorPatchRects(p),photo=layout.photo,labelBox=layout.label;
   const marker=(x,y,n)=>`<g><rect x="${x-4}" y="${y-4}" width="8" height="8" rx=".6" fill="#d000d0"/><path d="M ${x-1} ${y} h 2 M ${x} ${y-1} v 2" stroke="#111" stroke-width=".25"/><text x="${x}" y="${y+7}" font-size="3" text-anchor="middle">${n}</text></g>`;
-  let grid='';
-  for(let x=m;x<=w-m+.01;x+=10)grid+=`<line x1="${x}" y1="${m}" x2="${x}" y2="${h-m}" stroke="#d8d8d8" stroke-width=".15"/>`;
-  for(let y=m;y<=h-m+.01;y+=10)grid+=`<line x1="${m}" y1="${y}" x2="${w-m}" y2="${y}" stroke="#d8d8d8" stroke-width=".15"/>`;
+  const px=m+photo.x,py=m+photo.y,pw=photo.width,ph=photo.height;
   let ticks='',labels='';
-  const horizontalSteps=Math.floor(aw+1e-9),verticalSteps=Math.floor(ah+1e-9);
-  for(let mm=0;mm<=horizontalSteps;mm++){
-    const x=m+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
-    ticks+=`<path d="M ${x} ${m} v ${len} M ${x} ${h-m} v -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
-    if(mm%10===0)labels+=`<text x="${x}" y="${m+6.2}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${x}" y="${h-m-5}" font-size="1.75" text-anchor="middle">${mm}</text>`;
+  for(let mm=0;mm<=Math.floor(pw+1e-9);mm++){
+    const x=px+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
+    ticks+=`<path d="M ${x} ${py} v ${len} M ${x} ${py+ph} v -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
+    if(mm%10===0)labels+=`<text x="${x}" y="${py+6.2}" font-size="1.75" text-anchor="middle">${mm}</text>`;
   }
-  for(let mm=0;mm<=verticalSteps;mm++){
-    const y=m+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
-    ticks+=`<path d="M ${m} ${y} h ${len} M ${w-m} ${y} h -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
-    if(mm%10===0)labels+=`<text x="${m+6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${w-m-6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text>`;
+  for(let mm=0;mm<=Math.floor(ph+1e-9);mm++){
+    const y=py+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
+    ticks+=`<path d="M ${px} ${y} h ${len} M ${px+pw} ${y} h -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
+    if(mm%10===0)labels+=`<text x="${px+6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text>`;
   }
-  const endLabel=(axis,value)=>axis==='x'
-    ?`<text x="${m+value}" y="${m+6.2}" font-size="1.75" font-weight="700" text-anchor="middle">${value.toFixed(value%1?1:0)}</text>`
-    :`<text x="${m+6}" y="${m+value+.65}" font-size="1.75" font-weight="700" text-anchor="middle">${value.toFixed(value%1?1:0)}</text>`;
-  if(Math.abs(aw-horizontalSteps)>.01||horizontalSteps%10!==0)labels+=endLabel('x',aw);
-  if(Math.abs(ah-verticalSteps)>.01||verticalSteps%10!==0)labels+=endLabel('y',ah);
   const gray=gs.map(r=>`<rect x="${m+r.x}" y="${m+r.y}" width="${r.width}" height="${r.height}" fill="rgb(${r.target},${r.target},${r.target})" stroke="#444" stroke-width=".15"/>`).join('');
   const color=cs.map(r=>`<rect x="${m+r.x}" y="${m+r.y}" width="${r.width}" height="${r.height}" fill="${r.fill}" stroke="#444" stroke-width=".15"/>`).join('');
-  const check=Math.min(100,aw*.55),cx=w/2;
+  const check=Math.min(100,Math.max(50,aw*.55)),cx=w/2,checkY=m+15;
+  const lx=m+labelBox.x,ly=m+labelBox.y;
+  const labelText=xml(String(label||'').trim().slice(0,80));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">
   <rect width="${w}" height="${h}" fill="#fff"/>
   <g font-family="Arial,sans-serif" fill="#111">
-    <text x="${w/2}" y="${Math.max(6,m-6)}" text-anchor="middle" font-size="3.5">PENGUKUR · ${p.name} · ${p.orientation==='landscape'?'LANDSCAPE':'PORTRAIT'} · CETAK 100%</text>
-    <text x="${w/2}" y="${Math.max(10,m-2)}" text-anchor="middle" font-size="2.6">${id} · kertas ${w} × ${h} mm · area marker ${aw} × ${ah} mm</text>
-    ${grid}${ticks}${labels}
-    <rect x="${m}" y="${m}" width="${aw}" height="${ah}" fill="none" stroke="#111" stroke-width=".35"/>
-    <rect x="${m+8}" y="${m+8}" width="${Math.max(1,aw-16)}" height="${Math.max(1,ah-52)}" fill="none" stroke="#777" stroke-width=".2" stroke-dasharray="2 2"/>
-    <text x="${w/2}" y="${m+14}" text-anchor="middle" font-size="2.8" fill="#666">AREA OBJEK · jangan tutupi marker/petak referensi</text>
+    <text x="${w/2}" y="${Math.max(5,m-7)}" text-anchor="middle" font-size="3.5">PENGUKUR · ${p.name} · ${p.orientation==='landscape'?'LANDSCAPE':'PORTRAIT'} · CETAK 100%</text>
+    <text x="${w/2}" y="${Math.max(9,m-3)}" text-anchor="middle" font-size="2.4">${id} · kertas ${w} × ${h} mm · marker ${aw} × ${ah} mm</text>
+    <rect x="${m}" y="${m}" width="${aw}" height="${ah}" fill="none" stroke="#8d9aa3" stroke-width=".18" stroke-dasharray="1.5 1.5"/>
     ${marker(m,m,1)}${marker(w-m,m,2)}${marker(w-m,h-m,3)}${marker(m,h-m,4)}
-    <path d="M ${cx-7} ${h/2} h 14 M ${cx} ${h/2-7} v 14" stroke="#555" stroke-width=".25"/>
-    ${color}${gray}
-    <path d="M ${cx-check/2} ${h-m-4} H ${cx+check/2}" stroke="#111" stroke-width=".55"/>
-    <path d="M ${cx-check/2} ${h-m-6} v 4 M ${cx+check/2} ${h-m-6} v 4" stroke="#111" stroke-width=".3"/>
-    <text x="${cx}" y="${h-m-7}" text-anchor="middle" font-size="2.6">GARIS CEK ${check.toFixed(0)} mm</text>
-    <text x="${m+2}" y="${h-m-1.2}" font-size="2.3">↑ ATAS / orientasi</text>
-    <text x="${w/2}" y="${m+9}" font-size="2" text-anchor="middle">X (mm) · 0 → ${aw}</text>
-    <text x="${m+9}" y="${h/2}" font-size="2" text-anchor="middle" transform="rotate(-90 ${m+9} ${h/2})">Y (mm) · 0 → ${ah}</text>
-    <text x="${w-m-2}" y="${h-m-1.2}" font-size="2.1" text-anchor="end">${w} × ${h} mm</text>
+    ${color}
+    <path d="M ${cx-check/2} ${checkY} H ${cx+check/2}" stroke="#111" stroke-width=".55"/>
+    <path d="M ${cx-check/2} ${checkY-2} v 4 M ${cx+check/2} ${checkY-2} v 4" stroke="#111" stroke-width=".3"/>
+    <text x="${cx}" y="${checkY-3}" text-anchor="middle" font-size="2.4">GARIS CEK ${check.toFixed(0)} mm</text>
+    <rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="#fff" stroke="#111" stroke-width=".35"/>
+    ${ticks}${labels}
+    <text x="${px+pw/2}" y="${py-2.2}" text-anchor="middle" font-size="2.3" fill="#555">AREA FOTO / OBJEK · hanya penggaris dan label masuk hasil foto</text>
+    <text x="${px+pw-2}" y="${py+6.2}" font-size="1.8" text-anchor="end">X (mm)</text>
+    <text x="${px+6}" y="${py+ph-2}" font-size="1.8">Y (mm)</text>
+    <rect x="${lx}" y="${ly}" width="${labelBox.width}" height="${labelBox.height}" rx="1.2" fill="#fff" stroke="#555" stroke-width=".22"/>
+    <text x="${lx+2}" y="${ly+2.8}" font-size="1.55" fill="#777">LABEL</text>
+    ${labelText?`<text x="${lx+labelBox.width/2}" y="${ly+labelBox.height*.67}" text-anchor="middle" font-size="${Math.max(2.4,Math.min(4,labelBox.width/Math.max(12,labelText.length*.62)))}" font-weight="700">${labelText}</text>`:''}
+    ${gray}
+    <text x="${m+2}" y="${h-m-1.2}" font-size="2.2">↑ ATAS / orientasi</text>
+    <text x="${w-m-2}" y="${h-m-1.2}" font-size="2.1" text-anchor="end">kalibrasi luar · tidak diekspor</text>
   </g></svg>`;
 }
-
 
 export function buildLensCheckerboardSvg(profile){
   const p=profile,w=p.width,h=p.height,s=12;
