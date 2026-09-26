@@ -175,8 +175,8 @@ export function openAugmentedDesign(){
       <label><span>Parameter</span><select id="augSimpleParameter"></select></label>
     </div>
     <div id="augStructure" class="aug-structure-inline"></div>
-    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Beberapa parameter</summary>${parameterField(data)}</details>
-    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan lanjutan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
+    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Parameter lainnya</summary>${parameterField(data)}</details>
+    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
     <div id="augmentedError" role="alert"></div>
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
@@ -191,6 +191,9 @@ export function openAugmentedDesign(){
   $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
   $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});
   $('#augChecks').addEventListener('input',()=>structurePreview(data));
+  document.querySelector('.augmented-workspace')?.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();$('#runAugmented')?.click();}
+  });
 
   $('#runAugmented').onclick=async()=>{
     const error=$('#augmentedError');error.innerHTML='';

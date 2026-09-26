@@ -96,7 +96,8 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
-for(const marker of ['data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-open-other','data-analysis-open'])if(!flow.includes(marker))fail('compact analysis selection missing '+marker);
+for(const marker of ['data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-analysis-open',"addEventListener('change',async event"])if(!flow.includes(marker))fail('compact analysis selection missing '+marker);
+if(flow.includes('data-open-other'))fail('Lainnya must open directly from the selector without a redundant Buka button');
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana')||flow.includes('data-analysis-mode-toggle'))fail('analysis selection must use one compact interface without mode switches');
 if(!statStyle.includes('STAT COMPACT CONTROLS 2026-09-26')||!statStyle.includes('.analysis-other-picker'))fail('compact analysis picker styles missing');
 for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','/* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */','@media(min-width:901px)','grid-template-columns:repeat(5,minmax(0,1fr))!important','.analysis-group-items[hidden]','grid-template-columns:1fr!important'])if(!statStyle.includes(marker))fail('desktop all-column analysis panel missing '+marker);
@@ -148,6 +149,8 @@ for (const marker of ["['fileMenu','File'","['dataMenu','Data'","['helpMenu','Ba
 
 if (!main.includes('addEventListener') && !main.includes('.onclick=')) fail('main.js contains no event bindings');
 if (!scientific.includes('analyzeParameter') || !scientific.includes('renderReport') || !scientific.includes('designStructure') || !scientific.includes('scienceStructure')) fail('scientific workflow is not connected to analysis/report/structure engine');
+if(scientific.includes('id="validateScience"'))fail('analysis setup must validate automatically without a redundant Periksa button');
+if(!scientific.includes("event.key==='Enter'"))fail('analysis setup must keep a keyboard run shortcut');
 for(const marker of ["phoneGuardMode()","runButton.disabled=!ready","runButton.textContent=ready?'Jalankan':'Lengkapi pilihan'","runButton.textContent='Jalankan analisis'"])if(!scientific.includes(marker))fail('phone-only safe analysis run state missing '+marker);
 for (const marker of ['renderAnalysisSummary','inspectDataQuality','scienceQuality','transformationOptions','transformObservations','data-transform.js','treatment-metadata.js','category-metadata.js','readCategoryMetadata','categoryLevelDescription','auditReports','data-thesis-check']) if (!scientific.includes(marker)) fail(`scientific workflow missing ${marker}`);
 if(scientific.includes('Definisi perlakuan untuk tabel & interpretasi BAB IV')||scientific.includes('scienceTreatmentFields'))fail('analysis dialog must use existing metadata instead of a duplicate treatment-definition editor');
@@ -180,6 +183,7 @@ for(const marker of ['data-simple-result-view-select','result-single-actions','d
 for(const marker of ['result-card-actions','result-card-copy','result-card-export','result-card-more'])if(!resultExport.includes(marker))fail('per-result compact actions missing '+marker);
 for(const marker of ['result-os-menu','result-os-menu-body'])if(!resultOs.includes(marker))fail('Result OS compact menu missing '+marker);
 if(!statStyle.includes('/* COMPACT RESULT ACTIONS 2026-09-26 */')||!resultOsStyle.includes('/* COMPACT RESULT OS CONTROLS 2026-09-26 */'))fail('compact result action styles missing');
+if(!statStyle.includes('/* STAT COMPACT POLISH 2026-09-26 */')||!resultOsStyle.includes('/* RESULT OS PASSIVE METRICS 2026-09-26 */'))fail('compact polish styles missing');
 for(const marker of ['data-result-filter','data-result-focus','data-compare-mode','data-publication-mode','data-result-prev','data-result-next','RESULT_ORDER','persistResultOrder','CONFIG','saveAnalysisConfig','restoreAnalysisConfig','sciencePreset','PRESETS'])if(!scientific.includes(marker))fail('analysis powerup missing '+marker);
 for(const marker of ['detectScientificDesign','quickRunLastScientific','hasSavedScientificConfig','datasetFingerprint','snapshotActiveDataset','data-stale-banner','data-presentation-mode','data-rerun-stale','resultVersion','compareHistoryEntries','data-history-compare','data-focus-error-row'])if(!scientific.includes(marker)&&!main.includes(marker))fail('analysis productivity feature missing '+marker);
 for(const marker of ['export-bab4','exportBab4Doc','application/msword','copy-publication'])if(!resultExport.includes(marker))fail('BAB IV/Word export workflow missing '+marker);

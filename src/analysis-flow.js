@@ -90,7 +90,6 @@ function panelMarkup(){
       </div>
       <div class="analysis-other-picker" data-other-picker hidden>
         <select id="analysisOtherSelect" aria-label="Metode analisis lainnya">${otherOptions()}</select>
-        <button type="button" class="primary" data-open-other disabled>Buka</button>
       </div>
     </div>`;
 }
@@ -148,14 +147,11 @@ export function installAnalysisFlow(){
     }
     const direct=event.target.closest('[data-analysis-open]');
     if(direct){await openDescriptor(byKey.get(direct.dataset.analysisOpen),direct);return;}
-    const openOther=event.target.closest('[data-open-other]');
-    if(openOther){
-      const key=panel.querySelector('#analysisOtherSelect')?.value;
-      if(key)await openDescriptor(byKey.get(key),openOther);
-    }
   });
-  panel.querySelector('#analysisOtherSelect')?.addEventListener('change',event=>{
-    const button=panel.querySelector('[data-open-other]');if(button)button.disabled=!event.target.value;
+  panel.querySelector('#analysisOtherSelect')?.addEventListener('change',async event=>{
+    const key=event.target.value;if(!key)return;
+    const item=byKey.get(key);event.target.value='';
+    await openDescriptor(item,event.target);
   });
   document.addEventListener('agrotik-open-analysis',event=>{
     const key=String(event.detail?.key||'');

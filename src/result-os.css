@@ -298,3 +298,17 @@
   .result-pin-toggle{opacity:.5}
   .result-os-enhanced .analysis-result>h3{top:43px!important}
 }
+
+
+/* RESULT OS PASSIVE METRICS 2026-09-26 */
+.result-os-insights>.result-os-count,
+.result-os-metric,.result-os-audit{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;min-height:30px;padding:3px 6px;
+  border:1px solid var(--ros-border);border-radius:6px;background:#fff;color:var(--ros-text);font-size:9px
+}
+.result-os-count b{font-size:11px}
+.result-os-count span{color:var(--ros-muted)}
+.result-os-command{grid-template-columns:minmax(150px,1fr) auto!important}
+@media(max-width:720px){
+  .result-os-command{grid-template-columns:minmax(0,1fr) auto!important}
+}
