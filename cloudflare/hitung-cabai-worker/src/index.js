@@ -1492,7 +1492,7 @@ async function migrateLegacyContributionImages(env,actor=null,limit=25){
   await ensureContributionSchema(env);
   if(!env.IMAGES)return {ok:false,error:'r2_not_configured',migrated:0,remaining:null};
   const batch=Math.min(50,Math.max(1,Number(limit)||25));
-  const rows=await env.DB.prepare(`SELECT id,image,mime_type,created_at
+  const rows=await env.DB.prepare(`SELECT id,image,image_hash,mime_type,created_at
     FROM contributions
     WHERE length(image)>0 AND (storage_backend!='r2' OR image_object_key IS NULL)
     ORDER BY created_at ASC LIMIT ?`).bind(batch).all();
@@ -1500,17 +1500,19 @@ async function migrateLegacyContributionImages(env,actor=null,limit=25){
   for(const row of rows.results||[]){
     const imageBytes=row.image?new Uint8Array(row.image):null;
     if(!imageBytes?.byteLength)continue;
-    const key=contributionImageKey(row);
+    const imageHash=row.image_hash||await sha256Bytes(imageBytes);
+    const duplicate=await env.DB.prepare('SELECT id,image_object_key FROM contributions WHERE image_hash=? AND id!=? AND image_object_key IS NOT NULL ORDER BY created_at ASC LIMIT 1').bind(imageHash,row.id).first();
+    const key=duplicate?.image_object_key||contributionImageKey(row),isReference=Boolean(duplicate?.image_object_key);
     try{
-      await env.IMAGES.put(key,imageBytes,{httpMetadata:{contentType:row.mime_type||'application/octet-stream'},customMetadata:{contributionId:row.id,createdAt:row.created_at||''}});
+      if(!isReference)await env.IMAGES.put(key,imageBytes,{httpMetadata:{contentType:row.mime_type||'application/octet-stream'},customMetadata:{contributionId:row.id,createdAt:row.created_at||'',imageHash}});
       try{
-        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_size_bytes=?,storage_backend='r2',updated_at=COALESCE(updated_at,?) WHERE id=?`)
-          .bind(new Uint8Array(0),key,imageBytes.byteLength,new Date().toISOString(),row.id).run();
+        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_hash=?,image_ref_id=?,image_size_bytes=?,storage_backend=?,updated_at=COALESCE(updated_at,?) WHERE id=?`)
+          .bind(new Uint8Array(0),key,imageHash,isReference?duplicate.id:null,imageBytes.byteLength,isReference?'r2-ref':'r2',new Date().toISOString(),row.id).run();
       }catch(error){
-        await env.IMAGES.delete(key).catch(()=>{});
+        if(!isReference)await env.IMAGES.delete(key).catch(()=>{});
         throw error;
       }
-      migrated++;bytes+=imageBytes.byteLength;
+      migrated++;bytes+=isReference?0:imageBytes.byteLength;
     }catch(error){
       console.warn('Legacy contribution image migration failed',row.id,error?.message||error);
       break;
