@@ -11,6 +11,7 @@ import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
+import {enhanceResultOS} from './result-os.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
@@ -207,6 +208,7 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   markResultsStale(container,stale);
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   installResultControls(container,ordered,datasetName);
+  enhanceResultOS(container,ordered,{datasetName,resultVersion,stale});
   const rerun=container.querySelector('[data-rerun-stale]');if(rerun)rerun.onclick=async()=>{rerun.disabled=true;await quickRunLastScientific();};
   const printButton=container.querySelector('[data-print-results]');
   if(printButton)printButton.onclick=()=>{
