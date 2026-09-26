@@ -270,6 +270,7 @@ function ensureModal(){
     if(event.target.closest('[data-field-next]'))stepEditor(1);
     if(event.target.closest('[data-field-next-incomplete]'))nextIncomplete();
     const score=event.target.closest('[data-quick-score]');if(score){const input=$('#fieldPlotEditor [data-field-active-input]');if(input){input.value=score.dataset.quickScore;input.dispatchEvent(new Event('input',{bubbles:true}));saveEditor({quiet:true,rerender:false});}}
+    const quickStatus=event.target.closest('[data-field-status-quick]');if(quickStatus){const select=$('#fieldPlotEditor [data-field-status]');if(select){select.value=quickStatus.dataset.fieldStatusQuick;select.dispatchEvent(new Event('input',{bubbles:true}));saveEditor({quiet:true,rerender:true});}}
     const move=event.target.closest('[data-field-move]');if(move)moveSelectedPlot(Number(move.dataset.fieldMove));
     if(event.target.closest('[data-batch-apply]'))applyBatch();
     if(event.target.closest('[data-batch-select-visible]'))selectVisible();
@@ -600,29 +601,42 @@ function renderMap(){
   if(!visible)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok dengan filter.</div>';
   renderStats();
 }
-function fieldInput(data,row,index){
+function fieldInput(data,row,index,{active=false,readonly=false}={}){
   const header=data.headers[index],value=String(row[index]??''),numeric=sampleNumeric(data,index);
-  return `<label class="field-editor-field"><span>${esc(header)}</span><input data-field-col="${index}" value="${esc(value)}" ${numeric?'inputmode="decimal"':''} autocomplete="off"></label>`;
+  return `<label class="field-editor-field${active?' is-active':''}"><span>${esc(header)}</span><input data-field-col="${index}" ${active?'data-field-active-input':''} value="${esc(value)}" ${numeric?'inputmode="decimal"':''} ${readonly?'readonly':''} autocomplete="off"></label>`;
+}
+function editorMeasures(){
+  const measures=measurementColumns(current),active=activeParameterIndex();
+  if(!config.fieldMode||active<0)return measures.map(item=>({...item,active:item.index===active,readonly:false}));
+  const group=sampleGroupForIndex(active);
+  if(!group)return [{header:current.headers[active],index:active,active:true,readonly:false}];
+  const items=group.members.map(header=>({header,index:current.headers.indexOf(header),active:true,readonly:false})).filter(item=>item.index>=0);
+  const meanIndex=current.headers.indexOf(group.meanHeader);if(meanIndex>=0)items.push({header:group.meanHeader,index:meanIndex,active:false,readonly:true});
+  return items;
 }
 function renderEditor(rowIndex){
   const row=current.rows[rowIndex];if(!row)return;
-  const labels=plotLabel(current,row,rowIndex),measures=measurementColumns(current),measureSet=new Set(measures.map(item=>item.index));
+  const labels=plotLabel(current,row,rowIndex),allMeasures=measurementColumns(current),measures=editorMeasures(),measureSet=new Set(allMeasures.map(item=>item.index));
   const structural=current.headers.map((header,index)=>({header,index})).filter(item=>!measureSet.has(item.index));
-  const progress=rowProgress(current,row);
+  const progress=rowProgress(current,row),active=activeParameterIndex(),activeHeader=active>=0?current.headers[active]:'',meta=config.plotMeta?.[plotKey(rowIndex)]||{};
+  const quickScore=config.fieldMode&&active>=0&&/(skor|score|karat|penyakit|severity|rating)/i.test(activeHeader)?'<div class="field-quick-score">'+[0,1,2,3,4,5].map(value=>`<button type="button" data-quick-score="${value}">${value}</button>`).join('')+'</div>':'';
+  const activeDone=!rowIncomplete(rowIndex);
   $('#fieldPlotEditor').innerHTML=`
     <div class="field-editor-head">
-      <div><small>Plot ${rowIndex+1}</small><strong>${esc(labels.id)}</strong>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:''}</div>
-      <span class="field-editor-progress">${progress.total?`${progress.filled}/${progress.total} terisi`:'Belum ada parameter'}</span>
+      <div><small>Plot ${rowIndex+1}${config.session?.label?' · '+esc(config.session.label):''}</small><strong>${esc(labels.id)}</strong>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:''}</div>
+      <span class="field-editor-progress">${active>=0?(activeDone?'Selesai ✓':'Belum diisi'):(progress.total?`${progress.filled}/${progress.total} terisi`:'Belum ada parameter')}</span>
     </div>
-    <div class="field-editor-nav"><button type="button" data-field-prev>‹ Sebelumnya</button><button type="button" data-field-next>Berikutnya ›</button></div>
+    <div class="field-editor-nav field-editor-nav-three"><button type="button" data-field-prev>‹ Sebelumnya</button><button type="button" data-field-next-incomplete>Belum diisi</button><button type="button" data-field-next>Berikutnya ›</button></div>
     ${layoutEditMode?'<div class="field-layout-move"><button type="button" data-field-move="-1">← Geser</button><button type="button" data-field-move="1">Geser →</button></div>':''}
     <div class="field-editor-fields">
-      ${measures.length?`<div class="field-editor-section"><b>Pengamatan</b>${measures.map(item=>fieldInput(current,row,item.index)).join('')}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
+      ${measures.length?`<div class="field-editor-section"><b>${active>=0?esc(activeHeader):'Pengamatan'}</b>${measures.map(item=>fieldInput(current,row,item.index,{active:item.active,readonly:item.readonly})).join('')}${quickScore}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
+      <div class="field-condition-quick"><button type="button" data-field-status-quick="normal">Normal</button><button type="button" data-field-status-quick="dead">Mati</button><button type="button" data-field-status-quick="damaged">Rusak</button><button type="button" data-field-status-quick="harvested">Panen</button></div>
       <div class="field-editor-meta">
         <label><span>Status plot</span><select data-field-status>${statusOptions(plotStatus(rowIndex))}</select></label>
         <label><span>Catatan lapang</span><textarea data-field-note rows="2" placeholder="Mis. rebah, serangan, petak pinggir…">${esc(plotNote(rowIndex))}</textarea></label>
+        <small class="field-meta-stamp">${meta.updatedAt?'Terakhir '+esc(new Date(meta.updatedAt).toLocaleString('id-ID'))+(meta.observer?' · '+esc(meta.observer):''):'Belum pernah disimpan'}</small>
       </div>
-      <details class="field-editor-identity"><summary>Identitas plot</summary>${structural.map(item=>fieldInput(current,row,item.index)).join('')}</details>
+      <details class="field-editor-identity" ${config.fieldMode?'':'open'}><summary>Identitas plot</summary>${structural.map(item=>fieldInput(current,row,item.index)).join('')}</details>
     </div>
     <div class="field-editor-actions"><button type="button" data-field-open-row>Buka di tabel</button><button type="button" class="primary" data-field-save>Simpan</button></div>
     <p class="field-editor-status" id="fieldEditorStatus"></p>`;
@@ -638,7 +652,8 @@ function saveEditor({quiet=false,rerender=true}={}){
   if(!Number.isInteger(selectedRow)||!current?.rows[selectedRow])return;
   clearTimeout(autoSaveTimer);
   const values=[...current.rows[selectedRow]];
-  $('#fieldPlotEditor').querySelectorAll('[data-field-col]').forEach(input=>{values[Number(input.dataset.fieldCol)]=input.value.trim();});
+  $('#fieldPlotEditor').querySelectorAll('[data-field-col]').forEach(input=>{if(!input.readOnly)values[Number(input.dataset.fieldCol)]=input.value.trim();});
+  applySampleMeans(values);
   const result=api()?.replaceRow?.(selectedRow,values,'edit plot dari denah lahan');
   const status=$('#fieldEditorStatus');
   if(!result?.ok){if(status)status.textContent=result?.error||'Data belum dapat disimpan.';return;}
