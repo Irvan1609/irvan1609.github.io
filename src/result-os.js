@@ -177,6 +177,24 @@ function decorateTables(container){
     const button=document.createElement('button');button.type='button';button.className='result-os-copy-table';button.textContent='Salin tabel';button.setAttribute('aria-label','Salin tabel ini');wrap.prepend(button);
   });
 }
+function installFieldPlotLinks(container){
+  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
+  if(!data?.headers?.length||!data?.rows?.length)return;
+  const idIndex=data.headers.findIndex(header=>/(^id$|petak|plot|unit|kode)/i.test(String(header||'')));
+  if(idIndex<0)return;
+  const ids=new Set(data.rows.map(row=>String(row[idIndex]??'').trim()).filter(Boolean));
+  if(!ids.size)return;
+  container.querySelectorAll('td,th').forEach(cell=>{
+    if(cell.closest('.result-os-command,.result-os-navigator'))return;
+    const value=String(cell.textContent||'').trim();
+    if(!ids.has(value))return;
+    cell.dataset.osFieldPlot=value;cell.classList.add('result-os-field-plot');cell.title='Buka plot '+value+' di Denah Lahan';cell.tabIndex=0;
+  });
+}
+async function openFieldPlot(identifier){
+  if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
+  return globalThis.AgrotikFieldLayout?.openPlot?.(identifier);
+}
 function setupPinButtons(container,datasetName,pins,grid,originalRank,state){
   const sections=[...container.querySelectorAll('.analysis-result')];
   const applyOrder=()=>{
@@ -275,6 +293,7 @@ export function enhanceResultOS(container,reports,options={}){
   if(stale)stale.after(shell);else container.prepend(shell);
 
   decorateTables(container);
+  installFieldPlotLinks(container);
   const pinSetup=setupPinButtons(container,datasetName,pins,grid,originalRank,state);
   const applyPinnedOrder=pinSetup.applyOrder;
   syncCompare(container);
@@ -294,6 +313,8 @@ export function enhanceResultOS(container,reports,options={}){
   };
   let searchTimer=0;
   const clickHandler=async event=>{
+    const fieldPlot=event.target.closest('[data-os-field-plot]');
+    if(fieldPlot){event.preventDefault();await openFieldPlot(fieldPlot.dataset.osFieldPlot);return;}
     const nav=event.target.closest('[data-os-nav]');
     if(nav&&focusSelect){focusSelect.value=nav.dataset.osNav;focusSelect.dispatchEvent(new Event('change',{bubbles:true}));container.scrollTop=0;syncModeButtons();return;}
     const insight=event.target.closest('[data-os-filter]');
