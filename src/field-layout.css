@@ -236,7 +236,6 @@ body.field-layout-open{overflow:hidden}
   .field-batch-editor select,.field-batch-editor input{min-height:40px;font-size:16px}
 }
 @media(max-width:430px){
-  .field-layout-head-actions #fieldAddParameter{display:none}
   .field-layout-more>summary{padding:4px 6px}
   .field-road{min-height:20px}
 }
@@ -255,4 +254,10 @@ body.field-layout-open{overflow:hidden}
   .field-block-grid{grid-template-columns:repeat(var(--field-columns),1fr)!important}
   .field-plot{min-width:0!important;min-height:14mm!important;break-inside:avoid}
   .field-north-arrow{position:absolute!important;top:0!important;left:auto!important;right:0!important}
+}
+
+.field-legend-chip{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.field-heat-legend .field-legend-chip i{
+  width:9px;height:9px;flex:0 0 9px;border-radius:2px;
+  background:hsl(var(--legend-hue) 48% 68%)
 }
