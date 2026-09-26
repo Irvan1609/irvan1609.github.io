@@ -25,8 +25,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Scan repository secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Validate Worker syntax
         run: node --check cloudflare/hitung-cabai-worker/src/index.js
+
+      - name: Validate security contract
+        run: node scripts/check-security-contract.mjs
 
       - name: Resolve D1 database id
         id: d1
@@ -70,6 +78,10 @@ jobs:
               database_name:'hitung-cabai',
               database_id:process.env.D1_DATABASE_ID
             }],
+            ratelimits:[
+              {name:'CONTRIBUTION_RATE_LIMITER',namespace_id:'91609001',simple:{limit:30,period:60}},
+              {name:'DATASET_RATE_LIMITER',namespace_id:'91609002',simple:{limit:180,period:60}}
+            ],
             triggers:{crons:['0 18 * * *']}
           };
           const backup=(process.env.BACKUP_BUCKET||'').trim();
@@ -120,6 +132,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
           command: deploy --config ./hitung-cabai-wrangler.json${{ steps.worker-secrets.outputs.args }}
 
       - name: Verify production health

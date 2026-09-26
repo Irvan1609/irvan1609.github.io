@@ -9,6 +9,7 @@ import {safeSheetNameFromParameter} from './editor-features.js';
 
 const textOf = element => element.textContent.replace(/\s+/g, ' ').trim();
 const border = {style:'thin', color:{argb:'FFB7B7B7'}};
+const AGROTIK_REPORT_IDENTITY='Agrotik · v0.1.0 · https://irvan1609.github.io';
 
 const rawKey=(a,b,rep)=>[a,b,rep].map(value=>String(value??'')).join('\u0000');
 function rawNumber(cell,separator){
@@ -198,7 +199,10 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)?Number(normalized):NaN;
   };
   book ||= new ExcelJS.Workbook();
-  book.creator = 'Statistical Web';
+  book.creator = 'Agrotik';
+  book.company = 'Agrotik';
+  book.subject = 'Analisis data agronomi';
+  book.description = AGROTIK_REPORT_IDENTITY;
   const formulaMode=options.formulas===true;
   if(formulaMode){book.calcProperties.fullCalcOnLoad=true;book.calcProperties.forceFullCalc=true;book.calcProperties.calcMode='auto';}
   const sheet = book.addWorksheet(sheetName, {
@@ -660,6 +664,13 @@ export function createReportWorkbook(scope,book=null,sheetName='Hasil analisis',
     }else paragraph(textOf(element),/^H[34]$/.test(element.tagName)||element.classList.contains('table-caption'));
   }
   if(rowNumber===1)throw new Error('Belum ada hasil analisis untuk diekspor.');
+  sheet.mergeCells(rowNumber,1,rowNumber,width);
+  const identityCell=sheet.getCell(rowNumber,1);
+  identityCell.value=AGROTIK_REPORT_IDENTITY;
+  identityCell.font={name:'Calibri',size:8,italic:true};
+  identityCell.alignment={horizontal:'right',vertical:'middle'};
+  rowNumber++;
+  sheet.headerFooter.oddFooter='&RAgrotik · v0.1.0 · https://irvan1609.github.io';
   sheet.pageSetup.printArea=`A1:${sheet.getColumn(width).letter}${rowNumber-1}`;
   return book;
 }
