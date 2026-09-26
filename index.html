@@ -64,7 +64,7 @@
     .tool-card.featured.alt{background:linear-gradient(155deg,#fff,#eef4fa);border-color:#c5d7e8}
     .tool-icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--green-soft);color:var(--green-dark);font-weight:900;font-size:15px}
     .alt .tool-icon{background:#e9f1f8;color:var(--blue)}
-    .tool-card h3{font-size:21px;letter-spacing:-.025em;margin:16px 0 7px}.tool-card p{margin:0;color:var(--muted);font-size:14px}
+    .tool-card h3{font-size:21px;letter-spacing:-.025em;margin:16px 0 7px}.tool-card p{margin:0;color:var(--muted);font-size:14px}.tool-credit{display:block;margin:-2px 0 7px;color:#829088;font-size:11px;font-weight:800;letter-spacing:.02em}
     .tool-meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px}.tool-meta span{padding:5px 8px;border-radius:999px;background:#f1f5f2;color:#577067;font-size:11px;font-weight:750}
     .tool-link{margin-top:auto;padding-top:20px;color:var(--green);font-size:13px;font-weight:850}.alt .tool-link{color:var(--blue)}
     .need-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -169,6 +169,7 @@
           <a class="tool-card featured" href="/stat/">
             <span class="tool-icon">Σ</span>
             <h3>Statistical Web</h3>
+            <span class="tool-credit">Irvan</span>
             <p>Olah data percobaan pertanian mulai dari tabel mentah sampai ANOVA, uji lanjut, kontras, korelasi, sidik lintas, dan ekspor hasil.</p>
             <div class="tool-meta"><span>RAL / RAK</span><span>Faktorial</span><span>Split-plot</span><span>BNT / BNJ / DMRT</span></div>
             <span class="tool-link">Buka Statistical Web →</span>
@@ -176,6 +177,7 @@
           <a class="tool-card featured alt" href="/hitung-cabai/">
             <span class="tool-icon">CV</span>
             <h3>Hitung Cabai</h3>
+            <span class="tool-credit">Irvan</span>
             <p>Ambil atau unggah foto, deteksi buah secara otomatis, koreksi kotak deteksi, lalu simpan jumlah buah per sampel.</p>
             <div class="tool-meta"><span>Foto</span><span>Deteksi otomatis</span><span>Koreksi manual</span></div>
             <span class="tool-link">Mulai menghitung →</span>
@@ -183,24 +185,28 @@
           <a class="tool-card" href="/pengukur/">
             <span class="tool-icon">mm</span>
             <h3>Pengukur</h3>
+            <span class="tool-credit">Irvan</span>
             <p>Gunakan lembar kalibrator A4 untuk meluruskan citra dan mengukur jarak pada bidang foto.</p>
             <span class="tool-link">Buka pengukuran →</span>
           </a>
           <a class="tool-card" href="/mendeley/">
             <span class="tool-icon">DOI</span>
             <h3>Referensi Mendeley</h3>
+            <span class="tool-credit">Kautsar</span>
             <p>Cari metadata DOI atau judul, simpan referensi sementara, lalu ekspor RIS atau BibTeX.</p>
             <span class="tool-link">Kelola referensi →</span>
           </a>
           <a class="tool-card" href="/print-skripsi/">
             <span class="tool-icon">PDF</span>
             <h3>Print Skripsi</h3>
+            <span class="tool-credit">Irvan</span>
             <p>Periksa halaman awal BAB I dan pisahkan PDF menjadi bagian awal, halaman ganjil, dan halaman genap untuk pencetakan.</p>
             <span class="tool-link">Siapkan PDF →</span>
           </a>
           <a class="tool-card" href="/game/">
             <span class="tool-icon">FZ</span>
             <h3>Field Zero</h3>
+            <span class="tool-credit">Irvan</span>
             <p>Game roguelite agronomi: kelola petak, hadapi musim acak, seleksi benih, temukan trait, dan lakukan persilangan.</p>
             <div class="tool-meta"><span>Offline</span><span>Breeding</span><span>Roguelite</span></div>
             <span class="tool-link">Masuk Field Zero →</span>
@@ -252,9 +258,7 @@
       </div>
     </section>
   </main>
-
-  <footer><div class="wrap footer-row"><span>© 2026 Agrotik · Statistik Web · Pengukur · Hitung · Field Zero · Print Skripsi — <strong>Irvan</strong></span><span>Mendeley — <strong>Kautsar</strong></span></div></footer>
-  <script type="module" src="/account.js?v=20260926-6"></script>
+<script type="module" src="/account.js?v=20260926-6"></script>
   <script src="/pwa-register.js" defer></script>
 </body>
 </html>
