@@ -232,6 +232,7 @@ function ensureModal(){
       <div class="field-layout-controls">
         <label>Pengamat<input id="fieldObserver" type="text" placeholder="Nama / inisial" autocomplete="off"></label>
         <label>Sesi<input id="fieldSessionLabel" type="text" placeholder="mis. 28 HST" autocomplete="off"></label>
+        <label>Tanggal<input id="fieldSessionDate" type="date"></label>
         <label>Parameter aktif<select id="fieldActiveParameter"></select></label>
         <label>ID plot<select id="fieldIdColumn"></select></label>
         <label>Kelompok<select id="fieldGroupColumn"></select></label>
@@ -252,6 +253,7 @@ function ensureModal(){
         <section class="field-map-pane">
           <div id="fieldNorthArrow" class="field-north-arrow" aria-label="Arah utara">↑<span>N</span></div>
           <div id="fieldHeatLegend" class="field-heat-legend" hidden></div>
+          <div id="fieldMiniMap" class="field-mini-map"></div>
           <div id="fieldMap" class="field-map"></div>
         </section>
         <aside id="fieldPlotEditor" class="field-plot-editor" aria-live="polite">
@@ -280,11 +282,12 @@ function ensureModal(){
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
   $('#fieldLayoutImportInput').onchange=importLayout;$('#fieldPhotoInput').onchange=saveSelectedPhoto;
-  for(const id of ['fieldObserver','fieldSessionLabel','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldHeatTransform','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
+  for(const id of ['fieldObserver','fieldSessionLabel','fieldSessionDate','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldHeatTransform','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
   $('#fieldHeatLegend').addEventListener('click',event=>{const item=event.target.closest('[data-field-highlight]');if(!item)return;$('#fieldSearch').value=item.dataset.fieldHighlight;renderMap();});
+  $('#fieldMiniMap').addEventListener('click',event=>{const cell=event.target.closest('[data-mini-row]');if(!cell)return;const row=Number(cell.dataset.miniRow);selectRow(row);requestAnimationFrame(()=>$('#fieldMap [data-field-row="'+row+'"]')?.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}));});
   $('#fieldMap').addEventListener('click',event=>{
     const removeObject=event.target.closest('[data-remove-field-object]');
     if(removeObject){pushLayoutHistory('hapus objek lahan');config={...config,objects:(config.objects||[]).filter(item=>String(item.id)!==removeObject.dataset.removeFieldObject)};writeConfig(current,config);renderMap();return;}
@@ -699,7 +702,7 @@ function readControls(){
   if(!current)return;
   pushLayoutHistory('ubah pengaturan denah');config={...config,
     observer:String($('#fieldObserver').value||'').trim(),
-    session:{...config.session,label:String($('#fieldSessionLabel').value||'').trim(),parameter:Number($('#fieldActiveParameter').value),date:config.session?.date||new Date().toISOString().slice(0,10)},
+    session:{...config.session,label:String($('#fieldSessionLabel').value||'').trim(),parameter:Number($('#fieldActiveParameter').value),date:String($('#fieldSessionDate').value||new Date().toISOString().slice(0,10))},
     id:Number($('#fieldIdColumn').value),
     group:Number($('#fieldGroupColumn').value),
     color:Number($('#fieldColorColumn').value),
@@ -718,7 +721,7 @@ function readControls(){
 }
 function renderControls(){
   $('#fieldObserver').value=String(config.observer||'');
-  $('#fieldSessionLabel').value=String(config.session?.label||'');
+  $('#fieldSessionLabel').value=String(config.session?.label||'');$('#fieldSessionDate').value=String(config.session?.date||new Date().toISOString().slice(0,10));
   const measures=measurementColumns(current);
   $('#fieldActiveParameter').innerHTML='<option value="-1">Semua parameter</option>'+measures.map(item=>`<option value="${item.index}" ${item.index===Number(config.session?.parameter)?'selected':''}>${esc(item.header)}</option>`).join('');
   $('#fieldIdColumn').innerHTML=options(current.headers,config.id);
@@ -759,6 +762,25 @@ function renderStats(){
   if(multiMode)chips.push(`<span><b>${selectedRows.size}</b> dipilih</span>`);
   $('#fieldLayoutStats').innerHTML=chips.join('');
 }
+function mainPlotInfo(row){
+  const main=findColumn(current.headers,[/^petak\s*utama$/i,/main\s*plot/i],-1),factor=findColumn(current.headers,[/^faktor\s*a$/i,/^factor\s*a$/i],-1);
+  if(main<0)return null;return {main:String(row[main]??''),factor:factor>=0?String(row[factor]??''):''};
+}
+function renderMiniMap(){
+  const host=$('#fieldMiniMap');if(!host)return;
+  host.innerHTML=current.rows.map((row,index)=>{
+    const progress=rowProgress(current,row),status=plotStatus(index),selected=index===selectedRow?' is-selected':'';
+    return `<button type="button" data-mini-row="${index}" class="mini-${progress.status} mini-status-${status}${selected}" title="${esc(plotLabel(current,row,index).id)}"></button>`;
+  }).join('');
+}
+function numericEntryWarning(index,value){
+  const x=Number(String(value??'').replace(',','.'));if(!Number.isFinite(x))return '';
+  const list=current.rows.map(row=>Number(String(row[index]??'').replace(',','.'))).filter(Number.isFinite).sort((a,b)=>a-b);if(list.length<8)return '';
+  const q=p=>{const pos=(list.length-1)*p,lo=Math.floor(pos),hi=Math.ceil(pos);return list[lo]+(list[hi]-list[lo])*(pos-lo);};
+  const q1=q(.25),q3=q(.75),iqr=q3-q1;if(!(iqr>0))return '';
+  return x<q1-3*iqr||x>q3+3*iqr?'⚠ Nilai jauh dari sebaran data saat ini; periksa kemungkinan salah ketik.':'';
+}
+
 function renderMap(){
   if(!current)return;
   const query=String($('#fieldSearch')?.value||'').trim().toLocaleLowerCase('id-ID');
@@ -801,7 +823,7 @@ function renderMap(){
   }).join('');
   map.innerHTML=objectHtml+blocks;
   if(!visible&&!objects.length)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok dengan filter.</div>';
-  applyZoom();renderStats();
+  applyZoom();renderMiniMap();renderStats();
 }
 function fieldInput(data,row,index,{active=false,readonly=false}={}){
   const header=data.headers[index],value=String(row[index]??''),numeric=sampleNumeric(data,index);
@@ -853,7 +875,10 @@ function renderEditor(rowIndex){
   dirty=false;void renderMediaTimeline(rowIndex);
 }
 function selectRow(index){
-  if(dirty&&!confirm('Ada perubahan yang belum disimpan. Pindah plot tanpa menyimpan?'))return;
+  if(dirty){
+    if(config.fieldMode)saveEditor({quiet:true,rerender:false});
+    else if(!confirm('Ada perubahan yang belum disimpan. Pindah plot tanpa menyimpan?'))return;
+  }
   selectedRow=index;dirty=false;renderMap();renderEditor(index);
   $('#fieldPlotEditor').scrollTop=0;
   requestAnimationFrame(()=>$('#fieldPlotEditor [data-field-col]:not([disabled])')?.focus({preventScroll:true}));
@@ -879,7 +904,7 @@ function saveEditor({quiet=false,rerender=true}={}){
   config={...config,statuses,notes,plotMeta:meta};writeConfig(current,config);
   dirty=false;refreshData(false);renderMap();
   if(rerender)renderEditor(selectedRow);
-  const freshStatus=$('#fieldEditorStatus');if(freshStatus&&!quiet)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';
+  const freshStatus=$('#fieldEditorStatus');if(freshStatus&&!quiet){const active=activeParameterIndex(),warning=active>=0?numericEntryWarning(active,values[active]):'';freshStatus.textContent=warning||(result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.');}
 }
 function stepEditor(direction){
   if(!current?.rows.length)return;
