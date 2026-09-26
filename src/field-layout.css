@@ -377,3 +377,10 @@ body.field-layout-open.field-qr-print>#fieldQrSheet{display:block!important}
   .field-mini-map{display:none}
   .field-mode #fieldSessionDate{width:100%;min-width:0}
 }
+
+.field-object-in-map{
+  grid-column:1/-1;display:flex;align-items:center;gap:5px;min-height:25px;padding:3px 6px;
+  border:1px dashed #aebdc8;border-radius:4px;background:#f8fafb;color:#607382;font-size:8.5px
+}
+.field-object-in-map b{text-transform:capitalize;color:#344f63}
+.field-object-in-map button{margin-left:auto;width:20px;min-width:20px;min-height:20px;padding:0;border:0;background:transparent}
