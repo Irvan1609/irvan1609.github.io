@@ -5,6 +5,9 @@ import {resultActions} from './result-export.js';
 import {backupRawDataset} from './drive-backup.js';
 
 const $=selector=>document.querySelector(selector);
+const UI_MODE='statistical_web_analysis_ui_mode_v2';
+function analysisUiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
+function setAnalysisUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fmt=(value,digits=3)=>Number.isFinite(value)?formatNumber(value,digits):'—';
 const activeRows=data=>data.rows.filter(row=>row.some(value=>String(value??'').trim()!==''));
@@ -22,6 +25,25 @@ function firstCategorical(data,exclude=[]){return data.headers.findIndex((_,inde
 function parameterField(data){
   return `<div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
 }
+function syncSimpleAugParameter(forceSingle=false){
+  const select=$('#augSimpleParameter');if(!select)return;
+  const inputs=[...document.querySelectorAll('[data-aug-param]')].filter(input=>!input.disabled);
+  const previous=select.value;
+  select.innerHTML=inputs.map(input=>`<option value="${input.value}">${esc(dataForAug?.headers?.[Number(input.value)]||'Parameter')}</option>`).join('');
+  const selected=inputs.find(input=>input.value===previous)||inputs.find(input=>input.checked)||inputs[0];
+  if(selected)select.value=selected.value;
+  if(forceSingle&&selected)inputs.forEach(input=>{input.checked=input===selected;});
+}
+let dataForAug=null;
+function applyAugUiMode(mode=analysisUiMode()){
+  const root=document.querySelector('.augmented-workspace');if(!root)return;
+  const complete=mode==='complete';setAnalysisUiMode(mode);
+  root.classList.toggle('aug-complete-mode',complete);root.classList.toggle('aug-simple-mode',!complete);
+  const toggle=$('#augModeToggle');if(toggle)toggle.textContent=complete?'Mode Sederhana':'Mode Lengkap';
+  const advanced=$('#augAdvanced');if(advanced)advanced.open=complete;
+  const parameters=$('#augMultiParameters');if(parameters)parameters.open=complete;
+  syncSimpleAugParameter(!complete);
+}
 function syncParameters(){
   const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
   document.querySelectorAll('[data-aug-param]').forEach(input=>{
@@ -29,6 +51,7 @@ function syncParameters(){
     input.disabled=role;
     if(role)input.checked=false;
   });
+  syncSimpleAugParameter(analysisUiMode()==='simple');
 }
 function repeatedTreatments(data,index){
   if(index===null||index===undefined||index<0)return [];
@@ -115,30 +138,17 @@ function sedTable(out){
 function renderAugmented(out,name,dataName){
   const warning=out.warnings.length?`<div class="analysis-smart-warning"><b>Periksa rancangan:</b> ${out.warnings.map(esc).join(' ')}</div>`:'';
   const cv=Number.isFinite(out.cv)?fmt(out.cv,2)+'%':'—';
-  return `<section class="analysis-result augmented-result" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
+  return `<section class="analysis-result augmented-result aug-view-summary" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
     <h3>Augmented RCBD — ${esc(name)}</h3>
-    ${resultActions(`augmented-${name}`)}
-    <div class="aug-result-summary">
-      <span><b>${out.blocks.length}</b><small>Blok</small></span>
-      <span><b>${out.checks.length}</b><small>Check</small></span>
-      <span><b>${out.tests.length}</b><small>Entry uji</small></span>
-      <span><b>${out.dfError}</b><small>db galat</small></span>
-      <span><b>${fmt(out.mse)}</b><small>KT galat</small></span>
-      <span><b>${cv}</b><small>CV</small></span>
+    <div class="simple-result-tabs" role="tablist"><button type="button" data-aug-view="summary" aria-pressed="true">Rataan</button><button type="button" data-aug-view="anova" aria-pressed="false">ANOVA</button><button type="button" data-aug-view="detail" aria-pressed="false">Detail</button></div>
+    <div class="aug-summary-pane">
+      <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Check</small></span><span><b>${out.tests.length}</b><small>Entry uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmt(out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>CV</small></span></div>
+      ${warning}
+      <div class="table-caption aug-main-caption">Rataan terkoreksi genotipe</div>${adjustedMeansTable(out)}
+      <div class="analysis-note">Δ vs check memakai rerata seluruh check. ↑/↓ = arah selisih; * p &lt; 0,05; ** p &lt; 0,01.</div>
     </div>
-    ${warning}
-    <div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmt(out.checkAdjustedMean)}</b></span></div>
-    <div class="aug-anova-grid">
-      <section><div class="table-caption">Perlakuan | dikoreksi blok</div>${anovaTable(out.treatmentAdjusted)}</section>
-      <section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted)}</section>
-    </div>
-    <div class="table-caption aug-main-caption">Adjusted mean genotipe</div>
-    ${adjustedMeansTable(out)}
-    <div class="analysis-note">Δ vs rerata check memakai rerata marginal seluruh check. ↑/↓ menunjukkan arah; * p &lt; 0,05; ** p &lt; 0,01; tn = tidak nyata. Rank hanya mengurutkan adjusted mean.</div>
-    <div class="aug-secondary-grid">
-      <section><div class="table-caption">Efek blok</div>${blockTable(out)}</section>
-      <section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section>
-    </div>
+    <div class="aug-anova-pane"><div class="aug-anova-grid"><section><div class="table-caption">Perlakuan | dikoreksi blok</div>${anovaTable(out.treatmentAdjusted)}</section><section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted)}</section></div></div>
+    <div class="aug-detail-pane"><div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmt(out.checkAdjustedMean)}</b></span></div><div class="aug-secondary-grid"><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section></div>${resultActions(`augmented-${name}`)}</div>
   </section>`;
 }
 async function showResults(html,title,data,parameterCount){
@@ -151,6 +161,12 @@ async function showResults(html,title,data,parameterCount){
     if(!dock||!body)throw Error('dock unavailable');
     body.innerHTML=html;
     body.dataset.datasetName=data.name||'Dataset';
+    body.querySelectorAll('[data-aug-view]').forEach(button=>button.addEventListener('click',()=>{
+      const section=button.closest('.augmented-result'),mode=button.dataset.augView;
+      section.classList.remove('aug-view-summary','aug-view-anova','aug-view-detail');section.classList.add('aug-view-'+mode);
+      section.querySelectorAll('[data-aug-view]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+      section.scrollIntoView({block:'start'});
+    }));
     if(heading)heading.textContent=title;
     dock.hidden=false;dock.dataset.open='true';
     document.body.classList.add('analysis-results-open');
@@ -163,40 +179,29 @@ async function showResults(html,title,data,parameterCount){
 export function openAugmentedDesign(){
   const data=readDataset();
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
-  openTool('Augmented Design',`<div class="augmented-workspace">
-    <div class="aug-context">
-      <span class="aug-mark">AD</span>
-      <div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot · check berulang + entry uji tanpa ulangan</small></div>
+  dataForAug=data;
+  openTool('Augmented Design',`<div class="augmented-workspace aug-simple-mode">
+    <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div><button id="augModeToggle" type="button">Mode Lengkap</button></div>
+    <div class="aug-simple-form">
+      <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
+      <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
+      <label><span>Parameter</span><select id="augSimpleParameter"></select></label>
     </div>
-    <div class="aug-config-layout">
-      <section class="aug-card">
-        <div class="aug-card-head"><b>1 · Struktur</b><small>Kolom rancangan</small></div>
-        <div class="aug-form">
-          <label><span>Blok / Kelompok</span><select id="augBlock">${columnOptions(data)}</select></label>
-          <label><span>Genotipe / Entry</span><select id="augTreatment">${columnOptions(data)}</select></label>
-          <label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label>
-          <label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label>
-        </div>
-        <small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul &gt;1 kali. Anda tetap dapat mengubah daftar ini.</small>
-      </section>
-      <section class="aug-card aug-parameter-card">
-        <div class="aug-card-head"><b>2 · Parameter</b><small>Pilih respons numerik</small></div>
-        ${parameterField(data)}
-      </section>
-      <aside class="aug-card aug-review-card">
-        <div class="aug-card-head"><b>3 · Pemeriksaan</b><small>Sebelum analisis</small></div>
-        <div id="augStructure"></div>
-      </aside>
-    </div>
+    <div id="augStructure" class="aug-structure-inline"></div>
+    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Beberapa parameter</summary>${parameterField(data)}</details>
+    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan lanjutan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
     <div id="augmentedError" role="alert"></div>
-    <div class="aug-runbar"><span>Model: μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Jalankan analisis</button></div>
+    <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
 
   let treatment=choose($('#augTreatment'),/(genotip|genotype|galur|variet|entry|aksesi|perlakuan|treatment)/i,data);
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
-  fillChecks(data);syncParameters();structurePreview(data);
+  fillChecks(data);syncParameters();applyAugUiMode();structurePreview(data);
+  globalThis.StatisticalWebWorkflow?.setActive?.('setup');
+  $('#augModeToggle').addEventListener('click',()=>{applyAugUiMode(analysisUiMode()==='complete'?'simple':'complete');});
+  $('#augSimpleParameter').addEventListener('change',event=>{document.querySelectorAll('[data-aug-param]').forEach(input=>{input.checked=input.value===event.target.value;});});
   $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
   $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});
   $('#augChecks').addEventListener('input',()=>structurePreview(data));
