@@ -232,10 +232,11 @@ function discoverTrait(id){
   if(id==='zero')awardAchievement('zero');else awardAchievement('anomaly');
 }
 function gameProfile(){
-  const historyYield=(state.history||[]).reduce((sum,item)=>sum+(Number(item.yield)||0),0);
-  const bestYield=Math.max(Number(state.seasonStats?.maxYield)||0,...(state.history||[]).map(item=>Number(item.yield)||0));
-  const score=Math.max(0,Math.round((state.legacyScore||0)+historyYield*10+(state.xp||0)*2+(state.rivalWins||0)*250+(state.achievements?.length||0)*100+(state.legacy||0)*1000));
-  return {bestYield:round(bestYield,1),season:state.season,level:state.level,legacy:state.legacy||0,location:state.location,xp:state.xp||0,rivalWins:state.rivalWins||0,achievements:state.achievements?.length||0,totalYield:round(historyYield+(state.seasonStats?.yield||0),1)};
+  const history=state.history||[],historyYield=history.reduce((sum,item)=>sum+(Number(item.yield)||0),0);
+  const currentIncluded=history.some(item=>Number(item.season)===Number(state.season));
+  const currentYield=currentIncluded?0:(Number(state.seasonStats?.yield)||0);
+  const bestYield=Math.max(Number(state.seasonStats?.yield)||0,...history.map(item=>Number(item.yield)||0));
+  return {bestYield:round(bestYield,1),season:state.season,level:state.level,legacy:state.legacy||0,location:state.location,xp:state.xp||0,rivalWins:state.rivalWins||0,achievements:state.achievements?.length||0,totalYield:round(historyYield+currentYield,1)};
 }
 function notifyGameProfile(){
   document.dispatchEvent(new CustomEvent('fieldzero-profile',{detail:gameProfile()}));
