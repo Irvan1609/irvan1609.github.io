@@ -79,10 +79,8 @@ async function showQrImage(orderId,fallbackUrl=''){
   image.hidden=true;
   if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}
   try{
-    const response=await fetch(endpoint+'/v1/membership/payments/'+encodeURIComponent(orderId)+'/qr',{
-      headers:{Authorization:'Bearer '+token()},
-      cache:'no-store'
-    });
+    const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
+    const response=await request('/v1/membership/payments/'+encodeURIComponent(orderId)+'/qr',{cache:'no-store'});
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       throw Error(data.message||data.error||('HTTP '+response.status));
