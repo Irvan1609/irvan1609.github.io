@@ -89,29 +89,16 @@ jobs:
           fs.writeFileSync('hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
           NODE
 
-      - name: Prepare optional Worker secrets file
-        id: worker-secrets
-        env:
-          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
-            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
-            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
-          else
-            echo "MIDTRANS_SERVER_KEY GitHub tidak ada; mempertahankan secret yang sudah tersimpan di Cloudflare."
-            echo "args=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Validate Midtrans credential when managed by GitHub
+      - name: Validate optional Midtrans credential
+        id: midtrans-check
         env:
           MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
-            echo "Validasi Midtrans GitHub dilewati; secret dikelola langsung di Cloudflare."
+            echo "MIDTRANS_SERVER_KEY GitHub tidak ada; secret Cloudflare yang sudah ada akan dipertahankan."
+            echo "use_secret=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -123,10 +110,28 @@ jobs:
           AUTH="$(printf '%s:' "$KEY" | base64 | tr -d '\\n')"
           STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -H "Authorization: Basic $AUTH" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
           if [ "$STATUS" = "401" ]; then
-            echo "::error::MIDTRANS_SERVER_KEY ditolak Midtrans. Copy ulang Server Key yang benar dari environment merchant yang sesuai."
-            exit 1
+            echo "::warning::MIDTRANS_SERVER_KEY GitHub ditolak Midtrans dan tidak akan disinkronkan. Secret Cloudflare yang sudah ada dipertahankan."
+            echo "use_secret=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "Midtrans credential accepted (probe HTTP $STATUS)."
+          echo "use_secret=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare optional Worker secrets file
+        id: worker-secrets
+        env:
+          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+          USE_MIDTRANS_SECRET: ${{ steps.midtrans-check.outputs.use_secret }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${USE_MIDTRANS_SECRET:-false}" = "true" ]; then
+            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
+            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "Secret Midtrans dari GitHub tidak digunakan pada deploy ini."
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v4
