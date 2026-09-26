@@ -1664,3 +1664,221 @@ body.calm-ui [data-unlock-level][hidden]{display:none!important}
     display:block
   }
 }
+
+
+/* FIELD ZERO SYSTEMS PASS 2026-09-26 */
+body.calm-ui .advance-notice{
+  margin:5px 0 0;
+  padding:6px 8px;
+  border:1px solid #665635;
+  border-radius:6px;
+  background:#201c13;
+  color:#cbbd94;
+  font-size:8px;
+  line-height:1.35
+}
+body.calm-ui .advance-notice[hidden]{display:none!important}
+body.calm-ui #nextDay[data-blocked]{opacity:.66}
+
+body.calm-ui .inspector-head-actions{gap:3px}
+body.calm-ui .inspector-head-actions>button{
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid #2d3b33;
+  border-radius:6px;
+  background:#171f1b;
+  color:#a9b6ae;
+  font-size:11px
+}
+body.calm-ui #nextIssuePlot{color:#c9ad67}
+
+body.calm-ui .design-precision-note{
+  margin:-2px 0 7px;
+  color:#85938b;
+  font-size:8px
+}
+body.calm-ui .augmented-intro{
+  padding:8px;
+  border:1px solid #334439;
+  border-radius:6px;
+  background:#121a15
+}
+body.calm-ui .augmented-intro b{font-size:10px}
+body.calm-ui .augmented-intro p{margin:4px 0 0;color:#87958d;font-size:8.5px;line-height:1.4}
+body.calm-ui .augmented-ranking{
+  margin-top:7px;
+  border:1px solid #2b3a31;
+  border-radius:6px;
+  overflow:hidden
+}
+body.calm-ui .augmented-ranking header,
+body.calm-ui .augmented-ranking>div{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) minmax(150px,.8fr);
+  gap:6px;
+  align-items:center;
+  padding:6px 8px;
+  border-bottom:1px solid #26332c
+}
+body.calm-ui .augmented-ranking header{grid-template-columns:1fr auto;background:#111713}
+body.calm-ui .augmented-ranking>div:last-child{border-bottom:0}
+body.calm-ui .augmented-ranking header b,
+body.calm-ui .augmented-ranking>div b{font-size:8.5px}
+body.calm-ui .augmented-ranking header span,
+body.calm-ui .augmented-ranking>div span{color:#89978f;font-size:7.5px}
+body.calm-ui .augmented-ranking strong{font-size:8px;color:#b3c1b8}
+body.calm-ui .augmented-ranking em{color:#cbd9d0;font-style:normal;font-weight:800}
+
+body.calm-ui .candidate-metrics{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:3px!important
+}
+body.calm-ui .candidate-metrics span{
+  min-width:0;
+  padding:4px;
+  border:1px solid #29372f;
+  border-radius:5px;
+  background:#121915;
+  color:#9eaba3;
+  font-size:7.5px
+}
+
+body.calm-ui .recovery-list,
+body.calm-ui .breeder-notebook,
+body.calm-ui .experiment-history-list{
+  display:grid;
+  gap:5px
+}
+body.calm-ui .recovery-list article,
+body.calm-ui .breeder-notebook article,
+body.calm-ui .experiment-history-list article{
+  min-width:0;
+  padding:7px 8px;
+  border:1px solid #2c3a32;
+  border-radius:6px;
+  background:#121915
+}
+body.calm-ui .recovery-list article{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center
+}
+body.calm-ui .recovery-list b,
+body.calm-ui .breeder-notebook b,
+body.calm-ui .experiment-history-list b{font-size:9px}
+body.calm-ui .recovery-list small,
+body.calm-ui .breeder-notebook small,
+body.calm-ui .experiment-history-list small{display:block;margin-top:2px;color:#7f8d85;font-size:7.5px}
+body.calm-ui .recovery-list button{
+  min-height:34px;
+  padding:4px 8px;
+  border:1px solid #425648;
+  border-radius:6px;
+  background:#1a251f;
+  color:#d3ddd6;
+  font-size:8px
+}
+body.calm-ui .experiment-history-list header{
+  display:flex;
+  justify-content:space-between;
+  gap:8px
+}
+body.calm-ui .experiment-history-list article>div{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-top:5px
+}
+body.calm-ui .experiment-history-list article>div span{
+  padding:3px 5px;
+  border-radius:4px;
+  background:#1b2520;
+  color:#93a198;
+  font-size:7.5px
+}
+
+body.calm-ui .generation-compare{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px
+}
+body.calm-ui .generation-compare article{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:4px 8px;
+  padding:8px;
+  border:1px solid #2c3a32;
+  border-radius:6px;
+  background:#121915
+}
+body.calm-ui .generation-compare article>b{font-size:11px}
+body.calm-ui .generation-compare article>span{justify-self:end;color:#839188;font-size:8px}
+body.calm-ui .generation-compare article>div{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px}
+body.calm-ui .generation-compare small{color:#839188;font-size:7.5px}
+body.calm-ui .generation-compare strong{font-size:8.5px}
+
+body.calm-ui .decision-review{
+  grid-column:1/-1;
+  display:grid;
+  gap:3px;
+  margin-top:3px;
+  padding:7px;
+  border:1px solid #2b3931;
+  border-radius:6px;
+  background:#111713
+}
+body.calm-ui .decision-review b{font-size:8.5px}
+body.calm-ui .decision-review span{color:#89968e;font-size:7.7px;line-height:1.35}
+
+body.calm-ui .first-season-note{
+  margin:0 0 5px;
+  padding:6px 8px;
+  border-radius:6px;
+  background:#17201b;
+  color:#a8b4ad;
+  font-size:8px
+}
+
+@media(max-width:620px){
+  body.calm-ui .field-tool-dock{
+    position:sticky!important;
+    top:auto!important;
+    bottom:calc(4px + env(safe-area-inset-bottom));
+    z-index:45;
+    box-shadow:none!important
+  }
+  body.calm-ui.inspector-engaged .inspector{
+    position:fixed!important;
+    left:5px!important;
+    right:5px!important;
+    top:auto!important;
+    bottom:calc(6px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-height:64dvh!important;
+    overflow:auto!important;
+    z-index:130!important;
+    display:block!important;
+    transform:none!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    border-radius:10px 10px 7px 7px!important;
+    box-shadow:none!important
+  }
+  body.calm-ui .inspector-head-actions>button{
+    width:38px;
+    height:38px
+  }
+  body.calm-ui .augmented-ranking header,
+  body.calm-ui .augmented-ranking>div{
+    grid-template-columns:28px minmax(0,1fr)
+  }
+  body.calm-ui .augmented-ranking header{grid-template-columns:1fr}
+  body.calm-ui .augmented-ranking>div span{grid-column:2}
+  body.calm-ui .candidate-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.calm-ui .generation-compare{grid-template-columns:1fr}
+}
