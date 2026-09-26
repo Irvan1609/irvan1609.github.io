@@ -5,9 +5,6 @@ import {resultActions} from './result-export.js';
 import {backupRawDataset} from './drive-backup.js';
 
 const $=selector=>document.querySelector(selector);
-const UI_MODE='statistical_web_analysis_ui_mode_v2';
-function analysisUiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
-function setAnalysisUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fmt=(value,digits=3)=>Number.isFinite(value)?formatNumber(value,digits):'—';
 const activeRows=data=>data.rows.filter(row=>row.some(value=>String(value??'').trim()!==''));
@@ -35,14 +32,13 @@ function syncSimpleAugParameter(forceSingle=false){
   if(forceSingle&&selected)inputs.forEach(input=>{input.checked=input===selected;});
 }
 let dataForAug=null;
-function applyAugUiMode(mode=analysisUiMode()){
+function applyAugUiMode(){
   const root=document.querySelector('.augmented-workspace');if(!root)return;
-  const complete=mode==='complete';setAnalysisUiMode(mode);
-  root.classList.toggle('aug-complete-mode',complete);root.classList.toggle('aug-simple-mode',!complete);
-  const toggle=$('#augModeToggle');if(toggle)toggle.textContent=complete?'Mode Sederhana':'Mode Lengkap';
-  const advanced=$('#augAdvanced');if(advanced)advanced.open=complete;
-  const parameters=$('#augMultiParameters');if(parameters)parameters.open=complete;
-  syncSimpleAugParameter(!complete);
+  root.classList.remove('aug-simple-mode','aug-complete-mode');
+  root.classList.add('aug-unified-mode');
+  const advanced=$('#augAdvanced');if(advanced)advanced.open=false;
+  const parameters=$('#augMultiParameters');if(parameters)parameters.open=false;
+  syncSimpleAugParameter(false);
 }
 function syncParameters(){
   const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
@@ -51,7 +47,7 @@ function syncParameters(){
     input.disabled=role;
     if(role)input.checked=false;
   });
-  syncSimpleAugParameter(analysisUiMode()==='simple');
+  syncSimpleAugParameter(false);
 }
 function repeatedTreatments(data,index){
   if(index===null||index===undefined||index<0)return [];
@@ -180,16 +176,16 @@ export function openAugmentedDesign(){
   const data=readDataset();
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
   dataForAug=data;
-  openTool('Augmented Design',`<div class="augmented-workspace aug-simple-mode">
-    <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div><button id="augModeToggle" type="button">Mode Lengkap</button></div>
+  openTool('Augmented Design',`<div class="augmented-workspace aug-unified-mode">
+    <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div></div>
     <div class="aug-simple-form">
       <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
       <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
       <label><span>Parameter</span><select id="augSimpleParameter"></select></label>
     </div>
     <div id="augStructure" class="aug-structure-inline"></div>
-    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Beberapa parameter</summary>${parameterField(data)}</details>
-    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan lanjutan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
+    <details id="augMultiParameters" class="aug-card aug-multi-parameters"><summary>Parameter lainnya</summary>${parameterField(data)}</details>
+    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
     <div id="augmentedError" role="alert"></div>
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
@@ -200,11 +196,13 @@ export function openAugmentedDesign(){
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
   fillChecks(data);syncParameters();applyAugUiMode();structurePreview(data);
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
-  $('#augModeToggle').addEventListener('click',()=>{applyAugUiMode(analysisUiMode()==='complete'?'simple':'complete');});
   $('#augSimpleParameter').addEventListener('change',event=>{document.querySelectorAll('[data-aug-param]').forEach(input=>{input.checked=input.value===event.target.value;});});
   $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters();structurePreview(data);});
   $('#augBlock').addEventListener('change',()=>{syncParameters();structurePreview(data);});
   $('#augChecks').addEventListener('input',()=>structurePreview(data));
+  document.querySelector('.augmented-workspace')?.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();$('#runAugmented')?.click();}
+  });
 
   $('#runAugmented').onclick=async()=>{
     const error=$('#augmentedError');error.innerHTML='';
