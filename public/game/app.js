@@ -1454,7 +1454,7 @@ function useFieldTool(tool,index,{seedId=''}={}){
   if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
   if(tool==='plant'){plantSelected();return true;}
   if(tool==='treatment')return applyExperimentTreatment(index);
-  if(tool==='select'){const crop=state.field[index];if(!crop||crop.health<=0)return false;crop.selectionMarked=!crop.selectionMarked;if(crop.selectionMarked&&plotUse(index)==='commercial')state.plotUse[index]='breeding';save();renderField();renderInspector();return true;}
+  if(tool==='select'){const crop=state.field[index];if(!crop||crop.health<=0)return false;crop.selectionMarked=!crop.selectionMarked;if(crop.selectionMarked&&plotUse(index)==='commercial'){crop.selectionAutoUse=true;state.plotUse[index]='breeding';}else if(!crop.selectionMarked&&crop.selectionAutoUse&&plotUse(index)==='breeding'){state.plotUse[index]='commercial';crop.selectionAutoUse=false;}save();renderField();renderInspector();return true;}
   if(!state.field[index]){haptic(4);renderField();renderInspector();return false;}
   if(tool==='harvest'){
     if(state.field[index].growth<100||state.field[index].health<=0){haptic(4);renderField();renderInspector();return false;}
