@@ -36,6 +36,9 @@ jobs:
       - name: Validate security contract
         run: node scripts/check-security-contract.mjs
 
+      - name: Validate Cloudflare hardening contract
+        run: node scripts/check-cloudflare-hardening.mjs
+
       - name: Resolve D1 database id
         id: d1
         env:
