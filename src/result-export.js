@@ -108,7 +108,8 @@ async function exportScope(scope, filename, formulas=false) {
 }
 
 export function resultActions(filename='hasil-analisis') {
-  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">ƒx Ekspor Excel (formula)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
+  const safe=escAttr(filename);
+  return `<div class="result-actions result-card-actions"><button type="button" class="result-card-copy" data-result-action="copy">Salin</button><button type="button" class="result-card-export" data-result-action="export" data-result-filename="${safe}">Ekspor</button><details class="result-card-more"><summary aria-label="Aksi lain untuk hasil ini">⋯</summary><div class="result-card-more-menu"><button type="button" class="result-card-mobile-export" data-result-action="export" data-result-filename="${safe}">Ekspor Excel</button><button type="button" data-result-action="export-formula" data-result-filename="${safe}">Excel formula</button></div></details><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
 function decorateCollapsibleResults(root=document){
