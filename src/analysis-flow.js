@@ -4,7 +4,6 @@ const FAVORITES='statistical_web_analysis_favorites_v1';
 const RECENT='statistical_web_analysis_recent_v1';
 const USAGE='statistical_web_analysis_usage_v1';
 const CONFIG='statistical_web_analysis_config_v1';
-const UI_MODE='statistical_web_analysis_ui_mode_v2';
 
 let scientificReady=false;
 async function scientificModule(){
@@ -29,9 +28,6 @@ function phoneGuardMode(){return globalThis.matchMedia?.('(max-width:720px)')?.m
 function readArray(key){try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[];}catch{return [];}}
 function readObject(key){try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}}
 function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{}}
-function uiMode(){try{return localStorage.getItem(UI_MODE)==='complete'?'complete':'simple';}catch{return 'simple';}}
-function setUiMode(mode){try{localStorage.setItem(UI_MODE,mode==='complete'?'complete':'simple');}catch{}}
-
 const analysisGroups=[
   {title:'Rancangan Percobaan',items:[
     ['design','ral','RAL','Satu faktor, acak lengkap'],
@@ -104,27 +100,31 @@ function simpleCard(key,label,mark,sub=''){
   return `<button type="button" class="analysis-simple-card" data-simple-analysis="${key}"><span>${mark}</span><b>${label}</b>${sub?`<small>${sub}</small>`:''}</button>`;
 }
 function panelMarkup(){
-  const groups=analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group data-group-index="${index}"><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b></span><span class="analysis-group-meta"><small>${group.items.length}</small><span class="analysis-group-chevron">⌄</span></span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('');
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><small>Mulai dari rancangan yang paling sesuai</small></div><button type="button" class="analysis-mode-toggle" data-analysis-mode-toggle>Mode Lengkap</button></div>
-    <div class="analysis-simple-view" data-analysis-simple-view>
+  const groups=analysisGroups.map(group=>`<section class="analysis-menu-group" data-analysis-group><div class="analysis-group-heading"><b>${group.title}</b><small>${group.items.length}</small></div><div class="analysis-group-items">${group.items.map(analysisButton).join('')}</div></section>`).join('');
+  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><small>Rancangan utama langsung tersedia; metode lain ada di Lainnya.</small></div></div>
+    <div class="analysis-simple-view analysis-unified-view" data-analysis-unified-view>
       <div class="analysis-simple-grid">
         ${simpleCard('design:ral','RAL','RAL')}
         ${simpleCard('design:rak','RAK','RAK')}
         ${simpleCard('factorial','Faktorial','2F','RAL / RAK')}
         ${simpleCard('design:split','Split Plot','RPT')}
         ${simpleCard('augmented:augmented','Augmented','AD')}
-        ${simpleCard('more','Lainnya','···')}
+        ${simpleCard('more','Lainnya','···','Semua metode')}
       </div>
       <div class="analysis-factorial-choice" data-factorial-choice hidden>
         <button type="button" data-simple-analysis="design:fral"><b>Faktorial RAL</b><small>Tanpa kelompok</small></button>
         <button type="button" data-simple-analysis="design:frak"><b>Faktorial RAK</b><small>Dengan kelompok</small></button>
       </div>
-      <div class="analysis-simple-foot"><button type="button" data-auto-detect>Deteksi otomatis dari data</button></div>
+      <div class="analysis-simple-foot"><button type="button" data-auto-detect>Deteksi rancangan</button></div>
     </div>
-    <div class="analysis-complete-view" data-analysis-complete-view hidden>
-      <div id="analysisQuickArea" class="analysis-quick-area">${quickMarkup()}</div>
+    <div class="analysis-more-catalog" data-analysis-more hidden>
+      <div class="analysis-more-toolbar">
+        <input type="search" data-analysis-search placeholder="Cari analisis…" aria-label="Cari metode analisis">
+        <button type="button" data-check-data>Periksa data</button>
+        <button type="button" data-quick-run ${hasSavedScientificConfigLocal()?'':'disabled'}>Ulangi terakhir</button>
+      </div>
+      <div id="analysisQuickArea" class="analysis-quick-area analysis-quick-history">${quickMarkup()}</div>
       <div class="analysis-menu-groups">${groups}</div>
-      <div class="analysis-menu-foot"><span id="analysisSelectedLabel">Pilih satu metode</span><button id="confirmAnalysis" type="button" class="primary" disabled>Lanjut</button></div>
     </div>`;
 }
 
@@ -133,42 +133,18 @@ export function installAnalysisFlow(){
   const panel=document.createElement('div');panel.id='analysisMenu';panel.className='nav-command-panel analysis-command-panel';panel.hidden=true;
   panel.setAttribute('role','region');panel.setAttribute('aria-label','Analisis');panel.innerHTML=panelMarkup();nav.parentElement.append(panel);
   open.textContent='Analisis';open.setAttribute('aria-controls','analysisMenu');open.setAttribute('aria-expanded','false');
-  const confirm=()=>panel.querySelector('#confirmAnalysis'),selectedLabel=()=>panel.querySelector('#analysisSelectedLabel');
-  let selectedButton=null;
-  function resetSelection(){
-    selectedButton=null;
-    panel.querySelectorAll('.analysis-menu-item').forEach(button=>{button.classList.remove('selected');button.setAttribute('aria-pressed','false');});
-    if(confirm())confirm().disabled=true;if(selectedLabel())selectedLabel().textContent='Pilih satu metode';
-  }
-  function choose(button){
-    selectedButton=button;
-    panel.querySelectorAll('.analysis-menu-item').forEach(item=>{const active=item===button;item.classList.toggle('selected',active);item.setAttribute('aria-pressed',String(active));});
-    if(confirm())confirm().disabled=false;if(selectedLabel())selectedLabel().textContent=button.querySelector('b')?.textContent||'Metode dipilih';
-  }
   function refreshQuick(){
     const target=panel.querySelector('#analysisQuickArea');if(target)target.innerHTML=quickMarkup();
     const fav=new Set(favorites());
     panel.querySelectorAll('[data-favorite-key]').forEach(button=>{const pinned=fav.has(button.dataset.favoriteKey);button.textContent=pinned?'★':'☆';button.setAttribute('aria-pressed',String(pinned));});
   }
-  function applyGroupCollapse(){
-    const compact=phoneGuardMode();
-    panel.querySelectorAll('[data-analysis-group]').forEach((group,index)=>{
-      const body=group.querySelector('.analysis-group-items'),toggle=group.querySelector('.analysis-group-toggle');
-      const openGroup=!compact||index===0||groupUseScore(index)>0;
-      if(body)body.hidden=!openGroup;toggle?.setAttribute('aria-expanded',String(openGroup));
-    });
-  }
-  function applyMode(mode=uiMode()){
-    const complete=mode==='complete';setUiMode(mode);
-    panel.querySelector('[data-analysis-simple-view]').hidden=complete;
-    panel.querySelector('[data-analysis-complete-view]').hidden=!complete;
-    const toggle=panel.querySelector('[data-analysis-mode-toggle]');
-    if(toggle)toggle.textContent=complete?'Mode Sederhana':'Mode Lengkap';
-    panel.dataset.mode=mode;
-    if(complete){refreshQuick();applyGroupCollapse();if(phoneGuardMode())resetSelection();}
+  function openMore(){
+    const more=panel.querySelector('[data-analysis-more]');if(!more)return;
+    more.hidden=false;refreshQuick();
+    requestAnimationFrame(()=>more.querySelector('[data-analysis-search]')?.focus());
   }
   function closeMenu(){panel.hidden=true;open.setAttribute('aria-expanded','false');panel.querySelector('[data-factorial-choice]')?.setAttribute('hidden','');}
-  function openMenu(){document.dispatchEvent(new Event('close-navigation'));applyMode();panel.hidden=false;open.setAttribute('aria-expanded','true');requestAnimationFrame(()=>panel.querySelector('.analysis-simple-card,.analysis-menu-item')?.focus());}
+  function openMenu(){document.dispatchEvent(new Event('close-navigation'));panel.hidden=false;open.setAttribute('aria-expanded','true');panel.querySelector('[data-analysis-more]')?.setAttribute('hidden','');refreshQuick();requestAnimationFrame(()=>panel.querySelector('.analysis-simple-card,.analysis-menu-item')?.focus());}
   async function openDescriptor(found,sourceButton=null){
     if(!found)return;
     const [type,value,label]=found.item;rememberUse(found.key);closeMenu();if(sourceButton)sourceButton.disabled=true;
@@ -198,12 +174,10 @@ export function installAnalysisFlow(){
 
   open.addEventListener('click',()=>panel.hidden?openMenu():closeMenu());
   panel.addEventListener('click',async event=>{
-    const modeToggle=event.target.closest('[data-analysis-mode-toggle]');
-    if(modeToggle){applyMode(uiMode()==='complete'?'simple':'complete');return;}
     const simple=event.target.closest('[data-simple-analysis]');
     if(simple){
       const key=simple.dataset.simpleAnalysis;
-      if(key==='more'){applyMode('complete');return;}
+      if(key==='more'){const more=panel.querySelector('[data-analysis-more]');if(more&&!more.hidden){more.hidden=true;simple.focus();}else openMore();return;}
       if(key==='factorial'){
         const choice=panel.querySelector('[data-factorial-choice]');choice.hidden=!choice.hidden;simple.setAttribute('aria-expanded',String(!choice.hidden));return;
       }
@@ -219,14 +193,20 @@ export function installAnalysisFlow(){
     if(auto){await autoDetect(auto);return;}
     const quickRun=event.target.closest('[data-quick-run]');
     if(quickRun){quickRun.disabled=true;try{const mod=await scientificModule(),ok=await mod.quickRunLastScientific();if(!ok)quickRun.textContent='Belum ada';}catch(error){console.error(error);}closeMenu();return;}
-    const toggle=event.target.closest('.analysis-group-toggle');
-    if(toggle&&phoneGuardMode()){const body=toggle.nextElementSibling,opening=body?.hidden!==false;if(body)body.hidden=!opening;toggle.setAttribute('aria-expanded',String(opening));return;}
     const button=event.target.closest('.analysis-menu-item');
-    if(button){if(phoneGuardMode())choose(button);else await openButton(button);}
+    if(button)await openButton(button);
   });
-  confirm()?.addEventListener('click',()=>openButton(selectedButton));
   document.addEventListener('agrotik-open-analysis',event=>{const key=String(event.detail?.key||'');const found=descriptor(key)||flatItems.find(entry=>entry.item[1]===key);if(found)void openDescriptor(found);});
   document.addEventListener('agrotik-run-recipe',async event=>{const recipe=event.detail?.recipe;if(!recipe)return;try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error(error);}});
   document.addEventListener('close-navigation',closeMenu);
-  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
+  panel.addEventListener('input',event=>{
+    const search=event.target.closest('[data-analysis-search]');if(!search)return;
+    const query=search.value.trim().toLocaleLowerCase('id-ID');
+    panel.querySelectorAll('.analysis-menu-item-wrap').forEach(row=>row.hidden=!!query&&!row.textContent.toLocaleLowerCase('id-ID').includes(query));
+    panel.querySelectorAll('[data-analysis-group]').forEach(group=>{group.hidden=![...group.querySelectorAll('.analysis-menu-item-wrap')].some(row=>!row.hidden);});
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape')closeMenu();
+    if(event.key==='/'&&!panel.hidden&&!event.ctrlKey&&!event.metaKey&&!event.altKey){event.preventDefault();openMore();panel.querySelector('[data-analysis-search]')?.focus();}
+  });
 }
