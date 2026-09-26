@@ -44,6 +44,7 @@
         <p>Tanam · rawat · panen · kembangkan benih.</p>
       </div>
       <div class="head-actions">
+        <button id="cloudSync" class="icon-button cloud-sync" type="button" data-sync-status="local" title="Progres lokal · masuk untuk sinkron antar perangkat" aria-label="Progres lokal · masuk untuk sinkron antar perangkat">☁</button>
         <button id="gameHelp" class="icon-button" type="button" title="Bantuan" aria-label="Bantuan">?</button>
         <button id="soundToggle" class="icon-button" type="button" aria-pressed="false" title="Musik & suara">♫</button>
         <button id="newRun" class="icon-button" type="button" title="Mulai ulang">↺</button>
@@ -188,6 +189,20 @@
     </section>
   </div>
 
+  <div id="syncConflictModal" class="event-backdrop" hidden>
+    <section class="event-card sync-conflict-card" role="dialog" aria-modal="true" aria-labelledby="syncConflictTitle">
+      <span class="event-kicker">CLOUD SAVE</span>
+      <h2 id="syncConflictTitle">Pilih progres</h2>
+      <p>Perangkat ini dan cloud sama-sama memiliki perubahan. Pilih progres yang ingin diteruskan.</p>
+      <div id="syncConflictBody" class="sync-conflict-body"></div>
+      <div class="sync-conflict-actions">
+        <button id="syncUseCloud" class="primary" type="button">Gunakan cloud</button>
+        <button id="syncKeepLocal" type="button">Gunakan perangkat ini</button>
+        <button id="syncConflictLater" type="button">Nanti</button>
+      </div>
+    </section>
+  </div>
+
   <div id="socialModal" class="event-backdrop" hidden>
     <section class="event-card social-card" role="dialog" aria-modal="true" aria-labelledby="socialTitle">
       <div class="modal-head">
@@ -225,6 +240,7 @@
   <script type="module" src="/account.js?v=20260926-6"></script>
   <script type="module" src="/game/app.js"></script>
   <script type="module" src="/game/social.js"></script>
+  <script type="module" src="/game/sync.js"></script>
   <script src="/pwa-register.js"></script>
 </body>
 </html>
