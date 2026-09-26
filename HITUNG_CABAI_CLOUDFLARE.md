@@ -68,3 +68,12 @@ Worker dan D1 memiliki batas Free. Aplikasi memakai pola **local-first**: analis
 Foto kontribusi tetap diperkecil menjadi maksimum 1.280 px dan sekitar 850 kB. Jika binding R2 `IMAGES` tersedia, objek gambar baru disimpan di R2 dan D1 hanya menyimpan metadata serta object key. Jika R2 belum tersedia, Worker tetap kompatibel dengan fallback BLOB D1. Data lama yang masih berupa BLOB tetap dapat dibaca.
 
 Maintenance terjadwal membersihkan state OAuth/sesi kedaluwarsa, operasi idempoten lama, audit log lama, dan dataset yang sudah lama berstatus terhapus. Nilai default: idempotency 14 hari, audit 90 hari, dan dataset terhapus 30 hari; semuanya dapat diubah melalui Worker vars.
+
+## 8. Dedup, Cloud Budget, dan backup terverifikasi
+
+- Kontribusi foto baru dihitung SHA-256 sebelum penyimpanan. Konten gambar yang sama dapat direferensikan ulang tanpa menyimpan blob/objek kedua.
+- Saat migrasi D1 → R2, foto lama juga diberi hash dan dideduplikasi.
+- Mode Cloud Budget dapat menjeda upload AI pada mode hemat/darurat tanpa mematikan aplikasi lokal.
+- Snapshot logical backup dibaca ulang dari R2 dan checksum SHA-256 diverifikasi sebelum status `success`.
+- Backup harian dirancang berumur 30 hari, sedangkan salinan bulanan dirancang berumur 365 hari melalui lifecycle R2.
+- Pengukur kuota di Develop adalah estimasi aplikasi/soft budget; meter Workers dan D1 resmi tetap berasal dari Cloudflare Analytics.
