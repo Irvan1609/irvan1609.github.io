@@ -350,6 +350,7 @@ function applyScienceUiMode(mode=analysisUiMode()){
   modal.classList.toggle('science-complete-mode',complete);modal.classList.toggle('science-simple-mode',!complete);
   const button=$('#scienceModeToggle');if(button)button.textContent=complete?'Mode Sederhana':'Mode Lengkap';
   const advanced=$('#scienceAdvancedOptions');if(advanced)advanced.open=complete;
+  const multi=$('#scienceMultiParameters');if(multi)multi.open=complete;
   syncSimpleParameter(!complete);
 }
 function syncParameterRoleExclusions(initial=false){
