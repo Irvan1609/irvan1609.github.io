@@ -493,7 +493,7 @@ function generationSummary(){
   return Object.entries(groups).map(([label,items])=>{
     const mean=items.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/Math.max(1,items.length);
     const selected=items.filter(item=>item.selected),selectedMean=selected.length?selected.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/selected.length:null;
-    const hom=items.reduce((sum,item)=>sum+Number(item.seed?.homozygosity??genomeStats(item.seed?.genome).homozygosity||0),0)/Math.max(1,items.length);
+    const hom=items.reduce((sum,item)=>sum+Number(item.seed?.homozygosity??genomeStats(item.seed?.genome).homozygosity??0),0)/Math.max(1,items.length);
     return {label,n:items.length,mean,selected:selected.length,selectedMean,hom};
   }).sort((a,b)=>Number(String(a.label).replace(/\D/g,''))-Number(String(b.label).replace(/\D/g,'')));
 }
