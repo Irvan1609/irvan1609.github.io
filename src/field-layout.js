@@ -133,13 +133,38 @@ function passesFilter(entry){
   if(['empty','partial','complete'].includes(config.filter))return progress.status===config.filter;
   return status===config.filter;
 }
+function latestResidualValues(parameterName){
+  try{
+    const history=JSON.parse(localStorage.getItem('statistical_web_analysis_history_v1')||'[]');
+    const datasetName=String(current.name||'').replace(/\.(csv|txt)$/i,'');
+    const entry=(Array.isArray(history)?history:[]).find(item=>String(item.dataset||'').replace(/\.(csv|txt)$/i,'')===datasetName&&Array.isArray(item.reports)&&item.reports.some(report=>report.name===parameterName));
+    const report=entry?.reports?.find(item=>item.name===parameterName);if(!report||!Array.isArray(report.residuals))return null;
+    const values=new Map();
+    report.residuals.forEach((value,index)=>{
+      const row=Number(report.observations?.[index]?.row);
+      const rowIndex=Number.isInteger(row)&&row>0?row-1:(report.residuals.length===current.rows.length?index:-1);
+      if(rowIndex>=0&&Number.isFinite(Number(value)))values.set(rowIndex,Number(value));
+    });
+    return values.size?values:null;
+  }catch{return null;}
+}
 function heatmapScale(){
   const index=Number(config.heatmap);
   if(config.colorMode!=='parameter'||index<0)return null;
-  const values=current.rows.map(row=>Number(String(row[index]??'').replace(',','.'))).filter(Number.isFinite);
-  if(!values.length)return null;
-  const min=Math.min(...values),max=Math.max(...values);
-  return {index,min,max};
+  const raw=new Map();
+  current.rows.forEach((row,rowIndex)=>{const value=Number(String(row[index]??'').replace(',','.'));if(Number.isFinite(value))raw.set(rowIndex,value);});
+  let values=raw,label=String(current.headers[index]||'Parameter');
+  if(config.heatTransform==='residual'){
+    values=latestResidualValues(label)||new Map();label='Residual · '+label;
+  }else if(config.heatTransform==='zscore'&&raw.size){
+    const list=[...raw.values()],mean=list.reduce((a,b)=>a+b,0)/list.length,sd=Math.sqrt(list.reduce((sum,value)=>sum+(value-mean)**2,0)/Math.max(1,list.length-1))||1;
+    values=new Map([...raw].map(([row,value])=>[row,(value-mean)/sd]));label='Z-score · '+label;
+  }else if(config.heatTransform==='percentile'&&raw.size){
+    const sorted=[...raw.values()].sort((a,b)=>a-b);
+    values=new Map([...raw].map(([row,value])=>{const rank=sorted.findLastIndex(x=>x<=value)+1;return [row,rank/sorted.length*100];}));label='Persentil · '+label;
+  }
+  const list=[...values.values()].filter(Number.isFinite);if(!list.length)return null;
+  return {index,min:Math.min(...list),max:Math.max(...list),values,label,transform:config.heatTransform};
 }
 function visualForPlot(entry,scale){
   const progress=rowProgress(current,entry.row),status=plotStatus(entry.index),color=colorLabel(current,entry.row);
@@ -148,10 +173,11 @@ function visualForPlot(entry,scale){
     return {hue,heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur'};
   }
   if(config.colorMode==='parameter'&&scale){
-    const value=Number(String(entry.row[scale.index]??'').replace(',','.'));
+    const value=scale.values.get(entry.index);
     if(Number.isFinite(value)){
       const ratio=scale.max===scale.min?0.5:Math.max(0,Math.min(1,(value-scale.min)/(scale.max-scale.min)));
-      return {hue:220-(ratio*220),heat:true,label:String(entry.row[scale.index]??'')};
+      const label=scale.transform==='percentile'?Math.round(value)+'%':Number(value).toLocaleString('id-ID',{maximumFractionDigits:3});
+      return {hue:220-(ratio*220),heat:true,label};
     }
   }
   return {hue:hashHue(color),heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur',status};
@@ -316,6 +342,37 @@ function ensureModal(){
     const keep=selectedRow;refreshData();
     if(multiMode)renderBatchEditor();else if(Number.isInteger(keep)&&keep<current.rows.length){selectedRow=keep;renderEditor(keep);}
   });
+}
+
+
+function setZoom(value,{history=true}={}){
+  if(!current)return;if(history)pushLayoutHistory('zoom denah');
+  config={...config,zoom:Math.max(.45,Math.min(1.8,Number(value)||1))};writeConfig(current,config);
+  applyZoom();
+}
+function applyZoom(){const map=$('#fieldMap');if(map)map.style.zoom=String(config.zoom||1);const label=$('#fieldFit');if(label)label.textContent=Math.round((config.zoom||1)*100)+'%';}
+function fitFieldMap(){
+  const pane=$('.field-map-pane'),map=$('#fieldMap');if(!pane||!map)return;
+  map.style.zoom='1';const width=Math.max(1,map.scrollWidth),height=Math.max(1,map.scrollHeight),fit=Math.min(1.2,(pane.clientWidth-18)/width,(pane.clientHeight-18)/height);
+  setZoom(Math.max(.45,fit));pane.scrollTo({left:0,top:0,behavior:'smooth'});
+}
+function toggleFlip(key){
+  pushLayoutHistory(key==='flipX'?'balik kiri-kanan':'balik atas-bawah');config={...config,[key]:!config[key]};writeConfig(current,config);renderMap();
+}
+function orientEntries(entries){
+  const rows=[];for(let start=0;start<entries.length;start+=config.columns)rows.push(entries.slice(start,start+config.columns));
+  if(config.flipX)rows.forEach(row=>row.reverse());if(config.flipY)rows.reverse();return rows.flat();
+}
+function addFieldObject(){
+  const type=prompt('Jenis objek: jalan, drainase, pematang, pohon, air, gudang, lainnya','drainase');if(!type)return;
+  const label=prompt('Nama/keterangan objek:',type)||type;
+  pushLayoutHistory('tambah objek lahan');
+  config={...config,objects:[...(config.objects||[]),{id:crypto.randomUUID(),type:String(type).trim(),label:String(label).trim()}]};writeConfig(current,config);renderMap();
+}
+function toggleRoadAfter(index){
+  const key=plotKey(index);pushLayoutHistory('jalan manual');const roadAfter={...config.roadAfter};
+  if(roadAfter[key])delete roadAfter[key];else roadAfter[key]=true;
+  config={...config,roadAfter};writeConfig(current,config);renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
 }
 
 function groupLabelForRow(index){
