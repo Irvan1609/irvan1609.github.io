@@ -1210,10 +1210,10 @@ function renderInspector(){
 function renderVault(){
   $('#vaultCount').textContent=state.vault.length;
   $('#vaultList').innerHTML=state.vault.map(seed=>{
-    const stats=genomeStats(seed.genome),label=seed.generationLabel||('G'+seed.generation);
-    return `<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>${esc(label)}</small></div><small>🌱 ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${seed.baseYield.toFixed(1)} · Hom ${Math.round(stats.homozygosity*100)}%</small><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}" title="Nama varietas">✎</button></div></article>`;
+    const stg=generationStage(seed),known=seedEvidence(seed).level>=3;
+    return `<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>${esc(stg.label)}</small></div><small>🌱 ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${known?seed.baseYield.toFixed(1):'?'} · Hom ${Math.round(stg.homozygosity)}%</small><div class="seed-stage-line">${esc(stg.phase)} · ${esc(stg.scope)}</div><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}" title="Nama varietas">✎</button></div></article>`;
   }).join('');
-  const opts=state.vault.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · ${esc(seed.generationLabel||('G'+seed.generation))}</option>`).join('');
+  const opts=state.vault.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · ${esc(generationStage(seed).label)}</option>`).join('');
   const a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;
   if(state.vault.some(seed=>seed.id===av))a.value=av;if(state.vault.some(seed=>seed.id===bv))b.value=bv;
   updateCrossPreview();
@@ -1274,7 +1274,7 @@ function renderGenomeLab(){
 function renderEvolution(){
   STARTER_SEEDS.forEach(rememberLineage);state.vault.forEach(rememberLineage);
   const recent=[...state.lineage].sort((a,b)=>b.generation-a.generation).slice(0,8);
-  $('#evolutionPreview').innerHTML=recent.map(node=>`<div class="evolution-node"><span>${esc(node.generationLabel||('G'+node.generation))}</span><b>${esc(node.name)}</b><small>${node.parents?.length?node.parents.length+' induk · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small></div>`).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
+  $('#evolutionPreview').innerHTML=recent.map(node=>{const stg=generationStage(node);return `<div class="evolution-node"><span>${esc(stg.label)}</span><b>${esc(node.name)}</b><small>${esc(stg.phase)} · ${node.parents?.length?node.parents.length+' induk · Hom '+Math.round(stg.homozygosity)+'%':esc(node.source||'Founder')}</small></div>`}).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
 }
 function renderAcademyPanel(){
   const tracks=academyTrack(),done=tracks.reduce((sum,module)=>sum+module.done,0),total=tracks.reduce((sum,module)=>sum+module.items.length,0),el=$('#academyStatus');
@@ -1321,7 +1321,7 @@ function openPrestige(){
 }
 function openEvolution(){
   const nodes=[...state.lineage].sort((a,b)=>a.generation-b.generation);
-  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>`<article><span>${esc(node.generationLabel||('G'+node.generation))}</span><div><b>${esc(node.name)}</b><small>${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × ')+' · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`).join('')}</div>`);
+  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>{const stg=generationStage(node);return `<article><span>${esc(stg.label)}</span><div><b>${esc(node.name)}</b><small>${esc(stg.phase)} · ${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × ')+' · Hom '+Math.round(stg.homozygosity)+'%':esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`}).join('')}</div>`);
 }
 function openCollectionBook(){
   const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
