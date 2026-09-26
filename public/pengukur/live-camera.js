@@ -1,6 +1,7 @@
 import {detectMarkers} from './geometry.js';
 import {alignmentCheck} from './alignment.js';
 import {imageQuality} from './image-tools.js';
+import {calibratorLayout} from './paper.js';
 
 export function cameraGuide(points,width,height,profile={activeWidth:180,activeHeight:267}){
   const ratio=profile.activeWidth/profile.activeHeight;
@@ -22,11 +23,39 @@ export function cameraGuide(points,width,height,profile={activeWidth:180,activeH
   return {target,ready,message,alignment,error};
 }
 
-export function installLiveCamera({onCapture,getProfile,onQuality}){
+function fileStem(value){
+  return String(value||'').normalize('NFC').trim().replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/,'').slice(0,100)||('pengukur-'+Date.now());
+}
+function quadPoint(points,u,v){
+  const top=[points[0][0]+(points[1][0]-points[0][0])*u,points[0][1]+(points[1][1]-points[0][1])*u];
+  const bottom=[points[3][0]+(points[2][0]-points[3][0])*u,points[3][1]+(points[2][1]-points[3][1])*u];
+  return [top[0]+(bottom[0]-top[0])*v,top[1]+(bottom[1]-top[1])*v];
+}
+function labelGeometry(points,profile){
+  if(!points||points.length!==4)return null;
+  const layout=calibratorLayout(profile),box=layout.label,aw=profile.activeWidth,ah=profile.activeHeight;
+  const u=(box.x+box.width/2)/aw,v=(box.y+box.height/2)/ah,center=quadPoint(points,u,v);
+  const top=Math.hypot(points[1][0]-points[0][0],points[1][1]-points[0][1])/aw;
+  const bottom=Math.hypot(points[2][0]-points[3][0],points[2][1]-points[3][1])/aw;
+  const left=Math.hypot(points[3][0]-points[0][0],points[3][1]-points[0][1])/ah;
+  const right=Math.hypot(points[2][0]-points[1][0],points[2][1]-points[1][1])/ah;
+  return {center,width:box.width*(top+bottom)/2,height:box.height*(left+right)/2,angle:Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0])};
+}
+function drawEmbeddedLabel(ctx,points,profile,label){
+  const text=String(label||'').trim().slice(0,80),g=labelGeometry(points,profile);if(!text||!g)return;
+  const w=Math.max(80,g.width),h=Math.max(24,g.height),pad=Math.max(4,h*.16);
+  ctx.save();ctx.translate(g.center[0],g.center[1]);ctx.rotate(g.angle);
+  ctx.fillStyle='rgba(255,255,255,.96)';ctx.strokeStyle='#111';ctx.lineWidth=Math.max(1,h*.035);ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeRect(-w/2,-h/2,w,h);
+  let font=Math.max(12,h*.5);ctx.font='700 '+font+'px Arial,sans-serif';
+  while(font>10&&ctx.measureText(text).width>w-pad*2){font-=1;ctx.font='700 '+font+'px Arial,sans-serif';}
+  ctx.fillStyle='#111';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,0,1,w-pad*2);ctx.restore();
+}
+
+export function installLiveCamera({onCapture,getProfile,onQuality,getLabel}){
   const $=id=>document.getElementById(id),open=$('openLive'),close=$('closeLive'),take=$('takeLive');
   const panel=$('livePanel'),video=$('liveVideo'),overlay=$('liveOverlay'),status=$('liveStatus'),qualityEl=$('liveQuality');
   const sample=document.createElement('canvas'),sc=sample.getContext('2d',{willReadFrequently:true}),oc=overlay.getContext('2d');
-  let stream=null,timer=null,generation=0,stable=0,capturing=false;
+  let stream=null,timer=null,generation=0,stable=0,capturing=false,lastPoints=null,lastProfile=null;
   let orientation={beta:null,gamma:null,seen:false};
   const orientationState=()=>{
     if(!orientation.seen)return {available:false,ready:true,beta:null,gamma:null};
