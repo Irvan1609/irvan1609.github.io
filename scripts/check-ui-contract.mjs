@@ -48,10 +48,6 @@ for(const [module,author] of [['Statistical Web','Irvan'],['Hitung Cabai','Irvan
   if(!portfolioHtml.includes(credit))fail('module credits must live on dashboard cards only: '+module);
 }
 
-const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);')+'<\\/h3>\\s*<span class="tool-credit">'+author+'<\\/span>');
-  if(!pattern.test(portfolioHtml))fail('module credits must live on dashboard cards only: '+module);
-}
-
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
 if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(', ')}`);
 
@@ -203,6 +199,7 @@ for(const marker of ['result-os-menu','result-os-menu-body'])if(!resultOs.includ
 if(!statStyle.includes('/* COMPACT RESULT ACTIONS 2026-09-26 */')||!resultOsStyle.includes('/* COMPACT RESULT OS CONTROLS 2026-09-26 */'))fail('compact result action styles missing');
 if(!statStyle.includes('/* STAT COMPACT POLISH 2026-09-26 */')||!resultOsStyle.includes('/* RESULT OS PASSIVE METRICS 2026-09-26 */'))fail('compact polish styles missing');
 if(!statStyle.includes('/* STAT MOBILE SCALE SYSTEM 2026-09-26 */')||!resultOsStyle.includes('/* RESULT OS MOBILE SCALE SYSTEM 2026-09-26 */'))fail('mobile scale system missing');
+if(!statStyle.includes('/* STAT MOBILE VISUAL RHYTHM FINAL 2026-09-27 */')||!resultOsStyle.includes('/* RESULT OS MOBILE VISUAL RHYTHM FINAL 2026-09-27 */'))fail('mobile visual rhythm guard missing');
 for(const marker of ['data-result-filter','data-result-focus','data-compare-mode','data-publication-mode','data-result-prev','data-result-next','RESULT_ORDER','persistResultOrder','CONFIG','saveAnalysisConfig','restoreAnalysisConfig','sciencePreset','PRESETS'])if(!scientific.includes(marker))fail('analysis powerup missing '+marker);
 for(const marker of ['detectScientificDesign','quickRunLastScientific','hasSavedScientificConfig','datasetFingerprint','snapshotActiveDataset','data-stale-banner','data-presentation-mode','data-rerun-stale','resultVersion','compareHistoryEntries','data-history-compare','data-focus-error-row'])if(!scientific.includes(marker)&&!main.includes(marker))fail('analysis productivity feature missing '+marker);
 for(const marker of ['export-bab4','exportBab4Doc','application/msword','copy-publication'])if(!resultExport.includes(marker))fail('BAB IV/Word export workflow missing '+marker);
