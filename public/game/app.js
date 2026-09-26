@@ -442,6 +442,75 @@ function openRecoveryCenter(){
 function noteBreeder(type,text,data={}){
   state.notebook=[{id:uid('note'),season:state.season,day:state.day,type,text:String(text).slice(0,180),data},...(state.notebook||[])].slice(0,80);
 }
+function recordDecision(type,decision,consequence=''){
+  state.decisionHistory=[{id:uid('decision'),season:state.season,day:state.day,type,decision:String(decision).slice(0,140),consequence:String(consequence).slice(0,180)},...(state.decisionHistory||[])].slice(0,80);
+}
+function selectPlotOffset(delta=1){
+  const limit=fieldLimit();if(!limit)return;
+  state.selectedPlot=(state.selectedPlot+delta+limit)%limit;renderField();renderInspector();renderComfortControls();openInspectorSheet();
+}
+function selectNextIssue(){
+  const issues=attentionIndexes();if(!issues.length){toast('Tidak ada petak bermasalah');return;}
+  const pos=issues.findIndex(item=>item.index===state.selectedPlot),next=issues[(pos+1+issues.length)%issues.length];
+  state.selectedPlot=next.index;renderField();renderInspector();renderComfortControls();openInspectorSheet();
+}
+function blockingAdvanceIssues(){
+  const issues=[];
+  if(state.pendingEvent)issues.push('kejadian lapang belum diputuskan');
+  const exp=state.experiment;
+  if(exp){
+    if(exp.kind==='genotype'){
+      const empty=exp.units.filter(unit=>!state.field[unit.plot]).length;
+      if(empty)issues.push(empty+' petak penelitian belum ditanami');
+    }else{
+      const unapplied=exp.units.filter(unit=>state.field[unit.plot]&&!unit.applied).length;
+      if(unapplied)issues.push(unapplied+' perlakuan belum diterapkan');
+    }
+  }
+  return issues;
+}
+function renderAdvanceNotice(){
+  const box=$('#advanceNotice');if(!box)return;
+  const issues=blockingAdvanceIssues();
+  box.hidden=!issues.length;
+  box.textContent=issues.length?'Selesaikan dulu: '+issues.join(' · '):'';
+  $('#nextDay')?.toggleAttribute('data-blocked',issues.length>0);
+}
+function openBreederNotebook(){
+  const notes=state.notebook||[];
+  openMetaModal('NOTEBOOK PEMULIA','Catatan otomatis lapang',notes.length?`<div class="breeder-notebook">${notes.map(note=>`<article><small>M${note.season} · H${note.day} · ${esc(note.type)}</small><b>${esc(note.text)}</b></article>`).join('')}</div>`:'<div class="meta-empty">Belum ada catatan pemulia.</div>');
+}
+function openExperimentHistory(){
+  const rows=state.experimentHistory||[];
+  openMetaModal('ARSIP RISET','Percobaan sebelumnya',rows.length?`<div class="experiment-history-list">${rows.map(item=>`<article><header><b>${esc(item.name)}</b><span>M${item.season}</span></header><div><span>${esc(String(item.design||'').toUpperCase())}</span><span>Mutu ${Math.round(Number(item.quality)||0)}%</span><span>${item.completed||0}/${item.total||0} unit</span></div>${item.summary?.length?`<small>${esc(item.summary.join(' · '))}</small>`:''}</article>`).join('')}</div>`:'<div class="meta-empty">Belum ada percobaan yang diarsipkan.</div>');
+}
+function generationSummary(){
+  const groups={};
+  for(const item of state.selectionPool||[]){
+    const label=item.seed?.generationLabel||('G'+Number(item.seed?.generation||0));
+    (groups[label]??=[]).push(item);
+  }
+  return Object.entries(groups).map(([label,items])=>{
+    const mean=items.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/Math.max(1,items.length);
+    const selected=items.filter(item=>item.selected),selectedMean=selected.length?selected.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/selected.length:null;
+    const hom=items.reduce((sum,item)=>sum+Number(item.seed?.homozygosity??genomeStats(item.seed?.genome).homozygosity||0),0)/Math.max(1,items.length);
+    return {label,n:items.length,mean,selected:selected.length,selectedMean,hom};
+  }).sort((a,b)=>Number(String(a.label).replace(/\D/g,''))-Number(String(b.label).replace(/\D/g,'')));
+}
+function openGenerationCompare(){
+  const rows=generationSummary();
+  openMetaModal('GENERASI','Perubahan antar generasi',rows.length?`<div class="generation-compare">${rows.map(row=>`<article><b>${esc(row.label)}</b><span>n=${row.n}</span><div><small>Rerata hasil</small><strong>${row.mean.toFixed(1)} kg</strong></div><div><small>Terpilih</small><strong>${row.selected}${row.selectedMean===null?'':' · '+row.selectedMean.toFixed(1)+' kg'}</strong></div><div><small>Homozigositas</small><strong>${Math.round(row.hom*100)}%</strong></div></article>`).join('')}</div>`:'<div class="meta-empty">Panen dan seleksi beberapa generasi untuk membuat perbandingan.</div>');
+}
+function seasonDecisionReview(researchQuality=null){
+  const out=[],margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+  if(state.seasonStats.cost>0)out.push('Input '+formatRupiah(state.seasonStats.cost)+' → margin '+formatRupiah(margin));
+  if(researchQuality!==null)out.push('Rancangan & pengamatan → mutu data '+researchQuality+'%');
+  const selected=selectionCandidates(state.season).filter(item=>item.selected).length,candidates=selectionCandidates(state.season).length;
+  if(candidates)out.push('Seleksi '+selected+'/'+candidates+' kandidat → benih generasi berikutnya');
+  if(state.fieldPressure.pathogen>20||state.fieldPressure.fatigue>20)out.push('Tekanan musim → carry-over patogen '+state.fieldPressure.pathogen.toFixed(1)+' / stres '+state.fieldPressure.fatigue.toFixed(1));
+  if(!out.length)out.push('Keputusan musim tercatat; lanjutkan untuk membandingkan konsekuensinya.');
+  return out.slice(0,4);
+}
 function save(){
   try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}
   const fingerprint=progressFingerprint();
