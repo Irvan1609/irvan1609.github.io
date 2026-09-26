@@ -115,3 +115,152 @@ export function geneticEffects(genome){
     heterozygosity:LOCI.filter(hetero).length/LOCI.length
   };
 }
+
+
+// PROFESSOR ACADEMY: experimental design, statistics, and breeding pedagogy.
+const academyMean=values=>values.reduce((sum,value)=>sum+value,0)/Math.max(1,values.length);
+const academySum=values=>values.reduce((sum,value)=>sum+value,0);
+function academyGammaLn(z){
+  const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,.001208650973866179,-.000005395239384953];
+  let x=z,y=z,tmp=x+5.5;tmp-=(x+.5)*Math.log(tmp);let ser=1.000000000190015;
+  for(let j=0;j<c.length;j++)ser+=c[j]/++y;
+  return -tmp+Math.log(2.5066282746310005*ser/x);
+}
+function academyBetaCf(a,b,x){
+  const max=120,eps=3e-8,fpmin=1e-30,qab=a+b,qap=a+1,qam=a-1;
+  let c=1,d=1-qab*x/qap;if(Math.abs(d)<fpmin)d=fpmin;d=1/d;let h=d;
+  for(let m=1;m<=max;m++){
+    const m2=2*m;
+    let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<fpmin)d=fpmin;c=1+aa/c;if(Math.abs(c)<fpmin)c=fpmin;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<fpmin)d=fpmin;c=1+aa/c;if(Math.abs(c)<fpmin)c=fpmin;d=1/d;const del=d*c;h*=del;
+    if(Math.abs(del-1)<eps)break;
+  }
+  return h;
+}
+function academyBetaI(a,b,x){
+  if(x<=0)return 0;if(x>=1)return 1;
+  const bt=Math.exp(academyGammaLn(a+b)-academyGammaLn(a)-academyGammaLn(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x<(a+1)/(a+b+2)?bt*academyBetaCf(a,b,x)/a:1-bt*academyBetaCf(b,a,1-x)/b;
+}
+function academyFPValue(f,df1,df2){
+  if(!(f>=0)||df1<=0||df2<=0)return null;
+  const x=(df1*f)/(df1*f+df2);
+  return Math.max(0,Math.min(1,1-academyBetaI(df1/2,df2/2,x)));
+}
+function academyTCritical05(df){
+  const table=[[1,12.706],[2,4.303],[3,3.182],[4,2.776],[5,2.571],[6,2.447],[7,2.365],[8,2.306],[9,2.262],[10,2.228],[12,2.179],[15,2.131],[20,2.086],[30,2.042],[60,2],[120,1.98],[1e9,1.96]];
+  for(let i=0;i<table.length;i++){
+    if(df<=table[i][0]){
+      if(i===0)return table[i][1];
+      const [d0,t0]=table[i-1],[d1,t1]=table[i],w=(df-d0)/(d1-d0);
+      return t0+(t1-t0)*w;
+    }
+  }
+  return 1.96;
+}
+function academyNumeric(value){
+  if(typeof value==='number')return Number.isFinite(value)?value:null;
+  const n=Number(String(value??'').trim().replace(',','.'));return Number.isFinite(n)?n:null;
+}
+export function analyzeExperiment(exp,parameter){
+  if(!exp||!parameter)return {ok:false,error:'Pilih parameter.'};
+  const rows=(exp.units||[]).map(u=>({u,y:academyNumeric(u.observations?.[parameter])})).filter(row=>row.y!==null);
+  const treatmentIds=[...new Set(rows.map(row=>row.u.treatmentId))],blocks=[...new Set(rows.map(row=>row.u.block||row.u.rep))];
+  if(rows.length<4||treatmentIds.length<2)return {ok:false,error:'Data numerik belum cukup untuk ANOVA.'};
+  const grand=academyMean(rows.map(row=>row.y)),ssTotal=academySum(rows.map(row=>(row.y-grand)**2));
+  const groups=treatmentIds.map(id=>{const values=rows.filter(row=>row.u.treatmentId===id).map(row=>row.y);return {id,values,n:values.length,mean:academyMean(values)};});
+  const ssTreatment=academySum(groups.map(group=>group.n*(group.mean-grand)**2));
+  let ssBlock=0,dfBlock=0;
+  if(exp.design==='rak'){
+    const blockGroups=blocks.map(id=>{const values=rows.filter(row=>(row.u.block||row.u.rep)===id).map(row=>row.y);return {id,n:values.length,mean:academyMean(values)};});
+    ssBlock=academySum(blockGroups.map(group=>group.n*(group.mean-grand)**2));dfBlock=Math.max(0,blockGroups.length-1);
+  }
+  const ssError=Math.max(0,ssTotal-ssTreatment-ssBlock),dfTreatment=treatmentIds.length-1,dfError=Math.max(0,rows.length-1-dfTreatment-dfBlock);
+  if(dfError<1)return {ok:false,error:'Derajat bebas galat tidak cukup. Tambah ulangan.'};
+  const msTreatment=ssTreatment/dfTreatment,msError=ssError/dfError,f=msError>0?msTreatment/msError:Infinity,p=f===Infinity?0:academyFPValue(f,dfTreatment,dfError);
+  const cv=grand!==0?Math.sqrt(msError)/Math.abs(grand)*100:null,reps=groups.map(group=>group.n),avgRep=academyMean(reps),balanced=reps.every(n=>n===reps[0]);
+  const lsd=academyTCritical05(dfError)*Math.sqrt(2*msError/Math.max(1,avgRep));
+  const heritability=exp.kind==='genotype'&&balanced&&msTreatment>0?Math.max(0,Math.min(1,(msTreatment-msError)/msTreatment)):null;
+  const treatmentLookup=new Map((exp.treatments||[]).map(t=>[t.id,t]));
+  const means=groups.map(group=>({id:group.id,name:treatmentLookup.get(group.id)?.name||group.id,code:treatmentLookup.get(group.id)?.code||group.id,n:group.n,mean:group.mean})).sort((a,b)=>b.mean-a.mean);
+  return {
+    ok:true,parameter,n:rows.length,design:exp.design,grandMean:grand,cv,lsd,means,p,significant:p<.05,heritability,
+    anova:[
+      {source:'Perlakuan',df:dfTreatment,ss:ssTreatment,ms:msTreatment,f,p},
+      ...(exp.design==='rak'?[{source:'Kelompok',df:dfBlock,ss:ssBlock,ms:dfBlock?ssBlock/dfBlock:null,f:null,p:null}]:[]),
+      {source:'Galat',df:dfError,ss:ssError,ms:msError,f:null,p:null},
+      {source:'Total',df:rows.length-1,ss:ssTotal,ms:null,f:null,p:null}
+    ]
+  };
+}
+export function auditDesign(exp,plotRegistry=[]){
+  if(!exp)return [];
+  const findings=[],units=exp.units||[],treatments=exp.treatments||[],counts=treatments.map(t=>units.filter(u=>u.treatmentId===t.id).length);
+  if(counts.length&&Math.min(...counts)<2)findings.push({level:'error',code:'replication',text:'Ada perlakuan dengan ulangan <2; ragam galat dan inferensi perlakuan menjadi lemah.'});
+  if(counts.length&&Math.max(...counts)!==Math.min(...counts))findings.push({level:'warn',code:'imbalance',text:'Jumlah ulangan antarperlakuan tidak seimbang.'});
+  if(exp.design==='rak'){
+    for(const treatment of treatments){
+      const treatmentBlocks=units.filter(u=>u.treatmentId===treatment.id).map(u=>u.block);
+      if(new Set(treatmentBlocks).size!==treatmentBlocks.length||new Set(treatmentBlocks).size<Math.min(3,exp.reps||3)){
+        findings.push({level:'error',code:'confounding',text:treatment.code+' tidak muncul tepat sekali pada setiap kelompok; efek perlakuan dapat terbaur dengan kelompok.'});break;
+      }
+    }
+  }
+  const selected=units.map(u=>plotRegistry[u.plot]).filter(Boolean),fertility=selected.map(p=>Number(p.fertility)).filter(Number.isFinite);
+  if(exp.design==='ral'&&fertility.length>2&&Math.max(...fertility)-Math.min(...fertility)>.08){
+    findings.push({level:'warn',code:'heterogeneous-field',text:'RAL digunakan pada lahan bergradien. RAK biasanya lebih efisien karena variasi antarkelompok dapat dipisahkan dari galat.'});
+  }
+  const missing=units.filter(u=>Object.values(u.observations||{}).every(v=>String(v??'').trim()==='')).length;
+  if(missing)findings.push({level:'warn',code:'missing',text:missing+' unit belum memiliki data; kehilangan unit menurunkan presisi dan dapat mengganggu keseimbangan.'});
+  if(units.some(u=>Array.isArray(u.timeline)&&u.timeline.length>1))findings.push({level:'info',code:'repeated-measure',text:'Pengamatan HST berulang pada petak yang sama adalah repeated measurement, bukan ulangan independen. Tanaman sampel juga subsampel, bukan ulangan.'});
+  if(!findings.length)findings.push({level:'ok',code:'sound',text:'Randomisasi, replikasi, dan struktur rancangan konsisten untuk data yang tersedia.'});
+  return findings;
+}
+export function conceptForDesign(design){
+  return design==='rak'
+    ?{title:'RAK · local control',text:'Setiap perlakuan diacak di dalam tiap kelompok. Variasi antarkelompok dipisahkan dari galat; cocok untuk lahan heterogen.'}
+    :{title:'RAL · randomisasi penuh',text:'Seluruh unit diacak tanpa blok. Efisien bila unit relatif homogen, tetapi gradien lapang akan masuk ke galat.'};
+}
+export function genomeStats(genome){
+  const g=normalizeGenome(genome,'stats'),heterozygous=LOCI.filter(locus=>g[locus]?.[0]!==g[locus]?.[1]).length;
+  return {loci:LOCI.length,heterozygous,homozygous:LOCI.length-heterozygous,heterozygosity:heterozygous/LOCI.length,homozygosity:(LOCI.length-heterozygous)/LOCI.length};
+}
+function nextSelfGenerationLabel(seed){
+  const label=String(seed?.generationLabel||'');
+  if(/^F\d+$/.test(label))return 'F'+(Number(label.slice(1))+1);
+  if(/^S\d+$/.test(label))return 'S'+(Number(label.slice(1))+1);
+  return seed?.parents?.length?'S1':'S1';
+}
+export function makeProgeny(parentA,parentB,mode='f1',key='cross'){
+  if(!parentA)return null;
+  const ga=normalizeGenome(parentA.genome,parentA.id||'A'),gb=normalizeGenome((parentB||parentA).genome,(parentB||parentA).id||'B');
+  const genome=mode==='self'?selfGenome(ga,key):crossGenome(ga,gb,key),stats=genomeStats(genome);
+  const mid=mode==='self'?Number(parentA.baseYield||0):(Number(parentA.baseYield||0)+Number(parentB?.baseYield||0))/2;
+  const heterosis=mode==='f1'?stats.heterozygosity*.1:stats.heterozygosity*.025,segregation=.96+unit(hash('segregation:'+key))*.08;
+  const generationLabel=mode==='f1'?'F1':mode==='self'?nextSelfGenerationLabel(parentA):mode==='backcross'?'BC'+((Number(parentA?.backcrossGeneration)||0)+1):'TC';
+  return {
+    genome,generationLabel,backcrossGeneration:mode==='backcross'?(Number(parentA?.backcrossGeneration)||0)+1:0,
+    homozygosity:stats.homozygosity,heterozygosity:stats.heterozygosity,
+    baseYield:Math.max(1,mid*(1+heterosis)*segregation),
+    vigor:Math.max(.65,academyMean([Number(parentA.vigor||1),Number(parentB?.vigor||parentA.vigor||1)])*(1+(mode==='f1'?stats.heterozygosity*.05:0))),
+    geneticEffects:geneticEffects(genome)
+  };
+}
+export function geneticsPreview(parentA,parentB,mode='f1'){
+  if(!parentA)return {title:'Pilih tetua',text:'Pilih material untuk melihat konsekuensi genetik.'};
+  const a=genomeStats(parentA.genome);
+  if(mode==='self')return {title:'Selfing '+(parentA.generationLabel||('G'+(parentA.generation||0))),text:'Selfing meningkatkan peluang homozigositas dan menghasilkan segregasi pada keturunan. Homozigositas tetua saat ini '+Math.round(a.homozygosity*100)+'%.'};
+  if(!parentB)return {title:'Pilih tetua kedua',text:'Persilangan memerlukan dua tetua.'};
+  const b=genomeStats(parentB.genome);
+  return mode==='backcross'
+    ?{title:'Backcross',text:'Keturunan disilangkan kembali ke tetua berulang untuk memulihkan latar genetik sambil mempertahankan alel target.'}
+    :{title:'F1',text:'Perbedaan alel tetua dapat meningkatkan heterozigositas F1 dan heterosis, tetapi kombinasi itu akan bersegregasi setelah selfing. Homozigositas tetua '+Math.round(a.homozygosity*100)+'% vs '+Math.round(b.homozygosity*100)+'%.'};
+}
+export function lociInfo(){
+  return {
+    YLD:{name:'Potensi hasil',effect:'Komponen hasil'},
+    MAT:{name:'Maturitas',effect:'Kecepatan perkembangan'},
+    WUE:{name:'Efisiensi air',effect:'Kehilangan air'},
+    DIS:{name:'Ketahanan penyakit',effect:'Risiko penyakit'}
+  };
+}
