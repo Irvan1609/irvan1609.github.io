@@ -96,11 +96,11 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
-for(const marker of ['data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-open-other','data-analysis-open'])if(!flow.includes(marker))fail('compact analysis selection missing '+marker);
+for(const marker of ['analysisGroups','analysis-group-board','analysis-compact-group','analysis-compact-item','data-analysis-open'])if(!flow.includes(marker))fail('compact grouped analysis selection missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana')||flow.includes('data-analysis-mode-toggle'))fail('analysis selection must use one compact interface without mode switches');
 if(!statStyle.includes('STAT COMPACT CONTROLS 2026-09-26')||!statStyle.includes('.analysis-other-picker'))fail('compact analysis picker styles missing');
 for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','/* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */','@media(min-width:901px)','grid-template-columns:repeat(5,minmax(0,1fr))!important','.analysis-group-items[hidden]','grid-template-columns:1fr!important'])if(!statStyle.includes(marker))fail('desktop all-column analysis panel missing '+marker);
-for(const marker of ['analysisOtherSelect','data-analysis-more','data-analysis-factorial','data-analysis-open'])if(!flow.includes(marker))fail('compact analysis workflow missing '+marker);
+if(flow.includes('analysisOtherSelect')||flow.includes('data-analysis-more')||flow.includes('data-analysis-factorial'))fail('all analyses must stay visible instead of being hidden behind compact pickers');
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Multivariat","Genetik & Multilokasi","Perencanaan","'association','correlation'","'association','path'"])if(!flow.includes(required))fail('analysis flow missing visible grouped analysis requirement: '+required);
 if(!flow.includes("openScientificLazy(value)")&&!flow.includes("openScientific(button.dataset.design)"))fail('analysis flow must open the selected scientific design, directly or lazily');
