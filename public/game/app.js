@@ -888,7 +888,7 @@ function freshExperimentDraft(){
     name:'Uji Field Zero',
     question:'Apakah perlakuan memengaruhi respons tanaman?',
     design:'rak',kind:'genotype',count:4,reps:3,custom:'',
-    kindB:'water',countB:2,customB:'',
+    kindB:'water',countB:2,customB:'',checkCount:2,
     parameters:recommendedParameters(state.species).slice(0,8).join(','),
     frequency:2
   };
@@ -905,19 +905,24 @@ function experimentKindOptions(selected='genotype'){
 function renderExperimentWizard(step=experimentWizardStep){
   experimentWizardStep=Math.max(1,Math.min(4,Number(step)||1));
   experimentDraft??=freshExperimentDraft();
-  const d=experimentDraft,advanced=advancedDesignUnlocked(),factorial=['fral','frak','split'].includes(d.design);
+  const d=experimentDraft,advanced=advancedDesignUnlocked(),augUnlocked=state.season>=2||state.level>=2,factorial=['fral','frak','split'].includes(d.design),augmented=d.design==='aug';
   const steps=['Tujuan','Rancangan','Perlakuan','Randomisasi'];
   const head=`<div class="research-steps">${steps.map((label,index)=>`<span class="${index+1===experimentWizardStep?'active':index+1<experimentWizardStep?'done':''}"><b>${index+1}</b>${label}</span>`).join('')}</div>`;
   let body='';
   if(experimentWizardStep===1){
     body=`<form id="experimentForm" class="experiment-wizard"><label>Nama penelitian<input name="name" value="${esc(d.name)}"></label><label>Pertanyaan penelitian<textarea name="question" rows="3">${esc(d.question)}</textarea></label><div class="wizard-actions"><button type="button" data-design-case-open>Contoh RAL/RAK</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
   }else if(experimentWizardStep===2){
-    body=`<form id="experimentForm" class="experiment-wizard"><label>Rancangan<select name="design"><option value="rak" ${d.design==='rak'?'selected':''}>RAK · ada kelompok</option><option value="ral" ${d.design==='ral'?'selected':''}>RAL · homogen</option><option value="frak" ${d.design==='frak'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAK</option><option value="fral" ${d.design==='fral'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAL</option><option value="split" ${d.design==='split'?'selected':''} ${advanced?'':'disabled'}>RPT / split-plot</option></select></label><label>Ulangan<input name="reps" type="number" min="2" max="6" value="${d.reps}"><small>RAK/FRAK/RPT memakai 3 kelompok lahan.</small></label><p class="wizard-note">${advanced?'Rancangan lanjut tersedia.':'Faktorial dan RPT terbuka setelah percobaan dasar atau Level 3.'}</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+    body=`<form id="experimentForm" class="experiment-wizard"><label>Rancangan<select name="design"><option value="rak" ${d.design==='rak'?'selected':''}>RAK · ada kelompok</option><option value="ral" ${d.design==='ral'?'selected':''}>RAL · homogen</option><option value="aug" ${d.design==='aug'?'selected':''} ${augUnlocked?'':'disabled'}>Augmented · galur baru + check</option><option value="frak" ${d.design==='frak'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAK</option><option value="fral" ${d.design==='fral'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAL</option><option value="split" ${d.design==='split'?'selected':''} ${advanced?'':'disabled'}>RPT / split-plot</option></select></label><label>Ulangan<input name="reps" type="number" min="2" max="6" value="${d.reps}" ${augmented?'disabled':''}><small>${augmented?'Check diulang pada 3 kelompok; galur baru umumnya satu kali.':'RAK/FRAK/RPT memakai 3 kelompok lahan.'}</small></label><p class="wizard-note">${augUnlocked?'Augmented tersedia untuk skrining banyak galur.':'Augmented terbuka mulai musim 2.'} ${advanced?'Faktorial dan RPT tersedia.':'Faktorial/RPT terbuka setelah percobaan dasar atau Level 3.'}</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
   }else if(experimentWizardStep===3){
-    body=`<form id="experimentForm" class="experiment-wizard" data-factorial="${factorial}"><label>Faktor A<select name="kind">${experimentKindOptions(d.kind)}</select></label><label>Taraf A<input name="count" type="number" min="2" max="8" value="${d.count}"></label><label>Nama taraf A<input name="custom" value="${esc(d.custom)}" placeholder="A0, A1, A2"></label>${factorial?`<div class="wizard-factor-b"><label>Faktor B<select name="kindB">${experimentKindOptions(d.kindB)}</select></label><label>Taraf B<input name="countB" type="number" min="2" max="4" value="${d.countB}"></label><label>Nama taraf B<input name="customB" value="${esc(d.customB)}" placeholder="B0, B1"></label></div>`:''}<div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+    if(augmented){
+      const maxEntries=Math.max(2,fieldLimit()-Math.max(1,Number(d.checkCount)||2)*BLOCK_COUNT);
+      body=`<form id="experimentForm" class="experiment-wizard"><div class="augmented-intro"><b>Augmented design</b><p>Check diulang pada setiap kelompok untuk mengoreksi gradien lahan. Galur baru mengisi petak tersisa tanpa ulangan penuh.</p></div><label>Jumlah check<input name="checkCount" type="number" min="1" max="3" value="${d.checkCount}"></label><label>Galur baru<input name="count" type="number" min="2" max="${maxEntries}" value="${Math.min(Number(d.count)||4,maxEntries)}"><small>Kapasitas saat ini maksimal ${maxEntries} galur baru.</small></label><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+    }else{
+      body=`<form id="experimentForm" class="experiment-wizard" data-factorial="${factorial}"><label>Faktor A<select name="kind">${experimentKindOptions(d.kind)}</select></label><label>Taraf A<input name="count" type="number" min="2" max="8" value="${d.count}"></label><label>Nama taraf A<input name="custom" value="${esc(d.custom)}" placeholder="A0, A1, A2"></label>${factorial?`<div class="wizard-factor-b"><label>Faktor B<select name="kindB">${experimentKindOptions(d.kindB)}</select></label><label>Taraf B<input name="countB" type="number" min="2" max="4" value="${d.countB}"></label><label>Nama taraf B<input name="customB" value="${esc(d.customB)}" placeholder="B0, B1"></label></div>`:''}<div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+    }
   }else{
-    const estimated=(factorial?Number(d.count)*Number(d.countB):Number(d.count))*Number(['rak','frak','split'].includes(d.design)?BLOCK_COUNT:d.reps);
-    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${esc(d.kind)}${factorial?' × '+esc(d.kindB):''}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="1" ${d.frequency===1?'selected':''}>Setiap hari</option><option value="2" ${d.frequency===2?'selected':''}>Setiap 2 hari</option><option value="3" ${d.frequency===3?'selected':''}>Setiap 3 hari</option><option value="4" ${d.frequency===4?'selected':''}>Setiap 4 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">Randomisasi akan langsung menandai petak penelitian. Tanaman di dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
+    const estimated=augmented?Number(d.count)+Number(d.checkCount||2)*BLOCK_COUNT:(factorial?Number(d.count)*Number(d.countB):Number(d.count))*Number(['rak','frak','split'].includes(d.design)?BLOCK_COUNT:d.reps);
+    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${augmented?'Galur + '+d.checkCount+' check':esc(d.kind)+(factorial?' × '+esc(d.kindB):'')}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="1" ${d.frequency===1?'selected':''}>Setiap hari</option><option value="2" ${d.frequency===2?'selected':''}>Setiap 2 hari</option><option value="3" ${d.frequency===3?'selected':''}>Setiap 3 hari</option><option value="4" ${d.frequency===4?'selected':''}>Setiap 4 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">${augmented?'Check akan muncul sekali di setiap kelompok; galur baru diacak ke petak tersisa.':'Randomisasi langsung menandai petak penelitian.'} Tanaman dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
   }
   openMetaModal('PENELITIAN',`📐 ${steps[experimentWizardStep-1]}`,head+body);
   const form=$('#experimentForm');
@@ -934,12 +939,19 @@ function renderExperimentWizard(step=experimentWizardStep){
     }
     if(experimentWizardStep===2){
       d.design=String(fd.get('design')||'rak');d.reps=Math.max(2,Math.min(6,Number(fd.get('reps'))||3));
-      if(['rak','frak','split'].includes(d.design))d.reps=BLOCK_COUNT;
+      if(['rak','frak','split','aug'].includes(d.design))d.reps=BLOCK_COUNT;
+      if(d.design==='aug')d.kind='genotype';
       renderExperimentWizard(3);return;
     }
     if(experimentWizardStep===3){
-      d.kind=String(fd.get('kind')||'genotype');d.count=Math.max(2,Math.min(8,Number(fd.get('count'))||4));d.custom=String(fd.get('custom')||'');
-      if(['fral','frak','split'].includes(d.design)){d.kindB=String(fd.get('kindB')||'water');d.countB=Math.max(2,Math.min(4,Number(fd.get('countB'))||2));d.customB=String(fd.get('customB')||'');}
+      if(d.design==='aug'){
+        d.checkCount=Math.max(1,Math.min(3,Number(fd.get('checkCount'))||2));
+        const capacity=Math.max(2,fieldLimit()-d.checkCount*BLOCK_COUNT);
+        d.count=Math.max(2,Math.min(capacity,Number(fd.get('count'))||4));d.kind='genotype';
+      }else{
+        d.kind=String(fd.get('kind')||'genotype');d.count=Math.max(2,Math.min(8,Number(fd.get('count'))||4));d.custom=String(fd.get('custom')||'');
+        if(['fral','frak','split'].includes(d.design)){d.kindB=String(fd.get('kindB')||'water');d.countB=Math.max(2,Math.min(4,Number(fd.get('countB'))||2));d.customB=String(fd.get('customB')||'');}
+      }
       renderExperimentWizard(4);return;
     }
     d.frequency=Math.max(1,Math.min(4,Number(fd.get('frequency'))||2));d.parameters=String(fd.get('parameters')||d.parameters);
