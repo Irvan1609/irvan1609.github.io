@@ -1890,3 +1890,40 @@ body.calm-ui .first-season-note{
   body.calm-ui .candidate-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   body.calm-ui .generation-compare{grid-template-columns:1fr}
 }
+
+
+/* FIELD ZERO AGRONOMIC TIME 2026-09-26 */
+.time-panel{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:6px;
+  padding:6px 8px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:#121d18
+}
+.time-main{min-width:0;display:grid;gap:2px}
+.time-main small{color:var(--green-2);font-size:8px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}
+.time-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:760}
+#timeStop{flex:0 0 auto;color:var(--muted);font-size:8px}
+.game-shell .day-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:5px;
+  margin-top:6px
+}
+.game-shell .day-actions button{min-width:82px;min-height:34px}
+.game-shell #nextCritical{min-width:118px}
+.game-shell #finishSeason{margin-left:auto}
+@media(max-width:620px){
+  .time-panel{align-items:flex-start;padding:6px 7px}
+  .time-main b{white-space:normal;line-height:1.25}
+  #timeStop{max-width:92px;text-align:right;line-height:1.2}
+  .game-shell .day-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  .game-shell .day-actions button{min-width:0;min-height:42px;padding:5px 4px;font-size:10px}
+  .game-shell #nextCritical{min-width:0}
+  .game-shell #finishSeason{grid-column:1/-1;margin-left:0}
+}
