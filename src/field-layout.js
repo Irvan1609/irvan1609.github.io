@@ -84,7 +84,7 @@ function groupEntries(data){
   });
   return [...groups.entries()].map(([label,entries])=>{
     const order=Array.isArray(config.order?.[label])?config.order[label]:[];
-    if(order.length){const rank=new Map(order.map((row,index)=>[Number(row),index]));entries.sort((a,b)=>(rank.get(a.index)??1e9)-(rank.get(b.index)??1e9)||a.index-b.index);}
+    if(order.length){const rank=new Map(order.map((key,index)=>[String(key),index]));entries.sort((a,b)=>(rank.get(plotKey(a.index))??1e9)-(rank.get(plotKey(b.index))??1e9)||a.index-b.index);}
     return [label,entries];
   });
 }
@@ -94,8 +94,9 @@ function plotLabel(data,row,index){
   const secondary=colorLabel(data,row);
   return {id,secondary:secondary&&secondary!==id?secondary:''};
 }
-function plotStatus(index){return String(config.statuses?.[index]||'normal');}
-function plotNote(index){return String(config.notes?.[index]||'');}
+function plotKey(index){const row=current?.rows?.[index]||[];const id=String(row[config.id]??'').trim()||'#'+index;const group=config.group>=0?String(row[config.group]??'').trim():'all';return group+'::'+id;}
+function plotStatus(index){return String(config.statuses?.[plotKey(index)]||config.statuses?.[index]||'normal');}
+function plotNote(index){return String(config.notes?.[plotKey(index)]||config.notes?.[index]||'');}
 function passesFilter(entry){
   if(config.filter==='all')return true;
   const status=plotStatus(entry.index),progress=rowProgress(current,entry.row);
@@ -252,7 +253,9 @@ function groupLabelForRow(index){
 }
 function rawGroupOrder(label){
   const rows=[];current.rows.forEach((row,index)=>{if(groupLabelForRow(index)===label)rows.push(index);});
-  const saved=Array.isArray(config.order?.[label])?config.order[label].map(Number).filter(index=>rows.includes(index)):[];
+  const savedKeys=Array.isArray(config.order?.[label])?config.order[label].map(String):[];
+  const byKey=new Map(rows.map(index=>[plotKey(index),index]));
+  const saved=savedKeys.map(key=>byKey.get(key)).filter(index=>Number.isInteger(index));
   return [...saved,...rows.filter(index=>!saved.includes(index))];
 }
 function movePlotTo(source,target){
@@ -261,7 +264,7 @@ function movePlotTo(source,target){
   const order=rawGroupOrder(sourceGroup),from=order.indexOf(source),to=order.indexOf(target);
   if(from<0||to<0||from===to)return;
   order.splice(from,1);order.splice(to,0,source);
-  config={...config,order:{...config.order,[sourceGroup]:order},serpentine:false};
+  config={...config,order:{...config.order,[sourceGroup]:order.map(plotKey)},serpentine:false};
   writeConfig(current,config);renderControls();renderMap();
 }
 function moveSelectedPlot(direction){
@@ -269,7 +272,7 @@ function moveSelectedPlot(direction){
   const group=groupLabelForRow(selectedRow),order=rawGroupOrder(group),from=order.indexOf(selectedRow),to=from+direction;
   if(from<0||to<0||to>=order.length)return;
   [order[from],order[to]]=[order[to],order[from]];
-  config={...config,order:{...config.order,[group]:order},serpentine:false};
+  config={...config,order:{...config.order,[group]:order.map(plotKey)},serpentine:false};
   writeConfig(current,config);renderControls();renderMap();renderEditor(selectedRow);
 }
 function selectVisible(){
@@ -306,7 +309,7 @@ function applyBatch(){
   const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
   if(!result?.ok){const out=$('#fieldBatchStatus');if(out)out.textContent=result?.error||'Perubahan massal gagal.';return;}
   if(status){
-    const statuses={...config.statuses};for(const row of rows)statuses[row]=status;
+    const statuses={...config.statuses};for(const row of rows)statuses[plotKey(row)]=status;
     config={...config,statuses};writeConfig(current,config);
   }
   refreshData(false);renderMap();renderBatchEditor();
@@ -452,8 +455,9 @@ function saveEditor(){
   const nextStatus=String($('#fieldPlotEditor [data-field-status]')?.value||'normal');
   const nextNote=String($('#fieldPlotEditor [data-field-note]')?.value||'').trim();
   const statuses={...config.statuses},notes={...config.notes};
-  if(nextStatus==='normal')delete statuses[selectedRow];else statuses[selectedRow]=nextStatus;
-  if(nextNote)notes[selectedRow]=nextNote;else delete notes[selectedRow];
+  const key=plotKey(selectedRow);delete statuses[selectedRow];delete notes[selectedRow];
+  if(nextStatus==='normal')delete statuses[key];else statuses[key]=nextStatus;
+  if(nextNote)notes[key]=nextNote;else delete notes[key];
   config={...config,statuses,notes};writeConfig(current,config);
   dirty=false;refreshData(false);renderMap();renderEditor(selectedRow);
   const freshStatus=$('#fieldEditorStatus');if(freshStatus)freshStatus.textContent=result.changed?'✓ Data dan status tersimpan.':'✓ Status/catatan tersimpan.';
