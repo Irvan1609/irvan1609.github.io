@@ -1037,3 +1037,116 @@ body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none
 @media(max-width:900px){.field-world{min-height:780px}.field-world-skyline{height:206px}.field-map-stage{width:94%}.map-landmark.analysis{right:0}}
 @media(max-width:620px){.field-panel{border-radius:0 0 12px 12px}.field-map-heading{top:7px;left:7px;right:7px}.field-map-heading>div:first-child{padding:5px 8px}.field-map-heading h2{font-size:12px}.field-world{min-height:760px;padding:0 5px 9px;background-position:48% top}.field-world-skyline{height:182px}.field-world-landmarks{top:78px;left:1%;right:1%;height:105px}.map-landmark{min-height:37px;padding:4px 6px;border-radius:7px}.map-landmark>span{font-size:16px}.map-landmark b{font-size:8px}.map-landmark small{font-size:6.7px}.map-landmark.nursery{left:1%;top:16px}.map-landmark.research{left:31%;top:5px}.map-landmark.water{right:1%;top:26px}.map-landmark.analysis{right:1%;top:70px}.field-map-stage{width:100%;padding:8px 5px 88px;border-radius:14px;background:rgba(68,96,47,.14)}.field-context{top:4px;margin-bottom:10px;max-width:96%}.field-context #activeToolStatus{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.field-grid{gap:14px}.field-block{width:94%;padding:22px 7px 9px}.field-block-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.plot{min-height:108px;padding:5px}.plot-canopy{inset:27px 5px 23px}.plot-canopy i{height:22px}.plot-crop b{font-size:8px}.plot-crop small{font-size:6.8px}.field-tool-dock{position:fixed;z-index:42;bottom:max(7px,env(safe-area-inset-bottom));width:calc(100% - 12px);padding:4px;border-radius:14px}.field-tool-dock button,.field-tool-analysis{min-height:52px}.field-tool-dock .tool-icon{font-size:20px}.field-tool-dock small,.field-tool-analysis small{font-size:7px}.mobile-command-row{display:none}.day-actions{position:static;margin-top:7px;padding:0 4px 4px;background:transparent;border:0}.day-actions button{min-height:38px}}
 @media(max-width:390px){.field-world{min-height:730px}.field-world-skyline{height:168px}.field-block{width:98%}}
+
+
+/* FIELD ZERO LITE RENDER 2026-09-26
+   Keep the farm-map look while avoiding expensive blur/compositing and decorative DOM. */
+.field-map-heading .field-legend,
+.map-landmark,
+.field-context,
+.field-tool-dock,
+.game-layout>.inspector,
+.mobile-command-row button,
+.plot-crop{
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important
+}
+.field-world{
+  background-color:#6f9256;
+  background-image:url('/game/field-zero-world.svg');
+  background-position:center top;
+  background-size:cover;
+  background-repeat:no-repeat
+}
+.field-world::after{display:none!important}
+.field-map-heading>div:first-child,
+.map-landmark,
+.field-map-stage,
+.field-block,
+.plot,
+.field-tool-dock,
+.game-layout>.inspector,
+.day-actions button{
+  box-shadow:none!important
+}
+.map-landmark,.plot,.field-tool-dock button,.field-tool-analysis{
+  transition:none!important
+}
+.map-landmark:hover,.plot:hover{transform:none!important}
+.field-map-stage{
+  background:rgba(69,100,49,.18);
+  contain:layout paint
+}
+.field-block{
+  content-visibility:auto;
+  contain:layout paint style;
+  contain-intrinsic-size:220px;
+  background:#55783d
+}
+.field-block::before,.field-block::after{
+  box-shadow:none!important
+}
+.plot{
+  contain:layout paint style;
+  background:#68492f;
+  border-width:1px
+}
+.plot::before{
+  opacity:.22;
+  background:repeating-linear-gradient(0deg,transparent 0 12px,rgba(33,20,11,.62) 12px 13px)
+}
+.plot.empty{background:#62452f}
+.plot.selected{box-shadow:0 0 0 2px #70dbe6!important}
+.plot-canopy{
+  position:absolute;
+  inset:30px 7px 24px;
+  z-index:1;
+  display:block;
+  transform:none;
+  pointer-events:none;
+  opacity:.95;
+  background-image:
+    radial-gradient(ellipse at 25% 70%,#6f9d42 0 6px,transparent 7px),
+    radial-gradient(ellipse at 70% 55%,#39733a 0 7px,transparent 8px);
+  background-size:32px 27px,38px 31px;
+  background-position:0 4px,12px 0
+}
+.plot-canopy i{display:none!important}
+.plot.stage-seedling .plot-canopy{opacity:.58;background-size:42px 36px,48px 40px}
+.plot.stage-vegetative .plot-canopy{opacity:.88;background-size:34px 28px,40px 32px}
+.plot.stage-flower .plot-canopy,.plot.stage-fill .plot-canopy{
+  background-image:
+    radial-gradient(ellipse at 25% 70%,#7da847 0 7px,transparent 8px),
+    radial-gradient(ellipse at 70% 55%,#39733a 0 8px,transparent 9px)
+}
+.plot.stage-ripe .plot-canopy{
+  background-image:
+    radial-gradient(ellipse at 25% 70%,#c8a63d 0 7px,transparent 8px),
+    radial-gradient(ellipse at 70% 55%,#718b35 0 8px,transparent 9px)
+}
+.plot.stage-dead .plot-canopy{opacity:.2;filter:none!important}
+.plot-crop{background:rgba(20,35,21,.82)}
+.plot-health,.plot-bars{transform:translateZ(0)}
+.field-tool-dock{
+  background:#173328;
+  border-color:#496253
+}
+.game-layout>.inspector{
+  background:#172f27!important
+}
+body.battery-saver .field-world{
+  background-image:none!important;
+  background-color:#66864e!important
+}
+body.battery-saver .field-world-skyline{height:96px!important}
+body.battery-saver .field-world-landmarks{display:none!important}
+body.battery-saver .plot-canopy{background-image:none!important;background:#567d3c!important;opacity:.65}
+body.battery-saver .plot::before{display:none!important}
+@media(max-width:620px){
+  .field-world{background-size:auto 520px}
+  .field-block{contain-intrinsic-size:300px}
+  .plot-canopy{background-size:28px 24px,34px 28px}
+}
+@media(prefers-reduced-motion:reduce){
+  .field-world *{animation:none!important;transition:none!important}
+}
