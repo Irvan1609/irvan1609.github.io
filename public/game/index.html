@@ -13,7 +13,7 @@
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/game/style.css?v=20260926-focus2">
+  <link rel="stylesheet" href="/game/style.css?v=20260926-systems1">
 </head>
 <body class="calm-ui">
   <header class="subweb-header">
@@ -115,6 +115,7 @@
           <button id="attentionToggle" type="button" aria-pressed="false">⚠ <span>Perhatian</span><b id="attentionCount">0</b></button>
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
+        <div id="advanceNotice" class="advance-notice" role="status" hidden></div>
         <div class="day-actions">
           <button id="nextDay" class="primary" type="button">Hari berikutnya →</button>
           <button id="finishSeason" type="button" hidden>Akhiri musim</button>
@@ -127,7 +128,7 @@
       </section>
 
       <aside class="inspector panel">
-        <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><div class="inspector-head-actions"><span id="plotStage" class="stage-badge">—</span><button id="closeInspectorSheet" type="button" aria-label="Tutup detail petak">×</button></div></div>
+        <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><div class="inspector-head-actions"><button id="prevPlot" type="button" aria-label="Petak sebelumnya">←</button><button id="nextIssuePlot" type="button" aria-label="Petak bermasalah berikutnya">⚠</button><button id="nextPlot" type="button" aria-label="Petak berikutnya">→</button><span id="plotStage" class="stage-badge">—</span><button id="closeInspectorSheet" type="button" aria-label="Tutup detail petak">×</button></div></div>
         <div id="inspectorBody" class="inspector-body">
           <div class="empty-inspector">Pilih petak.</div>
         </div>
@@ -259,7 +260,7 @@
   </div>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/game/app.js?v=20260926-focus2"></script>
+  <script type="module" src="/game/app.js?v=20260926-systems1"></script>
   <script type="module" src="/game/social.js"></script>
   <script type="module" src="/game/sync.js"></script>
   <script src="/pwa-register.js"></script>
