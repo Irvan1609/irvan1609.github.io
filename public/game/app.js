@@ -604,19 +604,31 @@ function parameterValue(parameter,values){
   if(key==='ua'||key.includes('anthesis'))return values.anthesis;
   if(key==='us'||key.includes('silking'))return values.silking;
   if(key==='asi'||key.includes('anthesissilking'))return values.asi;
+  if(key==='pt'||key.includes('panjangtongkol'))return values.pt;
+  if(key==='dt'||key.includes('diametertongkol'))return values.dt;
+  if(key==='jb'||key.includes('jumlahbiji'))return values.jb;
+  if(key==='bb'||key.includes('bobotbiji')||key.includes('bobotbuah'))return values.bb;
+  if(key==='ka'||key.includes('kadarair'))return values.ka;
+  if(key==='ub'||key.includes('umurberbunga'))return values.ub;
+  if(key==='jbu'||key.includes('jumlahbuah'))return values.jbu;
+  if(key==='pb'||key.includes('panjangbuah'))return values.pb;
+  if(key==='dbu'||key.includes('diameterbuah'))return values.dbu;
   return '';
 }
 function simulatedObservationValues(index,crop,yieldValue=''){
-  const meta=plotMeta(index),unit=experimentUnit(index),seed=hashString((state.experiment?.seed||state.simulationSeed)+':'+state.day+':'+index),noise=.96+seededUnit(seed)*.08;
-  const health=clamp(crop.health,0,100)/100,growth=clamp(crop.growth,0,110),bio=biologicalDay();
-  if(growth>=52&&!crop.anthesisBioDay)crop.anthesisBioDay=bio;
-  if(growth>=58&&!crop.silkingBioDay)crop.silkingBioDay=bio;
+  const growth=clamp(crop.growth,0,110),bio=biologicalDay(),species=crop.species||state.species;
+  if(species==='maize'){
+    if(growth>=52&&!crop.anthesisBioDay)crop.anthesisBioDay=bio;
+    if(growth>=58&&!crop.silkingBioDay)crop.silkingBioDay=bio;
+  }
+  if(!Array.isArray(crop.samples)||!crop.samples.length)crop.samples=makeSubsamples({plotUid:plotMeta(index).uid,plantUid:crop.uid,species,simulationSeed:state.simulationSeed});
+  const sampleRows=crop.samples.filter(sample=>sample.alive!==false).map(sample=>({id:sample.id,values:sampleMeasurements({species,crop,sample,bioDay:bio,yieldValue})}));
+  const agg=parameter=>aggregateSamples(sampleRows,parameter);
   return {
-    tt:round((8+growth*1.65)*(crop.seed.vigor||1)*(meta.fertility||1)*noise,1),
-    db:round((3+growth*.14)*(.8+.2*health)*(meta.fertility||1)*noise,1),
-    jd:Math.max(2,Math.round(2+growth*.12*(.95+seededUnit(seed+7)*.1))),
-    hasil:yieldValue,kesehatan:round(crop.health,1),stres:round(crop.stress,1),penyakit:round(crop.disease,1),air:round(crop.water,1),nitrogen:round(crop.n,1),
-    anthesis:crop.anthesisBioDay||'',silking:crop.silkingBioDay||'',asi:crop.anthesisBioDay&&crop.silkingBioDay?crop.silkingBioDay-crop.anthesisBioDay:''
+    tt:agg('TT'),db:agg('DB'),jd:agg('JD'),hasil:yieldValue,
+    kesehatan:round(crop.health,1),stres:round(crop.stress,1),penyakit:round(crop.disease,1),air:round(crop.water,1),nitrogen:round(crop.n,1),
+    anthesis:agg('UA'),silking:agg('US'),asi:agg('ASI'),pt:agg('PT'),dt:agg('DT'),jb:agg('JB'),bb:agg('BB'),ka:agg('KA'),
+    ub:agg('UB'),jbu:agg('JBu'),pb:agg('PB'),dbu:agg('DBu'),__samples:sampleRows
   };
 }
 function recordDailyExperimentObservation(index,crop,{yieldValue='',force=false}={}){
@@ -629,7 +641,7 @@ function recordDailyExperimentObservation(index,crop,{yieldValue='',force=false}
     const value=parameterValue(parameter,values);
     if(value!==''&&value!==undefined){measured[parameter]=value;if(!String(parameter).toLowerCase().includes('hasil')||yieldValue!=='')unit.observations[parameter]=value;}
   }
-  unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:measured,status:'observed'});
+  unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:measured,samples:values.__samples||[],status:'observed'});
 }
 function runScheduledExperimentObservation(){
   const exp=state.experiment;if(!exp||state.day<=1||state.day%exp.measureEvery!==0)return;
@@ -723,7 +735,7 @@ function openExperiment(){
       <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
       <label class="experiment-wide">Pertanyaan<input name="question" value="Apakah perlakuan memengaruhi respons tanaman?"></label>
       <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
-      <label class="experiment-wide">Parameter<input name="parameters" value="TT,DB,JD,Penyakit,Hasil"></label>
+      <label class="experiment-wide">Parameter<input name="parameters" value="${recommendedParameters(state.species).slice(0,10).join(',')}"></label>
       <button class="primary experiment-wide" type="submit">🎲 Randomisasi</button>
       <button class="competition-launch experiment-wide" type="button" data-breeding-cup>🏆 Breeding Cup · 24 petak</button>
     </form><p class="meta-note">RAK memakai 3 kelompok × 8 petak dan randomisasi terpisah dalam tiap kelompok. Petak yang tidak masuk percobaan tetap dapat dipakai untuk Rp produksi atau 🧬 pemuliaan.</p>`);
