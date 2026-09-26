@@ -9,7 +9,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&
 const clone=value=>{try{return structuredClone(value);}catch{return JSON.parse(JSON.stringify(value));}};
 const uid=()=>globalThis.crypto?.randomUUID?.()||('plot-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
 const now=()=>new Date().toISOString();
-let current=null,config=null,selectedRow=null,dirty=false,multiMode=false,layoutEditMode=false,fieldMode=false,dragRow=null,applyingHistory=false;
+let current=null,config=null,selectedRow=null,dirty=false,multiMode=false,layoutEditMode=false,fieldMode=false,dragRow=null,applyingHistory=false,externalHeatmap=null;
 const selectedRows=new Set(),undoStack=[],redoStack=[],photoUrls=new Set();
 
 function api(){return globalThis.StatisticalWebData||null;}
@@ -93,7 +93,12 @@ function updateUndoButtons(){const u=$('#fieldUndo'),r=$('#fieldRedo');if(u)u.di
 function commitConfig(label,before,{version=false}={}){if(same(before,config))return;if(version)addLayoutVersion(label,before);writeConfig(current,config);pushHistory(label,before,[],config,[]);}
 
 function heatmapValues(){
-  const index=Number(config.heatmap>=0?config.heatmap:activeColumn());if(config.colorMode!=='parameter'||index<0)return null;const raw=current.rows.map(row=>numberOf(row[index])),present=raw.filter(Number.isFinite);if(!present.length&&config.missingMode!=='zero')return null;
+  const index=Number(config.heatmap>=0?config.heatmap:activeColumn());if(config.colorMode!=='parameter'||index<0)return null;
+  if(config.heatmapMode==='residual'&&externalHeatmap?.index===index&&Array.isArray(externalHeatmap.values)&&externalHeatmap.values.length===current.rows.length){
+    const values=externalHeatmap.values.map(value=>Number.isFinite(Number(value))?Number(value):null),valid=values.filter(Number.isFinite);
+    if(valid.length)return {index,values,min:Math.min(...valid),max:Math.max(...valid),external:true};
+  }
+  const raw=current.rows.map(row=>numberOf(row[index])),present=raw.filter(Number.isFinite);if(!present.length&&config.missingMode!=='zero')return null;
   const values=raw.map(v=>v===null&&config.missingMode==='zero'?0:v),finite=values.filter(Number.isFinite),grand=finite.reduce((a,b)=>a+b,0)/Math.max(1,finite.length),sd=Math.sqrt(finite.reduce((s,v)=>s+(v-grand)**2,0)/Math.max(1,finite.length-1));
   const treatmentMeans=new Map(),blockMeans=new Map();
   current.rows.forEach((row,i)=>{const v=values[i];if(!Number.isFinite(v))return;const a=colorLabel(current,row)||'_',b=groupLabelForRow(i)||'_';for(const [map,key] of [[treatmentMeans,a],[blockMeans,b]]){const x=map.get(key)||{sum:0,n:0};x.sum+=v;x.n++;map.set(key,x);}});
@@ -107,7 +112,7 @@ function visualForPlot(entry,scale){
   return {hue:hashHue(color),heat:false,label:progress.total?progress.filled+'/'+progress.total:'struktur',status};
 }
 function formatHeat(value){if(config.heatmapMode==='zscore')return value.toFixed(2)+' z';if(config.heatmapMode==='percentile')return value.toFixed(0)+'%';return Number(value).toLocaleString('id-ID',{maximumFractionDigits:2});}
-function heatModeLabel(){return {raw:'Nilai mentah',mean:'Rerata perlakuan',residual:'Residual ANOVA',zscore:'Z-score',percentile:'Persentil'}[config.heatmapMode]||config.heatmapMode;}
+function heatModeLabel(){if(config.heatmapMode==='residual'&&externalHeatmap?.index===Number(config.heatmap))return 'Residual model ANOVA';return {raw:'Nilai mentah',mean:'Rerata perlakuan',residual:'Residual blok/perlakuan',zscore:'Z-score',percentile:'Persentil'}[config.heatmapMode]||config.heatmapMode;}
 function statusOptions(selected='',includeKeep=false){const list=[['normal','Normal'],['missing','Petak kosong'],['dead','Mati'],['lodged','Rebah'],['pest','Hama'],['disease','Penyakit'],['flooded','Genangan'],['damaged','Rusak'],['harvested','Panen'],['border','Border']];return (includeKeep?'<option value="">Jangan ubah status</option>':'')+list.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');}
 function conditionButtons(index){const currentStatus=plotStatus(index),items=[['dead','Mati'],['lodged','Rebah'],['pest','Hama'],['disease','Penyakit'],['flooded','Genangan'],['border','Border']];return items.map(([status,label])=>`<button type="button" data-quick-status="${status}" aria-pressed="${String(currentStatus===status)}">${label}</button>`).join('');}
 function scoreButtons(value){return [0,1,2,3,4,5].map(v=>`<button type="button" data-score="${v}" aria-pressed="${String(String(value)===String(v))}">${v}</button>`).join('');}
@@ -256,19 +261,20 @@ function restoreLayoutVersion(){if(!config.versions.length){alert('Belum ada ver
 
 function refreshData(render=true){current=dataset();const saved=readStore()[keyFor(current)];config=normalizeConfig(current,saved);writeConfig(current,config);if(render){renderControls();renderMap();}}
 function closeFieldLayout({skipValidation=false}={}){if(dirty&&!saveEditor({quiet:true}))return;if(!skipValidation&&Number.isInteger(selectedRow)&&activeColumn()>=0){const group=groupLabelForRow(selectedRow),missing=current.rows.map((row,index)=>({row,index})).filter(x=>groupLabelForRow(x.index)===group&&!activeFilled(x.row));if(missing.length&&!confirm(`${group} masih memiliki ${missing.length} plot belum terisi untuk ${activeParameterName()}. Tutup denah?`))return;}revokePhotoUrls();$('#fieldLayoutModal')?.classList.remove('open','field-mode');document.body.classList.remove('field-layout-open');dirty=false;multiMode=false;layoutEditMode=false;fieldMode=false;selectedRows.clear();selectedRow=null;}
-export function openFieldLayout(options={}){ensureModal();globalThis.StatisticalWebWorkflow?.setActive?.('field');refreshData();$('#fieldLayoutDataset').textContent=`${current.name||'Dataset'} · ${current.rows.length} baris`;$('#fieldLayoutModal').classList.add('open');document.body.classList.add('field-layout-open');selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;fieldMode=false;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');$('#fieldModeToggle').setAttribute('aria-pressed','false');$('#fieldModeToggle').textContent='Field';$('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';renderControls();renderMap();updateUndoButtons();const target=String(options.plotUid||new URLSearchParams(location.search).get('field_plot')||'');if(target){const row=rowByUid(target);if(row>=0)selectRow(row,{force:true,skipSave:true});}checkHandoff();}
+export function openFieldLayout(options={}){ensureModal();if(!options.preserveExternalHeatmap)externalHeatmap=null;globalThis.StatisticalWebWorkflow?.setActive?.('field');refreshData();$('#fieldLayoutDataset').textContent=`${current.name||'Dataset'} · ${current.rows.length} baris`;$('#fieldLayoutModal').classList.add('open');document.body.classList.add('field-layout-open');selectedRow=null;dirty=false;multiMode=false;layoutEditMode=false;fieldMode=false;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed','false');$('#fieldLayoutEdit').setAttribute('aria-pressed','false');$('#fieldModeToggle').setAttribute('aria-pressed','false');$('#fieldModeToggle').textContent='Field';$('#fieldPlotEditor').innerHTML='<div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>';renderControls();renderMap();updateUndoButtons();const target=String(options.plotUid||new URLSearchParams(location.search).get('field_plot')||'');if(target){const row=rowByUid(target);if(row>=0)selectRow(row,{force:true,skipSave:true});}checkHandoff();}
 
-export function openFieldHeatmap(parameter,mode='raw'){
+export function openFieldHeatmap(parameter,mode='raw',values=null){
   ensureModal();refreshData(false);
   const target=String(parameter??'').trim();
   let index=Number.isInteger(Number(parameter))?Number(parameter):-1;
   if(index<0||index>=current.headers.length)index=current.headers.findIndex(header=>String(header||'').trim().toLocaleLowerCase('id-ID')===target.toLocaleLowerCase('id-ID'));
   if(index<0||index>=current.headers.length)return false;
   const allowed=new Set(['raw','mean','residual','zscore','percentile']);
+  externalHeatmap=mode==='residual'&&Array.isArray(values)&&values.length===current.rows.length?{index,values:[...values]}:null;
   const before=clone(config);
   config.colorMode='parameter';config.heatmap=index;config.activeParameter=index;config.heatmapMode=allowed.has(mode)?mode:'raw';
   commitConfig('buka heatmap dari hasil analisis',before);
-  openFieldLayout();
+  openFieldLayout({preserveExternalHeatmap:true});
   return true;
 }
 
@@ -276,5 +282,5 @@ export function openFieldHeatmap(parameter,mode='raw'){
 globalThis.AgrotikFieldLayout={
   open:(options={})=>openFieldLayout(options),
   openPlot:identifier=>{ensureModal();refreshData(false);let row=rowByUid(String(identifier));if(row<0)row=current.rows.findIndex((r,i)=>plotLabel(current,r,i).id===String(identifier));openFieldLayout({plotUid:row>=0?plotUid(row):''});return row>=0;},
-  openHeatmap:(parameter,mode='raw')=>openFieldHeatmap(parameter,mode)
+  openHeatmap:(parameter,mode='raw',values=null)=>openFieldHeatmap(parameter,mode,values)
 };
