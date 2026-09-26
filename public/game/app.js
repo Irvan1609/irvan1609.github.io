@@ -2077,7 +2077,7 @@ function updateFieldPressure(){
 function advanceDay(){
   clearUndo();
   const blockers=blockingAdvanceIssues();
-  if(blockers.length){renderAdvanceNotice();if(state.pendingEvent)renderEvent();else toast('Selesaikan dulu · '+blockers[0]);return;}
+  if(blockers.length){renderAdvanceNotice();toast(state.pendingEvent?'Kejadian lapang menunggu ditinjau':'Selesaikan dulu · '+blockers[0]);return;}
   if(state.day>=state.maxDay){finishSeason();return;}
   checkpoint('Sebelum Hari '+(state.day+1));
   state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=focusMax(state.level);
