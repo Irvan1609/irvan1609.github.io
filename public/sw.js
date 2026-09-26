@@ -1,4 +1,4 @@
-const VERSION='20260926-field-zero-professor-v2';
+const VERSION='20260926-field-zero-classic-fix1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -71,16 +71,19 @@ async function matchIgnoreSearch(request){
   return caches.match(url.href,{ignoreSearch:true});
 }
 async function navigationResponse(request){
+  const url=new URL(request.url),gameRoute=url.pathname.startsWith('/game/');
   const cached=await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
+  if(gameRoute)return await refresh||cached||await caches.match('/offline.html')||await caches.match('/');
   if(cached){void refresh;return cached;}
   return await refresh||await caches.match('/offline.html')||await caches.match('/');
 }
 async function staticResponse(request){
-  const cached=await matchIgnoreSearch(request);
+  const url=new URL(request.url),versioned=url.searchParams.has('v');
+  const cached=versioned?await caches.match(request):await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
@@ -112,6 +115,10 @@ self.addEventListener('activate',event=>{
     const names=await caches.keys();
     await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&![CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE].includes(name)).map(name=>caches.delete(name)));
     await self.clients.claim();
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    await Promise.allSettled(windows.filter(client=>{
+      try{return new URL(client.url).pathname.startsWith('/game/');}catch{return false;}
+    }).map(client=>client.navigate(client.url)));
   })());
 });
 
