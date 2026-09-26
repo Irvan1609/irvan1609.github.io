@@ -27,6 +27,8 @@ for(const marker of ['renderExperimentWizard','openAnalysisHub','workflowStep','
 if(app.includes('Hipotesis sebelum menghitung'))fail('statistics learning must not block analysis behind a mandatory quiz');
 for(const marker of ['id="phenologyStatus"','id="criticalTask"','id="timeStop"','id="skip3Days"','id="nextCritical"','>Tenaga<'])if(!html.includes(marker))fail('agronomic time UI missing '+marker);
 for(const marker of ['GAME_SAVE_VERSION=8','seasonLengthFor','nitrogenTimingEfficiency','Prakiraan 3 hari','criticalTasks','criticalStopReason','stepOneDay','advanceDays','reproStress'])if(!app.includes(marker))fail('agronomic time engine missing '+marker);
+for(const marker of ['frequency:14','Setiap 14 hari','Math.max(7,Math.min(28','days:14'])if(!app.includes(marker))fail('real-calendar scheduling missing '+marker);
+if(app.includes('Setiap 2 hari</option>')||app.includes('measureEvery:Math.max(1,Math.min(4'))fail('legacy compressed observation cadence must not return');
 for(const marker of ['FIELD ZERO AGRONOMIC TIME 2026-09-26','.time-panel','#nextCritical'])if(!css.includes(marker))fail('agronomic time styling missing '+marker);
 if(!competition.includes("api.seasonDays?.('trial24')")||!competition.includes("api.seasonDays?.('standard')"))fail('Breeding Cup calendar integration missing');
 if(!worker.includes('day>200'))fail('cloud save must allow full agronomic calendar');
