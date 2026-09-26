@@ -19,6 +19,24 @@ const DEFAULT_IDEMPOTENCY_RETENTION_DAYS=14;
 const DEFAULT_AUDIT_RETENTION_DAYS=90;
 const DEFAULT_DELETED_DATASET_RETENTION_DAYS=30;
 const DEFAULT_CLOUD_RETRY_SECONDS=300;
+const CLOUD_POLICY_CACHE_MS=60_000;
+const CLOUDFLARE_FREE_REFERENCE={
+  verifiedAt:'2026-09-26',
+  workersRequestsPerDay:100000,
+  workersCpuMsPerRequest:10,
+  d1RowsReadPerDay:5000000,
+  d1RowsWrittenPerDay:100000,
+  d1StorageBytes:5*1024*1024*1024,
+  pagesBuildsPerMonth:500
+};
+const DEFAULT_CLOUD_POLICY={
+  budgetMode:'auto',
+  datasetSync:true,
+  aiUpload:true,
+  gameSocial:true,
+  gameCloudSave:true,
+  payments:true
+};
 const ADMIN_EMAIL_DEFAULT='andyirvan1609@gmail.com';
 let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
@@ -27,6 +45,9 @@ let OPERATIONS_SCHEMA_READY=false;
 let CONTRIBUTION_SCHEMA_READY=false;
 let GAME_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
+let CLOUD_POLICY_CACHE=null;
+let CLOUD_POLICY_CACHE_AT=0;
+let RUNTIME_CLOUD_PRESSURE_UNTIL=0;
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev').split(',').map(v=>v.trim()).filter(Boolean));
@@ -120,6 +141,11 @@ function randomHex(bytes=16){
 }
 async function sha256(value){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+async function sha256Bytes(value){
+  const source=value instanceof ArrayBuffer?value:(ArrayBuffer.isView(value)?value.buffer.slice(value.byteOffset,value.byteOffset+value.byteLength):new Uint8Array(value).buffer);
+  const digest=await crypto.subtle.digest('SHA-256',source);
   return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 function bearerToken(request){
