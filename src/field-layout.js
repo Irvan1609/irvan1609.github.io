@@ -891,6 +891,20 @@ function editorMeasures(){
   const meanIndex=current.headers.indexOf(group.meanHeader);if(meanIndex>=0)items.push({header:group.meanHeader,index:meanIndex,active:false,readonly:true});
   return items;
 }
+function previousObservationHtml(rowIndex,activeIndex){
+  if(activeIndex<0)return '';
+  const header=String(current.headers[activeIndex]||''),row=current.rows[rowIndex]||[];
+  const base=header.replace(/\s+(?:\d+(?:[.,]\d+)?\s*)?(?:HST|DAP|DAT|MST|WAP)$/i,'').replace(/\s+T\d+$/i,'').trim();
+  if(!base||base===header)return '';
+  const related=current.headers.map((name,index)=>({name:String(name),index})).filter(item=>item.index!==activeIndex&&item.name.startsWith(base)&&String(row[item.index]??'').trim()!=='').slice(-4);
+  if(!related.length)return '';
+  return '<div class="field-previous-values"><b>Sebelumnya</b>'+related.map(item=>`<span><small>${esc(item.name)}</small><strong>${esc(row[item.index])}</strong></span>`).join('')+'</div>';
+}
+function fieldTaskHtml(meta){
+  const tasks=meta?.tasks&&typeof meta.tasks==='object'?meta.tasks:{};
+  return '<div class="field-task-list"><b>Pekerjaan plot</b>'+[['fertilize','Pupuk'],['weed','Penyiangan'],['spray','Semprot'],['sample','Sampling'],['harvest','Panen']].map(([key,label])=>`<label><input type="checkbox" data-field-task="${key}" ${tasks[key]?'checked':''}><span>${label}</span></label>`).join('')+'</div>';
+}
+
 function renderEditor(rowIndex){
   const row=current.rows[rowIndex];if(!row)return;
   const labels=plotLabel(current,row,rowIndex),allMeasures=measurementColumns(current),measures=editorMeasures(),measureSet=new Set(allMeasures.map(item=>item.index));
@@ -906,7 +920,7 @@ function renderEditor(rowIndex){
     <div class="field-editor-nav field-editor-nav-three"><button type="button" data-field-prev>‹ Sebelumnya</button><button type="button" data-field-next-incomplete>Belum diisi</button><button type="button" data-field-next>Berikutnya ›</button></div>
     ${layoutEditMode?'<div class="field-layout-move"><button type="button" data-field-move="-1">← Geser</button><button type="button" data-field-move="1">Geser →</button></div>':''}
     <div class="field-editor-fields">
-      ${measures.length?`<div class="field-editor-section"><b>${active>=0?esc(activeHeader):'Pengamatan'}</b>${measures.map(item=>fieldInput(current,row,item.index,{active:item.active,readonly:item.readonly})).join('')}${quickScore}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
+      ${measures.length?`<div class="field-editor-section"><b>${active>=0?esc(activeHeader):'Pengamatan'}</b>${measures.map(item=>fieldInput(current,row,item.index,{active:item.active,readonly:item.readonly})).join('')}${quickScore}${previousObservationHtml(rowIndex,active)}</div>`:'<div class="field-editor-empty compact">Belum ada kolom pengamatan. Tekan <b>+ Parameter</b>.</div>'}
       <div class="field-condition-quick"><button type="button" data-field-status-quick="normal">Normal</button><button type="button" data-field-status-quick="dead">Mati</button><button type="button" data-field-status-quick="damaged">Rusak</button><button type="button" data-field-status-quick="harvested">Panen</button></div>
       <div class="field-editor-tools">
         <button type="button" data-field-photo>Foto</button>
@@ -916,6 +930,7 @@ function renderEditor(rowIndex){
         <button type="button" data-field-chili>Hitung cabai</button>
       </div>
       <div id="fieldMediaTimeline" class="field-media-timeline"></div>
+      ${fieldTaskHtml(meta)}
       <div class="field-editor-meta">
         <label><span>Status plot</span><select data-field-status>${statusOptions(plotStatus(rowIndex))}</select></label>
         <label><span>Catatan lapang</span><textarea data-field-note rows="2" placeholder="Mis. rebah, serangan, petak pinggir…">${esc(plotNote(rowIndex))}</textarea></label>
@@ -953,7 +968,9 @@ function saveEditor({quiet=false,rerender=true}={}){
   delete statuses[selectedRow];delete notes[selectedRow];
   if(nextStatus==='normal')delete statuses[key];else statuses[key]=nextStatus;
   if(nextNote)notes[key]=nextNote;else delete notes[key];
-  meta[key]={...(meta[key]||{}),updatedAt:new Date().toISOString(),observer:String(config.observer||'')};
+  const tasks={...((meta[key]?.tasks&&typeof meta[key].tasks==='object')?meta[key].tasks:{})};
+  $('#fieldPlotEditor').querySelectorAll('[data-field-task]').forEach(input=>{tasks[input.dataset.fieldTask]=input.checked;});
+  meta[key]={...(meta[key]||{}),tasks,updatedAt:new Date().toISOString(),observer:String(config.observer||''),session:String(config.session?.label||''),sessionDate:String(config.session?.date||'')};
   config={...config,statuses,notes,plotMeta:meta};writeConfig(current,config);
   dirty=false;refreshData(false);renderMap();
   if(rerender)renderEditor(selectedRow);
