@@ -27,6 +27,9 @@ const CLOUDFLARE_FREE_REFERENCE={
   d1RowsReadPerDay:5000000,
   d1RowsWrittenPerDay:100000,
   d1StorageBytes:5*1024*1024*1024,
+  r2StorageBytes:10*1024*1024*1024,
+  r2ClassAOperationsPerMonth:1000000,
+  r2ClassBOperationsPerMonth:10000000,
   pagesBuildsPerMonth:500
 };
 const DEFAULT_CLOUD_POLICY={
@@ -1551,11 +1554,20 @@ async function handleDevelopCloudPolicy(request,env){
   await audit(env,admin,'cloud.policy_updated','system','cloud-policy',{policy:normalized,effectiveMode:effective.mode});
   return json(request,env,{ok:true,configured:normalizeCloudPolicy(configured),policy:effective,reference:CLOUDFLARE_FREE_REFERENCE});
 }
+async function r2BucketUsage(bucket){
+  if(!bucket?.list)return {configured:false,objects:0,bytes:0,partial:false};
+  try{
+    const page=await bucket.list({limit:1000});
+    return {configured:true,objects:(page.objects||[]).length,bytes:(page.objects||[]).reduce((sum,item)=>sum+Number(item.size||0),0),partial:Boolean(page.truncated)};
+  }catch(error){
+    return {configured:true,error:String(error?.message||error).slice(0,160),objects:0,bytes:0,partial:true};
+  }
+}
 async function handleDevelopUsage(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
   await ensureDatasetSchema(env);await ensureContributionSchema(env);
-  const [datasets,sessions,users,contrib]=await Promise.all([
+  const [datasets,sessions,users,contrib,imageR2,backupR2]=await Promise.all([
     env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
     env.DB.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active FROM sessions`).bind(new Date().toISOString()).first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
@@ -1563,7 +1575,9 @@ async function handleDevelopUsage(request,env){
       COALESCE(SUM(CASE WHEN storage_backend='r2' THEN image_size_bytes ELSE length(image) END),0) AS bytes,
       COALESCE(SUM(length(image)),0) AS d1_bytes,
       COALESCE(SUM(CASE WHEN storage_backend='r2' THEN image_size_bytes ELSE 0 END),0) AS r2_bytes
-      FROM contributions`).first()
+      FROM contributions`).first(),
+    r2BucketUsage(env.IMAGES),
+    r2BucketUsage(env.BACKUPS)
   ]);
   const policy=await currentCloudPolicy(env);
   return json(request,env,{estimated:{
@@ -1571,7 +1585,7 @@ async function handleDevelopUsage(request,env){
     sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),
     contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0),
     estimatedD1StorageBytes:Number(datasets?.bytes||0)+Number(contrib?.d1_bytes||0)
-  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),policy,freeTierReference:CLOUDFLARE_FREE_REFERENCE,note:'Estimasi internal aplikasi; angka rows read/write dan request resmi tetap berasal dari Cloudflare Analytics/Dashboard agar monitoring tidak menambah write D1.'});
+  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS),imageBucket:imageR2,backupBucket:backupR2,r2ObservedBytes:Number(imageR2.bytes||0)+Number(backupR2.bytes||0),r2Partial:Boolean(imageR2.partial||backupR2.partial)},retention:retentionPolicy(env),policy,freeTierReference:CLOUDFLARE_FREE_REFERENCE,note:'Estimasi internal aplikasi; rows read/write dan request resmi tetap berasal dari Cloudflare Analytics/Dashboard. R2 dihitung saat tab Server dibuka dan dapat parsial bila bucket memiliki >1.000 objek.'});
 }
 async function handleDevelopSecurity(request,env){
   const access=await requireAdminUser(request,env);
