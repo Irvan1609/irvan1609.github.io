@@ -463,10 +463,10 @@ function applyBatch(){
   const value=String($('#fieldPlotEditor [data-batch-value]')?.value??'').trim();
   const status=String($('#fieldPlotEditor [data-batch-status]')?.value||'');
   const changes=col>=0?rows.map(row=>({row,col,value})):[];
-  const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
-  if(!result?.ok){const out=$('#fieldBatchStatus');if(out)out.textContent=result?.error||'Perubahan massal gagal.';return;}
   if(col>=0&&value===''&&!confirm(`Nilai kosong akan diterapkan ke ${rows.length} plot dan dapat menghapus data parameter terpilih. Lanjutkan?`))return;
   if((col>=0||status)&&rows.length>1&&!confirm(`Terapkan perubahan massal ke ${rows.length} plot?`))return;
+  const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
+  if(!result?.ok){const out=$('#fieldBatchStatus');if(out)out.textContent=result?.error||'Perubahan massal gagal.';return;}
   if(status){
     pushLayoutHistory('status massal');const statuses={...config.statuses};for(const row of rows)statuses[plotKey(row)]=status;
     config={...config,statuses};writeConfig(current,config);
@@ -546,8 +546,20 @@ function renderStats(){
   const partial=progress.filter(item=>item.status==='partial').length;
   const empty=progress.filter(item=>item.status==='empty').length;
   const flagged=current.rows.reduce((sum,_,index)=>sum+(plotStatus(index)!=='normal'?1:0),0);
-  const measures=measurementColumns(current).length;
-  $('#fieldLayoutStats').innerHTML=`<span><b>${current.rows.length}</b> plot</span><span><b>${measures}</b> parameter</span>${measures?`<span><b>${complete}</b> lengkap</span><span><b>${partial}</b> sebagian</span><span><b>${empty}</b> kosong</span>`:'<span>Tambahkan parameter untuk mulai pengamatan.</span>'}<span><b>${flagged}</b> status khusus</span>${multiMode?`<span><b>${selectedRows.size}</b> dipilih</span>`:''}`;
+  const measures=measurementColumns(current).length,active=activeParameterIndex(),chips=[];
+  chips.push(`<span><b>${current.rows.length}</b> plot</span><span><b>${measures}</b> parameter</span>`);
+  if(active>=0){
+    const done=current.rows.reduce((sum,_,index)=>sum+(!rowIncomplete(index)?1:0),0);
+    chips.push(`<span><b>${done}/${current.rows.length}</b> ${esc(current.headers[active])}</span>`);
+    for(const [label,entries] of groupEntries(current)){
+      const filled=entries.reduce((sum,entry)=>sum+(!rowIncomplete(entry.index)?1:0),0);
+      chips.push(`<span><b>${filled}/${entries.length}</b> ${esc(label)}</span>`);
+    }
+  }else if(measures)chips.push(`<span><b>${complete}</b> lengkap</span><span><b>${partial}</b> sebagian</span><span><b>${empty}</b> kosong</span>`);
+  else chips.push('<span>Tambahkan parameter untuk mulai pengamatan.</span>');
+  chips.push(`<span><b>${flagged}</b> status khusus</span>`);
+  if(multiMode)chips.push(`<span><b>${selectedRows.size}</b> dipilih</span>`);
+  $('#fieldLayoutStats').innerHTML=chips.join('');
 }
 function renderMap(){
   if(!current)return;
