@@ -47,12 +47,12 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
   for(let mm=0;mm<=horizontalSteps;mm++){
     const x=m+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
     ticks+=`<path d="M ${x} ${m} v ${len} M ${x} ${h-m} v -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
-    if(mm>0&&mm%10===0)labels+=`<text x="${x}" y="${m+6.2}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${x}" y="${h-m-5}" font-size="1.75" text-anchor="middle">${mm}</text>`;
+    if(mm%10===0)labels+=`<text x="${x}" y="${m+6.2}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${x}" y="${h-m-5}" font-size="1.75" text-anchor="middle">${mm}</text>`;
   }
   for(let mm=0;mm<=verticalSteps;mm++){
     const y=m+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
     ticks+=`<path d="M ${m} ${y} h ${len} M ${w-m} ${y} h -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
-    if(mm>0&&mm%10===0)labels+=`<text x="${m+6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${w-m-6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text>`;
+    if(mm%10===0)labels+=`<text x="${m+6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${w-m-6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text>`;
   }
   const endLabel=(axis,value)=>axis==='x'
     ?`<text x="${m+value}" y="${m+6.2}" font-size="1.75" font-weight="700" text-anchor="middle">${value.toFixed(value%1?1:0)}</text>`
@@ -66,7 +66,7 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
   <rect width="${w}" height="${h}" fill="#fff"/>
   <g font-family="Arial,sans-serif" fill="#111">
     <text x="${w/2}" y="${Math.max(6,m-6)}" text-anchor="middle" font-size="3.5">PENGUKUR · ${p.name} · ${p.orientation==='landscape'?'LANDSCAPE':'PORTRAIT'} · CETAK 100%</text>
-    <text x="${w/2}" y="${Math.max(10,m-2)}" text-anchor="middle" font-size="2.6">${id} · area marker ${aw} × ${ah} mm</text>
+    <text x="${w/2}" y="${Math.max(10,m-2)}" text-anchor="middle" font-size="2.6">${id} · kertas ${w} × ${h} mm · area marker ${aw} × ${ah} mm</text>
     ${grid}${ticks}${labels}
     <rect x="${m}" y="${m}" width="${aw}" height="${ah}" fill="none" stroke="#111" stroke-width=".35"/>
     <rect x="${m+8}" y="${m+8}" width="${Math.max(1,aw-16)}" height="${Math.max(1,ah-52)}" fill="none" stroke="#777" stroke-width=".2" stroke-dasharray="2 2"/>
@@ -78,5 +78,28 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
     <path d="M ${cx-check/2} ${h-m-6} v 4 M ${cx+check/2} ${h-m-6} v 4" stroke="#111" stroke-width=".3"/>
     <text x="${cx}" y="${h-m-7}" text-anchor="middle" font-size="2.6">GARIS CEK ${check.toFixed(0)} mm</text>
     <text x="${m+2}" y="${h-m-1.2}" font-size="2.3">↑ ATAS / orientasi</text>
+    <text x="${w/2}" y="${m+9}" font-size="2" text-anchor="middle">X (mm) · 0 → ${aw}</text>
+    <text x="${m+9}" y="${h/2}" font-size="2" text-anchor="middle" transform="rotate(-90 ${m+9} ${h/2})">Y (mm) · 0 → ${ah}</text>
+    <text x="${w-m-2}" y="${h-m-1.2}" font-size="2.1" text-anchor="end">${w} × ${h} mm</text>
+  </g></svg>`;
+}
+
+
+export function buildLensCheckerboardSvg(profile){
+  const p=profile,w=p.width,h=p.height,s=12;
+  const cols=Math.max(6,Math.min(11,Math.floor((w-24)/s))),rows=Math.max(8,Math.min(15,Math.floor((h-38)/s)));
+  const boardW=cols*s,boardH=rows*s,x0=(w-boardW)/2,y0=(h-boardH)/2+4;
+  let cells='';
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if((x+y)%2===0)cells+=`<rect x="${x0+x*s}" y="${y0+y*s}" width="${s}" height="${s}" fill="#000"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">
+  <rect width="${w}" height="${h}" fill="#fff"/>
+  <g font-family="Arial,sans-serif" fill="#111">
+    <text x="${w/2}" y="8" text-anchor="middle" font-size="3.5">TARGET KALIBRASI LENSA · ${p.name} · CETAK 100%</text>
+    <text x="${w/2}" y="13" text-anchor="middle" font-size="2.5">${cols} × ${rows} petak · setiap petak ${s} × ${s} mm · kertas ${w} × ${h} mm</text>
+    <rect x="${x0-.4}" y="${y0-.4}" width="${boardW+.8}" height="${boardH+.8}" fill="none" stroke="#111" stroke-width=".3"/>
+    ${cells}
+    <path d="M ${x0} ${y0+boardH+7} H ${x0+60}" stroke="#111" stroke-width=".5"/><path d="M ${x0} ${y0+boardH+5} v 4 M ${x0+60} ${y0+boardH+5} v 4" stroke="#111" stroke-width=".3"/>
+    <text x="${x0+30}" y="${y0+boardH+12}" text-anchor="middle" font-size="2.5">GARIS CEK 60 mm</text>
+    <text x="${w/2}" y="${h-7}" text-anchor="middle" font-size="2.3">Ambil beberapa foto dari sudut dan posisi berbeda; profil k1/k2 tetap bersifat eksperimental.</text>
   </g></svg>`;
 }
