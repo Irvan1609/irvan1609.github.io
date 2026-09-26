@@ -47,7 +47,7 @@ function defaultConfig(data){
   const group=findColumn(headers,[/kelompok/i,/blok|block/i,/ulangan|rep/i],-1);
   const color=findColumn(headers,[/^perlakuan$/i,/kombinasi/i,/faktor\s*a/i,/varietas/i,/genotip/i,/treatment/i],id);
   const columns=Math.max(2,Math.min(10,Math.ceil(Math.sqrt(Math.max(1,data.rows.length)))));
-  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,zoom:1,heatTransform:'raw',roadAfter:{},objects:[],plotMeta:{},sampleGroups:[]};
+  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,zoom:1,heatTransform:'raw',roadAfter:{},objects:[],plotMeta:{},sampleGroups:[],sumGroups:[],formulas:[]};
 }
 function normalizeConfig(data,saved){
   const base={...defaultConfig(data),...(saved||{})},max=Math.max(0,data.headers.length-1);
@@ -74,6 +74,8 @@ function normalizeConfig(data,saved){
   base.objects=Array.isArray(base.objects)?base.objects.filter(item=>item&&typeof item==='object').slice(0,100):[];
   base.plotMeta=base.plotMeta&&typeof base.plotMeta==='object'?base.plotMeta:{};
   base.sampleGroups=Array.isArray(base.sampleGroups)?base.sampleGroups.filter(group=>group&&Array.isArray(group.members)&&group.meanHeader):[];
+  base.sumGroups=Array.isArray(base.sumGroups)?base.sumGroups.filter(group=>group&&group.prefix&&group.totalHeader):[];
+  base.formulas=Array.isArray(base.formulas)?base.formulas.filter(item=>item&&item.type&&item.sourceHeader&&item.targetHeader):[];
   return base;
 }
 function structuralHeader(header){
@@ -213,6 +215,8 @@ function ensureModal(){
             <button id="fieldValidateBlocks" type="button">Periksa blok</button>
             <button id="fieldCreateSessionColumn" type="button">Parameter waktu</button>
             <button id="fieldSamplePlants" type="button">Sampel tanaman</button>
+            <button id="fieldHarvestSeries" type="button">Panen berulang</button>
+            <button id="fieldProductivity" type="button">Produktivitas</button>
             <button id="fieldFlipX" type="button">Balik kiri-kanan</button>
             <button id="fieldFlipY" type="button">Balik atas-bawah</button>
             <button id="fieldAddObject" type="button">Objek lahan</button>
@@ -267,7 +271,7 @@ function ensureModal(){
   $('#fieldFlipX').onclick=()=>toggleFlip('flipX');$('#fieldFlipY').onclick=()=>toggleFlip('flipY');$('#fieldAddObject').onclick=addFieldObject;
   $('#fieldValidateBlocks').onclick=validateBlocks;
   $('#fieldCreateSessionColumn').onclick=createSessionColumn;
-  $('#fieldSamplePlants').onclick=setupSamplePlants;
+  $('#fieldSamplePlants').onclick=setupSamplePlants;$('#fieldHarvestSeries').onclick=setupHarvestSeries;$('#fieldProductivity').onclick=setupProductivity;
   $('#fieldUndo').onclick=undoLayout;$('#fieldRedo').onclick=redoLayout;
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
@@ -507,6 +511,48 @@ function setupSamplePlants(){
   config={...config,sampleGroups:[...others,{base,members,meanHeader}],session:{...config.session,parameter:current.headers.indexOf(members[0])}};writeConfig(current,config);
   renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
 }
+function ensureColumn(name,reason){
+  let index=current.headers.findIndex(header=>header===name);
+  if(index>=0)return index;
+  const result=api()?.appendColumn?.(name,reason);if(!result?.ok)throw Error(result?.error||'Kolom '+name+' gagal dibuat.');
+  refreshData(false);return Number(result.index);
+}
+function setupHarvestSeries(){
+  const number=Math.max(1,Math.min(99,Number(prompt('Nomor panen:','1'))||0));if(!number)return;
+  try{
+    const bb='BB Panen '+number,jb='JB Panen '+number;
+    const bbIndex=ensureColumn(bb,'tambah panen'),jbIndex=ensureColumn(jb,'tambah panen');ensureColumn('BB Total','tambah total panen');ensureColumn('JB Total','tambah total panen');
+    pushLayoutHistory('setup panen');
+    const groups=(config.sumGroups||[]).filter(group=>!['BB Panen ','JB Panen '].includes(group.prefix));
+    config={...config,sumGroups:[...groups,{prefix:'BB Panen ',totalHeader:'BB Total'},{prefix:'JB Panen ',totalHeader:'JB Total'}],session:{...config.session,label:'Panen '+number,parameter:bbIndex,date:new Date().toISOString().slice(0,10)}};
+    writeConfig(current,config);renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+  }catch(error){alert(error.message);}
+}
+function setupProductivity(){
+  const active=activeParameterIndex();if(active<0)return alert('Pilih parameter bobot sumber terlebih dahulu.');
+  const area=Number(String(prompt('Luas plot efektif (m²):','10')||'').replace(',','.'));if(!(area>0))return;
+  const unit=(prompt('Satuan bobot sumber: kg atau g','kg')||'kg').trim().toLowerCase();if(!['kg','g'].includes(unit))return alert('Gunakan satuan kg atau g.');
+  try{
+    const target='Produktivitas (t/ha)',targetIndex=ensureColumn(target,'tambah produktivitas'),sourceHeader=current.headers[active];
+    pushLayoutHistory('formula produktivitas');
+    const formulas=(config.formulas||[]).filter(item=>item.targetHeader!==target);
+    config={...config,formulas:[...formulas,{type:'productivity',sourceHeader,targetHeader:target,areaM2:area,sourceUnit:unit}],session:{...config.session,parameter:targetIndex}};
+    writeConfig(current,config);renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+  }catch(error){alert(error.message);}
+}
+function applyDerivedValues(values){
+  for(const group of config.sumGroups||[]){
+    const indexes=current.headers.map((header,index)=>String(header).startsWith(group.prefix)?index:-1).filter(index=>index>=0),target=current.headers.indexOf(group.totalHeader);
+    if(target<0)continue;const nums=indexes.map(index=>String(values[index]??'').trim()).filter(Boolean).map(value=>Number(value.replace(',','.'))).filter(Number.isFinite);
+    values[target]=nums.length?String(nums.reduce((a,b)=>a+b,0)):'';
+  }
+  for(const formula of config.formulas||[]){
+    const source=current.headers.indexOf(formula.sourceHeader),target=current.headers.indexOf(formula.targetHeader);if(source<0||target<0)continue;
+    const raw=Number(String(values[source]??'').replace(',','.'));if(!Number.isFinite(raw)){values[target]='';continue;}
+    if(formula.type==='productivity'){const kg=formula.sourceUnit==='g'?raw/1000:raw;values[target]=String(kg/Number(formula.areaM2)*10);}
+  }
+}
+
 function applySampleMeans(values){
   for(const group of config.sampleGroups||[]){
     const memberIndexes=group.members.map(header=>current.headers.indexOf(header)).filter(index=>index>=0),meanIndex=current.headers.indexOf(group.meanHeader);
@@ -812,7 +858,7 @@ function saveEditor({quiet=false,rerender=true}={}){
   clearTimeout(autoSaveTimer);
   const values=[...current.rows[selectedRow]];
   $('#fieldPlotEditor').querySelectorAll('[data-field-col]').forEach(input=>{if(!input.readOnly)values[Number(input.dataset.fieldCol)]=input.value.trim();});
-  applySampleMeans(values);
+  applySampleMeans(values);applyDerivedValues(values);
   const result=api()?.replaceRow?.(selectedRow,values,'edit plot dari denah lahan');
   const status=$('#fieldEditorStatus');
   if(!result?.ok){if(status)status.textContent=result?.error||'Data belum dapat disimpan.';return;}
