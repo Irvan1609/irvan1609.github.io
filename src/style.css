@@ -4405,3 +4405,35 @@ body.analysis-results-open{overflow:hidden}
     font-size:14px!important;
   }
 }
+
+
+/* STAT MOBILE DOCK TAP TARGETS 2026-09-26 */
+@media(max-width:720px){
+  .app-header .nav{
+    gap:5px!important;
+    padding:6px!important;
+  }
+  .app-header .nav>button{
+    min-height:56px!important;
+    padding:7px 4px!important;
+    border-radius:11px!important;
+    font-size:11.5px!important;
+    touch-action:manipulation;
+  }
+  #openAnalysis::before,
+  #globalSearchButton::before,
+  #projectToggle::before,
+  #mobileMoreButton::before{
+    margin-bottom:3px!important;
+    font-size:19px!important;
+    line-height:20px!important;
+  }
+  .mobile-more-panel button,
+  .nav-command-panel:not(.analysis-command-panel) button{
+    min-height:52px!important;
+    padding:8px 10px!important;
+    border-radius:9px!important;
+    font-size:13px!important;
+    touch-action:manipulation;
+  }
+}
