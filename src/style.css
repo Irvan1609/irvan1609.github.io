@@ -261,7 +261,6 @@ html.compact-data-editor .app-shell{padding:6px}html.compact-data-editor .toolba
   body.print-analysis-mode .scientific-chart{overflow:visible}
 }
 
-
 /* Visual polish — Statistical Web */
 :root{
   --surface:#ffffff;
@@ -530,7 +529,6 @@ button.primary,.nav button.active,.nav button[aria-expanded="true"]{
   .nav button{flex:1 1 auto}
 }
 
-
 /* 2026 interface structure: compact metadata, grouped analyses, focus mode */
 .dataset-meta-compact{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:1}
 .dataset-meta-summaryline{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0;flex-wrap:wrap}
@@ -629,7 +627,6 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   html.focus-data-mode #projectToggle{display:none}
 }
 
-
 /* Global search dialog — keeps the classic multi-button layout intact */
 .global-search-dialog{width:min(100%,720px)!important}
 #globalSearch{display:block;width:100%;min-height:44px;font-size:15px;padding:10px 12px}
@@ -645,7 +642,6 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .global-search-results{max-height:60dvh}
   .global-search-item{min-height:46px}
 }
-
 
 /* Responsive polish: desktop layout stays unchanged; phone/tablet adapt to viewport */
 @media (min-width:721px) and (max-width:1100px){
@@ -959,7 +955,6 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .modal-backdrop>.modal{max-height:calc(100dvh - 8px)!important}
 }
 
-
 /* Account dataset sync */
 .dataset-sync-bar{
   display:grid;
@@ -985,7 +980,6 @@ html.focus-data-mode .grid-container{max-height:calc(100dvh - 210px)}
   .dataset-sync-bar{grid-template-columns:auto minmax(0,1fr) auto;margin-bottom:7px;padding:6px}
   #syncDatasets{min-height:34px!important;padding:5px 7px!important}
 }
-
 
 /* UX OVERHAUL 2026-09-26 */
 :root{
@@ -1144,7 +1138,6 @@ button{font-weight:650}
   .dataset-sync-bar{font-size:11px}
 }
 
-
 /* SIMPLIFIED DATA WORKSPACE 2026-09-26 */
 .app-header{border-radius:12px}
 .app-header .nav{padding:12px 14px;gap:6px}
@@ -1208,7 +1201,6 @@ button{font-weight:650}
   .column-drag-handle{width:26px;height:32px;font-size:15px}
 }
 
-
 /* SPREADSHEET POWER UX 2026-09-26 */
 :root{--dataset-panel-width:230px}
 .main{grid-template-columns:var(--dataset-panel-width) minmax(0,1fr)}
@@ -1271,7 +1263,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .column-resizer{width:10px;right:-5px}
 }
 
-
 /* ANALYSIS SIDE DOCK 2026-09-26 */
 .analysis-result-dock{
   position:fixed;top:70px;right:10px;bottom:10px;z-index:85;width:min(620px,46vw);
@@ -1293,12 +1284,10 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .analysis-result-dock{top:64px;left:6px;right:6px;bottom:6px;width:auto;border-radius:10px}
 }
 
-
 /* Quiet data quality hints */
 .data-grid td.cell-missing{background-image:linear-gradient(135deg,transparent 0 78%,rgba(185,132,42,.22) 78% 100%)}
 .data-grid td.cell-type-warning{box-shadow:inset 0 0 0 1.5px rgba(180,83,60,.5)}
 .data-grid tbody tr.duplicate-row td{border-bottom-color:#c8a75d}
-
 
 /* Quiet autosave indicator */
 .save-indicator{
@@ -1307,7 +1296,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   color:#2f7d55!important;font-size:10px!important;line-height:1!important
 }
 .save-indicator::before{content:none!important}
-
 
 /* LOCAL-FIRST VIRTUAL GRID 2026-09-26 */
 .data-grid .virtual-spacer,
@@ -1320,7 +1308,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
 .grid-container[data-virtualized="1"] .data-grid tbody{
   contain:layout style;
 }
-
 
 /* ANALYSIS WORKSPACE REDESIGN 2026-09-26 */
 .analysis-command-panel{
@@ -1751,7 +1738,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .analysis-item-mark{width:32px;height:32px}
 }
 
-
 /* MOBILE-FIRST FINAL OVERRIDES 2026-09-26 */
 #mobileMoreButton{display:none}
 .mobile-dataset-backdrop{display:none}
@@ -2129,7 +2115,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   }
 }
 
-
 /* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */
 .analysis-menu-foot{display:none}
 
@@ -2310,7 +2295,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   }
 }
 
-
 /* COMPACT ANALYSIS RESULTS 2026-09-26 */
 .analysis-result-meta{
   display:flex;
@@ -2439,7 +2423,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   .analysis-dock-body .analysis-result>h3{top:36px}
   .result-more-actions{grid-column:span 1}
 }
-
 
 /* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */
 @media(min-width:901px){
@@ -2713,8 +2696,6 @@ html.column-resizing,html.column-resizing *{cursor:col-resize!important;user-sel
   }
   .result-drag-handle{display:none}
 }
-
-
 
 /* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */
 @media(min-width:901px){
@@ -3069,8 +3050,6 @@ input:not([type=checkbox]),select,textarea{padding:7px 8px}
   .analysis-history-version>[data-history-open] small{display:none}
 }
 
-
-
 /* ULTRA-COMPACT PERFORMANCE PASS 2026-09-26 */
 body{line-height:1.32}
 .app-shell{padding:10px}
@@ -3131,7 +3110,6 @@ input:not([type=checkbox]),select,textarea{padding:6px 8px;line-height:1.25}
   .analysis-result{margin-left:-3px;margin-right:-3px}
 }
 
-
 /* RESEARCH WORKSPACE LOCAL-FIRST 2026-09-26 */
 .research-project-strip{width:100%;min-height:48px;margin:0 0 10px;padding:8px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #d7e0e7;border-radius:9px;background:#f9fbfc;color:#2c4052;text-align:left}
 .research-project-strip>span:first-child{display:grid;min-width:0}.research-project-strip b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.research-project-strip small{font-size:10px;color:#73808b}.research-project-strip>span:last-child{font-size:18px;color:#81909b}
@@ -3145,7 +3123,6 @@ input:not([type=checkbox]),select,textarea{padding:6px 8px;line-height:1.25}
 .research-list-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #edf0f2}.research-list-row:last-child{border-bottom:0}.research-list-row>div{display:grid;min-width:0}.research-list-row b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.research-list-row small{font-size:9.5px;color:#7e8992}.research-list-row button{min-height:30px;padding:4px 7px;font-size:10px;flex:none}.research-trace{max-height:220px;overflow:auto}.research-trace-row{display:grid;grid-template-columns:145px minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px solid #edf0f2;font-size:10.5px}.research-trace-row time{color:#7b8790;font-variant-numeric:tabular-nums}.research-local-note{margin-right:auto;color:#73818c;font-size:10px}
 html.field-mode button,html.field-mode .toolbar button{min-height:50px}html.field-mode .data-grid th,html.field-mode .data-grid td{height:48px;padding:9px 12px;font-size:max(var(--data-font-size),15px)}html.field-mode .toolbar{position:sticky;top:0;z-index:8}html.field-mode #compactEditor{display:none!important}
 @media(max-width:720px){.research-workspace-backdrop{padding:0!important}.research-workspace-modal{width:100%!important;max-height:100dvh!important;height:100dvh!important;border-radius:0!important;border:0!important}.research-workspace-body{padding:8px!important;gap:8px}.research-project-hero{grid-template-columns:1fr;padding:9px}.research-project-hero>div:first-child{grid-template-columns:1fr}.research-score{grid-template-columns:auto auto auto;gap:7px;justify-content:start;border-left:0;border-top:1px solid #e2e7eb;padding-top:8px}.research-score b{font-size:18px}.research-action-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.research-action-row button,.research-action-row .button-like{min-height:48px;justify-content:center;text-align:center}.research-two-column,.research-meta-grid{grid-template-columns:1fr}.research-meta-grid .wide{grid-column:auto}.research-section{padding:9px}.research-current{display:grid}.research-list-row{align-items:stretch}.research-list-row button{min-height:44px}.research-trace-row{grid-template-columns:1fr;gap:2px}html.field-mode .toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}html.field-mode .toolbar button{width:100%}}
-
 
 /* FULLSCREEN ANALYSIS RESULTS 2026-09-26 */
 body.analysis-results-open{overflow:hidden}
@@ -3321,7 +3298,6 @@ body.analysis-results-open{overflow:hidden}
   }
 }
 
-
 /* STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS 2026-09-26 */
 .stat-workflow-strip{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
@@ -3396,7 +3372,6 @@ body.analysis-results-open{overflow:hidden}
   .analysis-dock-actions #analysisDockAnalysis::before{content:"Σ";font-size:15px}
 }
 
-
 /* STAT DESKTOP OPEN CATEGORIES + PREFLIGHT 2026-09-26 */
 .analysis-data-check{
   min-height:30px;
@@ -3427,7 +3402,6 @@ body.analysis-results-open{overflow:hidden}
   .analysis-data-check{min-height:38px}
 }
 
-
 /* AUGMENTED DESIGN 2026-09-26 */
 .augmented-result .aug-anova-component td:first-child{padding-left:18px;font-size:10px;color:#657786}
 .aug-check-badge{display:inline-flex;align-items:center;min-height:20px;padding:1px 6px;border:1px solid #b8cad7;border-radius:999px;background:#eef5f8;color:#31566f;font-size:9px;font-weight:800}
@@ -3436,7 +3410,6 @@ body.analysis-results-open{overflow:hidden}
   .augmented-result .augmented-means-table{min-width:860px!important;table-layout:auto!important}
   .augmented-result .table-scroll{overflow-x:auto!important}
 }
-
 
 /* AUGMENTED WORKSPACE REFINEMENT 2026-09-26 */
 #dataToolModal[data-tool-mode="augmented"]{padding:8px}
@@ -3590,7 +3563,6 @@ body.analysis-results-open{overflow:hidden}
   .aug-model-line{font-size:9px}
   .aug-anova-grid,.aug-secondary-grid{padding:4px;gap:4px}
 }
-
 
 /* STAT SIMPLE-FIRST UI 2026-09-26 */
 .analysis-command-panel[data-mode="simple"]{
@@ -3766,7 +3738,6 @@ body.analysis-results-open{overflow:hidden}
   .result-tools-menu>summary{min-height:38px}
   .result-tools-menu-body{position:fixed;left:5px;right:5px;top:auto;bottom:8px;min-width:0}
 }
-
 
 /* COMPACT RESULT ACTIONS 2026-09-26 */
 .analysis-result-toolbar{
@@ -3952,7 +3923,6 @@ body.analysis-results-open{overflow:hidden}
   .chapter-interpretation-head>button{display:none!important}
 }
 
-
 /* STAT COMPACT CONTROLS 2026-09-26 */
 .analysis-other-picker{
   display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;
@@ -3997,7 +3967,6 @@ body.analysis-results-open{overflow:hidden}
     grid-template-columns:1fr 1fr;
   }
 }
-
 
 /* STAT COMPACT POLISH 2026-09-26 */
 /* Keep the interface dense: one choice per action, secondary controls on demand. */
@@ -4071,7 +4040,6 @@ body.analysis-results-open{overflow:hidden}
   .result-card-actions .result-card-more>summary{min-width:40px!important;width:40px!important;min-height:40px!important}
 }
 
-
 /* STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS 2026-09-26 */
 .analysis-command-panel{
   width:calc(100% - 20px)!important;
@@ -4086,19 +4054,6 @@ body.analysis-results-open{overflow:hidden}
   padding:5px 0 1px;
 }
 
-@media(min-width:901px){
-  .analysis-group-board{
-    grid-template-columns:repeat(5,minmax(0,1fr));
-    align-items:start;
-    gap:5px;
-    padding:5px;
-  }
-  .analysis-compact-group:first-child{grid-column:auto}
-  .analysis-compact-items,
-  .analysis-compact-group:not(:first-child) .analysis-compact-items{
-    grid-template-columns:1fr;
-  }
-}
 .analysis-compact-group{
   min-width:0;
   border:1px solid #d9e1e6;
@@ -4175,6 +4130,21 @@ body.analysis-results-open{overflow:hidden}
 .aug-parameter-head b{color:#31546b;font-size:9px}
 .aug-parameter-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;max-height:170px!important}
 .aug-param[hidden],.science-param-check[hidden]{display:none!important}
+
+@media(min-width:901px){
+  .analysis-group-board{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+    gap:5px;
+    padding:5px;
+  }
+  .analysis-compact-group:first-child{grid-column:auto}
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-template-columns:1fr;
+  }
+}
+
 @media(max-width:900px){
   .analysis-group-board{grid-template-columns:1fr}
   .analysis-compact-group:first-child{grid-column:auto}
@@ -4200,7 +4170,6 @@ body.analysis-results-open{overflow:hidden}
   .aug-parameter-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .aug-param{min-height:38px!important}
 }
-
 
 /* STAT MOBILE TAP TARGETS 2026-09-26 */
 /* Phone controls remain visually compact, but every interactive target is comfortably tappable. */
@@ -4538,7 +4507,6 @@ body.analysis-results-open{overflow:hidden}
   }
 }
 
-
 /* STAT MOBILE DOCK TAP TARGETS 2026-09-26 */
 @media(max-width:720px){
   .app-header .nav{
@@ -4569,7 +4537,6 @@ body.analysis-results-open{overflow:hidden}
     touch-action:manipulation;
   }
 }
-
 
 /* STAT MOBILE GROUP TAP TARGETS 2026-09-26 */
 @media(max-width:720px){
@@ -4662,7 +4629,6 @@ body.analysis-results-open{overflow:hidden}
     font-size:16px!important;
   }
 }
-
 
 /* STAT UNIFORM ANALYSIS CARDS 2026-09-26 */
 .analysis-group-board{
