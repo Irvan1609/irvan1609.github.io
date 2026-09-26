@@ -45,9 +45,16 @@ function openData(){
 function openField(){
   setDockOpen(false);
   const button=document.querySelector('#fieldLayoutTool');
-  if(button){button.click();setActive('field');return;}
+  if(button){button.click();return;}
   globalThis.AgrotikFieldLayout?.open?.();
-  setActive('field');
+}
+function openSetup(){
+  setDockOpen(false);
+  const science=document.querySelector('#scientificModal');
+  if(science?.classList.contains('open')){setActive('setup');return;}
+  const tool=document.querySelector('#dataToolModal');
+  if(tool?.classList.contains('open')&&tool.dataset.toolMode==='augmented'){setActive('setup');return;}
+  openAnalysis();
 }
 function openAnalysis(){
   setDockOpen(false);
@@ -82,9 +89,9 @@ function update(){
 function markup(){
   return `<nav id="statWorkflowStrip" class="stat-workflow-strip" aria-label="Alur kerja Statistical Web" data-stage="data">
     <button type="button" data-stat-workflow="data" aria-current="step"><b>1</b><span>Data<small data-workflow-data-label>—</small></span></button>
-    <button type="button" data-stat-workflow="field"><b>2</b><span>Denah<small>Input plot</small></span></button>
-    <button type="button" data-stat-workflow="analysis"><b>3</b><span>Analisis<small>Rancangan & uji</small></span></button>
-    <button type="button" data-stat-workflow="results"><b>4</b><span>Hasil<small>Interpretasi</small></span></button>
+    <button type="button" data-stat-workflow="analysis"><b>2</b><span>Analisis<small>Pilih metode</small></span></button>
+    <button type="button" data-stat-workflow="setup"><b>3</b><span>Atur<small>Kolom & parameter</small></span></button>
+    <button type="button" data-stat-workflow="results"><b>4</b><span>Hasil<small>Ringkas dulu</small></span></button>
   </nav>`;
 }
 export function installStatWorkflow(){
@@ -95,7 +102,7 @@ export function installStatWorkflow(){
   const strip=document.querySelector('#statWorkflowStrip');
   strip.addEventListener('click',event=>{
     const button=event.target.closest('[data-stat-workflow]');if(!button)return;
-    const action={data:openData,field:openField,analysis:openAnalysis,results:openResults}[button.dataset.statWorkflow];
+    const action={data:openData,analysis:openAnalysis,setup:openSetup,results:openResults}[button.dataset.statWorkflow];
     action?.();
   });
   document.addEventListener('stat-dataset-changed',()=>{update();if(!document.body.classList.contains('analysis-results-open'))setActive('data');});
@@ -109,17 +116,17 @@ export function installStatWorkflow(){
   });
   document.addEventListener('agrotik-workflow-stage',event=>{const stage=String(event.detail?.stage||'');if(stage)setActive(stage);update();});
   document.addEventListener('click',event=>{
-    if(event.target.closest('#fieldLayoutTool'))setActive('field');
-    else if(event.target.closest('#openAnalysis'))setActive('analysis');
+    if(event.target.closest('#openAnalysis'))setActive('analysis');
+    else if(event.target.closest('#runScience,#runAugmented'))setActive('setup');
     else if(event.target.closest('#analysisResultDock'))setActive('results');
   },true);
   document.addEventListener('keydown',event=>{
     if(!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
     if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
-    const action={'1':openData,'2':openField,'3':openAnalysis,'4':openResults}[event.key];
+    const action={'1':openData,'2':openAnalysis,'3':openSetup,'4':openResults}[event.key];
     if(!action)return;
     event.preventDefault();action();
   });
-  globalThis.StatisticalWebWorkflow={openData,openField,openAnalysis,openResults,setActive,update,summary:datasetSummary};
+  globalThis.StatisticalWebWorkflow={openData,openField,openAnalysis,openSetup,openResults,setActive,update,summary:datasetSummary};
   update();
 }

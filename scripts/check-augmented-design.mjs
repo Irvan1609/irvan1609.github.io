@@ -48,7 +48,7 @@ const repeatedTest=[...rows,['B2','T1',126]];
 assert.throws(()=>augmentedRcbAnova(repeatedTest,{checks:['C1','C2']}),/non-check berulang/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-config-layout','augStructure','structurePreview','Adjusted mean genotipe','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augSimpleParameter','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view="summary"','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
 for(const marker of ["['augmented','augmented','Augmented Design'","augmented:'AD'","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
@@ -57,6 +57,6 @@ console.log('Augmented design verified: automatic/manual checks, connected block
 const dataTools=fs.readFileSync(new URL('../src/data-tools.js',import.meta.url),'utf8');
 assert.ok(dataTools.includes("openTool(title,html,mode=''"),'openTool mode missing');
 const css=fs.readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
-for(const marker of ['AUGMENTED WORKSPACE REFINEMENT','data-tool-mode="augmented"','.aug-result-summary','.aug-anova-grid'])assert.ok(css.includes(marker),`augmented UI CSS missing ${marker}`);
+for(const marker of ['AUGMENTED WORKSPACE REFINEMENT','STAT SIMPLE-FIRST UI','data-tool-mode="augmented"','.aug-simple-form','.aug-result-summary','.aug-anova-grid','.aug-view-summary'])assert.ok(css.includes(marker),`augmented UI CSS missing ${marker}`);
 
 // UI refresh trigger after master syntax repair
