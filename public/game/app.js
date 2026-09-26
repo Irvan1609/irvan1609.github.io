@@ -1498,8 +1498,8 @@ function openMusicPicker(){
     const value=Number(input.value)/100;if(input.dataset.audioVolume==='music'){state.comfort.musicVolume=value;setMusicVolume(value*.16);}else state.comfort.uiVolume=value;save();
   });
 }
-function openInspectorSheet(){document.querySelector('.inspector')?.classList.add('sheet-open');}
-function closeInspectorSheet(){document.querySelector('.inspector')?.classList.remove('sheet-open');}
+function openInspectorSheet(){document.body.classList.add('inspector-engaged');document.querySelector('.inspector')?.classList.add('sheet-open');}
+function closeInspectorSheet(){document.body.classList.remove('inspector-engaged');document.querySelector('.inspector')?.classList.remove('sheet-open');}
 function smartActionForSelected(){
   const crop=selectedCrop();
   if(!crop)return {tool:'plant',label:'🌱 Tanam'};
