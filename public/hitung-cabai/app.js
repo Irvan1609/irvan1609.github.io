@@ -477,10 +477,11 @@ async function contributeCurrent(){
 }
 $('contribute').onclick=contributeCurrent;
 function updateCloudState(){
-  const ready=cloudContributionReady();
-  $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+  const ready=cloudContributionReady(),paused=window.IrvanCloudPolicy?.features?.aiUpload===false;
+  $('cloudState').textContent=ready?'Cloudflare siap menerima kontribusi.':(paused?'Kontribusi AI dijeda · data lokal tetap berfungsi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.');
   updateWorkflowState();
 }
+document.addEventListener('cloudpolicychange',updateCloudState);
 
 
 async function openRecord(row){
