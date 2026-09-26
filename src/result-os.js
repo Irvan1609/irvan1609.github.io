@@ -229,6 +229,7 @@ export function enhanceResultOS(container,reports,options={}){
   if(!container||!reports?.length)return;
   if(typeof container._resultOsCleanup==='function')container._resultOsCleanup();
   container.classList.add('result-os-enhanced');
+  for(const className of ['split-results-mode','important-results-mode','examiner-results-mode','focus-results-mode'])container.classList.remove(className);
   const datasetName=String(options.datasetName||reports[0]?.datasetName||'dataset');
   const resultVersion=String(options.resultVersion||reports[0]?.resultVersion||'');
   const pins=readPins(datasetName);
@@ -280,7 +281,8 @@ export function enhanceResultOS(container,reports,options={}){
   const syncModeButtons=()=>{
     const map={compare:'compare-parameters-mode',thesis:'thesis-table-mode',presentation:'presentation-results-mode'};
     container.querySelectorAll('[data-os-proxy]').forEach(button=>button.setAttribute('aria-pressed',String(container.classList.contains(map[button.dataset.osProxy]))));
-    const focusButton=container.querySelector('[data-os-focus]');if(focusButton)focusButton.setAttribute('aria-pressed',String(!!focusSelect?.value));
+    const focused=!!focusSelect?.value;container.classList.toggle('focus-results-mode',focused);
+    const focusButton=container.querySelector('[data-os-focus]');if(focusButton)focusButton.setAttribute('aria-pressed',String(focused));
   };
   const applySearch=()=>{
     const query=String(container.querySelector('[data-os-search]')?.value||'').trim().toLowerCase();
