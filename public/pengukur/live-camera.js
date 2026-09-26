@@ -27,15 +27,25 @@ export function installLiveCamera({onCapture,getProfile,onQuality}){
   const panel=$('livePanel'),video=$('liveVideo'),overlay=$('liveOverlay'),status=$('liveStatus'),qualityEl=$('liveQuality');
   const sample=document.createElement('canvas'),sc=sample.getContext('2d',{willReadFrequently:true}),oc=overlay.getContext('2d');
   let stream=null,timer=null,generation=0,stable=0,capturing=false;
+  let orientation={beta:null,gamma:null,seen:false};
+  const orientationState=()=>{
+    if(!orientation.seen)return {available:false,ready:true,beta:null,gamma:null};
+    const beta=Math.min(Math.abs(orientation.beta||0),Math.abs(Math.abs(orientation.beta||0)-180)),gamma=Math.abs(orientation.gamma||0);
+    return {available:true,ready:beta<=7&&gamma<=7,beta,gamma};
+  };
+  const onOrientation=e=>{if(Number.isFinite(e.beta)&&Number.isFinite(e.gamma))orientation={beta:e.beta,gamma:e.gamma,seen:true};};
+  if(typeof window!=='undefined')window.addEventListener('deviceorientation',onOrientation,{passive:true});
   const setStatus=message=>{if(status&&status.textContent!==message)status.textContent=message;};
   function stop(){
     generation++;clearTimeout(timer);timer=null;stable=0;capturing=false;
     stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;
     if(take)take.disabled=true;if(open)open.disabled=false;if(panel)panel.hidden=true;
   }
-  function renderGate(q,ready){
+  function renderGate(q,ready,sensor={available:false}) {
     if(!qualityEl)return;
-    qualityEl.innerHTML=`<b>${q.score}/100</b><span class="${ready?'good':q.score>=60?'warn':'bad'}">${ready?'Siap':q.score>=60?'Perbaiki':'Belum layak'}</span><small>Fokus ${q.sharpness} · Cahaya ${q.exposure} · Geometri ${q.alignmentScore}</small>`;
+    const level=ready?'good':q.score>=60?'warn':'bad';
+    const sensorText=sensor.available?` · Pitch ${sensor.beta.toFixed(1)}° · Roll ${sensor.gamma.toFixed(1)}°`:'';
+    qualityEl.innerHTML=`<b>${q.score}/100</b><span class="${level}">${ready?'Siap':q.score>=60?'Perbaiki':'Belum layak'}</span><small>Fokus ${q.sharpness} · Cahaya ${q.exposure} · Geometri ${q.alignmentScore}${sensorText}</small>`;
   }
   function captureNow(){
     if(capturing||!stream||!video.videoWidth)return;
@@ -56,10 +66,10 @@ export function installLiveCamera({onCapture,getProfile,onQuality}){
       let points=null;try{points=detectMarkers(sc.getImageData(0,0,sample.width,sample.height));}catch{}
       const profile=getProfile(),guide=cameraGuide(points,sample.width,sample.height,profile);
       const image=sc.getImageData(0,0,sample.width,sample.height),alignment=points?alignmentCheck(points,profile.activeWidth/profile.activeHeight):null,q=imageQuality(image,points,alignment);
-      const gate=guide.ready&&q.score>=72&&q.sharpness>=38&&q.exposure>=55;
+      const sensor=orientationState(),gate=guide.ready&&q.score>=72&&q.sharpness>=38&&q.exposure>=55&&sensor.ready;
       stable=gate?stable+1:0;const ready=stable>=4;
-      if(take)take.disabled=!ready;renderGate(q,ready);onQuality?.(q);
-      setStatus(gate&&!ready?'Posisi baik. Tahan kamera sebentar…':ready?'Siap diambil.':guide.message);
+      if(take)take.disabled=!ready;renderGate(q,ready,sensor);onQuality?.({...q,sensor});
+      setStatus(sensor.available&&!sensor.ready?'Ratakan ponsel · usahakan pitch/roll ≤ 7°.':gate&&!ready?'Posisi baik. Tahan kamera sebentar…':ready?'Siap diambil.':guide.message);
       oc.strokeStyle=ready?'#00ef99':gate?'#65d8ad':'#ffcf40';oc.lineWidth=2;oc.setLineDash([5,4]);oc.beginPath();
       guide.target.forEach((p,i)=>i?oc.lineTo(...p):oc.moveTo(...p));oc.closePath();oc.stroke();oc.setLineDash([]);
       guide.target.forEach(p=>{oc.beginPath();oc.arc(...p,8,0,Math.PI*2);oc.stroke();});
@@ -72,6 +82,9 @@ export function installLiveCamera({onCapture,getProfile,onQuality}){
   if(open)open.onclick=async()=>{
     stop();const id=generation;if(panel)panel.hidden=false;open.disabled=true;setStatus('Meminta izin kamera belakang…');
     try{
+      if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+        try{if(await DeviceOrientationEvent.requestPermission()!=='granted')orientation.seen=false;}catch{}
+      }
       if(!navigator.mediaDevices?.getUserMedia)throw Error('Kamera langsung tidak tersedia.');
       const incoming=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
       if(id!==generation){incoming.getTracks().forEach(t=>t.stop());return;}
