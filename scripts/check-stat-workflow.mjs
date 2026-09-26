@@ -20,7 +20,7 @@ for(const marker of [
   'agrotik-analysis-complete'
 ])if(!workflow.includes(marker))fail('workflow missing '+marker);
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
-for(const marker of ['analysis-simple-grid','data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-open-other'])if(!flow.includes(marker))fail('compact analysis flow missing '+marker);
+for(const marker of ['analysis-simple-grid','data-analysis-factorial','data-analysis-more','analysisOtherSelect',"addEventListener('change',async event"])if(!flow.includes(marker))fail('compact analysis flow missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
 
 for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceSimpleParameter','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select'])if(!scientific.includes(marker))fail('compact results workspace missing '+marker);
