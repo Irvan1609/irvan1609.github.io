@@ -1,5 +1,5 @@
 import './field-layout.css';
-import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto} from './field-media.js';
+import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto,renameFieldMediaDataset,deleteFieldMediaDataset} from './field-media.js';
 import {qrSvg} from './qr-lite.js';
 
 const STORE='statistical_web_field_layout_v1',SNAPSHOT_STORE='statistical_web_field_snapshots_v1';
@@ -370,8 +370,14 @@ function ensureModal(){
   },true);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{},patch=detail.patch,store=readStore();
-    if(detail.type==='rename'&&detail.previous&&detail.name&&store[detail.previous]){
-      store[detail.name]=store[detail.previous];delete store[detail.previous];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}
+    if(detail.type==='rename'&&detail.previous&&detail.name){
+      if(store[detail.previous]){store[detail.name]=store[detail.previous];delete store[detail.previous];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}}
+      const snapshots=snapshotStore();if(snapshots[detail.previous]){snapshots[detail.name]=snapshots[detail.previous];delete snapshots[detail.previous];try{localStorage.setItem(SNAPSHOT_STORE,JSON.stringify(snapshots));}catch{}}
+      void renameFieldMediaDataset(detail.previous,detail.name).catch(()=>{});
+    }else if(detail.type==='delete'&&detail.name){
+      if(store[detail.name]){delete store[detail.name];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}}
+      const snapshots=snapshotStore();if(snapshots[detail.name]){delete snapshots[detail.name];try{localStorage.setItem(SNAPSHOT_STORE,JSON.stringify(snapshots));}catch{}}
+      void deleteFieldMediaDataset(detail.name).catch(()=>{});
     }
     const data=dataset(),key=keyFor(data),saved=store[key];
     if(saved&&Array.isArray(saved.uids)){
