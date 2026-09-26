@@ -1958,3 +1958,110 @@ body.calm-ui .first-season-note{
   .mobile-command-row button{min-height:44px}
   .care-choice{min-height:58px}
 }
+
+
+/* FIELD ZERO LIGHT/DARK THEME 2026-09-27 */
+body.theme-dark{
+  --bg:#0d1713;--panel:#14231d;--panel-2:#1a2c24;--panel-3:#20382e;--line:#2c4a3d;
+  --ink:#ecf5ef;--muted:#9bb0a5;--green:#63c987;--green-2:#9ae3ad;--gold:#e3b65f;--red:#df7575;--blue:#72b7de;
+  color-scheme:dark
+}
+body.theme-light{
+  --bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
+  --ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
+  color-scheme:light;
+  background:radial-gradient(circle at 20% -10%,#dceee2 0,transparent 36%),var(--bg);
+  color:var(--ink)
+}
+body.theme-light .subweb-header{
+  --subweb-header-bg:rgba(250,253,251,.97);
+  --subweb-header-line:#c7d6cc;
+  --subweb-header-ink:#183126;
+  --subweb-header-muted:#687c71;
+  --subweb-header-active:#e3efe7
+}
+body.theme-light :is(.hud>div,.season-bar>div,.panel,.game-quick-nav,.field-context,.time-panel){
+  background:rgba(255,255,255,.96);
+  border-color:var(--line);
+  box-shadow:0 6px 22px rgba(35,68,51,.07)
+}
+body.theme-light :is(
+  .icon-button,.game-quick-nav button,.field-tool-dock button,.mobile-command-row button,
+  .field-primary-actions button,.quick-menu-grid button,.care-choice,.care-footer button,
+  .inspector-head-actions>button,.day-actions button,.action-grid button,.cross-form button,
+  .experiment-actions button,.wizard-actions button,.competition-launch,.social-tabs button
+){
+  background:#f8fbf9;
+  border-color:#c4d5ca;
+  color:var(--ink)
+}
+body.theme-light :is(button.primary,.primary,.game-shell .day-actions #nextDay){
+  background:var(--green);
+  border-color:var(--green);
+  color:#fff
+}
+body.theme-light :is(input,select,textarea,.seed-picker select,.cross-form select,.experiment-form input,.experiment-form select,.experiment-table input,.comfort-settings select){
+  background:#fff;
+  border-color:#c4d5ca;
+  color:var(--ink)
+}
+body.theme-light :is(.seed-card-preview,.economy-grid>div,.comfort-settings label,.audio-mixer label,.care-center>header,.augmented-intro){
+  background:#f8fbf9;
+  border-color:#cbd9d0;
+  color:var(--ink)
+}
+body.theme-light .plot{
+  border-color:#b9cfc0;
+  background:linear-gradient(160deg,#edf6ef,#e2eee6);
+  color:var(--ink)
+}
+body.theme-light .plot:hover{border-color:#75a98a}
+body.theme-light .plot.empty{
+  background:repeating-linear-gradient(135deg,#f1f6f2,#f1f6f2 8px,#e9f1eb 8px,#e9f1eb 16px)
+}
+body.theme-light .plot.selected{box-shadow:inset 0 0 0 1px rgba(47,143,91,.28)}
+body.theme-light .plot-top{color:#667a6f}
+body.theme-light .plot-empty-mark{color:#7d9588}
+body.theme-light :is(.mini-meter,.plot-health,.xp-track){background:#dce8e0}
+body.theme-light .field-block{background:#f8fbf9;border-color:#d0ddd5}
+body.theme-light .field-block>header{color:#5f7468}
+body.theme-light .advance-notice{
+  background:#fff8e9!important;
+  border-color:#d9bd79!important;
+  color:#6f581f!important
+}
+body.theme-light .time-panel{background:#f8fbf9}
+body.theme-light .care-choice>span{background:#e4f0e8}
+body.theme-light .care-center>p,
+body.theme-light .care-rule{color:#667a6f}
+body.theme-light .experiment-table{background:#fff}
+body.theme-light .experiment-table th{background:#edf4ef;color:#526a5d}
+body.theme-light .experiment-table td{border-bottom-color:#d7e3db}
+body.theme-light .experiment-status span{
+  background:#f4f8f5;border-color:#cbd9d0;color:#496357
+}
+body.theme-light .event-card,
+body.theme-light .meta-card,
+body.theme-light .recap-card,
+body.theme-light .social-card{
+  background:#fff;
+  border-color:#c7d6cc;
+  color:var(--ink)
+}
+body.theme-light .event-backdrop,
+body.theme-light .meta-backdrop,
+body.theme-light .recap-backdrop,
+body.theme-light .social-backdrop{background:rgba(33,53,43,.35)}
+body.theme-light .undo-toast{
+  background:#fff;
+  border-color:#b9cfc0;
+  color:var(--ink);
+  box-shadow:0 8px 28px rgba(41,69,54,.16)
+}
+body.theme-light .undo-toast button{background:#e3f0e7;border-color:#9cbea9;color:#225d3c}
+body.theme-light .inspector.sheet-open{box-shadow:0 -12px 34px rgba(45,70,56,.18)!important}
+body.theme-light .field-grid.attention-mode .plot.attention-muted{opacity:.38;filter:saturate(.65)}
+body.theme-light .plot.sick{box-shadow:inset 0 0 0 1px rgba(185,77,77,.28)}
+body.theme-light .plot.ready{border-color:#b58935}
+body.theme-light .plot.stressed{border-color:#b4753d}
+body.theme-light .agrotik-credit{color:#65796e}
