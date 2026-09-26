@@ -668,7 +668,11 @@ function applyBatch(){
   const col=Number($('#fieldPlotEditor [data-batch-column]')?.value??-1);
   const value=String($('#fieldPlotEditor [data-batch-value]')?.value??'').trim();
   const status=String($('#fieldPlotEditor [data-batch-status]')?.value||'');
-  const changes=col>=0?rows.map(row=>({row,col,value})):[];
+  const changes=[];
+  if(col>=0)for(const rowIndex of rows){
+    const next=[...current.rows[rowIndex]];next[col]=value;applySampleMeans(next);applyDerivedValues(next);
+    next.forEach((nextValue,index)=>{if(String(nextValue??'')!==String(current.rows[rowIndex]?.[index]??''))changes.push({row:rowIndex,col:index,value:String(nextValue??'')});});
+  }
   if(col>=0&&value===''&&!confirm(`Nilai kosong akan diterapkan ke ${rows.length} plot dan dapat menghapus data parameter terpilih. Lanjutkan?`))return;
   if((col>=0||status)&&rows.length>1&&!confirm(`Terapkan perubahan massal ke ${rows.length} plot?`))return;
   const result=changes.length?api()?.updateCells?.(changes,'isi massal dari denah lahan'):{ok:true,changed:false,count:0};
