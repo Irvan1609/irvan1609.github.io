@@ -446,7 +446,7 @@ function applyTreatmentModel(crop,treatment){
     if(Number(treatment.dose)>=250){crop.stress=clamp(crop.stress+5,0,120);}
   }
 }
-function createExperiment({name,design,kind,count,reps,custom,parameters,frequency=2}){
+function createExperiment({name,question,design,kind,count,reps,custom,parameters,frequency=2}){
   if(design==='rak')reps=BLOCK_COUNT;
   const treatments=experimentTreatments(kind,count,custom),total=treatments.length*reps;
   if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
@@ -455,7 +455,7 @@ function createExperiment({name,design,kind,count,reps,custom,parameters,frequen
   if(kind==='genotype'&&treatments.length<count)throw Error('Benih di Koleksi Benih belum cukup.');
   const params=unique(String(parameters||'TT,DB,JD,Penyakit,Hasil').split(',').map(x=>x.trim()).filter(Boolean)).slice(0,10),seed=hashString(state.simulationSeed+':'+state.season+':'+String(name||'rancob'));
   state.plotUse=state.plotUse.map(()=> 'commercial');
-  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',design,kind,treatments,reps,parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
+  state.experiment={id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',question:String(question||'Apakah perlakuan memengaruhi respons tanaman?').trim().slice(0,180),design,kind,treatments,reps,controlId:kind==='genotype'?'':(treatments[0]?.id||''),parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false};
   state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
   state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';addLog('📐 '+state.experiment.design.toUpperCase()+' · '+treatments.length+' perlakuan × '+reps+' · petak lain tetap untuk produksi.');render();openExperiment();
 }
@@ -545,7 +545,7 @@ function experimentDataset(){
     const treatment=experimentTreatment(unit),crop=state.field[unit.plot],material=unit.material||{},seed=crop?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),missing=exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()==='')?'BELUM LENGKAP':'LENGKAP';
     return [treatment?.name||treatment?.code||'',String(unit.rep),exp.id,String(state.season),plotMeta(unit.plot).uid,crop?.uid||material.plantUid||'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??'')),missing,ACADEMY_MODEL_VERSION];
   });
-  return {name:'SIMULASI · '+exp.name,headers,rows,plant:`${species.name} (${species.latin}) · DATA SIMULASI GAME`,treatment:`DATA SIMULASI GAME · ${exp.design.toUpperCase()} · ${exp.treatments.length} perlakuan · ${exp.reps} ${exp.design==='rak'?'kelompok':'ulangan'}`,design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
+  return {name:'SIMULASI · '+exp.name,headers,rows,plant:`${species.name} (${species.latin}) · DATA SIMULASI GAME`,treatment:`DATA SIMULASI GAME · ${exp.design.toUpperCase()} · ${exp.treatments.length} perlakuan · ${exp.reps} ${exp.design==='rak'?'kelompok':'ulangan'} · Pertanyaan: ${exp.question||'—'}`,design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
 }
 function experimentRawDataset(){
   const exp=state.experiment;if(!exp)return null;
@@ -590,6 +590,12 @@ function experimentSummaryHtml(){
 }
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
+  if(!state.experiment&&state.season===1&&!state.achievements.includes('first')&&!state.eventFlags.academySkipIntro){
+    openMetaModal('AKADEMI','Rp → 📐 → 🧬 → 📊',`<div class="academy-intro"><b>Musim 1</b><span>Mulai dari produksi dan panen pertama.</span><div><button data-academy-field>Rp Lahan</button><button data-academy-skip>📐 Lewati</button></div></div>`);
+    $('#metaModalBody').querySelector('[data-academy-field]').onclick=()=>{closeMetaModal();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});};
+    $('#metaModalBody').querySelector('[data-academy-skip]').onclick=()=>{state.eventFlags.academySkipIntro=true;save();closeMetaModal();openExperiment();};
+    return;
+  }
   if(!state.experiment){
     openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form">
       <label>Mode<select name="kind"><option value="genotype">🌱 Genetik / galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="water">💧 Air</option><option value="spacing">▦ Jarak tanam</option><option value="mulch">◫ Mulsa</option><option value="soil">△ Tanah</option><option value="disease">◈ Hama/penyakit</option><option value="custom">🧪 Perlakuan bebas</option></select></label>
@@ -598,6 +604,7 @@ function openExperiment(){
       <label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"><small>RAK = Kelompok I–III</small></label>
       <label>Frekuensi ukur<select name="frequency"><option value="1">Setiap hari</option><option value="2" selected>2 hari</option><option value="3">3 hari</option><option value="4">4 hari</option></select></label>
       <label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label>
+      <label class="experiment-wide">Pertanyaan<input name="question" value="Apakah perlakuan memengaruhi respons tanaman?"></label>
       <label class="experiment-wide">Nama perlakuan (opsional)<input name="custom" placeholder="P0, P1, P2, P3"></label>
       <label class="experiment-wide">Parameter<input name="parameters" value="TT,DB,JD,Penyakit,Hasil"></label>
       <button class="primary experiment-wide" type="submit">🎲 Randomisasi</button>
@@ -605,14 +612,14 @@ function openExperiment(){
     </form><p class="meta-note">RAK memakai 3 kelompok × 8 petak dan randomisasi terpisah dalam tiap kelompok. Petak yang tidak masuk percobaan tetap dapat dipakai untuk Rp produksi atau 🧬 pemuliaan.</p>`);
     $('#experimentForm').onsubmit=event=>{
       event.preventDefault();const fd=new FormData(event.currentTarget);
-      try{createExperiment({name:fd.get('name'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters'),frequency:Number(fd.get('frequency'))});}
+      try{createExperiment({name:fd.get('name'),question:fd.get('question'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),parameters:fd.get('parameters'),frequency:Number(fd.get('frequency'))});}
       catch(error){alert(error.message);}
     };
     $('#metaModalBody').querySelector('[data-breeding-cup]').onclick=breedingCup.open;
     return;
   }
   const exp=state.experiment;
-  openMetaModal('RANCOB AKTIF',exp.name,`${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Data panen terisi otomatis; parameter lain dapat diketik.</p>`);
+  openMetaModal('RANCOB AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-reset>×</button><button data-exp-stat class="primary">📊 /stat</button></div><p class="meta-note">${exp.kind==='genotype'?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan ke petak sesuai randomisasi.'} Data panen terisi otomatis; parameter lain dapat diketik.</p>`);
   $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{
     const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}
   });
@@ -840,11 +847,11 @@ function openSeedVault(){
   setTimeout(()=>document.querySelector('.vault-panel')?.scrollIntoView({behavior:'smooth',block:'center'}),120);
 }
 function openGameHelp(){
-  openMetaModal('CARA MAIN','3 langkah',`<div class="help-steps">
-    <div><b>1</b><span>🌱 Pilih benih</span></div>
-    <div><b>2</b><span>Alat → petak</span></div>
-    <div><b>3</b><span>Hari berikutnya</span></div>
-  </div><p class="help-note">HP: pilih alat lalu ketuk atau geser melintasi petak. Geser dari tanaman siap panen untuk panen cepat. PC: alat/benih juga bisa diseret ke petak.</p>`);
+  openMetaModal('CARA MAIN','Rp → 📐 → 🧬 → 📊',`<div class="help-steps">
+    <div><b>Rp</b><span>Produksi</span></div>
+    <div><b>📐</b><span>Uji</span></div>
+    <div><b>🧬</b><span>Seleksi</span></div>
+  </div><p class="help-note">📊 Data percobaan dapat dibuka langsung di /stat.</p>`);
 }
 
 function seedEvidence(seed){
