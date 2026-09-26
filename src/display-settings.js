@@ -12,7 +12,6 @@ function ensureStyles(){
     html[data-ui-font="large"]{--ui-scale:1.15}
     body>.subweb-header,
     body>#app,
-    body>.agrotik-credit,
     body>.modal-backdrop,
     body>.analysis-result-dock,
     body>.mobile-dataset-backdrop,
