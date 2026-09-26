@@ -347,14 +347,17 @@ function ensureModal(){
     if(!inField&&(event.key==='m'||event.key==='M')){event.preventDefault();$('#fieldMultiToggle')?.click();}
   },true);
   document.addEventListener('stat-dataset-changed',event=>{
-    if(!$('#fieldLayoutModal')?.classList.contains('open'))return;
-    const patch=event.detail?.patch;
-    if(patch?.kind==='delete_row'&&Array.isArray(config?.uids)){
-      const row=Number(patch.row);if(Number.isInteger(row)&&row>=0)config.uids.splice(row,1);
-      writeConfig(current,config);
-    }else if(patch?.kind==='append_row'&&Array.isArray(config?.uids)){
-      config.uids.push(crypto.randomUUID());writeConfig(current,config);
+    const detail=event.detail||{},patch=detail.patch,store=readStore();
+    if(detail.type==='rename'&&detail.previous&&detail.name&&store[detail.previous]){
+      store[detail.name]=store[detail.previous];delete store[detail.previous];try{localStorage.setItem(STORE,JSON.stringify(store));}catch{}
     }
+    const data=dataset(),key=keyFor(data),saved=store[key];
+    if(saved&&Array.isArray(saved.uids)){
+      if(patch?.kind==='delete_row'){const row=Number(patch.row);if(Number.isInteger(row)&&row>=0)saved.uids.splice(row,1);}
+      else if(patch?.kind==='append_row')saved.uids.push(crypto.randomUUID());
+      if(patch?.kind==='delete_row'||patch?.kind==='append_row')try{store[key]=saved;localStorage.setItem(STORE,JSON.stringify(store));}catch{}
+    }
+    if(!$('#fieldLayoutModal')?.classList.contains('open'))return;
     if(dirty)return;
     const keep=selectedRow;refreshData();
     if(multiMode)renderBatchEditor();else if(Number.isInteger(keep)&&keep<current.rows.length){selectedRow=keep;renderEditor(keep);}
@@ -572,6 +575,8 @@ function companionContext(){
 function openCompanion(path,type){
   if(dirty)saveEditor({quiet:true,rerender:false});
   const context=companionContext();if(!context)return;
+  if(type==='chili'&&!/(cabai|buah|jumlah)/i.test(context.parameter||''))context.parameter='Jumlah Cabai';
+  if(type==='camera'&&!context.parameter)context.parameter='Pengukuran (mm)';
   try{sessionStorage.setItem('agrotik_field_context_v1',JSON.stringify({...context,type}));}catch{}
   location.href=path+'?field=1';
 }
