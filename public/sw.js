@@ -1,4 +1,4 @@
-const VERSION='20260926-security-session-2';
+const VERSION='20260926-field-zero-breeding-cup-v2';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
