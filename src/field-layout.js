@@ -513,6 +513,59 @@ function applySampleMeans(values){
   }
 }
 
+
+function companionContext(){
+  if(!Number.isInteger(selectedRow))return null;
+  const active=activeParameterIndex(),labels=plotLabel(current,current.rows[selectedRow],selectedRow);
+  return {version:1,dataset:keyFor(current),datasetName:current.name,uid:plotUid(selectedRow),row:selectedRow,plot:labels.id,parameter:active>=0?current.headers[active]:'',observer:String(config.observer||''),session:String(config.session?.label||''),returnUrl:location.pathname};
+}
+function openCompanion(path,type){
+  if(dirty)saveEditor({quiet:true,rerender:false});
+  const context=companionContext();if(!context)return;
+  try{sessionStorage.setItem('agrotik_field_context_v1',JSON.stringify({...context,type}));}catch{}
+  location.href=path+'?field=1';
+}
+async function saveSelectedPhoto(event){
+  const file=event.target.files?.[0];event.target.value='';if(!file||!Number.isInteger(selectedRow))return;
+  const uid=plotUid(selectedRow),label=plotLabel(current,current.rows[selectedRow],selectedRow).id;
+  try{
+    await saveFieldPhoto({dataset:keyFor(current),uid,file,label,observer:config.observer,session:config.session?.label||''});
+    const key=plotKey(selectedRow),meta={...config.plotMeta},previous=meta[key]||{};
+    meta[key]={...previous,photoCount:Number(previous.photoCount||0)+1,updatedAt:new Date().toISOString(),observer:String(config.observer||'')};
+    config={...config,plotMeta:meta};writeConfig(current,config);await renderMediaTimeline(selectedRow);renderMap();
+  }catch(error){const status=$('#fieldEditorStatus');if(status)status.textContent=error.message||'Foto belum dapat disimpan.';}
+}
+function blobDataUrl(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});}
+async function renderMediaTimeline(rowIndex){
+  const host=$('#fieldMediaTimeline');if(!host||!Number.isInteger(rowIndex))return;
+  host.innerHTML='<small>Memuat foto…</small>';
+  try{
+    const rows=await listFieldPhotos(keyFor(current),plotUid(rowIndex));
+    if(!rows.length){host.innerHTML='<small>Belum ada foto plot.</small>';return;}
+    const shown=rows.slice(0,8),parts=[];
+    for(const item of shown){const src=await blobDataUrl(item.blob);parts.push(`<figure><img src="${src}" alt="Foto ${esc(item.label||'plot')}"><figcaption>${esc(new Date(item.createdAt).toLocaleDateString('id-ID'))}<button type="button" data-field-photo-delete="${esc(item.id)}">×</button></figcaption></figure>`);}
+    host.innerHTML=parts.join('');
+  }catch{host.innerHTML='<small>Foto lokal tidak dapat dibaca.</small>';}
+}
+async function removeSelectedPhoto(id){
+  if(!id||!Number.isInteger(selectedRow)||!confirm('Hapus foto plot ini dari perangkat?'))return;
+  try{
+    await deleteFieldPhoto(id);const key=plotKey(selectedRow),meta={...config.plotMeta},previous=meta[key]||{};
+    meta[key]={...previous,photoCount:Math.max(0,Number(previous.photoCount||1)-1)};config={...config,plotMeta:meta};writeConfig(current,config);await renderMediaTimeline(selectedRow);renderMap();
+  }catch(error){const status=$('#fieldEditorStatus');if(status)status.textContent=error.message||'Foto belum dapat dihapus.';}
+}
+function captureGps(){
+  if(!Number.isInteger(selectedRow))return;
+  const status=$('#fieldEditorStatus');
+  if(!navigator.geolocation){if(status)status.textContent='GPS tidak tersedia di browser ini.';return;}
+  if(status)status.textContent='Membaca posisi GPS…';
+  navigator.geolocation.getCurrentPosition(position=>{
+    pushLayoutHistory('GPS plot');const key=plotKey(selectedRow),meta={...config.plotMeta},previous=meta[key]||{};
+    meta[key]={...previous,gps:{lat:position.coords.latitude,long:position.coords.longitude,accuracy:position.coords.accuracy,at:new Date().toISOString()}};
+    config={...config,plotMeta:meta};writeConfig(current,config);renderEditor(selectedRow);
+  },error=>{if(status)status.textContent=error.code===1?'Izin lokasi tidak diberikan.':'Lokasi belum dapat dibaca.';},{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+}
+
 function statusOptions(selected='',includeKeep=false){
   const list=[['normal','Normal'],['missing','Petak kosong'],['dead','Tanaman mati'],['damaged','Rusak'],['harvested','Panen'],['border','Border']];
   return (includeKeep?'<option value="">Jangan ubah status</option>':'')+list.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
