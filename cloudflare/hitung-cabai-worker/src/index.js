@@ -1694,15 +1694,16 @@ async function handleDevelopRevokeSessions(request,env,userId){
 }
 async function buildBackupPayload(env){
   await ensureAuthSchema(env);await ensureDatasetSchema(env);await ensureMembershipSchema(env);await ensureOperationsSchema(env);
-  const [users,datasets,plans,payments,auditRows,contributionMeta]=await Promise.all([
+  const [users,datasets,plans,payments,auditRows,contributionMeta,appSettings]=await Promise.all([
     env.DB.prepare('SELECT id,google_sub,email,email_verified,name,picture_url,created_at,updated_at,last_login_at,role,membership_status,membership_expires_at,membership_source,access_updated_at,membership_plan_id,account_status FROM users').all(),
     env.DB.prepare('SELECT * FROM user_datasets').all(),
     env.DB.prepare('SELECT * FROM membership_plans').all(),
     env.DB.prepare('SELECT * FROM membership_payments').all(),
     env.DB.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5000').all(),
-    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,image_sha256,created_at FROM contributions ORDER BY created_at`).all()
+    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,image_sha256,created_at FROM contributions ORDER BY created_at`).all(),
+    env.DB.prepare('SELECT key,value_json,updated_at,updated_by FROM app_settings').all()
   ]);
-  return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
+  return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],appSettings:appSettings.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
 function validateBackupPayload(payload,{deep=false}={}){
   const required=['users','datasets','membershipPlans','membershipPayments','auditLogs','contributionMetadata'];
