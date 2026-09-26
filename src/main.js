@@ -75,6 +75,20 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     document.querySelector('#gridWrap')?.scrollIntoView({behavior:'smooth',block:'center'});
     return true;
   },
+  replaceRow:(row,values,reason='edit denah lahan')=>{
+    const r=Number(row);
+    if(!Number.isInteger(r)||r<0||r>=state.rows.length)return {ok:false,error:'Baris dataset tidak ditemukan.'};
+    if(!Array.isArray(values)||values.length!==state.headers.length)return {ok:false,error:'Jumlah nilai tidak sesuai kolom dataset.'};
+    const next=values.map(value=>String(value??''));
+    const current=state.rows[r]||[];
+    if(next.every((value,index)=>value===String(current[index]??'')))return {ok:true,changed:false,row:r};
+    pushUndo(reason);
+    state.rows[r]=next;
+    persist(reason,true,{kind:'set_range',row:r,col:0,values:[next]});
+    renderGrid();
+    setStatus(`✓ Baris ${r+1} diperbarui dari denah lahan.`);
+    return {ok:true,changed:true,row:r};
+  },
   snapshotActiveDataset:(reason='sebelum analisis')=>{
     recordEditorHistory(reason,true);
     return activeDatasetPayload();
