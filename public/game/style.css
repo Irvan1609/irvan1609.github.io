@@ -896,3 +896,543 @@ body.color-safe .plot.stressed{background-image:repeating-linear-gradient(135deg
   #syncConflictLater{grid-column:1/-1}
 }
 body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none}
+
+
+/* FIELD ZERO VISUAL FARM MAP 2026-09-26
+   Lightweight 2.5D research-station presentation. Gameplay remains DOM based/offline-first. */
+body{
+  background:
+    linear-gradient(180deg,rgba(7,24,17,.14),rgba(8,21,16,.92) 760px),
+    #0d1713;
+}
+.game-head{
+  position:relative;
+  padding:10px 14px 11px;
+  border:1px solid #6e5438;
+  border-radius:14px;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.05),transparent 18%,rgba(255,255,255,.035) 65%,transparent),
+    repeating-linear-gradient(0deg,#68462f,#68462f 8px,#755138 8px,#755138 16px);
+  box-shadow:0 9px 24px #0005,inset 0 1px #ffffff18;
+}
+.game-head::before,.game-head::after{
+  content:'';position:absolute;top:9px;width:7px;height:7px;border-radius:50%;background:#b5a589;box-shadow:inset 0 1px 2px #46301f;
+}
+.game-head::before{left:8px}.game-head::after{right:8px}
+.game-head h1{color:#fff4dd;text-shadow:0 2px 0 #3e291c,0 3px 8px #0006}
+.game-head p,.game-head .kicker{color:#e9d8b7}
+
+.hud{
+  position:relative;
+  z-index:5;
+}
+.hud>div,.season-bar>div{
+  border-color:#446376;
+  background:linear-gradient(180deg,rgba(36,75,101,.97),rgba(18,49,70,.97));
+  box-shadow:0 4px 12px #071a2460,inset 0 1px #ffffff12;
+}
+.hud small,.season-bar small{color:#b8d4e2}
+.hud b,.season-bar b{color:#f7fcff}
+.season-bar div>span{color:#b6ced9}
+.xp-track{background:#0d2a3a}.xp-track i{background:linear-gradient(90deg,#67db94,#b0f0a8)}
+
+.map-layout{
+  position:relative!important;
+  display:block!important;
+  min-width:0;
+}
+.farm-map-panel{
+  position:relative;
+  padding:0!important;
+  overflow:visible;
+  border-color:#4b765e;
+  background:#173727;
+  box-shadow:0 18px 50px #04150e66;
+}
+.map-panel-head{
+  margin:0!important;
+  padding:10px 12px;
+  border-radius:11px 11px 0 0;
+  background:linear-gradient(180deg,#173b2c,#10291f);
+  border-bottom:1px solid #4a6f5d;
+}
+.map-panel-head h2{font-size:15px!important;color:#f4f6e8}
+
+.farm-map-scene{
+  position:relative;
+  isolation:isolate;
+  min-height:1180px;
+  overflow:hidden;
+  padding:300px clamp(34px,7vw,105px) 118px;
+  background:
+    linear-gradient(180deg,transparent 0 55%,rgba(15,51,31,.04) 70%,rgba(11,35,24,.28) 100%),
+    url('/game/field-zero-map.svg') center top/cover no-repeat;
+  border-radius:0 0 11px 11px;
+}
+.farm-map-scene::before{
+  content:'';
+  position:absolute;inset:0;z-index:-1;
+  background:
+    radial-gradient(circle at 15% 64%,rgba(230,244,171,.18),transparent 16%),
+    radial-gradient(circle at 83% 66%,rgba(180,234,153,.14),transparent 17%),
+    linear-gradient(180deg,transparent 62%,rgba(20,70,40,.16));
+  pointer-events:none;
+}
+.farm-map-scene::after{
+  content:'';
+  position:absolute;left:0;right:0;bottom:0;height:170px;z-index:-1;
+  background:linear-gradient(180deg,transparent,rgba(11,29,20,.38));
+  pointer-events:none;
+}
+.map-atmosphere{
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    linear-gradient(115deg,transparent 0 14%,rgba(255,255,255,.11) 15%,transparent 26%),
+    radial-gradient(circle at 77% 19%,rgba(255,247,189,.25),transparent 13%);
+  mix-blend-mode:screen;
+  opacity:.55;
+}
+
+.map-landmarks{
+  position:absolute;inset:0;z-index:8;pointer-events:none;
+}
+.map-landmark{
+  position:absolute;
+  min-width:126px;
+  min-height:46px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  grid-template-rows:auto auto;
+  align-items:center;
+  gap:0 7px;
+  padding:6px 9px;
+  border:1px solid #a9c7b7;
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(22,52,61,.94),rgba(13,35,42,.94));
+  color:#f7fbf6;
+  text-align:left;
+  box-shadow:0 8px 18px #17302555,inset 0 1px #ffffff20;
+  pointer-events:auto;
+}
+.map-landmark:hover{transform:translateY(-2px);border-color:#d7f5e5}
+.map-landmark-icon{grid-row:1/3;font-size:20px}
+.map-landmark b{font-size:9.5px;line-height:1.05}
+.map-landmark small{color:#b9d3cd;font-size:7.5px;line-height:1.1}
+.map-landmark.nursery{top:164px;left:13%}
+.map-landmark.research{top:140px;left:45%;transform:translateX(-50%)}
+.map-landmark.research:hover{transform:translateX(-50%) translateY(-2px)}
+.map-landmark.water{top:208px;right:8%}
+.map-landmark.world{top:60px;left:4%;min-width:92px}
+
+.map-field-context{
+  position:relative;
+  z-index:12;
+  width:min(880px,100%);
+  margin:0 auto 7px!important;
+  padding:5px 7px;
+  border:1px solid rgba(116,101,62,.65);
+  border-radius:9px;
+  background:rgba(43,49,28,.78);
+  box-shadow:0 4px 12px #25351f44;
+}
+.map-field-context>button{
+  border-color:#9b8750!important;
+  background:rgba(34,42,23,.88)!important;
+}
+.map-field-context>span{color:#eef2cf}
+
+.map-field-board{
+  position:relative;
+  z-index:10;
+  width:min(930px,100%);
+  margin:0 auto;
+  padding:12px;
+  border:2px solid #815a35;
+  border-radius:14px;
+  background:
+    linear-gradient(180deg,rgba(177,150,84,.14),rgba(73,88,40,.14)),
+    rgba(79,103,48,.40);
+  box-shadow:0 14px 28px rgba(27,55,31,.27),inset 0 0 0 1px rgba(245,226,175,.16);
+  backdrop-filter:blur(1px);
+}
+.map-field-board::before{
+  content:'';
+  position:absolute;inset:-9px;
+  z-index:-1;
+  border:7px solid rgba(92,66,40,.55);
+  border-radius:17px;
+  pointer-events:none;
+}
+.map-field-title{
+  width:max-content;
+  max-width:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:-29px auto 9px;
+  padding:7px 16px;
+  border:2px solid #5e3d24;
+  border-radius:8px;
+  background:
+    repeating-linear-gradient(0deg,#8a5a35,#8a5a35 7px,#976640 7px,#976640 14px);
+  color:#fff5de;
+  box-shadow:0 5px 10px #2f281b55,inset 0 1px #ffffff25;
+}
+.map-field-title span{font-size:10px;font-weight:950;letter-spacing:.08em}
+.map-field-title small{color:#e8d6b4;font-size:8px}
+
+.farm-map-scene .field-grid{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:12px!important;
+  touch-action:pan-y;
+}
+.farm-map-scene .field-block{
+  position:relative;
+  min-width:0;
+  padding:9px 9px 10px!important;
+  border:1px solid #8b6b3d!important;
+  border-radius:12px!important;
+  background:
+    linear-gradient(180deg,rgba(106,132,55,.58),rgba(65,95,44,.70)),
+    rgba(73,102,52,.72)!important;
+  box-shadow:0 7px 14px #29412533,inset 0 1px rgba(255,255,255,.18);
+}
+.farm-map-scene .field-block::after{
+  content:'';
+  position:absolute;left:8px;right:8px;bottom:-7px;height:7px;
+  background:repeating-linear-gradient(90deg,#6d4b2d 0 38px,#8a6038 38px 43px);
+  border-radius:0 0 4px 4px;
+  opacity:.88;
+}
+.farm-map-scene .field-block>header{
+  width:max-content;
+  max-width:100%;
+  margin:-23px 0 9px 8px!important;
+  padding:5px 10px!important;
+  border:1px solid #5f3e23;
+  border-radius:6px;
+  background:linear-gradient(180deg,#9a693e,#794a2c);
+  color:#fff4d9;
+  box-shadow:0 3px 7px #2a211744;
+}
+.farm-map-scene .field-block>header b{font-size:9.5px!important}
+.farm-map-scene .field-block>header span{color:#f0ddba!important;font-size:7.3px!important}
+.farm-map-scene .field-block-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:7px!important;
+}
+.farm-map-scene .plot{
+  position:relative;
+  min-height:102px!important;
+  padding:6px!important;
+  border:2px solid #6c5835!important;
+  border-radius:8px!important;
+  background:
+    repeating-linear-gradient(90deg,rgba(89,53,29,.95) 0 10px,rgba(113,70,38,.96) 10px 17px),
+    #714629!important;
+  color:#f7f1de!important;
+  box-shadow:inset 0 0 0 1px rgba(233,192,117,.13),0 3px 5px rgba(39,42,22,.20);
+  overflow:hidden;
+}
+.farm-map-scene .plot::after{
+  content:'';
+  position:absolute;inset:24px 5px 7px;
+  border-radius:5px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 12px,rgba(220,239,143,.13) 12px 15px),
+    linear-gradient(180deg,rgba(83,116,45,.18),transparent);
+  pointer-events:none;
+}
+.farm-map-scene .plot.empty{
+  background:
+    repeating-linear-gradient(90deg,#70462c 0 10px,#8a5835 10px 16px)!important;
+}
+.farm-map-scene .plot.plot-locked{filter:grayscale(.7) brightness(.7)}
+.farm-map-scene .plot[data-use="research"]{border-color:#7b8fa0!important;box-shadow:inset 0 0 0 1px #b9e6ff42,0 3px 5px #263b4250}
+.farm-map-scene .plot[data-use="breeding"]{border-color:#9e8050!important;box-shadow:inset 0 0 0 1px #ffdf8b42,0 3px 5px #513d2350}
+.farm-map-scene .plot.ready{border-color:#d6ad45!important}
+.farm-map-scene .plot.sick{border-color:#be5c55!important}
+.farm-map-scene .plot.stressed{border-color:#c47f47!important}
+.farm-map-scene .plot.selected{
+  z-index:4;
+  border-color:#7defff!important;
+  box-shadow:0 0 0 3px rgba(222,253,255,.92),0 0 18px #29ddffcc,inset 0 0 0 1px #7defff!important;
+  transform:translateY(-2px) scale(1.015);
+}
+.farm-map-scene .plot-top{position:relative;z-index:3;color:#30291f!important}
+.farm-map-scene .plot-top>span:first-child{
+  display:inline-flex;align-items:center;min-height:18px;
+  padding:2px 5px;border:1px solid #a89471;border-radius:4px;
+  background:#fff8e8;color:#372b1d;font-size:7.2px;font-weight:950;
+  box-shadow:0 2px 3px #3d2c1d33;
+}
+.farm-map-scene .plot-top>span:last-child{
+  display:grid;place-items:center;min-width:18px;height:18px;
+  border-radius:5px;background:rgba(27,45,29,.72);color:#f5f1d9;
+}
+.farm-map-scene .plot-crop{
+  position:relative;z-index:2;
+  min-height:46px;
+  display:flex!important;
+  align-items:center;
+  justify-content:center;
+  gap:5px!important;
+  margin:5px 0 3px!important;
+  text-align:left;
+}
+.farm-map-scene .plant-icon{
+  font-size:27px!important;
+  filter:drop-shadow(0 2px 1px #20381d55) saturate(1.08);
+}
+.farm-map-scene .plot-crop div{
+  max-width:72px;
+  padding:3px 4px;
+  border-radius:5px;
+  background:rgba(28,49,29,.60);
+}
+.farm-map-scene .plot-crop b{font-size:7.7px!important;color:#fffce9}
+.farm-map-scene .plot-crop small{font-size:6.8px!important;color:#d8e7c7}
+.farm-map-scene .plot-empty-mark{
+  position:relative;z-index:2;height:54px;color:#d9c7a0;font-size:25px;
+  text-shadow:0 2px #4e351f;
+}
+.farm-map-scene .plot-health,.farm-map-scene .plot-bars{position:relative;z-index:3}
+.farm-map-scene .plot-health{background:#432e1f}.farm-map-scene .mini-meter{background:#3d2c20}
+.farm-map-scene .experiment-badge{z-index:5;background:#fff4bf;color:#403416;border-color:#9f8b4c}
+
+.map-analysis-button{
+  position:absolute;
+  right:2.8%;
+  top:54%;
+  z-index:22;
+  width:74px;
+  min-height:82px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:1px;
+  padding:6px;
+  border:2px solid #b9d6e2;
+  border-radius:13px;
+  background:linear-gradient(180deg,#254f69,#142f43);
+  color:#f3fbff;
+  box-shadow:0 9px 18px #132a3466,inset 0 1px #ffffff24;
+}
+.map-analysis-button>span{font-size:26px;line-height:1}
+.map-analysis-button>b{font-size:9px}.map-analysis-button small{font-size:7px;color:#bcd7e5}
+
+.map-command-row{
+  position:relative;
+  z-index:15;
+  width:min(620px,100%);
+  margin:10px auto 0!important;
+}
+.map-command-row button{
+  border-color:#826a41!important;
+  background:rgba(45,52,31,.86)!important;
+  color:#f4f1dc!important;
+}
+.map-day-actions{
+  position:relative;
+  z-index:15;
+  width:min(620px,100%);
+  margin:7px auto 0!important;
+}
+.map-day-actions button{
+  min-height:42px;
+  box-shadow:0 5px 12px rgba(30,48,30,.22);
+}
+
+.map-tool-dock{
+  position:relative!important;
+  top:auto!important;
+  z-index:30!important;
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:0!important;
+  margin:9px!important;
+  padding:7px!important;
+  border:2px solid #6c8594!important;
+  border-radius:15px!important;
+  background:linear-gradient(180deg,#203f54,#132b3c)!important;
+  box-shadow:0 10px 24px #071b2855,inset 0 1px #ffffff20!important;
+}
+.map-tool-dock button{
+  position:relative;
+  min-height:70px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  padding:5px!important;
+  border:0!important;
+  border-right:1px solid #527084!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#f5fbff!important;
+}
+.map-tool-dock button:last-child{border-right:0!important}
+.map-tool-dock button::after{
+  content:attr(data-label);
+  display:block;
+  color:#f2f7f8;
+  font-size:8px;
+  font-weight:900;
+  line-height:1;
+}
+.map-tool-dock .tool-icon{
+  width:36px!important;height:36px!important;
+  display:grid!important;place-items:center!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.08)!important;
+  font-size:21px!important;
+}
+.map-tool-dock button[aria-pressed="true"]{
+  background:rgba(111,213,149,.18)!important;
+  box-shadow:inset 0 0 0 2px #72e1a4!important;
+}
+.map-tool-dock button[aria-pressed="true"] .tool-icon{background:#2a6848!important}
+.map-tool-dock button[hidden]{display:none!important}
+
+@media(min-width:901px){
+  .map-layout{display:block!important}
+  .map-inspector{
+    position:absolute!important;
+    top:570px!important;
+    right:22px!important;
+    z-index:70!important;
+    width:min(315px,28vw)!important;
+    min-height:0!important;
+    padding:10px!important;
+    border:2px solid #b6d0d9!important;
+    border-radius:13px!important;
+    background:linear-gradient(180deg,rgba(27,61,82,.97),rgba(16,42,58,.97))!important;
+    box-shadow:0 14px 30px #0d263466!important;
+    color:#f5fbff;
+  }
+  .map-inspector .seed-card-preview,.map-inspector .stat-box,.map-inspector .plot-academy-context{
+    border-color:#4e7180;background:#143646;
+  }
+  .map-inspector .action-grid button{border-color:#547889;background:#173e50}
+  .map-inspector .stage-badge{background:#24566c;color:#d9f1f8}
+}
+
+@media(max-width:900px){
+  .farm-map-scene{
+    min-height:1160px;
+    padding:270px 24px 105px;
+  }
+  .map-landmark.nursery{left:8%}.map-landmark.research{left:48%}.map-landmark.water{right:5%}
+  .map-analysis-button{right:10px;top:52%}
+  .map-inspector{margin-top:8px}
+}
+
+@media(max-width:620px){
+  body{background:#0d1713}
+  .game-shell{width:100%!important;margin-top:0!important}
+  .game-head{
+    margin:4px 5px 6px!important;
+    padding:7px 10px!important;
+    border-radius:11px!important;
+  }
+  .game-head h1{font-size:21px!important}
+  .hud,.season-bar,.play-hint,.meta-strip{margin-left:5px!important;margin-right:5px!important}
+  .hud{grid-template-columns:repeat(3,1fr)!important}
+  .hud>div{padding:5px 6px!important}
+  .hud b{font-size:12px!important}
+  .market-cell{display:none!important}
+  .farm-map-panel{border-left:0;border-right:0;border-radius:0}
+  .map-panel-head{border-radius:0;padding:8px 9px}
+  .farm-map-scene{
+    min-height:1120px;
+    padding:225px 8px 92px;
+    background-position:center top;
+    background-size:auto 100%;
+    border-radius:0;
+  }
+  .map-landmark{
+    min-width:0;
+    min-height:42px;
+    padding:5px 6px;
+    border-radius:8px;
+  }
+  .map-landmark b{font-size:7.5px}.map-landmark small{display:none}.map-landmark-icon{font-size:18px}
+  .map-landmark.nursery{top:120px;left:8%}
+  .map-landmark.research{top:108px;left:50%}
+  .map-landmark.water{top:158px;right:5%}
+  .map-landmark.world{top:48px;left:4%;min-width:58px}
+  .map-field-context{
+    width:calc(100% - 10px);
+    margin:0 auto 6px!important;
+    padding:4px 5px;
+  }
+  .map-field-context>button{height:32px!important;min-height:32px!important;max-width:68%!important}
+  .map-field-board{
+    width:100%;
+    padding:9px 6px 8px;
+    border-radius:10px;
+  }
+  .map-field-title{margin:-24px auto 7px;padding:5px 10px}
+  .map-field-title span{font-size:8.5px}.map-field-title small{font-size:6.8px}
+  .farm-map-scene .field-grid{gap:9px!important}
+  .farm-map-scene .field-block{padding:7px 5px 8px!important}
+  .farm-map-scene .field-block-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}
+  .farm-map-scene .field-block>header{margin:-19px 0 6px 4px!important;padding:4px 7px!important}
+  .farm-map-scene .field-block>header span{display:none}
+  .farm-map-scene .plot{min-height:76px!important;padding:4px!important;border-width:1.5px!important}
+  .farm-map-scene .plot-top>span:first-child{font-size:6.4px;padding:1px 3px;min-height:15px}
+  .farm-map-scene .plot-top>span:last-child{min-width:15px;height:15px;font-size:7px}
+  .farm-map-scene .plot-crop{min-height:38px;margin:3px 0 2px!important}
+  .farm-map-scene .plant-icon{font-size:21px!important}
+  .farm-map-scene .plot-crop div{max-width:54px;padding:2px 3px}
+  .farm-map-scene .plot-crop b{font-size:6.6px!important}
+  .farm-map-scene .plot-crop small{display:none!important}
+  .farm-map-scene .plot-health{height:3px}
+  .farm-map-scene .plot-bars{display:none}
+  .farm-map-scene .experiment-badge{top:18px!important;left:3px!important;max-width:calc(100% - 6px)!important;font-size:5.8px!important;padding:1px 3px!important}
+  .map-analysis-button{
+    top:53%;right:5px;width:54px;min-height:62px;padding:4px;border-radius:10px;
+  }
+  .map-analysis-button>span{font-size:20px}.map-analysis-button>b{font-size:7px}.map-analysis-button small{font-size:6px}
+  .map-command-row{grid-template-columns:1fr 1fr!important;margin-top:8px!important}
+  .map-command-row button{min-height:34px!important;font-size:8px!important}
+  .map-day-actions{
+    position:relative!important;
+    bottom:auto!important;
+    margin-top:5px!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+  }
+  .map-day-actions button{min-height:42px!important}
+  .map-tool-dock{
+    position:sticky!important;
+    top:4px!important;
+    margin:6px 5px!important;
+    padding:4px!important;
+    border-radius:12px!important;
+  }
+  .map-tool-dock button{min-height:56px!important;padding:3px 1px!important}
+  .map-tool-dock .tool-icon{width:28px!important;height:28px!important;font-size:16px!important}
+  .map-tool-dock button::after{font-size:6.7px}
+  .map-inspector{
+    border-color:#8fb5c5!important;
+    background:linear-gradient(180deg,#1b4359,#102e41)!important;
+  }
+  .map-inspector .seed-card-preview,.map-inspector .stat-box,.map-inspector .plot-academy-context{background:#14384a;border-color:#4d7181}
+  .game-quick-nav{background:rgba(15,38,52,.97)!important;border:1px solid #587588!important}
+}
+
+@media(max-width:390px){
+  .farm-map-scene{min-height:1090px;padding-left:5px;padding-right:5px}
+  .farm-map-scene .field-block-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .farm-map-scene .plot{min-height:72px!important}
+  .map-landmark.research{left:52%}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .map-landmark:hover,.farm-map-scene .plot.selected{transform:none}
+}
