@@ -397,6 +397,10 @@ function renderStructure(check,o){
 }
 function validate(){
   const o=options(),check=validateData(data,o,parseNumber),quality=inspectDataQuality(data,o,parseNumber);let contrastInfo='';
+  const roleIndex=data.headers.findIndex(header=>String(header).toLocaleLowerCase('id-ID')==='peranstatistik');
+  if(roleIndex>=0&&data.rows.some(row=>/subsample/i.test(String(row[roleIndex]||'')))){
+    check.warnings.unshift({message:'Dataset ini memuat tanaman subsampel. Tanaman dalam petak yang sama bukan ulangan independen; gunakan dataset tingkat unit percobaan untuk ANOVA RAL/RAK.'});
+  }
   if(phoneGuardMode()&&!o.parameters.length&&!check.issues.some(issue=>/parameter/i.test(issue.message)))check.issues.unshift({message:'Pilih minimal satu parameter.'});
   if(!check.issues.length){
     o.parameters.forEach((column,index)=>{
