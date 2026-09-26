@@ -384,3 +384,5 @@ body.field-layout-open.field-qr-print>#fieldQrSheet{display:block!important}
 }
 .field-object-in-map b{text-transform:capitalize;color:#344f63}
 .field-object-in-map button{margin-left:auto;width:20px;min-width:20px;min-height:20px;padding:0;border:0;background:transparent}
+
+.field-plot.is-heatmap-missing{background:#f1f3f4!important;border-color:#c8d0d6!important;color:#788690!important}
