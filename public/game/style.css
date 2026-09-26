@@ -529,3 +529,33 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
   .social-player-actions{gap:3px}
   .social-player-actions button{min-width:32px}
 }
+
+
+/* FIELD ZERO LOCAL-FUN 2026-09-26 */
+.game-quick-nav button{font-size:18px}
+.field-tool-dock{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.field-tool-dock button{min-height:46px;padding:4px}
+.field-tool-dock .tool-icon{width:28px;height:28px;font-size:15px}
+.field-tool-dock button[data-field-tool="harvest"]{border-color:#6f6337;background:#2b2818}
+.field-tool-dock button[data-field-tool="harvest"][aria-pressed=true],
+#harvestBasket.basket-ready{border-color:#e1c75d;background:#4a4120;transform:translateY(-2px)}
+.plot.ready{cursor:grab}
+.plot.ready:active{cursor:grabbing}
+.plot.dragging-harvest{opacity:.5;transform:scale(.96)}
+.plot.ready::before{
+  content:'↘🧺';
+  position:absolute;
+  left:5px;
+  bottom:5px;
+  font-size:9px;
+  opacity:.72
+}
+.social-tabs button{font-size:16px}
+.social-player-actions button{font-size:14px}
+@media(max-width:620px){
+  .game-quick-nav button{font-size:19px}
+  .field-tool-dock{grid-template-columns:repeat(5,1fr)}
+  .field-tool-dock button{min-height:48px;padding:3px}
+  .field-tool-dock .tool-icon{width:29px;height:29px;font-size:16px}
+  .plot.ready::before{font-size:8px}
+}
