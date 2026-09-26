@@ -10,7 +10,15 @@ function ensureStyles(){
     html[data-ui-font="small"]{--ui-scale:.88}
     html[data-ui-font="medium"]{--ui-scale:1}
     html[data-ui-font="large"]{--ui-scale:1.15}
-    #app{zoom:var(--ui-scale)}
+    body>.subweb-header,
+    body>#app,
+    body>.agrotik-credit,
+    body>.modal-backdrop,
+    body>.analysis-result-dock,
+    body>.mobile-dataset-backdrop,
+    body>#columnContextMenu,
+    body>.account-status,
+    body>.agrotik-offline{zoom:var(--ui-scale)}
     .app-header{position:relative}
     .nav{position:relative}
     #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;border-radius:9px;font-size:17px;line-height:1;margin-left:auto}
@@ -50,7 +58,7 @@ function ensureSettingsUi(){
     panel=document.createElement('div');
     panel.id='appSettingsPanel';
     panel.hidden=true;
-    panel.innerHTML='<div class="settings-panel-title"><span>Pengaturan</span></div><section class="settings-section"><label for="dataFontSize">Ukuran tampilan</label><select id="dataFontSize"><option value="small">Kecil</option><option value="medium">Sedang</option><option value="large">Besar</option></select><p>Mengubah seluruh tampilan secara proporsional, termasuk font, tombol, input, tabel, serta tinggi dan lebar sel.</p></section><div id="numberSettingsMount"></div>';
+    panel.innerHTML='<div class="settings-panel-title"><span>Pengaturan</span></div><section class="settings-section"><label for="dataFontSize">Ukuran tampilan</label><select id="dataFontSize"><option value="small">Kecil</option><option value="medium">Sedang</option><option value="large">Besar</option></select><p>Berlaku seragam pada editor, menu, dialog analisis, hasil, tabel, tombol, dan header.</p></section><div id="numberSettingsMount"></div>';
     topbar.append(panel);
   }
   if(!toggle.dataset.bound){
