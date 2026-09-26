@@ -4,17 +4,15 @@ const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 const $=s=>document.querySelector(s);
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function bytes(value){const n=Number(value)||0;if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
 function dt(value){if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString('id-ID'):'—';}
 function dateOnly(value){if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleDateString('id-ID'):'—';}
 function initials(user){return String(user?.name||user?.email||'?').split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('');}
 async function api(path,options={}){
-  const headers=new Headers(options.headers||{});
-  headers.set('Authorization','Bearer '+token());
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers,cache:'no-store'});
+  const request=window.IrvanAccount?.request;
+  if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(Error(data.message||data.error||('HTTP '+response.status)),{status:response.status});
   return data;
@@ -40,7 +38,7 @@ function renderProfile(summary){
   $('#metricExpiry').textContent=user.role==='admin'?'Permanen':dateOnly(membership.expiresAt);
 }
 function renderSessions(items){
-  $('#sessionList').innerHTML=items.length?items.map(item=>'<div class="session-row" data-session="'+esc(item.id)+'"><div><strong>'+(item.current?'Perangkat ini':'Sesi perangkat')+'</strong><span>Aktif terakhir '+esc(dt(item.lastSeenAt))+' · berakhir '+esc(dt(item.expiresAt))+'</span></div>'+(item.current?'<span class="current-session">Saat ini</span>':'<span></span>')+(item.current?'':'<button type="button" data-revoke-session>Cabut sesi</button>')+'</div>').join(''):'<div class="empty">Tidak ada sesi aktif.</div>';
+  $('#sessionList').innerHTML=items.length?items.map(item=>'<div class="session-row" data-session="'+esc(item.id)+'"><div><strong>'+(item.current?'Perangkat ini':esc(item.device||'Sesi perangkat'))+'</strong><span>'+esc(item.device||'Perangkat')+' · aktif terakhir '+esc(dt(item.lastSeenAt))+' · berakhir '+esc(dt(item.expiresAt))+'</span></div>'+(item.current?'<span class="current-session">Saat ini</span>':'<span></span>')+(item.current?'':'<button type="button" data-revoke-session>Cabut sesi</button>')+'</div>').join(''):'<div class="empty">Tidak ada sesi aktif.</div>';
   $('#sessionList').querySelectorAll('[data-revoke-session]').forEach(button=>button.onclick=async()=>{
     const row=button.closest('[data-session]');button.disabled=true;
     try{await api('/v1/account/sessions/'+encodeURIComponent(row.dataset.session),{method:'DELETE'});await loadSessions();}
@@ -65,7 +63,8 @@ async function loadAll(){
   }catch(error){gate(error.message||'Data akun tidak dapat dimuat.','error');}
 }
 async function exportAccount(){
-  const response=await fetch(endpoint+'/v1/account/export',{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
+  const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request('/v1/account/export',{cache:'no-store'});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw Error(data.message||data.error||'Ekspor gagal.');}
   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download='irvan-account-export.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);

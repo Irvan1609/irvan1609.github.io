@@ -1,0 +1,56 @@
+name: D1 Recovery Drill
+
+on:
+  schedule:
+    - cron: "0 19 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-recovery-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Verify Time Travel bookmark
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 d1 time-travel info hitung-cabai --json > /tmp/time-travel.json
+          jq -e '.' /tmp/time-travel.json >/dev/null
+
+      - name: Export production D1
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 d1 export hitung-cabai --remote --output=/tmp/agrotik-recovery.sql --skip-confirmation
+          test -s /tmp/agrotik-recovery.sql
+
+      - name: Restore export into disposable D1
+        id: restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEMP_DB="agrotik-recovery-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "name=$TEMP_DB" >> "$GITHUB_OUTPUT"
+          cleanup(){ npx --yes wrangler@4 d1 delete "$TEMP_DB" --skip-confirmation >/dev/null 2>&1 || true; rm -f /tmp/agrotik-recovery.sql; }
+          trap cleanup EXIT
+          npx --yes wrangler@4 d1 create "$TEMP_DB" --location=apac
+          npx --yes wrangler@4 d1 execute "$TEMP_DB" --remote --file=/tmp/agrotik-recovery.sql --yes
+          RESULT="$(npx --yes wrangler@4 d1 execute "$TEMP_DB" --remote --command="PRAGMA integrity_check;" --json)"
+          printf '%s' "$RESULT" | jq -e '.. | strings | select(.=="ok")' >/dev/null
+          TABLES="$(npx --yes wrangler@4 d1 execute "$TEMP_DB" --remote --command="SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';" --json)"
+          printf '%s' "$TABLES" | jq -e '.. | objects | select(has("n")) | .n > 0' >/dev/null
+          cleanup
+          trap - EXIT
+
+      - name: Recovery summary
+        run: |
+          echo "### D1 recovery drill passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Production export was restored into a disposable D1 database and passed PRAGMA integrity_check." >> "$GITHUB_STEP_SUMMARY"

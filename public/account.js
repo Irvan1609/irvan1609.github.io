@@ -1,6 +1,8 @@
 import {ACCOUNT_CONFIG} from './account-config.js';
 
-const TOKEN_KEY='irvan_account_session_v1';
+const TOKEN_KEY='irvan_account_session_v1'; // legacy localStorage key; migrated on load
+const SESSION_FALLBACK_KEY='irvan_account_session_fallback_v2';
+const CSRF_KEY='irvan_account_csrf_v2';
 const USER_KEY='irvan_account_user_v1';
 const LOGIN_STATE_KEY='irvan_account_login_state_v1';
 const AUTH_READY_CACHE_KEY='irvan_account_auth_ready_v1';
@@ -9,6 +11,7 @@ const AUTH_READY_CACHE_MS=15*60*1000;
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 let currentUser=null;
 let token='';
+let csrfToken='';
 let mount=null;
 let menu=null;
 let authReady=false;
@@ -16,13 +19,24 @@ let authChecked=false;
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
-  token=localStorage.getItem(TOKEN_KEY)||'';
+  const legacy=localStorage.getItem(TOKEN_KEY)||'';
+  token=sessionStorage.getItem(SESSION_FALLBACK_KEY)||legacy;
+  csrfToken=sessionStorage.getItem(CSRF_KEY)||'';
   currentUser=safeJson(localStorage.getItem(USER_KEY),null);
+  if(legacy){
+    try{sessionStorage.setItem(SESSION_FALLBACK_KEY,legacy);}catch{}
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
-function saveSession(nextToken,user){
+function saveSession(nextToken,user,nextCsrf=''){
   token=nextToken||'';
+  csrfToken=nextCsrf||'';
   currentUser=user||null;
-  if(token)localStorage.setItem(TOKEN_KEY,token);else localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  try{
+    if(token)sessionStorage.setItem(SESSION_FALLBACK_KEY,token);else sessionStorage.removeItem(SESSION_FALLBACK_KEY);
+    if(csrfToken)sessionStorage.setItem(CSRF_KEY,csrfToken);else sessionStorage.removeItem(CSRF_KEY);
+  }catch{}
   if(currentUser)localStorage.setItem(USER_KEY,JSON.stringify(currentUser));else localStorage.removeItem(USER_KEY);
 }
 function randomState(){
@@ -45,9 +59,11 @@ function returnUrl(){
 }
 function authFetch(path,options={}){
   const headers=new Headers(options.headers||{});
+  const method=String(options.method||'GET').toUpperCase();
   if(token)headers.set('Authorization',`Bearer ${token}`);
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  return fetch(endpoint+path,{...options,headers});
+  if(!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken)headers.set('X-Agrotik-CSRF',csrfToken);
+  if(options.body&&!headers.has('Content-Type')&&!(options.body instanceof FormData))headers.set('Content-Type','application/json');
+  return fetch(endpoint+path,{...options,headers,credentials:'include'});
 }
 function status(message,type='info'){
   let box=document.querySelector('.account-status');
@@ -86,13 +102,15 @@ function accessClass(user){
 function dispatch(){
   window.IrvanAccount={
     get user(){return currentUser;},
-    get authenticated(){return Boolean(token&&currentUser);},
+    get authenticated(){return Boolean(currentUser);},
     getToken:()=>token,
+    getCsrfToken:()=>csrfToken,
+    request:authFetch,
     refresh:refreshSession,
     login:startLogin,
     logout
   };
-  document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(token&&currentUser),user:currentUser}}));
+  document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(currentUser),user:currentUser}}));
 }
 function closeMenu(){
   if(menu)menu.hidden=true;
@@ -101,7 +119,7 @@ function closeMenu(){
 function render(){
   if(!mount)return;
   mount.replaceChildren();
-  if(!token||!currentUser){
+  if(!currentUser){
     const button=document.createElement('button');
     button.type='button';button.className='account-login';
     button.innerHTML='<span class="account-google-mark" aria-hidden="true">G</span><span>Masuk dengan Google</span>';
@@ -193,11 +211,24 @@ async function exchangeCallback(){
     const response=await fetch(endpoint+'/v1/auth/exchange',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code,state:returnedState})
+      body:JSON.stringify({code,state:returnedState}),
+      credentials:'include'
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok||!data.token||!data.user)throw Error(data.error||'Login tidak dapat diselesaikan.');
-    saveSession(data.token,data.user);
+
+    let cookieSession=null;
+    try{
+      const probe=await fetch(endpoint+'/v1/auth/session',{headers:{Accept:'application/json'},credentials:'include',cache:'no-store'});
+      if(probe.ok)cookieSession=await probe.json();
+    }catch{}
+    if(cookieSession?.authenticated&&cookieSession.user){
+      saveSession('',cookieSession.user,cookieSession.csrfToken||data.csrfToken||'');
+    }else{
+      // Compatibility fallback for browsers that block cross-site cookies.
+      // Token is scoped to this tab/session and is never persisted in localStorage.
+      saveSession(data.token,data.user,data.csrfToken||'');
+    }
     sessionStorage.removeItem(LOGIN_STATE_KEY);
     render();
     status(`Berhasil masuk sebagai ${data.user.name||data.user.email}.`,'success');
@@ -208,27 +239,23 @@ async function exchangeCallback(){
   return true;
 }
 async function refreshSession(){
-  if(!token){render();return null;}
   try{
-    const response=await authFetch('/v1/auth/session');
+    const response=await authFetch('/v1/auth/session',{cache:'no-store'});
     if(!response.ok)throw Error('Sesi berakhir');
     const data=await response.json();
     if(!data.authenticated||!data.user)throw Error('Sesi berakhir');
-    currentUser=data.user;
-    localStorage.setItem(USER_KEY,JSON.stringify(currentUser));
+    const nextToken=data.token||token;
+    saveSession(nextToken,data.user,data.csrfToken||csrfToken);
     render();
     return currentUser;
   }catch{
-    saveSession('',null);render();return null;
+    saveSession('',null,'');render();return null;
   }
 }
 async function logout(){
   closeMenu();
-  const oldToken=token;
-  saveSession('',null);render();
-  try{
-    if(oldToken)await fetch(endpoint+'/v1/auth/logout',{method:'POST',headers:{Authorization:`Bearer ${oldToken}`}});
-  }catch{}
+  try{await authFetch('/v1/auth/logout',{method:'POST',body:'{}'});}catch{}
+  saveSession('',null,'');render();
   status('Anda sudah keluar.','success');
 }
 async function checkAuthReady(){
@@ -250,9 +277,9 @@ async function init(){
   if(!ACCOUNT_CONFIG.enabled||!endpoint)return;
   ensureMount();loadStored();render();
   const handled=await exchangeCallback();
-  if(token){
+  if(!handled)await refreshSession();
+  if(currentUser){
     authReady=true;authChecked=true;
-    if(!handled)await refreshSession();
   }else{
     await checkAuthReady();
   }

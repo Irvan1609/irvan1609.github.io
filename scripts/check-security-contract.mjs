@@ -9,6 +9,9 @@ function requireText(text,marker,label){
 }
 
 const worker=fs.readFileSync('cloudflare/hitung-cabai-worker/src/index.js','utf8');
+const account=fs.readFileSync('public/account.js','utf8');
+const headers=fs.readFileSync('public/_headers','utf8');
+
 const workerDeploy=fs.readFileSync('.github/workflows/deploy-hitung-cabai-worker.yml','utf8');
 const securityWorkflow=fs.readFileSync('.github/workflows/security.yml','utf8');
 const gitignore=fs.readFileSync('.gitignore','utf8');
@@ -21,7 +24,14 @@ for(const marker of [
   'DATASET_RATE_LIMITER',
   'requestTooLarge',
   'datasetMutationGuard',
-  'verifyTurnstile(request,env)'
+  'verifyTurnstile(request,env)',
+  "SESSION_COOKIE='__Host-agrotik_session'",
+  "CSRF_HEADER='X-Agrotik-CSRF'",
+  'csrfGuard',
+  'sessionCookie(',
+  'rotateSessionIfNeeded',
+  'sessionClientMeta',
+  'handleDevelopSecurity'
 ]) requireText(worker,marker,'Worker security');
 
 const unsafeDatasetLookup='SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1';
@@ -38,7 +48,7 @@ for(const marker of [
 ]) requireText(worker,marker,'Dataset mutation ownership');
 
 for(const marker of [
-  "gitleaks/gitleaks-action@v3",
+  "gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
   'fetch-depth: 0',
   'npm run verify'
 ]) requireText(securityWorkflow,marker,'Security workflow');
@@ -64,4 +74,10 @@ for(const file of ['public/hitung-cabai/cloud-config.js','public/account-config.
   for(const pattern of forbidden)if(pattern.test(content))fail('high-confidence secret pattern found in '+file);
 }
 
-console.log('Security contract OK: ownership scoping, request caps, rate-limit bindings, Turnstile and secret scanning are wired.');
+if(account.includes("localStorage.setItem(TOKEN_KEY"))fail('session token must not be persisted in localStorage');
+for(const marker of ['SESSION_FALLBACK_KEY','credentials:\'include\'','X-Agrotik-CSRF','request:authFetch'])
+  requireText(account,marker,'Browser session hardening');
+for(const marker of ['Content-Security-Policy:','Strict-Transport-Security:','X-Frame-Options: DENY'])
+  requireText(headers,marker,'Pages security headers');
+
+console.log('Security contract OK: ownership, HttpOnly/session fallback, CSRF, rotation, request caps, rate limits, Turnstile, CSP and secret scanning are wired.');

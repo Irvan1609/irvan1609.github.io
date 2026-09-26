@@ -5,6 +5,9 @@ const MAX_DATASET_BYTES=2_000_000;
 const MAX_DATASET_REQUEST_BYTES=4_500_000;
 const MAX_DATASETS_PER_USER=120;
 const SESSION_DAYS=30;
+const SESSION_ROTATE_HOURS=24;
+const SESSION_COOKIE='__Host-agrotik_session';
+const CSRF_HEADER='X-Agrotik-CSRF';
 const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
 const SESSION_TOUCH_MINUTES=15;
@@ -27,7 +30,8 @@ function corsHeaders(request,env){
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
     'Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit',
+    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit,X-Agrotik-CSRF',
+    'Access-Control-Allow-Credentials':'true',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
   };
@@ -116,6 +120,62 @@ function bearerToken(request){
   const match=header.match(/^Bearer\s+(.+)$/i);
   return match?match[1].trim():'';
 }
+function cookieValue(request,name){
+  const cookie=request.headers.get('Cookie')||'';
+  for(const part of cookie.split(';')){
+    const i=part.indexOf('=');
+    if(i<0)continue;
+    if(part.slice(0,i).trim()===name)return decodeURIComponent(part.slice(i+1).trim());
+  }
+  return '';
+}
+function sessionCredential(request){
+  const bearer=bearerToken(request);
+  if(bearer)return {token:bearer,source:'bearer'};
+  const cookie=cookieValue(request,SESSION_COOKIE);
+  return cookie?{token:cookie,source:'cookie'}:{token:'',source:'none'};
+}
+function sessionToken(request){return sessionCredential(request).token;}
+function sessionCookie(token,maxAge=SESSION_DAYS*86400){
+  const value=encodeURIComponent(String(token||''));
+  return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${Math.max(0,Math.floor(maxAge))}; HttpOnly; Secure; SameSite=None`;
+}
+function clearSessionCookie(){return sessionCookie('',0);}
+async function csrfTokenFor(token){return sha256('agrotik-csrf:'+String(token||''));}
+function constantTimeEqual(a,b){
+  const x=String(a||''),y=String(b||'');
+  if(x.length!==y.length)return false;
+  let diff=0;for(let i=0;i<x.length;i++)diff|=x.charCodeAt(i)^y.charCodeAt(i);
+  return diff===0;
+}
+function csrfProtectedPath(pathname){
+  if(pathname==='/v1/membership/webhook'||pathname==='/v1/auth/exchange')return false;
+  return pathname==='/v1/auth/logout'||pathname.startsWith('/v1/account/')||pathname.startsWith('/v1/datasets')||
+    pathname.startsWith('/v1/membership/')||pathname.startsWith('/v1/develop/')||pathname.startsWith('/v1/game/');
+}
+async function csrfGuard(request,env,url){
+  if(['GET','HEAD','OPTIONS'].includes(request.method)||!csrfProtectedPath(url.pathname))return null;
+  const credential=sessionCredential(request);
+  if(credential.source!=='cookie')return null;
+  const origin=request.headers.get('Origin')||'';
+  if(!origin||!allowedOrigins(env).has(origin))return json(request,env,{error:'csrf_origin',message:'Origin permintaan tidak diizinkan.'},403);
+  const supplied=request.headers.get(CSRF_HEADER)||'';
+  const expected=await csrfTokenFor(credential.token);
+  if(!constantTimeEqual(supplied,expected))return json(request,env,{error:'csrf_invalid',message:'Verifikasi keamanan sesi gagal.'},403);
+  return null;
+}
+function sessionDeviceLabel(userAgent){
+  const ua=String(userAgent||'');
+  const browser=/Edg\//.test(ua)?'Edge':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'Browser';
+  const os=/Android/i.test(ua)?'Android':/iPhone|iPad/i.test(ua)?'iOS/iPadOS':/Windows/i.test(ua)?'Windows':/Mac OS X/i.test(ua)?'macOS':/Linux/i.test(ua)?'Linux':'Perangkat';
+  return browser+' · '+os;
+}
+async function sessionClientMeta(request){
+  const userAgent=(request.headers.get('User-Agent')||'').slice(0,300);
+  const ip=request.headers.get('CF-Connecting-IP')||'';
+  const ipHash=ip?await sha256('agrotik-ip:'+ip):'';
+  return {userAgent,ipHash};
+}
 function safeReturnTo(value,env){
   const fallback=[...allowedOrigins(env)][0]||'https://irvan1609.github.io';
   try{
@@ -199,6 +259,8 @@ async function ensureAuthSchema(env){
       expires_at TEXT NOT NULL,
       last_seen_at TEXT NOT NULL,
       revoked_at TEXT,
+      user_agent TEXT NOT NULL DEFAULT '',
+      ip_hash TEXT NOT NULL DEFAULT '',
       FOREIGN KEY(user_id) REFERENCES users(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
@@ -214,6 +276,10 @@ async function ensureAuthSchema(env){
   if(!columns.has('access_updated_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN access_updated_at TEXT").run();
   if(!columns.has('membership_plan_id'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_plan_id TEXT").run();
   if(!columns.has('account_status'))await env.DB.prepare("ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'").run();
+  const sessionInfo=await env.DB.prepare('PRAGMA table_info(sessions)').all();
+  const sessionColumns=new Set((sessionInfo.results||[]).map(row=>row.name));
+  if(!sessionColumns.has('user_agent'))await env.DB.prepare("ALTER TABLE sessions ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''").run();
+  if(!sessionColumns.has('ip_hash'))await env.DB.prepare("ALTER TABLE sessions ADD COLUMN ip_hash TEXT NOT NULL DEFAULT ''").run();
   for(const email of adminEmails(env)){
     await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',membership_plan_id='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
       .bind(new Date().toISOString(),email).run();
@@ -767,15 +833,20 @@ function publicUser(row){
     lastLoginAt:row.last_login_at
   };
 }
-async function userFromSession(request,env){
-  const token=bearerToken(request);
+async function userFromSession(request,env,credential=sessionCredential(request)){
+  const token=credential.token;
   if(!token)return null;
   const hash=await sha256(token),nowMs=Date.now(),now=new Date(nowMs).toISOString();
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.created_at,u.last_login_at,s.id AS session_id,s.last_seen_at
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.access_updated_at,u.created_at,u.last_login_at,s.id AS session_id,s.created_at AS session_created_at,s.expires_at AS session_expires_at,s.last_seen_at,s.user_agent
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
   if(row&&row.account_status!=='active')return null;
+  if(row&&row.access_updated_at&&Date.parse(row.access_updated_at)>Date.parse(row.session_created_at||'')){
+    await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run();
+    return null;
+  }
   if(row){
+    row.session_auth_source=credential.source;
     const lastSeen=Date.parse(row.last_seen_at||'');
     if(!Number.isFinite(lastSeen)||nowMs-lastSeen>=SESSION_TOUCH_MINUTES*60000){
       env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now,row.session_id).run().catch(()=>{});
@@ -783,6 +854,15 @@ async function userFromSession(request,env){
     }
   }
   return row||null;
+}
+async function rotateSessionIfNeeded(request,env,row,credential){
+  const created=Date.parse(row?.session_created_at||'');
+  if(!row||!Number.isFinite(created)||Date.now()-created<SESSION_ROTATE_HOURS*3600000)return null;
+  const token=randomToken(32),hash=await sha256(token),now=new Date().toISOString(),expiresAt=isoAfter({days:SESSION_DAYS});
+  const meta=await sessionClientMeta(request);
+  await env.DB.prepare('UPDATE sessions SET token_hash=?,created_at=?,expires_at=?,last_seen_at=?,user_agent=?,ip_hash=? WHERE id=? AND revoked_at IS NULL')
+    .bind(hash,now,expiresAt,now,meta.userAgent,meta.ipHash,row.session_id).run();
+  return {token,csrfToken:await csrfTokenFor(token),expiresAt,source:credential.source};
 }
 async function handleGoogleStart(request,env,url){
   const returnTo=safeReturnTo(url.searchParams.get('return_to'),env);
@@ -874,29 +954,40 @@ async function handleAuthExchange(request,env){
   await env.DB.prepare('UPDATE auth_exchange_codes SET used_at=? WHERE code_hash=? AND used_at IS NULL').bind(now,codeHash).run();
 
   const sessionToken=randomToken(32),tokenHash=await sha256(sessionToken),sessionId=crypto.randomUUID(),expiresAt=isoAfter({days:SESSION_DAYS});
+  const sessionMeta=await sessionClientMeta(request);
   await env.DB.prepare(`INSERT INTO sessions
-    (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at) VALUES (?,?,?,?,?,?,NULL)`)
-    .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now).run();
+    (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at,user_agent,ip_hash) VALUES (?,?,?,?,?,?,NULL,?,?)`)
+    .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now,sessionMeta.userAgent,sessionMeta.ipHash).run();
 
   const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
   if(user?.account_status&&user.account_status!=='active'){
     await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=?').bind(new Date().toISOString(),sessionId).run();
     return json(request,env,{error:'account_suspended',message:'Akun ini sedang ditangguhkan.'},403);
   }
-  return json(request,env,{ok:true,token:sessionToken,expiresAt,user:publicUser(user)});
+  const csrfToken=await csrfTokenFor(sessionToken);
+  await audit(env,user,'auth.login','session',sessionId,{device:sessionDeviceLabel(sessionMeta.userAgent),ipHashPrefix:sessionMeta.ipHash.slice(0,12)});
+  return json(request,env,{ok:true,token:sessionToken,csrfToken,expiresAt,user:publicUser(user)},200,{'Set-Cookie':sessionCookie(sessionToken)});
 }
 async function handleAuthSession(request,env){
-  const row=await userFromSession(request,env);
-  if(!row)return json(request,env,{authenticated:false},401);
-  return json(request,env,{authenticated:true,user:publicUser(row)});
+  const credential=sessionCredential(request);
+  const row=await userFromSession(request,env,credential);
+  if(!row)return json(request,env,{authenticated:false},401,credential.source==='cookie'?{'Set-Cookie':clearSessionCookie()}:{});
+  const rotated=await rotateSessionIfNeeded(request,env,row,credential);
+  if(rotated){
+    const payload={authenticated:true,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
+    if(rotated.source==='bearer')payload.token=rotated.token;
+    return json(request,env,payload,200,{'Set-Cookie':sessionCookie(rotated.token)});
+  }
+  return json(request,env,{authenticated:true,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
 }
 async function handleAuthLogout(request,env){
-  const token=bearerToken(request);
-  if(token){
-    const hash=await sha256(token);
+  const credential=sessionCredential(request),row=await userFromSession(request,env,credential);
+  if(credential.token){
+    const hash=await sha256(credential.token);
     await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE token_hash=? AND revoked_at IS NULL').bind(new Date().toISOString(),hash).run();
+    if(row)await audit(env,row,'auth.logout','session',row.session_id,{source:credential.source});
   }
-  return json(request,env,{ok:true});
+  return json(request,env,{ok:true},200,{'Set-Cookie':clearSessionCookie()});
 }
 async function handleAuthProfile(request,env){
   const row=await userFromSession(request,env);
@@ -1071,29 +1162,33 @@ async function handleAccountMembershipCancel(request,env){
 async function handleAccountSessions(request,env){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request));
-  const result=await env.DB.prepare(`SELECT id,token_hash,created_at,expires_at,last_seen_at,revoked_at FROM sessions
+  const currentHash=await sha256(sessionToken(request));
+  const result=await env.DB.prepare(`SELECT id,token_hash,created_at,expires_at,last_seen_at,revoked_at,user_agent FROM sessions
     WHERE user_id=? ORDER BY last_seen_at DESC LIMIT 50`).bind(user.id).all();
   return json(request,env,{items:(result.results||[]).map(row=>({
-    id:row.id,current:row.token_hash===currentHash,createdAt:row.created_at,expiresAt:row.expires_at,lastSeenAt:row.last_seen_at,revoked:Boolean(row.revoked_at)
+    id:row.id,current:row.token_hash===currentHash,createdAt:row.created_at,expiresAt:row.expires_at,lastSeenAt:row.last_seen_at,
+    revoked:Boolean(row.revoked_at),device:sessionDeviceLabel(row.user_agent)
   }))});
 }
 async function handleAccountRevokeSession(request,env,sessionId){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request));
+  const currentHash=await sha256(sessionToken(request));
   const target=await env.DB.prepare('SELECT id,token_hash FROM sessions WHERE id=? AND user_id=? LIMIT 1').bind(sessionId,user.id).first();
   if(!target)return json(request,env,{error:'Sesi tidak ditemukan.'},404);
   if(target.token_hash===currentHash)return json(request,env,{error:'current_session',message:'Gunakan tombol Keluar untuk sesi perangkat ini.'},409);
   await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND user_id=?').bind(new Date().toISOString(),sessionId,user.id).run();
+  await audit(env,user,'auth.session_revoked','session',sessionId,{});
   return json(request,env,{ok:true});
 }
 async function handleAccountRevokeOthers(request,env){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request)),now=new Date().toISOString();
+  const currentHash=await sha256(sessionToken(request)),now=new Date().toISOString();
   const result=await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND token_hash!=? AND revoked_at IS NULL').bind(now,user.id,currentHash).run();
-  return json(request,env,{ok:true,revoked:Number(result?.meta?.changes||0)});
+  const revoked=Number(result?.meta?.changes||0);
+  await audit(env,user,'auth.sessions_revoked_others','user',user.id,{count:revoked});
+  return json(request,env,{ok:true,revoked});
 }
 async function handleAccountPayments(request,env){
   const user=await requireUser(request,env);
@@ -1221,6 +1316,41 @@ async function handleDevelopUsage(request,env){
     sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),contributionImageBytes:Number(contrib?.bytes||0)
   },note:'Ini estimasi penggunaan aplikasi dari D1, bukan meter resmi kuota akun Cloudflare.'});
 }
+async function handleDevelopSecurity(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureOperationsSchema(env);
+  const now=new Date(),nowIso=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString(),weekAgo=new Date(now.getTime()-7*86400000).toISOString();
+  const [sessions,users,auditRows,lastBackup]=await Promise.all([
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END) AS revoked,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END) AS expiring_24h
+      FROM sessions`).bind(nowIso,nowIso,new Date(now.getTime()+86400000).toISOString()).first(),
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN account_status!='active' THEN 1 ELSE 0 END) AS suspended,
+      SUM(CASE WHEN last_login_at>=? THEN 1 ELSE 0 END) AS logged_in_7d
+      FROM users`).bind(weekAgo).first(),
+    env.DB.prepare(`SELECT action,COUNT(*) AS n FROM audit_logs WHERE created_at>=? GROUP BY action ORDER BY n DESC LIMIT 30`).bind(dayAgo).all(),
+    env.DB.prepare(`SELECT status,size_bytes,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 1`).first()
+  ]);
+  const events=Object.fromEntries((auditRows.results||[]).map(row=>[row.action,Number(row.n||0)]));
+  return json(request,env,{
+    generatedAt:nowIso,
+    sessions:{total:Number(sessions?.total||0),active:Number(sessions?.active||0),revoked:Number(sessions?.revoked||0),expiring24h:Number(sessions?.expiring_24h||0)},
+    users:{total:Number(users?.total||0),suspended:Number(users?.suspended||0),loggedIn7d:Number(users?.logged_in_7d||0)},
+    events24h:events,
+    controls:{
+      httpOnlyCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
+      contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
+      r2Backups:Boolean(env.BACKUPS),edgeAbuseEventsPersisted:false
+    },
+    lastBackup:lastBackup?{status:lastBackup.status,sizeBytes:Number(lastBackup.size_bytes||0),createdAt:lastBackup.created_at}:null
+  });
+}
+
 async function handleDevelopSupportView(request,env,userId){
   const access=await requireAdminUser(request,env),admin=access.user;
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
@@ -1720,9 +1850,11 @@ export default {
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.12'});
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.13'});
       if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
       if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
+      const csrfFailure=await csrfGuard(request,env,url);
+      if(csrfFailure)return csrfFailure;
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
@@ -1769,6 +1901,7 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/develop/contributions')return await handleDevelopContributions(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
       if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
       const developBackupMatch=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/download$/i);

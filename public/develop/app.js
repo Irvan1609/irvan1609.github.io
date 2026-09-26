@@ -5,7 +5,6 @@ const $=selector=>document.querySelector(selector);
 let users=[],plans=[],datasets=[],loaded=new Set(),healthCache=null;
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
 function bytes(value){const n=Number(value)||0;if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(n>=104857600?0:1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
 function dt(value){if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString('id-ID'):'—';}
@@ -14,10 +13,9 @@ function initials(user){return String(user.name||user.email||'?').split(/\s+/).s
 function userAvatar(user){return user.picture?'<img src="'+esc(user.picture)+'" alt="" referrerpolicy="no-referrer">':'<span class="user-fallback">'+esc(initials(user))+'</span>';}
 function accessBadge(user){if(user.role==='admin')return '<span class="badge admin">Admin</span>';if(user.membership?.active)return '<span class="badge member">Membership</span>';return '<span class="badge free">Gratis</span>';}
 async function api(path,options={}){
-  const headers=new Headers(options.headers||{});
-  headers.set('Authorization','Bearer '+token());
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers,cache:'no-store'});
+  const request=window.IrvanAccount?.request;
+  if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(Error(data.message||data.error||('HTTP '+response.status)),{status:response.status,data});
   return data;
@@ -173,6 +171,24 @@ async function loadServer(){
   const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto bytes',bytes(u.contributionImageBytes)],['Users',u.users]];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
+async function loadSecurity(){
+  const data=await api('/v1/develop/security');
+  const cards=[
+    ['Sesi aktif',data.sessions?.active||0],['Sesi dicabut',data.sessions?.revoked||0],
+    ['Kedaluwarsa <24 jam',data.sessions?.expiring24h||0],['Akun ditangguhkan',data.users?.suspended||0],
+    ['Login 7 hari',data.users?.loggedIn7d||0],['Backup terakhir',data.lastBackup?.createdAt?dateOnly(data.lastBackup.createdAt):'Belum']
+  ];
+  $('#securityGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></article>').join('');
+  const controls=data.controls||{};
+  $('#securityControls').innerHTML=[
+    ['Cookie HttpOnly',controls.httpOnlyCookie?'Aktif':'Tidak'],['CSRF',controls.csrf?'Aktif':'Tidak'],
+    ['Rotasi sesi',String(controls.sessionRotationHours||0)+' jam'],['Turnstile',controls.turnstile?'Aktif':'Belum'],
+    ['Rate limit kontribusi',controls.contributionRateLimit?'Aktif':'Belum'],['Rate limit dataset',controls.datasetRateLimit?'Aktif':'Belum'],
+    ['R2 backup',controls.r2Backups?'Aktif':'Belum']
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+  const events=Object.entries(data.events24h||{}).sort((a,b)=>b[1]-a[1]);
+  $('#securityEvents').innerHTML=events.length?events.map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join(''):'<div class="muted">Belum ada peristiwa audit dalam 24 jam.</div>';
+}
 async function loadAudit(){
   const data=await api('/v1/develop/audit?limit=500'),items=data.items||[];
   $('#auditBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.actor_email||item.actor_user_id||'system')+'</td><td>'+esc(item.action)+'</td><td>'+esc((item.target_type||'')+' '+(item.target_id||''))+'</td><td><div class="small-json">'+esc(JSON.stringify(item.detail||{}))+'</div></td></tr>').join(''):'<tr><td colspan="5">Belum ada audit log.</td></tr>';
@@ -185,7 +201,8 @@ async function loadBackups(){
   $('#backupsBody').querySelectorAll('[data-backup]').forEach(button=>button.onclick=()=>downloadBackup('/v1/develop/backups/'+encodeURIComponent(button.dataset.backup)+'/download','irvan-backup-'+button.dataset.backup+'.json'));
 }
 async function downloadBackup(path,fileName){
-  const response=await fetch(endpoint+path,{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
+  const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{cache:'no-store'});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw Error(data.message||data.error||'Backup gagal diunduh.');}
   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
@@ -199,6 +216,7 @@ async function loadTab(name,force=false){
     if(name==='datasets')await loadDatasets();
     if(name==='ai')await loadAI();
     if(name==='server')await loadServer();
+    if(name==='security')await loadSecurity();
     if(name==='audit')await loadAudit();
     if(name==='backups')await loadBackups();
     loaded.add(name);
