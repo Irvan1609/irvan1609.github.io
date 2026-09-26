@@ -874,7 +874,7 @@ function tickExpedition(){
   const ex=EXPEDITIONS[state.expedition.id],range=ex.rewardRp,reward=range[0]+Math.floor(Math.random()*(range[1]-range[0]+1));
   state.rp+=reward;let note='Ekspedisi kembali: +'+reward+' RP.';
   if(chance(.62)){
-    const trait=pick(ex.traits),seed={id:uid('seed'),name:'Wild-'+Math.floor(100+Math.random()*900),generation:0,traits:[trait],baseYield:round(12.5+Math.random()*5.5,1),vigor:round(.96+Math.random()*.14,2),source:'Ekspedisi '+ex.name,parents:[]};
+    const key='expedition-seed:'+state.season+':'+ex.name+':'+state.expeditionHistory.length,trait=ex.traits[Math.floor(simUnit(key,'trait')*ex.traits.length)],seedId=uid('seed'),seed={id:seedId,name:'Wild-'+Math.floor(100+simUnit(key,'name')*900),generation:0,traits:[trait],baseYield:round(12.5+simUnit(key,'yield')*5.5,1),vigor:round(.96+simUnit(key,'vigor')*.14,2),source:'Ekspedisi '+ex.name,parents:[],stock:8,viability:94,ageSeasons:0,genome:normalizeGenome(null,seedId,state.simulationSeed)};
     if(trait==='zero'&&state.season<5)seed.traits=['sentinel'];
     state.vault.push(seed);seed.traits.forEach(discoverTrait);note+=' Benih liar '+seed.name+' ditemukan.';
   }
@@ -1064,7 +1064,7 @@ function renderInspector(){
     if(competitionInspector){$('#inspectorBody').innerHTML=competitionInspector;$('#openCupFromPlot').onclick=breedingCup.open;return;}
     const assigned=experimentSeedForPlot(state.selectedPlot),seed=assigned||selectedSeed();
     const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
-    $('#inspectorBody').innerHTML=`${plotUseControlHtml(state.selectedPlot)}<div class="seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} kg/25 m² · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<actionCost('plant')||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${formatRupiah(actionCost('plant'))}`}</button></div>`;
+    $('#inspectorBody').innerHTML=`${plotUseControlHtml(state.selectedPlot)}<div class="seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>🌱 ${seed.stock||0} · ${Math.round(seed.viability||0)}% · Potensi ${seed.baseYield.toFixed(1)} kg/25 m² · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<actionCost('plant')||locked||mono||(seed.stock||0)<1||(seed.viability||0)<45?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${formatRupiah(actionCost('plant'))}`}</button></div>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;bindPlotUseControls();
     return;
@@ -1570,8 +1570,8 @@ function renderEvent(){
 }
 function randomLivingCrop(){const list=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);return list.length?pick(list):null;}
 function traderSeed(){
-  const traits=shuffle(Object.keys(TRAITS).filter(id=>id!=='zero')).slice(0,2);
-  return {id:uid('seed'),name:'Lot '+String.fromCharCode(65+Math.floor(Math.random()*26))+Math.floor(10+Math.random()*90),generation:0,traits,baseYield:round(13+Math.random()*5,1),vigor:round(.92+Math.random()*.16,2),source:'Pedagang'};
+  const key='trader:'+state.season+':'+state.vault.length,traitPool=seededShuffle(Object.keys(TRAITS).filter(id=>id!=='zero'),hashString(key)),traits=traitPool.slice(0,2),seedId=uid('seed');
+  return {id:seedId,name:'Lot '+String.fromCharCode(65+Math.floor(simUnit(key,'letter')*26))+Math.floor(10+simUnit(key,'number')*90),generation:0,traits,baseYield:round(13+simUnit(key,'yield')*5,1),vigor:round(.92+simUnit(key,'vigor')*.16,2),source:'Pedagang',parents:[],stock:10,viability:94,ageSeasons:0,genome:normalizeGenome(null,seedId,state.simulationSeed)};
 }
 function applyEventChoice(choice){
   clearUndo();const event=state.pendingEvent;if(!event||!canEventChoice(event.kind,choice))return;
