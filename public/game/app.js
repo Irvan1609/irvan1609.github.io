@@ -1957,9 +1957,9 @@ function openCareCenter(){
   $('#metaModalBody').querySelector('[data-care-highlight]')?.addEventListener('click',()=>{toggleAttention();openCareCenter();});
 }
 function renderComfortControls(){
-  const issues=attentionIndexes(),smart=smartActionForSelected(),button=$('#smartAction'),attention=$('#attentionToggle');
+  const issues=attentionIndexes(),care=careSummary(),careCount=care.total+care.ready.length,smart=smartActionForSelected(),button=$('#smartAction'),attention=$('#attentionToggle');
   if(button){button.innerHTML=smart.label;button.dataset.smartTool=smart.tool;}
-  if(attention){attention.setAttribute('aria-pressed',String(!!state.comfort.attention));attention.title=issues.length?issues.length+' petak perlu perhatian':'Perawatan terkendali';$('#attentionCount').textContent=issues.length;}
+  if(attention){attention.setAttribute('aria-pressed',String(!!state.comfort.attention));attention.title=careCount?careCount+' petak perlu perhatian':'Perawatan terkendali';$('#attentionCount').textContent=careCount;}
 }
 function runSmartAction(){
   const action=smartActionForSelected();if(action.tool==='plant')plantSelected();else cropAction(action.tool);
