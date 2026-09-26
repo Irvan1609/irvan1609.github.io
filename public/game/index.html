@@ -12,6 +12,7 @@
   <meta name="description" content="Agrotik Field Zero — game eksperimen agronomi roguelite: tanam, amati, seleksi, dan kembangkan benih unik.">
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260926-5">
   <link rel="stylesheet" href="/game/style.css">
 </head>
 <body>
@@ -38,15 +39,23 @@
   <main class="game-shell">
     <section class="game-head">
       <div>
-        <span class="kicker">AGROTIK GAME · ROGUELITE AGRONOMI</span>
+        <span class="kicker">AGROTIK GAME</span>
         <h1>Field Zero</h1>
-        <p>Setiap musim berbeda. Tanam, amati, seleksi, dan temukan apa yang tersembunyi di tanah Field Zero.</p>
+        <p>Tanam · rawat · panen · kembangkan benih.</p>
       </div>
       <div class="head-actions">
         <button id="soundToggle" class="icon-button" type="button" aria-pressed="false" title="Suara">♪</button>
         <button id="newRun" class="icon-button" type="button" title="Mulai ulang">↺</button>
       </div>
     </section>
+
+    <nav class="game-quick-nav" aria-label="Menu game">
+      <button id="quickField" type="button">🌱 <span>Lahan</span></button>
+      <button id="quickLab" type="button">🔬 <span>Lab</span></button>
+      <button id="quickMap" type="button">🗺 <span>Peta</span></button>
+      <button id="quickSocial" type="button">👥 <span>Sosial</span><i id="socialBadge" hidden></i></button>
+      <button id="quickMore" type="button">••• <span>Lain</span></button>
+    </nav>
 
     <section class="hud" aria-label="Status permainan">
       <div><small>Musim</small><b id="seasonValue">1</b></div>
@@ -64,19 +73,25 @@
       <div class="today"><small>Hari ini</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span></div>
     </section>
 
-    <section class="meta-strip panel" aria-label="Mode dan progres meta">
-      <div><small>Lokasi</small><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b><span>Ubah wilayah</span></button></div>
-      <div><small>Run</small><button id="openChallenges" type="button"><b id="runModeName">Standar</b><span id="runModeHint">Tanpa pembatas</span></button></div>
-      <div><small>Rival</small><button id="openRival" type="button"><b id="rivalName">Dr. Nara</b><span id="rivalScore">Target —</span></button></div>
-      <div><small>Ghost</small><button id="openRecords" type="button"><b id="ghostScore">Belum ada</b><span>Rekor terbaik</span></button></div>
-      <div><small>Legacy</small><button id="openPrestige" type="button"><b id="legacyValue">0</b><span>New Game+</span></button></div>
+    <section class="meta-strip panel" aria-label="Status run" hidden>
+      <div><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b></button></div>
+      <div><button id="openChallenges" type="button"><b id="runModeName">Standar</b><span id="runModeHint"></span></button></div>
+      <div><button id="openRival" type="button"><b id="rivalName">Dr. Nara</b><span id="rivalScore">—</span></button></div>
+      <div><button id="openRecords" type="button"><b id="ghostScore">—</b></button></div>
+      <div><button id="openPrestige" type="button"><b id="legacyValue">0</b></button></div>
     </section>
 
     <div class="game-layout">
       <section class="field-panel panel">
         <div class="panel-head">
-          <div><small>LAHAN 01</small><h2>Petak eksperimen</h2></div>
-          <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot stressed"></i>Stres</span><span><i class="dot sick"></i>Penyakit</span></div>
+          <div><small>FIELD ZERO</small><h2>Lahan</h2></div>
+          <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot sick"></i>Masalah</span></div>
+        </div>
+        <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
+          <button type="button" draggable="true" data-field-tool="plant" title="Tanam benih terpilih">🌱<span>Tanam</span></button>
+          <button type="button" draggable="true" data-field-tool="water" title="Irigasi">💧<span>Air</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk nitrogen"><b>N</b><span>Pupuk</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" title="Scout">◎<span>Scout</span></button>
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Dua belas petak lahan"></div>
         <div class="day-actions">
@@ -88,7 +103,7 @@
       <aside class="inspector panel">
         <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><span id="plotStage" class="stage-badge">—</span></div>
         <div id="inspectorBody" class="inspector-body">
-          <div class="empty-inspector">Klik petak untuk melihat kondisi tanaman dan mengambil tindakan.</div>
+          <div class="empty-inspector">Pilih petak.</div>
         </div>
       </aside>
     </div>
@@ -114,7 +129,9 @@
       </section>
     </section>
 
-    <section class="meta-grid">
+    <details id="labHub" class="panel compact-panel lab-hub">
+      <summary><span><b>🔬 Lab</b></span><span>⌄</span></summary>
+      <div class="meta-grid">
       <section class="panel meta-panel">
         <div class="panel-head"><div><small>RESEARCH TREE</small><h2>Tech Tree</h2></div><span id="techCount" class="count-badge">0</span></div>
         <div id="techTree" class="tech-tree"></div>
@@ -128,10 +145,11 @@
         <div id="genomeLab"></div>
       </section>
       <section class="panel meta-panel">
-        <div class="panel-head"><div><small>LINEAGE</small><h2>Evolution Tree</h2></div><button id="openEvolution" class="mini-button" type="button">Lihat semua</button></div>
+        <div class="panel-head"><div><small>LINEAGE</small><h2>Silsilah</h2></div><button id="openEvolution" class="mini-button" type="button">Buka</button></div>
         <div id="evolutionPreview" class="evolution-preview"></div>
       </section>
-    </section>
+      </div>
+    </details>
 
     <section class="lower-grid">
       <details class="panel compact-panel" open>
@@ -163,6 +181,27 @@
     </section>
   </div>
 
+  <div id="socialModal" class="event-backdrop" hidden>
+    <section class="event-card social-card" role="dialog" aria-modal="true" aria-labelledby="socialTitle">
+      <div class="modal-head">
+        <div><span class="event-kicker">FIELD ZERO ONLINE</span><h2 id="socialTitle">Sosial</h2></div>
+        <button id="closeSocial" class="icon-button" type="button" aria-label="Tutup">×</button>
+      </div>
+      <div id="socialGate" class="social-gate">
+        <b>Masuk untuk bermain bersama.</b>
+        <button id="socialLogin" class="primary" type="button">Masuk Google</button>
+      </div>
+      <div id="socialApp" hidden>
+        <nav class="social-tabs" aria-label="Menu sosial">
+          <button type="button" data-social-tab="rank" aria-pressed="true">🏆 Rank</button>
+          <button type="button" data-social-tab="friends" aria-pressed="false">👥 Teman</button>
+          <button type="button" data-social-tab="search" aria-pressed="false">＋ Cari</button>
+        </nav>
+        <div id="socialContent" class="social-content"></div>
+      </div>
+    </section>
+  </div>
+
   <div id="recapModal" class="event-backdrop" hidden>
     <section class="event-card recap-card" role="dialog" aria-modal="true" aria-labelledby="recapTitle">
       <span class="event-kicker">SEASON REPORT</span>
@@ -176,7 +215,9 @@
     </section>
   </div>
 
+  <script type="module" src="/account.js?v=20260926-5"></script>
   <script type="module" src="/game/app.js"></script>
+  <script type="module" src="/game/social.js"></script>
   <script src="/pwa-register.js"></script>
 </body>
 </html>
