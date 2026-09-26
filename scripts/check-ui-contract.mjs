@@ -39,6 +39,15 @@ for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis'
 for (const marker of ['api.crossref.org','toRis','toBibtex','statistical_web_reference_library_v1']) if (!mendeleyApp.includes(marker)) fail(`/mendeley app missing marker: ${marker}`);
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+
+for(const page of [html,printHtml,mendeleyHtml,chiliHtml]){
+  if(page.includes('agrotik-credit'))fail('module credits must live on dashboard cards only');
+}
+for(const [module,author] of [['Statistical Web','Irvan'],['Hitung Cabai','Irvan'],['Pengukur','Irvan'],['Referensi Mendeley','Kautsar'],['Print Skripsi','Irvan'],['Field Zero','Irvan']]){
+  const pattern=new RegExp('<h3>'+module.replace(/[.*+?^$\\{}()|[\\]\\\\]/g,'\\const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);')+'<\\/h3>\\s*<span class="tool-credit">'+author+'<\\/span>');
+  if(!pattern.test(portfolioHtml))fail('module credits must live on dashboard cards only: '+module);
+}
+
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
 if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(', ')}`);
 
