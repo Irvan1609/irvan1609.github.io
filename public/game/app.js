@@ -475,7 +475,7 @@ function openGameHelp(){
     <div><b>1</b><span>🌱 Pilih benih</span></div>
     <div><b>2</b><span>Alat → petak</span></div>
     <div><b>3</b><span>Hari berikutnya</span></div>
-  </div><p class="help-note">PC: alat/benih juga bisa diseret ke petak.</p>`);
+  </div><p class="help-note">HP: pilih alat lalu ketuk atau geser melintasi petak. Geser dari tanaman siap panen untuk panen cepat. PC: alat/benih juga bisa diseret ke petak.</p>`);
 }
 
 function seedTraitsHtml(seed,extra=[]){
@@ -670,6 +670,7 @@ function openMusicPicker(){
 function setFieldTool(tool=''){
   activeFieldTool=activeFieldTool===tool?'':tool;
   document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
+  document.querySelector('#fieldGrid')?.classList.toggle('tool-active',!!activeFieldTool);
   renderPlayControls();
   if(activeFieldTool)toast(toolSymbol(activeFieldTool)+' ×');
 }
@@ -978,12 +979,66 @@ function crossSeeds(){
 
 function bind(){
   const field=$('#fieldGrid'),vault=$('#vaultList'),toolDock=$('#toolDock');
+  let mobileFieldGesture=null,suppressFieldClickUntil=0;
+  const touchLike=event=>event.pointerType==='touch'||event.pointerType==='pen';
+  const vibrate=ms=>{try{navigator.vibrate?.(ms);}catch{}};
+  const plotFromPoint=(x,y)=>document.elementFromPoint(x,y)?.closest?.('[data-plot]');
+  const gestureAction=index=>{
+    const g=mobileFieldGesture;if(!g||g.seen.has(index)||index<0||index>=fieldLimit())return;
+    g.seen.add(index);
+    if(g.mode==='harvest'){
+      const crop=state.field[index];if(!crop||crop.growth<100||crop.health<=0)return;
+      g.harvested++;g.yield=round(g.yield+recordHarvest(index,crop,1,false),1);
+      field.querySelector(`[data-plot="${index}"]`)?.classList.add('gesture-used');vibrate(8);return;
+    }
+    if(g.mode){
+      const before=JSON.stringify(state.field[index]||null),beforeFocus=state.focus,beforeCoins=state.coins;
+      useFieldTool(g.mode,index);
+      if(before!==JSON.stringify(state.field[index]||null)||beforeFocus!==state.focus||beforeCoins!==state.coins){g.applied++;vibrate(6);}
+    }
+  };
+  const finishGesture=event=>{
+    const g=mobileFieldGesture;if(!g||event.pointerId!==g.pointerId)return;
+    if(g.active){
+      suppressFieldClickUntil=performance.now()+420;
+      if(g.mode==='harvest'&&g.harvested){
+        render();save();toast(`Panen cepat · ${g.harvested} petak · ${g.yield} kg`);
+        document.dispatchEvent(new Event('fieldzero-field-change'));
+      }else if(g.mode!=='harvest'&&g.applied>1)toast(`${toolSymbol(g.mode)} × ${g.applied}`);
+    }
+    field.classList.remove('gesture-active');
+    try{if(field.hasPointerCapture?.(event.pointerId))field.releasePointerCapture(event.pointerId);}catch{}
+    mobileFieldGesture=null;
+  };
   field.addEventListener('click',event=>{
+    if(performance.now()<suppressFieldClickUntil)return;
     const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;
     const index=Number(plot.dataset.plot);
     if(activeFieldTool){useFieldTool(activeFieldTool,index);return;}
     state.selectedPlot=index;beep(330);renderField();renderInspector();
   });
+  field.addEventListener('pointerdown',event=>{
+    if(!touchLike(event)||event.button!==0)return;
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;
+    const index=Number(plot.dataset.plot),crop=state.field[index];
+    const mode=activeFieldTool||(crop&&crop.growth>=100&&crop.health>0?'harvest':'');
+    if(!mode)return;
+    mobileFieldGesture={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,startIndex:index,mode,seen:new Set(),active:false,harvested:0,yield:0,applied:0};
+  },{passive:true});
+  field.addEventListener('pointermove',event=>{
+    const g=mobileFieldGesture;if(!g||event.pointerId!==g.pointerId)return;
+    const dx=event.clientX-g.startX,dy=event.clientY-g.startY;
+    if(!g.active){
+      if(Math.hypot(dx,dy)<11)return;
+      g.active=true;field.classList.add('gesture-active');
+      try{field.setPointerCapture?.(event.pointerId);}catch{}
+      gestureAction(g.startIndex);
+    }
+    event.preventDefault();
+    const plot=plotFromPoint(event.clientX,event.clientY);if(plot&&!plot.disabled)gestureAction(Number(plot.dataset.plot));
+  },{passive:false});
+  field.addEventListener('pointerup',finishGesture);
+  field.addEventListener('pointercancel',finishGesture);
   field.addEventListener('dragstart',event=>{
     const plot=event.target.closest('[data-harvest-drag]');if(!plot)return;
     event.dataTransfer.setData('fieldzero/harvest-index',plot.dataset.harvestDrag);event.dataTransfer.effectAllowed='move';plot.classList.add('dragging-harvest');

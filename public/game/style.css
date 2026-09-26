@@ -559,3 +559,42 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
   .field-tool-dock .tool-icon{width:29px;height:29px;font-size:16px}
   .plot.ready::before{font-size:8px}
 }
+
+
+/* FIELD ZERO MOBILE-FIRST PLAY 2026-09-26
+   Desktop stays unchanged; coarse/mobile screens use thumb-zone navigation and lighter rendering. */
+@media(max-width:620px){
+  html{scroll-padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  body{overscroll-behavior-y:contain}
+  .game-shell{width:calc(100% - 10px);margin:5px auto calc(86px + env(safe-area-inset-bottom))}
+  .game-quick-nav{position:fixed;top:auto;right:5px;bottom:calc(5px + env(safe-area-inset-bottom));left:5px;z-index:120;margin:0;padding:4px;border-radius:12px;background:rgba(13,23,19,.98);backdrop-filter:none;box-shadow:0 -5px 18px rgba(0,0,0,.24)}
+  .game-quick-nav button{min-height:48px;padding:3px 1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .game-quick-nav button span{font-size:7.5px}
+  .field-tool-dock{position:sticky;top:4px;z-index:45;margin-bottom:5px;padding:3px;background:#102019;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+  .field-tool-dock button{min-height:50px;padding:3px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .field-tool-dock button>span:not(.tool-icon){display:none}
+  .field-tool-dock .tool-icon{width:30px;height:30px;font-size:17px}
+  .field-context>button{min-height:40px;height:40px}.field-context>span{font-size:8.5px}
+  .field-grid{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+  .field-grid.tool-active,.field-grid.gesture-active{touch-action:none}
+  .plot{touch-action:pan-y;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  .plot.ready{touch-action:none}
+  .plot.gesture-used{border-color:var(--green-2)!important;opacity:.48;transform:scale(.96)}
+  .plot:hover{transform:none}
+  .day-actions{bottom:calc(64px + env(safe-area-inset-bottom));z-index:55;margin-top:6px;background:#0d1713;backdrop-filter:none}
+  .day-actions button{min-height:48px}
+  .panel{box-shadow:none}
+  .meta-strip,.lab-hub,.lower-grid{content-visibility:auto;contain-intrinsic-size:1px 420px}
+  .seed-list,.evolution-preview{scroll-snap-type:x proximity;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .seed-item,.evolution-node{scroll-snap-align:start}
+  .event-backdrop{padding:max(6px,env(safe-area-inset-top)) 6px calc(72px + env(safe-area-inset-bottom))}
+  .event-card,.meta-modal-card,.social-card,.recap-card{width:100%;max-height:calc(100dvh - 88px - env(safe-area-inset-bottom));border-radius:12px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  input,select,textarea{font-size:16px}
+  .toast{bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+@media(max-width:419px){
+  .game-head h1{font-size:20px}.hud>div{padding:5px 6px}.hud small{font-size:7px}.hud b{font-size:12px}
+  .season-bar>div{padding:5px 6px}.field-panel{padding:5px}.field-grid{gap:3px}.plot{min-height:88px;padding:5px}.field-tool-dock button{min-height:48px}
+}
+@media(max-width:340px){.field-grid{grid-template-columns:repeat(2,1fr)}.game-quick-nav button{font-size:15px}}
+@media(pointer:coarse){button,[role="button"],summary{touch-action:manipulation}[draggable="true"]{-webkit-user-drag:none}}
