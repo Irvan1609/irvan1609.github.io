@@ -576,6 +576,7 @@ function readControls(){
     color:Number($('#fieldColorColumn').value),
     colorMode:$('#fieldColorMode').value,
     heatmap:Number($('#fieldHeatmapColumn').value),
+    heatTransform:$('#fieldHeatTransform').value,
     filter:$('#fieldFilter').value,
     columns:Math.max(2,Math.min(12,Number($('#fieldColumns').value)||6)),
     roadEvery:Math.max(0,Math.min(8,Number($('#fieldRoadEvery').value)||0)),
@@ -596,13 +597,14 @@ function renderControls(){
   $('#fieldColorColumn').innerHTML=options(current.headers,config.color);
   $('#fieldHeatmapColumn').innerHTML='<option value="-1">Pilih parameter</option>'+measures.map(item=>`<option value="${item.index}" ${item.index===config.heatmap?'selected':''}>${esc(item.header)}</option>`).join('');
   $('#fieldColorMode').value=config.colorMode;
+  $('#fieldHeatTransform').value=config.heatTransform||'raw';
   $('#fieldFilter').value=config.filter;
   $('#fieldColumns').value=String(config.columns);
   $('#fieldRoadEvery').value=String(config.roadEvery||0);
   $('#fieldNorth').value=config.north;
   $('#fieldPlotSize').value=config.size;
   $('#fieldSerpentine').checked=config.serpentine;
-  $('#fieldHeatmapWrap').hidden=config.colorMode!=='parameter';
+  $('#fieldHeatmapWrap').hidden=config.colorMode!=='parameter';$('#fieldHeatTransformWrap').hidden=config.colorMode!=='parameter';
   $('#fieldLayoutModal')?.classList.toggle('field-mode',config.fieldMode===true);
   $('#fieldModeToggle')?.setAttribute('aria-pressed',String(config.fieldMode===true));
   if($('#fieldUndo'))$('#fieldUndo').disabled=!layoutUndo.length;if($('#fieldRedo'))$('#fieldRedo').disabled=!layoutRedo.length;
@@ -645,13 +647,16 @@ function renderMap(){
       legend.hidden=false;legend.innerHTML='<span class="field-legend-chip"><i style="--legend-hue:135"></i>Lengkap</span><span class="field-legend-chip"><i style="--legend-hue:42"></i>Sebagian</span><span class="field-legend-chip"><i style="--legend-hue:0"></i>Kosong</span>';
     }else legend.hidden=true;
   }
-  const groups=groupEntries(current);
+  const groups=groupEntries(current),objects=(config.objects||[]);
   let visible=0;
-  map.innerHTML=groups.map(([label,entries])=>{
-    const ordered=orderedEntries(entries,config.columns,config.serpentine).filter(entry=>matchingSearch(entry,current,query)&&passesFilter(entry));
+  const objectHtml=objects.length?`<div class="field-map-objects">${objects.map(item=>`<span data-field-object="${esc(item.id)}"><b>${esc(item.type)}</b>${esc(item.label)}<button type="button" data-remove-field-object="${esc(item.id)}" aria-label="Hapus objek">×</button></span>`).join('')}</div>`:'';
+  const blocks=groups.map(([label,entries])=>{
+    const ordered=orientEntries(orderedEntries(entries,config.columns,config.serpentine));
     if(!ordered.length)return '';
-    visible+=ordered.length;
     const plots=ordered.map((entry,index)=>{
+      const matches=matchingSearch(entry,current,query)&&passesFilter(entry);
+      if(matches)visible++;
+      if(!matches)return '<span class="field-plot-placeholder" aria-hidden="true"></span>';
       const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index);
       const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
       const draggable=layoutEditMode?' draggable="true"':'';
@@ -659,13 +664,15 @@ function renderMap(){
       const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
         <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}
       </button>`;
-      const road=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1?`<div class="field-road" role="separator"><span>Jalan</span></div>`:'';
+      const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
+      const road=(automatic||manual)?`<div class="field-road" role="separator"><span>${manual?'Jalan manual':'Jalan'}</span></div>`:'';
       return plot+road;
     }).join('');
     return `<section class="field-block"><div class="field-block-head"><b>${esc(label)}</b><span>${ordered.length} plot${layoutEditMode?' · tarik untuk susun':''}</span></div><div class="field-block-grid" style="--field-columns:${config.columns}">${plots}</div></section>`;
   }).join('');
-  if(!visible)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok dengan filter.</div>';
-  renderStats();
+  map.innerHTML=objectHtml+blocks;
+  if(!visible&&!objects.length)map.innerHTML='<div class="field-map-empty">Tidak ada plot yang cocok dengan filter.</div>';
+  applyZoom();renderStats();
 }
 function fieldInput(data,row,index,{active=false,readonly=false}={}){
   const header=data.headers[index],value=String(row[index]??''),numeric=sampleNumeric(data,index);
