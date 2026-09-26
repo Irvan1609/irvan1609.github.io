@@ -3426,3 +3426,13 @@ body.analysis-results-open{overflow:hidden}
 @media(max-width:720px){
   .analysis-data-check{min-height:38px}
 }
+
+
+/* AUGMENTED DESIGN 2026-09-26 */
+.augmented-result .aug-anova-component td:first-child{padding-left:18px;font-size:10px;color:#657786}
+.aug-check-badge{display:inline-flex;align-items:center;min-height:20px;padding:1px 6px;border:1px solid #b8cad7;border-radius:999px;background:#eef5f8;color:#31566f;font-size:9px;font-weight:800}
+.augmented-means-table td:nth-child(n+4){font-variant-numeric:tabular-nums}
+@media(max-width:720px){
+  .augmented-result .augmented-means-table{min-width:860px!important;table-layout:auto!important}
+  .augmented-result .table-scroll{overflow-x:auto!important}
+}
