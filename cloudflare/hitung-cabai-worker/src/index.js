@@ -837,10 +837,14 @@ async function userFromSession(request,env,credential=sessionCredential(request)
   const token=credential.token;
   if(!token)return null;
   const hash=await sha256(token),nowMs=Date.now(),now=new Date(nowMs).toISOString();
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.created_at,u.last_login_at,s.id AS session_id,s.created_at AS session_created_at,s.expires_at AS session_expires_at,s.last_seen_at,s.user_agent
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.access_updated_at,u.created_at,u.last_login_at,s.id AS session_id,s.created_at AS session_created_at,s.expires_at AS session_expires_at,s.last_seen_at,s.user_agent
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
   if(row&&row.account_status!=='active')return null;
+  if(row&&row.access_updated_at&&Date.parse(row.access_updated_at)>Date.parse(row.session_created_at||'')){
+    await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run();
+    return null;
+  }
   if(row){
     row.session_auth_source=credential.source;
     const lastSeen=Date.parse(row.last_seen_at||'');
