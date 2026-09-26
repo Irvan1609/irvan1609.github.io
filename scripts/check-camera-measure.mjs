@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {alignmentCheck,scaleCheck} from '../public/pengukur/alignment.js';
 import {cameraGuide,installLiveCamera} from '../public/pengukur/live-camera.js';
 import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/pengukur/geometry.js';
-import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects} from '../public/pengukur/paper.js';
+import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects,colorPatchRects} from '../public/pengukur/paper.js';
 import {imageQuality,segmentObject,morphology,repeatability,segmentObjects,colorStats,validationSummary} from '../public/pengukur/image-tools.js';
 import {measurementsToStatistics} from '../public/pengukur/stat-sync.js';
 
@@ -28,6 +28,11 @@ for(const id of ['a5','a4','a3','letter','legal','f4']){
   assert.match(svg,/>10<\/text>/);
   assert.match(svg,/v 1\.25/);
   assert.equal(grayPatchRects(profile).length,6);
+  assert.equal(colorPatchRects(profile).length,6);
+  for(const r of [...grayPatchRects(profile),...colorPatchRects(profile)]){
+    const overlapsPhoto=!(r.x+r.width<=layout.photo.x||r.x>=layout.photo.x+layout.photo.width||r.y+r.height<=layout.photo.y||r.y>=layout.photo.y+layout.photo.height);
+    assert.equal(overlapsPhoto,false,'Patch kalibrasi selain penggaris harus berada di luar area foto');
+  }
   assert.match(svg,/>0<\/text>/);
   assert.ok(svg.includes(profile.width+' × '+profile.height+' mm'));
 }
