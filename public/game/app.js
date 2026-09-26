@@ -202,7 +202,7 @@ function load(){
     return merged;
   }catch{return freshState();}
 }
-let state=load(),toastTimer=0,audioContext=null;
+let state=load(),toastTimer=0,audioContext=null,activeFieldTool='';
 
 function save(){try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}}
 function beep(freq=420,duration=.045){
@@ -229,6 +229,28 @@ function discoverTrait(id){
   state.discoveredTraits.push(id);state.rp+=3;toast('Trait ditemukan: '+traitMeta(id).name);
   if(id==='zero')awardAchievement('zero');else awardAchievement('anomaly');
 }
+function gameProfile(){
+  const historyYield=(state.history||[]).reduce((sum,item)=>sum+(Number(item.yield)||0),0);
+  const bestYield=Math.max(Number(state.seasonStats?.maxYield)||0,...(state.history||[]).map(item=>Number(item.yield)||0));
+  const score=Math.max(0,Math.round((state.legacyScore||0)+historyYield*10+(state.xp||0)*2+(state.rivalWins||0)*250+(state.achievements?.length||0)*100+(state.legacy||0)*1000));
+  return {score,bestYield:round(bestYield,1),season:state.season,level:state.level,legacy:state.legacy||0,location:state.location};
+}
+function notifyGameProfile(){
+  document.dispatchEvent(new CustomEvent('fieldzero-profile',{detail:gameProfile()}));
+}
+function applyRemoteBurn(raid){
+  const living=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);
+  if(!living.length)return false;
+  const seed=hashString(raid?.id||String(Date.now())),target=living[Math.floor(seededUnit(seed)*living.length)];
+  target.crop.health=Math.max(25,target.crop.health-12);
+  target.crop.water=clamp(target.crop.water-10);
+  target.crop.stress=clamp(target.crop.stress+10,0,120);
+  target.crop.burned=2;
+  addLog('🔥 '+String(raid?.attacker?.name||'Teman').slice(0,40)+' membakar ringan P'+String(target.index+1).padStart(2,'0')+'.');
+  toast('🔥 P'+String(target.index+1).padStart(2,'0')+' diserang teman');
+  beep(220,.09);render();return true;
+}
+
 function hasTech(id){return state.tech.includes(id);}
 function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
 function activeLocation(){return LOCATIONS[state.location]||LOCATIONS.zero;}
@@ -420,11 +442,11 @@ function renderSeason(){
 function renderField(){
   const limit=fieldLimit();
   $('#fieldGrid').innerHTML=state.field.map((crop,index)=>{
-    const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'';
+    const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'',burned=crop?.burned>0?' burned':'';
     if(index>=limit)return `<button type="button" class="plot plot-locked" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>LOCK</span></div><div class="plot-empty-mark">×</div></button>`;
     if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div></button>`;
     const stage=stageOf(crop);
-    return `<button type="button" class="plot ${cls}${selected}" data-plot="${index}" aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
+    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
   }).join('');
 }
 function renderInspector(){
@@ -434,7 +456,7 @@ function renderInspector(){
   if(!crop){
     const seed=selectedSeed();
     const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
-    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi dasar ${seed.baseYield.toFixed(1)} · vigor ${seed.vigor.toFixed(2)} · ${esc(seed.source)}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak dikunci challenge':mono?'Challenge: satu varietas':`Tanam · ${PLANT_COST} koin · 1 fokus`}</button><p class="action-note">Trait mutasi tidak terlihat saat tanam. ${hasTech('sensor')?'Sensor aktif: indikator stres lebih akurat.':'Scout dapat mengungkapkannya lebih awal.'}</p></div>`;
+    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${PLANT_COST}`}</button></div>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;
     return;
@@ -442,12 +464,12 @@ function renderInspector(){
   const knownExtra=crop.revealed&&crop.mutation?[crop.mutation]:[];
   const mutationText=crop.mutation?(crop.revealed?traitMeta(crop.mutation).name:'Belum diketahui'):'Tidak terdeteksi';
   const fertilizerCost=hasTech('precisionN')?3:5,waterFocus=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,scoutReward=2+(hasTech('drone')?2:0);
-  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hasTech('sensor')?` · risiko ${crop.water<25||crop.n<25||crop.disease>35?'TINGGI':'rendah'}`:''} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||crop.health<=0?'disabled':''}>💧 Irigasi · ${waterFocus} fokus</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${fertilizerCost} koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Scout · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Pertumbuhan ${Math.round(crop.growth)}%. Kondisi air, N, penyakit, lokasi, challenge, teknologi, dan trait menentukan hasil akhir.</p>`;
+  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hasTech('sensor')?` · risiko ${crop.water<25||crop.n<25||crop.disease>35?'TINGGI':'rendah'}`:''} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||crop.health<=0?'disabled':''}>💧 Irigasi · ${waterFocus} fokus</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${fertilizerCost} koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Scout · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Tumbuh ${Math.round(crop.growth)}%</p>`;
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction));
 }
 function renderVault(){
   $('#vaultCount').textContent=state.vault.length;
-  $('#vaultList').innerHTML=state.vault.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>G${seed.generation}</small></div><small>${esc(seed.source)} · potensi ${seed.baseYield.toFixed(1)}</small><div class="trait-row">${seedTraitsHtml(seed)}</div><button type="button" data-use-seed="${esc(seed.id)}">${seed.id===state.selectedSeedId?'Dipilih':'Pilih untuk tanam'}</button></article>`).join('');
+  $('#vaultList').innerHTML=state.vault.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>G${seed.generation}</small></div><small>${seed.baseYield.toFixed(1)} potensi</small><div class="trait-row">${seedTraitsHtml(seed)}</div><button type="button" data-use-seed="${esc(seed.id)}">${seed.id===state.selectedSeedId?'✓ Dipilih':'Pilih'}</button></article>`).join('');
   const opts=state.vault.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · G${seed.generation}</option>`).join('');
   const a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;
   if(state.vault.some(seed=>seed.id===av))a.value=av;if(state.vault.some(seed=>seed.id===bv))b.value=bv;
@@ -557,6 +579,38 @@ function openCollectionBook(){
   const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
   openMetaModal('COLLECTION BOOK','Field Codex',`<div class="codex-grid"><div><small>Trait</small><b>${state.discoveredTraits.length}/${Object.keys(TRAITS).length}</b></div><div><small>Achievement</small><b>${state.achievements.length}/${Object.keys(ACHIEVEMENTS).length}</b></div><div><small>Lingkungan</small><b>${envs.length}/${ENVIRONMENTS.length}</b></div><div><small>Boss</small><b>${bosses.length}/${BOSSES.length}</b></div><div><small>Lokasi</small><b>${locations.length}/${Object.keys(LOCATIONS).length}</b></div><div><small>Benih</small><b>${state.vault.length}</b></div></div><div class="codex-list">${locations.map(id=>`<span>${LOCATIONS[id]?.icon||'•'} ${esc(LOCATIONS[id]?.name||id)}</span>`).join('')}${envs.map(id=>`<span>${esc(ENVIRONMENTS.find(e=>e.id===id)?.name||id)}</span>`).join('')}${bosses.map(id=>`<span>${esc(BOSSES.find(e=>e.id===id)?.name||id)}</span>`).join('')}</div>`);
 }
+function openQuickMore(){
+  openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
+    <button data-quick-more="run">⚑<span>Challenge</span></button>
+    <button data-quick-more="rival">⚔<span>Rival</span></button>
+    <button data-quick-more="record">◷<span>Rekor</span></button>
+    <button data-quick-more="legacy">↺<span>Legacy</span></button>
+    <button data-quick-more="collection">◆<span>Koleksi</span></button>
+  </div>`);
+  $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
+    const key=button.dataset.quickMore;
+    if(key==='run')openChallenges();
+    if(key==='rival')openRival();
+    if(key==='record')openRecords();
+    if(key==='legacy')openPrestige();
+    if(key==='collection')openCollectionBook();
+  });
+}
+function setFieldTool(tool=''){
+  activeFieldTool=activeFieldTool===tool?'':tool;
+  document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
+  if(activeFieldTool)toast('Pilih petak');
+}
+function useFieldTool(tool,index,{seedId=''}={}){
+  if(index<0||index>=fieldLimit())return false;
+  state.selectedPlot=index;
+  if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
+  if(tool==='plant'){plantSelected();return true;}
+  if(!state.field[index]){toast('Petak kosong');renderField();renderInspector();return false;}
+  if(['water','fertilize','scout'].includes(tool)){cropAction(tool);return true;}
+  return false;
+}
+
 
 function render(){
   renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();renderMeta();save();
@@ -577,7 +631,7 @@ function plantSelected(){
   state.field[state.selectedPlot]={
     seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0
   };
-  state.coins-=PLANT_COST;state.focus--;addLog('P'+String(state.selectedPlot+1).padStart(2,'0')+': '+seed.name+' ditanam.');beep(410);render();
+  state.coins-=PLANT_COST;state.focus--;addLog('P'+String(state.selectedPlot+1).padStart(2,'0')+': '+seed.name+' ditanam.');beep(410);render();document.dispatchEvent(new Event('fieldzero-field-change'));
 }
 function cropAction(action){
   const crop=selectedCrop();if(!crop)return;
@@ -637,6 +691,7 @@ function harvestPlot(index,multiplier=1,announce=true){
 
 function processCrop(crop,weather){
   if(!crop||crop.health<=0)return;
+  if(crop.burned>0)crop.burned=Math.max(0,crop.burned-1);
   const traits=allCropTraits(crop),loc=activeLocation(),droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
   const waterLoss=traitValue(traits,'waterLoss',1),nLoss=traitValue(traits,'nLoss',1);
   const seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
@@ -798,7 +853,7 @@ function finishSeason(){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
     saveButton.hidden=hasTech('cold');saveButton.disabled=state.vault.some(item=>item.id===seed.id);
   }else{best.innerHTML='';saveButton.hidden=true;}
-  $('#recapModal').hidden=false;save();beep(760,.12);
+  $('#recapModal').hidden=false;save();notifyGameProfile();beep(760,.12);
 }
 function saveBestCandidate(){
   if(!state.seasonBest)return;const seed=state.seasonBest.seed;if(state.vault.some(item=>item.id===seed.id))return;
@@ -834,21 +889,41 @@ function crossSeeds(){
 }
 
 function bind(){
-  $('#fieldGrid').addEventListener('click',event=>{const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;state.selectedPlot=Number(plot.dataset.plot);beep(330);renderField();renderInspector();});
-  $('#vaultList').addEventListener('click',event=>{const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();renderGenomeLab();toast('Benih dipilih');});
+  const field=$('#fieldGrid'),vault=$('#vaultList'),toolDock=$('#toolDock');
+  field.addEventListener('click',event=>{
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;
+    const index=Number(plot.dataset.plot);
+    if(activeFieldTool){const tool=activeFieldTool;setFieldTool('');useFieldTool(tool,index);return;}
+    state.selectedPlot=index;beep(330);renderField();renderInspector();
+  });
+  field.addEventListener('dragover',event=>{const plot=event.target.closest('[data-plot]');if(plot&&!plot.disabled){event.preventDefault();plot.classList.add('drag-target');}});
+  field.addEventListener('dragleave',event=>event.target.closest('[data-plot]')?.classList.remove('drag-target'));
+  field.addEventListener('drop',event=>{
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;event.preventDefault();plot.classList.remove('drag-target');
+    const index=Number(plot.dataset.plot),seedId=event.dataTransfer?.getData('fieldzero/seed')||'',tool=event.dataTransfer?.getData('fieldzero/tool')||(seedId?'plant':'');
+    if(tool)useFieldTool(tool,index,{seedId});
+  });
+  toolDock.addEventListener('click',event=>{const button=event.target.closest('[data-field-tool]');if(button)setFieldTool(button.dataset.fieldTool);});
+  toolDock.addEventListener('dragstart',event=>{const button=event.target.closest('[data-field-tool]');if(!button)return;event.dataTransfer.setData('fieldzero/tool',button.dataset.fieldTool);event.dataTransfer.effectAllowed='copy';});
+  vault.addEventListener('click',event=>{const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();renderGenomeLab();toast('Benih dipilih');});
+  vault.addEventListener('dragstart',event=>{const card=event.target.closest('[data-seed-drag]');if(!card)return;event.dataTransfer.setData('fieldzero/seed',card.dataset.seedDrag);event.dataTransfer.effectAllowed='copy';});
   $('#nextDay').onclick=advanceDay;$('#finishSeason').onclick=finishSeason;
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
   $('#saveBestSeed').onclick=saveBestCandidate;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
   $('#soundToggle').onclick=()=>{state.sound=!state.sound;save();renderHud();beep(520,.05);};
-  $('#newRun').onclick=()=>{if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();render();toast('Run baru dimulai');};
+  $('#newRun').onclick=()=>{if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();render();notifyGameProfile();toast('Run baru dimulai');};
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;
+  $('#quickField').onclick=()=>document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+  $('#quickLab').onclick=()=>{const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
+  $('#quickMap').onclick=openWorldMap;$('#quickMore').onclick=openQuickMore;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
     if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}
-    if(event.key==='Escape'){closeMetaModal();}
+    if(event.key==='Escape'){setFieldTool('');closeMetaModal();}
   });
   window.addEventListener('beforeunload',save);
 }
 
-bind();render();updateCrossPreview();
+window.FieldZeroGame={getProfile:gameProfile,applyBurnRaid:applyRemoteBurn,refresh:render};
+bind();render();updateCrossPreview();notifyGameProfile();
