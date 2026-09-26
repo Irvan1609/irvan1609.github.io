@@ -1,14 +1,17 @@
 import {PAPER_SIZES,paperProfile,buildCalibratorSvg,grayPatchRects} from './paper.js';
 import {PPM,homography,project,detectMarkers,bilinearSample} from './geometry.js';
-import {alignmentCheck} from './alignment.js';
+import {alignmentCheck,scaleCheck} from './alignment.js';
 import {installLiveCamera} from './live-camera.js';
-import {imageQuality,undistortImageData,segmentObject,morphology,overlayMask,normalizeGrayPatches,repeatability} from './image-tools.js';
+import {imageQuality,undistortImageData,segmentObject,morphology,overlayMask,normalizeGrayPatches,repeatability,colorStats,normalizeSamplePoints,segmentObjects,validationSummary} from './image-tools.js';
+import {measurementsToStatistics} from './stat-sync.js';
 
 const $=id=>document.getElementById(id);
 const source=$('source'),result=$('result'),ctx=source.getContext('2d',{willReadFrequently:true}),rctx=result.getContext('2d');
 const SETTINGS_KEY='agrotik_pengukur_settings_v3',RECORDS_KEY='ukur_rows_v3',FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
+const RESEARCH_IDS=['experimentId','genotype','treatment','replication','harvest','operator'];
 let rawOriginal=null,original=null,points=[],cleanResult=null,calibration=null,filename='foto',batchFiles=[],batchIndex=-1;
 let mode='length',measurePoints=[],activeMeasurement=null,activeMask=null,quality=null,currentFile=null;
+let activeObjects=[],colorPickMode=false,colorPatchPoints=[],batchBusy=false;
 let records=loadRecords();
 
 const fieldParams=new URLSearchParams(location.search);
@@ -27,6 +30,8 @@ function settings(){
 function saveSettings(patch){
   const next={...settings(),...patch};try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(next));}catch{}return next;
 }
+function researchMeta(){return Object.fromEntries(RESEARCH_IDS.map(id=>[id==='experimentId'?'experiment':id,$(id)?.value.trim()||'']));}
+function saveResearch(){saveSettings({research:researchMeta()});}
 function loadRecords(){
   try{const value=JSON.parse(localStorage.getItem(RECORDS_KEY)||'[]');return Array.isArray(value)?value.slice(-500):[];}catch{return[];}
 }
@@ -43,6 +48,7 @@ function restoreSettings(){
   if(s.orientation)$('orientation').value=s.orientation;
   if(s.custom){$('customWidth').value=s.custom.width||210;$('customHeight').value=s.custom.height||297;$('customMargin').value=s.custom.margin||15;}
   if(s.lens){$('lensName').value=s.lens.name||'Default';$('lensK1').value=s.lens.k1||0;$('lensK2').value=s.lens.k2||0;}
+  const research=s.research||{};for(const id of RESEARCH_IDS){const key=id==='experimentId'?'experiment':id;if($(id))$(id).value=research[key]||'';}
   $('customPaper').hidden=$('paperSize').value!=='custom';
 }
 function refreshPaper(){
@@ -53,7 +59,7 @@ function refreshPaper(){
   $('customPaper').hidden=$('paperSize').value!=='custom';
   const q=new URLSearchParams({paper:$('paperSize').value,orientation:p.orientation});
   if(custom){q.set('width',custom.width);q.set('height',custom.height);q.set('margin',custom.margin);}
-  $('printCalibrator').href='./kalibrator.html?'+q.toString();
+  $('printCalibrator').href='./kalibrator.html?'+q.toString();const lq=new URLSearchParams(q);lq.set('target','lens');$('printLensTarget').href='./kalibrator.html?'+lq.toString();
   saveSettings({paper:$('paperSize').value,orientation:p.orientation,custom});
   if(original&&points.length===4){drawSource();updateQuality();}
 }
@@ -62,26 +68,26 @@ function downloadBlob(blob,name){
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1600);
 }
 function invalidateResult(){
-  cleanResult=null;calibration=null;measurePoints=[];activeMeasurement=null;activeMask=null;result.width=0;result.height=0;
-  $('download').disabled=$('metadata').disabled=$('normalizeColor').disabled=true;
-  $('saveMeasurement').disabled=true;$('finishShape').disabled=true;$('cancelMeasure').disabled=true;$('morphologyCard').hidden=true;
+  cleanResult=null;calibration=null;measurePoints=[];activeMeasurement=null;activeMask=null;activeObjects=[];colorPickMode=false;colorPatchPoints=[];result.width=0;result.height=0;
+  $('download').disabled=$('metadata').disabled=$('normalizeColor').disabled=$('colorChecker').disabled=$('detectAllObjects').disabled=true;
+  $('saveMeasurement').disabled=true;$('saveAllObjects').disabled=true;$('finishShape').disabled=true;$('cancelMeasure').disabled=true;$('morphologyCard').hidden=true;
   $('resultInfo').textContent='Hasil perlu dihitung ulang setelah marker, kertas, atau profil lensa berubah.';
-  $('distance').textContent='Pilih mode lalu titik pada gambar.';
+  $('distance').textContent='Pilih mode pengukuran lalu titik pada gambar.';
 }
-function alignment(){
-  const p=getProfile();return alignmentCheck(points,p.activeWidth/p.activeHeight);
-}
+function alignment(){const p=getProfile();return alignmentCheck(points,p.activeWidth/p.activeHeight);}
+function scaleDiagnostics(){const p=getProfile();return points.length===4?scaleCheck(points,p.activeWidth,p.activeHeight):null;}
 function updateQuality(){
   if(!original)return;
-  const a=alignment(),q=imageQuality(original,points.length===4?points:null,a);quality=q;
+  const a=alignment(),s=scaleDiagnostics(),q=imageQuality(original,points.length===4?points:null,a);quality=q;
+  if(s){q.rawScale=s;if(!s.consistent){q.score=Math.max(0,q.score-6);q.issues.push('Skala X/Y pra-rektifikasi berbeda cukup besar; periksa kemiringan kamera.');}}
   const root=$('qualityGate'),status=q.score>=80?'BAIK':q.score>=62?'CUKUP':'ULANGI';
   root.dataset.level=status.toLowerCase();root.querySelector('strong').textContent=q.score+'/100 · '+status;
-  root.querySelector('div').innerHTML=`<span>Fokus <b>${q.sharpness}</b></span><span>Cahaya <b>${q.exposure}</b></span><span>Resolusi <b>${q.resolution}</b></span><span>Geometri <b>${q.alignmentScore}</b></span>`;
+  root.querySelector('div').innerHTML=`<span>Fokus <b>${q.sharpness}</b></span><span>Cahaya <b>${q.exposure}</b></span><span>Resolusi <b>${q.resolution}</b></span><span>Geometri <b>${q.alignmentScore}</b></span>${s?`<span>X/Y <b>${s.differencePct.toFixed(1)}%</b></span>`:''}`;
   root.querySelector('p').textContent=q.issues.length?q.issues.join(' '):'Marker, fokus, cahaya, resolusi, dan geometri tampak layak.';
 }
 function drawSource(){
-  const a=alignment();
-  $('alignment').textContent=!a?'Pilih empat marker untuk memeriksa geometri.':a.retake?`Geometri perlu diperbaiki · skor ${a.score}/100. Periksa titik atau ambil ulang dari atas.`:`Geometri bidang baik · skor ${a.score}/100. Ini tidak menjamin objek 3D bebas paralaks.`;
+  const a=alignment(),s=scaleDiagnostics();
+  $('alignment').textContent=!a?'Pilih empat marker untuk memeriksa geometri.':a.retake?`Geometri perlu diperbaiki · skor ${a.score}/100. Periksa titik atau ambil ulang dari atas.`:`Geometri bidang baik · skor ${a.score}/100${s?` · skala pra-rektifikasi X ${s.pxPerMmX.toFixed(2)}, Y ${s.pxPerMmY.toFixed(2)} px/mm · selisih ${s.differencePct.toFixed(1)}%`:''}. Koreksi berlaku pada bidang kertas.`;
   if(!original)return;
   ctx.putImageData(original,0,0);
   if(points.length){
@@ -133,7 +139,7 @@ async function setBatch(files){
 }
 function updateBatchControls(){
   $('batchPosition').textContent=batchFiles.length?`${batchIndex+1} / ${batchFiles.length}`:'0 / 0';
-  $('prevPhoto').disabled=batchIndex<=0;$('nextPhoto').disabled=batchIndex<0||batchIndex>=batchFiles.length-1;
+  $('prevPhoto').disabled=batchIndex<=0;$('nextPhoto').disabled=batchIndex<0||batchIndex>=batchFiles.length-1;$('processBatch').disabled=batchBusy||!!fieldContext||!batchFiles.length;
 }
 async function moveBatch(delta){
   const next=batchIndex+delta;if(next<0||next>=batchFiles.length)return;batchIndex=next;$('sampleId').value='';await loadFile(batchFiles[batchIndex],{fromBatch:true});
@@ -158,19 +164,31 @@ function rectify(){
       const [u,v]=project(h,(x+.5)/PPM,(y+.5)/PPM),k=4*(y*w+x);
       if(!bilinearSample(original,u,v,out.data,k))throw Error('Bidang keluar foto. Periksa marker.');
     }
-    result.width=w;result.height=hgt;cleanResult=out;activeMask=null;measurePoints=[];activeMeasurement=null;rctx.putImageData(cleanResult,0,0);
+    result.width=w;result.height=hgt;cleanResult=out;activeMask=null;activeObjects=[];measurePoints=[];activeMeasurement=null;rctx.putImageData(cleanResult,0,0);
+    const rawScale=scaleDiagnostics();
     calibration={
-      version:3,tool:'Agrotik Pengukur',paper:p,pixelsPerMm:PPM,sourcePixels:[original.width,original.height],sourcePoints:points.map(x=>[...x]),
-      outputPixels:[w,hgt],mappingOutputMmToSourcePixels:h,lensProfile:currentLens(),quality,geometryScope:'paper-plane-only',
+      version:4,tool:'Agrotik Pengukur',paper:p,pixelsPerMm:PPM,sourcePixels:[original.width,original.height],sourcePoints:points.map(x=>[...x]),
+      outputPixels:[w,hgt],mappingOutputMmToSourcePixels:h,lensProfile:currentLens(),quality,rawScale,geometryScope:'paper-plane-only',
       colorCorrection:{applied:false,type:null},createdAt:new Date().toISOString()
     };
-    $('download').disabled=$('metadata').disabled=$('normalizeColor').disabled=false;
-    $('resultInfo').textContent=`${p.name} · area marker ${p.activeWidth} × ${p.activeHeight} mm · ${w} × ${hgt}px · ${PPM}px/mm`;
+    $('download').disabled=$('metadata').disabled=$('normalizeColor').disabled=$('colorChecker').disabled=$('detectAllObjects').disabled=false;
+    $('saveAllObjects').disabled=true;
+    $('resultInfo').textContent=`${p.name} · area marker ${p.activeWidth} × ${p.activeHeight} mm · ${w} × ${hgt}px · ${PPM} px/mm${rawScale?` · X/Y awal Δ ${rawScale.differencePct.toFixed(1)}%`:''}`;
     $('distance').textContent='Pilih mode pengukuran lalu titik pada hasil.';tell('Kalibrasi selesai. Mulai pengukuran atau segmentasi objek.');
-  }catch(error){tell(error.message);}
+    return true;
+  }catch(error){tell(error.message);return false;}
 }
 function drawResult(){
-  if(!cleanResult)return;rctx.putImageData(activeMask?overlayMask(cleanResult,activeMask):cleanResult,0,0);
+  if(!cleanResult)return;
+  rctx.putImageData(activeMask?overlayMask(cleanResult,activeMask):cleanResult,0,0);
+  if(activeObjects.length){
+    rctx.font=`bold ${Math.max(12,result.width/85)}px system-ui`;rctx.textAlign='center';rctx.textBaseline='middle';
+    activeObjects.forEach((o,i)=>{const x=o.metrics.centroid[0]*PPM,y=o.metrics.centroid[1]*PPM;rctx.fillStyle='#17324d';rctx.beginPath();rctx.arc(x,y,Math.max(9,result.width/160),0,Math.PI*2);rctx.fill();rctx.fillStyle='#fff';rctx.fillText(String(i+1),x,y);});
+  }
+  if(colorPickMode&&colorPatchPoints.length){
+    rctx.font=`bold ${Math.max(12,result.width/90)}px system-ui`;rctx.textAlign='left';
+    colorPatchPoints.forEach((p,i)=>{rctx.fillStyle='#ffb000';rctx.beginPath();rctx.arc(...p,Math.max(5,result.width/260),0,Math.PI*2);rctx.fill();rctx.fillStyle='#111';rctx.fillText(String(i+1),p[0]+8,p[1]-8);});
+  }
   if(!measurePoints.length)return;
   rctx.lineWidth=Math.max(2,result.width/600);rctx.strokeStyle='#00a977';rctx.fillStyle='#00a977';
   measurePoints.forEach(p=>{rctx.beginPath();rctx.arc(...p,Math.max(4,result.width/300),0,Math.PI*2);rctx.fill();});
@@ -189,28 +207,42 @@ function angleDeg(a,b,c){
 function setActiveMeasurement(value){
   activeMeasurement=value;$('saveMeasurement').disabled=!value;$('cancelMeasure').disabled=!measurePoints.length&&!activeMask;
   if(!value)return;
-  $('distance').textContent=value.display;
+  $('distance').textContent=value.display+(value.clipped?' · ⚠ objek menyentuh batas area':'');
+  $('referenceValue').placeholder='acuan dalam '+(value.unit||'unit yang sama');
   if(value.metrics){
     $('morphologyCard').hidden=false;
-    const m=value.metrics;
-    $('morphologyCard').innerHTML=`<div><small>Area</small><b>${m.area.toFixed(2)} mm²</b></div><div><small>Perimeter</small><b>${m.perimeter.toFixed(2)} mm</b></div><div><small>Width × Height</small><b>${m.width.toFixed(2)} × ${m.height.toFixed(2)} mm</b></div><div><small>Major / Minor</small><b>${m.major.toFixed(2)} / ${m.minor.toFixed(2)} mm</b></div><div><small>Feret / MinFeret</small><b>${m.feret.toFixed(2)} / ${m.minFeret.toFixed(2)} mm</b></div><div><small>Circularity</small><b>${m.circularity.toFixed(3)}</b></div><div><small>Solidity</small><b>${m.solidity.toFixed(3)}</b></div><div><small>Aspect ratio</small><b>${m.aspectRatio.toFixed(3)}</b></div>`;
+    const m=value.metrics,c=value.color;
+    let html=`<div><small>Area</small><b>${m.area.toFixed(2)} mm²</b></div><div><small>Perimeter</small><b>${m.perimeter.toFixed(2)} mm</b></div><div><small>Width × Height</small><b>${m.width.toFixed(2)} × ${m.height.toFixed(2)} mm</b></div><div><small>Major / Minor</small><b>${m.major.toFixed(2)} / ${m.minor.toFixed(2)} mm</b></div><div><small>Feret / MinFeret</small><b>${m.feret.toFixed(2)} / ${m.minFeret.toFixed(2)} mm</b></div><div><small>Circularity</small><b>${m.circularity.toFixed(3)}</b></div><div><small>Solidity</small><b>${m.solidity.toFixed(3)}</b></div><div><small>Aspect ratio</small><b>${m.aspectRatio.toFixed(3)}</b></div>`;
+    if(c)html+=`<div><small>Mean RGB</small><b>${c.r.toFixed(0)} / ${c.g.toFixed(0)} / ${c.b.toFixed(0)}</b></div><div><small>HSV</small><b>${c.h.toFixed(1)}° / ${c.s.toFixed(1)} / ${c.v.toFixed(1)}</b></div><div><small>CIELAB</small><b>${c.lab.map(x=>x.toFixed(1)).join(' / ')}</b></div>`;
+    $('morphologyCard').innerHTML=html;
   }else $('morphologyCard').hidden=true;
 }
 function resetMeasurement(){
-  measurePoints=[];activeMeasurement=null;activeMask=null;$('finishShape').disabled=true;$('cancelMeasure').disabled=true;$('saveMeasurement').disabled=true;$('morphologyCard').hidden=true;
+  measurePoints=[];activeMeasurement=null;activeMask=null;activeObjects=[];colorPickMode=false;colorPatchPoints=[];$('finishShape').disabled=true;$('cancelMeasure').disabled=true;$('saveMeasurement').disabled=true;$('saveAllObjects').disabled=true;$('morphologyCard').hidden=true;
   if(cleanResult){rctx.putImageData(cleanResult,0,0);$('distance').textContent='Pilih titik pengukuran.';}
 }
 function setMode(next){
   mode=next;resetMeasurement();document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   $('objectPreset').disabled=mode!=='object';$('segmentThreshold').disabled=mode!=='object';
-  tell(mode==='object'?'Klik bagian dalam objek. Gunakan threshold bila segmentasi terlalu sempit/lebar.':'Mode '+mode+' aktif.');
+  tell(mode==='object'?'Klik bagian dalam objek atau gunakan Deteksi semua objek.':'Mode '+mode+' aktif.');
 }
 function resultClick(e){
   if(!cleanResult)return;const p=pointAt(e,result);
+  if(colorPickMode){
+    colorPatchPoints.push(p);drawResult();
+    if(colorPatchPoints.length<6){tell(`ColorChecker: pilih patch netral ${colorPatchPoints.length+1}/6, urut dari paling terang ke paling gelap.`);return;}
+    try{
+      const normalized=normalizeSamplePoints(cleanResult,colorPatchPoints);cleanResult=normalized.image;calibration.colorCorrection={applied:true,type:'colorchecker-neutral-row',fits:normalized.fits,points:colorPatchPoints.map(x=>[...x])};
+      colorPickMode=false;colorPatchPoints=[];resetMeasurement();rctx.putImageData(cleanResult,0,0);tell('Normalisasi ColorChecker 6 netral diterapkan. Ini menormalkan respons netral, bukan profil warna spektrofotometrik penuh.');
+    }catch(error){colorPickMode=false;colorPatchPoints=[];tell('Kalibrasi ColorChecker gagal: '+error.message);drawResult();}
+    return;
+  }
   if(mode==='object'){
     try{
-      const threshold=Number($('segmentThreshold').value),mask=segmentObject(cleanResult,p[0],p[1],threshold),m=morphology(mask,result.width,result.height,PPM);
-      activeMask=mask;measurePoints=[p];setActiveMeasurement({type:'object',label:'Objek',primaryValue:m.area,unit:'mm²',display:`Objek: area ${m.area.toFixed(2)} mm² · Feret ${m.feret.toFixed(2)} mm`,metrics:m,preset:$('objectPreset').value});drawResult();
+      const threshold=Number($('segmentThreshold').value),mask=segmentObject(cleanResult,p[0],p[1],threshold),m=morphology(mask,result.width,result.height,PPM),col=colorStats(cleanResult,mask);
+      let clipped=false;for(let x=0;x<result.width;x++)if(mask[x]||mask[(result.height-1)*result.width+x]){clipped=true;break;}if(!clipped)for(let y=0;y<result.height;y++)if(mask[y*result.width]||mask[y*result.width+result.width-1]){clipped=true;break;}
+      activeMask=mask;activeObjects=[];measurePoints=[p];setActiveMeasurement({type:'object',label:'Objek',primaryValue:m.area,unit:'mm²',display:`Objek: area ${m.area.toFixed(2)} mm² · Feret ${m.feret.toFixed(2)} mm`,metrics:m,color:col,clipped,preset:$('objectPreset').value});drawResult();
+      if(clipped)tell('Objek menyentuh batas citra; ukuran dapat terpotong. Ambil ulang atau pilih objek lain.');
     }catch(error){tell(error.message);}
     return;
   }
@@ -233,14 +265,16 @@ function finishShape(){
   }
   $('finishShape').disabled=true;drawResult();
 }
+function makeRecord(measurement,sampleId){
+  const ref=Number($('referenceValue').value);
+  return {id:'m-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),sampleId,photo:filename,type:measurement.type,label:measurement.label,
+    primaryValue:Number(measurement.primaryValue),unit:measurement.unit,metrics:measurement.metrics||null,color:measurement.color||null,clipped:!!measurement.clipped,preset:measurement.preset||null,
+    referenceValue:Number.isFinite(ref)?ref:null,research:researchMeta(),paper:getProfile().name,quality:quality?.score??null,at:new Date().toISOString()};
+}
 function saveMeasurement(){
   if(!activeMeasurement)return;
-  const sampleId=$('sampleId').value.trim()||filename,record={
-    id:'m-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),sampleId,photo:filename,type:activeMeasurement.type,label:activeMeasurement.label,
-    primaryValue:Number(activeMeasurement.primaryValue),unit:activeMeasurement.unit,metrics:activeMeasurement.metrics||null,preset:activeMeasurement.preset||null,
-    paper:getProfile().name,quality:quality?.score??null,at:new Date().toISOString()
-  };
-  records.push(record);records=records.slice(-500);persistRecords();renderRecords();tell('Pengukuran disimpan untuk '+sampleId+'.');resetMeasurement();
+  const sampleId=$('sampleId').value.trim()||filename,record=makeRecord(activeMeasurement,sampleId);
+  records.push(record);records=records.slice(-500);persistRecords();renderRecords();tell('Pengukuran disimpan untuk '+sampleId+'.');$('referenceValue').value='';resetMeasurement();
 }
 function detailText(r){
   if(!r.metrics)return '';
@@ -248,24 +282,76 @@ function detailText(r){
   return items.slice(0,6).join(' · ');
 }
 function renderRecords(){
-  $('recordCount').textContent=records.length+' pengukuran';$('clearRecords').disabled=!records.length;$('exportCsv').disabled=!records.length;$('sendField').hidden=!fieldContext||!records.length;
+  $('recordCount').textContent=records.length+' pengukuran';$('clearRecords').disabled=!records.length;$('exportCsv').disabled=!records.length;$('exportXls').disabled=!records.length;$('sendStat').disabled=!records.length;$('sendField').hidden=!fieldContext||!records.length;
   const body=$('recordBody');
-  body.innerHTML=records.length?records.slice().reverse().map(r=>`<tr><td>${esc(r.sampleId)}</td><td>${esc(r.photo)}</td><td>${esc(r.label)}</td><td><b>${Number(r.primaryValue).toFixed(2)}</b> ${esc(r.unit)}</td><td class="detail-cell">${esc(detailText(r))}</td><td><button data-delete-record="${r.id}" aria-label="Hapus">×</button></td></tr>`).join(''):'<tr><td colspan="6">Belum ada pengukuran.</td></tr>';
+  body.innerHTML=records.length?records.slice().reverse().map(r=>`<tr><td>${esc(r.sampleId)}</td><td>${esc(r.photo)}</td><td>${esc(r.label)}</td><td><b>${Number(r.primaryValue).toFixed(2)}</b> ${esc(r.unit)}${r.clipped?' ⚠':''}</td><td class="detail-cell">${esc(detailText(r))}</td><td><button data-delete-record="${r.id}" aria-label="Hapus">×</button></td></tr>`).join(''):'<tr><td colspan="6">Belum ada pengukuran.</td></tr>';
   body.querySelectorAll('[data-delete-record]').forEach(btn=>btn.onclick=()=>{records=records.filter(r=>r.id!==btn.dataset.deleteRecord);persistRecords();renderRecords();});
   const reps=repeatability(records),root=$('repeatability');
-  root.innerHTML=reps.length?'<b>Repeatability</b>'+reps.slice(-12).map(r=>`<span>${esc(r.key.split('|')[0])} · ${esc(r.key.split('|')[1])}: n=${r.n}, mean ${r.mean.toFixed(2)}, CV ${r.cv===null?'—':r.cv.toFixed(1)+'%'}</span>`).join(''):'';
+  root.innerHTML=reps.length?'<b>Repeatability</b>'+reps.slice(-12).map(r=>`<span>${esc(r.key.split('|')[0])} · ${esc(r.key.split('|')[1])}: n=${r.n}, mean ${r.mean.toFixed(2)}, SD ${r.sd.toFixed(2)}, CV ${r.cv===null?'—':r.cv.toFixed(1)+'%'}</span>`).join(''):'';
+  const vals=validationSummary(records),vr=$('validation');
+  vr.innerHTML=vals.length?'<b>Validasi terhadap nilai acuan</b>'+vals.map(v=>`<span>${esc(v.key)} · n=${v.n} · MAE ${v.mae.toFixed(2)} · RMSE ${v.rmse.toFixed(2)} · bias ${v.bias.toFixed(2)} · R² ${v.r2===null?'—':v.r2.toFixed(3)} · CV(RMSE) ${v.cvRmse===null?'—':v.cvRmse.toFixed(1)+'%'}</span>`).join(''):'';
 }
+function exportValues(r){
+  const m=r.metrics||{},co=r.color||{},re=r.research||{};
+  return [r.sampleId,r.photo,r.type,r.primaryValue,r.unit,m.area,m.perimeter,m.width,m.height,m.major,m.minor,m.feret,m.minFeret,m.circularity,m.solidity,m.aspectRatio,
+    co.r,co.g,co.b,co.h,co.s,co.v,co.lab?.[0],co.lab?.[1],co.lab?.[2],r.clipped?'1':'0',r.quality,r.referenceValue,re.experiment,re.genotype,re.treatment,re.replication,re.harvest,re.operator,r.paper,r.at];
+}
+const EXPORT_COLS=['sample_id','photo','type','value','unit','area_mm2','perimeter_mm','width_mm','height_mm','major_mm','minor_mm','feret_mm','minferet_mm','circularity','solidity','aspect_ratio','mean_r','mean_g','mean_b','hue_deg','saturation_pct','value_pct','lab_l','lab_a','lab_b','clipped','quality','reference','experiment','genotype','treatment','replication','harvest','operator','paper','timestamp'];
 function csv(){
-  const cols=['sample_id','photo','type','value','unit','area_mm2','perimeter_mm','width_mm','height_mm','major_mm','minor_mm','feret_mm','minferet_mm','circularity','solidity','aspect_ratio','quality','paper','timestamp'];
   const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
-  return [cols.join(','),...records.map(r=>[r.sampleId,r.photo,r.type,r.primaryValue,r.unit,r.metrics?.area,r.metrics?.perimeter,r.metrics?.width,r.metrics?.height,r.metrics?.major,r.metrics?.minor,r.metrics?.feret,r.metrics?.minFeret,r.metrics?.circularity,r.metrics?.solidity,r.metrics?.aspectRatio,r.quality,r.paper,r.at].map(quote).join(','))].join('\n');
+  return [EXPORT_COLS.join(','),...records.map(r=>exportValues(r).map(quote).join(','))].join('\n');
 }
+function excelHtml(){
+  const row=cells=>'<tr>'+cells.map(v=>'<td>'+esc(v??'')+'</td>').join('')+'</tr>';
+  return '<!doctype html><html><head><meta charset="utf-8"></head><body><table>'+row(EXPORT_COLS)+records.map(r=>row(exportValues(r))).join('')+'</table></body></html>';
+}
+
 function normalizeColor(){
   if(!cleanResult)return;
   try{
     const p=getProfile(),rects=grayPatchRects(p).map(r=>({...r,x:r.x*PPM,y:r.y*PPM,width:r.width*PPM,height:r.height*PPM})),normalized=normalizeGrayPatches(cleanResult,rects);
     cleanResult=normalized.image;calibration.colorCorrection={applied:true,type:'relative-gray-strip',fits:normalized.fits};resetMeasurement();rctx.putImageData(cleanResult,0,0);tell('Normalisasi warna relatif diterapkan. Gunakan hanya untuk perbandingan dengan lembar cetak yang sama.');
   }catch(error){tell('Normalisasi warna gagal: '+error.message);}
+}
+function startColorChecker(){
+  if(!cleanResult)return;colorPickMode=true;colorPatchPoints=[];measurePoints=[];activeMask=null;activeObjects=[];$('saveAllObjects').disabled=true;drawResult();
+  tell('ColorChecker: klik enam patch netral dari paling terang ke paling gelap.');
+}
+function detectAllObjects(){
+  if(!cleanResult)return 0;
+  try{
+    const p=getProfile(),preset=$('objectPreset').value,minArea={general:4,leaf:12,fruit:5,seed:.8,cob:35}[preset]||4;
+    const roi={x:12*PPM,y:18*PPM,width:Math.max(20,(p.activeWidth-24)*PPM),height:Math.max(20,(p.activeHeight-70)*PPM)};
+    const found=segmentObjects(cleanResult,{roi,threshold:Number($('segmentThreshold').value),minPixels:Math.max(15,Math.round(minArea*PPM*PPM)),maxObjects:120,ppm:PPM});
+    activeObjects=found.objects;activeMask=found.mask;measurePoints=[];activeMeasurement=null;colorPickMode=false;colorPatchPoints=[];
+    $('saveMeasurement').disabled=true;$('saveAllObjects').disabled=!activeObjects.length;$('cancelMeasure').disabled=!activeObjects.length;
+    const clipped=activeObjects.filter(o=>o.clipped).length;
+    $('distance').textContent=activeObjects.length?`${activeObjects.length} objek terdeteksi${clipped?` · ${clipped} menyentuh batas area (periksa)`:''}. Nomor mengikuti posisi atas→bawah, kiri→kanan.`:'Tidak ada objek yang lolos kriteria. Sesuaikan preset/threshold.';
+    $('morphologyCard').hidden=!activeObjects.length;
+    if(activeObjects.length){const areas=activeObjects.map(o=>o.metrics.area);$('morphologyCard').innerHTML=`<div><small>Jumlah objek</small><b>${activeObjects.length}</b></div><div><small>Area rata-rata</small><b>${(areas.reduce((a,b)=>a+b,0)/areas.length).toFixed(2)} mm²</b></div><div><small>Area min–maks</small><b>${Math.min(...areas).toFixed(2)}–${Math.max(...areas).toFixed(2)} mm²</b></div><div><small>Terpotong</small><b>${clipped}</b></div>`;}
+    drawResult();tell(activeObjects.length?'Deteksi multiobjek selesai. Periksa overlay sebelum Simpan semua objek.':'Tidak ada objek terdeteksi. Coba ubah threshold atau preset.');return activeObjects.length;
+  }catch(error){tell('Deteksi multiobjek gagal: '+error.message);return 0;}
+}
+function saveAllObjects({silent=false}={}){
+  if(!activeObjects.length)return 0;const base=$('sampleId').value.trim()||filename,research=researchMeta(),now=Date.now();
+  const next=activeObjects.map((o,i)=>({id:'m-'+now+'-'+i+'-'+Math.random().toString(36).slice(2,5),sampleId:`${base}-O${String(i+1).padStart(3,'0')}`,photo:filename,type:'object',label:'Objek',
+    primaryValue:o.metrics.area,unit:'mm²',metrics:o.metrics,color:o.color,clipped:!!o.clipped,preset:$('objectPreset').value,referenceValue:null,research,paper:getProfile().name,quality:quality?.score??null,at:new Date().toISOString()}));
+  records.push(...next);records=records.slice(-500);persistRecords();renderRecords();const n=next.length;resetMeasurement();if(!silent)tell(n+' objek disimpan sebagai sampel terpisah.');return n;
+}
+async function processBatchAutomatic(){
+  if(batchBusy||!batchFiles.length||fieldContext)return;batchBusy=true;updateBatchControls();let ok=0,fail=0,objects=0;
+  for(let i=0;i<batchFiles.length;i++){
+    batchIndex=i;$('sampleId').value='';await loadFile(batchFiles[i],{fromBatch:true});
+    if(points.length!==4){fail++;continue;}
+    if(!rectify()){fail++;continue;}
+    const n=detectAllObjects();if(n){objects+=saveAllObjects({silent:true});ok++;}else fail++;
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  batchBusy=false;updateBatchControls();tell(`Batch selesai · ${ok} foto berhasil · ${objects} objek tersimpan · ${fail} foto perlu diperiksa manual.`);
+}
+function sendStat(){
+  try{const out=measurementsToStatistics(localStorage,records);tell(`${out.rowCount} baris dikirim ke dataset ${out.dataset} di /stat.`);window.open('/stat/','_blank','noopener');}
+  catch(error){tell('Gagal mengirim ke /stat: '+error.message);}
 }
 function calibratedBlob(callback){
   if(!cleanResult)return callback(null);const c=document.createElement('canvas');c.width=result.width;c.height=result.height;c.getContext('2d').putImageData(cleanResult,0,0);c.toBlob(callback,'image/png');
@@ -308,15 +394,18 @@ $('scanCode').onclick=scanSampleCode;$('rectify').onclick=rectify;
 $('saveLens').onclick=()=>{const lens=currentLens();saveSettings({lens});tell('Profil lensa disimpan di perangkat ini.');if(rawOriginal)applyLensToRaw();};
 $('resetLens').onclick=()=>{$('lensK1').value=0;$('lensK2').value=0;saveSettings({lens:currentLens()});if(rawOriginal)applyLensToRaw();};
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
-$('segmentThreshold').oninput=()=>{$('thresholdValue').textContent=$('segmentThreshold').value;if(mode==='object'&&measurePoints.length){activeMask=null;activeMeasurement=null;measurePoints=[];drawResult();}};
+$('segmentThreshold').oninput=()=>{$('thresholdValue').textContent=$('segmentThreshold').value;if(mode==='object'&&(measurePoints.length||activeObjects.length)){activeMask=null;activeMeasurement=null;activeObjects=[];measurePoints=[];$('saveAllObjects').disabled=true;drawResult();}};
 $('objectPreset').onchange=()=>{const map={general:46,leaf:38,fruit:50,seed:42,cob:55};$('segmentThreshold').value=map[$('objectPreset').value]||46;$('thresholdValue').textContent=$('segmentThreshold').value;};
 result.addEventListener('click',resultClick);$('finishShape').onclick=finishShape;$('cancelMeasure').onclick=resetMeasurement;$('saveMeasurement').onclick=saveMeasurement;
-$('normalizeColor').onclick=normalizeColor;
+$('normalizeColor').onclick=normalizeColor;$('colorChecker').onclick=startColorChecker;$('detectAllObjects').onclick=detectAllObjects;$('saveAllObjects').onclick=()=>saveAllObjects();
 $('download').onclick=()=>calibratedBlob(blob=>downloadBlob(blob,filename+'-calibrated.png'));
 $('metadata').onclick=()=>{if(calibration)downloadBlob(new Blob([JSON.stringify({...calibration,records:records.filter(r=>r.photo===filename)},null,2)],{type:'application/json'}),filename+'-calibration.json');};
 $('exportCsv').onclick=()=>downloadBlob(new Blob([csv()],{type:'text/csv;charset=utf-8'}),'pengukuran-'+new Date().toISOString().slice(0,10)+'.csv');
+$('exportXls').onclick=()=>downloadBlob(new Blob([excelHtml()],{type:'application/vnd.ms-excel;charset=utf-8'}),'pengukuran-'+new Date().toISOString().slice(0,10)+'.xls');
+$('sendStat').onclick=sendStat;$('processBatch').onclick=processBatchAutomatic;
 $('clearRecords').onclick=()=>{if(confirm('Hapus seluruh riwayat pengukuran lokal?')){records=[];persistRecords();renderRecords();}};
 $('sendField').onclick=sendField;
+RESEARCH_IDS.forEach(id=>$(id)?.addEventListener('change',saveResearch));
 
 installLiveCamera({onCapture:file=>{batchFiles=[file];batchIndex=0;loadFile(file);},getProfile,onQuality:q=>quality=q});
 setMode('length');
