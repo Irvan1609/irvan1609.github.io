@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL,
   last_seen_at TEXT NOT NULL,
   revoked_at TEXT,
+  user_agent TEXT NOT NULL DEFAULT '',
+  ip_hash TEXT NOT NULL DEFAULT '',
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
