@@ -4,6 +4,8 @@ const MAX_BOXES=1500;
 const MAX_DATASET_BYTES=2_000_000;
 const MAX_DATASET_REQUEST_BYTES=4_500_000;
 const MAX_DATASETS_PER_USER=120;
+const MAX_GAME_SAVE_BYTES=180_000;
+const MAX_GAME_SAVE_REQUEST_BYTES=220_000;
 const SESSION_DAYS=30;
 const SESSION_ROTATE_HOURS=24;
 const BEARER_FALLBACK_HOURS=8;
@@ -304,6 +306,16 @@ async function ensureGameSchema(env){
       FOREIGN KEY(user_id) REFERENCES users(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_profiles_score ON game_profiles(score DESC,updated_at ASC)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_saves (
+      user_id TEXT PRIMARY KEY,
+      revision INTEGER NOT NULL DEFAULT 1,
+      save_version INTEGER NOT NULL DEFAULT 3,
+      payload_json TEXT NOT NULL,
+      device_label TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_saves_updated ON game_saves(updated_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_friends (
       user_id TEXT NOT NULL,
       friend_id TEXT NOT NULL,
@@ -1728,6 +1740,60 @@ async function handleGameProfilePut(request,env){
   const row=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url FROM game_profiles gp JOIN users u ON u.id=gp.user_id WHERE gp.user_id=? LIMIT 1`).bind(user.id).first();
   return json(request,env,{ok:true,profile:gamePlayer(row)});
 }
+
+function parseGameSavePayload(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const version=Math.round(Number(value.version)||0),season=Math.round(Number(value.season)||0),day=Math.round(Number(value.day)||0);
+  if(version<3||version>20||season<1||season>500||day<1||day>40)return null;
+  if(!Array.isArray(value.field)||value.field.length<1||value.field.length>48)return null;
+  if(!Array.isArray(value.vault)||value.vault.length<1||value.vault.length>300)return null;
+  const text=JSON.stringify(value);
+  if(new TextEncoder().encode(text).byteLength>MAX_GAME_SAVE_BYTES)return null;
+  return {save:value,text,version};
+}
+function gameSaveResponse(row){
+  if(!row)return {save:null,revision:0,updatedAt:null,deviceLabel:''};
+  let save=null;try{save=JSON.parse(row.payload_json);}catch{}
+  return {save,revision:Number(row.revision)||0,updatedAt:row.updated_at||null,deviceLabel:row.device_label||''};
+}
+async function handleGameSaveGet(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT revision,save_version,payload_json,device_label,updated_at FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  return json(request,env,gameSaveResponse(row),200,{'Cache-Control':'no-store'});
+}
+async function gameSaveConflict(request,env,user){
+  const row=await env.DB.prepare('SELECT revision,save_version,payload_json,device_label,updated_at FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  return json(request,env,{error:'save_conflict',message:'Save cloud berubah di perangkat lain.',...gameSaveResponse(row)},409,{'Cache-Control':'no-store'});
+}
+async function handleGameSavePut(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(requestTooLarge(request,MAX_GAME_SAVE_REQUEST_BYTES))return json(request,env,{error:'Save game terlalu besar.'},413);
+  const guard=await gameMutationGuard(request,env,user,'save');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null),parsed=parseGameSavePayload(body?.save),baseRevision=Math.round(Number(body?.baseRevision)||0);
+  if(!parsed||baseRevision<0||baseRevision>100000000)return json(request,env,{error:'Save game tidak valid.'},400);
+  const now=new Date().toISOString(),deviceLabel=sessionDeviceLabel(request.headers.get('User-Agent'));
+  const current=await env.DB.prepare('SELECT revision FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  if(current){
+    const currentRevision=Number(current.revision)||0;
+    if(baseRevision!==currentRevision)return gameSaveConflict(request,env,user);
+    const nextRevision=currentRevision+1;
+    const result=await env.DB.prepare(`UPDATE game_saves SET revision=?,save_version=?,payload_json=?,device_label=?,updated_at=?
+      WHERE user_id=? AND revision=?`).bind(nextRevision,parsed.version,parsed.text,deviceLabel,now,user.id,currentRevision).run();
+    if(Number(result?.meta?.changes||0)<1)return gameSaveConflict(request,env,user);
+    return json(request,env,{ok:true,revision:nextRevision,updatedAt:now,deviceLabel});
+  }
+  if(baseRevision!==0)return gameSaveConflict(request,env,user);
+  const result=await env.DB.prepare(`INSERT OR IGNORE INTO game_saves
+    (user_id,revision,save_version,payload_json,device_label,updated_at) VALUES (?,1,?,?,?,?)`)
+    .bind(user.id,parsed.version,parsed.text,deviceLabel,now).run();
+  if(Number(result?.meta?.changes||0)<1)return gameSaveConflict(request,env,user);
+  return json(request,env,{ok:true,revision:1,updatedAt:now,deviceLabel});
+}
+
 async function handleGameLeaderboard(request,env,url){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
@@ -1988,6 +2054,8 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/account/payments')return await handleAccountPayments(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/account/export')return await handleAccountExport(request,env);
       if(request.method==='PUT'&&url.pathname==='/v1/game/profile')return await handleGameProfilePut(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/save')return await handleGameSaveGet(request,env);
+      if(request.method==='PUT'&&url.pathname==='/v1/game/save')return await handleGameSavePut(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/game/leaderboard')return await handleGameLeaderboard(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/game/players')return await handleGamePlayerSearch(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/game/friends')return await handleGameFriends(request,env);
