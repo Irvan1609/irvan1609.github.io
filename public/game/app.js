@@ -587,7 +587,7 @@ function applyExperimentTreatment(index){
   if(unit.applied){toast('🧪✓');return false;}
   unit.applied=true;
   const crop=state.field[index];if(crop)applyTreatmentModel(crop,treatment);
-  addLog(plotMeta(index).uid+': 🧪 '+treatment.name+'.');beep(500,.05);render();return true;
+  addLog(plotMeta(index).uid+': 🧪 '+treatment.name+'.');beep(500,.05);render();toast('🧪 '+plotMeta(index).uid+' · '+treatment.code);return true;
 }
 function applyPendingExperimentEffect(index,crop){
   const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return;
@@ -748,37 +748,26 @@ function correlationTeachingHtml(selected){
   return `<section class="stat-correlation"><header><b>↗ Korelasi unit percobaan</b><span>n=${found.n}</span></header><p>${esc(selected)} ↔ ${esc(found.paramB)}: <b>r = ${found.r.toFixed(2)}</b> · asosiasi ${strength}.</p><small>Hitungan menggunakan satu nilai per unit percobaan, bukan memperlakukan subsampel sebagai ulangan tambahan.</small><button type="button" data-correlation-case>Uji interpretasi korelasi</button></section>`;
 }
 function openStatisticsLab(parameter=null){
-  const exp=state.experiment;if(!exp)return;
+  const exp=state.experiment;if(!exp){location.href='/stat/';return;}
   const available=exp.parameters.filter(p=>exp.units.filter(u=>Number.isFinite(Number(String(u.observations?.[p]??'').replace(',','.')))).length>=2);
   const selected=parameter&&exp.parameters.includes(parameter)?parameter:(available.includes('Hasil')?'Hasil':available[0]||exp.parameters[0]);
-  const h0Key='h0:'+exp.id,interpretKey='interpret:'+exp.id+':'+selected,h0Done=!!state.academy?.answers?.[h0Key];
-  if(!h0Done){
-    openMetaModal('LAB STATISTIK','Hipotesis sebelum menghitung',`<section class="academy-question professor-question"><small>ANOVA · ${esc(exp.design.toUpperCase())}</small><b>Apa H₀ untuk pengaruh perlakuan?</b><div><button data-h0="correct">μ₁ = μ₂ = ... = μt</button><button data-h0="wrong1">Semua perlakuan pasti berbeda</button><button data-h0="wrong2">Galat percobaan = 0</button></div><p>ANOVA membandingkan keragaman antar rerata perlakuan dengan keragaman galat.</p></section>`);
-    $('#metaModalBody').querySelectorAll('[data-h0]').forEach(button=>button.onclick=()=>{
-      const correct=button.dataset.h0==='correct';
-      academyAnswer(h0Key,correct,()=>academyMark('stats-h0',{note:'Memahami H₀ ANOVA'}));
-      if(correct)openStatisticsLab(selected);
-    });
-    return;
-  }
   const result=analyzeExperiment(exp,selected),selector=`<label class="stat-parameter-select">Parameter<select id="academyStatParameter">${exp.parameters.map(p=>`<option value="${esc(p)}" ${p===selected?'selected':''}>${esc(p)}</option>`).join('')}</select></label>`;
   if(!result.ok){
-    openMetaModal('LAB STATISTIK','ANOVA dari data lapang',selector+`<div class="meta-empty">${esc(result.error)}</div><p class="meta-note">Tambahkan pengamatan pada lebih banyak unit percobaan. Tanaman subsampel dalam petak tidak menambah jumlah ulangan.</p>`);
-    $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);return;
+    openMetaModal('ANALISIS','Data belum cukup',selector+`<div class="meta-empty">${esc(result.error)}</div><div class="analysis-shortcuts"><button type="button" data-back-research>📐 Kembali ke penelitian</button><button type="button" data-open-stat>↗ Buka /stat</button></div>`);
+    $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+    $('#metaModalBody').querySelector('[data-back-research]')?.addEventListener('click',openExperiment);
+    $('#metaModalBody').querySelector('[data-open-stat]')?.addEventListener('click',()=>location.href='/stat/');
+    return;
   }
-  const conclusion=result.significant?'Tolak H₀: setidaknya ada satu rerata perlakuan yang berbeda.':'Gagal menolak H₀: bukti belum cukup untuk menyatakan rerata perlakuan berbeda.';
-  const interpreted=!!state.academy?.answers?.[interpretKey];
-  openMetaModal('LAB STATISTIK','ANOVA · '+selected,selector+statisticsResultHtml(result)+correlationTeachingHtml(selected)+`<section class="stat-interpretation"><b>Interpretasi</b><p>${interpreted?esc(conclusion):'Pilih kesimpulan berdasarkan p-value, bukan hanya urutan rerata.'}</p></section>${interpreted?'':`<section class="academy-question"><div><button data-stat-conclusion="sig">Tolak H₀: minimal satu rerata berbeda</button><button data-stat-conclusion="ns">Gagal menolak H₀: bukti perbedaan belum cukup</button><button data-stat-conclusion="all">Semua perlakuan berbeda satu sama lain</button></div></section>`}<div class="professor-stat-actions"><button type="button" data-posthoc-case>Uji lanjut?</button><button type="button" data-assumption-case>Residual & asumsi</button>${result.heritability===null?'':'<button type="button" data-h2-case>Interpretasi H²</button>'}</div><p class="meta-note">BNT 5% dipakai sebagai latihan perbandingan rerata setelah ANOVA. H² hanya ditampilkan pada uji galur seimbang. /stat tetap menjadi ruang analisis lengkap.</p>`);
+  const conclusion=result.significant?'Ada bukti pengaruh perlakuan: minimal satu rerata berbeda.':'Bukti belum cukup untuk menyatakan perlakuan berbeda.';
+  academyMark('stats-h0',{xp:3,rp:0,note:'Membaca ANOVA'});
+  academyMark('stats-interpret',{xp:3,rp:0,note:'Interpretasi hasil'});
+  openMetaModal('ANALISIS','📊 '+selected,selector+statisticsResultHtml(result)+`<section class="stat-interpretation compact-interpretation"><b>Kesimpulan</b><p>${esc(conclusion)}</p></section><div class="analysis-shortcuts"><button type="button" data-posthoc-case>Pelajari uji lanjut</button><button type="button" data-assumption-case>Residual & asumsi</button>${result.heritability===null?'':'<button type="button" data-h2-case>Heritabilitas</button>'}<button type="button" data-exp-stat class="primary">↗ Analisis lengkap /stat</button></div>`);
   $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
-  $('#metaModalBody').querySelectorAll('[data-stat-conclusion]').forEach(button=>button.onclick=()=>{
-    const correct=(result.significant&&button.dataset.statConclusion==='sig')||(!result.significant&&button.dataset.statConclusion==='ns');
-    academyAnswer(interpretKey,correct,()=>academyMark('stats-interpret',{note:'Interpretasi F dan p-value'}));
-    if(correct)openStatisticsLab(selected);
-  });
-  $('#metaModalBody').querySelector('[data-correlation-case]')?.addEventListener('click',()=>openProfessorCase('correlation'));
   $('#metaModalBody').querySelector('[data-posthoc-case]')?.addEventListener('click',()=>openProfessorCase('posthoc'));
   $('#metaModalBody').querySelector('[data-assumption-case]')?.addEventListener('click',()=>openProfessorCase('assumption'));
   $('#metaModalBody').querySelector('[data-h2-case]')?.addEventListener('click',()=>openProfessorCase('heritability'));
+  $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
 }
 function experimentTableHtml(){
   const exp=state.experiment;if(!exp)return '';
@@ -792,17 +781,88 @@ function experimentSummaryHtml(){
   const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
   return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span><span>Rp ${formatRupiah(exp.observationCost||0,true)}</span></div>`;
 }
+let experimentWizardStep=1;
+let experimentDraft=null;
+function freshExperimentDraft(){
+  return {
+    name:'Uji Field Zero',
+    question:'Apakah perlakuan memengaruhi respons tanaman?',
+    design:'rak',kind:'genotype',count:4,reps:3,custom:'',
+    kindB:'water',countB:2,customB:'',
+    parameters:recommendedParameters(state.species).slice(0,8).join(','),
+    frequency:2
+  };
+}
+function experimentKindOptions(selected='genotype'){
+  const kinds=[
+    ['genotype','🌱 Genetik / galur'],['nitrogen','N Dosis nitrogen'],['phosphorus','P Fosfor'],
+    ['potassium','K Kalium'],['water','💧 Air'],['spacing','▦ Jarak tanam'],['population','◫ Populasi'],
+    ['mulch','▤ Mulsa'],['soil','△ Tanah'],['drainage','≋ Drainase'],['shade','◒ Naungan'],
+    ['weed','♧ Gulma'],['timing','◷ Waktu aplikasi'],['ipm','◈ Hama/penyakit'],['custom','🧪 Perlakuan bebas']
+  ];
+  return kinds.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
+}
+function renderExperimentWizard(step=experimentWizardStep){
+  experimentWizardStep=Math.max(1,Math.min(4,Number(step)||1));
+  experimentDraft??=freshExperimentDraft();
+  const d=experimentDraft,advanced=advancedDesignUnlocked(),factorial=['fral','frak','split'].includes(d.design);
+  const steps=['Tujuan','Rancangan','Perlakuan','Randomisasi'];
+  const head=`<div class="research-steps">${steps.map((label,index)=>`<span class="${index+1===experimentWizardStep?'active':index+1<experimentWizardStep?'done':''}"><b>${index+1}</b>${label}</span>`).join('')}</div>`;
+  let body='';
+  if(experimentWizardStep===1){
+    body=`<form id="experimentForm" class="experiment-wizard"><label>Nama penelitian<input name="name" value="${esc(d.name)}"></label><label>Pertanyaan penelitian<textarea name="question" rows="3">${esc(d.question)}</textarea></label><div class="wizard-actions"><button type="button" data-design-case-open>Contoh RAL/RAK</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+  }else if(experimentWizardStep===2){
+    body=`<form id="experimentForm" class="experiment-wizard"><label>Rancangan<select name="design"><option value="rak" ${d.design==='rak'?'selected':''}>RAK · ada kelompok</option><option value="ral" ${d.design==='ral'?'selected':''}>RAL · homogen</option><option value="frak" ${d.design==='frak'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAK</option><option value="fral" ${d.design==='fral'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAL</option><option value="split" ${d.design==='split'?'selected':''} ${advanced?'':'disabled'}>RPT / split-plot</option></select></label><label>Ulangan<input name="reps" type="number" min="2" max="6" value="${d.reps}"><small>RAK/FRAK/RPT memakai 3 kelompok lahan.</small></label><p class="wizard-note">${advanced?'Rancangan lanjut tersedia.':'Faktorial dan RPT terbuka setelah percobaan dasar atau Level 3.'}</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+  }else if(experimentWizardStep===3){
+    body=`<form id="experimentForm" class="experiment-wizard" data-factorial="${factorial}"><label>Faktor A<select name="kind">${experimentKindOptions(d.kind)}</select></label><label>Taraf A<input name="count" type="number" min="2" max="8" value="${d.count}"></label><label>Nama taraf A<input name="custom" value="${esc(d.custom)}" placeholder="A0, A1, A2"></label>${factorial?`<div class="wizard-factor-b"><label>Faktor B<select name="kindB">${experimentKindOptions(d.kindB)}</select></label><label>Taraf B<input name="countB" type="number" min="2" max="4" value="${d.countB}"></label><label>Nama taraf B<input name="customB" value="${esc(d.customB)}" placeholder="B0, B1"></label></div>`:''}<div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+  }else{
+    const estimated=(factorial?Number(d.count)*Number(d.countB):Number(d.count))*Number(['rak','frak','split'].includes(d.design)?BLOCK_COUNT:d.reps);
+    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${esc(d.kind)}${factorial?' × '+esc(d.kindB):''}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="1" ${d.frequency===1?'selected':''}>Setiap hari</option><option value="2" ${d.frequency===2?'selected':''}>Setiap 2 hari</option><option value="3" ${d.frequency===3?'selected':''}>Setiap 3 hari</option><option value="4" ${d.frequency===4?'selected':''}>Setiap 4 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">Randomisasi akan langsung menandai petak penelitian. Tanaman di dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
+  }
+  openMetaModal('PENELITIAN',`📐 ${steps[experimentWizardStep-1]}`,head+body);
+  const form=$('#experimentForm');
+  form?.querySelector('[data-design-case-open]')?.addEventListener('click',openDesignCase);
+  form?.querySelector('[data-wizard-back]')?.addEventListener('click',()=>renderExperimentWizard(experimentWizardStep-1));
+  form?.querySelector('[data-breeding-cup]')?.addEventListener('click',breedingCup.open);
+  if(!form)return;
+  form.onsubmit=event=>{
+    event.preventDefault();const fd=new FormData(form);
+    if(experimentWizardStep===1){
+      d.name=String(fd.get('name')||'').trim()||'Uji Field Zero';
+      d.question=String(fd.get('question')||'').trim()||'Apakah perlakuan memengaruhi respons tanaman?';
+      renderExperimentWizard(2);return;
+    }
+    if(experimentWizardStep===2){
+      d.design=String(fd.get('design')||'rak');d.reps=Math.max(2,Math.min(6,Number(fd.get('reps'))||3));
+      if(['rak','frak','split'].includes(d.design))d.reps=BLOCK_COUNT;
+      renderExperimentWizard(3);return;
+    }
+    if(experimentWizardStep===3){
+      d.kind=String(fd.get('kind')||'genotype');d.count=Math.max(2,Math.min(8,Number(fd.get('count'))||4));d.custom=String(fd.get('custom')||'');
+      if(['fral','frak','split'].includes(d.design)){d.kindB=String(fd.get('kindB')||'water');d.countB=Math.max(2,Math.min(4,Number(fd.get('countB'))||2));d.customB=String(fd.get('customB')||'');}
+      renderExperimentWizard(4);return;
+    }
+    d.frequency=Math.max(1,Math.min(4,Number(fd.get('frequency'))||2));d.parameters=String(fd.get('parameters')||d.parameters);
+    try{
+      createExperiment(d);experimentDraft=null;experimentWizardStep=1;
+    }catch(error){toast(error.message);}
+  };
+}
 function openExperiment(){
   if(breedingCup.active()){breedingCup.open();return;}
-  if(!state.experiment){
-    const advanced=advancedDesignUnlocked(),kindOptions='<option value="genotype">🌱 Genetik / galur</option><option value="nitrogen">N Dosis nitrogen</option><option value="phosphorus">P Fosfor</option><option value="potassium">K Kalium</option><option value="water">💧 Air</option><option value="spacing">▦ Jarak tanam</option><option value="population">◫ Populasi</option><option value="mulch">▤ Mulsa</option><option value="soil">△ Tanah</option><option value="drainage">≋ Drainase</option><option value="shade">◒ Naungan</option><option value="weed">♧ Gulma</option><option value="timing">◷ Waktu aplikasi</option><option value="ipm">◈ Hama/penyakit</option><option value="custom">🧪 Perlakuan bebas</option>';
-    openMetaModal('BELAJAR RANCOB','📐 Rancangan percobaan',`<form id="experimentForm" class="experiment-form" data-factorial="false"><label>Faktor A<select name="kind">${kindOptions}</select></label><label>Rancangan<select name="design"><option value="rak">RAK</option><option value="ral">RAL</option><option value="frak" ${advanced?'':'disabled'}>Faktorial RAK</option><option value="fral" ${advanced?'':'disabled'}>Faktorial RAL</option><option value="split" ${advanced?'':'disabled'}>RPT / split-plot</option></select></label><label>Taraf A<input name="count" type="number" min="2" max="8" value="4"></label><label>Ulangan<input name="reps" type="number" min="2" max="6" value="3"><small>RAK/FRAK/RPT = Kelompok I–III</small></label><div class="factor-b-fields"><label>Faktor B<select name="kindB">${kindOptions}</select></label><label>Taraf B<input name="countB" type="number" min="2" max="4" value="2"></label><label class="experiment-wide">Nama taraf B<input name="customB" placeholder="B0, B1"></label></div><label>Frekuensi ukur<select name="frequency"><option value="1">Setiap hari</option><option value="2" selected>2 hari</option><option value="3">3 hari</option><option value="4">4 hari</option></select></label><label class="experiment-wide">Nama<input name="name" value="Uji Field Zero"></label><label class="experiment-wide">Pertanyaan<input name="question" value="Apakah perlakuan memengaruhi respons tanaman?"></label><label class="experiment-wide">Nama taraf A<input name="custom" placeholder="A0, A1, A2"></label><label class="experiment-wide">Parameter<input name="parameters" value="${recommendedParameters(state.species).slice(0,12).join(',')}"></label><p class="design-lock-note">${advanced?'Faktorial dan RPT aktif. RPT memakai Faktor A sebagai petak utama dan Faktor B sebagai anak petak.':'Faktorial/RPT terbuka setelah satu percobaan dasar atau Level 3.'}</p><button class="experiment-wide" type="button" data-design-case-open>🎓 Kasus Profesor · RAL atau RAK?</button><button class="primary experiment-wide" type="submit">🎲 Randomisasi</button><button class="competition-launch experiment-wide" type="button" data-breeding-cup>🏆 Breeding Cup · 24 petak</button></form><p class="meta-note">Unit percobaan tetap petak. Tanaman di dalam petak adalah subsampel, bukan ulangan tambahan.</p>`);
-    const form=$('#experimentForm'),design=form.elements.design,sync=()=>{form.dataset.factorial=String(['fral','frak','split'].includes(design.value));if(['rak','frak','split'].includes(design.value))form.elements.reps.value=3;};design.onchange=sync;sync();form.onsubmit=event=>{event.preventDefault();const fd=new FormData(event.currentTarget);try{createExperiment({name:fd.get('name'),question:fd.get('question'),design:String(fd.get('design')),kind:String(fd.get('kind')),count:Number(fd.get('count')),reps:Number(fd.get('reps')),custom:fd.get('custom'),kindB:String(fd.get('kindB')||'water'),countB:Number(fd.get('countB')||2),customB:fd.get('customB'),parameters:fd.get('parameters'),frequency:Number(fd.get('frequency'))});}catch(error){toast(error.message);}};$('#metaModalBody').querySelector('[data-design-case-open]').onclick=openDesignCase;$('#metaModalBody').querySelector('[data-breeding-cup]').onclick=breedingCup.open;return;
-  }
-  const exp=state.experiment,factorial=!!exp.factorial;openMetaModal('RANCOB AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}${experimentTableHtml()}<div class="experiment-actions"><button data-exp-randomize>🎲</button><button data-exp-audit ${factorial?'disabled':''}>🎓 Audit</button><button data-exp-anova ${factorial?'disabled':''}>📊 ANOVA</button><button data-exp-reset>×</button><button data-exp-stat class="primary">↗ /stat</button></div><p class="meta-note">${exp.kind==='genotype'&&!factorial?'🌱 Tanam mengikuti galur hasil randomisasi.':'🧪 Terapkan perlakuan sesuai randomisasi.'} ${factorial?'Analisis interaksi dan strata galat dilakukan di /stat.':'Professor Lab tersedia untuk ANOVA satu faktor.'}</p>`);
-  $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}});$('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{const hasData=exp.units.some(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!==''));if(hasData&&!confirm('Acak ulang? Data pengamatan yang sudah ada akan dikosongkan.'))return;exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();};
-  const audit=$('#metaModalBody').querySelector('[data-exp-audit]'),anova=$('#metaModalBody').querySelector('[data-exp-anova]');if(audit&&!factorial)audit.onclick=openExperimentAudit;if(anova&&!factorial)anova.onclick=()=>openStatisticsLab();$('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';render();closeMetaModal();}};$('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
+  if(!state.experiment){renderExperimentWizard(experimentWizardStep);return;}
+  const exp=state.experiment,factorial=!!exp.factorial,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
+  openMetaModal('PENELITIAN AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}<div class="experiment-actions focus-experiment-actions"><button data-exp-anova ${factorial?'disabled':''}>📊 Analisis</button><button data-exp-stat class="primary">↗ /stat</button><button data-exp-audit ${factorial?'disabled':''}>✓ Audit</button><button data-exp-randomize>🎲 Acak ulang</button><button data-exp-reset>× Hapus</button></div><details class="experiment-data-details"><summary>Data pengamatan · ${filled}/${exp.units.length} unit</summary>${experimentTableHtml()}</details><p class="meta-note">${exp.kind==='genotype'&&!factorial?'Tanam mengikuti galur hasil randomisasi.':'Terapkan perlakuan sesuai randomisasi.'} ${factorial?'Analisis interaksi dan strata galat dilanjutkan di /stat.':'Analisis ringkas tersedia langsung di game.'}</p>`);
+  $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}});
+  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{const hasData=exp.units.some(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!==''));if(hasData&&!confirm('Acak ulang? Data pengamatan yang sudah ada akan dikosongkan.'))return;exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();};
+  const audit=$('#metaModalBody').querySelector('[data-exp-audit]'),anova=$('#metaModalBody').querySelector('[data-exp-anova]');
+  if(audit&&!factorial)audit.onclick=openExperimentAudit;
+  if(anova&&!factorial)anova.onclick=()=>openStatisticsLab();
+  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){state.experiment=null;activeFieldTool='';experimentDraft=null;experimentWizardStep=1;render();closeMetaModal();}};
+  $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
 }
+
+function hasTech
 
 function hasTech(id){return state.tech.includes(id);}
 function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
@@ -1368,6 +1428,8 @@ function openSpeciesPicker(){
 }
 function openQuickMore(){
   openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
+    <button data-quick-more="social">👥<span>Sosial</span></button>
+    <button data-quick-more="map">⌖<span>Lokasi</span></button>
     <button data-quick-more="run">⚑<span>Challenge</span></button>
     <button data-quick-more="rival">⚔<span>Rival</span></button>
     <button data-quick-more="record">◷<span>Rekor</span></button>
@@ -1381,6 +1443,8 @@ function openQuickMore(){
   </div>`);
   $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
     const key=button.dataset.quickMore;
+    if(key==='social'){closeMetaModal();$('#quickSocial')?.click();}
+    if(key==='map')openWorldMap();
     if(key==='run')openChallenges();
     if(key==='rival')openRival();
     if(key==='record')openRecords();
@@ -1393,7 +1457,7 @@ function openQuickMore(){
     if(key==='music')openMusicPicker();
   });
 }
-function openEconomyInfo(){
+function openEconomyInfofunction openEconomyInfo(){
   const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
   const cropProfile=SPECIES[state.species]||SPECIES.maize;
   openMetaModal('EKONOMI LAPANGAN','Rupiah & harga acuan',`<div class="economy-grid">
@@ -1434,8 +1498,8 @@ function openMusicPicker(){
     const value=Number(input.value)/100;if(input.dataset.audioVolume==='music'){state.comfort.musicVolume=value;setMusicVolume(value*.16);}else state.comfort.uiVolume=value;save();
   });
 }
-function openInspectorSheet(){document.querySelector('.inspector')?.classList.add('sheet-open');}
-function closeInspectorSheet(){document.querySelector('.inspector')?.classList.remove('sheet-open');}
+function openInspectorSheet(){document.body.classList.add('inspector-engaged');document.querySelector('.inspector')?.classList.add('sheet-open');}
+function closeInspectorSheet(){document.body.classList.remove('inspector-engaged');document.querySelector('.inspector')?.classList.remove('sheet-open');}
 function smartActionForSelected(){
   const crop=selectedCrop();
   if(!crop)return {tool:'plant',label:'🌱 Tanam'};
@@ -1484,8 +1548,33 @@ function useFieldTool(tool,index,{seedId=''}={}){
 }
 
 
+function workflowStep(){
+  const ready=state.field.some(crop=>crop&&crop.health>0&&crop.growth>=100);
+  const crops=state.field.some(Boolean);
+  const candidates=selectionCandidates(state.season);
+  const exp=state.experiment;
+  const dataCount=exp?exp.units.filter(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!=='')).length:0;
+  if(candidates.length&&(state.day>=state.maxDay||!crops))return 'selection';
+  if(ready)return 'harvest';
+  if(exp&&dataCount>=Math.max(2,Math.ceil(exp.units.length*.5)))return 'analysis';
+  if(crops)return 'care';
+  return 'plant';
+}
+function renderWorkflow(){
+  const active=workflowStep();
+  document.querySelectorAll('[data-flow-step]').forEach(el=>el.classList.toggle('active',el.dataset.flowStep===active));
+}
+function renderProgressiveUI(){
+  document.body.dataset.gameLevel=String(state.level||1);
+  document.querySelectorAll('[data-unlock-level]').forEach(el=>{el.hidden=(state.level||1)<Number(el.dataset.unlockLevel||1);});
+}
+function openAnalysisHub(){
+  if(state.experiment){openStatisticsLab();return;}
+  if(selectionCandidates(state.season).length){openSelection();return;}
+  location.href='/stat/';
+}
 function render(){
-  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();save();
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();renderWorkflow();renderProgressiveUI();save();
 }
 
 function plantSelected(){
@@ -1520,7 +1609,7 @@ function plantSelected(){
   state.coins-=plantCost;state.seasonStats.cost=(state.seasonStats.cost||0)+plantCost;state.focus--;
   addLog('P'+String(index+1).padStart(2,'0')+': '+seed.name+' ditanam · '+formatRupiah(plantCost)+'.');
   offerUndo(snapshot,'Tanam P'+String(index+1).padStart(2,'0'),{index,seedId:seed.id,crop:structuredClone(crop)});
-  beep(410);render();document.dispatchEvent(new Event('fieldzero-field-change'));
+  beep(410);render();toast('🌱 P'+String(index+1).padStart(2,'0')+' · '+seed.name);document.dispatchEvent(new Event('fieldzero-field-change'));
 }
 function cropAction(action){
   const crop=selectedCrop();if(!crop)return;
@@ -1530,7 +1619,7 @@ function cropAction(action){
     state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
     if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog('P'+(state.selectedPlot+1)+': periksa menemukan '+traitMeta(crop.mutation).name+'.');}
     else addLog('P'+(state.selectedPlot+1)+': periksa selesai; penyakit '+Math.round(crop.disease)+'%.');
-    crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));beep(540);render();return;
+    crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));beep(540);render();toast('◎ P'+String(state.selectedPlot+1).padStart(2,'0')+' · penyakit '+Math.round(crop.disease)+'%');return;
   }
   const snapshot=structuredClone(state);
   if(action==='remove'){
@@ -1544,6 +1633,7 @@ function cropAction(action){
     crop.water=clamp(crop.water+(hasTech('irrigation')?50:38));state.focus-=focusCost;state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;
     state.irrigationUses++;crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?5:2));addLog('P'+(state.selectedPlot+1)+': irigasi · '+formatRupiah(cost)+'.');beep(360);
     offerUndo(snapshot,'Irigasi P'+String(state.selectedPlot+1).padStart(2,'0'));
+    toast('💧 P'+String(state.selectedPlot+1).padStart(2,'0')+' · air '+Math.round(crop.water)+'%');
   }
   if(action==='fertilize'){
     if(activeChallenge().noFertilizer){toast('Challenge melarang pupuk');return;}
@@ -1552,6 +1642,7 @@ function cropAction(action){
     if(highN){crop.stress=clamp(crop.stress+8,0,120);crop.health=clamp(crop.health-3);addLog('P'+(state.selectedPlot+1)+': N berlebih meningkatkan stres.');}
     else addLog('P'+(state.selectedPlot+1)+': pemupukan N · '+formatRupiah(cost)+'.');
     beep(440);offerUndo(snapshot,'Pemupukan P'+String(state.selectedPlot+1).padStart(2,'0'));
+    toast('N P'+String(state.selectedPlot+1).padStart(2,'0')+' · '+Math.round(crop.n)+'%');
   }
   render();
 }
@@ -1619,7 +1710,7 @@ function selectionLearningHtml(){
 }
 function openSelection(){
   const mode=state.selectionMode||'index',items=selectionCandidates().slice(0,48).sort((a,b)=>selectionScore(b,mode)-selectionScore(a,mode)).slice(0,30);
-  const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ</button></div>`;
+  const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺 Hasil</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥ Sehat</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ Indeks</button></div>`;
   openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',selectionLearningHtml()+controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
     const ev=seedEvidence(item.seed),score=selectionScore(item,mode);
     return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>! ${Math.round(item.stress)}</span><span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · ${esc(item.seed.generationLabel||('G'+item.seed.generation))}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓':'🧬'}</button></article>`;
@@ -1844,7 +1935,9 @@ function finishSeason(){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
   }
   $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
-  $('#recapStats').innerHTML=`<div><small>Total hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Kontrak</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Rival</small><b>${state.seasonStats.yield>=rivalTarget?'Menang':'Kalah'} · ${rivalTarget.toFixed(1)} kg</b></div><div><small>Insentif</small><b>+${formatRupiah(reward.coins)}</b></div><div><small>Patogen carry-over</small><b>${state.fieldPressure.pathogen.toFixed(1)}</b></div><div><small>Residu stres lahan</small><b>${state.fieldPressure.fatigue.toFixed(1)}</b></div>`;
+  const seasonMargin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0),researchQuality=state.experiment?experimentQualityScore():null;
+  $('#recapStats').innerHTML=`<div><small>Hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Pendapatan</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b></div><div><small>Biaya</small><b>${formatRupiah(state.seasonStats.cost||0)}</b></div><div><small>Margin</small><b>${formatRupiah(seasonMargin)}</b></div><div><small>Target</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Mutu riset</small><b>${researchQuality===null?'—':researchQuality+'%'}</b></div>`;
+  const carryNote=document.createElement('p');carryNote.className='recap-note';carryNote.textContent='Carry-over lahan · patogen '+state.fieldPressure.pathogen.toFixed(1)+' · stres '+state.fieldPressure.fatigue.toFixed(1);$('#recapStats').append(carryNote);
   const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
   if(state.seasonBest){
     const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
@@ -2049,6 +2142,12 @@ function bind(){
   $('#mapResearch')?.addEventListener('click',()=>{state.comfort.lastView='lab';save();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});});
   $('#mapWater')?.addEventListener('click',()=>{setFieldTool('water');toast('💧 Irigasi aktif · pilih petak');});
   $('#quickMap').onclick=openWorldMap;$('#quickExperiment').onclick=openExperiment;$('#quickMore').onclick=openQuickMore;
+  document.querySelectorAll('[data-main-action]').forEach(button=>button.onclick=()=>{
+    const action=button.dataset.mainAction;
+    if(action==='lab')openSeedVault();
+    if(action==='research')openExperiment();
+    if(action==='analysis')openAnalysisHub();
+  });
   $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
