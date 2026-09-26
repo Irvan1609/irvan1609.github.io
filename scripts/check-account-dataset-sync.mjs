@@ -12,7 +12,7 @@ const main=fs.readFileSync('src/main.js','utf8');
 const style=fs.readFileSync('src/style.css','utf8');
 
 for(const marker of [
-  'installAccountDatasetSync','patchCloud','pendingPatches','known_version','SYNC_DEBOUNCE_MS',
+  'installAccountDatasetSync','patchCloud','pendingPatches','known_version','SYNC_DEBOUNCE_MIN_MS','adaptiveSyncDelay',
   'putCloud','deleteCloud','error.status===409','stat-dataset-changed','stat-cloud-sync-applied','conflicts',
   'statistical_web_category_metadata_v1','statistical_web_treatment_metadata_v1'
 ]) if(!sync.includes(marker))fail('sync module missing '+marker);
