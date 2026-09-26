@@ -635,10 +635,28 @@ function seededShuffle(list,seed){
 }
 function randomizedExperimentUnits(design,treatments,reps,seed=state.simulationSeed){
   const units=[],blocked=['rak','frak'].includes(design);
-  if(design==='split'){const factorAIds=unique(treatments.map(t=>t.factorA?.id).filter(Boolean));for(let block=0;block<BLOCK_COUNT;block++){const aOrder=seededShuffle(factorAIds,hashString(seed+':split:a:'+block));let cursor=0;for(const aId of aOrder){const combos=seededShuffle(treatments.filter(t=>t.factorA?.id===aId),hashString(seed+':split:b:'+block+':'+aId)),slots=Array.from({length:combos.length},(_,i)=>block*PLOTS_PER_BLOCK+cursor+i);cursor+=combos.length;combos.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,mainPlot:aId,applied:false,observations:{},timeline:[],missingStatus:''}));}}}
+  if(design==='aug'){
+    const checks=treatments.filter(t=>t.isCheck),entries=seededShuffle(treatments.filter(t=>!t.isCheck),hashString(seed+':aug:entries')),entrySlots=[];
+    for(let block=0;block<BLOCK_COUNT;block++){
+      const slots=seededShuffle(Array.from({length:PLOTS_PER_BLOCK},(_,i)=>block*PLOTS_PER_BLOCK+i),hashString(seed+':aug:slot:'+block));
+      const checkOrder=seededShuffle(checks,hashString(seed+':aug:check:'+block));
+      checkOrder.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,role:'check',applied:false,observations:{},timeline:[],missingStatus:''}));
+      entrySlots.push(...slots.slice(checks.length));
+    }
+    const shuffledSlots=seededShuffle(entrySlots,hashString(seed+':aug:entry-slots'));
+    entries.forEach((treatment,i)=>{const plot=shuffledSlots[i];if(plot===undefined)return;units.push({plot,treatmentId:treatment.id,rep:1,block:plotMeta(plot).block,role:'entry',applied:false,observations:{},timeline:[],missingStatus:''});});
+  }
+  else if(design==='split'){const factorAIds=unique(treatments.map(t=>t.factorA?.id).filter(Boolean));for(let block=0;block<BLOCK_COUNT;block++){const aOrder=seededShuffle(factorAIds,hashString(seed+':split:a:'+block));let cursor=0;for(const aId of aOrder){const combos=seededShuffle(treatments.filter(t=>t.factorA?.id===aId),hashString(seed+':split:b:'+block+':'+aId)),slots=Array.from({length:combos.length},(_,i)=>block*PLOTS_PER_BLOCK+cursor+i);cursor+=combos.length;combos.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,mainPlot:aId,applied:false,observations:{},timeline:[],missingStatus:''}));}}}
   else if(blocked){for(let block=0;block<BLOCK_COUNT;block++){const slots=seededShuffle(Array.from({length:PLOTS_PER_BLOCK},(_,i)=>block*PLOTS_PER_BLOCK+i),hashString(seed+':slot:'+block)).slice(0,treatments.length),order=seededShuffle(treatments,hashString(seed+':trt:'+block));order.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,applied:false,observations:{},timeline:[],missingStatus:''}));}}
   else{const pool=[];for(const treatment of treatments)for(let i=0;i<reps;i++)pool.push(treatment);const order=seededShuffle(pool,hashString(seed+':ral:trt')),slots=seededShuffle(Array.from({length:PLOT_COUNT},(_,i)=>i),hashString(seed+':ral:slot')).slice(0,order.length),counts={};order.forEach((treatment,i)=>{counts[treatment.id]=(counts[treatment.id]||0)+1;units.push({plot:slots[i],treatmentId:treatment.id,rep:counts[treatment.id],block:plotMeta(slots[i]).block,applied:false,observations:{},timeline:[],missingStatus:''});});}
-  return units.sort((a,b)=>a.plot-b.plot);
+  return units.sort((x,y)=>x.plot-y.plot);
+}
+function augmentedTreatments(entryCount,checkCount){
+  const vault=speciesVault(),checks=vault.slice(0,checkCount),entries=vault.slice(checkCount,checkCount+entryCount);
+  return [
+    ...checks.map((seed,index)=>({id:'C'+(index+1),code:'C'+(index+1),name:seed.name,seedId:seed.id,isCheck:true,effects:{}})),
+    ...entries.map((seed,index)=>({id:'E'+(index+1),code:'E'+(index+1),name:seed.name,seedId:seed.id,isCheck:false,effects:{}}))
+  ];
 }
 function experimentTreatments(kind,count,custom=''){
   if(kind==='genotype')return speciesVault().slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id,effects:{}}));
