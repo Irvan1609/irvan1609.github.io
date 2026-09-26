@@ -1193,6 +1193,78 @@ function openCollectionBook(){
   const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
   openMetaModal('COLLECTION BOOK','Field Codex',`<div class="codex-grid"><div><small>Trait</small><b>${state.discoveredTraits.length}/${Object.keys(TRAITS).length}</b></div><div><small>Achievement</small><b>${state.achievements.length}/${Object.keys(ACHIEVEMENTS).length}</b></div><div><small>Lingkungan</small><b>${envs.length}/${ENVIRONMENTS.length}</b></div><div><small>Boss</small><b>${bosses.length}/${BOSSES.length}</b></div><div><small>Lokasi</small><b>${locations.length}/${Object.keys(LOCATIONS).length}</b></div><div><small>Benih</small><b>${state.vault.length}</b></div></div><div class="codex-list">${locations.map(id=>`<span>${LOCATIONS[id]?.icon||'•'} ${esc(LOCATIONS[id]?.name||id)}</span>`).join('')}${envs.map(id=>`<span>${esc(ENVIRONMENTS.find(e=>e.id===id)?.name||id)}</span>`).join('')}${bosses.map(id=>`<span>${esc(BOSSES.find(e=>e.id===id)?.name||id)}</span>`).join('')}</div>`);
 }
+function learningDone(id){return state.learning.completed.includes(id);}
+function awardLearning(id,xp=6){
+  if(learningDone(id))return false;
+  state.learning.completed.push(id);state.learning.xp+=xp;state.rp+=1;
+  addLog('🎓 Kompetensi '+id+' selesai · +'+xp+' XP belajar · +1 RP.');save();return true;
+}
+function academyMastery(track){
+  const lessons=track.lessons||[],done=lessons.filter(([id])=>learningDone(track.id+':'+id)).length;
+  return {done,total:lessons.length,percent:lessons.length?Math.round(done/lessons.length*100):0};
+}
+function openAcademy(){
+  const tracks=curriculum(),total=tracks.reduce((sum,t)=>sum+t.lessons.length,0),done=tracks.reduce((sum,t)=>sum+academyMastery(t).done,0);
+  openMetaModal('AKADEMI PEMULIAAN','Belajar lewat keputusan',`<div class="academy-progress"><b>${done}/${total}</b><span>kompetensi dikuasai · ${state.learning.xp||0} XP belajar</span></div><div class="academy-track-grid">${tracks.map(track=>{
+    const m=academyMastery(track);
+    return `<button type="button" data-academy-track="${track.id}"><span>${track.icon}</span><b>${esc(track.title)}</b><small>${esc(track.desc)}</small><i><u style="width:${m.percent}%"></u></i><em>${m.done}/${m.total}</em></button>`;
+  }).join('')}</div><p class="meta-note">Kompetensi dibuka dengan membaca konsep dan menerapkannya pada rancangan, analisis, seleksi, atau persilangan di game. Tidak ada bonus untuk sekadar menekan Next.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-academy-track]').forEach(button=>button.onclick=()=>openAcademyTrack(button.dataset.academyTrack));
+}
+function openAcademyTrack(id){
+  const track=curriculum().find(item=>item.id===id);if(!track)return openAcademy();
+  openMetaModal('AKADEMI · '+track.icon,track.title,`<div class="academy-lessons">${track.lessons.map(([lessonId,title,text],index)=>{
+    const key=track.id+':'+lessonId,done=learningDone(key);
+    return `<article class="${done?'done':''}"><header><span>${done?'✓':index+1}</span><b>${esc(title)}</b></header><p>${esc(text)}</p><button type="button" data-learn="${esc(key)}" ${done?'disabled':''}>${done?'Dikuasai':'Tandai setelah dipahami'}</button></article>`;
+  }).join('')}</div><div class="academy-actions"><button type="button" data-academy-back>← Akademi</button>${id==='design'?'<button type="button" data-academy-exp>📐 Buat percobaan</button>':''}${id==='stats'&&state.experiment?'<button type="button" data-academy-analysis>📊 Analisis percobaan aktif</button>':''}${id==='crossing'?'<button type="button" data-academy-cross>✕ Buka persilangan</button>':''}</div>`);
+  $('#metaModalBody').querySelectorAll('[data-learn]').forEach(button=>button.onclick=()=>{awardLearning(button.dataset.learn);openAcademyTrack(id);});
+  $('#metaModalBody').querySelector('[data-academy-back]')?.addEventListener('click',openAcademy);
+  $('#metaModalBody').querySelector('[data-academy-exp]')?.addEventListener('click',openExperiment);
+  $('#metaModalBody').querySelector('[data-academy-analysis]')?.addEventListener('click',openExperimentAnalysis);
+  $('#metaModalBody').querySelector('[data-academy-cross]')?.addEventListener('click',()=>{closeMetaModal();document.querySelector('#labHub')?.setAttribute('open','');document.querySelector('#parentA')?.scrollIntoView({behavior:'smooth',block:'center'});});
+}
+function experimentAnalysis(parameter=''){
+  const exp=state.experiment;if(!exp)return null;
+  const preferred=parameter||exp.parameters.find(p=>String(p).toLowerCase().includes('hasil'))||exp.parameters[0];
+  return analyzeExperiment({design:exp.design,units:exp.units,treatments:exp.treatments,parameter:preferred});
+}
+function openExperimentAnalysis(parameter=''){
+  const exp=state.experiment;if(!exp){toast('Belum ada percobaan aktif');return;}
+  const analysis=experimentAnalysis(parameter),coach=designCoach({design:exp.design,plotRegistry:state.plotRegistry,units:exp.units});
+  const select=`<label class="analysis-param">Parameter<select id="academyAnalysisParameter">${exp.parameters.map(p=>`<option value="${esc(p)}" ${p===analysis.parameter?'selected':''}>${esc(p)}</option>`).join('')}</select></label>`;
+  if(!analysis.valid){
+    openMetaModal('STATISTIKA LAPANG','Belum cukup data',select+`<div class="analysis-warning">${analysis.warnings.map(esc).join('<br>')}</div><div class="coach-list">${coach.map(item=>`<p>📐 ${esc(item)}</p>`).join('')}</div>`);
+    $('#academyAnalysisParameter').onchange=e=>openExperimentAnalysis(e.target.value);return;
+  }
+  const q=interpretationQuestion(analysis),h2=exp.kind==='genotype'&&Number.isFinite(analysis.broadSenseH2)?analysis.broadSenseH2:null;
+  openMetaModal('STATISTIKA LAPANG',exp.name,`${select}<div class="analysis-kpis"><div><small>Rerata</small><b>${analysis.grandMean.toFixed(2)}</b></div><div><small>F perlakuan</small><b>${analysis.f.toFixed(2)}</b></div><div><small>CV</small><b>${analysis.cv===null?'—':analysis.cv.toFixed(1)+'%'}</b></div>${h2===null?'':`<div><small>H² luas*</small><b>${(h2*100).toFixed(0)}%</b></div>`}</div><div class="analysis-means">${analysis.means.map((row,i)=>`<div><span>#${i+1}</span><b>${esc(row.name)}</b><em>${row.mean.toFixed(2)}</em><small>n=${row.n}</small></div>`).join('')}</div><div class="coach-list">${coach.map(item=>`<p>📐 ${esc(item)}</p>`).join('')}${analysis.warnings.map(item=>`<p>⚠ ${esc(item)}</p>`).join('')}</div>${q?`<section class="analysis-question"><b>${esc(q.prompt)}</b>${q.options.map((option,i)=>`<button type="button" data-analysis-answer="${i}">${esc(option)}</button>`).join('')}<p id="analysisFeedback"></p></section>`:''}<p class="meta-note">*H² ditampilkan hanya sebagai latihan pada uji genotipe seimbang. Untuk inferensi lengkap, gunakan 📊 /stat dan pertahankan unit percobaan yang benar.</p><div class="academy-actions"><button type="button" data-open-stat>📊 Buka /stat</button></div>`);
+  $('#academyAnalysisParameter').onchange=e=>openExperimentAnalysis(e.target.value);
+  $('#metaModalBody').querySelectorAll('[data-analysis-answer]').forEach(button=>button.onclick=()=>{
+    state.learning.attempts++;const correct=Number(button.dataset.analysisAnswer)===q.answer;
+    if(correct){state.learning.correct++;awardLearning('stats:anova',8);}
+    const feedback=$('#analysisFeedback');feedback.textContent=(correct?'✓ ':'✗ ')+q.explanation;feedback.className=correct?'correct':'wrong';save();
+  });
+  $('#metaModalBody').querySelector('[data-open-stat]')?.addEventListener('click',sendExperimentToStat);
+}
+function seedGenerationPanel(seed){
+  const generation=Math.max(0,Number(seed?.generation)||0),name=generationName(generation),observed=observedHeterozygosity(seed?.genome||{}),expected=generation?expectedHeterozygosity(generation):observed;
+  const loci=mendelianSummary(seed?.genome||{});
+  return `<div class="generation-panel"><header><div><small>Generasi</small><b>${name}</b></div><div><small>Heterozigositas genom</small><b>${Math.round(observed*100)}%</b></div><div><small>Ekspektasi selfing</small><b>${generation?Math.round(expected*100)+'%':'—'}</b></div></header><div class="locus-strip">${loci.map(row=>`<span class="${row.heterozygous?'het':'fixed'}"><b>${esc(row.locus)}</b> ${esc(row.alleles.join('/'))}</span>`).join('')}</div></div>`;
+}
+function selfSelectedSeed(){
+  const parent=selectedSeed();if(!parent||state.rp<4)return;
+  const generation=Math.max(1,Number(parent.generation)||1)+1,key=['self',state.season,parent.id,generation,state.vault.length].join(':');
+  state.rp-=4;
+  const genome=selfGenome(parent.genome,key),fx=geneticEffects(genome);
+  const child={
+    ...structuredClone(parent),id:uid('seed'),name:parent.name+'-'+generationName(generation),generation,parents:[parent.id],
+    source:'Selfing '+parent.name,genome,stock:6,ageSeasons:0,viability:98,evidenceTests:0,
+    baseYield:round(parent.baseYield*(.97+simUnit('self-yield',key)*.06)*fx.yield,1),
+    vigor:round(parent.vigor*(.98+simUnit('self-vigor',key)*.04)*fx.growth,2)
+  };
+  state.vault.push(child);state.selectedSeedId=child.id;rememberLineage(parent);rememberLineage(child);
+  state.learning.xp+=5;awardLearning('crossing:fix',6);addLog('✕ '+parent.name+' diselfing → '+child.name+'.');save();render();toast(child.name+' · heterozigositas '+Math.round(observedHeterozygosity(genome)*100)+'%');
+}
 function openQuickMore(){
   openMetaModal('MENU','Lainnya',`<div class="quick-menu-grid">
     <button data-quick-more="run">⚑<span>Challenge</span></button>
