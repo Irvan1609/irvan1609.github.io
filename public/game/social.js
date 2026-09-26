@@ -6,6 +6,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt
 const CACHE_PREFIX='agrotik_fz_social_v3:',RANK_TTL=10*60*1000,FRIENDS_TTL=30*60*1000,INBOX_TTL=5*60*1000,PROFILE_TTL=12*60*60*1000;
 let user=null,currentTab='rank',friendsCache={friends:[],incoming:[],outgoing:[]},busy=false,lastInboxCheck=0;
 
+function socialAllowed(){return window.IrvanCloudPolicy?.features?.gameSocial!==false;}
 function cacheKey(name){return CACHE_PREFIX+(user?.id||'anon')+':'+name;}
 function readCache(name,ttl){
   try{const item=JSON.parse(localStorage.getItem(cacheKey(name))||'null');return item&&Date.now()-item.at<ttl?item.data:null;}catch{return null;}
@@ -15,6 +16,7 @@ function clearCache(name){try{localStorage.removeItem(cacheKey(name));}catch{}}
 async function api(path,options={}){
   const request=window.IrvanAccount?.request;
   if(!window.IrvanAccount?.authenticated||!request)throw Error('Masuk dulu.');
+  if(!socialAllowed())throw Object.assign(Error('Fitur sosial dijeda untuk menghemat cloud.'),{status:503,localSafe:true});
   const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const error=Error(data.error||'Aksi gagal.');error.status=response.status;error.data=data;throw error;}
@@ -36,12 +38,15 @@ function cachedBadge(){
 }
 function open(){
   $('#socialModal').hidden=false;renderGate();
-  if(user){submitProfile(window.FieldZeroGame?.getProfile?.(),false);processInbox();}
+  if(user&&socialAllowed()){submitProfile(window.FieldZeroGame?.getProfile?.(),false);processInbox();}
 }
 function close(){$('#socialModal').hidden=true;}
 function renderGate(){
   const authenticated=Boolean(user&&window.IrvanAccount?.authenticated);$('#socialGate').hidden=authenticated;$('#socialApp').hidden=!authenticated;
-  if(authenticated)renderTab();
+  if(authenticated){
+    if(!socialAllowed())$('#socialContent').innerHTML='<div class="social-empty">☁ Fitur sosial sedang dijeda. Game lokal tetap dapat dimainkan.</div>';
+    else renderTab();
+  }
 }
 async function submitProfile(profile=window.FieldZeroGame?.getProfile?.(),force=false){
   if(!user||!profile)return;
@@ -150,7 +155,8 @@ function bind(){
     if(aid)aidFriend(aid.dataset.friendAid,aid);
   });
   document.addEventListener('accountchange',onAccount);
-  document.addEventListener('fieldzero-profile',event=>submitProfile(event.detail,Boolean(event.detail?._forceSync)));
+  document.addEventListener('cloudpolicychange',()=>{if(!socialAllowed())setBadge(0);if(!$('#socialModal')?.hidden)renderGate();});
+  document.addEventListener('fieldzero-profile',event=>{if(socialAllowed())submitProfile(event.detail,Boolean(event.detail?._forceSync));});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
