@@ -44,9 +44,9 @@ const demoExp={
   design:'ral',kind:'genotype',
   treatments:[{id:'A',code:'A',name:'A'},{id:'B',code:'B',name:'B'},{id:'C',code:'C',name:'C'}],
   units:[
-    {treatmentId:'A',rep:1,block:1,observations:{Hasil:10}},{treatmentId:'A',rep:2,block:1,observations:{Hasil:11}},{treatmentId:'A',rep:3,block:1,observations:{Hasil:9}},
-    {treatmentId:'B',rep:1,block:2,observations:{Hasil:20}},{treatmentId:'B',rep:2,block:2,observations:{Hasil:21}},{treatmentId:'B',rep:3,block:2,observations:{Hasil:19}},
-    {treatmentId:'C',rep:1,block:3,observations:{Hasil:30}},{treatmentId:'C',rep:2,block:3,observations:{Hasil:31}},{treatmentId:'C',rep:3,block:3,observations:{Hasil:29}}
+    {plot:0,treatmentId:'A',rep:1,block:1,observations:{Hasil:10}},{plot:1,treatmentId:'A',rep:2,block:1,observations:{Hasil:11}},{plot:2,treatmentId:'A',rep:3,block:1,observations:{Hasil:9}},
+    {plot:3,treatmentId:'B',rep:1,block:2,observations:{Hasil:20}},{plot:4,treatmentId:'B',rep:2,block:2,observations:{Hasil:21}},{plot:5,treatmentId:'B',rep:3,block:2,observations:{Hasil:19}},
+    {plot:6,treatmentId:'C',rep:1,block:3,observations:{Hasil:30}},{plot:7,treatmentId:'C',rep:2,block:3,observations:{Hasil:31}},{plot:8,treatmentId:'C',rep:3,block:3,observations:{Hasil:29}}
   ]
 };
 const anova=analyzeExperiment(demoExp,'Hasil');
