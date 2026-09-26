@@ -1,14 +1,29 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
 const STORAGE='agrotik_field_zero_v1';
-const PLOT_COUNT=24,MAX_DAY=12,CROSS_COST=12;
-const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000;
+const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
+const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-1';
 const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840};
 const COSTS={
   plant:8000,water:5000,waterPrecision:3000,fertilize:6000,fertilizePrecision:4500,
   spray:15000,trader:75000,traderSelected:90000,shield:20000
 };
 const PLANT_COST=COSTS.plant;
+const PLOT_USES={commercial:{icon:'Rp',name:'Produksi'},research:{icon:'📐',name:'Penelitian'},breeding:{icon:'🧬',name:'Pemuliaan'}};
+const SPECIES={maize:{id:'maize',name:'Jagung',latin:'Zea mays',maturityDays:110},chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',maturityDays:145}};
+function makePlotRegistry(){
+  return Array.from({length:PLOT_COUNT},(_,index)=>{
+    const block=Math.floor(index/PLOTS_PER_BLOCK)+1,slot=index%PLOTS_PER_BLOCK+1;
+    const fertility=Number((.88+((index*37)%17)/100).toFixed(2)),moisture=Number((.9+((index*19)%13)/100).toFixed(2));
+    return {uid:`FZ-K${block}-P${String(slot).padStart(2,'0')}`,block,slot,areaM2:PLOT_AREA_M2,fertility,moisture,history:[]};
+  });
+}
+function plotMeta(index){return state.plotRegistry?.[index]||makePlotRegistry()[index];}
+function plotUse(index){return state.plotUse?.[index]||'commercial';}
+function setPlotUse(index,use){
+  if(!PLOT_USES[use]||experimentUnit(index))return false;
+  state.plotUse[index]=use;save();renderField();renderInspector();return true;
+}
 
 const $=selector=>document.querySelector(selector);
 const clamp=(value,min=0,max=100)=>Math.max(min,Math.min(max,value));
@@ -74,7 +89,7 @@ const LORE=[
   'Catatan 24: “Zero” mungkin bukan nama lokasi. Mungkin nama perlakuan yang dihapus dari arsip.'
 ];
 const LOCATIONS={
-  zero:{name:'Kebun Percobaan Sulsel',icon:'ψ',desc:'Lahan awal ±300 m² dengan 12 petak @25 m².',unlock:0,yield:1,disease:0,waterLoss:0,nLoss:0},
+  zero:{name:'Kebun Percobaan Sulsel',icon:'ψ',desc:'Lahan awal 600 m²: 3 kelompok × 8 petak @25 m².',unlock:0,yield:1,disease:0,waterLoss:0,nLoss:0},
   lowland:{name:'Dataran Rendah Sulsel',icon:'▱',desc:'Lebih panas; potensi hasil tinggi jika air dan penyakit terkendali.',unlock:2,yield:1.04,disease:.015,waterLoss:-3,nLoss:0},
   dryland:{name:'Tegalan Bone',icon:'△',desc:'Lahan kering: cadangan air terbatas dan respons terhadap akar dalam lebih kuat.',unlock:3,yield:1.02,disease:-.02,waterLoss:-8,nLoss:1,rp:1.2},
   paddy:{name:'Sawah Drainase Gowa',icon:'≋',desc:'Air relatif tersedia; genangan, kelembapan, dan kehilangan N menjadi risiko.',unlock:4,yield:1.06,disease:.055,waterLoss:6,nLoss:2},
@@ -97,11 +112,11 @@ const EXPEDITIONS={
   high:{name:'Highland Pocket',icon:'▲',days:3,cost:35000,desc:'Cari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
 };
 const CHALLENGES={
-  standard:{name:'Standar',desc:'Tanpa pembatas.',plots:12,maxDay:12,yield:1,reward:1},
-  nofert:{name:'Tanpa Pupuk',desc:'Aksi pemupukan dinonaktifkan.',plots:12,maxDay:12,yield:1.12,reward:1.3,noFertilizer:true},
+  standard:{name:'Standar',desc:'24 petak · 3 kelompok.',plots:24,maxDay:12,yield:1,reward:1},
+  nofert:{name:'Tanpa Pupuk',desc:'Aksi pemupukan dinonaktifkan.',plots:24,maxDay:12,yield:1.12,reward:1.3,noFertilizer:true},
   six:{name:'6 Petak',desc:'Hanya enam petak dapat ditanami.',plots:6,maxDay:12,yield:1.08,reward:1.35},
-  sprint:{name:'Sprint 8 Hari',desc:'Musim hanya delapan hari.',plots:12,maxDay:8,yield:1.18,reward:1.45},
-  mono:{name:'Satu Varietas',desc:'Hanya benih yang dipilih saat awal run dapat ditanam.',plots:12,maxDay:12,yield:1.1,reward:1.4,mono:true},
+  sprint:{name:'Sprint 8 Hari',desc:'Musim hanya delapan hari.',plots:24,maxDay:8,yield:1.18,reward:1.45},
+  mono:{name:'Satu Varietas',desc:'Hanya benih yang dipilih saat awal run dapat ditanam.',plots:24,maxDay:12,yield:1.1,reward:1.4,mono:true},
   trial24:{name:'Breeding Cup · 24 Petak',desc:'Seleksi buta dengan tepat 24 petak.',plots:24,maxDay:12,yield:1,reward:1.2,competition:true}
 };
 const BOSSES=[
@@ -215,12 +230,12 @@ function missionDone(){return missionValue()>=state.mission.target;}
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
-    version:3,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero'),comfort,
-    field:Array.from({length:PLOT_COUNT},()=>null),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',
+    version:4,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),
+    field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1),
     seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0},seasonBest:null,pendingEvent:null,
-    log:[{day:1,text:'Kebun percobaan aktif. 12 petak × 25 m² dan empat galur starter tersedia.'}],history:[],
+    log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
     rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,competition:null
@@ -230,13 +245,17 @@ function load(){
   try{
     const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
     if(!raw)return freshState();
-    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:3};
+    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:4};
     if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
     if((Number(raw.version)||2)<3&&Number(raw.coins)<10000)merged.coins=Math.round((Number(raw.coins)||78)*LEGACY_COIN_RP);
     merged.comfort={...base.comfort,...(raw.comfort||{}),lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
     merged.marketPrice=Number(raw.marketPrice)||rollMarketPrice(merged.season,merged.env?.id,merged.location);
     merged.level=levelFromXp(merged.xp||0);
     if(!Array.isArray(merged.field))merged.field=Array.from({length:PLOT_COUNT},()=>null);else if(merged.field.length<PLOT_COUNT)merged.field=[...merged.field,...Array.from({length:PLOT_COUNT-merged.field.length},()=>null)];else if(merged.field.length>PLOT_COUNT)merged.field=merged.field.slice(0,PLOT_COUNT);
+    merged.plotRegistry=Array.isArray(raw.plotRegistry)&&raw.plotRegistry.length===PLOT_COUNT?raw.plotRegistry:makePlotRegistry();
+    merged.plotUse=Array.isArray(raw.plotUse)&&raw.plotUse.length===PLOT_COUNT?raw.plotUse.map(use=>PLOT_USES[use]?use:'commercial'):Array.from({length:PLOT_COUNT},()=> 'commercial');
+    merged.species=SPECIES[raw.species]?raw.species:'maize';
+    merged.simulationSeed=Number(raw.simulationSeed)||hashString('academy:'+String(raw.season||1));
     if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
     merged.tech=Array.isArray(merged.tech)?merged.tech:[];
     merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
