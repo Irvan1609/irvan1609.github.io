@@ -19,8 +19,20 @@ export function paperProfile(id='a4',orientation='portrait',custom=null){
     activeWidth:+(width-margin*2).toFixed(2),
     activeHeight:+(height-margin*2).toFixed(2),
     markerCenters:[[margin,margin],[width-margin,margin],[width-margin,height-margin],[margin,height-margin]],
-    version:3
+    version:4
   };
+}
+export function calibratorLayout(profile){
+  const aw=profile.activeWidth,ah=profile.activeHeight;
+  const side=Math.max(6,Math.min(10,aw*.06));
+  const topBand=Math.max(18,Math.min(24,ah*.09));
+  const bottomBand=Math.max(20,Math.min(27,ah*.10));
+  const photo={x:side,y:topBand,width:Math.max(40,aw-side*2),height:Math.max(60,ah-topBand-bottomBand)};
+  const labelH=Math.max(8,Math.min(11,photo.height*.08));
+  const labelW=Math.max(36,Math.min(80,photo.width*.52));
+  const label={x:photo.x+(photo.width-labelW)/2,y:photo.y+photo.height-labelH-2,width:labelW,height:labelH};
+  const analysis={x:photo.x+5,y:photo.y+5,width:Math.max(20,photo.width-10),height:Math.max(20,label.y-photo.y-8)};
+  return {photo,label,analysis,topBand,bottomBand};
 }
 export function grayPatchRects(profile){
   const {activeWidth:w,activeHeight:h}=profile;
