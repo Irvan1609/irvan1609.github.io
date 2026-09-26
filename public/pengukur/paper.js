@@ -29,7 +29,7 @@ export function calibratorLayout(profile){
   const bottomBand=Math.max(10,Math.min(27,ah*.10));
   const photo={x:side,y:topBand,width:Math.max(10,aw-side*2),height:Math.max(12,ah-topBand-bottomBand)};
   const labelH=Math.max(4,Math.min(11,photo.height*.08,photo.height*.25));
-  const labelW=Math.max(12,Math.min(80,photo.width*.52,photo.width-4));
+  const labelW=Math.max(6,Math.min(80,photo.width*.52,Math.max(6,photo.width-2)));
   const label={x:photo.x+(photo.width-labelW)/2,y:photo.y+photo.height-labelH-2,width:labelW,height:labelH};
   const inset=Math.min(5,Math.max(2,photo.width*.04)),analysis={x:photo.x+inset,y:photo.y+inset,width:Math.max(6,photo.width-inset*2),height:Math.max(6,label.y-photo.y-inset-3)};
   return {photo,label,analysis,topBand,bottomBand};
