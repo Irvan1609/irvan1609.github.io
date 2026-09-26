@@ -864,3 +864,35 @@ body.color-safe .plot.stressed{background-image:repeating-linear-gradient(135deg
 .academy-intro button{min-height:38px;border:1px solid #416052;border-radius:7px;background:#172b22;color:var(--ink);font-weight:850}
 .experiment-question{margin:0 0 7px!important;padding:7px 8px;border-left:3px solid #6c8c7b;background:#102019;color:#cadbd2!important;font-size:9px!important}
 .experiment-form label small{color:#6f897d;font-size:7.5px;font-weight:650}
+
+/* FIELD ZERO CLOUD SAVE 2026-09-26 */
+.cloud-sync{position:relative}
+.cloud-sync::after{
+  content:'';position:absolute;right:3px;bottom:3px;width:7px;height:7px;border-radius:999px;
+  background:#7d8d85;border:1px solid #102019
+}
+.cloud-sync[data-sync-status="pending"]::after{background:#d5a458}
+.cloud-sync[data-sync-status="syncing"]::after{background:#73a7d8;animation:cloudSyncPulse 1s ease-in-out infinite}
+.cloud-sync[data-sync-status="synced"]::after{background:#6fc48d}
+.cloud-sync[data-sync-status="conflict"]::after{background:#e29b48}
+.cloud-sync[data-sync-status="error"]::after,.cloud-sync[data-sync-status="offline"]::after{background:#bf6666}
+@keyframes cloudSyncPulse{50%{opacity:.35;transform:scale(.72)}}
+.sync-conflict-card{width:min(620px,100%);max-height:min(86dvh,720px);overflow:auto}
+.sync-conflict-card>p{margin:4px 0 10px;color:var(--muted);font-size:10px;line-height:1.45}
+.sync-conflict-body{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sync-save-card{
+  padding:10px;border:1px solid #355548;border-radius:9px;background:#102019;min-width:0
+}
+.sync-save-card>span{display:block;color:var(--muted);font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.sync-save-card>b{display:block;margin:4px 0 7px;font-size:13px}
+.sync-save-card>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.sync-save-card small{padding:3px 5px;border:1px solid #2f4e41;border-radius:5px;color:#bdd0c6;font-size:8px}
+.sync-save-card em{display:block;margin-top:7px;color:var(--muted);font-size:8px;font-style:normal}
+.sync-conflict-actions{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:10px}
+.sync-conflict-actions button{min-height:40px}
+@media(max-width:620px){
+  .sync-conflict-body{grid-template-columns:1fr}
+  .sync-conflict-actions{grid-template-columns:1fr 1fr}
+  #syncConflictLater{grid-column:1/-1}
+}
+body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none}
