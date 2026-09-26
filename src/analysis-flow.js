@@ -17,6 +17,7 @@ async function scientificModule(){
 async function openScientificLazy(design){const mod=await scientificModule();mod.openScientific(design);}
 const lazyOpeners={
   designExt:async value=>(await import('./design-extensions-workflow.js')).openDesignExtension(value),
+  augmented:async ()=>(await import('./augmented-design-workflow.js')).openAugmentedDesign(),
   nonparametric:async ()=>(await import('./nonparametric-workflow.js')).openNonparametric(),
   power:async ()=>(await import('./power-workflow.js')).openPowerAnalysis(),
   stabilityIndices:async ()=>(await import('./stability-indices-workflow.js')).openStabilityIndices(),
@@ -39,6 +40,7 @@ const analysisGroups=[
     ['design','fral','Faktorial RAL','Dua faktor, acak lengkap'],
     ['design','frak','Faktorial RAK','Dua faktor dengan kelompok'],
     ['design','split','RPT / Split-plot','Petak utama dan anak petak'],
+    ['augmented','augmented','Augmented Design','Galur uji tanpa ulangan + check berulang'],
     ['designExt','nested','Rancangan Tersarang','B tersarang dalam A'],
     ['designExt','repeated','Repeated Measures','Pengamatan berkala / waktu'],
     ['nonparametric','nonparametric','Nonparametrik','Kruskal–Wallis / Friedman']
@@ -92,12 +94,12 @@ function groupUseScore(groupIndex){
 }
 
 function analysisMark(type,value){
-  const marks={ral:'RAL',rak:'RAK',fral:'2F',frak:'2F',split:'RPT',nested:'N',repeated:'RM',nonparametric:'NP',correlation:'r',path:'β',regression:'R²',descriptive:'Σ',pca:'PCA',combined:'G×E',mixed:'REML',genetic:'H²',stability:'GGE',power:'n'};
+  const marks={ral:'RAL',rak:'RAK',fral:'2F',frak:'2F',split:'RPT',augmented:'AD',nested:'N',repeated:'RM',nonparametric:'NP',correlation:'r',path:'β',regression:'R²',descriptive:'Σ',pca:'PCA',combined:'G×E',mixed:'REML',genetic:'H²',stability:'GGE',power:'n'};
   return marks[value]||marks[type]||'A';
 }
 function analysisButton(item){
   const [type,value,label]=item,key=itemKey(item);
-  const attr={design:'data-design',designExt:'data-design-ext',nonparametric:'data-nonparametric',association:'data-association',advanced:'data-advanced',nextgen:'data-nextgen',mixed:'data-mixed',stabilityIndices:'data-stability-indices',power:'data-power'}[type];
+  const attr={design:'data-design',designExt:'data-design-ext',augmented:'data-augmented',nonparametric:'data-nonparametric',association:'data-association',advanced:'data-advanced',nextgen:'data-nextgen',mixed:'data-mixed',stabilityIndices:'data-stability-indices',power:'data-power'}[type];
   const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
   const pinned=favorites().includes(key);
   return `<div class="analysis-menu-item-wrap" data-analysis-key="${key}"><button type="button" class="analysis-menu-item" ${attr}${valueAttr} data-analysis-key="${key}" aria-pressed="false"><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-arrow" aria-hidden="true">›</span></button><button type="button" class="analysis-favorite" data-favorite-key="${key}" aria-pressed="${pinned}" aria-label="${pinned?'Lepas dari favorit':'Tambah ke favorit'}" title="${pinned?'Lepas favorit':'Favorit'}">${pinned?'★':'☆'}</button></div>`;
@@ -171,6 +173,7 @@ export function installAnalysisFlow() {
     if(sourceButton)sourceButton.disabled=true;
     try{
       if(type==='design')await openScientificLazy(value);
+      else if(type==='augmented')await lazyOpeners.augmented();
       else if(type==='designExt')await lazyOpeners.designExt(value);
       else if(type==='nonparametric')await lazyOpeners.nonparametric();
       else if(type==='power')await lazyOpeners.power();
