@@ -896,3 +896,11 @@ body.color-safe .plot.stressed{background-image:repeating-linear-gradient(135deg
   #syncConflictLater{grid-column:1/-1}
 }
 body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none}
+
+
+/* FIELD ZERO ACADEMY DEPTH */
+.selection-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:0 0 7px}
+.selection-modes button{min-height:36px;border:1px solid #365447;border-radius:7px;background:#102019;color:var(--ink);font-weight:900}
+.selection-modes button[aria-pressed=true]{border-color:#79b995;background:#1d3c2e}
+.seed-item>small{font-variant-numeric:tabular-nums}
+.seed-card-actions{grid-template-columns:1fr auto auto}
