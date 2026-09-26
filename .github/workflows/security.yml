@@ -37,8 +37,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify security contracts
-        run: npm run test:security
+      - name: Verify application
+        run: npm run verify
 
       - name: Cross-account isolation smoke test
         env:
