@@ -6,6 +6,12 @@ const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const rupiah=value=>'Rp'+Math.max(0,Math.round(Number(value)||0)).toLocaleString('id-ID');
 function game(){return window.FieldZeroGame||null;}
+function cloudPolicy(){return window.IrvanCloudPolicy||{mode:'normal',features:{}};}
+function cloudSaveAllowed(){return cloudPolicy().features?.gameCloudSave!==false;}
+function policySyncDelay(){
+  const mode=cloudPolicy().mode||'normal';
+  return mode==='saver'?45000:mode==='emergency'?120000:SYNC_DELAY;
+}
 function metaKey(){return META_PREFIX+(user?.id||'anonymous');}
 function readMeta(){
   try{return JSON.parse(localStorage.getItem(metaKey())||'null');}catch{return null;}
@@ -26,6 +32,7 @@ function notice(message){
 async function api(path,options={}){
   const request=window.IrvanAccount?.request;
   if(!window.IrvanAccount?.authenticated||!request)throw Object.assign(Error('Masuk untuk sinkronisasi.'),{status:401});
+  if(!cloudSaveAllowed())throw Object.assign(Error('Save cloud sedang dijeda · progres lokal tetap aman.'),{status:503,localSafe:true});
   const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
@@ -99,6 +106,7 @@ async function pushLocal(baseRevision,{manual=false,keepalive=false}={}){
 }
 async function reconcile({manual=false}={}){
   const g=game();if(!user||!g||busy)return;
+  if(!cloudSaveAllowed()){setStatus('local','Save cloud dijeda · progres lokal tetap aman');return;}
   busy=true;setStatus('syncing','Memeriksa progres cloud…');
   try{
     const cloud=await api('/v1/game/save');
@@ -139,7 +147,8 @@ function schedule(){
   if(!user||pendingConflict)return;
   if(!dirtySince)dirtySince=Date.now();
   clearTimeout(timer);
-  const elapsed=Date.now()-dirtySince,delay=elapsed>=MAX_DIRTY_WAIT?100:SYNC_DELAY;
+  const elapsed=Date.now()-dirtySince,delay=elapsed>=MAX_DIRTY_WAIT?100:policySyncDelay();
+  if(!cloudSaveAllowed()){setStatus('local','Save cloud dijeda · progres lokal tetap aman');return;}
   setStatus('pending','Perubahan lokal menunggu sinkronisasi');
   timer=setTimeout(()=>reconcile(),delay);
 }
@@ -167,8 +176,13 @@ function bind(){
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='hidden'&&user&&dirtySince&&!pendingConflict)reconcile();
   });
-  window.addEventListener('online',()=>{if(user)reconcile();});
+  window.addEventListener('online',()=>{if(user&&cloudSaveAllowed())reconcile();});
   window.addEventListener('offline',()=>setStatus('offline','Offline · progres aman di perangkat'));
+  document.addEventListener('cloudpolicychange',()=>{
+    clearTimeout(timer);
+    if(!cloudSaveAllowed())setStatus('local','Save cloud dijeda · progres lokal tetap aman');
+    else if(user)reconcile();
+  });
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
   else setStatus('local','Progres lokal · masuk untuk sinkron antar perangkat');
   if(game()){ready=true;if(user)reconcile();}
