@@ -67,19 +67,20 @@ function restoreSettings(){
   if(s.orientation)$('orientation').value=s.orientation;
   if(s.custom){$('customWidth').value=s.custom.width||210;$('customHeight').value=s.custom.height||297;$('customMargin').value=s.custom.margin||15;}
   if(s.lens){$('lensName').value=s.lens.name||'Default';$('lensK1').value=s.lens.k1||0;$('lensK2').value=s.lens.k2||0;}
+  if(s.photoLabel&&$('photoLabel'))$('photoLabel').value=s.photoLabel;
   const research=s.research||{};for(const id of RESEARCH_IDS){const key=id==='experimentId'?'experiment':id;if($(id))$(id).value=research[key]||'';}
   $('customPaper').hidden=$('paperSize').value!=='custom';
 }
 function refreshPaper(){
-  const p=getProfile(),custom=p.id==='custom'?{width:p.orientation==='portrait'?p.width:p.height,height:p.orientation==='portrait'?p.height:p.width,margin:p.margin}:null;
+  const p=getProfile(),layout=calibratorLayout(p),custom=p.id==='custom'?{width:p.orientation==='portrait'?p.width:p.height,height:p.orientation==='portrait'?p.height:p.width,margin:p.margin}:null;
   $('paperName').textContent=p.name+' · '+(p.orientation==='portrait'?'Portrait':'Landscape');
   $('paperInfo').textContent=p.width.toFixed(1).replace('.0','')+' × '+p.height.toFixed(1).replace('.0','')+' mm';
-  $('activeInfo').textContent='Area marker '+p.activeWidth+' × '+p.activeHeight+' mm';
+  $('activeInfo').textContent='Area foto '+layout.photo.width.toFixed(1)+' × '+layout.photo.height.toFixed(1)+' mm · kalibrasi di luar';
   $('customPaper').hidden=$('paperSize').value!=='custom';
-  const q=new URLSearchParams({paper:$('paperSize').value,orientation:p.orientation});
-  if(custom){q.set('width',custom.width);q.set('height',custom.height);q.set('margin',custom.margin);}
-  $('printCalibrator').href='./kalibrator.html?'+q.toString();const lq=new URLSearchParams(q);lq.set('target','lens');$('printLensTarget').href='./kalibrator.html?'+lq.toString();
-  saveSettings({paper:$('paperSize').value,orientation:p.orientation,custom});
+  const q=new URLSearchParams({paper:$('paperSize').value,orientation:p.orientation}),label=photoLabel();
+  if(custom){q.set('width',custom.width);q.set('height',custom.height);q.set('margin',custom.margin);}if(label)q.set('label',label);
+  $('printCalibrator').href='./kalibrator.html?'+q.toString();const lq=new URLSearchParams(q);lq.delete('label');lq.set('target','lens');$('printLensTarget').href='./kalibrator.html?'+lq.toString();
+  saveSettings({paper:$('paperSize').value,orientation:p.orientation,custom});refreshPhotoLabel();
   if(original&&points.length===4){drawSource();updateQuality();}
 }
 function downloadBlob(blob,name){
@@ -149,6 +150,7 @@ async function loadFile(file,{fromBatch=false}={}){
     rawOriginal=await fileToImageData(file);original=undistortImageData(rawOriginal,currentLens());
     source.width=original.width;source.height=original.height;ctx.putImageData(original,0,0);filename=safeName(file.name);points=[];invalidateResult();
     $('detect').disabled=$('manual').disabled=false;$('scanCode').disabled=false;
+    if($('photoLabel')&&(!photoLabel()||(fromBatch&&batchFiles.length>1)))$('photoLabel').value=fileStem(file.name.replace(/\.[^.]+$/,''));refreshPhotoLabel();
     if(!fieldContext&&!$('sampleId').value.trim())$('sampleId').value=filename;
     detect();updateBatchControls();if(!fromBatch)window.scrollTo({top:$('qualityGate').getBoundingClientRect().top+scrollY-90,behavior:'smooth'});
   }catch(error){tell('Foto tidak dapat diproses: '+error.message);}
@@ -170,7 +172,7 @@ async function scanSampleCode(){
     const formats=await BarcodeDetector.getSupportedFormats(),wanted=['qr_code','data_matrix','code_128'].filter(x=>formats.includes(x));
     const detector=new BarcodeDetector({formats:wanted.length?wanted:formats}),codes=await detector.detect(source);
     if(!codes.length)throw Error('QR/barcode tidak ditemukan pada foto.');
-    $('sampleId').value=codes[0].rawValue.slice(0,64);tell('ID sampel terbaca: '+$('sampleId').value);
+    $('sampleId').value=codes[0].rawValue.slice(0,64);if($('photoLabel')){$('photoLabel').value=$('sampleId').value;refreshPhotoLabel();}tell('ID sampel terbaca: '+$('sampleId').value);
   }catch(error){tell(error.message||'Kode tidak dapat dibaca.');}
 }
 
