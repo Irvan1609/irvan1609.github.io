@@ -1144,8 +1144,8 @@ function playerRivalScore(rival=currentRival()){
   const quality=state.experiment?experimentQualityScore():0,candidates=selectionCandidates(state.season),selected=candidates.filter(item=>item.selected).length;
   if(rival.metric==='stability')return round(yieldPerPlot*4+healthyRatio*28+quality*.28-Math.max(0,Number(state.fieldPressure?.pathogen)||0)*.12,1);
   if(rival.metric==='profit')return round(yieldPerPlot*4.6+Math.max(-20,margin/10000)+healthyRatio*12,1);
-  const evidence=candidates.length?candidates.reduce((sum,item)=>sum+seedEvidence(item.seed).level,0)/candidates.length:0;
-  return round(yieldPerPlot*2.7+selected*10+evidence*5+quality*.18,1);
+  const evidence=candidates.length?candidates.reduce((sum,item)=>sum+seedEvidence(item.seed).level,0)/candidates.length:0,candidateDepth=Math.min(4,candidates.length);
+  return round(yieldPerPlot*2.7+selected*8+candidateDepth*4+evidence*5+quality*.18,1);
 }
 function computeRivalTarget(){
   const rival=currentRival(),loc=activeLocation(),boss=state.env?.boss?1.08:1,pressure=1+Number(activeChallenge().pressure||0)*.35;
@@ -2025,7 +2025,7 @@ function recordHarvest(index,crop,multiplier=1,announce=true){
   state.seasonStats.yield=round(state.seasonStats.yield+y,1);state.seasonStats.harvests++;state.seasonStats.revenue=(state.seasonStats.revenue||0)+revenue;
   if(crop.health>=80)state.seasonStats.healthy++;state.seasonStats.maxYield=Math.max(state.seasonStats.maxYield,y);
   harvestCombo++;state.coins+=revenue;if(use==='breeding')state.rp+=Math.max(1,Math.floor(y/12));state.xp+=Math.max(5,Math.round(y*1.6));state.level=levelFromXp(state.xp);
-  const selectionEligible=use==='breeding'||(state.experiment?.kind==='genotype'&&!!experimentUnit(index));
+  const expUnit=experimentUnit(index),selectionEligible=use==='breeding'||(state.experiment?.kind==='genotype'&&!!expUnit&&expUnit.role!=='check');
   if(selectionEligible){
     const candidate=selectionCandidate(index,crop,y);
     if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidate.seed,plot:index,plantUid:crop.uid,candidateId:candidate.id};
@@ -2033,7 +2033,7 @@ function recordHarvest(index,crop,multiplier=1,announce=true){
   allCropTraits(crop).forEach(id=>discoverTrait(id));
   if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
   const reason=harvestReason(crop);recordExperimentObservation(index,crop,y);
-  const meta=plotMeta(index),unit=experimentUnit(index),treatment=experimentTreatment(unit);
+  const meta=plotMeta(index),unit=expUnit,treatment=experimentTreatment(unit);
   meta.history=[...(meta.history||[]),{season:state.season,use,seedId:crop.seed.id,seedName:crop.seed.name,yield:y,treatment:treatment?.name||'',health:round(crop.health,1)}].slice(-8);
   addLog(meta.uid+': '+(PLOT_USES[use]?.icon||'•')+' panen '+y+' kg · '+formatRupiah(revenue)+' · '+reason+'.');
   if(announce)toast('🧺 '+y+' kg · '+(PLOT_USES[use]?.icon||'')+' '+formatRupiah(revenue)+(harvestCombo>1?' · ×'+harvestCombo:''));
