@@ -85,15 +85,15 @@ export function inspectDatasetForResearch(dataset){
     if(signatures.has(signature))duplicateRows++;else signatures.set(signature,index);
   });
   const columns=headers.map((name,index)=>{
-    const label=String(name||`Kolom ${index+1}`),values=valuesByColumn({rows},index),share=numericShare(values),kind=share>=.8?'numeric':share<=.2?'categorical':'mixed',unique=new Set(values).size;
-    const profile={index,name:label,kind,n:values.length,numericShare:share,unique};
+    const label=String(name||`Kolom ${index+1}`),values=valuesByColumn({rows},index),share=numericShare(values),kind=share>=.8?'numeric':share<=.2?'categorical':'mixed',unique=new Set(values).size,style=decimalStyle(values);
+    const profile={index,name:label,kind,n:values.length,numericShare:share,unique,decimalStyle:style};
     if(kind==='mixed')findings.push({level:'warn',code:'mixed-type',column:index,message:`${label}: campuran nilai numerik dan teks; periksa tipe data.`});
+    if(style.mixed)findings.push({level:'warn',code:'mixed-decimal',column:index,message:`${label}: tanda desimal koma dan titik digunakan bersamaan.`});
     if(kind==='numeric'){
       const numeric=values.map(parseNumber).filter(Number.isFinite),q1=quantile(numeric,.25),q3=quantile(numeric,.75),iqr=q3-q1,lo=q1-1.5*iqr,hi=q3+1.5*iqr;
-      const outliers=iqr>0?numeric.filter(value=>value<lo||value>hi).length:0,style=decimalStyle(values);
-      Object.assign(profile,{q1,q3,outliers,decimalStyle:style});
+      const outliers=iqr>0?numeric.filter(value=>value<lo||value>hi).length:0;
+      Object.assign(profile,{q1,q3,outliers});
       if(outliers)findings.push({level:'info',code:'iqr-outlier',column:index,message:`${label}: ${outliers} nilai berada di luar pagar IQR 1,5×; periksa secara agronomis sebelum memutuskan tindakan.`});
-      if(style.mixed)findings.push({level:'warn',code:'mixed-decimal',column:index,message:`${label}: tanda desimal koma dan titik digunakan bersamaan.`});
     }
     if(kind==='categorical'&&unique>=2&&unique<=30){
       const counts=new Map();for(const value of values)counts.set(value,(counts.get(value)||0)+1);
