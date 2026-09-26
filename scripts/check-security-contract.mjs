@@ -14,6 +14,7 @@ const headers=fs.readFileSync('public/_headers','utf8');
 
 const workerDeploy=fs.readFileSync('.github/workflows/deploy-hitung-cabai-worker.yml','utf8');
 const securityWorkflow=fs.readFileSync('.github/workflows/security.yml','utf8');
+const pagesWorkflow=fs.readFileSync('.github/workflows/deploy.yml','utf8');
 const gitignore=fs.readFileSync('.gitignore','utf8');
 
 for(const marker of [
@@ -52,6 +53,12 @@ for(const marker of [
   'fetch-depth: 0',
   'npm run verify'
 ]) requireText(securityWorkflow,marker,'Security workflow');
+
+for(const marker of [
+  'Checkout full history',
+  'fetch-depth: 0',
+  "gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e"
+]) requireText(pagesWorkflow,marker,'GitHub Pages security workflow');
 
 for(const marker of [
   "name:'CONTRIBUTION_RATE_LIMITER'",
