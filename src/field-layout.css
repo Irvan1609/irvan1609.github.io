@@ -402,3 +402,16 @@ body.field-layout-open.field-qr-print>#fieldQrSheet{display:block!important}
   .field-task-list>b{grid-column:1/-1}
   .field-task-list label{min-height:38px}
 }
+
+.field-plant-layout{padding-top:4px;border-top:1px solid #e3e8ec}
+.field-plant-layout summary{cursor:pointer;font-size:9px;font-weight:750;color:#5a6d7c}
+.field-plant-layout>div{display:grid;grid-template-columns:repeat(var(--plant-cols),16px);gap:4px;justify-content:start;padding:6px 2px}
+.field-plant-dot{display:grid;place-items:center;width:16px;height:16px;border:1px solid #b9c6cf;border-radius:50%;background:#edf3ef}
+.field-plant-dot.is-border{background:#f2f2f2;border-style:dashed}
+.field-plant-dot.is-sample{background:#dce9f1;border-color:#7794a8}
+.field-plant-dot b{font-size:6.5px;line-height:1;color:#29485f}
+.field-plant-layout>small{display:block;color:#7a8994;font-size:8px}
+@media(max-width:820px){
+  .field-plant-layout>div{grid-template-columns:repeat(var(--plant-cols),18px);gap:5px}
+  .field-plant-dot{width:18px;height:18px}
+}
