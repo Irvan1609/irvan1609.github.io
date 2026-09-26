@@ -165,6 +165,9 @@ function modelEvaluation(items){
 }
 async function loadAI(){
   const data=await api('/v1/develop/contributions?limit=500'),items=data.items||[],models=modelEvaluation(items);
+  const legacy=items.filter(item=>item.storage_backend!=='r2').length,r2=items.filter(item=>item.storage_backend==='r2').length;
+  $('#aiStorageState').textContent=data.imagesR2?`R2 aktif · ${r2} foto pada antrean di R2 · ${legacy} masih perlu dimigrasikan.`:'R2 IMAGES belum aktif · foto baru tetap memakai fallback D1.';
+  $('#migrateAiImages').disabled=!data.imagesR2||legacy===0;
   $('#aiModelBody').innerHTML=models.length?models.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+row.n+'</td><td>'+row.quality.toFixed(3)+'</td><td>'+row.corrections+'</td><td>'+row.delta.toFixed(2)+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada evaluasi model.</td></tr>';
   const queue=[...items].sort((a,b)=>aiReviewPriority(a).rank-aiReviewPriority(b).rank||Number(a.quality_score||0)-Number(b.quality_score||0)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#aiBody').innerHTML=queue.length?queue.map(item=>{const priority=aiReviewPriority(item);return '<tr><td><b>'+priority.label+'</b></td><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>';}).join(''):'<tr><td colspan="9">Belum ada kontribusi AI.</td></tr>';
@@ -238,6 +241,14 @@ $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.que
 $('#refreshHealth').onclick=loadHealth;
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
+$('#migrateAiImages').onclick=async()=>{
+  const b=$('#migrateAiImages');b.disabled=true;
+  try{
+    const result=await api('/v1/develop/contributions/migrate-images',{method:'POST',body:JSON.stringify({limit:25})});
+    alert(`Migrasi selesai: ${result.migrated||0} foto · tersisa ${result.remaining??0}.`);
+    loaded.delete('ai');loaded.delete('overview');loaded.delete('server');await loadAI();
+  }catch(error){alert(error.message);}finally{b.disabled=false;}
+};
 $('#createSnapshot').onclick=async()=>{const b=$('#createSnapshot');b.disabled=true;try{await api('/v1/develop/backups',{method:'POST',body:'{}'});await loadBackups();}catch(error){alert(error.message);}finally{b.disabled=false;}};
 $('#exportBackup').onclick=async()=>{const b=$('#exportBackup');b.disabled=true;try{await downloadBackup('/v1/develop/backups/export','irvan-logical-backup.json');}catch(error){alert(error.message);}finally{b.disabled=false;}};
 document.addEventListener('accountchange',()=>setTimeout(init,0));
