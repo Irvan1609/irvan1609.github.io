@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {alignmentCheck,scaleCheck} from '../public/pengukur/alignment.js';
 import {cameraGuide,installLiveCamera} from '../public/pengukur/live-camera.js';
 import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/pengukur/geometry.js';
-import {PAPER_SIZES,paperProfile,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects} from '../public/pengukur/paper.js';
+import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects} from '../public/pengukur/paper.js';
 import {imageQuality,segmentObject,morphology,repeatability,segmentObjects,colorStats,validationSummary} from '../public/pengukur/image-tools.js';
 import {measurementsToStatistics} from '../public/pengukur/stat-sync.js';
 
@@ -15,11 +15,16 @@ assert.equal(100*PPM,500);
 
 for(const id of ['a5','a4','a3','letter','legal','f4']){
   assert.ok(PAPER_SIZES[id]);
-  const profile=paperProfile(id);
+  const profile=paperProfile(id),layout=calibratorLayout(profile);
   assert.ok(profile.activeWidth>0&&profile.activeHeight>0);
-  const svg=buildCalibratorSvg(profile);
+  assert.ok(layout.photo.width>0&&layout.photo.height>0&&layout.analysis.height>0);
+  assert.ok(layout.label.x>=layout.photo.x&&layout.label.y>=layout.photo.y&&layout.label.y+layout.label.height<=layout.photo.y+layout.photo.height);
+  const svg=buildCalibratorSvg(profile,{label:'G1-R2'});
   assert.match(svg,new RegExp('width="'+String(profile.width).replace('.','\\.')+'mm"'));
   assert.match(svg,/GARIS CEK/);
+  assert.match(svg,/AREA FOTO \/ OBJEK/);
+  assert.match(svg,/LABEL/);
+  assert.match(svg,/G1-R2/);
   assert.match(svg,/>10<\/text>/);
   assert.match(svg,/v 1\.25/);
   assert.equal(grayPatchRects(profile).length,6);
@@ -77,9 +82,9 @@ const html=fs.readFileSync('public/pengukur/index.html','utf8');
 const app=fs.readFileSync('public/pengukur/app.js','utf8');
 const style=fs.readFileSync('public/pengukur/style.css','utf8');
 const old=fs.readFileSync('public/kamera-pengukur/index.html','utf8');
-for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
-for(const marker of ['segmentObject','segmentObjects','colorStats','validationSummary','measurementsToStatistics','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','batchFiles','calibration','fieldContext'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
-for(const marker of ['measure-toolbar','morphology-card','quality-gate','repeatability','@media(max-width:820px)'])assert.ok(style.includes(marker),'Pengukur CSS missing '+marker);
+for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField','photoLabel','photoFilename'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
+for(const marker of ['segmentObject','segmentObjects','colorStats','validationSummary','measurementsToStatistics','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','batchFiles','calibration','fieldContext','calibratorLayout','activePhotoStem','exportCropMm','getLabel:photoLabel'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
+for(const marker of ['measure-toolbar','morphology-card','quality-gate','repeatability','photo-label-bar','@media(max-width:820px)'])assert.ok(style.includes(marker),'Pengukur CSS missing '+marker);
 assert.ok(old.includes('/pengukur/'),'Legacy camera route must redirect to /pengukur/');
 
 // Closing while camera permission is pending must release the late stream.
