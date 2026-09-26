@@ -395,6 +395,34 @@ function contrastFields(){
   if(!levels.length){container.innerHTML='<p>Pilih kolom perlakuan terlebih dahulu.</p>';return;}
   container.innerHTML=mode==='polynomial'?`<p>Masukkan nilai dosis/tingkat kuantitatif sesuai setiap taraf. Satuan harus sama.</p>${levels.map((level,i)=>`<label>${esc(level)} <input data-level="${i}" placeholder="Nilai kuantitatif" inputmode="decimal"></label>`).join('')}`:`<p><b>Urutan koefisien:</b> ${levels.map(esc).join(' ; ')}.</p><p>Masukkan satu kontras per baris dengan format <b>nama; koefisien 1; koefisien 2; …</b>. Jumlah koefisien pada setiap baris harus nol. Beberapa kontras boleh tidak ortogonal; setiap p-value dilaporkan terpisah tanpa koreksi multipel.</p><textarea id="scienceContrastText" rows="6" placeholder="Kontrol vs Semuanya;-5;1;1;1;1;1\nKontrol vs Mulsa Kulit Kakao;-2;1;1;0;0;0\nMulsa Kulit Kakao Tanpa Fermentasi vs Dengan Fermentasi;0;-1;1;0;-1;1"></textarea><p class="form-help">Gunakan tombol <b>Periksa data & kontras</b> sebelum menjalankan analisis. Sistem akan memeriksa jumlah koefisien, jumlah koefisien = 0, dan hubungan ortogonal antar-kontras.</p>`;
 }
+function modelFormula(o){
+  const name=index=>index===null||index===undefined?'':String(data?.headers?.[index]||'');
+  const a=name(o.a)||'Perlakuan',b=name(o.b)||'Faktor B',rep=name(o.rep)||(['rak','frak','split'].includes(o.design)?'Kelompok':'Ulangan');
+  if(o.design==='ral')return `Y ~ ${a}`;
+  if(o.design==='rak')return `Y ~ ${rep} + ${a}`;
+  if(o.design==='fral')return `Y ~ ${a} * ${b}`;
+  if(o.design==='frak')return `Y ~ ${rep} + ${a} * ${b}`;
+  if(o.design==='split')return `Y ~ ${rep} + ${a} + ${rep}×${a} + ${b} + ${a}×${b}`;
+  return 'Y ~ model';
+}
+function preflightGuardrails(check,o,quality){
+  if(check.issues.length||!check.observations.length)return [];
+  const notes=[],obs=check.observations;
+  const grouped=new Map();
+  for(const item of obs){
+    const key=o.b===null?String(item.a):String(item.a)+' × '+String(item.b);
+    grouped.set(key,(grouped.get(key)||0)+1);
+  }
+  const counts=[...grouped.values()];
+  if(counts.length&&Math.min(...counts)!==Math.max(...counts))notes.push('Jumlah observasi antartaraf tidak seimbang; interpretasikan SE/uji lanjut dengan struktur replikasi aktual.');
+  const reps=new Set(obs.map(item=>String(item.rep??'').trim()).filter(Boolean));
+  if(['rak','frak','split'].includes(o.design)&&reps.size<3)notes.push('Kelompok/ulangan kurang dari 3; estimasi galat dan daya uji dapat menjadi tidak stabil.');
+  if(o.posthoc!=='none')notes.push('Uji lanjut diperlakukan sebagai tindak lanjut inferensial; pada interaksi nyata, interpretasi diarahkan ke simple effects, bukan rataan marginal.');
+  if(!o.assumptions)notes.push('Diagnostik residual dinonaktifkan. Aktifkan untuk memeriksa normalitas, homogenitas, leverage, dan Cook\'s distance.');
+  const warnings=(quality?.findings||[]).filter(item=>item.level==='warn').slice(0,3);
+  for(const finding of warnings)if(!notes.includes(finding.message))notes.push(finding.message);
+  return notes;
+}
 function structureHtml(check,o){
   if(check.issues.length||!check.observations.length)return '';
   const s=designStructure(check.observations,o);
@@ -403,7 +431,7 @@ function structureHtml(check,o){
   if(s.factorB!==null)factors.push(`<span><b>Faktor B</b>: ${s.factorB} taraf</span>`);
   factors.push(`<span><b>${['rak','frak','split'].includes(o.design)?'Kelompok':'Ulangan'}</b>: ${s.replicates}</span>`);
   const status=s.ready?'<strong class="structure-ok">✓ Struktur layak dianalisis</strong>':'<strong class="structure-warn">Periksa struktur rancangan</strong>';
-  return `<section class="design-structure"><div class="design-structure-head"><div><b>Struktur rancangan</b><small>${esc(designNames[o.design]||o.design)}</small></div>${status}</div><div class="structure-grid">${factors.join('')}</div><div class="structure-df"><b>Derajat bebas</b>${df}</div></section>`;
+  return `<section class="design-structure"><div class="design-structure-head"><div><b>Struktur rancangan</b><small>${esc(designNames[o.design]||o.design)}</small></div>${status}</div><div class="design-model-formula"><b>Model</b><code>${esc(modelFormula(o))}</code></div><div class="structure-grid">${factors.join('')}</div><div class="structure-df"><b>Derajat bebas</b>${df}</div></section>`;
 }
 function renderStructure(check,o){
   const target=$('#scienceStructure');
@@ -433,7 +461,9 @@ function validate(){
   }
   renderStructure(check,o);
   $('#scienceQuality').innerHTML=renderDataQuality(quality);
-  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>x.row?`<li><button type="button" class="validation-cell-link" data-focus-error-row="${x.row-1}" data-focus-error-col="${Number.isInteger(x.column)?x.column:0}">Baris ${x.row}</button>: ${esc(x.message)}</li>`:`<li>${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>`;
+  const guardrails=preflightGuardrails(check,o,quality);
+  const guardrailHtml=guardrails.length?`<div class="analysis-guardrail"><b>Guardrail statistik</b><ul>${guardrails.map(message=>`<li>${esc(message)}</li>`).join('')}</ul></div>`:'';
+  $('#scienceValidation').innerHTML=check.issues.length?`<div class="error-box"><b>${check.issues.length} masalah perlu diperbaiki.</b><ul>${check.issues.slice(0,50).map(x=>x.row?`<li><button type="button" class="validation-cell-link" data-focus-error-row="${x.row-1}" data-focus-error-col="${Number.isInteger(x.column)?x.column:0}">Baris ${x.row}</button>: ${esc(x.message)}</li>`:`<li>${esc(x.message)}</li>`).join('')}</ul>${check.issues.length>50?'<p>Hanya 50 masalah pertama ditampilkan.</p>':''}</div>`:`<div class="analysis-note">${check.observations.length} pengamatan siap dianalisis.${check.warnings.map(x=>'<p>'+esc((x.row?'Baris '+x.row+': ':'')+x.message)+'</p>').join('')}${contrastInfo}</div>${guardrailHtml}`;
   $('#scienceValidation').querySelectorAll('[data-focus-error-row]').forEach(button=>button.onclick=()=>{
     const row=Number(button.dataset.focusErrorRow),column=Number(button.dataset.focusErrorCol);
     $('#scientificModal').classList.remove('open');
@@ -495,6 +525,8 @@ async function analyze(){
         }else report.notes.push('Semua kontras terencana saling ortogonal untuk jumlah ulangan pada dataset ini.');
       }
       report.datasetName=data.name;
+      report.modelFormula=modelFormula(o);
+      report.reproducibility={design:o.design,model:report.modelFormula,alpha:o.alpha,posthoc:o.posthoc,assumptions:o.assumptions,decimalSeparator:getDecimalSeparator(),generatedAt:new Date().toISOString()};
       report.datasetMeta={plant:data.plant||'',treatment:data.treatment||''};
       report.factorLabels={a:metadata.factorLabels.a||data.headers[o.a]||'Perlakuan',b:o.b===null?null:(metadata.factorLabels.b||data.headers[o.b]||'Faktor B')};
       report.treatmentMeta=metadata;
@@ -553,7 +585,7 @@ export function openScientific(design){
   const numericColumns=data.headers.map((h,i)=>({h,i})).filter(item=>isNumericColumn(item.i));
   $('#scienceParameters').innerHTML=numericColumns.map(({h,i})=>`<label class="science-param-check"><input type="checkbox" value="${i}" checked><span>${esc(h)}</span></label>`).join('');
   $('#scienceTransforms').innerHTML=numericColumns.map(({h,i})=>`<label><span>${esc(h)}</span><select data-transform-param="${i}" aria-label="Transformasi ${esc(h)}" disabled>${transformOptions}</select></label>`).join('');
-  $('#scienceAssumptions').checked=false;
+  $('#scienceAssumptions').checked=true;
   $('#sciencePosthoc').value='none';$('#scienceAlpha').value='0.05';
   $('#scienceContrastMode').value='none';$('#scienceContrastMode').disabled=multi;$('#scienceContrastHelp').textContent=multi?'Kontras/polinomial tersedia pada rancangan satu faktor RAL/RAK.':'';
   const restored=restoreAnalysisConfig(design);
@@ -571,7 +603,7 @@ export function openScientific(design){
   if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
   else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
   $('#scientificModal').classList.add('open');
-  globalThis.StatisticalWebWorkflow?.setActive?.('setup');
+  globalThis.StatisticalWebWorkflow?.setActive?.('analysis');
   validate();
 }
 export function openScientificRecipe(recipe){
@@ -620,7 +652,7 @@ export function installScientificWorkflow(){
         <div class="science-contrast-box"><label>Kontras / polinomial<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div>
       </div></details>
     </main><div id="scienceResults" data-all-results></div></div>
-    <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Analisis</button></div></div>
+    <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Jalankan</button></div></div>
   </div></div>`);
   const close=()=>$('#scientificModal').classList.remove('open');$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
   $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
