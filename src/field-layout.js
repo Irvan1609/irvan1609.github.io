@@ -719,7 +719,7 @@ function renderMap(){
       const matches=matchingSearch(entry,current,query)&&passesFilter(entry);
       if(matches)visible++;
       if(!matches)return '<span class="field-plot-placeholder" aria-hidden="true"></span>';
-      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index);
+      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index),meta=config.plotMeta?.[plotKey(entry.index)]||{};
       const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
       const draggable=layoutEditMode?' draggable="true"':'';
       const statusLabel={missing:'Kosong',dead:'Mati',damaged:'Rusak',harvested:'Panen',border:'Border'}[status]||'';
@@ -775,7 +775,7 @@ function renderEditor(rowIndex){
     </div>
     <div class="field-editor-actions"><button type="button" data-field-open-row>Buka di tabel</button><button type="button" class="primary" data-field-save>Simpan</button></div>
     <p class="field-editor-status" id="fieldEditorStatus"></p>`;
-  dirty=false;
+  dirty=false;void renderMediaTimeline(rowIndex);
 }
 function selectRow(index){
   if(dirty&&!confirm('Ada perubahan yang belum disimpan. Pindah plot tanpa menyimpan?'))return;
