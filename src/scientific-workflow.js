@@ -16,7 +16,12 @@ const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
   'rak-bnj05':{design:'rak',posthoc:'bnj',alpha:.05},
-  'split-bnt05':{design:'split',posthoc:'bnt',alpha:.05}
+  'split-bnt05':{design:'split',posthoc:'bnt',alpha:.05},
+  'agro-nursery-ral':{design:'ral',posthoc:'bnj',alpha:.05,contrastMode:'none'},
+  'agro-variety-rak':{design:'rak',posthoc:'bnj',alpha:.05,contrastMode:'none'},
+  'agro-dose-rak':{design:'rak',posthoc:'none',alpha:.05,contrastMode:'polynomial'},
+  'agro-factorial-rak':{design:'frak',posthoc:'bnj',alpha:.05,contrastMode:'none'},
+  'agro-split':{design:'split',posthoc:'bnj',alpha:.05,contrastMode:'none'}
 };
 function phoneGuardMode(){
   return globalThis.matchMedia?.('(max-width: 720px) and (pointer: coarse)')?.matches
@@ -202,6 +207,9 @@ function applyAnalysisPreset(value){
   const preset=PRESETS[value];if(!preset)return;
   if(preset.design!==currentDesign){pendingPreset=value;openScientific(preset.design);return;}
   $('#sciencePosthoc').value=preset.posthoc;$('#scienceAlpha').value=String(preset.alpha);$('#sciencePreset').value=value;
+  if(preset.contrastMode&&$('#scienceContrastMode')&&!$('#scienceContrastMode').disabled){
+    $('#scienceContrastMode').value=preset.contrastMode;contrastFields();
+  }
   saveAnalysisConfig();validate();
 }
 function showResults(reports,container,datasetName=reports[0]?.datasetName||'hasil-analisis',meta={}){
@@ -646,7 +654,7 @@ export function installScientificWorkflow(){
       </div>
       <div class="science-preflight-inline"><div id="scienceStructure"></div><div id="scienceQuality"></div><div id="scienceValidation"></div></div>
       <details id="scienceAdvancedOptions" class="science-card science-advanced-options"><summary><b>Pengaturan</b><span>Uji lanjut · α · diagnostik · kontras</span></summary><div class="science-advanced-body">
-        <div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label><label>Preset<select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Tidak pakai</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></label></div>
+        <div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label><label>Preset<select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Tidak pakai</option><optgroup label="Agronomi"><option value="agro-nursery-ral">Pembibitan · RAL · BNJ 5%</option><option value="agro-variety-rak">Uji varietas · RAK · BNJ 5%</option><option value="agro-dose-rak">Dosis kuantitatif · RAK · Polinomial</option><option value="agro-factorial-rak">Faktorial G×M · RAK · BNJ 5%</option><option value="agro-split">Split-plot · RAK · BNJ 5%</option></optgroup><optgroup label="Umum"><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></optgroup></select></label></div>
         <label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Diagnostik residual</b><small>Normalitas, homogenitas, leverage, dan Cook's distance.</small></span></label>
         <details class="science-transform-details"><summary>Transformasi parameter</summary><div id="scienceTransforms" class="science-transform-grid"></div></details>
         <div class="science-contrast-box"><label>Kontras / polinomial<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div>
