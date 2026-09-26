@@ -133,13 +133,18 @@
         <div class="panel-head"><div><small>SELEKSI</small><h2>🧬 Kandidat</h2></div><span id="selectionCount" class="count-badge">0</span></div>
         <button id="openSelection" class="selection-open" type="button">🧬 Seleksi generasi berikutnya</button>
       </section>
+      <section class="panel meta-panel academy-panel">
+        <div class="panel-head"><div><small>LEARNING</small><h2>🎓 Akademi Pemuliaan</h2></div><span id="academyStatus" class="count-badge">0/9</span></div>
+        <button id="openAcademy" class="selection-open" type="button">📐 📊 🧬 × · Buka kurikulum</button>
+      </section>
       <section class="panel meta-panel lab-panel">
         <div class="panel-head"><div><small>BREEDING</small><h2>Persilangan</h2></div><span class="cost-badge">12 RP</span></div>
         <div class="cross-form">
+          <label>Skema<select id="crossMode"><option value="f1">A × B → F1</option><option value="self">Self A → segregasi</option><option value="backcross">A × B → backcross</option></select></label>
           <label>A<select id="parentA"></select></label>
           <span class="cross-x">×</span>
           <label>B<select id="parentB"></select></label>
-          <button id="crossSeeds" class="primary" type="button">Silangkan</button>
+          <button id="crossSeeds" class="primary" type="button">Jalankan</button>
         </div>
         <div id="crossPreview" class="cross-preview">Pilih 2 benih.</div>
       </section>

@@ -904,3 +904,71 @@ body.battery-saver .cloud-sync[data-sync-status="syncing"]::after{animation:none
 .selection-modes button[aria-pressed=true]{border-color:#79b995;background:#1d3c2e}
 .seed-item>small{font-variant-numeric:tabular-nums}
 .seed-card-actions{grid-template-columns:1fr auto auto}
+
+
+/* FIELD ZERO PLANT BREEDING ACADEMY 2026-09-26 */
+.academy-progress{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid #315144;border-radius:8px;background:#102019}
+.academy-progress b{font-size:13px}.academy-progress span{color:var(--muted);font-size:9px}
+.academy-track-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.academy-track-grid article{padding:8px;border:1px solid #315144;border-radius:8px;background:#102019;min-width:0}
+.academy-track-grid header{display:flex;justify-content:space-between;gap:6px;margin-bottom:6px}
+.academy-track-grid header b{font-size:10px}.academy-track-grid header span{font-size:8px;color:var(--muted)}
+.academy-track-grid article>div{display:flex;gap:6px;padding:3px 0;color:var(--muted);font-size:8.5px}
+.academy-track-grid article>div.done{color:#bfe1ca}
+.academy-glossary{margin-top:8px;border:1px solid #315144;border-radius:8px;padding:7px;background:#0f1d18}
+.academy-glossary summary{cursor:pointer;font-weight:850;font-size:9px}
+.academy-glossary p{display:grid;grid-template-columns:minmax(90px,.35fr) 1fr;gap:8px;margin:7px 0 0;padding-top:7px;border-top:1px solid #243c32}
+.academy-glossary p b{font-size:9px}.academy-glossary p span{font-size:8.5px;color:var(--muted);line-height:1.45}
+.design-concept,.professor-case,.stat-interpretation{padding:9px;border:1px solid #315144;border-radius:8px;background:#102019}
+.design-concept b,.professor-case>b,.stat-interpretation b{font-size:11px}
+.design-concept p,.professor-case p,.stat-interpretation p{margin:5px 0 0;color:var(--muted);font-size:9px;line-height:1.45}
+.design-audit-list{display:grid;gap:5px;margin-top:7px}
+.design-audit-list>div{display:grid;grid-template-columns:22px 1fr;gap:6px;align-items:start;padding:6px;border:1px solid #304c40;border-radius:7px;background:#0f1d18;font-size:8.5px}
+.design-audit-list>div>b{width:20px;height:20px;display:grid;place-items:center;border-radius:999px;background:#20372d}
+.design-audit-list .warn{border-color:#705b39}.design-audit-list .error{border-color:#704344}.design-audit-list .ok{border-color:#3d654e}.design-audit-list .info{border-color:#405d70}
+.academy-question{margin-top:8px;padding:8px;border:1px dashed #486659;border-radius:8px}
+.academy-question>b{display:block;margin-bottom:6px;font-size:10px}.academy-question>p{color:var(--muted);font-size:8.5px;line-height:1.45}
+.academy-question>div,.professor-case-actions{display:grid;gap:5px}
+.academy-question button,.professor-case-actions button{min-height:38px;text-align:left;padding:6px 8px}
+.professor-case>small{display:block;color:var(--muted);font-size:7.5px;font-weight:900;letter-spacing:.08em;margin-bottom:4px}
+.professor-case-actions{margin-top:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.professor-feedback{padding:9px;border:1px solid #426d53;border-radius:8px;background:#102019}
+.professor-feedback p{color:var(--muted);font-size:9px;line-height:1.45}
+.professor-feedback button{margin-top:7px;width:100%}
+.stat-parameter-select{display:grid;grid-template-columns:auto 1fr;gap:7px;align-items:center;margin-bottom:7px;color:var(--muted);font-size:9px}
+.stat-parameter-select select{min-height:36px;background:#0f1d18;color:var(--ink);border:1px solid #315144;border-radius:7px;padding:5px 7px}
+.stat-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:7px}
+.stat-kpis>div{padding:7px;border:1px solid #315144;border-radius:7px;background:#102019;min-width:0}
+.stat-kpis small,.stat-kpis b{display:block}.stat-kpis small{font-size:7px;color:var(--muted);text-transform:uppercase}.stat-kpis b{font-size:11px;margin-top:2px}
+.anova-table-wrap{overflow:auto;border:1px solid #315144;border-radius:8px}
+.anova-table{width:100%;border-collapse:collapse;font-size:8.5px;min-width:390px}
+.anova-table th,.anova-table td{padding:5px 6px;border-bottom:1px solid #274137;text-align:right}
+.anova-table th:first-child,.anova-table td:first-child{text-align:left}
+.anova-table thead{background:#13271e}.anova-table tbody tr:last-child td{border-bottom:0}
+.treatment-means{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0}
+.treatment-means span{padding:4px 6px;border:1px solid #315144;border-radius:6px;background:#0f1d18;font-size:8.5px}
+.treatment-means small{color:var(--muted)}
+.cross-genetic-kpi{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.cross-genetic-kpi span{padding:3px 5px;border:1px solid #315144;border-radius:5px;font-size:8px}
+.genotype-preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:6px}
+.genotype-preview span{padding:5px;border:1px solid #315144;border-radius:6px;background:#102019;text-align:center;font-size:8px}
+.genotype-preview b,.genotype-preview small{display:block}.genotype-preview small{margin-top:2px;color:var(--muted);font-size:6.5px}
+.genome-locked{display:block;margin-top:6px;color:var(--muted);font-size:8px}
+.cross-protocol-steps{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+.cross-protocol-steps li{display:grid;grid-template-columns:24px 1fr;gap:6px;align-items:start;padding:6px;border:1px solid #315144;border-radius:7px;background:#102019}
+.cross-protocol-steps li>b{width:22px;height:22px;display:grid;place-items:center;border-radius:999px;background:#263f34}
+.cross-protocol-steps li>span{font-size:8.7px;line-height:1.45}
+.academy-open-help{width:100%;margin-top:7px}
+.cross-form{align-items:end}
+
+@media(max-width:620px){
+  .academy-track-grid{grid-template-columns:1fr}
+  .academy-glossary p{grid-template-columns:1fr;gap:2px}
+  .professor-case-actions{grid-template-columns:1fr}
+  .stat-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .genotype-preview{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cross-form{grid-template-columns:1fr 1fr}
+  .cross-form>label:first-child{grid-column:1/-1}
+  .cross-form .cross-x{display:none}
+  .cross-form button{grid-column:1/-1}
+}
