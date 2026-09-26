@@ -782,9 +782,10 @@ function finishSeason(){
   if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=25;awardAchievement('boss');}}
   else state.collection.environments=unique([...(state.collection.environments||[]),state.env.id]);
   if(['drought','rust','wet','poorN','anomaly'].includes(state.env.id)||state.env.boss)awardAchievement('survivor');
+  const previousGhost=recordBest();
   if(state.daily){awardAchievement('daily');state.records['daily:'+state.daily.key]=Math.max(Number(state.records['daily:'+state.daily.key]||0),state.seasonStats.yield);}
   updateRecord(state.seasonStats.yield);
-  const previousGhost=recordBest(),ghostDelta=round(state.seasonStats.yield-previousGhost,1);
+  const ghostDelta=round(state.seasonStats.yield-previousGhost,1);
   state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,mission:completed,rival:rivalTarget,beatRival,boss:!!state.env.boss});state.history=state.history.slice(0,20);
   if(hasTech('cold')&&state.seasonBest&&!state.vault.some(item=>item.id===state.seasonBest.seed.id)){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
@@ -821,12 +822,12 @@ function updateCrossPreview(){
 function crossSeeds(){
   const a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value);
   if(!a||!b||a.id===b.id||state.rp<CROSS_COST)return;
-  state.rp-=CROSS_COST;const inheritChance=hasTech('breeding')?.72:.58;let inherited=shuffle(unique([...a.traits,...b.traits])).filter(()=>chance(inheritChance)).slice(0,hasTech('breeding')?4:3);
+  state.rp-=CROSS_COST;const inheritChance=hasTech('breeding')?0.72:0.58;let inherited=shuffle(unique([...a.traits,...b.traits])).filter(()=>chance(inheritChance)).slice(0,hasTech('breeding')?4:3);
   if(!inherited.length)inherited=[pick(unique([...a.traits,...b.traits]))];
-  if(chance(hasTech('breeding')?.22:.16)){
+  if(chance(hasTech('breeding')?0.22:0.16)){
     const mutation=pick(MUTATION_POOL.filter(id=>!inherited.includes(id)));if(mutation){inherited.push(mutation);discoverTrait(mutation);}
   }
-  if(state.season>=5&&chance(hasTech('genome')?.04:.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
+  if(state.season>=5&&chance(hasTech('genome')?0.04:0.025)&&!inherited.includes('zero')){inherited.push('zero');discoverTrait('zero');}
   const child={id:uid('seed'),name:'X'+state.season+'-'+Math.floor(100+Math.random()*900),generation:Math.max(a.generation,b.generation)+1,traits:unique(inherited).slice(0,4),baseYield:round(((a.baseYield+b.baseYield)/2)*(.95+Math.random()*.12),1),vigor:round(((a.vigor+b.vigor)/2)*(.97+Math.random()*.08),2),source:a.name+' × '+b.name,parents:[a.id,b.id]};
   state.vault.push(child);rememberLineage(a);rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');addLog('Breeding Lab menghasilkan '+child.name+'.');beep(680,.1);render();toast(child.name+' berhasil dibuat');
 }
