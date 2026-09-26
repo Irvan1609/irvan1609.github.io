@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at);
 
 
 CREATE TABLE IF NOT EXISTS user_datasets (
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS user_datasets (
 
 CREATE INDEX IF NOT EXISTS idx_user_datasets_user_updated ON user_datasets(user_id,updated_at);
 CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted ON user_datasets(user_id,deleted_at);
+CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted_updated ON user_datasets(user_id,deleted_at,updated_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_datasets_active_name ON user_datasets(user_id,name) WHERE deleted_at IS NULL;
 
 
@@ -115,6 +117,7 @@ CREATE TABLE IF NOT EXISTS membership_payments (
 
 CREATE INDEX IF NOT EXISTS idx_membership_payments_user ON membership_payments(user_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status);
+CREATE INDEX IF NOT EXISTS idx_membership_payments_user_status_created ON membership_payments(user_id,status,created_at);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
@@ -128,6 +131,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action,created_at);
 
 CREATE TABLE IF NOT EXISTS backup_runs (
   id TEXT PRIMARY KEY,
@@ -150,3 +154,4 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
+CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
