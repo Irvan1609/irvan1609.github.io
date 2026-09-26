@@ -68,9 +68,10 @@ function openResults(){
 }
 function setActive(stage){
   const strip=document.querySelector('#statWorkflowStrip');if(!strip)return;
-  strip.dataset.stage=stage;
+  const normalized=stage==='setup'?'analysis':stage==='field'?'data':stage;
+  strip.dataset.stage=normalized;
   strip.querySelectorAll('[data-stat-workflow]').forEach(button=>{
-    const active=button.dataset.statWorkflow===stage;
+    const active=button.dataset.statWorkflow===normalized;
     button.setAttribute('aria-current',active?'step':'false');
   });
 }
@@ -89,9 +90,8 @@ function update(){
 function markup(){
   return `<nav id="statWorkflowStrip" class="stat-workflow-strip" aria-label="Alur kerja Statistical Web" data-stage="data">
     <button type="button" data-stat-workflow="data" aria-current="step"><b>1</b><span>Data<small data-workflow-data-label>—</small></span></button>
-    <button type="button" data-stat-workflow="analysis"><b>2</b><span>Analisis<small>Pilih metode</small></span></button>
-    <button type="button" data-stat-workflow="setup"><b>3</b><span>Atur<small>Kolom & parameter</small></span></button>
-    <button type="button" data-stat-workflow="results"><b>4</b><span>Hasil<small>Ringkas dulu</small></span></button>
+    <button type="button" data-stat-workflow="analysis"><b>2</b><span>Analisis<small>Metode · kolom · parameter</small></span></button>
+    <button type="button" data-stat-workflow="results"><b>3</b><span>Hasil<small>Ringkas · detail · ekspor</small></span></button>
   </nav>`;
 }
 export function installStatWorkflow(){
@@ -117,13 +117,13 @@ export function installStatWorkflow(){
   document.addEventListener('agrotik-workflow-stage',event=>{const stage=String(event.detail?.stage||'');if(stage)setActive(stage);update();});
   document.addEventListener('click',event=>{
     if(event.target.closest('#openAnalysis'))setActive('analysis');
-    else if(event.target.closest('#runScience,#runAugmented'))setActive('setup');
+    else if(event.target.closest('#runScience,#runAugmented'))setActive('analysis');
     else if(event.target.closest('#analysisResultDock'))setActive('results');
   },true);
   document.addEventListener('keydown',event=>{
     if(!event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
     if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
-    const action={'1':openData,'2':openAnalysis,'3':openSetup,'4':openResults}[event.key];
+    const action={'1':openData,'2':openAnalysis,'3':openResults}[event.key];
     if(!action)return;
     event.preventDefault();action();
   });
