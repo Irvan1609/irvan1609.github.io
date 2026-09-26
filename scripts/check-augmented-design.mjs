@@ -48,9 +48,9 @@ const repeatedTest=[...rows,['B2','T1',126]];
 assert.throws(()=>augmentedRcbAnova(repeatedTest,{checks:['C1','C2']}),/non-check berulang/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augSimpleParameter','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view="summary"','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augSimpleParameter','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','Detail statistik','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
-for(const marker of ["['augmented','augmented','Augmented Design'","augmented:'AD'","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
+for(const marker of ["['augmented','augmented','Augmented Design'","data-analysis-open","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
 console.log('Augmented design verified: automatic/manual checks, connected block+treatment model, adjusted means, check-derived residual error, treatment/block adjusted ANOVA, comparison SE classes, and invalid-design guards.');
 
