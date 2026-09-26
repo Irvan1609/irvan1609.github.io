@@ -82,7 +82,7 @@ const html=fs.readFileSync('public/pengukur/index.html','utf8');
 const app=fs.readFileSync('public/pengukur/app.js','utf8');
 const style=fs.readFileSync('public/pengukur/style.css','utf8');
 const old=fs.readFileSync('public/kamera-pengukur/index.html','utf8');
-for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField','photoLabel','photoFilename'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
+for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField','photoLabel','livePhotoLabel','photoFilename'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
 for(const marker of ['segmentObject','segmentObjects','colorStats','validationSummary','measurementsToStatistics','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','batchFiles','calibration','fieldContext','calibratorLayout','activePhotoStem','exportCropMm','getLabel:photoLabel'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
 for(const marker of ['measure-toolbar','morphology-card','quality-gate','repeatability','photo-label-bar','@media(max-width:820px)'])assert.ok(style.includes(marker),'Pengukur CSS missing '+marker);
 assert.ok(old.includes('/pengukur/'),'Legacy camera route must redirect to /pengukur/');
