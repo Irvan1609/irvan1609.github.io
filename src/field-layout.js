@@ -390,7 +390,7 @@ function addFieldObject(){
   const type=prompt('Jenis objek: jalan, drainase, pematang, pohon, air, gudang, lainnya','drainase');if(!type)return;
   const label=prompt('Nama/keterangan objek:',type)||type;
   pushLayoutHistory('tambah objek lahan');
-  config={...config,objects:[...(config.objects||[]),{id:crypto.randomUUID(),type:String(type).trim(),label:String(label).trim()}]};writeConfig(current,config);renderMap();
+  config={...config,objects:[...(config.objects||[]),{id:crypto.randomUUID(),type:String(type).trim(),label:String(label).trim(),afterUid:Number.isInteger(selectedRow)?plotUid(selectedRow):''}]};writeConfig(current,config);renderMap();
 }
 function toggleRoadAfter(index){
   const key=plotKey(index);pushLayoutHistory('jalan manual');const roadAfter={...config.roadAfter};
@@ -800,7 +800,7 @@ function renderMap(){
   }
   const groups=groupEntries(current),objects=(config.objects||[]);
   let visible=0;
-  const objectHtml=objects.length?`<div class="field-map-objects">${objects.map(item=>`<span data-field-object="${esc(item.id)}"><b>${esc(item.type)}</b>${esc(item.label)}<button type="button" data-remove-field-object="${esc(item.id)}" aria-label="Hapus objek">×</button></span>`).join('')}</div>`:'';
+  const looseObjects=objects.filter(item=>!item.afterUid),objectHtml=looseObjects.length?`<div class="field-map-objects">${looseObjects.map(item=>`<span data-field-object="${esc(item.id)}"><b>${esc(item.type)}</b>${esc(item.label)}<button type="button" data-remove-field-object="${esc(item.id)}" aria-label="Hapus objek">×</button></span>`).join('')}</div>`:'';
   const blocks=groups.map(([label,entries])=>{
     const ordered=orientEntries(orderedEntries(entries,config.columns,config.serpentine));
     if(!ordered.length)return '';
@@ -819,7 +819,8 @@ function renderMap(){
       </button>`;
       const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
       const road=(automatic||manual)?`<div class="field-road" role="separator"><span>${manual?'Jalan manual':'Jalan'}</span></div>`:'';
-      return mainBanner+plot+road;
+      const placedObjects=objects.filter(item=>item.afterUid===plotUid(entry.index)).map(item=>`<div class="field-object-in-map" data-field-object="${esc(item.id)}"><b>${esc(item.type)}</b><span>${esc(item.label)}</span><button type="button" data-remove-field-object="${esc(item.id)}" aria-label="Hapus objek">×</button></div>`).join('');
+      return mainBanner+plot+road+placedObjects;
     }).join('');
     return `<section class="field-block"><div class="field-block-head"><b>${esc(label)}</b><span>${ordered.length} plot${layoutEditMode?' · tarik untuk susun':''}</span></div><div class="field-block-grid" style="--field-columns:${config.columns}">${plots}</div></section>`;
   }).join('');
