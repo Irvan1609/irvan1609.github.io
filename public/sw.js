@@ -1,4 +1,4 @@
-const VERSION='20260926-field-zero-systems-v6';
+const VERSION='20260926-field-zero-calendar-v7';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
