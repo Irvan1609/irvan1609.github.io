@@ -96,10 +96,9 @@ if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
-for(const marker of ['confirmAnalysis','analysisSelectedLabel','aria-pressed="false"','resetSelection','phoneGuardMode','openButton(selectedButton)'])if(!flow.includes(marker))fail('phone-only safe analysis selection missing '+marker);
-if(!statStyle.includes('/* PHONE-ONLY SAFE ANALYSIS 2026-09-26 */')||!statStyle.includes('.analysis-menu-foot')||!statStyle.includes('.analysis-menu-item.selected'))fail('phone-only safe analysis styles missing');
-if(!statStyle.includes('.analysis-menu-foot{display:none}'))fail('desktop analysis confirmation footer must stay hidden');
-if(!flow.includes('class="analysis-item-arrow"')||flow.includes('class="analysis-item-check"'))fail('desktop analysis cards must keep original arrow markup');
+for(const marker of ['data-analysis-factorial','data-analysis-more','analysisOtherSelect','data-open-other','data-analysis-open'])if(!flow.includes(marker))fail('compact analysis selection missing '+marker);
+if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana')||flow.includes('data-analysis-mode-toggle'))fail('analysis selection must use one compact interface without mode switches');
+if(!statStyle.includes('STAT COMPACT CONTROLS 2026-09-26')||!statStyle.includes('.analysis-other-picker'))fail('compact analysis picker styles missing');
 for(const marker of ['/* DESKTOP WIDE ANALYSIS PANEL 2026-09-26 */','/* DESKTOP ANALYSIS ALL COLUMNS 2026-09-26 */','@media(min-width:901px)','grid-template-columns:repeat(5,minmax(0,1fr))!important','.analysis-group-items[hidden]','grid-template-columns:1fr!important'])if(!statStyle.includes(marker))fail('desktop all-column analysis panel missing '+marker);
 for(const marker of ["FAVORITES='statistical_web_analysis_favorites_v1'","RECENT='statistical_web_analysis_recent_v1'","USAGE='statistical_web_analysis_usage_v1'","data-auto-detect","data-quick-run","data-favorite-key","groupUseScore","applyGroupCollapse"])if(!flow.includes(marker))fail('analysis favorite/recent/auto-collapse workflow missing '+marker);
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
@@ -177,7 +176,7 @@ if(html.includes('id="focusData"')||html.includes('id="toggleDatasetMeta"'))fail
 if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')||!html.includes('contenteditable="true" role="textbox" aria-label="Perlakuan"'))fail('plant and treatment metadata must be directly editable');
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!scientific.includes('data-thesis-table-mode')||!scientific.includes('thesis-table-mode')||!scientific.includes('data-summary-parameter'))fail('compact analysis results must provide thesis-table mode and summary-to-parameter navigation');
-for(const marker of ['data-simple-result-view-select','result-primary-actions','result-copy-menu','result-export-menu','result-mobile-export-actions'])if(!scientific.includes(marker))fail('compact result command bar missing '+marker);
+for(const marker of ['data-simple-result-view-select','result-single-actions','data-result-mode-select','data-os-copy-word','export-bab4'])if(!scientific.includes(marker))fail('compact result command bar missing '+marker);
 for(const marker of ['result-card-actions','result-card-copy','result-card-export','result-card-more'])if(!resultExport.includes(marker))fail('per-result compact actions missing '+marker);
 for(const marker of ['result-os-menu','result-os-menu-body'])if(!resultOs.includes(marker))fail('Result OS compact menu missing '+marker);
 if(!statStyle.includes('/* COMPACT RESULT ACTIONS 2026-09-26 */')||!resultOsStyle.includes('/* COMPACT RESULT OS CONTROLS 2026-09-26 */'))fail('compact result action styles missing');
