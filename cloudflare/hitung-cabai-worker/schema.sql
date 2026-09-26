@@ -171,6 +171,8 @@ CREATE TABLE IF NOT EXISTS backup_runs (
   object_key TEXT,
   status TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
+  checksum_sha256 TEXT NOT NULL DEFAULT '',
+  verified INTEGER NOT NULL DEFAULT 0,
   note TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
