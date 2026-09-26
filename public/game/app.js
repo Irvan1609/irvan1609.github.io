@@ -415,6 +415,52 @@ function statusClass(crop){
   if(crop.health<60||crop.water<24||crop.n<22)return 'stressed';
   return '';
 }
+function toolLabel(tool){
+  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Scout'})[tool]||'';
+}
+function playHint(){
+  if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
+  const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
+  if(ready>=0)return {icon:'🌽',text:'Panen P'+String(ready+1).padStart(2,'0'),action:'plot',index:ready};
+  const lowWater=state.field.findIndex(crop=>crop&&crop.health>0&&crop.water<28);
+  if(lowWater>=0)return {icon:'💧',text:'P'+String(lowWater+1).padStart(2,'0')+' butuh air',action:'tool',tool:'water'};
+  const lowN=state.field.findIndex(crop=>crop&&crop.health>0&&crop.n<28);
+  if(lowN>=0&&!activeChallenge().noFertilizer)return {icon:'N',text:'P'+String(lowN+1).padStart(2,'0')+' butuh pupuk',action:'tool',tool:'fertilize'};
+  const sick=state.field.findIndex(crop=>crop&&crop.health>0&&crop.disease>28);
+  if(sick>=0)return {icon:'◎',text:'Cek P'+String(sick+1).padStart(2,'0'),action:'tool',tool:'scout'};
+  if(!state.field.slice(0,fieldLimit()).some(Boolean))return {icon:'🌱',text:'Tanam di petak kosong',action:'tool',tool:'plant'};
+  if(state.day>=state.maxDay)return {icon:'✓',text:'Musim selesai · lihat hasil',action:'finish'};
+  return {icon:'→',text:'Lanjut ke hari '+(state.day+1),action:'next'};
+}
+function renderPlayControls(){
+  const seed=selectedSeed(),hint=playHint();
+  $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
+  $('#activeToolStatus').textContent=activeFieldTool?toolLabel(activeFieldTool)+' aktif · pilih petak':'Ketuk alat → petak';
+  $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
+  $('#playHint').dataset.action=hint.action||'';
+  $('#playHint').dataset.tool=hint.tool||'';
+  $('#playHint').dataset.index=Number.isInteger(hint.index)?String(hint.index):'';
+}
+function runPlayHint(){
+  const hint=playHint();
+  if(hint.action==='tool'){setFieldTool(hint.tool);document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  if(hint.action==='plot'&&Number.isInteger(hint.index)){state.selectedPlot=hint.index;renderField();renderInspector();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  if(hint.action==='next'){advanceDay();return;}
+  if(hint.action==='finish'){finishSeason();return;}
+  document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openSeedVault(){
+  const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>document.querySelector('.vault-panel')?.scrollIntoView({behavior:'smooth',block:'center'}),120);
+}
+function openGameHelp(){
+  openMetaModal('CARA MAIN','3 langkah',`<div class="help-steps">
+    <div><b>1</b><span>🌱 Pilih benih</span></div>
+    <div><b>2</b><span>Alat → petak</span></div>
+    <div><b>3</b><span>Hari berikutnya</span></div>
+  </div><p class="help-note">PC: alat/benih juga bisa diseret ke petak.</p>`);
+}
+
 function seedTraitsHtml(seed,extra=[]){
   return unique([...(seed?.traits||[]),...extra]).map(id=>{
     const t=traitMeta(id);return `<span class="trait ${t.rarity}">${esc(t.icon)} ${esc(t.name)}</span>`;
@@ -599,7 +645,8 @@ function openQuickMore(){
 function setFieldTool(tool=''){
   activeFieldTool=activeFieldTool===tool?'':tool;
   document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
-  if(activeFieldTool)toast('Pilih petak');
+  renderPlayControls();
+  if(activeFieldTool)toast(toolLabel(activeFieldTool)+' · pilih petak');
 }
 function useFieldTool(tool,index,{seedId=''}={}){
   if(index<0||index>=fieldLimit())return false;
@@ -613,7 +660,7 @@ function useFieldTool(tool,index,{seedId=''}={}){
 
 
 function render(){
-  renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();renderMeta();save();
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();renderMeta();renderPlayControls();save();
   if(state.pendingEvent)renderEvent();
 }
 
@@ -917,6 +964,7 @@ function bind(){
   $('#quickField').onclick=()=>document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
   $('#quickLab').onclick=()=>{const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
   $('#quickMap').onclick=openWorldMap;$('#quickMore').onclick=openQuickMore;
+  $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
     if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}

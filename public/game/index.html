@@ -44,6 +44,7 @@
         <p>Tanam · rawat · panen · kembangkan benih.</p>
       </div>
       <div class="head-actions">
+        <button id="gameHelp" class="icon-button" type="button" title="Bantuan" aria-label="Bantuan">?</button>
         <button id="soundToggle" class="icon-button" type="button" aria-pressed="false" title="Suara">♪</button>
         <button id="newRun" class="icon-button" type="button" title="Mulai ulang">↺</button>
       </div>
@@ -68,10 +69,11 @@
     </section>
 
     <section class="season-bar">
-      <div class="season-climate"><span id="seasonIcon">☀</span><div><small>Kondisi musim</small><b id="seasonName">Normal</b><span id="seasonDesc"></span></div></div>
+      <div class="season-climate"><span id="seasonIcon">☀</span><div><small>Musim</small><b id="seasonName">Normal</b><span id="seasonDesc"></span></div></div>
       <div class="mission"><small>Target</small><b id="missionText">—</b><span id="missionProgress">0/0</span></div>
-      <div class="today"><small>Hari ini</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span></div>
+      <div class="today"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span></div>
     </section>
+    <button id="playHint" class="play-hint" type="button"><span id="playHintIcon">→</span><b id="playHintText">Pilih Tanam lalu petak kosong</b></button>
 
     <section class="meta-strip panel" aria-label="Status run" hidden>
       <div><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b></button></div>
@@ -87,11 +89,15 @@
           <div><small>FIELD ZERO</small><h2>Lahan</h2></div>
           <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot sick"></i>Masalah</span></div>
         </div>
+        <div class="field-context">
+          <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
+          <span id="activeToolStatus">Ketuk alat → petak</span>
+        </div>
         <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
-          <button type="button" draggable="true" data-field-tool="plant" title="Tanam benih terpilih">🌱<span>Tanam</span></button>
-          <button type="button" draggable="true" data-field-tool="water" title="Irigasi">💧<span>Air</span></button>
-          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk nitrogen"><b>N</b><span>Pupuk</span></button>
-          <button type="button" draggable="true" data-field-tool="scout" title="Scout">◎<span>Scout</span></button>
+          <button type="button" draggable="true" data-field-tool="plant" title="Tanam"><span class="tool-icon">🌱</span><span>Tanam</span></button>
+          <button type="button" draggable="true" data-field-tool="water" title="Air"><span class="tool-icon">💧</span><span>Air</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk"><span class="tool-icon">N</span><span>Pupuk</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" title="Scout"><span class="tool-icon">◎</span><span>Scout</span></button>
         </div>
         <div id="fieldGrid" class="field-grid" aria-label="Dua belas petak lahan"></div>
         <div class="day-actions">
@@ -108,30 +114,23 @@
       </aside>
     </div>
 
-    <section class="lower-grid">
-      <section class="panel vault-panel">
-        <div class="panel-head">
-          <div><small>PROGRES PERMANEN</small><h2>Seed Vault</h2></div>
-          <span id="vaultCount" class="count-badge">0</span>
-        </div>
-        <div id="vaultList" class="seed-list"></div>
-      </section>
-
-      <section class="panel lab-panel">
-        <div class="panel-head"><div><small>BREEDING LAB</small><h2>Persilangan</h2></div><span class="cost-badge">12 RP</span></div>
-        <div class="cross-form">
-          <label>Induk A<select id="parentA"></select></label>
-          <span class="cross-x">×</span>
-          <label>Induk B<select id="parentB"></select></label>
-          <button id="crossSeeds" class="primary" type="button">Silangkan</button>
-        </div>
-        <div id="crossPreview" class="cross-preview">Pilih dua benih berbeda. Keturunannya mewarisi sebagian trait dan mungkin mengalami mutasi.</div>
-      </section>
-    </section>
-
     <details id="labHub" class="panel compact-panel lab-hub">
       <summary><span><b>🔬 Lab</b></span><span>⌄</span></summary>
       <div class="meta-grid">
+      <section class="panel meta-panel vault-panel">
+        <div class="panel-head"><div><small>BENIH</small><h2>Seed Vault</h2></div><span id="vaultCount" class="count-badge">0</span></div>
+        <div id="vaultList" class="seed-list"></div>
+      </section>
+      <section class="panel meta-panel lab-panel">
+        <div class="panel-head"><div><small>BREEDING</small><h2>Persilangan</h2></div><span class="cost-badge">12 RP</span></div>
+        <div class="cross-form">
+          <label>A<select id="parentA"></select></label>
+          <span class="cross-x">×</span>
+          <label>B<select id="parentB"></select></label>
+          <button id="crossSeeds" class="primary" type="button">Silangkan</button>
+        </div>
+        <div id="crossPreview" class="cross-preview">Pilih 2 benih.</div>
+      </section>
       <section class="panel meta-panel">
         <div class="panel-head"><div><small>RESEARCH TREE</small><h2>Tech Tree</h2></div><span id="techCount" class="count-badge">0</span></div>
         <div id="techTree" class="tech-tree"></div>
@@ -152,8 +151,8 @@
     </details>
 
     <section class="lower-grid">
-      <details class="panel compact-panel" open>
-        <summary><span><small>REKAMAN LAPANG</small><b>Log musim</b></span><span>⌄</span></summary>
+      <details class="panel compact-panel">
+        <summary><span><small>RIWAYAT</small><b>Log musim</b></span><span>⌄</span></summary>
         <div id="gameLog" class="game-log"></div>
       </details>
       <details class="panel compact-panel">
