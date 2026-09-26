@@ -24,12 +24,15 @@ function tell(message){$('status').textContent=message;}
 function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function safeName(value){return String(value||'foto').replace(/\.[^.]+$/,'').replace(/[^\p{L}\p{N}_-]+/gu,'_')||'foto';}
-function photoLabel(){return $('photoLabel')?.value.trim()||'';}
+function photoLabel(){return $('livePhotoLabel')?.value.trim()||$('photoLabel')?.value.trim()||'';}
 function fileStem(value){return String(value||'foto').normalize('NFC').trim().replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/,'').slice(0,100)||'foto';}
 function activePhotoStem(){return fileStem(photoLabel()||$('sampleId')?.value.trim()||filename||'foto');}
-function refreshPhotoLabel(){
-  const label=photoLabel(),name=fileStem(label||filename||'foto');
-  if($('photoFilename'))$('photoFilename').textContent=name+'.jpg';
+function refreshPhotoLabel(source='main'){
+  const main=$('photoLabel'),live=$('livePhotoLabel');
+  const raw=source==='live'?(live?.value||''):(main?.value||live?.value||''),label=String(raw).trim();
+  if(main&&main.value!==raw)main.value=raw;if(live&&live.value!==raw)live.value=raw;
+  const name=fileStem(label||filename||'foto');
+  if($('photoFilename'))$('photoFilename').textContent=name+'.png';
   const link=$('printCalibrator');
   if(link){const u=new URL(link.href,location.href);if(label)u.searchParams.set('label',label);else u.searchParams.delete('label');link.href=u.pathname+u.search;}
   saveSettings({photoLabel:label});
@@ -67,7 +70,7 @@ function restoreSettings(){
   if(s.orientation)$('orientation').value=s.orientation;
   if(s.custom){$('customWidth').value=s.custom.width||210;$('customHeight').value=s.custom.height||297;$('customMargin').value=s.custom.margin||15;}
   if(s.lens){$('lensName').value=s.lens.name||'Default';$('lensK1').value=s.lens.k1||0;$('lensK2').value=s.lens.k2||0;}
-  if(s.photoLabel&&$('photoLabel'))$('photoLabel').value=s.photoLabel;
+  if(s.photoLabel){if($('photoLabel'))$('photoLabel').value=s.photoLabel;if($('livePhotoLabel'))$('livePhotoLabel').value=s.photoLabel;}
   const research=s.research||{};for(const id of RESEARCH_IDS){const key=id==='experimentId'?'experiment':id;if($(id))$(id).value=research[key]||'';}
   $('customPaper').hidden=$('paperSize').value!=='custom';
 }
@@ -408,7 +411,9 @@ restoreSettings();refreshPaper();renderRecords();refreshPhotoLabel();
 if(fieldContext?.plot_label){$('sampleId').value=(fieldContext.plot_label||'plot')+'-S01';if($('photoLabel')){$('photoLabel').value=$('sampleId').value;refreshPhotoLabel();}tell('Mode plot '+fieldContext.plot_label+' · '+(fieldContext.parameter||'parameter pengukuran')+'.');}
 
 $('paperSize').onchange=refreshPaper;$('orientation').onchange=refreshPaper;
-['customWidth','customHeight','customMargin'].forEach(id=>$(id).onchange=refreshPaper);if($('photoLabel'))$('photoLabel').oninput=refreshPhotoLabel;
+['customWidth','customHeight','customMargin'].forEach(id=>$(id).onchange=refreshPaper);
+if($('photoLabel'))$('photoLabel').oninput=()=>refreshPhotoLabel('main');
+if($('livePhotoLabel'))$('livePhotoLabel').oninput=()=>refreshPhotoLabel('live');
 $('downloadCalibrator').onclick=()=>{const p=getProfile();downloadBlob(new Blob([buildCalibratorSvg(p,{label:photoLabel()})],{type:'image/svg+xml'}),`kalibrator-${p.name.toLowerCase().replace(/\W+/g,'-')}-${p.orientation}.svg`);};
 $('upload').onchange=e=>setBatch(e.target.files);
 $('capture').onchange=e=>{const f=e.target.files?.[0];if(f){batchFiles=[f];batchIndex=0;loadFile(f);}e.target.value='';};
