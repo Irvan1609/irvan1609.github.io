@@ -34,6 +34,10 @@ for(const marker of ['MAX_GAME_SAVE_BYTES','CREATE TABLE IF NOT EXISTS game_save
 for(const marker of ['META_PREFIX','SYNC_DELAY=20000','MAX_DIRTY_WAIT=60000','/v1/game/save','fieldzero-save-change','fieldzero-ready','baseRevision','showConflict','useCloud','keepLocal','visibilitychange','window.addEventListener(\'online\''])if(!sync.includes(marker))fail('cross-device save client missing '+marker);
 if(/setInterval\s*\(/.test(sync))fail('cross-device save must not poll continuously');
 if(!world.includes('<svg')||!world.includes('Field Zero research farm landscape')||!world.includes('irrigation canal'))fail('visual farm world asset missing');
+if(app.includes("Array.from({length:canopyCount}"))fail('crop canopy must not create decorative DOM per plant');
+for(const marker of ['FIELD ZERO LITE RENDER','content-visibility:auto','body.battery-saver .field-world','backdrop-filter:none!important'])
+  if(!css.includes(marker))fail('lightweight map rendering missing '+marker);
+
 for(const marker of ['Pagi di Lahan','Hujan di Rumah Kaca','Lampu Lab Malam','startMusic','setMusicTrack','setMusicVolume','isMusicPlaying'])if(!music.includes(marker))fail('music system missing '+marker);
 if(social.includes('fieldzero-field-change'))fail('social client must not poll Worker on local field changes');
 if(social.includes('/v1/game/raids/inbox')||social.includes('/v1/game/aids/inbox'))fail('social client must use batched inbox endpoint');
