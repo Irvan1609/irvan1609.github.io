@@ -4621,3 +4621,150 @@ body.analysis-results-open{overflow:hidden}
     border-radius:var(--stat-m-radius)!important;
   }
 }
+
+
+/* ANALYSIS TYPOGRAPHY LEGIBILITY FINAL 2026-09-27 */
+/* Keep analysis compact, but never at micro-text sizes. */
+.analysis-compact-group-title{
+  min-height:34px!important;
+  padding:6px 8px!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+}
+.analysis-compact-item{
+  min-height:46px!important;
+  gap:7px!important;
+  padding:6px 7px!important;
+}
+.analysis-compact-item>span{
+  width:31px!important;
+  height:30px!important;
+  font-size:10px!important;
+}
+.analysis-compact-item>b{
+  font-size:13px!important;
+  line-height:1.22!important;
+  white-space:normal!important;
+  text-overflow:clip!important;
+}
+
+.analysis-workspace-modal .science-context>span{
+  font-size:11.5px!important;
+}
+.analysis-workspace-modal .science-card-head b{
+  font-size:13.5px!important;
+}
+.analysis-workspace-modal .science-card-head small,
+.analysis-workspace-modal .science-switch-row small,
+.analysis-workspace-modal .science-card-advanced>details>summary small,
+.analysis-workspace-modal .science-review-head>small{
+  font-size:11.5px!important;
+}
+.analysis-workspace-modal .science-simple-parameter,
+.analysis-workspace-modal .science-role-grid label,
+.analysis-workspace-modal .science-option-grid label,
+.analysis-workspace-modal .science-switch-row b,
+.analysis-workspace-modal .science-subdetails>summary,
+.analysis-workspace-modal .science-multi-parameters>summary,
+.analysis-workspace-modal .science-advanced-options>summary,
+.analysis-workspace-modal .science-param-check span,
+.analysis-workspace-modal .science-transform-details>summary,
+.analysis-workspace-modal .science-transform-grid label,
+.analysis-workspace-modal .science-review-panel .structure-grid span,
+.analysis-workspace-modal .science-review-panel .structure-df,
+.analysis-workspace-modal .science-review-panel #scienceValidation{
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+.analysis-workspace-modal .science-simple-parameter select,
+.analysis-workspace-modal .science-role-grid select,
+.analysis-workspace-modal .science-option-grid select,
+.analysis-workspace-modal .science-transform-grid select,
+.analysis-workspace-modal .science-preset-select{
+  font-size:13px!important;
+}
+.analysis-workspace-modal .science-param-auto-note,
+.analysis-workspace-modal .science-advanced-options>summary>span{
+  font-size:11px!important;
+}
+
+.analysis-result-dock .analysis-dock-kicker{
+  font-size:9.5px!important;
+}
+.analysis-result-dock .analysis-dock-head strong{
+  font-size:13px!important;
+}
+.analysis-result-dock .analysis-dock-actions button,
+.analysis-result-dock .result-single-actions>summary,
+.analysis-result-dock .result-single-actions button,
+.analysis-result-dock .result-action-select,
+.analysis-result-dock .result-action-select select{
+  font-size:11.5px!important;
+}
+.analysis-result-dock .analysis-note,
+.analysis-result-dock .analysis-result-meta,
+.analysis-result-dock .result-table,
+.analysis-result-dock .anova-table{
+  font-size:12px!important;
+}
+.analysis-result-dock .table-caption,
+.analysis-result-dock .figure-caption{
+  font-size:12px!important;
+}
+
+[data-tool-mode="augmented"] .aug-context b,
+[data-tool-mode="augmented"] .aug-card-head b,
+[data-tool-mode="augmented"] .aug-review-status b,
+[data-tool-mode="augmented"] .aug-result-summary b{
+  font-size:12.5px!important;
+}
+[data-tool-mode="augmented"] .aug-context small,
+[data-tool-mode="augmented"] .aug-card-head small,
+[data-tool-mode="augmented"] .aug-help,
+[data-tool-mode="augmented"] .aug-review-empty,
+[data-tool-mode="augmented"] .aug-review-status,
+[data-tool-mode="augmented"] .aug-review-metrics small,
+[data-tool-mode="augmented"] .aug-runbar>span,
+[data-tool-mode="augmented"] .aug-result-summary small,
+[data-tool-mode="augmented"] .aug-model-line,
+[data-tool-mode="augmented"] .aug-parameter-head{
+  font-size:11px!important;
+}
+[data-tool-mode="augmented"] .aug-form label>span,
+[data-tool-mode="augmented"] .aug-simple-form label>span,
+[data-tool-mode="augmented"] .aug-multi-parameters>summary,
+[data-tool-mode="augmented"] .aug-advanced>summary,
+[data-tool-mode="augmented"] .aug-param{
+  font-size:12px!important;
+}
+[data-tool-mode="augmented"] .aug-form select,
+[data-tool-mode="augmented"] .aug-simple-form select,
+[data-tool-mode="augmented"] .aug-runbar button{
+  font-size:13px!important;
+}
+[data-tool-mode="augmented"] .aug-anova-grid .anova-table,
+[data-tool-mode="augmented"] .aug-secondary-grid .result-table,
+[data-tool-mode="augmented"] .augmented-means-table,
+[data-tool-mode="augmented"] .aug-main-caption,
+[data-tool-mode="augmented"] .aug-anova-grid .table-caption,
+[data-tool-mode="augmented"] .aug-secondary-grid .table-caption{
+  font-size:12px!important;
+}
+
+@media(max-width:720px){
+  .analysis-compact-group-title{font-size:12.5px!important}
+  .analysis-compact-item>b{font-size:13.5px!important}
+  .analysis-workspace-modal .science-simple-parameter,
+  .analysis-workspace-modal .science-role-grid label,
+  .analysis-workspace-modal .science-option-grid label,
+  .analysis-workspace-modal .science-param-check span,
+  .analysis-workspace-modal .science-transform-details>summary{
+    font-size:13px!important;
+  }
+  .analysis-result-dock .analysis-note,
+  .analysis-result-dock .analysis-result-meta,
+  .analysis-result-dock .result-table,
+  .analysis-result-dock .anova-table{
+    font-size:12.5px!important;
+  }
+}
