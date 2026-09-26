@@ -3,7 +3,7 @@ import {formatNumber as fmt} from './number-format.js';
 
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function table(headers,rows){
-  return `<div class="table-scroll"><table class="result-table diagnostic-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>i===0?`<td>${esc(cell)}</td>`:`<td>${typeof cell==='number'&&Number.isFinite(cell)?fmt(cell,4):esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="result-table diagnostic-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>cell&&typeof cell==='object'&&cell.html?`<td>${cell.html}</td>`:i===0?`<td>${esc(cell)}</td>`:`<td>${typeof cell==='number'&&Number.isFinite(cell)?fmt(cell,4):esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 export function residualHistogram(values,title='Histogram residual'){
   const x=values.filter(Number.isFinite);
@@ -25,6 +25,6 @@ export function renderInfluenceDiagnostics(diagnostics){
   if(!diagnostics)return '';
   if(!diagnostics.items?.length)return `<div class="analysis-note">${esc(diagnostics.note||'Diagnostik pengaruh tidak tersedia.')}</div>`;
   const flagged=diagnostics.items.filter(item=>item.flag),ranked=[...diagnostics.items].sort((a,b)=>b.cook-a.cook||Math.abs(b.studentized)-Math.abs(a.studentized)).slice(0,Math.min(12,diagnostics.items.length));
-  const rows=ranked.map(item=>[item.unit,item.residual,item.studentized,item.leverage,item.cook,item.flag?'Periksa':'']);
+  const rows=ranked.map(item=>[{html:`<button type="button" class="diagnostic-field-link" data-open-field-row="${Math.max(0,(Number(item.row)||item.index)-1)}">${esc(item.unit)}</button>`},item.residual,item.studentized,item.leverage,item.cook,item.flag?'Periksa':'']);
   return `<div class="diagnostic-influence"><div class="analysis-note"><b>Diagnostik unit berpengaruh:</b> ambang penanda |studentized residual| &gt; 2 atau Cook's distance &gt; ${fmt(diagnostics.cookThreshold,4)} (4/n). ${flagged.length} unit ditandai. ${esc(diagnostics.note||'')}</div>${table(['Unit','Residual','Studentized','Leverage',"Cook's D",'Status'],rows)}</div>`;
 }

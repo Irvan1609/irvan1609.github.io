@@ -9,7 +9,8 @@ let cameraStream=null,facingMode='environment',torchOn=false,detecting=false,con
 let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false,confidenceStats=null;
 let batchQueue=[],batchTotal=0,batchIndex=0;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='';
-const DETECT_SETTINGS_KEY='chili-detect-settings-v1';
+const DETECT_SETTINGS_KEY='chili-detect-settings-v1',FIELD_RETURN_KEY='agrotik_field_return_v1';
+let fieldContext=null;try{fieldContext=JSON.parse(sessionStorage.getItem('agrotik_field_context_v1')||'null');}catch{}
 
 const status=message=>$('status').textContent=message;
 const cloneBoxes=()=>boxes.map(box=>[...box]);
@@ -399,6 +400,13 @@ function sendCurrentToStatistics({quiet=false}={}){
   if(!image){if(!quiet)status('Ambil foto atau pilih foto terlebih dahulu.');return null;}
   const sample=$('sample').value.trim();
   try{
+    if(fieldContext?.dataset&&fieldContext?.uid){
+      const payload={...fieldContext,type:'chili_count',value:boxes.length,parameter:fieldContext.parameter||'Jumlah Cabai',sample,updatedAt:new Date().toISOString()};
+      localStorage.setItem(FIELD_RETURN_KEY,JSON.stringify(payload));
+      const result={dataset:fieldContext.datasetName||fieldContext.dataset,updated:true,field:true};
+      if(!quiet)status(`Siap dikembalikan ke plot ${fieldContext.plot||sample}: ${boxes.length} buah.`);
+      return result;
+    }
     const result=upsertChiliCountToStatistics(localStorage,{sample,count:boxes.length});
     if(!quiet)status(`Masuk ke Statistical Web → ${result.dataset}: ${sample} = ${boxes.length} buah.`);
     return result;
@@ -422,15 +430,15 @@ async function saveCurrent(){
     activeId=id;dirty=false;await list();
     const synced=sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(synced){
-      const action=synced.updated?'diperbarui':'ditambahkan';
-      status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);
+      if(synced.field)status(`Tersimpan: ${boxes.length} buah untuk plot ${fieldContext?.plot||name}. Tekan “Kirim ke plot” untuk kembali ke Denah Lahan.`);
+      else{const action=synced.updated?'diperbarui':'ditambahkan';status(`Tersimpan di perangkat ini: ${boxes.length} buah. Statistical Web: sampel “${name}” ${action} di dataset ${synced.dataset}.`);}
     }else{
       status(`Tersimpan di perangkat ini: ${boxes.length} buah. Data belum dapat dimasukkan ke Statistical Web.`);
     }
   }catch{status('Penyimpanan gagal. Periksa ruang penyimpanan browser; hasil di layar belum hilang.');}
 }
 $('save').onclick=saveCurrent;$('mobileSave').onclick=saveCurrent;
-$('sendToStat').onclick=()=>sendCurrentToStatistics();
+$('sendToStat').onclick=()=>{const result=sendCurrentToStatistics();if(result?.field&&fieldContext?.returnUrl)setTimeout(()=>{location.href=fieldContext.returnUrl;},120);};
 
 async function contributeCurrent(){
   if(contributing)return;
@@ -540,6 +548,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStre
 try{
   applyDetectSettings();updateCloudState();
   db=await openDB();await list();updateInteractionMode();updateWorkflowState();
+  if(fieldContext?.plot){$('sample').value=fieldContext.plot;$('sendToStat').textContent='Kirim ke plot';status(`Mode plot: ${fieldContext.plot}. Hasil akan kembali ke Denah Lahan.`);}
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch{
   status('Penyimpanan browser tidak tersedia. Hasil masih dapat dihitung, tetapi tidak bisa disimpan.');

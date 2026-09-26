@@ -99,7 +99,7 @@ export function residualDiagnostics(observations,residuals,mse,design){
   const items=observations.map((o,index)=>{
     const row=X[index],tmp=inv.map(r=>sum(r.map((v,j)=>v*row[j]))),leverage=Math.max(0,Math.min(.999999,sum(row.map((v,j)=>v*tmp[j])))),studentized=residuals[index]/Math.sqrt(mse*Math.max(1e-12,1-leverage)),cook=(residuals[index]**2/(p*mse))*leverage/Math.max(1e-12,(1-leverage)**2);
     const unit=[o.a,o.b&&o.b!==''?o.b:null,o.rep!==''?`K${o.rep}`:null].filter(Boolean).join(' \u00d7 ');
-    return {index:index+1,unit,residual:residuals[index],leverage,studentized,cook,flag:Math.abs(studentized)>2||cook>4/observations.length};
+    return {index:index+1,row:Number(o.row)||index+1,unit,residual:residuals[index],leverage,studentized,cook,flag:Math.abs(studentized)>2||cook>4/observations.length};
   });
   return {items,parameterCount:p,cookThreshold:4/observations.length,note:design==='split'?'Leverage/Cook dihitung pada model residual anak petak dengan blok \u00d7 Faktor A; gunakan sebagai diagnostik, bukan aturan otomatis menghapus data.':"Studentized residual dan Cook's distance bersifat diagnostik; jangan menghapus data hanya karena melewati ambang."};
 }
