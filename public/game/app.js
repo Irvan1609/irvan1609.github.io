@@ -581,7 +581,8 @@ function playHint(){
   return {icon:'→',text:'Lanjut ke hari '+(state.day+1),action:'next'};
 }
 function renderPlayControls(){
-  const seed=selectedSeed(),hint=playHint();
+  const seed=selectedSeed(),hint=playHint(),expTool=$('#experimentTool');
+  if(expTool)expTool.hidden=!state.experiment||state.experiment.kind==='genotype';
   $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
   $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' ×':'☝ → ▦';
   $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
@@ -638,9 +639,9 @@ function renderField(){
   $('#fieldGrid').innerHTML=state.field.map((crop,index)=>{
     const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'',burned=crop?.burned>0?' burned':'';
     if(index>=limit)return `<button type="button" class="plot plot-locked" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>LOCK</span></div><div class="plot-empty-mark">×</div></button>`;
-    if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div></button>`;
+    if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div>${experimentBadge(index)}</button>`;
     const stage=stageOf(crop);
-    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
+    return `<button type="button" class="plot ${cls}${burned}${selected}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${experimentBadge(index)}${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
   }).join('');
 }
 function renderInspector(){
@@ -648,9 +649,9 @@ function renderInspector(){
   $('#plotTitle').textContent='Petak '+String(plot).padStart(2,'0');
   $('#plotStage').textContent=stageOf(crop);
   if(!crop){
-    const seed=selectedSeed();
+    const assigned=experimentSeedForPlot(state.selectedPlot),seed=assigned||selectedSeed();
     const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
-    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${PLANT_COST}`}</button></div>`;
+    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${PLANT_COST}`}</button></div>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;
     return;
@@ -810,6 +811,7 @@ function useFieldTool(tool,index,{seedId=''}={}){
   state.selectedPlot=index;
   if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
   if(tool==='plant'){plantSelected();return true;}
+  if(tool==='treatment')return applyExperimentTreatment(index);
   if(!state.field[index]){toast('∅');renderField();renderInspector();return false;}
   if(tool==='harvest'){
     if(state.field[index].growth<100||state.field[index].health<=0){toast('⏳');renderField();renderInspector();return false;}
@@ -826,7 +828,7 @@ function render(){
 }
 
 function plantSelected(){
-  const seed=selectedSeed(),challenge=activeChallenge();
+  const assignedSeed=experimentSeedForPlot(state.selectedPlot),seed=assignedSeed||selectedSeed(),challenge=activeChallenge();
   if(!seed||state.field[state.selectedPlot]||state.selectedPlot>=fieldLimit()||state.focus<1||state.coins<PLANT_COST)return;
   if(challenge.mono&&state.monoSeedId&&seed.id!==state.monoSeedId){toast('Challenge hanya mengizinkan satu varietas');return;}
   const mutationChance=Math.min(.18,.045+state.level*.004+(state.env.id==='anomaly'?.05:0)+(hasTech('genome')?.02:0));
@@ -839,6 +841,7 @@ function plantSelected(){
   state.field[state.selectedPlot]={
     seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,stressLog:{water:0,n:0,disease:0,heat:0,burn:0}
   };
+  applyPendingExperimentEffect(state.selectedPlot,state.field[state.selectedPlot]);
   state.coins-=PLANT_COST;state.focus--;addLog('P'+String(state.selectedPlot+1).padStart(2,'0')+': '+seed.name+' ditanam.');beep(410);render();document.dispatchEvent(new Event('fieldzero-field-change'));
 }
 function cropAction(action){
@@ -897,7 +900,7 @@ function recordHarvest(index,crop,multiplier=1,announce=true){
   if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidateFrom(crop,y)};
   allCropTraits(crop).forEach(id=>discoverTrait(id));
   if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
-  const reason=harvestReason(crop);
+  const reason=harvestReason(crop);recordExperimentObservation(index,crop,y);
   addLog('P'+String(index+1).padStart(2,'0')+': panen '+y+' kg · '+reason+'.');
   if(announce)toast('🧺 '+y+' kg'+(harvestCombo>1?' · ×'+harvestCombo:'')+(comboBonus?' · +'+comboBonus+'🪙':''));
   state.field[index]=null;beep(650,.08);return y;
@@ -1214,7 +1217,7 @@ function bind(){
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;
   $('#quickField').onclick=()=>document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
   $('#quickLab').onclick=()=>{const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
-  $('#quickMap').onclick=openWorldMap;$('#quickMore').onclick=openQuickMore;
+  $('#quickMap').onclick=openWorldMap;$('#quickExperiment').onclick=openExperiment;$('#quickMore').onclick=openQuickMore;
   $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
