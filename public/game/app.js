@@ -2,6 +2,8 @@ import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPla
 import {createBreedingCup} from './competition.js';
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
+const RECOVERY_STORAGE='agrotik_field_zero_recovery_v1';
+const RECOVERY_LIMIT=3;
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
 const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-3';
 const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840};
@@ -142,9 +144,9 @@ const BOSSES=[
   {id:'flood',name:'Boss: Flood Pulse',icon:'☂',desc:'Genangan, kelembapan, dan kehilangan N serempak.',waterLoss:12,disease:.13,nLoss:5,yield:1.22}
 ];
 const RIVALS=[
-  {id:'nara',name:'Dr. Nara',style:'Stabil',base:58,growth:5},
-  {id:'bima',name:'Bima Lab',style:'Agresif',base:66,growth:6.5},
-  {id:'sora',name:'Sora Seed Co.',style:'Breeding',base:62,growth:7.2}
+  {id:'nara',name:'Dr. Nara',style:'Stabilitas',metric:'stability',base:72,growth:3.4,desc:'Menjaga hasil sehat dan presisi percobaan.'},
+  {id:'bima',name:'Bima Lab',style:'Efisiensi',metric:'profit',base:76,growth:4.2,desc:'Mengejar hasil dan margin dengan input efisien.'},
+  {id:'sora',name:'Sora Seed Co.',style:'Pemuliaan',metric:'breeding',base:74,growth:4.6,desc:'Mengejar kandidat terseleksi dan bukti galur.'}
 ];
 const GENOME_SIG={
   heat:['A','T','T','G'],vigor:['G','C','A','G'],myco:['C','G','G','T'],sentinel:['T','A','C','C'],zero:['ψ','A','ψ','G']
@@ -277,15 +279,12 @@ function missionRatio(){
 }
 function missionDisplay(){
   const objectives=missionObjectives();
-  if(state.mission?.type!=='contract'){
-    const item=objectives[0];return {title:item.text+' '+item.target+' '+item.unit,progress:round(objectiveValue(item),1)+'/'+item.target+(missionDone()?' ✓':'')};
-  }
+  if(!objectives.length)return {title:'Tidak ada target',progress:'—'};
+  const active=objectives.find(item=>objectiveValue(item)<item.target)||objectives[objectives.length-1];
+  const value=objectiveValue(active),targetLabel=active.type==='margin'?formatRupiah(active.target):active.target+' '+active.unit;
+  const valueLabel=active.type==='margin'?formatRupiah(value):round(value,1)+' '+active.unit;
   const done=objectives.filter(item=>objectiveValue(item)>=item.target).length;
-  const compact=objectives.map(item=>{
-    const value=objectiveValue(item),label=item.type==='margin'?formatRupiah(item.target):item.target+' '+item.unit;
-    return (value>=item.target?'✓':'•')+item.text+' '+label;
-  }).join(' · ');
-  return {title:compact,progress:done+'/'+objectives.length+' target'};
+  return {title:(value>=active.target?'✓ ':'')+active.text+' · '+targetLabel,progress:valueLabel+(objectives.length>1?' · '+done+'/'+objectives.length:'')};
 }
 function pressureLevel(){
   const carry=state?.fieldPressure||{},ch=activeChallenge?.()||CHALLENGES.standard;
@@ -308,7 +307,7 @@ function pressureLabel(){
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
-    version:6,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
+    version:7,season:1,day:1,maxDay:MAX_DAY,coins:150000,rp:0,xp:0,level:1,focus:4,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
     field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1,'standard'),
@@ -316,14 +315,15 @@ function freshState(){
     log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index'
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index',
+    notebook:[],decisionHistory:[],onboarding:{complete:false},advanceGuard:null,weekly:null
   };
 }
 function load(){
   try{
     const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
     if(!raw)return freshState();
-    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:6};
+    const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:7};
     if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
     if((Number(raw.version)||2)<3&&Number(raw.coins)<10000)merged.coins=Math.round((Number(raw.coins)||78)*LEGACY_COIN_RP);
     merged.comfort={...base.comfort,...(raw.comfort||{}),lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
@@ -356,6 +356,11 @@ function load(){
     merged.selectionPool=(Array.isArray(raw.selectionPool)?raw.selectionPool:[]).map(item=>({...item,seed:item?.seed?{...item.seed,stock:Math.max(0,Number(item.seed.stock)||6),viability:clamp(Number(item.seed.viability)||97,0,100),ageSeasons:Math.max(0,Number(item.seed.ageSeasons)||0),genome:normalizeGenome(item.seed.genome,item.seed.id||item.id,merged.simulationSeed)}:item.seed}));
     merged.academy={...base.academy,...(raw.academy||{}),completed:Array.isArray(raw.academy?.completed)?raw.academy.completed:[],answers:raw.academy?.answers&&typeof raw.academy.answers==='object'?raw.academy.answers:{}};
     merged.experimentHistory=Array.isArray(raw.experimentHistory)?raw.experimentHistory:[];
+    merged.notebook=Array.isArray(raw.notebook)?raw.notebook:[];
+    merged.decisionHistory=Array.isArray(raw.decisionHistory)?raw.decisionHistory:[];
+    merged.onboarding={...base.onboarding,...(raw.onboarding||{})};
+    merged.advanceGuard=raw.advanceGuard&&typeof raw.advanceGuard==='object'?raw.advanceGuard:null;
+    merged.weekly=raw.weekly&&typeof raw.weekly==='object'?raw.weekly:null;
     merged.seasonStats={...base.seasonStats,...(merged.seasonStats||{})};
     merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
     merged.location=LOCATIONS[merged.location]?merged.location:'zero';
@@ -386,6 +391,7 @@ function importCloudSave(remote){
     selectedPlot:state.selectedPlot
   };
   try{
+    checkpoint('Sebelum menerapkan cloud save');
     localStorage.setItem(STORAGE,JSON.stringify({...structuredClone(remote),...localPrefs}));
     state=load();
     clearUndo();replantCache=null;activeFieldTool='';
@@ -406,6 +412,35 @@ function gameProgressSummary(value=state){
 function isFreshProgress(value=state){
   const p=gameProgressSummary(value);
   return p.season===1&&p.day===1&&p.level===1&&p.xp===0&&p.rp===0&&p.legacy===0&&p.planted===0&&p.history===0&&p.vault<=STARTER_SEEDS.length;
+}
+function recoveryEntries(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(RECOVERY_STORAGE)||'[]');
+    return Array.isArray(raw)?raw.filter(item=>item&&item.state&&typeof item.state==='object').slice(0,RECOVERY_LIMIT):[];
+  }catch{return [];}
+}
+function checkpoint(label='Checkpoint'){
+  try{
+    const snapshot={id:uid('restore'),at:Date.now(),label:String(label).slice(0,60),season:state.season,day:state.day,state:structuredClone(state)};
+    const entries=[snapshot,...recoveryEntries()].slice(0,RECOVERY_LIMIT);
+    localStorage.setItem(RECOVERY_STORAGE,JSON.stringify(entries));
+    return snapshot.id;
+  }catch{return '';}
+}
+function restoreCheckpoint(id){
+  const entry=recoveryEntries().find(item=>item.id===id);if(!entry)return false;
+  try{
+    localStorage.setItem(STORAGE,JSON.stringify(entry.state));state=load();clearUndo();replantCache=null;activeFieldTool='';
+    lastProgressFingerprint=progressFingerprint();applyComfortSettings();render();updateCrossPreview();closeMetaModal();toast('Save dipulihkan · '+entry.label);return true;
+  }catch{return false;}
+}
+function openRecoveryCenter(){
+  const entries=recoveryEntries();
+  openMetaModal('PEMULIHAN','Save lokal sebelumnya',entries.length?`<div class="recovery-list">${entries.map(item=>`<article><div><b>${esc(item.label)}</b><small>Musim ${item.season} · Hari ${item.day} · ${new Date(item.at).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'})}</small></div><button type="button" data-restore="${item.id}">Pulihkan</button></article>`).join('')}</div><p class="meta-note">Maksimal tiga checkpoint lokal. Cloud save tetap terpisah.</p>`:'<div class="meta-empty">Belum ada checkpoint pemulihan.</div>');
+  $('#metaModalBody').querySelectorAll('[data-restore]').forEach(button=>button.onclick=()=>{if(confirm('Pulihkan checkpoint ini? Progres setelah checkpoint akan diganti.'))restoreCheckpoint(button.dataset.restore);});
+}
+function noteBreeder(type,text,data={}){
+  state.notebook=[{id:uid('note'),season:state.season,day:state.day,type,text:String(text).slice(0,180),data},...(state.notebook||[])].slice(0,80);
 }
 function save(){
   try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}
