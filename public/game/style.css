@@ -503,3 +503,6 @@ button.primary,.primary{background:var(--green);border-color:var(--green);color:
 @media(max-width:419px){
   .field-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+.social-player-actions button span{font-size:8px;font-weight:800}
+@media(max-width:620px){.social-player-actions button span{display:none}}
