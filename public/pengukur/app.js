@@ -35,7 +35,6 @@ function refreshPhotoLabel(source='main'){
   if($('photoFilename'))$('photoFilename').textContent=name+'.png';
   const link=$('printCalibrator');
   if(link){const u=new URL(link.href,location.href);if(label)u.searchParams.set('label',label);else u.searchParams.delete('label');link.href=u.pathname+u.search;}
-  saveSettings({photoLabel:label});
 }
 function embedRectifiedLabel(image,profile,label){
   const text=String(label||'').trim().slice(0,80);if(!text)return image;
