@@ -136,10 +136,10 @@ const TECH={
   breeding:{name:'Marker Breeding',icon:'×',cost:30,requires:['genome'],desc:'Persilangan lebih sering mewarisi trait langka.',effect:'breeding'}
 };
 const EXPEDITIONS={
-  river:{name:'Riparian Strip',icon:'≋',days:2,cost:25000,desc:'Cari mikroba dan galur toleran genangan.',traits:['myco','rust'],rewardRp:[4,8]},
-  ridge:{name:'Dry Ridge',icon:'△',days:3,cost:30000,desc:'Cari akar dalam dan toleransi panas.',traits:['deep','heat'],rewardRp:[6,10]},
-  oldlab:{name:'Stasiun Lama',icon:'⌂',days:4,cost:50000,desc:'Lokasi eksperimen terbengkalai dengan peluang artefak langka.',traits:['sentinel','vigor','zero'],rewardRp:[8,14]},
-  high:{name:'Highland Pocket',icon:'▲',days:3,cost:35000,desc:'Cari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
+  river:{name:'Riparian Strip',icon:'≋',days:7,cost:25000,desc:'Ekspedisi 7 hari untuk mencari mikroba dan galur toleran genangan.',traits:['myco','rust'],rewardRp:[4,8]},
+  ridge:{name:'Dry Ridge',icon:'△',days:10,cost:30000,desc:'Ekspedisi 10 hari untuk mencari akar dalam dan toleransi panas.',traits:['deep','heat'],rewardRp:[6,10]},
+  oldlab:{name:'Stasiun Lama',icon:'⌂',days:14,cost:50000,desc:'Ekspedisi 14 hari ke lokasi eksperimen lama dengan peluang artefak langka.',traits:['sentinel','vigor','zero'],rewardRp:[8,14]},
+  high:{name:'Highland Pocket',icon:'▲',days:10,cost:35000,desc:'Ekspedisi 10 hari mencari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
 };
 const CHALLENGES={
   standard:{name:'Standar',desc:'24 petak · kontrak musim makin berat.',plots:24,maxDay:12,yield:1,reward:1,pressure:0},
@@ -426,6 +426,7 @@ function load(){
     merged.selectionPool=(Array.isArray(raw.selectionPool)?raw.selectionPool:[]).map(item=>({...item,seed:item?.seed?{...item.seed,stock:Math.max(0,Number(item.seed.stock)||6),viability:clamp(Number(item.seed.viability)||97,0,100),ageSeasons:Math.max(0,Number(item.seed.ageSeasons)||0),genome:normalizeGenome(item.seed.genome,item.seed.id||item.id,merged.simulationSeed)}:item.seed}));
     merged.academy={...base.academy,...(raw.academy||{}),completed:Array.isArray(raw.academy?.completed)?raw.academy.completed:[],answers:raw.academy?.answers&&typeof raw.academy.answers==='object'?raw.academy.answers:{}};
     merged.experimentHistory=Array.isArray(raw.experimentHistory)?raw.experimentHistory:[];
+    if(merged.experiment&&Number(merged.experiment.measureEvery)>0&&Number(merged.experiment.measureEvery)<=4)merged.experiment.measureEvery=Math.max(7,Math.min(28,Math.round(Number(merged.experiment.measureEvery))*7));
     merged.notebook=Array.isArray(raw.notebook)?raw.notebook:[];
     merged.decisionHistory=Array.isArray(raw.decisionHistory)?raw.decisionHistory:[];
     merged.onboarding={...base.onboarding,...(raw.onboarding||{})};
@@ -795,7 +796,7 @@ function createExperiment({name,question,design,kind,count,reps,custom,kindB='wa
     design,kind,kindB:factorial?kindB:'',factorial,augmented,checkCount:augmented?checkCount:0,treatments,reps,
     controlId:augmented?(treatments.find(t=>t.isCheck)?.id||''):(kind==='genotype'?'':(treatments[0]?.id||'')),
     factorA:factorial?{kind,levels:count,label:'Faktor A'}:null,factorB:factorial?{kind:kindB,levels:countB,label:'Faktor B'}:null,
-    parameters:params.length?params:['Hasil'],measureEvery:Math.max(1,Math.min(4,Number(frequency)||2)),measurementUnitCost:250,observationCost:0,
+    parameters:params.length?params:['Hasil'],measureEvery:Math.max(7,Math.min(28,Number(frequency)||14)),measurementUnitCost:250,observationCost:0,
     seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false,reviewed:false
   };
   state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
@@ -1086,7 +1087,7 @@ function freshExperimentDraft(){
     design:'rak',kind:'genotype',count:4,reps:3,custom:'',
     kindB:'water',countB:2,customB:'',checkCount:2,
     parameters:recommendedParameters(state.species).slice(0,8).join(','),
-    frequency:2
+    frequency:14
   };
 }
 function experimentKindOptions(selected='genotype'){
@@ -1120,7 +1121,7 @@ function renderExperimentWizard(step=experimentWizardStep){
     }
   }else{
     const estimated=augmented?Number(d.count)+Number(d.checkCount||2)*BLOCK_COUNT:(factorial?Number(d.count)*Number(d.countB):Number(d.count))*Number(['rak','frak','split'].includes(d.design)?BLOCK_COUNT:d.reps);
-    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${augmented?'Galur + '+d.checkCount+' check':esc(d.kind)+(factorial?' × '+esc(d.kindB):'')}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="1" ${d.frequency===1?'selected':''}>Setiap hari</option><option value="2" ${d.frequency===2?'selected':''}>Setiap 2 hari</option><option value="3" ${d.frequency===3?'selected':''}>Setiap 3 hari</option><option value="4" ${d.frequency===4?'selected':''}>Setiap 4 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">${augmented?'Check akan muncul sekali di setiap kelompok; galur baru diacak ke petak tersisa.':'Randomisasi langsung menandai petak penelitian.'} Tanaman dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
+    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${augmented?'Galur + '+d.checkCount+' check':esc(d.kind)+(factorial?' × '+esc(d.kindB):'')}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="7" ${d.frequency===7?'selected':''}>Setiap 7 hari</option><option value="14" ${d.frequency===14?'selected':''}>Setiap 14 hari</option><option value="21" ${d.frequency===21?'selected':''}>Setiap 21 hari</option><option value="28" ${d.frequency===28?'selected':''}>Setiap 28 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">${augmented?'Check akan muncul sekali di setiap kelompok; galur baru diacak ke petak tersisa.':'Randomisasi langsung menandai petak penelitian.'} Tanaman dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
   }
   openMetaModal('PENELITIAN',`📐 ${steps[experimentWizardStep-1]}`,head+body);
   const form=$('#experimentForm');
