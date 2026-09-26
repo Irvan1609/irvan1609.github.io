@@ -471,3 +471,19 @@
     font-size:12px!important;
   }
 }
+
+
+/* STAT INLINE EXPLANATIONS 2026-09-27 */
+[data-stat-help]{cursor:help}
+th[data-stat-help]{text-decoration:underline dotted;text-underline-offset:3px}
+.stat-help-popover{
+  position:fixed;z-index:180;display:grid;gap:3px;width:min(320px,calc(100vw - 16px));
+  padding:8px 9px;border:1px solid #cbd6de;border-radius:8px;background:#fff;
+  box-shadow:0 10px 28px rgba(25,44,60,.16);color:#304658;font-size:10.5px;line-height:1.35
+}
+.stat-help-popover[hidden]{display:none!important}
+.stat-help-popover b{font-size:11px;color:#213b50}
+@media(max-width:720px){
+  .stat-help-popover{font-size:11.5px;padding:10px;line-height:1.4}
+  [data-stat-help]{touch-action:manipulation}
+}
