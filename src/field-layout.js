@@ -2,7 +2,7 @@ import './field-layout.css';
 import {saveFieldPhoto,listFieldPhotos,deleteFieldPhoto} from './field-media.js';
 import {qrSvg} from './qr-lite.js';
 
-const STORE='statistical_web_field_layout_v1';
+const STORE='statistical_web_field_layout_v1',SNAPSHOT_STORE='statistical_web_field_snapshots_v1';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 let current=null,config=null,selectedRow=null,dirty=false,multiMode=false,layoutEditMode=false,dragRow=null,autoSaveTimer=0;
@@ -222,6 +222,8 @@ function ensureModal(){
             <button id="fieldAddObject" type="button">Objek lahan</button>
             <button id="fieldPrintQr" type="button">Cetak QR plot</button>
             <button id="fieldPrint" type="button">Cetak</button>
+            <button id="fieldSnapshot" type="button">Simpan snapshot</button>
+            <button id="fieldRestoreSnapshot" type="button">Pulihkan snapshot</button>
             <button id="fieldExportLayout" type="button">Ekspor denah</button>
             <button id="fieldImportLayout" type="button">Impor denah</button>
             <button id="fieldResetLayout" type="button">Reset susunan</button>
@@ -278,6 +280,7 @@ function ensureModal(){
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
   $('#fieldPrint').onclick=()=>window.print();$('#fieldPrintQr').onclick=printQrLabels;
+  $('#fieldSnapshot').onclick=saveFieldSnapshot;$('#fieldRestoreSnapshot').onclick=restoreFieldSnapshot;
   $('#fieldExportLayout').onclick=exportLayout;
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
@@ -673,6 +676,19 @@ function printQrLabels(){
   window.addEventListener('afterprint',cleanup);window.print();setTimeout(()=>{if(document.body.classList.contains('field-qr-print'))cleanup();},30000);
 }
 
+function snapshotStore(){try{const value=JSON.parse(localStorage.getItem(SNAPSHOT_STORE)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}}
+function saveFieldSnapshot(){
+  const store=snapshotStore(),key=keyFor(current),list=Array.isArray(store[key])?store[key]:[];
+  const entry={id:crypto.randomUUID(),date:new Date().toISOString(),label:String(config.session?.label||''),config:cloneConfig()};
+  store[key]=[entry,...list].slice(0,8);try{localStorage.setItem(SNAPSHOT_STORE,JSON.stringify(store));alert('Snapshot denah tersimpan di perangkat.');}catch{alert('Snapshot belum dapat disimpan.');}
+}
+function restoreFieldSnapshot(){
+  const list=snapshotStore()[keyFor(current)]||[];if(!list.length)return alert('Belum ada snapshot denah.');
+  const menu=list.map((item,index)=>(index+1)+'. '+new Date(item.date).toLocaleString('id-ID')+(item.label?' · '+item.label:'')).join('\n');
+  const choice=Number(prompt('Pilih snapshot:\n'+menu,'1'))-1;if(!Number.isInteger(choice)||choice<0||choice>=list.length)return;
+  pushLayoutHistory('pulihkan snapshot');config=normalizeConfig(current,cloneConfig(list[choice].config));writeConfig(current,config);renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+}
+
 function exportLayout(){
   const payload={version:2,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],config};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -962,7 +978,7 @@ function consumeFieldReturn(){
 }
 
 function closeFieldLayout(){
-  if(dirty&&!confirm('Ada perubahan plot yang belum disimpan. Tutup tanpa menyimpan?'))return;
+  if(dirty){if(config?.fieldMode)saveEditor({quiet:true,rerender:false});else if(!confirm('Ada perubahan plot yang belum disimpan. Tutup tanpa menyimpan?'))return;}
   $('#fieldLayoutModal')?.classList.remove('open');document.body.classList.remove('field-layout-open');
   dirty=false;multiMode=false;layoutEditMode=false;selectedRows.clear();selectedRow=null;
 }
