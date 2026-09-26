@@ -1194,11 +1194,13 @@ function unlockTech(id){
 function challengeCanStart(){return !state.field.some(Boolean)&&state.day===1&&state.seasonStats.harvests===0;}
 function startChallenge(id){
   clearUndo();const challenge=CHALLENGES[id];if(!challenge||!challengeCanStart()){toast('Challenge hanya dapat diganti pada awal musim kosong');return;}
-  state.challenge=id;state.daily=null;state.maxDay=challenge.maxDay;state.monoSeedId=challenge.mono?state.selectedSeedId:null;
+  checkpoint('Sebelum challenge '+challenge.name);
+  state.challenge=id;state.daily=null;state.weekly=null;state.maxDay=challenge.maxDay;state.monoSeedId=challenge.mono?state.selectedSeedId:null;
   state.mission=missionFor(state.season,id);state.seasonStartRp=state.rp;closeMetaModal();addLog('Challenge: '+challenge.name+'.');render();
 }
 function startDaily(){
   if(!challengeCanStart()){toast('Daily Seed hanya dapat dimulai pada awal musim kosong');return;}
+  checkpoint('Sebelum Daily '+dailyKey());
   const daily=dailyDefinition(),stored=state.records['daily:'+daily.key]||0;
   state.weekly=null;state.daily={key:daily.key,target:daily.target,previous:stored};state.challenge=daily.challenge;state.maxDay=CHALLENGES[daily.challenge].maxDay;
   state.env=daily.env;state.weather=rollWeather(state.env);state.mission={type:'yield',target:daily.target,text:'Daily target',unit:'kg'};
@@ -1219,6 +1221,7 @@ function startWeekly(){
 }
 function doPrestige(){
   if(!prestigeAvailable())return;
+  checkpoint('Sebelum New Game+ '+((state.legacy||0)+1));
   const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
   const unlocked=[...state.unlockedLocations],discoveries=[...state.discoveredTraits],achievements=[...state.achievements],tech=[...state.tech].slice(0,Math.min(2+legacy,state.tech.length));
   const next=freshState();next.legacy=legacy;next.legacyScore=score;next.coins=180000+legacy*30000;next.rp=legacy*5;next.vault=uniqueSeeds([...structuredClone(STARTER_SEEDS),...structuredClone(carry)]);next.unlockedLocations=unlocked;next.discoveredTraits=discoveries;next.achievements=achievements;next.tech=tech;next.collection=structuredClone(state.collection);next.lineage=state.lineage.slice(-40);
@@ -1329,7 +1332,7 @@ function renderPlayControls(){
   const seed=selectedSeed(),hint=playHint(),expTool=$('#experimentTool');
   if(expTool)expTool.hidden=!state.experiment||state.experiment.kind==='genotype'||state.experiment.kind==='competition';
   $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
-  $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' ×':'☝ → ▦';
+  $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' '+toolLabel(activeFieldTool)+' · klik / sapu petak':'Pilih alat → petak';
   $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
   $('#playHint').dataset.action=hint.action||'';
   $('#playHint').dataset.tool=hint.tool||'';
@@ -1595,8 +1598,8 @@ function renderDiscoveries(){
 function renderMetaStrip(){
   const loc=activeLocation(),challenge=activeChallenge(),rival=currentRival();
   $('#locationName').textContent=loc.icon+' '+loc.name;
-  $('#runModeName').textContent=state.daily?'Daily Seed':challenge.name;
-  $('#runModeHint').textContent=state.daily?state.daily.key:challenge.desc;
+  $('#runModeName').textContent=state.weekly?'Weekly Seed':state.daily?'Daily Seed':challenge.name;
+  $('#runModeHint').textContent=state.weekly?state.weekly.key:state.daily?state.daily.key:challenge.desc;
   $('#rivalName').textContent=rival.name;state.rivalTarget=computeRivalTarget();$('#rivalScore').textContent=rival.style+' · '+state.rivalTarget+' poin';
   const ghost=recordBest();$('#ghostScore').textContent=ghost?ghost.toFixed(1)+' kg':'Belum ada';
   $('#legacyValue').textContent=state.legacy||0;
