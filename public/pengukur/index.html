@@ -81,6 +81,10 @@
       <label>ID sampel<input id="sampleId" type="text" maxlength="64" placeholder="mis. 7.2.3-S1"></label>
       <button id="scanCode" type="button" disabled>Baca QR/barcode</button>
     </div>
+    <div class="photo-label-bar">
+      <label>Label foto<input id="photoLabel" type="text" maxlength="80" placeholder="mis. G1-N150-R2-07" autocomplete="off"></label>
+      <div class="photo-label-preview"><small>Nama file foto</small><b id="photoFilename">foto.jpg</b><span>Label tampil pada kotak tengah-bawah kalibrator, ikut ditanam ke foto kamera, dan menjadi nama file.</span></div>
+    </div>
     <div id="livePanel" class="live-panel" hidden>
       <div class="live-view"><video id="liveVideo" autoplay muted playsinline></video><canvas id="liveOverlay" aria-hidden="true"></canvas></div>
       <div class="live-controls"><label><input id="autoCapture" type="checkbox" checked> Ambil otomatis jika stabil</label><div id="liveQuality" class="live-quality"></div></div>
