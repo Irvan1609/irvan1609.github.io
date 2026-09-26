@@ -48,7 +48,7 @@ for(const marker of [
 ]) requireText(worker,marker,'Dataset mutation ownership');
 
 for(const marker of [
-  "gitleaks/gitleaks-action@v3",
+  "gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
   'fetch-depth: 0',
   'npm run verify'
 ]) requireText(securityWorkflow,marker,'Security workflow');
