@@ -60,8 +60,7 @@ function analysisButton(item){
   return `<button type="button" class="analysis-compact-item" data-analysis-open="${keyOf(item)}"><span>${mark}</span><b>${label}</b></button>`;
 }
 function panelMarkup(){
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b><small>Semua metode tersedia · dikelompokkan agar cepat ditemukan</small></div></div>
-    <div class="analysis-group-board">
+  return `<div class="analysis-group-board">
       ${analysisGroups.map(group=>`<section class="analysis-compact-group"><div class="analysis-compact-group-title">${group.title}</div><div class="analysis-compact-items">${group.items.map(analysisButton).join('')}</div></section>`).join('')}
     </div>`;
 }
