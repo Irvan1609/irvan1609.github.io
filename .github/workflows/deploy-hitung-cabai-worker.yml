@@ -120,7 +120,8 @@ jobs:
             \'*\') KEY="${KEY#\'}"; KEY="${KEY%\'}" ;;
           esac
           BASE="https://api.sandbox.midtrans.com"
-          STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -u "$KEY:" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
+          AUTH="$(printf '%s:' "$KEY" | base64 | tr -d '\\n')"
+          STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -H "Authorization: Basic $AUTH" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
           if [ "$STATUS" = "401" ]; then
             echo "::error::MIDTRANS_SERVER_KEY ditolak Midtrans. Copy ulang Server Key yang benar dari environment merchant yang sesuai."
             exit 1
