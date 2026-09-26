@@ -1,8 +1,9 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
+import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=12,CROSS_COST=12;
-const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-1';
+const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-2';
 const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840};
 const COSTS={
   plant:8000,water:5000,waterPrecision:3000,fertilize:6000,fertilizePrecision:4500,
@@ -905,11 +906,8 @@ function openGameHelp(){
 function seedEvidence(seed){
   const commercial=!seed?.parents?.length&&Number(seed?.generation||0)===0;
   if(commercial)return {level:4,label:'Deskripsi varietas'};
-  const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0);
-  if(tests>=3&&generation>=4)return {level:4,label:'Relatif stabil'};
-  if(tests>=2)return {level:3,label:'Didukung pengujian'};
-  if(tests>=1)return {level:2,label:'Indikasi'};
-  return {level:1,label:'Belum diketahui'};
+  const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0),stressTests=Number(seed?.stressTests||0),label=evidenceLabel({tests,generation,stressTests});
+  return {level:label==='Relatif stabil'?4:label==='Didukung pengujian'?3:label==='Indikasi'?2:1,label};
 }
 function seedTraitsHtml(seed,extra=[]){
   const evidence=seedEvidence(seed),ids=unique([...(seed?.traits||[]),...extra]);
@@ -1231,11 +1229,15 @@ function plantSelected(){
       const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?simPick(pool,'mutation-trait',state.season,index,seed.id):null;
       if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&simUnit('zero-mutation',state.season,index,seed.id)<.08)mutation='zero';
     }
+    const cropUid=uid('plant');
     crop={
-      uid:uid('plant'),species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,
-      waterSensitivity:round(.88+Math.random()*.26,2),nDemand:round(.88+Math.random()*.28,2),diseaseSusceptibility:round(.85+Math.random()*.32,2),
+      uid:cropUid,species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,
+      waterSensitivity:round(.88+simUnit('water-sensitivity',state.season,index,seed.id)*.26,2),
+      nDemand:round(.88+simUnit('n-demand',state.season,index,seed.id)*.28,2),
+      diseaseSusceptibility:round(.85+simUnit('disease-susceptibility',state.season,index,seed.id)*.32,2),
       stressLog:{water:0,n:0,disease:0,heat:0,burn:0}
     };
+    crop.samples=makeSubsamples({plotUid:plotMeta(index).uid,plantUid:cropUid,species:state.species,simulationSeed:state.simulationSeed});
   }
   rememberLineage(seed);state.field[index]=crop;applyPendingExperimentEffect(index,state.field[index]);
   const expUnit=experimentUnit(index);if(expUnit)expUnit.material={plantUid:crop.uid,seedId:seed.id,seedName:seed.name,generation:seed.generation,species:state.species};
@@ -1365,11 +1367,11 @@ function processCrop(crop,weather,index=-1){
   if(crop.burned>0){crop.stressLog.burn++;crop.burned=Math.max(0,crop.burned-1);}
   const traits=allCropTraits(crop),loc=activeLocation(),droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
   const waterLoss=traitValue(traits,'waterLoss',1)*(crop.waterSensitivity||1),nLoss=traitValue(traits,'nLoss',1)*(crop.nDemand||1);
-  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1},fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
+  const meta=index>=0?plotMeta(index):{fertility:1,moisture:1,history:[]},carry=plotCarryover(meta),fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
   const rawWater=(weather.water<0?(weather.water+seasonalWater)*waterLoss*(fx.waterLoss||1)*(1-droughtRes):weather.water+seasonalWater)+(fx.waterDaily||0),waterDelta=rawWater*(meta.moisture||1);
   crop.water=clamp(crop.water+waterDelta);
-  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss*(fx.nLoss||1)*(2-(meta.fertility||1)));
-  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1);
+  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0))*nLoss*(fx.nLoss||1)*(2-(carry.fertility||1)));
+  const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0)+(carry.diseasePressure||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1);
   if(simUnit('disease',state.season,state.day,index,crop.uid||crop.seed.id)<diseaseRisk)crop.disease=clamp(crop.disease+8+simUnit('disease-load',state.season,state.day,index,crop.uid||crop.seed.id)*12);
   else crop.disease=Math.max(0,crop.disease-2.5);
   let damage=0,stress=0;
@@ -1381,7 +1383,7 @@ function processCrop(crop,weather,index=-1){
   const guard=traitSum(traits,'healthGuard')+Math.min(.18,(state.legacy||0)*.03);crop.health=clamp(crop.health-damage*(1-guard));
   crop.stress=clamp(crop.stress+stress,0,120);
   const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.65+.18*crop.water/100+.17*crop.n/100;
-  const firstHarvestBoost=state.achievements.includes('first')?1:1.38,siteFactor=.94+.06*(meta.fertility||1);
+  const firstHarvestBoost=state.achievements.includes('first')?1:1.38,siteFactor=.94+.06*(carry.fertility||1);
   crop.growth=clamp(crop.growth+15.5*firstHarvestBoost*crop.seed.vigor*growthTrait*healthFactor*resourceFactor*siteFactor*(fx.growth||1),0,110);crop.age++;
 }
 function advanceDay(){
