@@ -89,6 +89,19 @@ if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
     setStatus(`✓ Baris ${r+1} diperbarui dari denah lahan.`);
     return {ok:true,changed:true,row:r};
   },
+  appendColumn:(name,reason='tambah parameter dari denah lahan')=>{
+    const base=String(name??'').trim();
+    if(!base)return {ok:false,error:'Nama parameter belum diisi.'};
+    if(state.headers.some(header=>header.toLocaleLowerCase('id-ID')===base.toLocaleLowerCase('id-ID')))return {ok:false,error:'Nama kolom sudah ada.'};
+    let header=base;
+    try{header=validateColumnNames([...state.headers,base]).at(-1)||base;}catch(error){return {ok:false,error:error.message};}
+    pushUndo(reason);
+    state.headers.push(header);state.rows.forEach(row=>row.push(''));
+    persist(reason,true);
+    renderGrid();
+    setStatus(`✓ Parameter ${header} ditambahkan dari denah lahan.`);
+    return {ok:true,header,index:state.headers.length-1};
+  },
   snapshotActiveDataset:(reason='sebelum analisis')=>{
     recordEditorHistory(reason,true);
     return activeDatasetPayload();
