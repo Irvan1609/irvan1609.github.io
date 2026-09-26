@@ -169,6 +169,8 @@ function ensureModal(){
       <header class="field-layout-head">
         <div class="field-layout-title"><strong id="fieldLayoutTitle">Denah lahan</strong><span id="fieldLayoutDataset"></span></div>
         <div class="field-layout-head-actions">
+          <button id="fieldUndo" type="button" title="Undo denah" aria-label="Undo denah">↶</button>
+          <button id="fieldRedo" type="button" title="Redo denah" aria-label="Redo denah">↷</button>
           <button id="fieldLayoutEdit" type="button" aria-pressed="false">Susun</button>
           <button id="fieldMultiToggle" type="button" aria-pressed="false">Multi</button>
           <button id="fieldAddParameter" type="button">+ Parameter</button>
@@ -215,6 +217,7 @@ function ensureModal(){
     if(Number.isInteger(row))api()?.focusCell?.(row,0);
   };
   $('#fieldAddParameter').onclick=addParameter;
+  $('#fieldUndo').onclick=undoLayout;$('#fieldRedo').onclick=redoLayout;
   $('#fieldLayoutEdit').onclick=()=>{layoutEditMode=!layoutEditMode;$('#fieldLayoutEdit').setAttribute('aria-pressed',String(layoutEditMode));renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);};
   $('#fieldMultiToggle').onclick=()=>{multiMode=!multiMode;selectedRows.clear();$('#fieldMultiToggle').setAttribute('aria-pressed',String(multiMode));renderMap();renderBatchEditor();};
   $('#fieldPrint').onclick=()=>window.print();
@@ -245,7 +248,10 @@ function ensureModal(){
     const target=event.target.closest('[data-field-row]');if(!layoutEditMode||!target||!Number.isInteger(dragRow))return;
     event.preventDefault();movePlotTo(dragRow,Number(target.dataset.fieldRow));dragRow=null;
   });
-  $('#fieldPlotEditor').addEventListener('input',event=>{if(!event.target.closest('[data-batch-editor]'))dirty=true;});
+  $('#fieldPlotEditor').addEventListener('input',event=>{
+    if(event.target.closest('[data-batch-editor]'))return;
+    dirty=true;clearTimeout(autoSaveTimer);autoSaveTimer=setTimeout(()=>saveEditor({quiet:true,rerender:false}),650);
+  });
   $('#fieldPlotEditor').addEventListener('click',event=>{
     if(event.target.closest('[data-field-save]'))saveEditor();
     if(event.target.closest('[data-field-prev]'))stepEditor(-1);
@@ -264,15 +270,27 @@ function ensureModal(){
   document.addEventListener('keydown',event=>{
     const modal=$('#fieldLayoutModal');if(!modal?.classList.contains('open'))return;
     const inField=!!event.target.closest('input,select,textarea');
-    if(event.key==='Escape'&&!inField){closeFieldLayout();return;}
+    const mod=event.ctrlKey||event.metaKey;
+    if(mod&&event.key.toLowerCase()==='z'&&!event.shiftKey){event.preventDefault();event.stopImmediatePropagation();undoLayout();return;}
+    if((mod&&event.key.toLowerCase()==='y')||(mod&&event.shiftKey&&event.key.toLowerCase()==='z')){event.preventDefault();event.stopImmediatePropagation();redoLayout();return;}
+    if(event.key==='Escape'&&!inField){event.preventDefault();closeFieldLayout();return;}
     if(!inField&&event.key==='ArrowLeft'){event.preventDefault();stepEditor(-1);return;}
     if(!inField&&event.key==='ArrowRight'){event.preventDefault();stepEditor(1);return;}
     if(!inField&&(event.key==='s'||event.key==='S')){event.preventDefault();$('#fieldLayoutEdit')?.click();return;}
     if(!inField&&(event.key==='m'||event.key==='M')){event.preventDefault();$('#fieldMultiToggle')?.click();}
-  });
-  document.addEventListener('stat-dataset-changed',()=>{
-    if(!$('#fieldLayoutModal')?.classList.contains('open')||dirty)return;
-    const keep=selectedRow;refreshData();if(Number.isInteger(keep)&&keep<current.rows.length)selectRow(keep);
+  },true);
+  document.addEventListener('stat-dataset-changed',event=>{
+    if(!$('#fieldLayoutModal')?.classList.contains('open'))return;
+    const patch=event.detail?.patch;
+    if(patch?.kind==='delete_row'&&Array.isArray(config?.uids)){
+      const row=Number(patch.row);if(Number.isInteger(row)&&row>=0)config.uids.splice(row,1);
+      writeConfig(current,config);
+    }else if(patch?.kind==='append_row'&&Array.isArray(config?.uids)){
+      config.uids.push(crypto.randomUUID());writeConfig(current,config);
+    }
+    if(dirty)return;
+    const keep=selectedRow;refreshData();
+    if(multiMode)renderBatchEditor();else if(Number.isInteger(keep)&&keep<current.rows.length){selectedRow=keep;renderEditor(keep);}
   });
 }
 
