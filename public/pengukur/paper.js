@@ -43,7 +43,7 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
   for(let x=m;x<=w-m+.01;x+=10)grid+=`<line x1="${x}" y1="${m}" x2="${x}" y2="${h-m}" stroke="#d8d8d8" stroke-width=".15"/>`;
   for(let y=m;y<=h-m+.01;y+=10)grid+=`<line x1="${m}" y1="${y}" x2="${w-m}" y2="${y}" stroke="#d8d8d8" stroke-width=".15"/>`;
   let ticks='',labels='';
-  const horizontalSteps=Math.round(aw),verticalSteps=Math.round(ah);
+  const horizontalSteps=Math.floor(aw+1e-9),verticalSteps=Math.floor(ah+1e-9);
   for(let mm=0;mm<=horizontalSteps;mm++){
     const x=m+mm,len=mm%10===0?4:mm%5===0?2.5:1.25;
     ticks+=`<path d="M ${x} ${m} v ${len} M ${x} ${h-m} v -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
@@ -54,7 +54,9 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
     ticks+=`<path d="M ${m} ${y} h ${len} M ${w-m} ${y} h -${len}" stroke="#111" stroke-width="${mm%10===0?.28:.16}"/>`;
     if(mm>0&&mm%10===0)labels+=`<text x="${m+6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text><text x="${w-m-6}" y="${y+.65}" font-size="1.75" text-anchor="middle">${mm}</text>`;
   }
-  const endLabel=(axis,value)=>`<text ${axis==='x'?\`x="${m+value}" y="${m+6.2}" text-anchor="middle"\`:\`x="${m+6}" y="${m+value+.65}" text-anchor="middle"\`} font-size="1.75" font-weight="700">${value.toFixed(value%1?1:0)}</text>`;
+  const endLabel=(axis,value)=>axis==='x'
+    ?`<text x="${m+value}" y="${m+6.2}" font-size="1.75" font-weight="700" text-anchor="middle">${value.toFixed(value%1?1:0)}</text>`
+    :`<text x="${m+6}" y="${m+value+.65}" font-size="1.75" font-weight="700" text-anchor="middle">${value.toFixed(value%1?1:0)}</text>`;
   if(Math.abs(aw-horizontalSteps)>.01||horizontalSteps%10!==0)labels+=endLabel('x',aw);
   if(Math.abs(ah-verticalSteps)>.01||verticalSteps%10!==0)labels+=endLabel('y',ah);
   const gray=gs.map(r=>`<rect x="${m+r.x}" y="${m+r.y}" width="${r.width}" height="${r.height}" fill="rgb(${r.target},${r.target},${r.target})" stroke="#444" stroke-width=".15"/>`).join('');
@@ -65,8 +67,6 @@ export function buildCalibratorSvg(profile,{id='AGROTIK-CAL-V3'}={}){
   <g font-family="Arial,sans-serif" fill="#111">
     <text x="${w/2}" y="${Math.max(6,m-6)}" text-anchor="middle" font-size="3.5">PENGUKUR · ${p.name} · ${p.orientation==='landscape'?'LANDSCAPE':'PORTRAIT'} · CETAK 100%</text>
     <text x="${w/2}" y="${Math.max(10,m-2)}" text-anchor="middle" font-size="2.6">${id} · area marker ${aw} × ${ah} mm</text>
-    <text x="${m+10}" y="${m+9}" font-size="2" font-weight="700">RULER mm →</text>
-    <text x="${m+2.1}" y="${m+13}" font-size="2" font-weight="700" transform="rotate(90 ${m+2.1} ${m+13})">RULER mm ↓</text>
     ${grid}${ticks}${labels}
     <rect x="${m}" y="${m}" width="${aw}" height="${ah}" fill="none" stroke="#111" stroke-width=".35"/>
     <rect x="${m+8}" y="${m+8}" width="${Math.max(1,aw-16)}" height="${Math.max(1,ah-52)}" fill="none" stroke="#777" stroke-width=".2" stroke-dasharray="2 2"/>
