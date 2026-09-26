@@ -8,6 +8,8 @@ const USER_KEY='irvan_account_user_v1';
 const LOGIN_STATE_KEY='irvan_account_login_state_v1';
 const AUTH_READY_CACHE_KEY='irvan_account_auth_ready_v1';
 const AUTH_READY_CACHE_MS=15*60*1000;
+const CLOUD_HEALTH_CACHE_KEY='irvan_cloud_health_v1';
+const CLOUD_HEALTH_CACHE_MS=5*60*1000;
 
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 let currentUser=null;
@@ -17,6 +19,8 @@ let mount=null;
 let menu=null;
 let authReady=false;
 let authChecked=false;
+let cloudHealth=null;
+let cloudMenu=null;
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
@@ -108,6 +112,43 @@ function accessClass(user){
   if(user?.membership?.active)return 'member';
   return 'freezer';
 }
+function applyCloudHealth(data){
+  cloudHealth=data&&typeof data==='object'?data:null;
+  window.IrvanCloudPolicy=cloudHealth?.policy||{mode:navigator.onLine?'unknown':'offline',features:{}};
+  document.dispatchEvent(new CustomEvent('cloudpolicychange',{detail:window.IrvanCloudPolicy}));
+}
+function lastCloudSyncText(){
+  if(!currentUser?.id)return '—';
+  try{
+    const stat=safeJson(localStorage.getItem('statistical_web_cloud_sync_v1:'+currentUser.id),null);
+    if(stat?.lastSyncAt)return new Date(stat.lastSyncAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    const game=safeJson(localStorage.getItem('agrotik_fz_cloud_sync_v1:'+currentUser.id),null);
+    if(game?.syncedAt)return new Date(game.syncedAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  }catch{}
+  return '—';
+}
+function cloudState(){
+  if(navigator.onLine===false)return {state:'offline',title:'Offline · semua data lokal tetap dapat digunakan'};
+  if(!cloudHealth?.ok)return {state:'unknown',title:'Cloud belum diperiksa · data lokal tetap tersedia'};
+  const mode=cloudHealth.policy?.mode||'normal';
+  if(mode==='emergency')return {state:'paused',title:'Cloud mode darurat · fitur lokal tetap aktif'};
+  if(mode==='saver')return {state:'saving',title:'Cloud mode hemat'};
+  return {state:'online',title:'Cloud online'};
+}
+function cloudStatusElements(){
+  const state=cloudState(),button=document.createElement('button');
+  button.type='button';button.className='account-cloud';button.dataset.state=state.state;button.textContent='☁';button.title=state.title;button.setAttribute('aria-label',state.title);button.setAttribute('aria-expanded','false');
+  cloudMenu=document.createElement('div');cloudMenu.className='account-cloud-menu';cloudMenu.hidden=true;
+  const health=cloudHealth||{},policy=health.policy||{},storage=health.storage||{};
+  const mode=policy.mode==='saver'?'Hemat':policy.mode==='emergency'?'Darurat':policy.mode==='normal'?'Normal':'—';
+  cloudMenu.innerHTML=[
+    ['Lokal','✓'],['Worker',health.ok?'✓':'—'],['D1',storage.d1?'✓':'—'],
+    ['R2 foto',storage.imagesR2?'✓':'—'],['R2 backup',storage.backupsR2?'✓':'—'],
+    ['Mode',mode],['Sinkron terakhir',lastCloudSyncText()]
+  ].map(([label,value])=>`<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
+  button.onclick=()=>{const opening=cloudMenu.hidden;cloudMenu.hidden=!opening;button.setAttribute('aria-expanded',String(opening));if(opening&&(!cloudHealth||Date.now()-Number(cloudHealth._checkedAt||0)>CLOUD_HEALTH_CACHE_MS))void checkCloudHealth(true);};
+  return [button,cloudMenu];
+}
 function dispatch(){
   window.IrvanAccount={
     get user(){return currentUser;},
@@ -117,17 +158,22 @@ function dispatch(){
     request:authFetch,
     refresh:refreshSession,
     login:startLogin,
-    logout
+    logout,
+    get cloudPolicy(){return window.IrvanCloudPolicy||null;},
+    refreshCloudStatus:()=>checkCloudHealth(true)
   };
   document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(currentUser),user:currentUser}}));
 }
 function closeMenu(){
   if(menu)menu.hidden=true;
+  if(cloudMenu)cloudMenu.hidden=true;
   mount?.querySelector('.account-trigger')?.setAttribute('aria-expanded','false');
+  mount?.querySelector('.account-cloud')?.setAttribute('aria-expanded','false');
 }
 function render(){
   if(!mount)return;
   mount.replaceChildren();
+  const cloudParts=cloudStatusElements();mount.append(...cloudParts);
   if(!currentUser){
     const button=document.createElement('button');
     button.type='button';button.className='account-login';
@@ -269,6 +315,23 @@ async function logout(){
   saveSession('',null,'');render();
   status('Anda sudah keluar.','success');
 }
+async function checkCloudHealth(force=false){
+  if(!endpoint)return null;
+  try{
+    const cached=safeJson(sessionStorage.getItem(CLOUD_HEALTH_CACHE_KEY),null);
+    if(!force&&cached&&Date.now()-Number(cached._checkedAt||0)<CLOUD_HEALTH_CACHE_MS){
+      applyCloudHealth(cached);render();return cached;
+    }
+  }catch{}
+  if(navigator.onLine===false){applyCloudHealth({ok:false,_checkedAt:Date.now(),policy:{mode:'offline',features:{}}});render();return cloudHealth;}
+  try{
+    const response=await fetch(endpoint+'/v1/health',{headers:{Accept:'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));data._checkedAt=Date.now();
+    applyCloudHealth(response.ok?data:{...data,ok:false});
+    try{sessionStorage.setItem(CLOUD_HEALTH_CACHE_KEY,JSON.stringify(cloudHealth));}catch{}
+  }catch{applyCloudHealth({ok:false,_checkedAt:Date.now(),policy:{mode:'offline',features:{}}});}
+  render();return cloudHealth;
+}
 async function checkAuthReady(){
   try{
     const cached=safeJson(sessionStorage.getItem(AUTH_READY_CACHE_KEY),null);
@@ -280,8 +343,12 @@ async function checkAuthReady(){
     const response=await fetch(endpoint+'/v1/health',{headers:{Accept:'application/json'},cache:'no-store'});
     const data=await response.json().catch(()=>({}));
     authReady=Boolean(response.ok&&data.authConfigured===true);
-    try{sessionStorage.setItem(AUTH_READY_CACHE_KEY,JSON.stringify({ready:authReady,at:Date.now()}));}catch{}
-  }catch{authReady=false;}
+    data._checkedAt=Date.now();applyCloudHealth(data);
+    try{
+      sessionStorage.setItem(AUTH_READY_CACHE_KEY,JSON.stringify({ready:authReady,at:Date.now()}));
+      sessionStorage.setItem(CLOUD_HEALTH_CACHE_KEY,JSON.stringify(data));
+    }catch{}
+  }catch{authReady=false;applyCloudHealth({ok:false,_checkedAt:Date.now(),policy:{mode:'offline',features:{}}});}
   authChecked=true;render();
 }
 async function init(){
@@ -291,9 +358,12 @@ async function init(){
   if(!handled)await refreshSession();
   if(currentUser){
     authReady=true;authChecked=true;
+    await checkCloudHealth(false);
   }else{
     await checkAuthReady();
   }
+  window.addEventListener('online',()=>void checkCloudHealth(true));
+  window.addEventListener('offline',()=>{applyCloudHealth({ok:false,_checkedAt:Date.now(),policy:{mode:'offline',features:{}}});render();});
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
