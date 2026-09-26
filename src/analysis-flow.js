@@ -67,16 +67,20 @@ function smartAnalysis(){
   const structural=header=>/(^|\b)(id|petak|plot|unit|kode|no|nomor|baris|row)(\b|$)/i.test(String(header||''));
   const categorical=data.headers.map((header,index)=>({header,index})).filter(item=>values(item.index).length&&!numeric(item.index)&&!structural(item.header));
   const find=regex=>data.headers.findIndex(header=>regex.test(String(header||'')));
+  const environment=find(/(^|\b)(lingkungan|environment|lokasi|location|site|musim|season)(\b|$)/i);
+  const genotype=find(/(^|\b)(genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
+  const parameterCount=data.headers.reduce((count,_,index)=>count+(numeric(index)?1:0),0);
+  if(environment>=0&&genotype>=0&&environment!==genotype)return {key:'nextgen:combined',label:'ANOVA Gabungan G×E',parameterCount};
   let a=find(/(^|\b)(perlakuan|treatment|genotip|genotype|varietas|variety|faktor\s*a)(\b|$)/i);
   if(a<0)a=categorical[0]?.index??-1;
   const rep=find(/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i);
   let b=find(/(^|\b)(faktor\s*b|factor\s*b|sub\s*plot|subplot|anak\s*petak)(\b|$)/i);
   if(b===a)b=-1;
-  const parameterCount=data.headers.reduce((count,_,index)=>count+(numeric(index)&&index!==rep?1:0),0);
-  if(a<0)return {key:'advanced:descriptive',label:'Statistik Deskriptif',parameterCount};
+  const singleParameterCount=data.headers.reduce((count,_,index)=>count+(numeric(index)&&index!==rep?1:0),0);
+  if(a<0)return {key:'advanced:descriptive',label:'Statistik Deskriptif',parameterCount:singleParameterCount};
   const key=b>=0?(rep>=0?'design:frak':'design:fral'):(rep>=0?'design:rak':'design:ral');
   const label=byKey.get(key)?.[2]||'Analisis';
-  return {key,label,parameterCount};
+  return {key,label,parameterCount:singleParameterCount};
 }
 function refreshSmartSuggestion(){
   const host=$('#analysisSmartSuggestion');if(!host)return;
