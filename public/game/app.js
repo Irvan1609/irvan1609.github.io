@@ -460,7 +460,8 @@ function renderDiscoveries(){
   const traitCards=Object.entries(TRAITS).map(([id,t])=>`<div class="discovery ${state.discoveredTraits.includes(id)?'':'locked'}"><b>${state.discoveredTraits.includes(id)?esc(t.icon+' '+t.name):'?'}</b><span>${state.discoveredTraits.includes(id)?esc(t.desc):'Belum ditemukan'}</span></div>`).join('');
   const achCards=Object.entries(ACHIEVEMENTS).map(([id,a])=>`<div class="discovery ${state.achievements.includes(id)?'':'locked'}"><b>${state.achievements.includes(id)?'◆ '+esc(a.name):'◇ ???'}</b><span>${state.achievements.includes(id)?esc(a.desc):'Achievement terkunci'}</span></div>`).join('');
   const lore=state.lore.length?`<div class="discovery-grid">${state.lore.map(text=>`<div class="discovery"><b>Fragment</b><span>${esc(text)}</span></div>`).join('')}</div>`:'';
-  $('#discoveries').innerHTML=`<div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
+  $('#discoveries').innerHTML=`<div class="collection-toolbar"><button id="openCollectionBook" type="button">Buka Collection Book</button><span>${state.discoveredTraits.length} trait · ${state.achievements.length} achievement</span></div><div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
+  $('#openCollectionBook').onclick=openCollectionBook;
   $('#discoveryCount').textContent=(state.discoveredTraits.length+state.achievements.length);
 }
 function renderMetaStrip(){
@@ -833,17 +834,19 @@ function crossSeeds(){
 }
 
 function bind(){
-  $('#fieldGrid').addEventListener('click',event=>{const plot=event.target.closest('[data-plot]');if(!plot)return;state.selectedPlot=Number(plot.dataset.plot);beep(330);renderField();renderInspector();});
-  $('#vaultList').addEventListener('click',event=>{const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();toast('Benih dipilih');});
+  $('#fieldGrid').addEventListener('click',event=>{const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;state.selectedPlot=Number(plot.dataset.plot);beep(330);renderField();renderInspector();});
+  $('#vaultList').addEventListener('click',event=>{const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();renderGenomeLab();toast('Benih dipilih');});
   $('#nextDay').onclick=advanceDay;$('#finishSeason').onclick=finishSeason;
   $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
   $('#saveBestSeed').onclick=saveBestCandidate;$('#nextSeason').onclick=beginNextSeason;
   $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
   $('#soundToggle').onclick=()=>{state.sound=!state.sound;save();renderHud();beep(520,.05);};
-  $('#newRun').onclick=()=>{if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;render();toast('Run baru dimulai');};
+  $('#newRun').onclick=()=>{if(!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;state=freshState();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();render();toast('Run baru dimulai');};
+  $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;
+  $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
   document.addEventListener('keydown',event=>{
-    if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<PLOT_COUNT){state.selectedPlot=index;renderField();renderInspector();}}
-    if(event.key==='Enter'&&!$('#eventModal').hidden)return;
+    if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}
+    if(event.key==='Escape'){closeMetaModal();}
   });
   window.addEventListener('beforeunload',save);
 }
