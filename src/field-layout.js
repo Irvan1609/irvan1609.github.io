@@ -76,6 +76,18 @@ function normalizeConfig(data,saved){
   base.sampleGroups=Array.isArray(base.sampleGroups)?base.sampleGroups.filter(group=>group&&Array.isArray(group.members)&&group.meanHeader):[];
   base.sumGroups=Array.isArray(base.sumGroups)?base.sumGroups.filter(group=>group&&group.prefix&&group.totalHeader):[];
   base.formulas=Array.isArray(base.formulas)?base.formulas.filter(item=>item&&item.type&&item.sourceHeader&&item.targetHeader):[];
+  const legacyToUid=new Map();
+  data.rows.forEach((row,index)=>{
+    const id=String(row[base.id]??'').trim()||'#'+index,group=base.group>=0?String(row[base.group]??'').trim():'all',legacy=group+'::'+id,uid=base.uids[index];
+    legacyToUid.set(legacy,uid);
+    if(base.statuses[legacy]&&!base.statuses[uid])base.statuses[uid]=base.statuses[legacy];
+    if(base.notes[legacy]&&!base.notes[uid])base.notes[uid]=base.notes[legacy];
+    if(base.roadAfter[legacy]&&!base.roadAfter[uid])base.roadAfter[uid]=base.roadAfter[legacy];
+    if(base.plotMeta[legacy]&&!base.plotMeta[uid])base.plotMeta[uid]=base.plotMeta[legacy];
+  });
+  for(const [group,order] of Object.entries(base.order||{}))if(Array.isArray(order))base.order[group]=order.map(key=>legacyToUid.get(String(key))||String(key));
+  base.objects=base.objects.map(item=>({...item,afterUid:legacyToUid.get(String(item.afterUid||''))||String(item.afterUid||'')}));
+  for(const store of [base.statuses,base.notes,base.roadAfter,base.plotMeta])for(const key of Object.keys(store))if(legacyToUid.has(key))delete store[key];
   return base;
 }
 function structuralHeader(header){
