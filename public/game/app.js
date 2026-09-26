@@ -2045,9 +2045,9 @@ function bind(){
   $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;$('#openSelection').onclick=openSelection;
   $('#quickField').onclick=()=>{state.comfort.lastView='field';save();closeInspectorSheet();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});};
   $('#quickLab').onclick=()=>{state.comfort.lastView='lab';save();closeInspectorSheet();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
-  $('#mapNursery').onclick=openSeedVault;
-  $('#mapResearch').onclick=()=>{state.comfort.lastView='lab';save();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
-  $('#mapWater').onclick=()=>{setFieldTool('water');toast('💧 Irigasi aktif · pilih petak');};
+  $('#mapNursery')?.addEventListener('click',openSeedVault);
+  $('#mapResearch')?.addEventListener('click',()=>{state.comfort.lastView='lab';save();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});});
+  $('#mapWater')?.addEventListener('click',()=>{setFieldTool('water');toast('💧 Irigasi aktif · pilih petak');});
   $('#quickMap').onclick=openWorldMap;$('#quickExperiment').onclick=openExperiment;$('#quickMore').onclick=openQuickMore;
   $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
   $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
