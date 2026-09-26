@@ -418,10 +418,12 @@ function renderSeason(){
   $('#finishSeason').hidden=state.day<state.maxDay;$('#nextDay').hidden=state.day>=state.maxDay;
 }
 function renderField(){
+  const limit=fieldLimit();
   $('#fieldGrid').innerHTML=state.field.map((crop,index)=>{
     const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'';
+    if(index>=limit)return `<button type="button" class="plot plot-locked" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>LOCK</span></div><div class="plot-empty-mark">×</div></button>`;
     if(!crop)return `<button type="button" class="plot empty${selected}" data-plot="${index}" aria-label="Petak ${index+1}, kosong"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>KOSONG</span></div><div class="plot-empty-mark">＋</div></button>`;
-    const stage=stageOf(crop),traits=allCropTraits(crop);
+    const stage=stageOf(crop);
     return `<button type="button" class="plot ${cls}${selected}" data-plot="${index}" aria-label="Petak ${index+1}, ${esc(crop.seed.name)}, ${esc(stage)}"><div class="plot-top"><span>P${String(index+1).padStart(2,'0')}</span><span>H${crop.age}</span></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${crop.n}%"></i></span></div>${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
   }).join('');
 }
@@ -431,14 +433,16 @@ function renderInspector(){
   $('#plotStage').textContent=stageOf(crop);
   if(!crop){
     const seed=selectedSeed();
-    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi dasar ${seed.baseYield.toFixed(1)} · vigor ${seed.vigor.toFixed(2)} · ${esc(seed.source)}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST?'disabled':''}>Tanam · ${PLANT_COST} koin · 1 fokus</button><p class="action-note">Trait mutasi tidak terlihat saat tanam. Scout dapat mengungkapkannya lebih awal.</p></div>`;
+    const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
+    $('#inspectorBody').innerHTML=`<div class="seed-picker"><label>Benih<select id="seedSelect">${state.vault.map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi dasar ${seed.baseYield.toFixed(1)} · vigor ${seed.vigor.toFixed(2)} · ${esc(seed.source)}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<PLANT_COST||locked||mono?'disabled':''}>${locked?'Petak dikunci challenge':mono?'Challenge: satu varietas':`Tanam · ${PLANT_COST} koin · 1 fokus`}</button><p class="action-note">Trait mutasi tidak terlihat saat tanam. ${hasTech('sensor')?'Sensor aktif: indikator stres lebih akurat.':'Scout dapat mengungkapkannya lebih awal.'}</p></div>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;
     return;
   }
   const knownExtra=crop.revealed&&crop.mutation?[crop.mutation]:[];
   const mutationText=crop.mutation?(crop.revealed?traitMeta(crop.mutation).name:'Belum diketahui'):'Tidak terdeteksi';
-  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres akumulatif ${Math.round(crop.stress)} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<1||crop.health<=0?'disabled':''}>💧 Irigasi · 1 fokus</button><button data-crop-action="fertilize" ${state.focus<1||state.coins<5||crop.health<=0?'disabled':''}>N Pupuk · 5 koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Scout · 1 fokus</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Pertumbuhan ${Math.round(crop.growth)}%. Kondisi air, N, penyakit, lingkungan, dan trait menentukan hasil akhir.</p>`;
+  const fertilizerCost=hasTech('precisionN')?3:5,waterFocus=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,scoutReward=2+(hasTech('drone')?2:0);
+  $('#inspectorBody').innerHTML=`<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hasTech('sensor')?` · risiko ${crop.water<25||crop.n<25||crop.disease>35?'TINGGI':'rendah'}`:''} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||crop.health<=0?'disabled':''}>💧 Irigasi · ${waterFocus} fokus</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${fertilizerCost} koin</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Scout · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Pertumbuhan ${Math.round(crop.growth)}%. Kondisi air, N, penyakit, lokasi, challenge, teknologi, dan trait menentukan hasil akhir.</p>`;
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction));
 }
 function renderVault(){
@@ -459,8 +463,102 @@ function renderDiscoveries(){
   $('#discoveries').innerHTML=`<div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
   $('#discoveryCount').textContent=(state.discoveredTraits.length+state.achievements.length);
 }
+function renderMetaStrip(){
+  const loc=activeLocation(),challenge=activeChallenge(),rival=currentRival();
+  $('#locationName').textContent=loc.icon+' '+loc.name;
+  $('#runModeName').textContent=state.daily?'Daily Seed':challenge.name;
+  $('#runModeHint').textContent=state.daily?state.daily.key:challenge.desc;
+  $('#rivalName').textContent=rival.name;state.rivalTarget=computeRivalTarget();$('#rivalScore').textContent='Target '+state.rivalTarget+' kg';
+  const ghost=recordBest();$('#ghostScore').textContent=ghost?ghost.toFixed(1)+' kg':'Belum ada';
+  $('#legacyValue').textContent=state.legacy||0;
+}
+function renderTechTree(){
+  $('#techCount').textContent=state.tech.length+'/'+Object.keys(TECH).length;
+  $('#techTree').innerHTML=Object.entries(TECH).map(([id,tech])=>{
+    const owned=hasTech(id),requiresOk=tech.requires.every(hasTech),ready=techReady(id);
+    return `<button type="button" class="tech-node ${owned?'owned':requiresOk?'available':'locked'}" data-tech="${id}" ${owned||!requiresOk?'disabled':''}><span>${tech.icon}</span><b>${esc(tech.name)}</b><small>${owned?'Aktif':tech.cost+' RP'}</small></button>`;
+  }).join('');
+  $('#techTree').querySelectorAll('[data-tech]').forEach(button=>button.onclick=()=>unlockTech(button.dataset.tech));
+}
+function renderExpedition(){
+  const host=$('#expeditionPanel');
+  if(!expeditionAvailable()){host.innerHTML='<div class="meta-empty">Buka <b>Field Expedition</b> di Tech Tree.</div>';$('#expeditionStatus').textContent='Terkunci';return;}
+  if(state.expedition){
+    const ex=EXPEDITIONS[state.expedition.id],done=state.expedition.total-state.expedition.remaining;
+    $('#expeditionStatus').textContent=state.expedition.remaining+' hari';
+    host.innerHTML=`<div class="expedition-running"><b>${ex.icon} ${esc(ex.name)}</b><span>${esc(ex.desc)}</span><div class="progress-track"><i style="width:${done/state.expedition.total*100}%"></i></div><small>Bergerak setiap Hari berikutnya.</small></div>`;return;
+  }
+  $('#expeditionStatus').textContent='Siap';
+  host.innerHTML=`<div class="expedition-list">${Object.entries(EXPEDITIONS).map(([id,ex])=>`<button type="button" data-expedition="${id}" ${state.coins<ex.cost?'disabled':''}><span>${ex.icon}</span><b>${esc(ex.name)}</b><small>${ex.days} hari · ${ex.cost} koin</small></button>`).join('')}</div>`;
+  host.querySelectorAll('[data-expedition]').forEach(button=>button.onclick=()=>startExpedition(button.dataset.expedition));
+}
+function renderGenomeLab(){
+  const host=$('#genomeLab');
+  if(!hasTech('genome')){host.innerHTML='<div class="meta-empty">Genome Lab tersedia setelah riset <b>Genome Lab</b>.</div>';$('#genomeStatus').textContent='Terkunci';return;}
+  $('#genomeStatus').textContent=state.genomePuzzle?'Sequencing':'Siap';
+  if(!state.genomePuzzle){
+    host.innerHTML=`<div class="genome-start"><span>⌬</span><div><b>Decode ${esc(selectedSeed().name)}</b><small>5 RP · baca marker dan pilih trait laten yang paling cocok.</small></div><button id="startGenome" type="button" ${state.rp<5?'disabled':''}>Scan</button></div>`;
+    $('#startGenome').onclick=startGenomePuzzle;return;
+  }
+  const p=state.genomePuzzle;
+  host.innerHTML=`<div class="genome-puzzle"><div class="genome-markers">${p.markers.map(base=>`<b>${esc(base)}</b>`).join('')}</div><small>Marker terdeteksi. Trait laten mana yang paling sesuai?</small><div class="genome-choices">${p.candidates.map(id=>`<button type="button" data-genome-choice="${id}">${esc(traitMeta(id).icon+' '+traitMeta(id).name)}</button>`).join('')}</div></div>`;
+  host.querySelectorAll('[data-genome-choice]').forEach(button=>button.onclick=()=>solveGenome(button.dataset.genomeChoice));
+}
+function renderEvolution(){
+  STARTER_SEEDS.forEach(rememberLineage);state.vault.forEach(rememberLineage);
+  const recent=[...state.lineage].sort((a,b)=>b.generation-a.generation).slice(0,8);
+  $('#evolutionPreview').innerHTML=recent.map(node=>`<div class="evolution-node"><span>G${node.generation}</span><b>${esc(node.name)}</b><small>${node.parents?.length?node.parents.length+' induk':esc(node.source||'Founder')}</small></div>`).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
+}
+function renderMeta(){
+  renderMetaStrip();renderTechTree();renderExpedition();renderGenomeLab();renderEvolution();
+}
+function openMetaModal(kicker,title,html){
+  $('#metaModalKicker').textContent=kicker;$('#metaModalTitle').textContent=title;$('#metaModalBody').innerHTML=html;$('#metaModal').hidden=false;
+}
+function closeMetaModal(){$('#metaModal').hidden=true;}
+function worldMapHtml(){
+  return `<div class="world-map">${Object.entries(LOCATIONS).map(([id,loc])=>{
+    const unlocked=locationUnlocked(id),active=id===state.location,cost=Math.max(6,loc.unlock*4);
+    return `<article class="world-node ${active?'active':''} ${unlocked?'unlocked':'locked'}"><span>${loc.icon}</span><div><b>${esc(loc.name)}</b><small>${esc(loc.desc)}</small></div>${active?'<em>AKTIF</em>':unlocked?`<button data-travel="${id}">Pindah</button>`:`<button data-unlock-location="${id}" ${canUnlockLocation(id)&&state.rp>=cost?'':'disabled'}>Buka · ${cost} RP</button>`}</article>`;
+  }).join('')}</div>`;
+}
+function openWorldMap(){
+  openMetaModal('WORLD MAP','Wilayah penelitian',worldMapHtml());
+  $('#metaModalBody').querySelectorAll('[data-travel]').forEach(button=>button.onclick=()=>travelLocation(button.dataset.travel));
+  $('#metaModalBody').querySelectorAll('[data-unlock-location]').forEach(button=>button.onclick=()=>{unlockLocation(button.dataset.unlockLocation);openWorldMap();});
+}
+function challengeHtml(){
+  const daily=dailyDefinition();
+  return `<div class="challenge-grid">${Object.entries(CHALLENGES).map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><button data-daily-start ${challengeCanStart()?'':'disabled'}>Mulai Daily</button></div>`;
+}
+function openChallenges(){
+  openMetaModal('RUN MODES','Challenge & Daily Seed',challengeHtml());
+  $('#metaModalBody').querySelectorAll('[data-challenge]').forEach(button=>button.onclick=()=>startChallenge(button.dataset.challenge));
+  $('#metaModalBody').querySelector('[data-daily-start]')?.addEventListener('click',startDaily);
+}
+function openRival(){
+  openMetaModal('RIVAL SCIENTIST','Kompetitor musim ini',`<div class="rival-grid">${RIVALS.map(r=>`<button data-rival="${r.id}" class="${state.rival===r.id?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)}</span><small>Target saat ini ≈ ${round((r.base+r.growth*Math.max(0,state.season-1))*activeLocation().yield,1)} kg</small></button>`).join('')}</div><p class="meta-note">Rival dihitung offline dari musim, lokasi, dan gaya riset. Tidak memakai AI/server.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-rival]').forEach(button=>button.onclick=()=>{state.rival=button.dataset.rival;closeMetaModal();render();});
+}
+function openRecords(){
+  const rows=Object.entries(state.records).sort((a,b)=>b[1]-a[1]);
+  openMetaModal('GHOST RECORD','Rekor run pribadi',rows.length?`<div class="record-list">${rows.map(([key,value])=>`<div><b>${esc(key)}</b><span>${Number(value).toFixed(1)} kg</span></div>`).join('')}</div>`:'<div class="meta-empty">Selesaikan musim untuk membuat Ghost Record.</div>');
+}
+function openPrestige(){
+  openMetaModal('NEW GAME+','Legacy Program',`<div class="prestige-card"><span>LEGACY ${state.legacy||0}</span><b>${prestigeAvailable()?'Prestige tersedia':'Belum tersedia'}</b><p>Mulai ulang musim dengan membawa galur terbaik, lokasi yang telah terbuka, koleksi, dan sebagian teknologi. Membutuhkan musim ≥6 dan 4 achievement.</p><div class="prestige-stats"><span>Legacy score <b>${state.legacyScore||0}</b></span><span>Musim <b>${state.season}</b></span><span>Achievement <b>${state.achievements.length}</b></span></div><button data-prestige ${prestigeAvailable()?'':'disabled'}>Mulai New Game+</button></div>`);
+  $('#metaModalBody').querySelector('[data-prestige]')?.addEventListener('click',()=>{if(confirm('Mulai New Game+ dan reset run aktif?'))doPrestige();});
+}
+function openEvolution(){
+  const nodes=[...state.lineage].sort((a,b)=>a.generation-b.generation);
+  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>`<article><span>G${node.generation}</span><div><b>${esc(node.name)}</b><small>${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × '):esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`).join('')}</div>`);
+}
+function openCollectionBook(){
+  const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
+  openMetaModal('COLLECTION BOOK','Field Codex',`<div class="codex-grid"><div><small>Trait</small><b>${state.discoveredTraits.length}/${Object.keys(TRAITS).length}</b></div><div><small>Achievement</small><b>${state.achievements.length}/${Object.keys(ACHIEVEMENTS).length}</b></div><div><small>Lingkungan</small><b>${envs.length}/${ENVIRONMENTS.length}</b></div><div><small>Boss</small><b>${bosses.length}/${BOSSES.length}</b></div><div><small>Lokasi</small><b>${locations.length}/${Object.keys(LOCATIONS).length}</b></div><div><small>Benih</small><b>${state.vault.length}</b></div></div><div class="codex-list">${locations.map(id=>`<span>${LOCATIONS[id]?.icon||'•'} ${esc(LOCATIONS[id]?.name||id)}</span>`).join('')}${envs.map(id=>`<span>${esc(ENVIRONMENTS.find(e=>e.id===id)?.name||id)}</span>`).join('')}${bosses.map(id=>`<span>${esc(BOSSES.find(e=>e.id===id)?.name||id)}</span>`).join('')}</div>`);
+}
+
 function render(){
-  renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();save();
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderLog();renderDiscoveries();renderMeta();save();
   if(state.pendingEvent)renderEvent();
 }
 
