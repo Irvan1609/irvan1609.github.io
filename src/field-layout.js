@@ -120,6 +120,7 @@ function groupEntries(data){
   });
 }
 function colorLabel(data,row){return config.color>=0?String(row[config.color]??'').trim():'';}
+function factorBLabel(data,row){const index=findColumn(data.headers,[/^faktor\s*b$/i,/^factor\s*b$/i,/^b$/i],-1);return index>=0?String(row[index]??'').trim():'';}
 function plotLabel(data,row,index){
   const id=String(row[config.id]??'').trim()||String(index+1);
   const secondary=colorLabel(data,row);
@@ -279,6 +280,7 @@ function ensureModal(){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
+  $('#fieldHeatLegend').addEventListener('click',event=>{const item=event.target.closest('[data-field-highlight]');if(!item)return;$('#fieldSearch').value=item.dataset.fieldHighlight;renderMap();});
   $('#fieldMap').addEventListener('click',event=>{
     const removeObject=event.target.closest('[data-remove-field-object]');
     if(removeObject){pushLayoutHistory('hapus objek lahan');config={...config,objects:(config.objects||[]).filter(item=>String(item.id)!==removeObject.dataset.removeFieldObject)};writeConfig(current,config);renderMap();return;}
@@ -718,7 +720,7 @@ function renderMap(){
       legend.hidden=false;legend.innerHTML=`<b>${esc(current.headers[scale.index])}</b><span>${esc(String(scale.min))}</span><i></i><span>${esc(String(scale.max))}</span>`;
     }else if(config.colorMode==='treatment'){
       const values=[...new Set(current.rows.map(row=>colorLabel(current,row)).filter(Boolean))].slice(0,8);
-      legend.hidden=!values.length;legend.innerHTML=values.map(value=>`<span class="field-legend-chip" style="--legend-hue:${hashHue(value)}"><i></i>${esc(value)}</span>`).join('');
+      legend.hidden=!values.length;legend.innerHTML=values.map(value=>`<button type="button" class="field-legend-chip" data-field-highlight="${esc(value)}" style="--legend-hue:${hashHue(value)}"><i></i>${esc(value)}</button>`).join('');
     }else if(config.colorMode==='completion'){
       legend.hidden=false;legend.innerHTML='<span class="field-legend-chip"><i style="--legend-hue:135"></i>Lengkap</span><span class="field-legend-chip"><i style="--legend-hue:42"></i>Sebagian</span><span class="field-legend-chip"><i style="--legend-hue:0"></i>Kosong</span>';
     }else legend.hidden=true;
@@ -733,12 +735,12 @@ function renderMap(){
       const matches=matchingSearch(entry,current,query)&&passesFilter(entry);
       if(matches)visible++;
       if(!matches)return '<span class="field-plot-placeholder" aria-hidden="true"></span>';
-      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index),meta=config.plotMeta?.[plotKey(entry.index)]||{};
+      const labels=plotLabel(current,entry.row,entry.index),progress=rowProgress(current,entry.row),visual=visualForPlot(entry,scale),status=plotStatus(entry.index),note=plotNote(entry.index),meta=config.plotMeta?.[plotKey(entry.index)]||{},factorB=factorBLabel(current,entry.row);
       const selected=entry.index===selectedRow?' is-selected':'',multi=selectedRows.has(entry.index)?' is-multi-selected':'',special=status!=='normal'?` field-status-${status}`:'';
       const draggable=layoutEditMode?' draggable="true"':'';
       const statusLabel={missing:'Kosong',dead:'Mati',damaged:'Rusak',harvested:'Panen',border:'Border'}[status]||'';
       const plot=`<button type="button" class="field-plot field-plot-${progress.status}${selected}${multi}${special}${visual.heat?' is-heatmap':''}" data-field-row="${entry.index}" data-field-group="${esc(label)}" ${draggable} style="--plot-hue:${visual.hue}" title="Baris ${entry.index+1}${note?' · '+esc(note):''}">
-        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}${meta.photoCount?'<i class="field-plot-photo">▣</i>':''}${meta.gps?'<i class="field-plot-gps">⌖</i>':''}
+        <b>${esc(labels.id)}</b>${labels.secondary?`<span>${esc(labels.secondary)}</span>`:'<span>Plot</span>'}${factorB&&factorB!==labels.secondary?`<u>${esc(factorB)}</u>`:''}<small>${esc(visual.label)}</small>${statusLabel?`<em>${statusLabel}</em>`:''}${meta.photoCount?'<i class="field-plot-photo">▣</i>':''}${meta.gps?'<i class="field-plot-gps">⌖</i>':''}
       </button>`;
       const automatic=config.roadEvery>0&&(index+1)%(config.columns*config.roadEvery)===0&&index<ordered.length-1,manual=!!config.roadAfter?.[plotKey(entry.index)];
       const road=(automatic||manual)?`<div class="field-road" role="separator"><span>${manual?'Jalan manual':'Jalan'}</span></div>`:'';
