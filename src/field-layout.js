@@ -45,7 +45,7 @@ function defaultConfig(data){
   const group=findColumn(headers,[/kelompok/i,/blok|block/i,/ulangan|rep/i],-1);
   const color=findColumn(headers,[/^perlakuan$/i,/kombinasi/i,/faktor\s*a/i,/varietas/i,/genotip/i,/treatment/i],id);
   const columns=Math.max(2,Math.min(10,Math.ceil(Math.sqrt(Math.max(1,data.rows.length)))));
-  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,roadAfter:{},objects:[],plotMeta:{},sampleGroups:[]};
+  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,zoom:1,heatTransform:'raw',roadAfter:{},objects:[],plotMeta:{},sampleGroups:[]};
 }
 function normalizeConfig(data,saved){
   const base={...defaultConfig(data),...(saved||{})},max=Math.max(0,data.headers.length-1);
@@ -67,7 +67,7 @@ function normalizeConfig(data,saved){
   if(base.uids.length>data.rows.length)base.uids.length=data.rows.length;
   base.observer=String(base.observer||'');
   base.session=base.session&&typeof base.session==='object'?{label:String(base.session.label||''),parameter:safeIndex(base.session.parameter,-1),date:String(base.session.date||'')}:{label:'',parameter:-1,date:''};
-  base.fieldMode=base.fieldMode===true;base.flipX=base.flipX===true;base.flipY=base.flipY===true;
+  base.fieldMode=base.fieldMode===true;base.flipX=base.flipX===true;base.flipY=base.flipY===true;base.zoom=Math.max(.45,Math.min(1.8,Number(base.zoom)||1));base.heatTransform=['raw','zscore','percentile','residual'].includes(base.heatTransform)?base.heatTransform:'raw';
   base.roadAfter=base.roadAfter&&typeof base.roadAfter==='object'?base.roadAfter:{};
   base.objects=Array.isArray(base.objects)?base.objects.filter(item=>item&&typeof item==='object').slice(0,100):[];
   base.plotMeta=base.plotMeta&&typeof base.plotMeta==='object'?base.plotMeta:{};
@@ -173,6 +173,9 @@ function ensureModal(){
           <button id="fieldUndo" type="button" title="Undo denah" aria-label="Undo denah">↶</button>
           <button id="fieldRedo" type="button" title="Redo denah" aria-label="Redo denah">↷</button>
           <button id="fieldModeToggle" type="button" aria-pressed="false">Lapangan</button>
+          <button id="fieldZoomOut" type="button" aria-label="Perkecil denah">−</button>
+          <button id="fieldFit" type="button">Fit</button>
+          <button id="fieldZoomIn" type="button" aria-label="Perbesar denah">+</button>
           <button id="fieldLayoutEdit" type="button" aria-pressed="false">Susun</button>
           <button id="fieldMultiToggle" type="button" aria-pressed="false">Multi</button>
           <button id="fieldAddParameter" type="button">+ Parameter</button>
@@ -181,6 +184,9 @@ function ensureModal(){
             <button id="fieldValidateBlocks" type="button">Periksa blok</button>
             <button id="fieldCreateSessionColumn" type="button">Parameter waktu</button>
             <button id="fieldSamplePlants" type="button">Sampel tanaman</button>
+            <button id="fieldFlipX" type="button">Balik kiri-kanan</button>
+            <button id="fieldFlipY" type="button">Balik atas-bawah</button>
+            <button id="fieldAddObject" type="button">Objek lahan</button>
             <button id="fieldPrint" type="button">Cetak</button>
             <button id="fieldExportLayout" type="button">Ekspor denah</button>
             <button id="fieldImportLayout" type="button">Impor denah</button>
@@ -198,6 +204,7 @@ function ensureModal(){
         <label>Warna<select id="fieldColorColumn"></select></label>
         <label>Mode warna<select id="fieldColorMode"><option value="treatment">Perlakuan</option><option value="completion">Kelengkapan</option><option value="parameter">Heatmap</option></select></label>
         <label id="fieldHeatmapWrap">Parameter<select id="fieldHeatmapColumn"></select></label>
+        <label id="fieldHeatTransformWrap">Heatmap<select id="fieldHeatTransform"><option value="raw">Nilai mentah</option><option value="zscore">Z-score</option><option value="percentile">Persentil</option><option value="residual">Residual terakhir</option></select></label>
         <label>Filter<select id="fieldFilter"><option value="all">Semua</option><option value="empty">Data kosong</option><option value="partial">Sebagian</option><option value="complete">Lengkap</option><option value="normal">Normal</option><option value="missing">Petak kosong</option><option value="dead">Tanaman mati</option><option value="damaged">Rusak</option><option value="harvested">Panen</option><option value="border">Border</option></select></label>
         <label>Kolom<input id="fieldColumns" type="number" min="2" max="12" inputmode="numeric"></label>
         <label>Jalan / baris<input id="fieldRoadEvery" type="number" min="0" max="8" inputmode="numeric"></label>
@@ -226,6 +233,8 @@ function ensureModal(){
   };
   $('#fieldAddParameter').onclick=addParameter;
   $('#fieldModeToggle').onclick=toggleFieldMode;
+  $('#fieldZoomOut').onclick=()=>setZoom(config.zoom-.1);$('#fieldZoomIn').onclick=()=>setZoom(config.zoom+.1);$('#fieldFit').onclick=fitFieldMap;
+  $('#fieldFlipX').onclick=()=>toggleFlip('flipX');$('#fieldFlipY').onclick=()=>toggleFlip('flipY');$('#fieldAddObject').onclick=addFieldObject;
   $('#fieldValidateBlocks').onclick=validateBlocks;
   $('#fieldCreateSessionColumn').onclick=createSessionColumn;
   $('#fieldSamplePlants').onclick=setupSamplePlants;
@@ -237,7 +246,7 @@ function ensureModal(){
   $('#fieldImportLayout').onclick=()=>$('#fieldLayoutImportInput').click();
   $('#fieldResetLayout').onclick=resetLayout;
   $('#fieldLayoutImportInput').onchange=importLayout;
-  for(const id of ['fieldObserver','fieldSessionLabel','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
+  for(const id of ['fieldObserver','fieldSessionLabel','fieldActiveParameter','fieldIdColumn','fieldGroupColumn','fieldColorColumn','fieldColorMode','fieldHeatmapColumn','fieldHeatTransform','fieldFilter','fieldColumns','fieldRoadEvery','fieldNorth','fieldPlotSize','fieldSerpentine']){
     $('#'+id).addEventListener('change',readControls);
   }
   $('#fieldSearch').addEventListener('input',renderMap);
