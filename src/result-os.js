@@ -58,9 +58,9 @@ function renderInsights(reports,stale){
   const auditClass=audit.errors?'bad':audit.warnings?'warn':'good';
   const auditLabel=audit.errors?'Audit: ada masalah':audit.warnings?'Audit: perlu cek':'Audit: siap';
   return '<div class="result-os-insights">'+
-    '<button type="button" data-os-filter="ss"><b>'+ss+'</b><span>sangat nyata</span></button>'+
-    '<button type="button" data-os-filter="s"><b>'+s+'</b><span>nyata</span></button>'+
-    '<button type="button" data-os-filter="tn"><b>'+tn+'</b><span>tidak nyata</span></button>'+
+    '<span class="result-os-count"><b>'+ss+'</b><span>sangat nyata</span></span>'+
+    '<span class="result-os-count"><b>'+s+'</b><span>nyata</span></span>'+
+    '<span class="result-os-count"><b>'+tn+'</b><span>tidak nyata</span></span>'+
     '<span class="result-os-metric"><b>'+fmt(cv,2)+'%</b><span>median KK</span></span>'+
     '<span class="result-os-audit result-os-audit-'+auditClass+'">'+esc(auditLabel)+'</span>'+
     (stale?'<span class="result-os-audit result-os-audit-warn">Data berubah</span>':'')+
@@ -270,17 +270,6 @@ export function enhanceResultOS(container,reports,options={}){
       '<input type="search" data-os-search placeholder="Cari hasil…" aria-label="Cari pada hasil">'+
       '<details class="result-os-menu"><summary>Bagian</summary><div class="result-os-menu-body" role="navigation" aria-label="Bagian hasil">'+
         '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="parameter">Parameter</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="chart">Grafik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
-      '</div></details>'+
-      '<details class="result-os-menu"><summary>Tampilan</summary><div class="result-os-menu-body">'+
-        '<button type="button" data-os-focus aria-pressed="false">Fokus parameter</button>'+
-        '<button type="button" data-os-split aria-pressed="false">Dua kolom</button>'+
-        '<button type="button" data-os-important aria-pressed="false">Hanya penting</button>'+
-        '<button type="button" data-os-examiner aria-pressed="false">Mode penguji</button>'+
-        '<button type="button" data-os-proxy="compare" aria-pressed="false">Bandingkan</button>'+
-        '<button type="button" data-os-proxy="thesis" aria-pressed="false">Skripsi</button>'+
-        '<button type="button" data-os-proxy="presentation" aria-pressed="false">Presentasi</button>'+
-        '<button type="button" data-os-smart aria-pressed="false">Urutkan nyata</button>'+
-        '<button type="button" data-os-collapse-ns aria-pressed="false">Ringkas tidak nyata</button>'+
       '</div></details>'+
     '</div>'+
     renderInsights(reports,!!options.stale)+
