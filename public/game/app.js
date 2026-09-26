@@ -304,7 +304,7 @@ function freshState(){
     log:[{day:1,text:'Akademi aktif: 3 kelompok × 8 petak. Produksi, penelitian, dan pemuliaan dapat berjalan bersamaan.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
-    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index',learning:{xp:0,completed:[],correct:0,attempts:0}
+    rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index',learning:{xp:0,completed:[],reviewed:[],correct:0,attempts:0}
   };
 }
 function load(){
@@ -343,6 +343,7 @@ function load(){
     merged.experimentHistory=Array.isArray(raw.experimentHistory)?raw.experimentHistory:[];
     merged.learning={...base.learning,...(raw.learning||{})};
     merged.learning.completed=Array.isArray(merged.learning.completed)?merged.learning.completed:[];
+    merged.learning.reviewed=Array.isArray(merged.learning.reviewed)?merged.learning.reviewed:[];
     merged.seasonStats={...base.seasonStats,...(merged.seasonStats||{})};
     merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
     merged.location=LOCATIONS[merged.location]?merged.location:'zero';
@@ -1215,10 +1216,12 @@ function openAcademy(){
 function openAcademyTrack(id){
   const track=curriculum().find(item=>item.id===id);if(!track)return openAcademy();
   openMetaModal('AKADEMI · '+track.icon,track.title,`<div class="academy-lessons">${track.lessons.map(([lessonId,title,text],index)=>{
-    const key=track.id+':'+lessonId,done=learningDone(key);
-    return `<article class="${done?'done':''}"><header><span>${done?'✓':index+1}</span><b>${esc(title)}</b></header><p>${esc(text)}</p><button type="button" data-learn="${esc(key)}" ${done?'disabled':''}>${done?'Dikuasai':'Tandai setelah dipahami'}</button></article>`;
+    const key=track.id+':'+lessonId,done=learningDone(key),reviewed=state.learning.reviewed.includes(key);
+    return `<article class="${done?'done':reviewed?'reviewed':''}"><header><span>${done?'✓':index+1}</span><b>${esc(title)}</b></header><p>${esc(text)}</p><button type="button" data-review="${esc(key)}" ${reviewed||done?'disabled':''}>${done?'Dikuasai lewat praktik':reviewed?'Sudah dibaca':'Baca & simpan konsep'}</button></article>`;
   }).join('')}</div><div class="academy-actions"><button type="button" data-academy-back>← Akademi</button>${id==='design'?'<button type="button" data-academy-exp>📐 Buat percobaan</button>':''}${id==='stats'&&state.experiment?'<button type="button" data-academy-analysis>📊 Analisis percobaan aktif</button>':''}${id==='crossing'?'<button type="button" data-academy-cross>✕ Buka persilangan</button>':''}</div>`);
-  $('#metaModalBody').querySelectorAll('[data-learn]').forEach(button=>button.onclick=()=>{awardLearning(button.dataset.learn);openAcademyTrack(id);});
+  $('#metaModalBody').querySelectorAll('[data-review]').forEach(button=>button.onclick=()=>{
+    const key=button.dataset.review;if(!state.learning.reviewed.includes(key))state.learning.reviewed.push(key);save();openAcademyTrack(id);
+  });
   $('#metaModalBody').querySelector('[data-academy-back]')?.addEventListener('click',openAcademy);
   $('#metaModalBody').querySelector('[data-academy-exp]')?.addEventListener('click',openExperiment);
   $('#metaModalBody').querySelector('[data-academy-analysis]')?.addEventListener('click',openExperimentAnalysis);
