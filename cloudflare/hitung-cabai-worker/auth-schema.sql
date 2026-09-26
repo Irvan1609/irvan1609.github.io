@@ -138,6 +138,9 @@ CREATE TABLE IF NOT EXISTS backup_runs (
   object_key TEXT,
   status TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
+  checksum_sha256 TEXT,
+  verified_at TEXT,
+  validation_json TEXT NOT NULL DEFAULT '{}',
   note TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
@@ -155,3 +158,10 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
