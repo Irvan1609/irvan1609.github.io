@@ -126,3 +126,13 @@ export function interpretationQuestion(analysis){
     explanation:'Rerata tertinggi belum cukup. Struktur rancangan, galat, signifikansi ANOVA, dan unit percobaan harus dipertahankan sebelum uji lanjut.'
   };
 }
+
+export function trackQuiz(trackId){
+  const bank={
+    design:{prompt:'Lahan memiliki gradien kesuburan yang jelas dari Kelompok I ke III. Rancangan mana paling masuk akal?',options:['RAL tanpa kelompok','RAK dengan randomisasi di dalam kelompok','Menambah tanaman sampel lalu menganggapnya sebagai ulangan'],answer:1,explanation:'Blocking pada RAK membantu menyerap variasi sistematik antar bagian lahan; tanaman sampel bukan ulangan independen.'},
+    stats:{prompt:'ANOVA perlakuan nyata dan salah satu rerata paling tinggi. Apa langkah berikutnya?',options:['Langsung nyatakan perlakuan terbaik','Gunakan uji lanjut yang sesuai lalu interpretasikan besar dan arah efek','Hapus nilai terendah agar CV mengecil'],answer:1,explanation:'Signifikansi ANOVA membuka alasan untuk perbandingan lanjut; keputusan agronomis tetap melihat besar efek dan konteks biologis.'},
+    breeding:{prompt:'Galur A hasilnya tertinggi di satu lokasi tetapi sangat tidak stabil; Galur B sedikit lebih rendah namun stabil di tiga lingkungan. Apa keputusan yang ilmiah?',options:['Selalu pilih A','Pilih berdasarkan tujuan pemuliaan dan bukti G×E, bukan satu rerata','Campur datanya agar perbedaannya hilang'],answer:1,explanation:'Pemuliaan membutuhkan definisi target. Adaptasi luas, adaptasi spesifik, stabilitas, dan kualitas bukti dapat menghasilkan keputusan berbeda.'},
+    crossing:{prompt:'Apa yang paling diharapkan setelah F1 heterozigot diselfing menjadi F2?',options:['Semua tanaman identik','Segregasi genetik meningkat dan kombinasi rekombinan muncul','Heterozigositas menjadi 100%'],answer:1,explanation:'F2 adalah generasi segregasi. Selfing kemudian secara bertahap menurunkan heterozigositas dan meningkatkan fiksasi.'}
+  };
+  return bank[trackId]||bank.design;
+}
