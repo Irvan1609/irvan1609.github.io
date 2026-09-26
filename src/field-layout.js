@@ -3,8 +3,8 @@ import './field-layout.css';
 const STORE='statistical_web_field_layout_v1';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-let current=null,config=null,selectedRow=null,dirty=false,multiMode=false,layoutEditMode=false,dragRow=null;
-const selectedRows=new Set();
+let current=null,config=null,selectedRow=null,dirty=false,multiMode=false,layoutEditMode=false,dragRow=null,autoSaveTimer=0;
+const selectedRows=new Set(),layoutUndo=[],layoutRedo=[];
 
 function api(){return globalThis.StatisticalWebData||null;}
 function dataset(){
@@ -16,6 +16,25 @@ function readStore(){try{const value=JSON.parse(localStorage.getItem(STORE)||'{}
 function writeConfig(data,next){
   try{const store=readStore();store[keyFor(data)]=next;localStorage.setItem(STORE,JSON.stringify(store));}catch{}
 }
+function cloneConfig(value=config){try{return structuredClone(value);}catch{return JSON.parse(JSON.stringify(value));}}
+function pushLayoutHistory(reason='ubah denah'){
+  if(!config)return;
+  layoutUndo.push({config:cloneConfig(),reason});while(layoutUndo.length>40)layoutUndo.shift();layoutRedo.length=0;
+}
+function applyConfigSnapshot(snapshot){
+  if(!snapshot?.config)return;
+  config=normalizeConfig(current,cloneConfig(snapshot.config));writeConfig(current,config);renderControls();renderMap();
+  if(multiMode)renderBatchEditor();else if(Number.isInteger(selectedRow))renderEditor(selectedRow);
+}
+function undoLayout(){
+  const item=layoutUndo.pop();if(!item)return;
+  layoutRedo.push({config:cloneConfig(),reason:item.reason});applyConfigSnapshot(item);
+}
+function redoLayout(){
+  const item=layoutRedo.pop();if(!item)return;
+  layoutUndo.push({config:cloneConfig(),reason:item.reason});applyConfigSnapshot(item);
+}
+
 function findColumn(headers,patterns,fallback=null){
   for(const pattern of patterns){const index=headers.findIndex(header=>pattern.test(String(header||'')));if(index>=0)return index;}
   return fallback;
@@ -26,7 +45,7 @@ function defaultConfig(data){
   const group=findColumn(headers,[/kelompok/i,/blok|block/i,/ulangan|rep/i],-1);
   const color=findColumn(headers,[/^perlakuan$/i,/kombinasi/i,/faktor\s*a/i,/varietas/i,/genotip/i,/treatment/i],id);
   const columns=Math.max(2,Math.min(10,Math.ceil(Math.sqrt(Math.max(1,data.rows.length)))));
-  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{}};
+  return {id,group,color,columns:Math.min(columns,6),serpentine:true,size:'medium',north:'N',roadEvery:0,colorMode:'treatment',heatmap:-1,filter:'all',order:{},statuses:{},notes:{},uids:[],observer:'',session:{label:'',parameter:-1,date:''},fieldMode:false,flipX:false,flipY:false,roadAfter:{},objects:[],plotMeta:{}};
 }
 function normalizeConfig(data,saved){
   const base={...defaultConfig(data),...(saved||{})},max=Math.max(0,data.headers.length-1);
@@ -43,6 +62,15 @@ function normalizeConfig(data,saved){
   base.order=base.order&&typeof base.order==='object'?base.order:{};
   base.statuses=base.statuses&&typeof base.statuses==='object'?base.statuses:{};
   base.notes=base.notes&&typeof base.notes==='object'?base.notes:{};
+  base.uids=Array.isArray(base.uids)?base.uids.map(String):[];
+  while(base.uids.length<data.rows.length)base.uids.push(crypto.randomUUID());
+  if(base.uids.length>data.rows.length)base.uids.length=data.rows.length;
+  base.observer=String(base.observer||'');
+  base.session=base.session&&typeof base.session==='object'?{label:String(base.session.label||''),parameter:safeIndex(base.session.parameter,-1),date:String(base.session.date||'')}:{label:'',parameter:-1,date:''};
+  base.fieldMode=base.fieldMode===true;base.flipX=base.flipX===true;base.flipY=base.flipY===true;
+  base.roadAfter=base.roadAfter&&typeof base.roadAfter==='object'?base.roadAfter:{};
+  base.objects=Array.isArray(base.objects)?base.objects.filter(item=>item&&typeof item==='object').slice(0,100):[];
+  base.plotMeta=base.plotMeta&&typeof base.plotMeta==='object'?base.plotMeta:{};
   return base;
 }
 function structuralHeader(header){
@@ -94,7 +122,8 @@ function plotLabel(data,row,index){
   const secondary=colorLabel(data,row);
   return {id,secondary:secondary&&secondary!==id?secondary:''};
 }
-function plotKey(index){const row=current?.rows?.[index]||[];const id=String(row[config.id]??'').trim()||'#'+index;const group=config.group>=0?String(row[config.group]??'').trim():'all';return group+'::'+id;}
+function plotKey(index){return String(config?.uids?.[index]||('#'+index));}
+function plotUid(index){return plotKey(index);}
 function plotStatus(index){return String(config.statuses?.[plotKey(index)]||config.statuses?.[index]||'normal');}
 function plotNote(index){return String(config.notes?.[plotKey(index)]||config.notes?.[index]||'');}
 function passesFilter(entry){
