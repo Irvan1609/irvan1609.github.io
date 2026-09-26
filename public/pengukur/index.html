@@ -61,6 +61,7 @@
     <div class="actions">
       <a id="printCalibrator" class="button primary" href="./kalibrator.html?paper=a4" target="_blank" rel="noopener">Cetak kalibrator</a>
       <button id="downloadCalibrator" type="button">Unduh SVG</button>
+      <a id="printLensTarget" class="button" href="./kalibrator.html?paper=a4&target=lens" target="_blank" rel="noopener">Target lensa</a>
     </div>
     <p class="hint">Kalibrator memuat grid 10 mm, garis cek, marker magenta, orientasi, grayscale, dan patch warna relatif. Patch warna cetak bukan kartu warna tersertifikasi.</p>
   </section>
@@ -91,7 +92,7 @@
       <details class="lens-card"><summary>Profil lensa</summary>
         <div class="lens-grid"><label>Nama profil<input id="lensName" value="Default"></label><label>k1<input id="lensK1" type="number" step=".005" value="0"></label><label>k2<input id="lensK2" type="number" step=".005" value="0"></label></div>
         <div class="actions"><button id="saveLens">Simpan profil</button><button id="resetLens">Nolkan</button></div>
-        <p class="hint">Koreksi radial ini eksperimental. Untuk kalibrasi metrologi lensa diperlukan target dan estimasi parameter kamera khusus.</p>
+        <p class="hint">Gunakan target checkerboard untuk mengevaluasi distorsi. Koreksi radial k1/k2 tetap eksperimental dan tidak diklaim sebagai kalibrasi intrinsik metrologi penuh.</p>
       </details>
     </div>
     <div class="status-card"><b>Status</b><p id="status" role="status">Pilih foto. Seluruh pemrosesan dilakukan pada perangkat ini.</p></div>
@@ -123,16 +124,34 @@
       <label>Threshold <input id="segmentThreshold" type="range" min="15" max="100" value="46"><output id="thresholdValue">46</output></label>
       <button id="finishShape" type="button" disabled>Selesaikan bentuk</button>
       <button id="cancelMeasure" type="button" disabled>Batalkan titik</button>
-      <button id="normalizeColor" type="button" disabled>Normalisasi warna relatif</button>
+      <button id="normalizeColor" type="button" disabled>Normalisasi abu-abu</button>
+      <button id="colorChecker" type="button" disabled>ColorChecker 6 netral</button>
+      <button id="detectAllObjects" type="button" disabled>Deteksi semua objek</button>
+      <button id="saveAllObjects" type="button" disabled>Simpan semua objek</button>
+    </div>
+    <div class="research-strip">
+      <details class="research-meta"><summary>Metadata penelitian</summary>
+        <div class="research-grid">
+          <label>Eksperimen<input id="experimentId" maxlength="64"></label>
+          <label>Genotipe<input id="genotype" maxlength="64"></label>
+          <label>Perlakuan<input id="treatment" maxlength="64"></label>
+          <label>Ulangan<input id="replication" maxlength="32"></label>
+          <label>Panen / waktu<input id="harvest" maxlength="64"></label>
+          <label>Operator<input id="operator" maxlength="64"></label>
+        </div>
+      </details>
     </div>
     <div class="viewport result-viewport"><canvas id="result" aria-label="Citra terkalibrasi"></canvas></div>
-    <div class="measurement"><span>Hasil aktif</span><p id="distance">Pilih mode lalu titik pada gambar.</p></div>
+    <div class="measurement"><span>Hasil aktif</span><p id="distance">Pilih mode lalu titik pada gambar.</p><label class="reference-input">Nilai acuan (opsional)<input id="referenceValue" type="number" step="any" placeholder="untuk MAE/RMSE/R²"></label></div>
     <div id="morphologyCard" class="morphology-card" hidden></div>
     <div class="actions result-actions">
       <button id="saveMeasurement" class="primary" disabled>Simpan pengukuran</button>
       <button id="download" disabled>Foto terkalibrasi</button>
       <button id="metadata" disabled>Metadata JSON</button>
       <button id="exportCsv" disabled>CSV pengukuran</button>
+      <button id="exportXls" disabled>Excel (.xls)</button>
+      <button id="sendStat" disabled>Kirim ke /stat</button>
+      <button id="processBatch" disabled>Proses batch otomatis</button>
     </div>
   </section>
 
@@ -141,6 +160,7 @@
     <div class="records-head"><b id="recordCount">0 pengukuran</b><div class="actions"><button id="clearRecords" disabled>Hapus sesi</button><button id="sendField" hidden>Kirim ke plot</button></div></div>
     <div class="table-wrap"><table><thead><tr><th>Sampel</th><th>Foto</th><th>Mode</th><th>Nilai utama</th><th>Detail</th><th></th></tr></thead><tbody id="recordBody"><tr><td colspan="6">Belum ada pengukuran.</td></tr></tbody></table></div>
     <div id="repeatability" class="repeatability"></div>
+    <div id="validation" class="validation"></div>
   </section>
 </main>
 
