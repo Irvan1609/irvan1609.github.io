@@ -760,6 +760,7 @@ function openStatisticsLab(parameter=null){
     return;
   }
   const conclusion=result.significant?'Ada bukti pengaruh perlakuan: minimal satu rerata berbeda.':'Bukti belum cukup untuk menyatakan perlakuan berbeda.';
+  exp.reviewed=true;save();renderWorkflow();
   academyMark('stats-h0',{xp:3,rp:0,note:'Membaca ANOVA'});
   academyMark('stats-interpret',{xp:3,rp:0,note:'Interpretasi hasil'});
   openMetaModal('ANALISIS','📊 '+selected,selector+statisticsResultHtml(result)+`<section class="stat-interpretation compact-interpretation"><b>Kesimpulan</b><p>${esc(conclusion)}</p></section><div class="analysis-shortcuts"><button type="button" data-posthoc-case>Pelajari uji lanjut</button><button type="button" data-assumption-case>Residual & asumsi</button>${result.heritability===null?'':'<button type="button" data-h2-case>Heritabilitas</button>'}<button type="button" data-exp-stat class="primary">↗ Analisis lengkap /stat</button></div>`);
@@ -1552,10 +1553,10 @@ function workflowStep(){
   const candidates=selectionCandidates(state.season);
   const exp=state.experiment;
   const dataCount=exp?exp.units.filter(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!=='')).length:0;
-  if(candidates.length&&(state.day>=state.maxDay||!crops))return 'selection';
   if(ready)return 'harvest';
-  if(exp&&dataCount>=Math.max(2,Math.ceil(exp.units.length*.5)))return 'analysis';
   if(crops)return 'care';
+  if(exp&&dataCount>=2&&!exp.reviewed)return 'analysis';
+  if(candidates.length)return 'selection';
   return 'plant';
 }
 function renderWorkflow(){
