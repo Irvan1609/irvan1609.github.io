@@ -139,8 +139,16 @@ function ensureModal(){
       <header class="field-layout-head">
         <div class="field-layout-title"><strong id="fieldLayoutTitle">Denah lahan</strong><span id="fieldLayoutDataset"></span></div>
         <div class="field-layout-head-actions">
+          <button id="fieldLayoutEdit" type="button" aria-pressed="false">Susun</button>
+          <button id="fieldMultiToggle" type="button" aria-pressed="false">Multi</button>
           <button id="fieldAddParameter" type="button">+ Parameter</button>
           <button id="fieldOpenTable" type="button">Tabel</button>
+          <details class="field-layout-more"><summary>Lainnya</summary><div>
+            <button id="fieldPrint" type="button">Cetak</button>
+            <button id="fieldExportLayout" type="button">Ekspor denah</button>
+            <button id="fieldImportLayout" type="button">Impor denah</button>
+            <button id="fieldResetLayout" type="button">Reset susunan</button>
+          </div></details>
           <button id="closeFieldLayout" type="button" aria-label="Tutup denah lahan">✕</button>
         </div>
       </header>
@@ -148,7 +156,12 @@ function ensureModal(){
         <label>ID plot<select id="fieldIdColumn"></select></label>
         <label>Kelompok<select id="fieldGroupColumn"></select></label>
         <label>Warna<select id="fieldColorColumn"></select></label>
+        <label>Mode warna<select id="fieldColorMode"><option value="treatment">Perlakuan</option><option value="completion">Kelengkapan</option><option value="parameter">Heatmap</option></select></label>
+        <label id="fieldHeatmapWrap">Parameter<select id="fieldHeatmapColumn"></select></label>
+        <label>Filter<select id="fieldFilter"><option value="all">Semua</option><option value="empty">Data kosong</option><option value="partial">Sebagian</option><option value="complete">Lengkap</option><option value="normal">Normal</option><option value="missing">Petak kosong</option><option value="dead">Tanaman mati</option><option value="damaged">Rusak</option><option value="harvested">Panen</option><option value="border">Border</option></select></label>
         <label>Kolom<input id="fieldColumns" type="number" min="2" max="12" inputmode="numeric"></label>
+        <label>Jalan / baris<input id="fieldRoadEvery" type="number" min="0" max="8" inputmode="numeric"></label>
+        <label>Utara<select id="fieldNorth"><option value="N">↑ N</option><option value="E">→ N</option><option value="S">↓ N</option><option value="W">← N</option></select></label>
         <label>Ukuran<select id="fieldPlotSize"><option value="small">Kecil</option><option value="medium">Sedang</option><option value="large">Besar</option></select></label>
         <label class="field-switch"><input id="fieldSerpentine" type="checkbox"><span>Zig-zag</span></label>
         <input id="fieldSearch" type="search" placeholder="Cari plot…" aria-label="Cari plot">
@@ -156,13 +169,15 @@ function ensureModal(){
       <div class="field-layout-stats" id="fieldLayoutStats"></div>
       <main class="field-layout-workspace">
         <section class="field-map-pane">
+          <div id="fieldNorthArrow" class="field-north-arrow" aria-label="Arah utara">↑<span>N</span></div>
+          <div id="fieldHeatLegend" class="field-heat-legend" hidden></div>
           <div id="fieldMap" class="field-map"></div>
         </section>
         <aside id="fieldPlotEditor" class="field-plot-editor" aria-live="polite">
           <div class="field-editor-empty">Klik satu plot untuk mengisi data.</div>
         </aside>
       </main>
-    </div>`);
+    </div><input id="fieldLayoutImportInput" type="file" accept=".json,application/json" hidden>`);
   $('#closeFieldLayout').onclick=closeFieldLayout;
   $('#fieldOpenTable').onclick=()=>{
     const row=selectedRow;
