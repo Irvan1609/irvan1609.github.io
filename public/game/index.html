@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/agrotik.svg" type="image/svg+xml">
-  <meta name="description" content="Agrotik Field Zero — game eksperimen agronomi roguelite: tanam, amati, seleksi, dan kembangkan benih unik.">
+  <meta name="description" content="Field Zero — akademi riset, rancangan percobaan, genetika, pemuliaan tanaman, dan usaha tani.">
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
@@ -39,9 +39,9 @@
   <main class="game-shell">
     <section class="game-head">
       <div>
-        <span class="kicker">AGROTIK GAME</span>
+        <span class="kicker">AKADEMI RISET · PEMULIAAN</span>
         <h1>Field Zero</h1>
-        <p>Tanam · rawat · panen · kembangkan benih.</p>
+        <p>Rp · 📐 · 🧬 · 📊</p>
       </div>
       <div class="head-actions">
         <button id="cloudSync" class="icon-button cloud-sync" type="button" data-sync-status="local" title="Progres lokal · masuk untuk sinkron antar perangkat" aria-label="Progres lokal · masuk untuk sinkron antar perangkat">☁</button>
@@ -129,6 +129,10 @@
         <div class="panel-head"><div><small>BENIH</small><h2>Koleksi Benih</h2></div><span id="vaultCount" class="count-badge">0</span></div>
         <div id="vaultList" class="seed-list"></div>
       </section>
+      <section class="panel meta-panel selection-panel">
+        <div class="panel-head"><div><small>SELEKSI</small><h2>🧬 Kandidat</h2></div><span id="selectionCount" class="count-badge">0</span></div>
+        <button id="openSelection" class="selection-open" type="button">🧬 Seleksi generasi berikutnya</button>
+      </section>
       <section class="panel meta-panel lab-panel">
         <div class="panel-head"><div><small>BREEDING</small><h2>Persilangan</h2></div><span class="cost-badge">12 RP</span></div>
         <div class="cross-form">
@@ -186,6 +190,27 @@
     <section class="event-card meta-modal-card" role="dialog" aria-modal="true" aria-labelledby="metaModalTitle">
       <div class="modal-head"><div><span id="metaModalKicker" class="event-kicker">FIELD ZERO</span><h2 id="metaModalTitle">Panel</h2></div><button id="closeMetaModal" class="icon-button" type="button" aria-label="Tutup">×</button></div>
       <div id="metaModalBody" class="meta-modal-body"></div>
+    </section>
+  </div>
+
+  <div id="socialModal" class="event-backdrop" hidden>
+    <section class="event-card social-card" role="dialog" aria-modal="true" aria-labelledby="socialTitle">
+      <div class="modal-head">
+        <div><span class="event-kicker">FIELD ZERO ONLINE</span><h2 id="socialTitle">Sosial</h2></div>
+        <button id="closeSocial" class="icon-button" type="button" aria-label="Tutup">×</button>
+      </div>
+      <div id="socialGate" class="social-gate">
+        <b>Masuk untuk bermain bersama.</b>
+        <button id="socialLogin" class="primary" type="button">Masuk Google</button>
+      </div>
+      <div id="socialApp" hidden>
+        <nav class="social-tabs" aria-label="Menu sosial">
+          <button type="button" data-social-tab="rank" aria-pressed="true" title="Peringkat" aria-label="Peringkat">🏆</button>
+          <button type="button" data-social-tab="friends" aria-pressed="false" title="Teman" aria-label="Teman">👥</button>
+          <button type="button" data-social-tab="search" aria-pressed="false" title="Cari pemain" aria-label="Cari pemain">＋</button>
+        </nav>
+        <div id="socialContent" class="social-content"></div>
+      </div>
     </section>
   </div>
 

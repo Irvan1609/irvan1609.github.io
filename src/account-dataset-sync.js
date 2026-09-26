@@ -1,5 +1,6 @@
 import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset} from './local-dataset-store.js';
 const FILES_KEY='statistical_web_csv_files_v1';
+const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
 const META_KEY='statistical_web_dataset_meta_v1';
 const CATEGORY_KEY='statistical_web_category_metadata_v1';
@@ -231,6 +232,9 @@ async function deleteCloud(id,expectedRevision){
   }
   return data.item;
 }
+function localOnlyNames(){
+  try{return new Set(JSON.parse(localStorage.getItem(LOCAL_ONLY_KEY)||'[]').map(normalizeFileName));}catch{return new Set();}
+}
 function localItem(stores,name){
   return {name,content:String(stores.files[name]??''),meta:bundleFor(stores,name)};
 }
@@ -442,9 +446,9 @@ async function syncNow({manual=false}={}){
       counters.downloaded++;counters.localChanged=true;
     }
 
-    let mapped=mappedNameSet(sync);
+    let mapped=mappedNameSet(sync),localOnly=localOnlyNames();
     for(const name of Object.keys(stores.files)){
-      if(mapped.has(name))continue;
+      if(mapped.has(name)||localOnly.has(normalizeFileName(name)))continue;
       const item=localItem(stores,name);
       const id=crypto.randomUUID();
       try{
@@ -515,6 +519,7 @@ export function installAccountDatasetSync(){
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{};
+    if(detail.name&&localOnlyNames().has(normalizeFileName(detail.name))){setSyncStatus('Dataset game tersimpan lokal','idle');return;}
     if(currentUser&&detail.type==='rename'&&detail.previous&&detail.name){
       const sync=loadSyncState(currentUser.id);
       for(const item of Object.values(sync.items)){
