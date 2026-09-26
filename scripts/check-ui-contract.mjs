@@ -19,6 +19,7 @@ const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
 const statStyle = fs.readFileSync('src/style.css', 'utf8');
+const displaySettings = fs.readFileSync('src/display-settings.js', 'utf8');
 const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
 const chiliHtml = fs.readFileSync('public/hitung-cabai/index.html', 'utf8');
 const chiliApp = fs.readFileSync('public/hitung-cabai/app.js', 'utf8');
@@ -40,6 +41,9 @@ for (const marker of ['api.crossref.org','toRis','toBibtex','statistical_web_ref
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
 if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(', ')}`);
+
+for(const marker of ['body>.subweb-header','body>#app','body>.modal-backdrop','body>.analysis-result-dock','body>#columnContextMenu'])if(!displaySettings.includes(marker))fail('display size must scale all Statistical Web UI surfaces: '+marker);
+if(displaySettings.includes('#app{zoom:var(--ui-scale)}'))fail('display size must not scale only #app');
 
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
