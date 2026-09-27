@@ -95,7 +95,8 @@ function smartAnalysis(){
     const completeChecks=checks.every(check=>blocks.every(block=>data.rows.some(row=>String(row?.[genotype]??'').trim()===check&&String(row?.[rep]??'').trim()===block)));
     if(blocks.length>=2&&checks.length>=2&&tests.length>=1&&!irregular.length&&completeChecks){
       const roles=new Set([genotype,rep]);
-      const parameterCount=candidateParams().filter(index=>!roles.has(index)).length;
+      const helper=/^(line|check|line\s*(?:vs\.?|versus)\s*check|line_vs_check)$/i;
+      const parameterCount=candidateParams().filter(index=>!roles.has(index)&&!helper.test(header(index))).length;
       return {key:'augmented:augmented',label:'Augmented Design',parameterCount,detail:`${blocks.length} blok · ${checks.length} check · ${tests.length} entry uji`};
     }
   }
@@ -112,7 +113,7 @@ function smartAnalysis(){
   const excluded=new Set([factorA,rep].filter(index=>index>=0));
   let factorB=findNamed(/(^|\b)(faktor\s*b|factor\s*b|anak\s*petak|sub\s*plot|subplot)(\b|$)/i,excluded);
   if(factorB<0&&factorA>=0){
-    factorB=findNamed(/(^|\b)(genotip|genotype|varietas|variety|galur|entry|aksesi|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i,excluded);
+    factorB=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i,excluded);
     if(factorB>=0&&!viableFactor(factorB))factorB=-1;
   }
   if(factorA>=0&&!viableFactor(factorA))factorA=-1;
