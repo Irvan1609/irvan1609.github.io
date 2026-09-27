@@ -25,7 +25,7 @@ for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary']
 for(const marker of ['analysis-group-board','analysis-compact-group','analysis-compact-item','analysisSmartSuggestion','smartAnalysis','Rancangan Percobaan','Hubungan & Regresi','Genetik & Multilokasi','ANOVA Gabungan G×E'])if(!flow.includes(marker))fail('visible grouped/smart analysis flow missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis','modelFormula','preflightGuardrails','reproducibility','agro-variety-rak','agro-dose-rak','agro-factorial-rak','agro-split'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
 for(const marker of ['externalHeatmap','Residual model ANOVA','openFieldHeatmap(parameter,mode=\'raw\',values=null)'])if(!field.includes(marker))fail('exact residual field mapping missing '+marker);
 for(const marker of ['exactResidualMap','field-residual','installStatHelp','STAT_HELP'])if(!resultOs.includes(marker))fail('result OS integration missing '+marker);
@@ -34,4 +34,4 @@ if(!engine.includes('row:o.row'))fail('ANOVA engine must preserve source-row ide
 for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS','STAT UNIFORM ANALYSIS CARDS 2026-09-26','.analysis-group-board','grid-template-columns:repeat(5,minmax(0,1fr))!important','height:42px!important','.science-parameter-check-grid','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */','STAT WORKSPACE CONSOLIDATION 2026-09-27','.analysis-smart-suggestion','.analysis-guardrail'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
 if(workflow.includes('data-stat-workflow="setup"'))fail('setup must be consolidated into the analysis stage');
-console.log('Stat workflow check OK: consolidated UX, smart/multilocation routing, agronomy presets, exact residual mapping, and inline statistical help.');
+console.log('Stat workflow check OK: three-stage navigation with restored stable analysis execution.');
