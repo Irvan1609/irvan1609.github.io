@@ -42,11 +42,11 @@ function openData(){
   document.querySelector('#gridWrap')?.focus?.({preventScroll:true});
   setActive('data');
 }
-function openField(){
+async function openField(){
   setDockOpen(false);
-  const button=document.querySelector('#fieldLayoutTool');
-  if(button){button.click();return;}
-  globalThis.AgrotikFieldLayout?.open?.();
+  if(globalThis.AgrotikFieldLayout?.open){globalThis.AgrotikFieldLayout.open();return;}
+  try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout();}
+  catch(error){console.error('Denah lahan gagal dibuka',error);}
 }
 function openSetup(){
   setDockOpen(false);
