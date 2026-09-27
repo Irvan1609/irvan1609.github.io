@@ -179,6 +179,51 @@ proc mixed data=augrcbd;
   model yield = block check line(check);
   lsmeans line(check) / pdiff;
   ods output lsmeans=LSMEANS diffs=DIFFS tests3=DOF;
+run;
+
+data adjmeans;
+  set LSMEANS;
+  AdjMean = Estimate;
+  keep line check AdjMean StdErr;
+run;
+proc sort data=adjmeans;
+  by descending AdjMean;
+run;
+
+proc means data=DIFFS mean noprint;
+  output out=StdErrInd;
+  var StdErr;
+run;
+data StandardError;
+  set StdErrInd;
+  if _stat_='MEAN';
+  Standard_Error=StdErr;
+  keep Standard_Error;
+run;
+
+proc means data=LSMEANS mean noprint;
+  output out=lmeansInd;
+run;
+data GrandMean;
+  set lmeansInd;
+  if _stat_='MEAN';
+  Grand_Mean=Estimate;
+  keep Grand_Mean;
+run;
+
+data DOF1;
+  set DOF;
+  effect=lowcase(effect);
+  if effect='line(check)';
+  Den_DF=DenDF;
+  keep Den_DF;
+run;
+
+data LSD_CV;
+  merge StandardError DOF1 GrandMean;
+  t=tinv(1-${out.alpha}/2,Den_DF);
+  LSD=t*Standard_Error;
+  CV=(Standard_Error/Grand_Mean)*100;
 run;`;
 }
 function sasPanel(out){
