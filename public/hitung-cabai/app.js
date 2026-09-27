@@ -587,8 +587,9 @@ async function saveCurrent({auto=false,duplicateMode=''}={}){
   }
   try{
     targetId=targetId||crypto.randomUUID();existing=await transaction('readonly',store=>store.get(targetId));
-    await transaction('readwrite',store=>store.put(recordFromCurrent(targetId,existing)));
-    activeId=targetId;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await list();
+    const savedRecord=recordFromCurrent(targetId,existing);
+    await transaction('readwrite',store=>store.put(savedRecord));
+    activeId=targetId;activeDatasetSplit=savedRecord.datasetSplit;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await list();
     const synced=fieldContext?null:sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(fieldContext)sendCountToField();
     const savedName=$('sample').value.trim();
@@ -627,9 +628,9 @@ async function openRecord(row){
     const decoded=await decodeBlob(blob);revokePhotoUrl();photoBlob=blob;photoUrl=decoded.url;image=decoded.image;
     boxes=(row.boxes||[]).map(b=>[...b]);predictedDetections=(row.predictedDetections?.length?row.predictedDetections:(row.predictedBoxes||[]).map(box=>({box,score:null}))).map(d=>({box:[...d.box],score:d.score}));
     boxMeta=(row.boxMeta||hydrateMeta(boxes.map((box,i)=>({box,score:predictedDetections[i]?.score,source:row.predictionMethod})))).map(m=>({...m,reasons:[...(m.reasons||[])]}));
-    history=[];selected=-1;activeId=row.id;dirty=false;detectionRun=true;predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
-    confidenceStats=row.confidenceStats||null;qualityStats=row.qualityStats||null;cloudContributionId=row.cloudContributionId||'';cloudEditToken=row.cloudEditToken||'';contributionOperationId='';
-    batchQueue=[];batchTotal=0;batchIndex=0;$('sample').value=row.name;$('condition').value=row.condition||'normal';resetView();layoutCanvas();paint();if(!qualityStats)updateQuality();renderConfidence();updateWorkflowState();await checkDuplicate();
+    history=[];selected=-1;activeId=row.id;activeDatasetSplit=row.datasetSplit||assignedSplit(row.name||row.id);dirty=false;detectionRun=true;predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
+    confidenceStats=row.confidenceStats||null;qualityStats=row.qualityStats||null;agronomicStats=row.agronomicQuality||row.qualityStats?.agronomic||null;phenotype=row.phenotype||null;blindActive=!!row.blinded;currentImageHash=row.imageHash||imageDHash(image);cloudContributionId=row.cloudContributionId||'';cloudEditToken=row.cloudEditToken||'';contributionOperationId='';
+    batchQueue=[];batchTotal=0;batchIndex=0;$('sample').value=row.name;$('condition').value=row.condition||'normal';resetView();layoutCanvas();paint();if(!qualityStats)updateQuality();renderConfidence();updateWorkflowState();await checkDuplicate();await checkPhotoDuplicate();
     window.scrollTo({top:0,behavior:'smooth'});status('Sampel dibuka: '+boxes.length+' buah.');
   }catch{status('Foto tersimpan tidak dapat dibuka.');}
 }
@@ -647,7 +648,8 @@ function renderValidation(rows){
 }
 async function list(){
   const rows=(await transaction('readonly',store=>store.getAll())||[]).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-  renderValidation(rows);const host=$('records');host.replaceChildren();
+  rows.forEach(row=>{if(!row.datasetSplit)row.datasetSplit=assignedSplit(row.name||row.id);});
+  allRowsCache=rows;renderValidation(rows);renderResearch(rows);void checkPhotoDuplicate();const host=$('records');host.replaceChildren();
   if(!rows.length){const li=document.createElement('li');li.textContent='Belum ada data tersimpan.';host.append(li);return rows;}
   for(const row of rows){
     const li=document.createElement('li'),main=document.createElement('div'),actions=document.createElement('div');main.className='record-main';
@@ -655,7 +657,7 @@ async function list(){
     if(row.thumbnail)main.querySelector('img').src=row.thumbnail;
     main.querySelector('b').textContent=row.name;
     const correction=row.correction||matchBoxes((row.predictedDetections||row.predictedBoxes||[]),row.boxes||[],.5),priority=row.learningPriority??0;
-    main.querySelector('small').textContent=(row.boxes?.length||0)+' buah · error AI '+(correction.countError>0?'+':'')+correction.countError+' · '+(priority>=60?'prioritas training tinggi':'review '+priority+'/100');
+    main.querySelector('small').textContent=(row.boxes?.length||0)+' buah · '+(row.datasetSplit||assignedSplit(row.name||row.id))+' · '+(row.phenotype?'ukuran ✓ · ':'')+'error AI '+(correction.countError>0?'+':'')+correction.countError+' · '+(priority>=60?'prioritas training tinggi':'review '+priority+'/100');
     actions.className='record-actions';const open=document.createElement('button');open.type='button';open.textContent='Buka';open.onclick=()=>openRecord(row);
     const remove=document.createElement('button');remove.type='button';remove.textContent='Hapus';remove.onclick=()=>deleteRecord(row);actions.append(open,remove);li.append(main,actions);host.append(li);
   }
