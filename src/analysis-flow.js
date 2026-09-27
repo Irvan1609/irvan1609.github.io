@@ -130,6 +130,9 @@ function smartAnalysis(){
 }
 function refreshSmartSuggestion(){
   const host=$('#analysisSmartSuggestion');if(!host)return;
+  if(window.matchMedia?.('(max-width:720px)').matches){
+    host.hidden=true;host.innerHTML='';return;
+  }
   const smart=smartAnalysis();
   if(!smart){host.hidden=true;host.innerHTML='';return;}
   host.hidden=false;
