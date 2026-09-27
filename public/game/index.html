@@ -4,6 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#10271f">
+  <script>
+    (()=>{try{
+      const saved=JSON.parse(localStorage.getItem('agrotik_field_zero_v1')||'{}');
+      const mode=saved?.comfort?.theme||'system';
+      const theme=mode==='light'||mode==='dark'?mode:(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+      document.documentElement.dataset.theme=theme;
+      document.documentElement.style.colorScheme=theme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='light'?'#f3f7f4':'#10271f');
+    }catch{}})();
+  </script>
   <meta name="application-name" content="Agrotik">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -13,7 +23,7 @@
   <title>Field Zero · Agrotik Game</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/game/style.css?v=20260927-lightfix1">
+  <link rel="stylesheet" href="/game/style.css?v=20260927-lightfix2">
 </head>
 <body class="calm-ui">
   <header class="subweb-header">
@@ -266,7 +276,7 @@
   </div>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/game/app.js?v=20260927-lightfix1"></script>
+  <script type="module" src="/game/app.js?v=20260927-lightfix2"></script>
   <script type="module" src="/game/social.js"></script>
   <script type="module" src="/game/sync.js"></script>
   <script src="/pwa-register.js"></script>
