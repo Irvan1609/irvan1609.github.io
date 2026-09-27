@@ -43,13 +43,17 @@ function augmented(){
   const rows=[];
   const checks=['C1','C2'];
   const checkBase={C1:[45.2,46.1],C2:[49.5,50.4]};
+  const checkResidual=[[.12,-.08,-.04],[-.12,.08,.04]];
   const tests=[['G1','G2'],['G3','G4'],['G5','G6']];
   for(let b=1;b<=3;b++){
-    checks.forEach((check,i)=>rows.push([
-      `B${b}`,check,
-      round(checkBase[check][0]+(b-2)*.8+(i?0.2:-0.1)),
-      round(checkBase[check][1]+(b-2)*.55+(i?0.18:-0.08))
-    ]));
+    checks.forEach((check,i)=>{
+      const e=checkResidual[i][b-1];
+      rows.push([
+        `B${b}`,check,
+        round(checkBase[check][0]+(b-2)*.8+(i?0.2:-0.1)+e),
+        round(checkBase[check][1]+(b-2)*.55+(i?0.18:-0.08)+e*1.4)
+      ]);
+    });
     tests[b-1].forEach((test,i)=>rows.push([
       `B${b}`,test,
       round(47+b*2+i*1.4+(b===2?-.35:.25)),
