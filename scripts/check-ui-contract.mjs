@@ -86,7 +86,7 @@ for (const id of ['closeGlobalSearch','closeModal','closeDatasetName','closeData
 }
 
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
-for (const src of ['/src/main.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
+for (const src of ['/src/main.js']) if (!moduleScripts.some(value=>value===src||value.startsWith(src+'?'))) fail(`missing module script ${src}`);
 if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loaded in production shell');
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
@@ -199,6 +199,8 @@ for(const marker of ['result-os-menu','result-os-menu-body'])if(!resultOs.includ
 if(!statStyle.includes('/* COMPACT RESULT ACTIONS 2026-09-26 */')||!resultOsStyle.includes('/* COMPACT RESULT OS CONTROLS 2026-09-26 */'))fail('compact result action styles missing');
 if(!statStyle.includes('/* STAT COMPACT POLISH 2026-09-26 */')||!resultOsStyle.includes('/* RESULT OS PASSIVE METRICS 2026-09-26 */'))fail('compact polish styles missing');
 if(!statStyle.includes('/* STAT MOBILE SCALE SYSTEM 2026-09-26 */')||!resultOsStyle.includes('/* RESULT OS MOBILE SCALE SYSTEM 2026-09-26 */'))fail('mobile scale system missing');
+if(!statStyle.includes('/* STAT PHONE NO HORIZONTAL SCROLL FINAL 2026-09-27 */')||!resultOsStyle.includes('/* RESULT OS PHONE NO HORIZONTAL SCROLL 2026-09-27 */'))fail('phone no-horizontal-scroll layer missing');
+for(const marker of ['mobileGridColumnBar','applyMobileGridColumn','installMobileResponsiveTables','mobile-stack-table'])if(!main.includes(marker))fail('phone no-horizontal-scroll behavior missing '+marker);
 if(!statStyle.includes('/* STAT MOBILE VISUAL RHYTHM FINAL 2026-09-27 */')||!resultOsStyle.includes('/* RESULT OS MOBILE VISUAL RHYTHM FINAL 2026-09-27 */'))fail('mobile visual rhythm guard missing');
 for(const marker of ['data-result-filter','data-result-focus','data-compare-mode','data-publication-mode','data-result-prev','data-result-next','RESULT_ORDER','persistResultOrder','CONFIG','saveAnalysisConfig','restoreAnalysisConfig','sciencePreset','PRESETS'])if(!scientific.includes(marker))fail('analysis powerup missing '+marker);
 for(const marker of ['detectScientificDesign','quickRunLastScientific','hasSavedScientificConfig','datasetFingerprint','snapshotActiveDataset','data-stale-banner','data-presentation-mode','data-rerun-stale','resultVersion','compareHistoryEntries','data-history-compare','data-focus-error-row'])if(!scientific.includes(marker)&&!main.includes(marker))fail('analysis productivity feature missing '+marker);
