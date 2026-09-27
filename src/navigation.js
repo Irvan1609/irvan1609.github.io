@@ -2,6 +2,10 @@ export function installNavigation(){
   const nav=document.querySelector('.nav');
   const sheet=document.querySelector('.sheet-header');
   if(!nav||!sheet)return;
+  const analysisButton=document.getElementById('openAnalysis');
+  const searchButton=document.getElementById('globalSearchButton');
+  const projectToggle=document.getElementById('projectToggle');
+  const settingsToggle=document.getElementById('appSettingsToggle');
 
   const clear=document.getElementById('clearData');
   if(clear){
@@ -11,14 +15,25 @@ export function installNavigation(){
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
+  const primaryNav=document.createElement('div');
+  primaryNav.className='nav-primary';
+  primaryNav.setAttribute('aria-label','Tab utama');
+  const utilityNav=document.createElement('div');
+  utilityNav.className='nav-utilities';
+  utilityNav.setAttribute('aria-label','Pencarian dan pengaturan');
+  nav.replaceChildren(primaryNav,utilityNav);
+
+  const menuButtons=new Map();
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool','fieldLayoutTool']],
+    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
     ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
   ]){
     const button=document.createElement('button');
     button.id=id+'Button';
+    button.type='button';
     button.textContent=title;
+    button.className='nav-tab';
     button.setAttribute('aria-expanded','false');
     button.setAttribute('aria-controls',id);
 
@@ -29,8 +44,8 @@ export function installNavigation(){
     panel.setAttribute('role','group');
     panel.setAttribute('aria-label',title);
     ids.forEach(name=>{const command=document.getElementById(name);if(command)panel.append(command);});
-    nav.append(button);
     nav.after(panel);
+    menuButtons.set(id,button);
 
     button.onclick=()=>{
       const opening=panel.hidden;
@@ -41,10 +56,35 @@ export function installNavigation(){
     panel.addEventListener('click',event=>{if(event.target.closest('button'))closeMenus();});
   }
 
+  if(menuButtons.get('fileMenu'))primaryNav.append(menuButtons.get('fileMenu'));
+  if(menuButtons.get('dataMenu'))primaryNav.append(menuButtons.get('dataMenu'));
+
+  const fieldTab=document.createElement('button');
+  fieldTab.id='fieldLayoutTab';
+  fieldTab.type='button';
+  fieldTab.className='nav-tab';
+  fieldTab.textContent='Denah';
+  fieldTab.title='Denah lahan';
+  fieldTab.setAttribute('aria-label','Buka Denah Lahan');
+  primaryNav.append(fieldTab);
+
+  if(analysisButton){
+    analysisButton.classList.remove('primary');
+    analysisButton.classList.add('nav-tab');
+    primaryNav.append(analysisButton);
+  }
+  if(menuButtons.get('helpMenu'))primaryNav.append(menuButtons.get('helpMenu'));
+
+  if(projectToggle)utilityNav.append(projectToggle);
+  if(searchButton)utilityNav.append(searchButton);
+  if(settingsToggle)utilityNav.append(settingsToggle);
+
   const mobileMoreButton=document.createElement('button');
   mobileMoreButton.id='mobileMoreButton';
   mobileMoreButton.type='button';
   mobileMoreButton.textContent='Menu';
+  mobileMoreButton.title='File, Data, dan Bantuan';
+  mobileMoreButton.setAttribute('aria-label','Menu lainnya');
   mobileMoreButton.setAttribute('aria-expanded','false');
   mobileMoreButton.setAttribute('aria-controls','mobileMorePanel');
   const mobileMorePanel=document.createElement('div');
@@ -52,7 +92,8 @@ export function installNavigation(){
   mobileMorePanel.className='mobile-more-panel';
   mobileMorePanel.hidden=true;
   mobileMorePanel.innerHTML='<button type="button" data-open-command="fileMenu">File</button><button type="button" data-open-command="dataMenu">Data</button><button type="button" data-open-command="helpMenu">Bantuan</button>';
-  nav.append(mobileMoreButton);nav.after(mobileMorePanel);
+  utilityNav.append(mobileMoreButton);
+  nav.after(mobileMorePanel);
   mobileMoreButton.onclick=()=>{
     const opening=mobileMorePanel.hidden;
     closeMenus();
@@ -61,13 +102,35 @@ export function installNavigation(){
   };
   mobileMorePanel.addEventListener('click',event=>{
     const target=event.target.closest('[data-open-command]');if(!target)return;
-    const button=document.getElementById(target.dataset.openCommand+'Button');
     mobileMorePanel.hidden=true;mobileMoreButton.setAttribute('aria-expanded','false');
-    button?.click();
+    menuButtons.get(target.dataset.openCommand)?.click();
   });
 
+  function syncFieldTab(){
+    const active=document.body.classList.contains('field-layout-open');
+    fieldTab.classList.toggle('active',active);
+    if(active)fieldTab.setAttribute('aria-current','page');
+    else fieldTab.removeAttribute('aria-current');
+  }
+  syncFieldTab();
+  new MutationObserver(syncFieldTab).observe(document.body,{attributes:true,attributeFilter:['class']});
 
-  const searchButton=document.getElementById('globalSearchButton');
+  fieldTab.onclick=async()=>{
+    closeMenus();
+    fieldTab.disabled=true;
+    try{
+      const command=document.getElementById('fieldLayoutTool');
+      if(command){command.click();return;}
+      const {openFieldLayout}=await import('./field-layout.js');
+      openFieldLayout();
+    }catch(error){
+      console.error('Denah lahan gagal dimuat',error);
+      const status=document.getElementById('status');
+      if(status)status.textContent='Denah lahan belum dapat dibuka. Muat ulang halaman lalu coba lagi.';
+    }finally{fieldTab.disabled=false;}
+  };
+
+
   const searchModal=document.getElementById('globalSearchModal');
   const searchInput=document.getElementById('globalSearch');
   const searchResults=document.getElementById('globalSearchResults');
@@ -114,6 +177,7 @@ export function installNavigation(){
       outlierData:'outlier pencilan',
       fieldbookTool:'fieldbook buku lapang randomisasi rancangan',
       fieldLayoutTool:'denah lahan plot petak lapangan field map pengamatan input data',
+      fieldLayoutTab:'denah lahan plot petak lapangan field map pengamatan input data',
       dataTemplate:'template contoh data',
       analysisHistory:'riwayat analisis history',
       configureDriveBackup:'backup drive cadangan',
