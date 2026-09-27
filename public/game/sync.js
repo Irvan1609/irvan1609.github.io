@@ -1,4 +1,5 @@
 const META_PREFIX='agrotik_fz_cloud_sync_v1:';
+const QUEUE_TELEMETRY_KEY='agrotik_pending_queue_v1';
 const SYNC_DELAY=20000,MAX_DIRTY_WAIT=60000;
 let user=null,busy=false,timer=0,dirtySince=0,pendingConflict=null,ready=false;
 
@@ -6,6 +7,15 @@ const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const rupiah=value=>'Rp'+Math.max(0,Math.round(Number(value)||0)).toLocaleString('id-ID');
 function game(){return window.FieldZeroGame||null;}
+function safeModeActive(){return Boolean(window.AgrotikSafeMode)||localStorage.getItem('agrotik_safe_mode_v1')==='1';}
+function publishQueue(state='pending',message='',count=1){
+  try{
+    const value=JSON.parse(localStorage.getItem(QUEUE_TELEMETRY_KEY)||'{}')||{};
+    value.game={count,state,message:String(message||'').slice(0,160),updatedAt:Date.now()};
+    localStorage.setItem(QUEUE_TELEMETRY_KEY,JSON.stringify(value));
+    window.AgrotikShell?.setQueueState?.('game',value.game);
+  }catch{}
+}
 function metaKey(){return META_PREFIX+(user?.id||'anonymous');}
 function readMeta(){
   try{return JSON.parse(localStorage.getItem(metaKey())||'null');}catch{return null;}
@@ -99,6 +109,7 @@ async function pushLocal(baseRevision,{manual=false,keepalive=false}={}){
 }
 async function reconcile({manual=false}={}){
   const g=game();if(!user||!g||busy)return;
+  if(safeModeActive()){dirtySince=dirtySince||Date.now();setStatus('local','Safe Mode · progres aman di perangkat');publishQueue('paused','Safe Mode',1);return;}
   busy=true;setStatus('syncing','Memeriksa progres cloud…');
   try{
     const cloud=await api('/v1/game/save');
@@ -109,7 +120,7 @@ async function reconcile({manual=false}={}){
     const cloudFp=g.fingerprintSave(cloud.save);
     if(localFp===cloudFp){
       writeMeta({revision:cloud.revision,fingerprint:cloudFp,updatedAt:cloud.updatedAt||null});
-      dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');return;
+      dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');publishQueue('synced','',0);return;
     }
     if(!meta||meta.userId!==user.id){
       if(g.isFreshSave?.(localSave))adoptCloud(cloud,{announce:true});
@@ -127,10 +138,11 @@ async function reconcile({manual=false}={}){
       if(localFp!==meta.fingerprint){
         busy=false;return pushLocal(knownRevision,{manual});
       }
-      setStatus('synced','Progres tersinkron antar perangkat');dirtySince=0;return;
+      setStatus('synced','Progres tersinkron antar perangkat');dirtySince=0;publishQueue('synced','',0);return;
     }
     showConflict(localSave,cloud);
   }catch(error){
+    publishQueue('error',error?.message||'Cloud game tidak dapat diperiksa',1);
     setStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud tidak dapat diperiksa · ketuk untuk coba lagi':'Offline · progres aman di perangkat');
     if(manual)notice(navigator.onLine?'☁ Cloud tidak dapat diperiksa':'Offline · progres tetap lokal');
   }finally{busy=false;}
@@ -138,6 +150,8 @@ async function reconcile({manual=false}={}){
 function schedule(){
   if(!user||pendingConflict)return;
   if(!dirtySince)dirtySince=Date.now();
+  publishQueue(safeModeActive()?'paused':'pending',safeModeActive()?'Safe Mode':'Progres game menunggu sinkronisasi',1);
+  if(safeModeActive()){setStatus('local','Safe Mode · progres aman di perangkat');return;}
   clearTimeout(timer);
   const elapsed=Date.now()-dirtySince,delay=elapsed>=MAX_DIRTY_WAIT?100:SYNC_DELAY;
   setStatus('pending','Perubahan lokal menunggu sinkronisasi');
