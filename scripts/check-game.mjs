@@ -95,6 +95,7 @@ for(const match of app.matchAll(/\$\('#([^']+)'\)\.(?:onclick|onchange|oninput|a
 }
 if(Buffer.byteLength(app,'utf8')>260000)fail('game app exceeds 260 KB performance budget');
 if(Buffer.byteLength(css,'utf8')>100000)fail('game CSS exceeds 100 KB performance budget');
+if(Buffer.byteLength(themeCss,'utf8')>30000)fail('game theme CSS exceeds 30 KB performance budget');
 if(Buffer.byteLength(themeCss,'utf8')>20000)fail('game theme CSS exceeds 20 KB performance budget');
 if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
 
