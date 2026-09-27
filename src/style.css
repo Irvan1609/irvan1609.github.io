@@ -6321,3 +6321,24 @@ summary:focus-visible,
   .nav-primary>button{padding-left:6px;padding-right:6px;font-size:11.5px}
   .nav-primary,.nav-utilities{gap:3px}
 }
+
+
+/* AUGMENTED WORK / SAS INTEGRATION 2026-09-27 */
+.aug-partition-section{grid-column:1/-1}
+.aug-work-summary-wrap{margin-top:8px}
+.aug-sas-panel{margin-top:8px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.aug-sas-panel>summary{cursor:pointer;padding:8px 10px;font-size:.78rem;font-weight:700;list-style:none}
+.aug-sas-panel>summary::-webkit-details-marker{display:none}
+.aug-sas-panel[open]>summary{border-bottom:1px solid var(--border);background:#f8fafc}
+.aug-sas-actions{display:flex;align-items:center;gap:8px;padding:7px 8px 0}
+.aug-sas-actions button{min-height:32px;padding:5px 9px;font-size:.75rem}
+.aug-sas-actions span{font-size:.72rem;color:var(--muted)}
+.aug-sas-code{display:block;width:calc(100% - 16px);min-height:180px;max-height:320px;margin:8px;padding:8px;resize:vertical;border:1px solid var(--border);border-radius:6px;background:#fbfcfd;font:11px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;overflow:auto}
+.aug-work-summary th:first-child,.aug-work-summary td:first-child{text-align:left}
+@media(max-width:720px){
+  .aug-anova-grid,.aug-secondary-grid{grid-template-columns:1fr!important}
+  .aug-partition-section{grid-column:1}
+  .aug-sas-panel>summary{min-height:44px;display:flex;align-items:center}
+  .aug-sas-actions button{min-height:44px}
+  .aug-sas-code{min-height:150px;max-height:45vh;font-size:10px}
+}
