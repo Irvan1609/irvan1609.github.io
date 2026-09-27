@@ -88,8 +88,17 @@ export function agronomicQuality(detections=[],imageData=null){
   let contrast=null;
   if(imageData?.data&&boxes.length){
     const {data,width,height}=imageData;let inSum=0,inN=0,outSum=0,outN=0;
-    const sampleStep=Math.max(1,Math.floor(Math.sqrt(width*height/50000)));
-    const inside=(x,y)=>boxes.some(b=>x/width>=b[0]&&x/width<=b[0]+b[2]&&y/height>=b[1]&&y/height<=b[1]+b[3]);
+    const sampleStep=Math.max(1,Math.ceil(Math.sqrt((width*height)/12000)));
+    const cells=12,grid=Array.from({length:cells*cells},()=>[]);
+    boxes.forEach(b=>{
+      const x0=Math.max(0,Math.floor(b[0]*cells)),x1=Math.min(cells-1,Math.floor((b[0]+b[2])*cells));
+      const y0=Math.max(0,Math.floor(b[1]*cells)),y1=Math.min(cells-1,Math.floor((b[1]+b[3])*cells));
+      for(let gy=y0;gy<=y1;gy++)for(let gx=x0;gx<=x1;gx++)grid[gy*cells+gx].push(b);
+    });
+    const inside=(x,y)=>{
+      const nx=x/width,ny=y/height,gx=Math.min(cells-1,Math.floor(nx*cells)),gy=Math.min(cells-1,Math.floor(ny*cells));
+      return grid[gy*cells+gx].some(b=>nx>=b[0]&&nx<=b[0]+b[2]&&ny>=b[1]&&ny<=b[1]+b[3]);
+    };
     for(let y=0;y<height;y+=sampleStep)for(let x=0;x<width;x+=sampleStep){
       const i=4*(y*width+x),r=data[i],g=data[i+1],b=data[i+2],chrom=Math.max(r,g,b)-Math.min(r,g,b);
       if(inside(x,y)){inSum+=chrom;inN++;}else{outSum+=chrom;outN++;}
