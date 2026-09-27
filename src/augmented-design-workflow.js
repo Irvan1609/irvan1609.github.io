@@ -29,7 +29,7 @@ function updateAugParameterCount(){
   const target=$('#augParameterCount');if(target)target.textContent=`${selected.length} aktif`;
 }
 function syncParameters(initial=false){
-  const roles=new Set(['augBlock','augTreatment'].map(id=>$('#'+id)?.value).filter(value=>value!=='').map(Number));
+  const roles=new Set(['augBlock','augTreatment','augCheckMarker'].map(id=>$('#'+id)?.value).filter(value=>value!==''&&value!==undefined).map(Number));
   document.querySelectorAll('[data-aug-param]').forEach(input=>{
     const role=roles.has(Number(input.value)),wasRole=input.dataset.wasRole==='true';
     input.disabled=role;
@@ -51,10 +51,29 @@ function repeatedTreatments(data,index){
   }
   return [...counts].filter(([,count])=>count>1).map(([value])=>value);
 }
+function checkMarkerOptions(data){
+  return '<option value="">Otomatis dari genotipe berulang</option>'+data.headers.map((header,index)=>`<option value="${index}">${esc(header)}</option>`).join('');
+}
+function markerMeansCheck(value){
+  const text=String(value??'').trim();
+  if(!text)return false;
+  return !/^(0|0[.,]0+|cand(?:idate)?|line|test|entry|galur|uji|non[- ]?check)$/i.test(text);
+}
+function checksFromMarker(data,treatmentIndex,markerIndex){
+  if(!Number.isInteger(markerIndex)||markerIndex<0)return repeatedTreatments(data,treatmentIndex);
+  const checks=[];
+  for(const row of activeRows(data)){
+    const treatment=String(row[treatmentIndex]??'').trim();
+    if(treatment&&markerMeansCheck(row[markerIndex])&&!checks.includes(treatment))checks.push(treatment);
+  }
+  return checks;
+}
 function fillChecks(data){
   const treatment=$('#augTreatment')?.value;
   if(treatment===''||treatment===undefined)return;
-  const checks=repeatedTreatments(data,Number(treatment));
+  const markerValue=$('#augCheckMarker')?.value;
+  const markerIndex=markerValue===''||markerValue===undefined?null:Number(markerValue);
+  const checks=checksFromMarker(data,Number(treatment),markerIndex);
   const input=$('#augChecks');
   if(input){input.value=checks.join(', ');input.dataset.autoChecks=checks.join('\u0000');}
 }
@@ -296,13 +315,14 @@ export function openAugmentedDesign(){
   if(!data.headers.length)return openTool('Augmented Design','<p>Dataset belum berisi data.</p>');
   openTool('Augmented Design',`<div class="augmented-workspace aug-simple-mode">
     <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div></div>
-    <div class="aug-simple-form aug-two-role-form">
+    <div class="aug-simple-form aug-work-role-form">
       <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
       <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
+      <label><span>Penanda kontrol</span><select id="augCheckMarker">${checkMarkerOptions(data)}</select></label>
     </div>
     <section class="aug-card aug-parameter-card">${parameterField(data)}</section>
     <div id="augStructure" class="aug-structure-inline"></div>
-    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label><label><span>Perbandingan</span><select id="augComparison"><option value="lsd">BNT / LSD</option><option value="holm">Holm</option></select></label><label><span>Presisi</span><select id="augPrecision"><option value="full">Presisi penuh</option><option value="excel">Sesuai contoh Excel</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali. Mode contoh Excel tidak mengubah data sumber.</small></details>
+    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check terdeteksi</span><input id="augChecks" type="text" autocomplete="off" placeholder="Cek1, Cek2"></label><label><span>α</span><select id="augAlpha"><option value="0.05">5% (0,05)</option><option value="0.01">1% (0,01)</option></select></label><label><span>Perbandingan</span><select id="augComparison"><option value="lsd">BNT / LSD</option><option value="holm">Holm</option></select></label><label><span>Presisi perhitungan</span><select id="augPrecision"><option value="excel">Sesuai contoh Excel</option><option value="full">Presisi penuh</option></select></label></div><small class="aug-help">Penanda kontrol: 0/kosong = galur uji; nilai lain = kontrol. Jika kolom penanda tidak dipilih, check dideteksi dari genotipe berulang. Data sumber tetap utuh.</small></details>
     <div id="augmentedError" role="alert"></div>
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
@@ -311,11 +331,14 @@ export function openAugmentedDesign(){
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
+  const marker=choose($('#augCheckMarker'),/^(check|kontrol|control|penanda\s*kontrol)$/i,data,[treatment,block]);
+  if(marker<0)$('#augCheckMarker').value='';
   fillChecks(data);syncParameters(true);structurePreview(data);
   globalThis.StatisticalWebWorkflow?.setActive?.('setup');
   document.querySelectorAll('[data-aug-param]').forEach(input=>input.addEventListener('change',()=>{input.dataset.userTouched='true';updateAugParameterCount();}));
   $('#augTreatment').addEventListener('change',()=>{fillChecks(data);syncParameters(false);structurePreview(data);});
-  $('#augBlock').addEventListener('change',()=>{syncParameters(false);structurePreview(data);});
+  $('#augBlock').addEventListener('change',()=>{fillChecks(data);syncParameters(false);structurePreview(data);});
+  $('#augCheckMarker').addEventListener('change',()=>{fillChecks(data);syncParameters(false);structurePreview(data);});
   $('#augChecks').addEventListener('input',()=>structurePreview(data));
   document.querySelector('.augmented-workspace')?.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();$('#runAugmented')?.click();}
