@@ -60,6 +60,10 @@ function routeLabel(path){
 }
 function trackActivity(){
   const label=routeLabel(location.pathname);if(label)rememberRecent({label,href:location.pathname,type:'tool'});
+  try{
+    const active=String(localStorage.getItem('statistical_web_active_csv_v1')||'').replace(/\.csv$/i,'').trim();
+    if(active)rememberRecent({label:active,href:'/stat/',type:'dataset'});
+  }catch{}
   document.addEventListener('click',event=>{const a=event.target.closest?.('a[href]');if(!a)return;try{const url=new URL(a.href,location.href),name=routeLabel(url.pathname);if(url.origin===location.origin&&name)rememberRecent({label:name,href:url.pathname,type:'tool'});}catch{};});
   document.addEventListener('stat-dataset-changed',event=>{const name=String(event.detail?.name||'').replace(/\.csv$/i,'');if(name)rememberRecent({label:name,href:'/stat/',type:'dataset'});});
   document.addEventListener('fieldzero-save-change',()=>rememberRecent({label:'Field Zero · progres terakhir',href:'/game/',type:'game'}));
