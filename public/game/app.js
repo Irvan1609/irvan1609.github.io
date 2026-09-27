@@ -306,8 +306,8 @@ function plotIssue(crop){
   if(crop.health<=0)return 'mati';
   if(crop.growth>=100)return 'panen';
   if(crop.disease>=35)return 'penyakit';
-  if(crop.water<30)return 'air';
-  if(crop.n<30)return 'n';
+  if(irrigationPlan(crop,state.field.indexOf(crop)).needed)return 'air';
+  if(recommendedFertilizer(crop))return 'fertilizer';
   if(crop.health<65)return 'stres';
   return '';
 }
@@ -349,21 +349,21 @@ function criticalTasks(){
     if(exp.measureEvery&&state.day<state.maxDay){const until=exp.measureEvery-(state.day%exp.measureEvery||exp.measureEvery);if(until<=2)tasks.push('Pengamatan terjadwal ≤2 hari');}
   }
   const attention=attentionIndexes();if(attention.length)tasks.push(attention.length+' petak perlu perhatian');
-  let nWindow=0,repro=0,harvest=0;
+  let fertilizer=0,repro=0,harvest=0;
   for(const crop of crops){
-    const maturity=Math.max(1,Number((SPECIES[crop.species]||SPECIES.maize).maturityDays)||110),ratio=(Number(crop.age)||0)/maturity;
-    if(((ratio>=.08&&ratio<=.19)||(ratio>=.27&&ratio<=.40))&&crop.n<72)nWindow++;
-    if(ratio>=.46&&ratio<=.63&&(crop.water<58||crop.n<45))repro++;
+    const ratio=cropRatio(crop),index=state.field.indexOf(crop),plan=irrigationPlan(crop,index);
+    if(recommendedFertilizer(crop))fertilizer++;
+    if(ratio>=.46&&ratio<=.66&&(crop.water<plan.trigger||crop.n<42||crop.p<35||crop.k<40))repro++;
     if(ratio>=.94||crop.growth>=95)harvest++;
   }
-  if(nWindow)tasks.push('Jendela N: '+nWindow+' petak');
+  if(fertilizer)tasks.push('Kebutuhan pupuk: '+fertilizer+' petak');
   if(repro)tasks.push('Fase reproduktif kritis: '+repro+' petak');
   if(harvest)tasks.push('Menjelang panen: '+harvest+' petak');
   return unique(tasks);
 }
 function criticalStopReason(){
   if(state.pendingEvent)return 'Kejadian lapang membutuhkan keputusan';
-  const severe=state.field.slice(0,fieldLimit()).find(crop=>crop&&crop.health>0&&(crop.growth>=100||crop.water<20||crop.n<18||crop.disease>=45));
+  const severe=state.field.slice(0,fieldLimit()).find((crop,index)=>crop&&crop.health>0&&(crop.growth>=100||crop.water<20||crop.n<18||crop.p<18||crop.k<18||crop.disease>=45||irrigationPlan(crop,index).needed&&cropRatio(crop)>=.46&&cropRatio(crop)<=.66));
   if(severe)return cropPhenology(severe)==='Siap panen'?'Panen siap':'Petak memasuki kondisi kritis';
   for(const crop of state.field.slice(0,fieldLimit())){
     if(!crop||crop.health<=0)continue;
@@ -1495,10 +1495,10 @@ function playHint(){
   }
   const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
   if(ready>=0)return {icon:'🧺',text:'P'+String(ready+1).padStart(2,'0')+' ✓',action:'tool',tool:'harvest'};
-  const lowWater=state.field.findIndex(crop=>crop&&crop.health>0&&crop.water<28);
-  if(lowWater>=0)return {icon:'💧',text:'P'+String(lowWater+1).padStart(2,'0')+' butuh air',action:'tool',tool:'water'};
-  const lowN=state.field.findIndex(crop=>crop&&crop.health>0&&crop.n<28);
-  if(lowN>=0&&!activeChallenge().noFertilizer)return {icon:'N',text:'P'+String(lowN+1).padStart(2,'0')+' butuh pupuk',action:'tool',tool:'fertilize'};
+  const lowWater=state.field.findIndex((crop,index)=>crop&&crop.health>0&&irrigationPlan(crop,index).needed);
+  if(lowWater>=0)return {icon:'💧',text:'P'+String(lowWater+1).padStart(2,'0')+' butuh irigasi',action:'tool',tool:'water'};
+  const lowFertilizer=state.field.findIndex(crop=>crop&&crop.health>0&&!!recommendedFertilizer(crop));
+  if(lowFertilizer>=0&&!activeChallenge().noFertilizer){const id=recommendedFertilizer(state.field[lowFertilizer]);return {icon:'NPK',text:'P'+String(lowFertilizer+1).padStart(2,'0')+' butuh '+FERTILIZERS[id].short,action:'tool',tool:'fertilize'};}
   const sick=state.field.findIndex(crop=>crop&&crop.health>0&&crop.disease>28);
   if(sick>=0)return {icon:'◎',text:'Cek P'+String(sick+1).padStart(2,'0'),action:'tool',tool:'scout'};
   if(!state.field.slice(0,fieldLimit()).some(Boolean))return {icon:'🌱',text:'Tanam di petak kosong',action:'tool',tool:'plant'};
