@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import {decodeYoloOutput,nmsBoxes,summarizeConfidence} from '../public/hitung-cabai/ml-detector.js';
 import {cloudContributionReady} from '../public/hitung-cabai/cloud-config.js';
 import {matchBoxes,incrementSampleCode,reviewFlags,datasetMetrics,imageQuality} from '../public/hitung-cabai/review-metrics.js';
+import {assignedSplit,optimizeThreshold,errorSummary,operationalUncertainty,agronomicQuality,hammingHash} from '../public/hitung-cabai/research-tools.js';
+import {buildDatasetZip} from '../public/hitung-cabai/dataset-export.js';
 
 assert.equal(cloudContributionReady(),true);
 
@@ -42,6 +44,15 @@ for(let y=0;y<40;y++)for(let x=0;x<40;x++){const i=4*(y*40+x),v=(x+y)%2?60:210;q
 const q=imageQuality({data:qData,width:40,height:40});assert.ok(q.score>=0&&q.score<=100);
 const metrics=datasetMetrics([{boxes:[[.1,.1,.2,.2]],predictedDetections:[{box:[.1,.1,.2,.2],score:.9}],condition:'normal'}]);
 assert.equal(metrics.n,1);assert.equal(metrics.mae,0);assert.ok(metrics.f1>.99);
+assert.equal(assignedSplit('Sampel-001'),assignedSplit('Sampel-001'));
+assert.equal(hammingHash('0000','000f'),4);
+const calibrationRows=Array.from({length:6},(_,i)=>({name:'V'+i,datasetSplit:'validation',modelVersion:'v-test',boxes:[[.1,.1,.2,.2]],predictedDetections:[{box:[.1,.1,.2,.2],score:.8},{box:[.7,.7,.1,.1],score:.3}]}));
+const calibrated=optimizeThreshold(calibrationRows,'v-test');assert.ok(calibrated.threshold>=.3);assert.ok(calibrated.f1>.9);
+const uncertainty=operationalUncertainty([{box:[0,0,.1,.1]},{box:[.2,.2,.1,.1]}],[{needsReview:true},{needsReview:false}]);assert.deepEqual([uncertainty.reviewMin,uncertainty.reviewMax],[1,3]);
+const aq=agronomicQuality([{box:[0,0,.2,.2]},{box:[.1,.1,.2,.2]}]);assert.ok(aq.edgeCount>=1);assert.ok(aq.overlapPairs>=1);
+const errors=errorSummary([{condition:'low-light',boxes:[[.1,.1,.2,.2]],predictedDetections:[]}]);assert.equal(errors.lowLight,1);assert.equal(errors.missed,1);
+const zip=await buildDatasetZip([{name:'S1',datasetSplit:'train',width:100,height:100,boxes:[[.1,.1,.2,.2]],imageBlob:new Blob(['img'],{type:'image/jpeg'})}],{includeImages:true});
+const sig=new Uint8Array(await zip.slice(0,2).arrayBuffer());assert.deepEqual([...sig],[80,75]);
 
 const cloud=fs.readFileSync('public/hitung-cabai/cloud-sync.js','utf8');
 const app=fs.readFileSync('public/hitung-cabai/app.js','utf8');
@@ -49,9 +60,9 @@ const worker=fs.readFileSync('cloudflare/hitung-cabai-worker/src/index.js','utf8
 const html=fs.readFileSync('public/hitung-cabai/index.html','utf8');
 const develop=fs.readFileSync('public/develop/app.js','utf8');
 for(const marker of ["method:'PATCH'","X-Contribution-Edit","operationId","contributionId","editToken"])assert.ok(cloud.includes(marker),'cloud sync missing '+marker);
-for(const marker of ['thumbnailDataURL','imageBlob','cloudContributionId','cloudEditToken','contributionOperationId','record-thumb','reviewIndices','pinchStart','duplicateBanner','warmOfflineModel'])assert.ok(app.includes(marker),'chili app missing '+marker);
+for(const marker of ['thumbnailDataURL','imageBlob','cloudContributionId','cloudEditToken','contributionOperationId','record-thumb','reviewIndices','pinchStart','duplicateBanner','warmOfflineModel','imageDHash','nearestDuplicate','measureCurrentPhoto','datasetSplit','blindActive','updateAgronomicQuality'])assert.ok(app.includes(marker),'chili app missing '+marker);
 for(const marker of ['batchQueue','batchNext','confidenceInspector','confidenceStats','maybeAutoBatch','activeLearningPriority','datasetMetrics'])assert.ok(app.includes(marker),'chili batch/confidence missing '+marker);
-for(const marker of ['multiple','confidenceInspector','batchState','qualityGate','reviewLow','deleteSelected','autoNext','autoIncrement','batchAuto','conditionMetrics','saveDesktop'])assert.ok(html.includes(marker),'chili html missing '+marker);
+for(const marker of ['multiple','confidenceInspector','batchState','qualityGate','reviewLow','deleteSelected','autoNext','autoIncrement','batchAuto','conditionMetrics','saveDesktop','research-panel','blindValidation','lockTestSet','splitMode','exportDataset','measurePhoto','countState'])assert.ok(html.includes(marker),'chili html missing '+marker);
 assert.ok(!html.includes('<style>'),'Hitung Cabai CSS should be externalized');
 assert.ok(fs.existsSync('public/hitung-cabai/style.css'),'Hitung Cabai stylesheet missing');
 for(const marker of ['aiReviewPriority','modelEvaluation','aiModelBody'])assert.ok(develop.includes(marker),'develop AI review missing '+marker);
