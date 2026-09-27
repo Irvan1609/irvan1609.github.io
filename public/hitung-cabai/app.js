@@ -641,7 +641,9 @@ async function deleteRecord(row){
 function fmt(v,d=1){return Number.isFinite(v)?Number(v).toFixed(d):'—';}
 function pct(v){return Number.isFinite(v)?(v*100).toFixed(1)+'%':'—';}
 function renderValidation(rows){
-  const m=datasetMetrics(rows);$('metricN').textContent=String(m.n);$('metricMae').textContent=fmt(m.mae,2);$('metricBias').textContent=fmt(m.bias,2);
+  const testRows=rows.filter(r=>(r.datasetSplit||assignedSplit(r.name||r.id))==='test'),scope=testRows.length?testRows:rows,m=datasetMetrics(scope);
+  $('metricN').textContent=String(m.n);const scopeLabel=$('metricN')?.parentElement?.querySelector('span');if(scopeLabel)scopeLabel.textContent=testRows.length?'Test tervalidasi':'Foto tervalidasi';
+  $('metricMae').textContent=fmt(m.mae,2);$('metricBias').textContent=fmt(m.bias,2);
   $('metricPrecision').textContent=pct(m.precision);$('metricRecall').textContent=pct(m.recall);$('metricF1').textContent=pct(m.f1);$('metricAp50').textContent=pct(m.ap50);
   const labels={normal:'Normal',overlap:'Bertumpuk',occluded:'Tertutup', 'low-light':'Cahaya rendah','mixed-color':'Warna campuran'};
   $('conditionMetrics').innerHTML=Object.entries(m.byCondition||{}).map(([key,v])=>'<span>'+ (labels[key]||key)+' · n='+v.n+' · MAE '+fmt(v.mae,1)+' · F1 '+pct(v.f1)+'</span>').join('');
@@ -691,7 +693,7 @@ function warmOfflineModel(){
   if(!('serviceWorker'in navigator))return;
   navigator.serviceWorker.ready.then(reg=>{
     const worker=reg.active||reg.waiting||reg.installing;if(!worker)return;
-    for(const url of ['/hitung-cabai/','/hitung-cabai/app.js','/hitung-cabai/style.css','/hitung-cabai/detector.js','/hitung-cabai/ml-detector.js','/hitung-cabai/review-metrics.js','/hitung-cabai/model-manifest.json','/hitung-cabai/models/cabai-latest.onnx'])worker.postMessage({type:'WARM_ROUTE',url});
+    for(const url of ['/hitung-cabai/','/hitung-cabai/app.js','/hitung-cabai/style.css','/hitung-cabai/detector.js','/hitung-cabai/ml-detector.js','/hitung-cabai/review-metrics.js','/hitung-cabai/research-tools.js','/hitung-cabai/model-manifest.json','/hitung-cabai/models/cabai-latest.onnx'])worker.postMessage({type:'WARM_ROUTE',url});
   }).catch(()=>{});
 }
 
@@ -704,17 +706,31 @@ $('torchCamera').onclick=async()=>{
   catch{torchOn=false;$('torchCamera').textContent='Flash';status('Flash tidak didukung pada kamera ini.');}
 };
 $('autoDetect').onclick=()=>autoDetectChilies();$('reviewLow').onclick=reviewNext;$('deleteSelected').onclick=deleteSelected;$('undo').onclick=undo;$('mobileUndo').onclick=undo;$('zoomReset').onclick=resetView;
-$('sample').oninput=()=>{dirty=true;updateWorkflowState();void checkDuplicate();};
+$('sample').oninput=()=>{if(!activeId)activeDatasetSplit='';dirty=true;updateWorkflowState();void checkDuplicate();};
 for(const id of ['detectColor','detectSensitivity','detectOnLoad','autoNext','autoIncrement','batchAuto','condition'])$(id).onchange=saveDetectSettings;
+for(const id of ['blindValidation','lockTestSet','splitMode','exportSplit','exportImages'])$(id).onchange=saveResearchSettings;
 $('mobileSave').onclick=()=>void saveCurrent();$('saveDesktop').onclick=()=>void saveCurrent();$('updateDuplicate').onclick=()=>void saveCurrent({duplicateMode:'update'});$('saveCopy').onclick=()=>void saveCurrent({duplicateMode:'copy'});
-$('contribute').onclick=contributeCurrent;
+$('contribute').onclick=contributeCurrent;$('measurePhoto').onclick=()=>void measureCurrentPhoto();
+$('exportDataset').onclick=async()=>{
+  if(!allRowsCache.length)return status('Belum ada data untuk diekspor.');
+  const button=$('exportDataset');button.disabled=true;button.textContent='Menyiapkan dataset…';
+  try{
+    const mod=await import('./dataset-export.js'),blob=await mod.buildDatasetZip(allRowsCache,{split:$('exportSplit').value,includeImages:$('exportImages').checked});
+    mod.downloadBlob(blob,'dataset-cabai-'+$('exportSplit').value+'-'+new Date().toISOString().slice(0,10)+'.zip');
+    status('Dataset YOLO + COCO + CSV selesai dibuat.');
+  }catch(error){status(error.message||'Ekspor dataset gagal.');}
+  finally{button.disabled=false;button.textContent='Ekspor YOLO + COCO + CSV';}
+};
 $('export').onclick=exportBackup;$('import').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{await importBackup(f);}catch(error){status(error.message||'Pemulihan gagal.');}e.target.value='';};
 window.addEventListener('resize',()=>redraw(true));window.visualViewport?.addEventListener('resize',()=>redraw(true));
 window.addEventListener('beforeunload',event=>{stopCamera();revokePhotoUrl();if(dirty){event.preventDefault();event.returnValue='';}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStream)stopCamera();});
+window.addEventListener('message',event=>{if(event.origin===location.origin)void consumeMeasurementHandoff(event.data?.detail||event.data);});
+window.addEventListener('storage',event=>{if(event.key===MEASURE_HANDOFF_KEY&&event.newValue){try{void consumeMeasurementHandoff(JSON.parse(event.newValue));}catch{}}});
 
 try{
-  applyDetectSettings();db=await openDB();await list();updateWorkflowState();warmOfflineModel();
+  applyDetectSettings();applyResearchSettings();db=await openDB();await list();updateWorkflowState();warmOfflineModel();
+  try{const pending=JSON.parse(localStorage.getItem(MEASURE_HANDOFF_KEY)||'null');if(pending)await consumeMeasurementHandoff(pending);}catch{}
   $('cloudState').textContent=cloudContributionReady()?'Cloudflare siap menerima anotasi yang sudah Anda koreksi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
   if(fieldContext?.plot_label){$('sample').value=fieldContext.plot_label;status('Mode plot '+fieldContext.plot_label+' · hasil simpan akan dikirim kembali ke Denah Lahan.');}
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
