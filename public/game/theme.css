@@ -491,3 +491,120 @@ html[data-theme="light"] body.theme-light :is(.event-card,.meta-modal-card,.soci
   color:#183126!important;
   box-shadow:0 18px 48px rgba(42,70,55,.14)!important
 }
+
+
+/* FIELD ZERO LIGHT COMPLETION 2026-09-27 */
+html[data-theme="light"],
+html[data-theme="light"] body{
+  background:#f4f7f5!important;
+  color:#183126!important
+}
+body.theme-light .game-shell,
+body.theme-light .game-layout{background:transparent!important}
+body.theme-light .plot-quick-card{
+  background:#fff!important;
+  border-color:#c8d8ce!important;
+  color:#183126!important
+}
+body.theme-light .plot-quick-action{
+  background:#eef6f0!important;
+  border-color:#a9c7b5!important;
+  color:#245b3d!important
+}
+body.theme-light .plot-quick-action.harvest{
+  background:#fff2c9!important;
+  border-color:#d5bb5c!important;
+  color:#665113!important
+}
+body.theme-light .plot-details{border-color:#d6e1da!important}
+body.theme-light .plot-details>summary{color:#5d7467!important}
+body.theme-light .plot-ok{color:#2d8050!important}
+body.theme-light .icon-button[aria-pressed=true],
+body.theme-light .social-tabs button[aria-pressed=true],
+body.theme-light .help-steps b,
+body.theme-light .professor-casebook button.done>span{
+  background:#e1efe6!important;
+  border-color:#a7c4b1!important;
+  color:#285e40!important
+}
+body.theme-light .game-quick-nav{
+  background:rgba(255,255,255,.97)!important;
+  border-color:#c7d6cc!important
+}
+body.theme-light .play-hint{
+  background:#eef6f0!important;
+  border-color:#c7d9cd!important;
+  color:#315f48!important
+}
+body.theme-light .time-panel,
+body.theme-light.calm-ui .time-panel{
+  background:#fff!important;
+  border-color:#cad8cf!important;
+  color:#183126!important
+}
+body.theme-light .academy-progress,
+body.theme-light .competition-diagnostics button,
+body.theme-light .competition-diagnostics article{
+  background:#fff!important;
+  border-color:#c9d9cf!important;
+  color:#183126!important
+}
+body.theme-light .social-player-actions .aid-button:hover{
+  background:#eef6fb!important;
+  border-color:#9dbdce!important;
+  color:#315f78!important
+}
+body.theme-light .day-actions button,
+body.theme-light .event-choices button,
+body.theme-light .cross-form button,
+body.theme-light .action-grid button{
+  background:#fff!important;
+  border-color:#bed0c4!important;
+  color:#244c38!important
+}
+body.theme-light .day-actions button.primary,
+body.theme-light .primary{
+  background:#2f8f5b!important;
+  border-color:#2f8f5b!important;
+  color:#fff!important
+}
+body.theme-light :is(
+  .meta-card,.event-card,.recap-card,.social-card,.inspector,.panel,.compact-panel,
+  .lab-hub,.meta-panel,.vault-panel,.selection-panel,.academy-panel,.lab-panel
+){
+  border-color:#cbd9d0
+}
+body.theme-light :is(.meta-card,.event-card,.recap-card,.social-card){
+  background:#fff!important;
+  color:#183126!important
+}
+body.theme-light :is(.meta-card header,.event-card header,.recap-card header,.social-card header){
+  border-color:#d7e2db!important
+}
+body.theme-light .meta-backdrop,
+body.theme-light .event-backdrop,
+body.theme-light .recap-backdrop,
+body.theme-light .social-backdrop{
+  background:rgba(39,57,47,.24)!important
+}
+body.theme-light :is(input,select,textarea){
+  background:#fff!important;
+  color:#183126!important;
+  border-color:#bdcfc3!important
+}
+body.theme-light :is(button:disabled,input:disabled,select:disabled,textarea:disabled){opacity:.55}
+@media(max-width:620px){
+  body.theme-light .game-quick-nav,
+  body.theme-light .day-actions,
+  body.theme-light .field-tool-dock,
+  body.theme-light .mobile-command-row,
+  body.theme-light .time-panel{
+    background:#fff!important;
+    border-color:#c7d6cc!important
+  }
+  body.theme-light .mobile-command-row button{
+    background:#f8fbf9!important;
+    color:#244c38!important;
+    border-color:#bed0c4!important
+  }
+}
