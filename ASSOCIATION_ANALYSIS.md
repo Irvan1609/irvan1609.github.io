@@ -6,7 +6,7 @@ Matriks segitiga atas memakai dua desimal dan superscript ns/*/** berdasarkan p 
 
 Sidik lintas menggunakan regresi terstandar, QR dengan ortogonalisasi ulang. Menghasilkan beta, SE/t/p, VIF, R²/adjusted R² dan sqrt(1−R²). Dekomposisi r(Xi,Y) = beta_i + sum_j r(Xi,Xj) beta_j bukan estimasi mediasi kausal. Ini bukan SEM multirespons atau korelasi genotipik. Prediktor singular/hampir singular ditolak; VIF > 5 ditandai. Inferensi mengasumsikan residual independen, normal dan homogen; p koefisien belum dikoreksi multipel.
 
-Hasil memiliki salin dan ekspor Excel dengan nama dataset. Hasil korelasi/lintas belum masuk riwayat ANOVA; simpan menggunakan ekspor. Pengiriman data mentah mengikuti pengaturan Cadangan Drive yang sudah ada.
+Hasil memiliki salin dan ekspor Excel dengan nama dataset. Hasil korelasi/lintas belum masuk riwayat ANOVA; simpan menggunakan ekspor.
 
 Verifikasi: `scripts/generate-association-reference.py` membuat fixture independen NumPy/SciPy. `scripts/check-association.mjs` dijalankan melalui `npm run verify`, termasuk N=27 (r kritis 0.3809 dan 0.4869), nilai seri Spearman, kolom konstan/kolinear, serta koefisien/SE/p/VIF.
 
