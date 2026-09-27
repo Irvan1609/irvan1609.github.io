@@ -32,7 +32,7 @@ export function installNavigation(){
   const menuButtons=new Map();
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
+    ['dataMenu','Data',['undoData','redoData','validateDataset','transformData','outlierData','fieldbookTool']],
     ['helpMenu','Bantuan',['dataTemplate','analysisHistory']]
   ]){
     const button=document.createElement('button');
