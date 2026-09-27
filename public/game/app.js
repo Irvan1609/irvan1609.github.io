@@ -2177,7 +2177,8 @@ function render(){
 
 function plantSelected(){
   const assignedSeed=experimentSeedForPlot(state.selectedPlot),seed=assignedSeed||selectedSeed(),challenge=activeChallenge(),index=state.selectedPlot;
-  const plantCost=actionCost('plant');if(!seed||seedSpecies(seed)!==state.species||state.field[index]||index>=fieldLimit()||state.focus<1||state.coins<plantCost)return;
+  const inputCost=actionCost('plant'),workerCost=laborCost('plant'),plantCost=inputCost+workerCost;
+  if(!seed||seedSpecies(seed)!==state.species||state.field[index]||index>=fieldLimit()||state.coins<plantCost)return;
   if((seed.stock||0)<1){toast('🌱×');return;}
   if((seed.viability||0)<45){toast('Benih terlalu tua');return;}
   if(challenge.mono&&state.monoSeedId&&seed.id!==state.monoSeedId){toast('Challenge hanya mengizinkan satu varietas');return;}
@@ -2191,35 +2192,38 @@ function plantSelected(){
       const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?simPick(pool,'mutation-trait',state.season,index,seed.id):null;
       if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&simUnit('zero-mutation',state.season,index,seed.id)<.08)mutation='zero';
     }
-    const cropUid=uid('plant');
+    const cropUid=uid('plant'),nutrients=initialNutrients(index);
     crop={
-      uid:cropUid,species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:58,disease:0,stress:0,mutation,revealed:false,scouted:0,
+      uid:cropUid,species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:nutrients.n,p:nutrients.p,k:nutrients.k,disease:0,stress:0,mutation,revealed:false,scouted:0,
       waterSensitivity:round(.88+simUnit('water-sensitivity',state.season,index,seed.id)*.26,2),
       nDemand:round(.88+simUnit('n-demand',state.season,index,seed.id)*.28,2),
       diseaseSusceptibility:round(.85+simUnit('disease-susceptibility',state.season,index,seed.id)*.32,2),
-      stressLog:{water:0,n:0,disease:0,heat:0,burn:0}
+      stressLog:{water:0,n:0,p:0,k:0,disease:0,heat:0,burn:0}
     };
     crop.samples=makeSubsamples({plotUid:plotMeta(index).uid,plantUid:cropUid,species:state.species,simulationSeed:state.simulationSeed});
+  }else{
+    const nutrients=initialNutrients(index);crop.n=Number.isFinite(Number(crop.n))?crop.n:nutrients.n;crop.p=Number.isFinite(Number(crop.p))?crop.p:nutrients.p;crop.k=Number.isFinite(Number(crop.k))?crop.k:nutrients.k;
   }
   rememberLineage(seed);seed.stock=Math.max(0,(seed.stock||0)-1);state.field[index]=crop;applyPendingExperimentEffect(index,state.field[index]);
   const expUnit=experimentUnit(index);if(expUnit)expUnit.material={plantUid:crop.uid,seedId:seed.id,seedName:seed.name,generation:seed.generation,species:state.species};
   recordDailyExperimentObservation(index,state.field[index],{force:true});
-  state.coins-=plantCost;state.seasonStats.cost=(state.seasonStats.cost||0)+plantCost;state.focus--;
-  addLog('P'+String(index+1).padStart(2,'0')+': '+seed.name+' ditanam · '+formatRupiah(plantCost)+'.');
+  chargeFarmCost(plantCost,{labor:workerCost,input:inputCost});
+  addLog('P'+String(index+1).padStart(2,'0')+': '+seed.name+' ditanam pekerja · '+formatRupiah(plantCost)+'.');
   offerUndo(snapshot,'Tanam P'+String(index+1).padStart(2,'0'),{index,seedId:seed.id,crop:structuredClone(crop)});
-  beep(410);render();toast('🌱 P'+String(index+1).padStart(2,'0')+' · '+seed.name);document.dispatchEvent(new Event('fieldzero-field-change'));
+  beep(410);render();toast('🌱 P'+String(index+1).padStart(2,'0')+' · '+seed.name+' · '+formatRupiah(plantCost));document.dispatchEvent(new Event('fieldzero-field-change'));
 }
-function cropAction(action){
+function cropAction(action,fertilizerId=''){
   const crop=selectedCrop();if(!crop)return;
   if(action==='harvest'){clearUndo();harvestPlot(state.selectedPlot,1,true);return;}
   const snapshot=structuredClone(state);
   if(action==='remove'){
-    state.field[state.selectedPlot]=null;state.seasonStats.failed++;addLog('P'+(state.selectedPlot+1)+': tanaman mati dibersihkan.');
+    const worker=laborCost('scout');if(state.coins<worker){toast('Kas tidak cukup untuk pekerja');return;}
+    chargeFarmCost(worker,{labor:worker});state.field[state.selectedPlot]=null;state.seasonStats.failed++;addLog('P'+(state.selectedPlot+1)+': tanaman mati dibersihkan pekerja · '+formatRupiah(worker)+'.');
     offerUndo(snapshot,'Bersihkan P'+String(state.selectedPlot+1).padStart(2,'0'));render();return;
   }
   if(crop.health<=0)return;
-  const index=state.selectedPlot,applied=applyCareAction(action,index);
-  if(!applied){if(action==='fertilize'&&activeChallenge().noFertilizer)toast('Challenge melarang pupuk');return;}
+  const index=state.selectedPlot,applied=applyCareAction(action,index,{fertilizerId});
+  if(!applied){if(action==='fertilize'&&activeChallenge().noFertilizer)toast('Challenge melarang pupuk');else toast('Kas tidak cukup atau tindakan tidak tersedia');return;}
   if(action==='water')offerUndo(snapshot,'Irigasi P'+String(index+1).padStart(2,'0'));
   if(action==='fertilize')offerUndo(snapshot,'Pemupukan P'+String(index+1).padStart(2,'0'));
   render();
