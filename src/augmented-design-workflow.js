@@ -88,54 +88,127 @@ function structurePreview(data){
   host.innerHTML=`<div class="aug-review-status ${problems.length?'warn':'good'}"><b>${status}</b><span>${problems.length?esc(problems.join(' · ')):'Struktur dasar sesuai augmented RCBD'}</span></div>
     <div class="aug-review-metrics"><span><b>${blocks.length}</b><small>Blok</small></span><span><b>${checks.length}</b><small>Check</small></span><span><b>${tests.length}</b><small>Entry uji</small></span><span><b>${rows.length}</b><small>Plot</small></span></div>`;
 }
+
 function ket(term){
   if(!Number.isFinite(term?.p))return '';
   return term.p<.01?'**':term.p<.05?'*':'tn';
 }
-function anovaTable(terms){
-  return `<div class="table-scroll"><table class="result-table anova-table"><thead><tr><th>SK</th><th>db</th><th>JK</th><th>KT</th><th>F</th><th>p</th><th>F 0,05</th><th>F 0,01</th><th>Ket.</th></tr></thead><tbody>${terms.map(term=>`<tr class="${term.component?'aug-anova-component':''}"><td>${esc(term.label)}</td><td>${fmt(term.df,0)}</td><td>${fmt(term.ss)}</td><td>${fmt(term.ms)}</td><td>${fmt(term.f)}</td><td>${fmt(term.p,4)}</td><td>${fmt(term.f05)}</td><td>${fmt(term.f01)}</td><td>${ket(term)}</td></tr>`).join('')}</tbody></table></div>`;
+const cut2=value=>Number.isFinite(value)?Math.trunc(value*100)/100:value;
+function fmtAug(out,value,digits=3,kind='normal'){
+  if(!Number.isFinite(value))return '—';
+  if(out?.reportMode==='excel'&&(kind==='ss'||kind==='cv'))return fmt(cut2(value),2);
+  return fmt(value,digits);
 }
-function sigLabel(item,alpha){
+function anovaTable(terms,out){
+  return `<div class="table-scroll"><table class="result-table anova-table"><thead><tr><th>SK</th><th>db</th><th>JK</th><th>KT</th><th>F</th><th>p</th><th>F 0,05</th><th>F 0,01</th><th>Ket.</th></tr></thead><tbody>${terms.map(term=>`<tr class="${term.component?'aug-anova-component':''}"><td>${esc(term.label)}</td><td>${fmt(term.df,0)}</td><td>${fmtAug(out,term.ss,3,'ss')}</td><td>${fmtAug(out,term.ms)}</td><td>${fmtAug(out,term.f)}</td><td>${fmtAug(out,term.p,4)}</td><td>${fmtAug(out,term.f05)}</td><td>${fmtAug(out,term.f01)}</td><td>${ket(term)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function sigP(item,out){return out.comparisonMethod==='holm'?item.pCheckHolm:item.pCheck;}
+function sigLabel(item,out){
   if(item.type==='Check')return 'Check';
-  if(!Number.isFinite(item.pCheck))return '—';
-  if(item.pCheck<.01)return item.deltaCheck>0?'↑ **':'↓ **';
-  if(item.pCheck<alpha)return item.deltaCheck>0?'↑ *':'↓ *';
+  const p=sigP(item,out);
+  if(!Number.isFinite(p))return '—';
+  if(p<.01)return item.deltaCheck>0?'↑ **':'↓ **';
+  if(p<out.alpha)return item.deltaCheck>0?'↑ *':'↓ *';
   return 'tn';
 }
 function adjustedMeansTable(out){
-  return `<div class="table-scroll"><table class="result-table posthoc-table augmented-means-table"><thead><tr><th>Rank</th><th>Genotipe / Entry</th><th>Tipe</th><th>Blok</th><th>n</th><th>Rataan mentah</th><th>Adjusted mean</th><th>SE</th><th>Δ vs rerata check</th><th>p</th><th>Ket.</th></tr></thead><tbody>${out.means.map(item=>`<tr><td>${item.rank}</td><td><b>${esc(item.treatment)}</b></td><td>${item.type==='Check'?'<span class="aug-check-badge">Check</span>':'Test'}</td><td>${esc(item.block)}</td><td>${item.n}</td><td>${fmt(item.rawMean)}</td><td><b>${fmt(item.adjusted)}</b></td><td>${fmt(item.se)}</td><td>${fmt(item.deltaCheck)}</td><td>${fmt(item.pCheck,4)}</td><td>${sigLabel(item,out.alpha)}</td></tr>`).join('')}</tbody></table></div>`;
+  const pLabel=out.comparisonMethod==='holm'?'p Holm':'p';
+  return `<div class="table-scroll"><table class="result-table posthoc-table augmented-means-table"><thead><tr><th>Rank</th><th>Genotipe / Entry</th><th>Tipe</th><th>Blok</th><th>n</th><th>Rataan mentah</th><th>Adjusted mean</th><th>SE</th><th>Δ vs rerata check</th><th>${pLabel}</th><th>Ket.</th></tr></thead><tbody>${out.means.map(item=>`<tr><td>${item.rank}</td><td><b>${esc(item.treatment)}</b></td><td>${item.type==='Check'?'<span class="aug-check-badge">Check</span>':'Test'}</td><td>${esc(item.block)}</td><td>${item.n}</td><td>${fmtAug(out,item.rawMean)}</td><td><b>${fmtAug(out,item.adjusted)}</b></td><td>${fmtAug(out,item.se)}</td><td>${fmtAug(out,item.deltaCheck)}</td><td>${fmtAug(out,sigP(item,out),4)}</td><td>${sigLabel(item,out)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function blockTable(out){
-  return `<div class="table-scroll"><table class="result-table"><thead><tr><th>Blok</th><th>Rataan model</th><th>Efek blok</th></tr></thead><tbody>${out.blockEffects.map(item=>`<tr><td>${esc(item.block)}</td><td>${fmt(item.adjustedMean)}</td><td>${item.effect>=0?'+':''}${fmt(item.effect)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="result-table"><thead><tr><th>Blok</th><th>Rataan model</th><th>Efek blok</th></tr></thead><tbody>${out.blockEffects.map(item=>`<tr><td>${esc(item.block)}</td><td>${fmtAug(out,item.adjustedMean)}</td><td>${item.effect>=0?'+':''}${fmtAug(out,item.effect)}</td></tr>`).join('')}</tbody></table></div>`;
 }
-function rangeText(summary,key){
+function rangeText(summary,key,out){
   if(!summary)return `<tr><td>${esc(key)}</td><td>—</td><td>—</td><td>—</td></tr>`;
-  const se=Math.abs(summary.seMax-summary.seMin)<1e-10?fmt(summary.seMean):`${fmt(summary.seMin)}–${fmt(summary.seMax)}`;
-  const cd=Math.abs(summary.cdMax-summary.cdMin)<1e-10?fmt(summary.cdMean):`${fmt(summary.cdMin)}–${fmt(summary.cdMax)}`;
+  const se=Math.abs(summary.seMax-summary.seMin)<1e-10?fmtAug(out,summary.seMean):`${fmtAug(out,summary.seMin)}–${fmtAug(out,summary.seMax)}`;
+  const cd=Math.abs(summary.cdMax-summary.cdMin)<1e-10?fmtAug(out,summary.cdMean):`${fmtAug(out,summary.cdMin)}–${fmtAug(out,summary.cdMax)}`;
   return `<tr><td>${esc(key)}</td><td>${summary.n}</td><td>${se}</td><td>${cd}</td></tr>`;
 }
 function sedTable(out){
-  return `<div class="table-scroll"><table class="result-table"><thead><tr><th>Jenis perbandingan</th><th>Pasangan</th><th>SE beda</th><th>BNT ${fmt(out.alpha,2)}</th></tr></thead><tbody>
-    ${rangeText(out.sed.checkCheck,'Check vs check')}
-    ${rangeText(out.sed.testSameBlock,'Test vs test · blok sama')}
-    ${rangeText(out.sed.testDifferentBlock,'Test vs test · blok berbeda')}
-    ${rangeText(out.sed.testCheck,'Test vs check')}
+  return `<div class="table-scroll"><table class="result-table"><thead><tr><th>Jenis perbandingan</th><th>Pasangan</th><th>SE beda</th><th>BNT ${fmtAug(out,out.alpha,2)}</th></tr></thead><tbody>
+    ${rangeText(out.sed.checkCheck,'Check vs check',out)}
+    ${rangeText(out.sed.testSameBlock,'Test vs test · blok sama',out)}
+    ${rangeText(out.sed.testDifferentBlock,'Test vs test · blok berbeda',out)}
+    ${rangeText(out.sed.testCheck,'Test vs check',out)}
   </tbody></table></div>`;
+}
+function workSummaryTable(out){
+  const w=out.workSummary||{};
+  return `<div class="table-scroll"><table class="result-table aug-work-summary"><thead><tr><th>Ringkasan Work / SAS</th><th>Nilai</th></tr></thead><tbody>
+    <tr><td>Standard Error (rataan SE DIFFS)</td><td>${fmtAug(out,w.standardError)}</td></tr>
+    <tr><td>Grand Mean adjusted</td><td>${fmtAug(out,w.grandMean)}</td></tr>
+    <tr><td>db galat</td><td>${fmtAug(out,w.df,0)}</td></tr>
+    <tr><td>BNT / LSD</td><td>${fmtAug(out,w.lsd)}</td></tr>
+    <tr><td>KK Work / SAS</td><td>${fmtAug(out,w.cv,2,'cv')}${Number.isFinite(w.cv)?'%':''}</td></tr>
+  </tbody></table></div>`;
+}
+function sasField(value){return '"'+String(value??'').replaceAll('"','""').replace(/[\t\r\n]+/g,' ')+'"';}
+function sasCode(out){
+  const testIndex=new Map(out.tests.map((name,index)=>[name,index+1]));
+  const lines=(out.observations||[]).map(item=>{
+    const isCheck=out.checks.includes(item.treatment);
+    const line=isCheck?0:(testIndex.get(item.treatment)||0);
+    return [sasField(item.block),sasField(item.treatment),line,sasField(isCheck?item.treatment:'0'),sasField(isCheck?'Check':'Line'),Number(item.y)].join('\t');
+  }).join('\n');
+  return `/* Augmented RCBD · kompatibel dengan alur Work/SAS */
+data augrcbd;
+  infile datalines dsd dlm='09'x truncover;
+  length block geno check line_vs_check $100;
+  input block $ geno $ line check $ line_vs_check $ yield;
+datalines;
+${lines}
+;
+run;
+
+proc glm data=augrcbd;
+  class block geno;
+  model yield = block geno / ss3;
+  title 'ANOVA Augmented RCBD - Block and Whole Treatment Adjusted';
+run;
+
+proc glm data=augrcbd;
+  class block line_vs_check check line;
+  model yield = block line_vs_check check line(check) / ss1;
+  title 'ANOVA Augmented RCBD - Treatment Partitions Adjusted';
+run;
+
+proc mixed data=augrcbd;
+  class block line_vs_check check line;
+  model yield = block check line(check);
+  lsmeans line(check) / pdiff;
+  ods output lsmeans=LSMEANS diffs=DIFFS tests3=DOF;
+run;`;
+}
+function sasPanel(out){
+  return `<details class="aug-sas-panel"><summary>Kode SAS</summary><div class="aug-sas-actions"><button type="button" data-copy-aug-sas>Salin kode</button><span data-aug-sas-status role="status"></span></div><textarea class="aug-sas-code" readonly spellcheck="false">${esc(sasCode(out))}</textarea></details>`;
 }
 function renderAugmented(out,name,dataName){
   const warning=out.warnings.length?`<div class="analysis-smart-warning"><b>Periksa rancangan:</b> ${out.warnings.map(esc).join(' ')}</div>`:'';
-  const cv=Number.isFinite(out.cv)?fmt(out.cv,2)+'%':'—';
+  const cv=Number.isFinite(out.cv)?fmtAug(out,out.cv,2,'cv')+'%':'—';
+  const modeNote=out.reportMode==='excel'?'<div class="analysis-note">Mode sesuai contoh Excel: nilai respons dihitung dari input 2 desimal; JK dan KK laporan dipotong 2 desimal. Dataset sumber tidak diubah.</div>':'';
+  const comparisonNote=out.comparisonMethod==='holm'?'Holm aktif pada perbandingan entry uji terhadap rerata check.':'BNT/LSD memakai p individual entry uji terhadap rerata check.';
   return `<section class="analysis-result augmented-result aug-view-summary" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
     <h3>Augmented RCBD — ${esc(name)}</h3>
-    <div class="aug-result-toolbar"><select data-aug-view-select aria-label="Tampilan hasil augmented"><option value="summary">Rataan</option><option value="detail">Detail statistik</option></select></div>
+    <div class="aug-result-toolbar"><select data-aug-view-select aria-label="Tampilan hasil augmented"><option value="summary">Rataan</option><option value="anova">ANOVA</option><option value="detail">Detail</option></select></div>
     <div class="aug-summary-pane">
-      <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Check</small></span><span><b>${out.tests.length}</b><small>Entry uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmt(out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>CV</small></span></div>
+      <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Check</small></span><span><b>${out.tests.length}</b><small>Entry uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmtAug(out,out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>CV galat</small></span></div>
       ${warning}
       <div class="table-caption aug-main-caption">Rataan terkoreksi genotipe</div>${adjustedMeansTable(out)}
-      <div class="analysis-note">Δ vs check memakai rerata seluruh check. ↑/↓ = arah selisih; * p &lt; 0,05; ** p &lt; 0,01.</div>
+      <div class="analysis-note">Δ vs check memakai rerata seluruh check. ${comparisonNote} ↑/↓ = arah selisih; * p &lt; 0,05; ** p &lt; 0,01.</div>
+      ${modeNote}
     </div>
-    <div class="aug-anova-pane"><div class="aug-anova-grid"><section><div class="table-caption">Perlakuan | dikoreksi blok</div>${anovaTable(out.treatmentAdjusted)}</section><section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted)}</section></div></div>
-    <div class="aug-detail-pane"><div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmt(out.checkAdjustedMean)}</b></span></div><div class="aug-secondary-grid"><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section></div>${resultActions(`augmented-${name}`)}</div>
+    <div class="aug-anova-pane"><div class="aug-anova-grid">
+      <section><div class="table-caption">Perlakuan | dikoreksi blok (Type III)</div>${anovaTable(out.treatmentAdjusted,out)}</section>
+      <section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted,out)}</section>
+      <section class="aug-partition-section"><div class="table-caption">Partisi perlakuan Work / SAS (Type I)</div>${anovaTable(out.partitionAdjusted,out)}</section>
+    </div></div>
+    <div class="aug-detail-pane">
+      <div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmtAug(out,out.checkAdjustedMean)}</b></span></div>
+      <div class="aug-secondary-grid"><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section></div>
+      <section class="aug-work-summary-wrap"><div class="table-caption">Ringkasan kompatibilitas Work</div>${workSummaryTable(out)}</section>
+      ${sasPanel(out)}
+      ${resultActions(`augmented-${name}`)}
+    </div>
   </section>`;
 }
 async function showResults(html,title,data,parameterCount){
