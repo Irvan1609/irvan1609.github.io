@@ -141,8 +141,10 @@ function cloudIndicator(){
   const button=document.createElement('button');button.type='button';button.className='account-cloud-button';button.textContent='☁';button.setAttribute('aria-label','Status cloud');
   const panel=document.createElement('div');panel.className='account-cloud-panel';panel.hidden=true;
   const refresh=()=>{
-    const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{};
-    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span>';
+    const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{},queue=window.AgrotikSystem?.queueSnapshot?.()||{pending:0,failed:0};
+    const localStorageState=safeJson(localStorage.getItem('agrotik_storage_state_v1'),null),storagePct=localStorageState?.quota?Math.round((localStorageState.usage/localStorageState.quota)*100):null;
+    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span><span>Antrean '+queue.pending+(queue.failed?' · '+queue.failed+' gagal':'')+'</span>'+(storagePct===null?'':'<span>Penyimpanan '+storagePct+'%</span>')+'<button type="button" class="ag-system-open">Perintah & diagnostik</button>';
+    panel.querySelector('.ag-system-open')?.addEventListener('click',()=>{panel.hidden=true;window.AgrotikSystem?.openPalette?.();});
     button.dataset.state=!cloudState.worker?'offline':cloudState.effectiveMode==='emergency'?'emergency':cloudState.effectiveMode==='economy'?'economy':'online';
     button.title=!cloudState.worker?'Cloud tidak tersedia':('Cloud '+cloudState.effectiveMode);
   };
