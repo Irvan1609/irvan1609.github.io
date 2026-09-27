@@ -211,6 +211,12 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
     {label:'Galat',ss:full.sse,df:full.df,ms:mse,f:null,p:null,f05:null,f01:null},
     {label:'Total',ss:totalSse,df:observations.length-1,ms:null,f:null,p:null,f05:null,f01:null}
   ];
+  const typeIII=[
+    anovaTerm('Blok',ssBlockAdjusted,blocks.length-1,mse,full.df),
+    anovaTerm('Perlakuan',ssTreatmentAdjusted,treatments.length-1,mse,full.df),
+    {label:'Galat',ss:full.sse,df:full.df,ms:mse,f:null,p:null,f05:null,f01:null},
+    {label:'Total',ss:totalSse,df:observations.length-1,ms:null,f:null,p:null,f05:null,f01:null}
+  ];
 
   const marginalRow=treatment=>averageVectors(blocks.map(block=>full.row(block,treatment)));
   const xByTreatment=new Map(treatments.map(treatment=>[treatment,marginalRow(treatment)]));
@@ -282,7 +288,7 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
   return {
     n:observations.length,blocks,treatments,checks:checkLevels,tests:testLevels,
     rawGrand,adjustedGrand,checkAdjustedMean,mse,dfError:full.df,cv,alpha,warnings,
-    treatmentAdjusted,blockAdjusted,partitionAdjusted,means,blockEffects,sed,workSummary,
+    treatmentAdjusted,blockAdjusted,typeIII,partitionAdjusted,means,blockEffects,sed,workSummary,
     observations:observations.map(item=>({block:item.block,treatment:item.treatment,y:item.y})),
     model:'Y = μ + Blok + Genotipe/Perlakuan + ε'
   };
