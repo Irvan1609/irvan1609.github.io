@@ -6,7 +6,6 @@ import {finalizeAgronomyFactorial} from './agronomy-factorial.js';
 import {renderReport,esc,designNames,installChartDownload} from './scientific-report.js';
 import {renderAnalysisSummary} from './report-insights.js';
 import {inspectDataQuality,renderDataQuality} from './data-quality.js';
-import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
@@ -578,7 +577,6 @@ async function analyze(){
       designLabel:designNames[currentDesign]||currentDesign,options:JSON.parse(JSON.stringify(o)),
       summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null,integrity:report.integrity?.ok!==false}))
     }}));
-    try{void backupRawDataset({name:data.name,fileName:activeSource?.fileName||'',headers:[...data.headers],rows:data.rows.map(row=>[...row])});}catch(error){console.warn('Backup mentah dilewati',error);}
   }catch(error){
     console.error('Analisis gagal',error);
     $('#scienceValidation').innerHTML=`<div class="error-box" role="alert"><b>Analisis belum dapat dijalankan.</b><p>${esc(error.message)}</p></div>`;
@@ -718,5 +716,4 @@ export function installScientificWorkflow(){
   });
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){const dock=$('#analysisResultDock');if(dock&&!dock.hidden){dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open');return;}close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
-  installDriveBackup();
 }
