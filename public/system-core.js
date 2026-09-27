@@ -39,8 +39,10 @@ function activity(label=pathLabel(),href=route,kind='module'){
 function recent(){return read(RECENT_KEY,[]).filter(Boolean).slice(0,MAX_RECENT);}
 
 function reportQueue(source,{pending=0,failed=0,label=''}={}){
-  const state=read(QUEUE_KEY,{});
-  state[source]={pending:Math.max(0,Number(pending)||0),failed:Math.max(0,Number(failed)||0),label:String(label||source).slice(0,50),updatedAt:now()};
+  const state=read(QUEUE_KEY,{}),next={pending:Math.max(0,Number(pending)||0),failed:Math.max(0,Number(failed)||0),label:String(label||source).slice(0,50)};
+  const previous=state[source];
+  if(previous&&previous.pending===next.pending&&previous.failed===next.failed&&previous.label===next.label)return;
+  state[source]={...next,updatedAt:now()};
   write(QUEUE_KEY,state);
   document.dispatchEvent(new CustomEvent('agrotik-queue-state',{detail:queueSnapshot()}));
 }
@@ -113,7 +115,7 @@ function installCrashRecovery(){
   const previous=read(heartbeatKey(),null);
   restoreDraftIfCrash();
   const pulse=()=>write(heartbeatKey(),{at:now(),version:SYSTEM_VERSION});
-  pulse();heartbeatTimer=setInterval(pulse,15000);
+  pulse();heartbeatTimer=setInterval(pulse,30000);
   let timer=null;
   document.addEventListener('input',event=>{if(!fieldKey(event.target))return;clearTimeout(timer);timer=setTimeout(saveDraft,1200);},{passive:true});
   document.addEventListener('change',event=>{if(fieldKey(event.target))saveDraft();},{passive:true});
