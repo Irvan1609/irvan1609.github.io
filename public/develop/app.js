@@ -199,6 +199,13 @@ async function saveCloudControl(){
     return data;
   }catch(error){alert(error.message);}finally{button.disabled=false;}
 }
+function renderLocalDeviceState(){
+  const system=window.AgrotikSystem;if(!system){setTimeout(renderLocalDeviceState,250);return;}
+  const queue=system.queueSnapshot?.()||{entries:[],pending:0,failed:0};
+  const box=$('#deviceQueueState');if(!box)return;
+  const items=queue.entries.length?queue.entries:[{label:'Antrean',pending:0,failed:0}];
+  box.innerHTML=items.map(item=>'<div class="kv"><span>'+esc(item.label||item.source)+'</span><b>'+Number(item.pending||0)+' menunggu'+(item.failed?' · '+Number(item.failed)+' gagal':'')+'</b></div>').join('');
+}
 async function loadServer(){
   const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudControl()]),usage=result[0],u=usage.estimated||{},budget=usage.softBudget||{},ref=usage.platformReference||{};
   const cards=[
@@ -212,6 +219,7 @@ async function loadServer(){
     ['Users',u.users]
   ];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
+  renderLocalDeviceState();
 }
 async function loadSecurity(){
   const data=await api('/v1/develop/security');
@@ -276,6 +284,10 @@ document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activ
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
 $('#refreshHealth').onclick=loadHealth;
 $('#saveCloudControl').onclick=saveCloudControl;
+$('#retryLocalQueue').onclick=()=>{window.AgrotikSystem?.retryQueues?.();setTimeout(renderLocalDeviceState,400);};
+$('#clearQueueFailures').onclick=()=>{window.AgrotikSystem?.clearQueueFailures?.();renderLocalDeviceState();};
+$('#openDiagnostics').onclick=()=>window.AgrotikSystem?.openDiagnostics?.();
+document.addEventListener('agrotik-queue-state',renderLocalDeviceState);
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
 $('#migrateAiImages').onclick=async()=>{
