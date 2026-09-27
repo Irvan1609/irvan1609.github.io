@@ -5,6 +5,7 @@ const root=fs.readFileSync('index.html','utf8');
 const html=fs.readFileSync('public/game/index.html','utf8');
 const css=fs.readFileSync('public/game/style.css','utf8');
 const app=fs.readFileSync('public/game/app.js','utf8');
+const themeInit=fs.readFileSync('public/game/theme-init.js','utf8');
 const competition=fs.readFileSync('public/game/competition.js','utf8');
 const academy=fs.readFileSync('public/game/academy.js','utf8');
 const social=fs.readFileSync('public/game/social.js','utf8');
@@ -31,7 +32,8 @@ for(const marker of ['openCareCenter','batchCare','carePriority','careCandidates
 for(const marker of ["theme:'system'","function preferredTheme()","function applyTheme()",'data-comfort="theme"','prefers-color-scheme: light'])if(!app.includes(marker))fail('theme preference system missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!css.includes(marker))fail('light dark theme styling missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-theme="light"]','body.theme-light.calm-ui','.toast{'])if(!css.includes(marker))fail('light theme cleanup missing '+marker);
-for(const marker of ['20260927-lightfix3','agrotik_field_zero_v1','prefers-color-scheme: light'])if(!html.includes(marker))fail('theme boot/cache bust missing '+marker);
+for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
+for(const marker of ['agrotik_field_zero_v1','prefers-color-scheme: light'])if(!themeInit.includes(marker))fail('theme bootstrap missing '+marker);
 if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
 
 
