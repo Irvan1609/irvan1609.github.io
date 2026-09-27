@@ -1,4 +1,4 @@
-const VERSION='20260927-field-zero-light-v11';;;
+const VERSION='20260927-stat-recovery-v12';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -71,13 +71,13 @@ async function matchIgnoreSearch(request){
   return caches.match(url.href,{ignoreSearch:true});
 }
 async function navigationResponse(request){
-  const url=new URL(request.url),gameRoute=url.pathname.startsWith('/game/');
+  const url=new URL(request.url),networkFirstRoute=url.pathname.startsWith('/game/')||url.pathname.startsWith('/stat/');
   const cached=await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
-  if(gameRoute)return await refresh||cached||await caches.match('/offline.html')||await caches.match('/');
+  if(networkFirstRoute)return await refresh||cached||await caches.match('/offline.html')||await caches.match('/');
   if(cached){void refresh;return cached;}
   return await refresh||await caches.match('/offline.html')||await caches.match('/');
 }
