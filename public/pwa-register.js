@@ -1,4 +1,5 @@
 const SW_URL='/sw.js';
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
 let deferredInstall=null;
 
 function installStyles(){
@@ -30,7 +31,7 @@ function updateNetworkBadge(){
 }
 
 window.addEventListener('beforeinstallprompt',event=>{
-  event.preventDefault();deferredInstall=event;installButton();
+  event.preventDefault();deferredInstall=event;if(!SAFE_MODE)installButton();
 });
 window.addEventListener('appinstalled',()=>{deferredInstall=null;document.getElementById('agrotikInstall')?.remove();});
 window.addEventListener('online',updateNetworkBadge);
@@ -44,3 +45,5 @@ if('serviceWorker'in navigator){
     }catch(error){console.warn('PWA registration skipped',error);}
   });
 }
+
+void import('/system-core.js?v=20260927-1').catch(error=>console.warn('Agrotik system core skipped',error));
