@@ -47,7 +47,7 @@ for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.compet
 
 for(const marker of ['FIELD ZERO VISUAL REFRESH FINAL 2026-09-27','--fz-touch:44px','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(2,minmax(0,1fr))!important','font-size:11px!important'])if(!css.includes(marker))fail('visual refresh styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!themeCss.includes(marker))fail('visual refresh theme missing '+marker);
-if(!html.includes('/game/style.css?v=20260927-visual3')||!html.includes('/game/theme.css?v=20260927-visual3'))fail('latest game visual assets must be cache-busted');
+if(!html.includes('/game/style.css?v=20260927-visual4')||!html.includes('/game/theme.css?v=20260927-visual4'))fail('latest game visual assets must be cache-busted');
 
 
 
