@@ -460,11 +460,11 @@ function pressureLabel(){
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
-    version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:150000,rp:0,xp:0,level:1,focus:3,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
+    version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:250000,rp:0,xp:0,level:1,focus:0,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
     field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1,'standard'),
-    seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0},seasonBest:null,pendingEvent:null,
+    seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0},seasonBest:null,pendingEvent:null,
     log:[{day:1,text:'Musim 1: pilih benih, tanam, rawat, lalu panen. Penelitian dan pemuliaan terbuka setelah alur dasar dikuasai.'}],history:[],
     location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
     challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
@@ -495,7 +495,8 @@ function load(){
       if(!crop)return null;
       const seed={...(crop.seed||{}),genome:normalizeGenome(crop.seed?.genome,crop.seed?.id||('plot-'+index),merged.simulationSeed)};
       const uidValue=crop.uid||('legacy-plant-'+index);
-      return {...crop,uid:uidValue,seed,samples:Array.isArray(crop.samples)&&crop.samples.length?crop.samples:makeSubsamples({plotUid:merged.plotRegistry?.[index]?.uid||('P'+index),plantUid:uidValue,species:crop.species||merged.species,simulationSeed:merged.simulationSeed})};
+      const baseN=initialNutrients(index);
+      return {...crop,uid:uidValue,seed,n:clamp(Number.isFinite(Number(crop.n))?Number(crop.n):baseN.n,0,110),p:clamp(Number.isFinite(Number(crop.p))?Number(crop.p):baseN.p,0,110),k:clamp(Number.isFinite(Number(crop.k))?Number(crop.k):baseN.k,0,110),samples:Array.isArray(crop.samples)&&crop.samples.length?crop.samples:makeSubsamples({plotUid:merged.plotRegistry?.[index]?.uid||('P'+index),plantUid:uidValue,species:crop.species||merged.species,simulationSeed:merged.simulationSeed})};
     });
     merged.tech=Array.isArray(merged.tech)?merged.tech:[];
     merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
@@ -526,8 +527,7 @@ function load(){
       merged.field=merged.field.map(crop=>crop?{...crop,age:Math.max(Number(crop.age)||0,Math.round(clamp(Number(crop.growth)||0,0,100)/100*maturity))}:crop);
     }
     merged.maxDay=calendarMax;merged.day=clamp(Math.round(Number(merged.day)||1),1,merged.maxDay);
-    const legacyBoost=merged.legacy>0?1:0,baseFocus=Math.min(5,3+Math.floor((Math.max(1,merged.level)-1)/6)+legacyBoost),focusPenalty=Number(CHALLENGES[merged.challenge]?.focusPenalty||0),maxFocus=Math.max(2,baseFocus-focusPenalty);
-    merged.focus=Math.min(Number.isFinite(Number(merged.focus))?Number(merged.focus):maxFocus,maxFocus);
+    merged.focus=0;
     return merged;
   }catch{return freshState();}
 }
@@ -1390,9 +1390,9 @@ function startWeekly(){
   state.weekly={key:weekly.key,seed:weekly.seed,target:weekly.target,budget:weekly.budget};state.daily=null;
   state.simulationSeed=weekly.seed;state.challenge=weekly.challenge;state.location='zero';state.species='maize';state.maxDay=seasonLengthFor('maize',weekly.challenge);
   state.env=weekly.env;state.weather=deterministicWeather(state.env,1);state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);
-  state.coins=weekly.budget;state.focus=focusMax(state.level);state.fieldPressure={pathogen:0,fatigue:0};state.weatherMemory={hot:0,wet:0,dry:0};
+  state.coins=weekly.budget;state.focus=0;state.fieldPressure={pathogen:0,fatigue:0};state.weatherMemory={hot:0,wet:0,dry:0};
   state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotRegistry=makePlotRegistry();state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.pendingEvent=null;
-  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0};state.seasonBest=null;state.selectedPlot=0;state.selectedSeedId='seed-aruna';
+  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0};state.seasonBest=null;state.selectedPlot=0;state.selectedSeedId='seed-aruna';
   state.mission={type:'yield',target:weekly.target,text:'Weekly target',unit:'kg'};state.monoSeedId=challenge.mono?state.selectedSeedId:null;state.seasonStartRp=state.rp;
   closeMetaModal();addLog('Weekly Seed '+weekly.key+' dimulai · kondisi bersama.');noteBreeder('challenge','Weekly '+weekly.key+' · seed '+weekly.seed);render();
 }
@@ -1697,7 +1697,7 @@ function renderHud(){
   $('#coinValue').textContent=formatRupiah(state.coins,true);$('#coinValue').title=formatRupiah(state.coins);
   const cropProfile=SPECIES[state.species]||SPECIES.maize,marketLabel=$('#marketValue')?.previousElementSibling;if(marketLabel?.tagName==='SMALL')marketLabel.textContent=cropProfile.name;
   $('#marketValue').textContent=formatRupiah(state.marketPrice||cropProfile.marketBase)+'/kg';$('#marketValue').title=state.species==='maize'?'Acuan game: HPP '+formatRupiah(PRICE_REFERENCE.cornHpp)+'/kg · referensi pembelian Sulsel '+formatRupiah(PRICE_REFERENCE.cornSulsel)+'/kg':'Harga simulasi untuk keseimbangan game; bukan kutipan harga pasar harian.';
-  $('#focusValue').textContent=state.focus+'/'+focusMax(state.level);
+  $('#focusValue').textContent=formatRupiah(laborRate(),true)+'/HOK';$('#focusValue').title='Acuan upah pekerja permainan per hari orang kerja';
   $('#rpValue').textContent=Math.round(state.rp);
   $('#levelValue').textContent=state.level;
   const progress=state.xp%120;$('#xpValue').textContent=progress+'/120';$('#xpBar').style.width=(progress/120*100)+'%';
@@ -2382,7 +2382,7 @@ function skipWeatherLabel(counts){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>(WEATHER[id]?.icon||'·')+count).join(' ');
 }
 function stepOneDay({logWeather=true}={}){
-  state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=focusMax(state.level);
+  state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=0;
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
   }else state.weather=deterministicWeather(state.env,state.day);
@@ -2583,12 +2583,12 @@ function beginNextSeason(){
   checkpoint('Akhir Musim '+state.season);
   const wasDaily=!!state.daily,wasWeekly=!!state.weekly;archiveActiveExperiment();
   state.season++;if(state.season>=2)state.onboarding={...(state.onboarding||{}),complete:true};
-  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=focusMax(state.level);state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
+  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=0;state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
   state.vault.forEach(seed=>{seed.ageSeasons=(seed.ageSeasons||0)+1;seed.viability=clamp((seed.viability||96)-(hasTech('cold')?1:3),0,100);});
   if(wasDaily||wasWeekly){state.daily=null;state.weekly=null;state.challenge='standard';state.monoSeedId=null;if(wasWeekly)state.simulationSeed=hashString('academy:'+state.season+':'+Date.now());}
   state.maxDay=seasonLengthFor(state.species,state.challenge);lastTimeStopReason='';
   state.env=newEnvironment(state.season);state.weather=rollWeather(state.env);state.weatherMemory={hot:0,wet:0,dry:0};state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);state.seasonStartRp=state.rp;state.mission=missionFor(state.season,state.challenge);
-  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
+  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
   if(state.season%3===0){const fragment=LORE[Math.min(LORE.length-1,Math.floor(state.season/3)-1)];if(fragment&&!state.lore.includes(fragment)){state.lore.push(fragment);addLog('Fragment arsip baru ditemukan.');}}
   addLog('Musim '+state.season+' dimulai: '+state.env.name+(state.env.boss?' [BOSS]':'')+'.',1);noteBreeder('musim','Musim '+state.season+' dimulai · '+state.env.name);$('#recapModal').hidden=true;render();toast(state.season===2?'📐 Penelitian & pemuliaan terbuka':state.env.name+' dimulai');
 }
