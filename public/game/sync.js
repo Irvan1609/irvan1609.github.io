@@ -1,4 +1,5 @@
 const META_PREFIX='agrotik_fz_cloud_sync_v1:';
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
 const SYNC_DELAY=20000,MAX_DIRTY_WAIT=60000;
 let user=null,busy=false,timer=0,dirtySince=0,pendingConflict=null,ready=false;
 
@@ -6,6 +7,7 @@ const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const rupiah=value=>'Rp'+Math.max(0,Math.round(Number(value)||0)).toLocaleString('id-ID');
 function game(){return window.FieldZeroGame||null;}
+function reportQueue(failed=0){window.AgrotikSystem?.reportQueue?.('game',{pending:dirtySince?1:0,failed,label:'Save game'});}
 function metaKey(){return META_PREFIX+(user?.id||'anonymous');}
 function readMeta(){
   try{return JSON.parse(localStorage.getItem(metaKey())||'null');}catch{return null;}
@@ -82,23 +84,23 @@ async function pushLocal(baseRevision,{manual=false,keepalive=false}={}){
   try{
     const data=await api('/v1/game/save',{method:'PUT',body:JSON.stringify({save,baseRevision}),keepalive});
     writeMeta({revision:data.revision,fingerprint,updatedAt:data.updatedAt||null});
-    dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');
+    dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');reportQueue(0);
     if(manual)notice('☁ Progres tersimpan');
   }catch(error){
     if(error.status===409&&error.data?.save){
       const cloud=error.data,cloudFp=g.fingerprintSave(cloud.save);
       if(cloudFp===fingerprint){
         writeMeta({revision:cloud.revision,fingerprint:cloudFp,updatedAt:cloud.updatedAt||null});
-        dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');
+        dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');reportQueue(0);
       }else showConflict(save,cloud);
     }else{
-      setStatus(navigator.onLine?'error':'offline',navigator.onLine?'Sinkronisasi gagal · ketuk untuk coba lagi':'Offline · progres aman di perangkat');
+      setStatus(navigator.onLine?'error':'offline',navigator.onLine?'Sinkronisasi gagal · ketuk untuk coba lagi':'Offline · progres aman di perangkat');reportQueue(1);
       if(manual)notice(navigator.onLine?'☁ Sinkronisasi gagal':'Offline · progres tetap tersimpan lokal');
     }
   }finally{busy=false;}
 }
 async function reconcile({manual=false}={}){
-  const g=game();if(!user||!g||busy)return;
+  const g=game();if(SAFE_MODE){setStatus('local','Safe mode · progres tetap lokal');reportQueue();return;}if(!user||!g||busy)return;
   busy=true;setStatus('syncing','Memeriksa progres cloud…');
   try{
     const cloud=await api('/v1/game/save');
@@ -109,7 +111,7 @@ async function reconcile({manual=false}={}){
     const cloudFp=g.fingerprintSave(cloud.save);
     if(localFp===cloudFp){
       writeMeta({revision:cloud.revision,fingerprint:cloudFp,updatedAt:cloud.updatedAt||null});
-      dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');return;
+      dirtySince=0;setStatus('synced','Progres tersinkron antar perangkat');reportQueue(0);return;
     }
     if(!meta||meta.userId!==user.id){
       if(g.isFreshSave?.(localSave))adoptCloud(cloud,{announce:true});
@@ -127,11 +129,11 @@ async function reconcile({manual=false}={}){
       if(localFp!==meta.fingerprint){
         busy=false;return pushLocal(knownRevision,{manual});
       }
-      setStatus('synced','Progres tersinkron antar perangkat');dirtySince=0;return;
+      setStatus('synced','Progres tersinkron antar perangkat');dirtySince=0;reportQueue(0);return;
     }
     showConflict(localSave,cloud);
   }catch(error){
-    setStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud tidak dapat diperiksa · ketuk untuk coba lagi':'Offline · progres aman di perangkat');
+    setStatus(navigator.onLine?'error':'offline',navigator.onLine?'Cloud tidak dapat diperiksa · ketuk untuk coba lagi':'Offline · progres aman di perangkat');reportQueue(1);
     if(manual)notice(navigator.onLine?'☁ Cloud tidak dapat diperiksa':'Offline · progres tetap lokal');
   }finally{busy=false;}
 }
@@ -140,13 +142,14 @@ function schedule(){
   if(!dirtySince)dirtySince=Date.now();
   clearTimeout(timer);
   const elapsed=Date.now()-dirtySince,delay=elapsed>=MAX_DIRTY_WAIT?100:SYNC_DELAY;
-  setStatus('pending','Perubahan lokal menunggu sinkronisasi');
-  timer=setTimeout(()=>reconcile(),delay);
+  setStatus(SAFE_MODE?'local':'pending',SAFE_MODE?'Safe mode · perubahan aman di perangkat':'Perubahan lokal menunggu sinkronisasi');reportQueue();
+  if(!SAFE_MODE)timer=setTimeout(()=>reconcile(),delay);
 }
 function onAccount(event){
   user=event?.detail?.authenticated?event.detail.user:null;
   clearTimeout(timer);dirtySince=0;pendingConflict=null;closeConflict();
-  if(!user){setStatus('local','Progres lokal · masuk untuk sinkron antar perangkat');return;}
+  if(!user){setStatus('local','Progres lokal · masuk untuk sinkron antar perangkat');reportQueue();return;}
+  if(SAFE_MODE){setStatus('local','Safe mode · progres tetap lokal');reportQueue();return;}
   setStatus('syncing','Memeriksa progres cloud…');
   if(ready)reconcile();
 }
@@ -167,7 +170,8 @@ function bind(){
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='hidden'&&user&&dirtySince&&!pendingConflict)reconcile();
   });
-  window.addEventListener('online',()=>{if(user)reconcile();});
+  window.addEventListener('online',()=>{if(user&&!SAFE_MODE)reconcile();});
+  document.addEventListener('agrotik-retry-queues',()=>{if(user&&!SAFE_MODE)reconcile({manual:true});});
   window.addEventListener('offline',()=>setStatus('offline','Offline · progres aman di perangkat'));
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
   else setStatus('local','Progres lokal · masuk untuk sinkron antar perangkat');
