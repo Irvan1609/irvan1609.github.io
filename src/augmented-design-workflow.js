@@ -1,6 +1,6 @@
 import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,formatNumber} from './number-format.js';
-import {augmentedRcbAnova} from './augmented-design-engine.js';
+import {augmentedRcbAnova} from './augmented-design-engine.js?v=20260927-work-aug-v2';
 import {resultActions} from './result-export.js';
 import {backupRawDataset} from './drive-backup.js';
 
