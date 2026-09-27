@@ -372,7 +372,7 @@ function pressureLabel(){
 function freshState(){
   const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
   return {
-    version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:250000,rp:0,xp:0,level:1,focus:0,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
+    version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:250000,rp:0,xp:0,level:1,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
     field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
     discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
     env,weather:rollWeather(env),mission:missionFor(1,'standard'),
@@ -439,7 +439,6 @@ function load(){
       merged.field=merged.field.map(crop=>crop?{...crop,age:Math.max(Number(crop.age)||0,Math.round(clamp(Number(crop.growth)||0,0,100)/100*maturity))}:crop);
     }
     merged.maxDay=calendarMax;merged.day=clamp(Math.round(Number(merged.day)||1),1,merged.maxDay);
-    merged.focus=0;
     return merged;
   }catch{return freshState();}
 }
@@ -1302,7 +1301,7 @@ function startWeekly(){
   state.weekly={key:weekly.key,seed:weekly.seed,target:weekly.target,budget:weekly.budget};state.daily=null;
   state.simulationSeed=weekly.seed;state.challenge=weekly.challenge;state.location='zero';state.species='maize';state.maxDay=seasonLengthFor('maize',weekly.challenge);
   state.env=weekly.env;state.weather=deterministicWeather(state.env,1);state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);
-  state.coins=weekly.budget;state.focus=0;state.fieldPressure={pathogen:0,fatigue:0};state.weatherMemory={hot:0,wet:0,dry:0};
+  state.coins=weekly.budget;state.fieldPressure={pathogen:0,fatigue:0};state.weatherMemory={hot:0,wet:0,dry:0};
   state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotRegistry=makePlotRegistry();state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.pendingEvent=null;
   state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0};state.seasonBest=null;state.selectedPlot=0;state.selectedSeedId='seed-aruna';
   state.mission={type:'yield',target:weekly.target,text:'Weekly target',unit:'kg'};state.monoSeedId=challenge.mono?state.selectedSeedId:null;state.seasonStartRp=state.rp;
@@ -1695,7 +1694,7 @@ function renderInspector(){
   const hidden=crop.scouted>=2?` · respons air ${crop.waterSensitivity>1?'tinggi':crop.waterSensitivity<.95?'rendah':'sedang'} · kebutuhan N ${crop.nDemand>1?'tinggi':crop.nDemand<.95?'rendah':'sedang'}`:' · karakter respons belum lengkap';
   const quickButton=quick?`<button class="plot-quick-action ${quick.tool==='harvest'?'harvest':''}" data-crop-action="${quick.tool}" ${quick.fertilizer?`data-fertilizer="${quick.fertilizer}"`:''}>${quick.icon} ${esc(quick.label)}</button>`:'<span class="plot-ok">✓ Tidak perlu tindakan</span>';
   const fertilizerButtons=Object.values(FERTILIZERS).map(product=>{const price=fertilizerActionCost(crop,product.id),grams=Math.round(price.doseKg*1000),rec=product.id===recommended;return `<button type="button" class="${rec?'recommended':''}" data-crop-action="fertilize" data-fertilizer="${product.id}" ${activeChallenge().noFertilizer||state.coins<price.total||crop.health<=0?'disabled':''}><b>${esc(product.short)}${rec?' ★':''}</b><small>${grams>=1000?(grams/1000).toFixed(1)+' kg':grams+' g'} · ${formatRupiah(price.total)}</small></button>`;}).join('');
-  $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>${esc(stageOf(crop))} · Kesehatan ${Math.round(crop.health)}%</small><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><span>${esc(inspectorIssueText(crop))}</span></div>${quickButton}</div><details class="plot-details"><summary>Detail petak</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="crop-stats nutrient-stats"><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>N</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>P</span><b>${Math.round(crop.p)}%</b></div><div class="stat-box"><span>K</span><b>${Math.round(crop.k)}%</b></div><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="field-input-plan"><b>💧 ${esc(irrigation.plan.label)}</b><span>${irrigation.plan.depthMm} mm ≈ ${irrigation.plan.volumeM3} m³/25 m² · target ${irrigation.plan.target}%</span><button data-crop-action="water" ${state.coins<irrigation.total||crop.health<=0?'disabled':''}>Irigasi · ${formatRupiah(irrigation.total)}</button></div><div class="fertilizer-plan"><div><b>Pilih pupuk</b><span>Rekomendasi mengikuti N/P/K, umur tanaman, pH, dan riwayat lahan.</span></div><div class="fertilizer-grid">${fertilizerButtons}</div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hidden} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid compact-actions"><button class="scout" data-crop-action="scout" ${state.coins<scoutCost||crop.health<=0?'disabled':''}>◎ Periksa · ${formatRupiah(scoutCost)} · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Upah pekerja ${formatRupiah(laborRate())}/HOK · harga pupuk Urea/NPK memakai acuan subsidi; SP-36/KCl memakai harga simulasi.</p></div></details>`;
+  $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>${esc(stageOf(crop))} · Kesehatan ${Math.round(crop.health)}%</small><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><span>${esc(inspectorIssueText(crop))}</span></div>${quickButton}</div><details class="plot-details"><summary>Detail petak</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="crop-stats nutrient-stats"><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>N</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>P</span><b>${Math.round(crop.p)}%</b></div><div class="stat-box"><span>K</span><b>${Math.round(crop.k)}%</b></div><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="field-input-plan"><b>💧 ${esc(irrigation.plan.label)}</b><span>${irrigation.plan.depthMm} mm ≈ ${irrigation.plan.volumeM3} m³/25 m² · target ${irrigation.plan.target}%</span><button data-crop-action="water" ${state.coins<irrigation.total||crop.health<=0?'disabled':''}>Irigasi · ${formatRupiah(irrigation.total)}</button></div><div class="fertilizer-plan"><div><b>Pilih pupuk</b><span>Rekomendasi dari N/P/K, umur dan pH.</span></div><div class="fertilizer-grid">${fertilizerButtons}</div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hidden} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid compact-actions"><button class="scout" data-crop-action="scout" ${state.coins<scoutCost||crop.health<=0?'disabled':''}>◎ Periksa · ${formatRupiah(scoutCost)} · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Upah pekerja ${formatRupiah(laborRate())}/HOK · harga pupuk Urea/NPK: acuan subsidi · SP-36/KCl: simulasi.</p></div></details>`;
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction,button.dataset.fertilizer||''));bindPlotUseControls();
 }
 function renderVault(){
@@ -1872,14 +1871,14 @@ function openEconomyInfo(){
     <div><small>Referensi Sulsel</small><b>${formatRupiah(PRICE_REFERENCE.cornSulsel)}/kg</b><span>Pembelian KA 14%</span></div>
     <div><small>Urea subsidi</small><b>${formatRupiah(PRICE_REFERENCE.urea)}/kg</b><span>Harga acuan input</span></div>
     <div><small>NPK subsidi</small><b>${formatRupiah(PRICE_REFERENCE.npk)}/kg</b><span>Harga acuan input</span></div>
-    <div><small>Upah pekerja</small><b>${formatRupiah(laborRate())}/HOK</b><span>Tarif simulasi; seluruh pekerjaan dibayar dari kas</span></div>
-    <div><small>Biaya pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b><span>Tanam, rawat, panen & operasi</span></div>
-    <div><small>Biaya input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b><span>Benih, air/pompa & pupuk</span></div>
+    <div><small>Upah pekerja</small><b>${formatRupiah(laborRate())}/HOK</b><span>Tarif simulasi pekerja</span></div>
+    <div><small>Biaya pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b><span>Tanam, rawat & panen</span></div>
+    <div><small>Biaya input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b><span>Air, pupuk & input</span></div>
     <div><small>Air irigasi</small><b>${round(state.seasonStats.irrigationM3||0,1)} m³</b><span>Akumulasi musim</span></div>
     <div><small>Pendapatan musim</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b><span>Panen × harga</span></div>
     <div><small>Biaya musim</small><b>${formatRupiah(state.seasonStats.cost||0)}</b><span>Input & operasi</span></div>
     <div><small>Margin berjalan</small><b>${formatRupiah(margin)}</b><span>Belum termasuk nilai riset</span></div>
-  </div><p class="help-note">Harga di game dikalibrasi ke nilai lapangan Indonesia/Sulawesi Selatan, tetapi tetap disederhanakan agar permainan seimbang.</p>`);
+  </div><p class="help-note">Harga acuan lapang disederhanakan untuk keseimbangan game.</p>`);
 }
 function openComfortSettings(){
   const c=state.comfort;
@@ -1991,7 +1990,7 @@ function careCenterHtml(){
   body+=card('water','💧','Irigasi',view.water,waterText);
   body+=card('fertilize','NPK','Pemupukan',view.fertilize,activeChallenge().noFertilizer?'Dilarang challenge':'Rekomendasi '+(fertNames||'N/P/K')+' + upah',activeChallenge().noFertilizer);
   body+=card('scout','◎','Periksa tanaman',view.scout,'Pekerja lapang · +RP');
-  body+='</div><div class="care-footer">'+(view.ready.length?'<button type="button" data-care-ready>🧺 '+view.ready.length+' siap panen</button>':'')+'<button type="button" data-care-highlight>'+(state.comfort.attention?'Tutup sorotan':'Sorot masalah')+'</button></div><small class="care-rule">Tidak ada energi. Pekerjaan berhenti hanya jika kas tidak cukup; biaya pekerja dan input dicatat terpisah.</small></section>';
+  body+='</div><div class="care-footer">'+(view.ready.length?'<button type="button" data-care-ready>🧺 '+view.ready.length+' siap panen</button>':'')+'<button type="button" data-care-highlight>'+(state.comfort.attention?'Tutup sorotan':'Sorot masalah')+'</button></div><small class="care-rule">Tidak ada energi. Tanpa energi: pekerjaan berjalan selama kas cukup.</small></section>';
   return {body,view};
 }
 function bindCareCenter(view){
@@ -2317,7 +2316,7 @@ function skipWeatherLabel(counts){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>(WEATHER[id]?.icon||'·')+count).join(' ');
 }
 function stepOneDay({logWeather=true}={}){
-  state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=0;
+  state.advanceGuard=null;state.day++;harvestCombo=0;
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
   }else state.weather=deterministicWeather(state.env,state.day);
@@ -2373,9 +2372,9 @@ function eventDefinition(event){
       choices:[['spray','Semprot · '+formatRupiah(actionCost('spray'))],['observe','Amati · +4 riset']]},
     trader:{kicker:'VISITOR',title:'Pedagang benih keliling',text:'Seorang pedagang menawarkan lot benih tanpa silsilah lengkap. Potensinya tidak pasti.',
       choices:[['buy','Beli lot · '+formatRupiah(actionCost('trader'))],['pass','Lewati']]},
-    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion berulang. Pekerja dapat mengambil sampel tanah untuk dianalisis.',
+    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion berulang; sampel tanah dapat diambil.',
       choices:[['sample','Ambil sampel · '+formatRupiah(laborCost('sample'))],['ignore','Abaikan']]},
-    drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran tersumbat setelah hujan. Membuka drainase membutuhkan pekerja lapang.',
+    drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran tersumbat setelah hujan; pekerja dapat membukanya.',
       choices:[['drain','Buka drainase · '+formatRupiah(laborCost('drain'))],['risk','Biarkan']]},
     signal:{kicker:'FIELD ZERO',title:'Sinyal ungu di petak',text:'Selama beberapa detik, sensor, daun, dan tanah menunjukkan pola yang sama. Tidak ada catatan fenomena ini.',
       choices:[['trace','Lacak sinyal · '+formatRupiah(laborCost('trace'))],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))]]},
@@ -2385,7 +2384,7 @@ function eventDefinition(event){
       choices:[['buyBetter','Beli · '+formatRupiah(actionCost('traderSelected'))],['leave','Lewati']]},
     archive:{kicker:'FIELD ZERO',title:'Arsip lama terbuka',text:'Jejak Zero membuka catatan lama. Pilih membaca arsip atau menstabilkan lahan.',
       choices:[['readArchive','Baca arsip'],['stabilize','Stabilkan lahan']]},
-    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pekerja dapat menjalankan respons kolektif untuk seluruh lahan.',
+    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pekerja dapat merespons seluruh lahan.',
       choices:[['defendBoss','Respons kolektif · '+formatRupiah(laborCost('defendBoss'))],['gambleBoss','Ambil risiko · +10 RP']]}
   };
   return defs[event.kind]||defs.soil;
@@ -2522,7 +2521,7 @@ function beginNextSeason(){
   checkpoint('Akhir Musim '+state.season);
   const wasDaily=!!state.daily,wasWeekly=!!state.weekly;archiveActiveExperiment();
   state.season++;if(state.season>=2)state.onboarding={...(state.onboarding||{}),complete:true};
-  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.focus=0;state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
+  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
   state.vault.forEach(seed=>{seed.ageSeasons=(seed.ageSeasons||0)+1;seed.viability=clamp((seed.viability||96)-(hasTech('cold')?1:3),0,100);});
   if(wasDaily||wasWeekly){state.daily=null;state.weekly=null;state.challenge='standard';state.monoSeedId=null;if(wasWeekly)state.simulationSeed=hashString('academy:'+state.season+':'+Date.now());}
   state.maxDay=seasonLengthFor(state.species,state.challenge);lastTimeStopReason='';
