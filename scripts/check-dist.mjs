@@ -56,8 +56,8 @@ const mendeleyHtml = fs.readFileSync(mendeleyPath, 'utf8');
 for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary']) if (!mendeleyHtml.includes(marker)) fail(`built /mendeley page is missing marker ${marker}`);
 if (mendeleyHtml.includes('/mendeley/app.js')) fail('built /mendeley page still references source app.js');
 const chiliHtml=fs.readFileSync(chiliPath,'utf8'),chiliApp=fs.readFileSync(chiliAppPath,'utf8'),chiliDetector=fs.readFileSync(chiliDetectorPath,'utf8'),chiliSync=fs.readFileSync(chiliSyncPath,'utf8');
-for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','autoDetect','detectSensitivity','sendToStat','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
-for(const marker of ['getUserMedia','facingMode','indexedDB','detector.js','stat-sync.js'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
+for(const marker of ['Hitung Cabai','openCamera','cameraVideo','mobileSave','saveDesktop','autoDetect','reviewLow','qualityGate','detectSensitivity','batchAuto','capture="environment"'])if(!chiliHtml.includes(marker))fail(`built /hitung-cabai page is missing marker ${marker}`);
+for(const marker of ['getUserMedia','facingMode','indexedDB','imageBlob','review-metrics.js','detector.js','stat-sync.js'])if(!chiliApp.includes(marker))fail(`built /hitung-cabai app is missing marker ${marker}`);
 if(!chiliDetector.includes('detectChiliBoxesFromImageData'))fail('built /hitung-cabai detector is missing detection engine');
 if(!chiliSync.includes('upsertChiliCountToStatistics')||!chiliSync.includes('statistical_web_csv_files_v1'))fail('built /hitung-cabai sync bridge is missing Statistical Web integration');
 
