@@ -50,15 +50,48 @@ function modelRow(block,treatment,blockLevels,treatmentLevels,{useBlock=true,use
   if(useTreatment)for(const level of treatmentLevels.slice(1))row.push(String(treatment)===level?1:0);
   return row;
 }
+function fitMatrix(X,y){
+  const xtx=crossprod(X),inv=invert(xtx),beta=matVec(inv,xty(X,y));
+  const fitted=X.map(row=>dot(row,beta)),residuals=y.map((value,index)=>value-fitted[index]);
+  const sse=sum(residuals.map(value=>value*value)),df=y.length-beta.length;
+  return {X,y,beta,inv,fitted,residuals,sse,df};
+}
 function fitModel(observations,{useBlock=true,useTreatment=true}={}){
   const blockLevels=unique(observations.map(item=>item.block));
   const treatmentLevels=unique(observations.map(item=>item.treatment));
   const X=observations.map(item=>modelRow(item.block,item.treatment,blockLevels,treatmentLevels,{useBlock,useTreatment}));
-  const y=observations.map(item=>item.y),xtx=crossprod(X),inv=invert(xtx),beta=matVec(inv,xty(X,y));
-  const fitted=X.map(row=>dot(row,beta)),residuals=y.map((value,index)=>value-fitted[index]);
-  const sse=sum(residuals.map(value=>value*value)),df=y.length-beta.length;
-  return {X,y,beta,inv,fitted,residuals,sse,df,blockLevels,treatmentLevels,useBlock,useTreatment,
+  const y=observations.map(item=>item.y),fit=fitMatrix(X,y);
+  return {...fit,blockLevels,treatmentLevels,useBlock,useTreatment,
     row:(block,treatment)=>modelRow(block,treatment,blockLevels,treatmentLevels,{useBlock,useTreatment})};
+}
+function holmAdjust(values){
+  const indexed=values.map((value,index)=>({value,index})).filter(item=>Number.isFinite(item.value)).sort((a,b)=>a.value-b.value);
+  const out=Array(values.length).fill(null);let previous=0,m=indexed.length;
+  indexed.forEach((item,rank)=>{
+    const adjusted=Math.min(1,Math.max(previous,(m-rank)*item.value));
+    out[item.index]=adjusted;previous=adjusted;
+  });
+  return out;
+}
+function sasPartition(observations,blocks,checks,tests,mse,dfError,totalSse){
+  const y=observations.map(item=>item.y);
+  const build=stage=>observations.map(item=>{
+    const row=[1];
+    for(const block of blocks.slice(1))row.push(item.block===block?1:0);
+    if(stage>=1)row.push(checks.includes(item.treatment)?0:1);
+    if(stage>=2)for(const check of checks.slice(1))row.push(item.treatment===check?1:0);
+    if(stage>=3)for(const test of tests.slice(1))row.push(item.treatment===test?1:0);
+    return row;
+  });
+  const fits=[0,1,2,3].map(stage=>fitMatrix(build(stage),y));
+  return [
+    anovaTerm('Blok',Math.max(0,totalSse-fits[0].sse),blocks.length-1,mse,dfError),
+    anovaTerm('Line vs Check',Math.max(0,fits[0].sse-fits[1].sse),1,mse,dfError),
+    anovaTerm('Check',Math.max(0,fits[1].sse-fits[2].sse),Math.max(0,checks.length-1),mse,dfError),
+    anovaTerm('Line(Check)',Math.max(0,fits[2].sse-fits[3].sse),Math.max(0,tests.length-1),mse,dfError),
+    {label:'Galat',ss:fits[3].sse,df:fits[3].df,ms:fits[3].sse/fits[3].df,f:null,p:null,f05:null,f01:null},
+    {label:'Total',ss:totalSse,df:observations.length-1,ms:null,f:null,p:null,f05:null,f01:null}
+  ];
 }
 function interceptSse(observations){
   const avg=mean(observations.map(item=>item.y));
@@ -179,7 +212,7 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
   const xByTreatment=new Map(treatments.map(treatment=>[treatment,marginalRow(treatment)]));
   const checkAverageX=averageVectors(checkLevels.map(check=>xByTreatment.get(check)));
   const checkAdjustedMean=dot(checkAverageX,full.beta);
-  const means=treatments.map(treatment=>{
+  let means=treatments.map(treatment=>{
     const group=observations.filter(item=>item.treatment===treatment),x=xByTreatment.get(treatment);
     const adjusted=dot(x,full.beta),variance=Math.max(0,covarianceOfRows(x,x,full.inv,mse));
     const isCheck=checkLevels.includes(treatment);
@@ -197,6 +230,13 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
       significant:pCheck!==null&&pCheck<alpha,x
     };
   }).sort((a,b)=>b.adjusted-a.adjusted).map((item,index)=>({...item,rank:index+1}));
+  const testMeanIndexes=means.map((item,index)=>item.type==='Test'?index:-1).filter(index=>index>=0);
+  const holm=holmAdjust(testMeanIndexes.map(index=>means[index].pCheck));
+  means=means.map((item,index)=>{
+    const position=testMeanIndexes.indexOf(index);
+    const pCheckHolm=position>=0?holm[position]:null;
+    return {...item,pCheckHolm,significantHolm:Number.isFinite(pCheckHolm)&&pCheckHolm<alpha};
+  });
 
   const treatmentRows=treatments.map(treatment=>xByTreatment.get(treatment));
   const overallX=averageVectors(treatmentRows),adjustedGrand=dot(overallX,full.beta);
@@ -215,6 +255,8 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
     pairSes[target].push(pair(testLevels[i],testLevels[j]));
   }
   for(const test of testLevels)for(const check of checkLevels)pairSes.testCheck.push(pair(test,check));
+  const allPairSes=[];
+  for(let i=0;i<treatments.length;i++)for(let j=i+1;j<treatments.length;j++)allPairSes.push(pair(treatments[i],treatments[j]));
   const tCritical=jStat.studentt.inv(1-alpha/2,full.df);
   const sed={
     checkCheck:rangeSummary(pairSes.checkCheck,tCritical),
@@ -224,10 +266,20 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
   };
 
   const cv=adjustedGrand!==0?Math.abs(Math.sqrt(Math.max(0,mse))/adjustedGrand*100):null;
+  const sasStandardError=allPairSes.length?mean(allPairSes):null;
+  const workSummary={
+    standardError:sasStandardError,
+    grandMean:adjustedGrand,
+    lsd:Number.isFinite(sasStandardError)?tCritical*sasStandardError:null,
+    cv:Number.isFinite(sasStandardError)&&adjustedGrand!==0?Math.abs(sasStandardError/adjustedGrand*100):null,
+    df:full.df,tCritical
+  };
+  const partitionAdjusted=sasPartition(observations,blocks,checkLevels,testLevels,mse,full.df,totalSse);
   return {
     n:observations.length,blocks,treatments,checks:checkLevels,tests:testLevels,
     rawGrand,adjustedGrand,checkAdjustedMean,mse,dfError:full.df,cv,alpha,warnings,
-    treatmentAdjusted,blockAdjusted,means,blockEffects,sed,
+    treatmentAdjusted,blockAdjusted,partitionAdjusted,means,blockEffects,sed,workSummary,
+    observations:observations.map(item=>({block:item.block,treatment:item.treatment,y:item.y})),
     model:'Y = μ + Blok + Genotipe/Perlakuan + ε'
   };
 }
