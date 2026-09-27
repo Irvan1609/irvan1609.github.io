@@ -138,12 +138,10 @@ function fieldbookTool(){
   $('#downloadFieldbook').onclick=async()=>{try{const out=current||make(),{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Fieldbook');sheet.addRow(out.headers);out.rows.forEach(r=>sheet.addRow(r));sheet.getRow(1).font={bold:true};sheet.views=[{state:'frozen',ySplit:1}];sheet.columns.forEach(c=>c.width=18);downloadBlob(await book.xlsx.writeBuffer(),`fieldbook-${$('#fieldDesign').value}.xlsx`);}catch(e){$('#fieldResult').innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}};
 }
 
-function duplicateDataset(){const data=dataset();if(!data.headers.length)return;document.dispatchEvent(new CustomEvent('dataset-import',{detail:{name:safeName(data.name)+'-copy',headers:[...data.headers],rows:data.rows.map(r=>[...r])}}));}
-
 export function installDataEnhancements(){
   const toolbar=$('.toolbar');if(!toolbar||$('#validateDataset'))return;
-  toolbar.insertAdjacentHTML('beforeend','<button id="undoData">Undo</button><button id="redoData">Redo</button><button id="validateDataset">Validasi dataset</button><button id="transformData">Transformasi</button><button id="outlierData">Diagnostik pencilan</button><button id="duplicateDataset">Duplikat dataset</button><button id="fieldbookTool">Randomisasi / fieldbook</button>');
-  $('#undoData').onclick=undo;$('#redoData').onclick=redo;$('#validateDataset').onclick=validateDataset;$('#transformData').onclick=transformationTool;$('#outlierData').onclick=outlierDiagnostics;$('#duplicateDataset').onclick=duplicateDataset;$('#fieldbookTool').onclick=fieldbookTool;
+  toolbar.insertAdjacentHTML('beforeend','<button id="undoData">Undo</button><button id="redoData">Redo</button><button id="validateDataset">Validasi dataset</button><button id="transformData">Transformasi</button><button id="outlierData">Diagnostik pencilan</button><button id="fieldbookTool">Randomisasi / fieldbook</button>');
+  $('#undoData').onclick=undo;$('#redoData').onclick=redo;$('#validateDataset').onclick=validateDataset;$('#transformData').onclick=transformationTool;$('#outlierData').onclick=outlierDiagnostics;$('#fieldbookTool').onclick=fieldbookTool;
   const fieldDeepLink=new URLSearchParams(location.search).get('field_plot');
   if(fieldDeepLink)queueMicrotask(async()=>{try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout();}catch(error){console.error('Denah lahan gagal dibuka',error);}});
   let timer=null;const schedule=()=>{clearTimeout(timer);timer=setTimeout(captureSnapshot,120);};
