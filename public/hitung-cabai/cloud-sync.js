@@ -92,7 +92,8 @@ export async function submitTrainingContribution({
   if(!consent)throw Error('Persetujuan penggunaan data untuk pelatihan belum diberikan.');
   const finalBoxes=cleanBoxes(boxes),initialBoxes=cleanBoxes(predictedBoxes);
   reportQueue(1,0);
-  const token=await turnstileToken();
+  let token;
+  try{token=await turnstileToken();}catch(error){reportQueue(0,1);throw error;}
   const endpoint=CHILI_CLOUD_CONFIG.endpoint.replace(/\/+$/,'');
   if(contributionId&&editToken){
     const response=await fetch(endpoint+'/v1/contributions/'+encodeURIComponent(contributionId),{
