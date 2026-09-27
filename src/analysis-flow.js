@@ -85,6 +85,20 @@ function smartAnalysis(){
     const parameterCount=candidateParams().filter(index=>!roles.has(index)).length;
     return {key:'nextgen:combined',label:'ANOVA Gabungan G×E',parameterCount,detail:`${header(environment)} × ${header(genotype)}${rep>=0?` · ${header(rep)}`:''}`};
   }
+  if(genotype>=0&&rep>=0){
+    const genoValues=values(genotype),blockValues=values(rep),blocks=[...new Set(blockValues)];
+    const counts=new Map(genoValues.map(value=>[value,0]));
+    data.rows.forEach(row=>{const value=String(row?.[genotype]??'').trim();if(value)counts.set(value,(counts.get(value)||0)+1);});
+    const checks=[...counts].filter(([,count])=>count===blocks.length).map(([value])=>value);
+    const tests=[...counts].filter(([,count])=>count===1).map(([value])=>value);
+    const irregular=[...counts].filter(([,count])=>count!==1&&count!==blocks.length);
+    const completeChecks=checks.every(check=>blocks.every(block=>data.rows.some(row=>String(row?.[genotype]??'').trim()===check&&String(row?.[rep]??'').trim()===block)));
+    if(blocks.length>=2&&checks.length>=2&&tests.length>=1&&!irregular.length&&completeChecks){
+      const roles=new Set([genotype,rep]);
+      const parameterCount=candidateParams().filter(index=>!roles.has(index)).length;
+      return {key:'augmented:augmented',label:'Augmented Design',parameterCount,detail:`${blocks.length} blok · ${checks.length} check · ${tests.length} entry uji`};
+    }
+  }
 
   let factorA=findNamed(/(^|\b)(perlakuan|treatment|faktor\s*a|factor\s*a|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i);
   if(factorA<0){
