@@ -32,7 +32,7 @@ const fieldContext=fieldParams.get('agrotik')==='field'?{
 }:null;
 
 const status=message=>{$('status').textContent=message;};
-const htmlSafe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
+const htmlSafe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const cloneBoxes=()=>boxes.map(box=>[...box]);
 const cloneMeta=()=>boxMeta.map(meta=>({...meta,reasons:[...(meta.reasons||[])]}));
@@ -203,6 +203,79 @@ function renderCountState(){
 function correctionNow(){return matchBoxes(predictedDetections,boxes,.5);}
 function currentPriority(){
   return activeLearningPriority({correction:correctionNow(),confidence:confidenceStats?.confidence,quality:qualityStats,reviewCount:reviewIndices().length});
+}
+
+function updateAgronomicQuality(detections){
+  if(!image)return;
+  agronomicStats=agronomicQuality(detections,detectionImageData(420));
+  if(qualityStats)qualityStats={...qualityStats,agronomic:agronomicStats,combinedScore:Math.round(qualityStats.score*.75+agronomicStats.score*.25)};
+  const combined=qualityStats?.combinedScore??qualityStats?.score??0,baseIssues=(qualityStats?.issues||[]),issues=[...baseIssues,...(agronomicStats?.issues||[])];
+  const level=combined>=70?'good':combined>=48?'warn':'bad';
+  $('qualityGate').dataset.level=level;$('qualityScore').textContent=combined+'/100';
+  $('qualityIssue').textContent=issues.length?issues.join(' '):'Fokus, pencahayaan, resolusi, kepadatan, dan posisi objek memadai.';
+}
+async function checkPhotoDuplicate(){
+  const node=$('photoDuplicateHint');if(!node)return null;
+  if(!currentImageHash){node.hidden=true;return null;}
+  const hit=nearestDuplicate(currentImageHash,allRowsCache.filter(r=>r.id!==activeId),5);
+  node.hidden=!hit;
+  if(hit)node.textContent='⚠ Foto ini sangat mirip dengan sampel “'+hit.row.name+'” (jarak hash '+hit.distance+'). Periksa agar foto tidak tercatat dua kali.';
+  return hit;
+}
+function renderResearch(rows=[]){
+  if(!$('researchSummary'))return;
+  const normalized=rows.map(r=>({...r,datasetSplit:r.datasetSplit||assignedSplit(r.name||r.id)}));
+  const counts={train:0,validation:0,test:0};for(const r of normalized)counts[r.datasetSplit]=(counts[r.datasetSplit]||0)+1;
+  const latestModel=normalized.find(r=>r.predictionMethod==='onnx')?.modelVersion||modelVersion;
+  const calibration=optimizeThreshold(normalized,latestModel);
+  if(Number.isFinite(calibration?.threshold)){thresholdByModel.set(latestModel,calibration);calibratedThreshold=calibration.threshold;}
+  const testRows=normalized.filter(r=>r.datasetSplit==='test'),testMetrics=datasetMetrics(testRows);
+  const ph=phenotype;
+  $('researchSummary').innerHTML=
+    '<div><span>Subset aktif</span><b>'+htmlSafe(currentSplit())+'</b></div>'+
+    '<div><span>Threshold '+htmlSafe(latestModel||'AI')+'</span><b>'+(Number.isFinite(calibration?.threshold)?calibration.threshold.toFixed(2)+' · F1 '+pct(calibration.f1):'belum cukup data')+'</b></div>'+
+    '<div><span>Train / Val / Test</span><b>'+counts.train+' / '+counts.validation+' / '+counts.test+'</b></div>'+
+    '<div><span>Test MAE / F1</span><b>'+(testMetrics.n?fmt(testMetrics.mae,2)+' / '+pct(testMetrics.f1):'—')+'</b></div>'+
+    '<div><span>Status ukuran</span><b>'+(ph?('Area '+fmt(ph.meanAreaMm2,1)+' mm²'):'belum diukur')+'</b></div>';
+  const models=modelHistory(normalized);
+  $('modelHistory').innerHTML=models.length?models.slice(0,6).map(m=>'<span>'+htmlSafe(m.model)+' · n='+m.n+' · MAE '+fmt(m.mae,1)+' · F1 '+pct(m.f1)+'</span>').join(''):'';
+  const errors=errorSummary(normalized);
+  $('errorSummary').innerHTML=normalized.length?[
+    ['Cabai terlewat',errors.missed],['Deteksi palsu',errors.falsePositive],['Foto overlap',errors.overlap],['Cahaya rendah',errors.lowLight],['Tertutup daun',errors.occluded],['Buah kecil',errors.small],['Tepi gambar',errors.edge]
+  ].map(x=>'<span>'+x[0]+' · '+x[1]+'</span>').join(''):'';
+}
+function openImageHandoffDb(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(IMAGE_HANDOFF_DB,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('images'))req.result.createObjectStore('images',{keyPath:'id'});};
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+}
+async function measureCurrentPhoto(){
+  if(!photoBlob||!image)return status('Foto belum tersedia.');
+  try{
+    const id=crypto.randomUUID(),handoff={id,blob:photoBlob,sample:$('sample').value.trim()||nowName(),source:'hitung-cabai',fieldContext,createdAt:new Date().toISOString()};
+    const hdb=await openImageHandoffDb();
+    await new Promise((resolve,reject)=>{const tx=hdb.transaction('images','readwrite');tx.objectStore('images').put(handoff);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+    hdb.close();activeMeasureHandoffId=id;
+    const url='/pengukur/?agrotik=chili&handoff='+encodeURIComponent(id);
+    window.open(url,'agrotik-measure');
+    status('Foto dibuka di Pengukur. Setelah kalibrasi dan Simpan semua objek, ukuran akan kembali otomatis ke sampel ini.');
+  }catch(error){status(error.message||'Foto belum dapat dikirim ke Pengukur.');}
+}
+async function consumeMeasurementHandoff(detail){
+  if(!detail||detail.type!=='agrotik-chili-measurement')return false;
+  if(activeMeasureHandoffId&&detail.handoffId&&detail.handoffId!==activeMeasureHandoffId)return false;
+  if(detail.sample&&$('sample').value.trim()&&detail.sample!==$('sample').value.trim())return false;
+  phenotype=detail.summary||null;
+  if(activeId&&db&&phenotype){
+    const row=await transaction('readonly',store=>store.get(activeId));
+    if(row)await transaction('readwrite',store=>store.put({...row,phenotype,updatedAt:new Date().toISOString()}));
+    await list();sendCurrentToStatistics({quiet:true});
+  }else renderResearch(allRowsCache);
+  status('Ukuran dari Pengukur diterima'+(phenotype?.n?' · '+phenotype.n+' objek terukur.':'.'));
+  try{localStorage.removeItem(MEASURE_HANDOFF_KEY);}catch{}
+  return true;
 }
 function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
