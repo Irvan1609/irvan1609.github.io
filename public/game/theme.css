@@ -400,3 +400,81 @@ body.theme-light .competition-head span{
   border-color:#c8d8ce!important;
   color:#476153!important
 }
+
+
+/* FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27 */
+html[data-theme="light"] body.theme-light :is(
+  .recap-stats div,.competition-brief,.competition-budget,.competition-podium article,
+  .competition-plot-soil,.sync-save-card,.academy-progress,.plot-academy-context,
+  .plot-quick-card
+){
+  background:#fff!important;
+  border-color:#c7d6cc!important;
+  color:#183126!important
+}
+html[data-theme="light"] body.theme-light :is(
+  .competition-actions button,.failure-actions button,.plot-use-switch button,
+  .selection-open,.plot-quick-action
+){
+  background:#f7faf8!important;
+  border-color:#b9cdc0!important;
+  color:#284b39!important
+}
+html[data-theme="light"] body.theme-light .plot-use-switch button[aria-pressed=true],
+html[data-theme="light"] body.theme-light .species-picker button[aria-pressed="true"]{
+  background:#dfeee4!important;
+  border-color:#7eaa8d!important;
+  color:#225d3b!important
+}
+html[data-theme="light"] body.theme-light .failure-case{
+  background:#fff9eb!important;
+  border-color:#dec78d!important;
+  color:#70581d!important
+}
+html[data-theme="light"] body.theme-light .social-search input,
+html[data-theme="light"] body.theme-light .stat-parameter-select select{
+  background:#fff!important;
+  border-color:#bdcfc3!important;
+  color:#183126!important
+}
+html[data-theme="light"] body.theme-light .plot-quick-card small,
+html[data-theme="light"] body.theme-light .plot-quick-card div>span{
+  color:#61756a!important
+}
+html[data-theme="light"] body.theme-light .plot-quick-action.harvest{
+  background:#fff3c8!important;
+  border-color:#c6a957!important;
+  color:#624f16!important
+}
+html[data-theme="light"] body.theme-light .plot-details{
+  border-color:#d2dfd6!important
+}
+html[data-theme="light"] body.theme-light .plot-details>summary{
+  color:#5f7568!important
+}
+html[data-theme="light"] body.theme-light .plot-ok{
+  color:#24704a!important
+}
+html[data-theme="light"] body.theme-light .quick-menu-sections>section>small{
+  color:#64796d!important
+}
+html[data-theme="light"] body.theme-light .season-summary .mission{
+  background:#fff!important;
+  border-color:#c7d6cc!important
+}
+html[data-theme="light"] body.theme-light .hud-focus>div{
+  background:#fff!important;
+  border-color:#c7d6cc!important
+}
+html[data-theme="light"] body.theme-light .hud-focus .hud-weather{
+  background:#eef6f0!important
+}
+html[data-theme="light"] body.theme-light .day-actions{
+  background:rgba(255,255,255,.98)!important;
+  border-color:#c5d5cb!important
+}
+html[data-theme="light"] body.theme-light .quick-menu-grid button{
+  background:#fff!important;
+  border-color:#c4d5ca!important;
+  color:#183126!important
+}
