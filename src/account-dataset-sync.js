@@ -10,6 +10,7 @@ const OWNER_KEY='statistical_web_cloud_owner_v1';
 const CONFLICT_PREFIX='statistical_web_cloud_conflicts_v1:';
 const endpoint='https://hitung-cabai-api.andyirvan1609.workers.dev';
 const encoder=new TextEncoder();
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
 
 let syncing=false;
 let retryTimer=null;
@@ -25,6 +26,9 @@ let cloudFailureCount=0;
 let circuitOpenUntil=0;
 let editBurstCount=0;
 let lastEditAt=0;
+function publishQueue(failed=cloudFailureCount?1:0){
+  globalThis.AgrotikSystem?.reportQueue?.('datasets',{pending:pendingPatches.size,failed,label:'Dataset'});
+}
 
 function circuitRemaining(){
   return Math.max(0,circuitOpenUntil-Date.now());
@@ -39,6 +43,7 @@ function registerCloudFailure(response=null){
   if(response?.status===429||response?.status===503||cloudFailureCount>=CIRCUIT_FAILURE_LIMIT){
     circuitOpenUntil=Math.max(circuitOpenUntil,Date.now()+retryMs);
   }
+  publishQueue(1);
 }
 
 const safeObject=(key)=>{
@@ -329,7 +334,7 @@ function queuePatch(name,patch){
     pendingPatches.delete(key);
     return;
   }
-  pendingPatches.set(key,current);
+  pendingPatches.set(key,current);publishQueue();
 }
 async function remoteFingerprint(row){
   return hashItem({name:normalizeFileName(row.name),content:String(row.content??''),meta:row.meta||{}});
@@ -531,10 +536,12 @@ async function syncNow({manual=false}={}){
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
     const syncTime=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
+    publishQueue(0);
   }catch(error){
     console.error('Dataset sync failed',error);
     if(error?.circuitOpen||circuitRemaining()>0)setSyncStatus('Cloud dijeda sementara · data aman di perangkat','pending');
     else setSyncStatus(error.message||'Sinkronisasi gagal · data lokal tetap aman','error');
+    publishQueue(1);
     if(!manual)scheduleSync(8000);
   }finally{
     syncing=false;
@@ -542,8 +549,9 @@ async function syncNow({manual=false}={}){
 }
 function onAccount(event){
   currentUser=event.detail?.authenticated?event.detail.user:null;
-  syncAllowed=true;
+  syncAllowed=!SAFE_MODE;
   const bar=syncBar();
+  if(SAFE_MODE){if(bar)bar.hidden=false;setSyncStatus('Safe mode · data tetap lokal','idle');publishQueue();return;}
   if(!currentUser){
     if(bar)bar.hidden=false;
     setSyncStatus('Belum dicadangkan ke cloud','idle');
@@ -593,5 +601,7 @@ export function installAccountDatasetSync(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&syncAllowed){editBurstCount=0;scheduleSync(1200);}});
   window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
   window.addEventListener('online',()=>{resetCircuit();scheduleSync(900);});
+  document.addEventListener('agrotik-retry-queues',()=>syncNow({manual:true}));
+  setTimeout(()=>publishQueue(),0);
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
