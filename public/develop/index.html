@@ -123,6 +123,11 @@
             <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
             <pre id="healthJson" class="code-box">—</pre>
           </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Perangkat ini</h2><p>Antrean lokal dan pemulihan; tidak membaca isi dataset.</p></div></div>
+            <div id="deviceQueueState" class="key-values"><div class="muted">Memuat status lokal…</div></div>
+            <div class="inline-actions"><button id="retryLocalQueue" type="button">Coba lagi</button><button id="clearQueueFailures" type="button">Bersihkan status gagal</button><button id="openDiagnostics" type="button">Diagnostik</button></div>
+          </article>
         </div>
       </section>
 
@@ -158,6 +163,7 @@
   </main>
 
   <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/develop/app.js?v=20260926-9"></script>
+  <script type="module" src="/develop/app.js?v=20260927-10"></script>
+  <script src="/pwa-register.js" defer></script>
 </body>
 </html>
