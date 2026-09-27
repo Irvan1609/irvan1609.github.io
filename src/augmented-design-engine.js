@@ -286,12 +286,14 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
     testCheck:rangeSummary(pairSes.testCheck,tCritical)
   };
 
+  const sasStandardError=pairwise.length?mean(pairwise.map(item=>item.se)):null;
+  const workLsd=Number.isFinite(sasStandardError)?tCritical*sasStandardError:null;
   const selection=testLevels.map(test=>{
     const testMean=byName.get(test);
     const comparisons=pairwise.filter(item=>item.type==='test-check'&&(item.left===test||item.right===test)).map(item=>{
       const testIsLeft=item.left===test,check=testIsLeft?item.right:item.left,diff=testIsLeft?item.diff:-item.diff;
-      return {test,check,diff,se:item.se,lsd:item.lsd,p:item.p,pHolm:item.pHolm,
-        better:diff>0,significant:diff>0&&item.significant,significantHolm:diff>0&&item.significantHolm};
+      return {test,check,diff,se:item.se,lsd:item.lsd,lsdWork:workLsd,p:item.p,pHolm:item.pHolm,
+        better:diff>0,significant:diff>0&&Number.isFinite(workLsd)&&diff>workLsd,significantHolm:diff>0&&item.significantHolm};
     });
     const wins=comparisons.filter(item=>item.significant).length,winsHolm=comparisons.filter(item=>item.significantHolm).length;
     return {treatment:test,block:testMean.block,adjusted:testMean.adjusted,rank:testMean.rank,
@@ -299,11 +301,10 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
   }).sort((a,b)=>a.rank-b.rank);
 
   const cv=adjustedGrand!==0?Math.abs(Math.sqrt(Math.max(0,mse))/adjustedGrand*100):null;
-  const sasStandardError=pairwise.length?mean(pairwise.map(item=>item.se)):null;
   const workSummary={
     standardError:sasStandardError,
     grandMean:adjustedGrand,
-    lsd:Number.isFinite(sasStandardError)?tCritical*sasStandardError:null,
+    lsd:workLsd,
     cv:Number.isFinite(sasStandardError)&&adjustedGrand!==0?Math.abs(sasStandardError/adjustedGrand*100):null,
     df:full.df,tCritical
   };
