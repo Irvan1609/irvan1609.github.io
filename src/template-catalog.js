@@ -38,6 +38,26 @@ function factorial(blockLabel='Ulangan'){
   }
   return {headers,rows};
 }
+function augmented(){
+  const headers=['Blok','Genotipe','Tinggi Tanaman','Produksi'];
+  const rows=[];
+  const checks=['C1','C2'];
+  const checkBase={C1:[45.2,46.1],C2:[49.5,50.4]};
+  const tests=[['G1','G2'],['G3','G4'],['G5','G6']];
+  for(let b=1;b<=3;b++){
+    checks.forEach((check,i)=>rows.push([
+      `B${b}`,check,
+      round(checkBase[check][0]+(b-2)*.8+(i?0.2:-0.1)),
+      round(checkBase[check][1]+(b-2)*.55+(i?0.18:-0.08))
+    ]));
+    tests[b-1].forEach((test,i)=>rows.push([
+      `B${b}`,test,
+      round(47+b*2+i*1.4+(b===2?-.35:.25)),
+      round(51+b*2.5+i*1.8+(b===3?.4:-.2))
+    ]));
+  }
+  return {headers,rows};
+}
 function nested(){
   const headers=['Faktor A','B dalam A','Ulangan','Respons'];
   const rows=[];
@@ -105,6 +125,7 @@ const defs=[
   ['fral','Rancangan','Faktorial RAL (2 faktor)','Faktor A × Faktor B dengan ulangan dan beberapa parameter numerik.',()=>factorial('Ulangan')],
   ['frak','Rancangan','Faktorial RAK (2 faktor)','Faktor A × Faktor B dalam kelompok/blok.',()=>factorial('Kelompok')],
   ['split','Rancangan','RPT / Split-plot dalam RAK','Faktor A = petak utama, Faktor B = anak petak, dan Kelompok = blok.',()=>factorial('Kelompok')],
+  ['augmented','Rancangan','Augmented RCBD','Blok, genotipe, check berulang di setiap blok, entry uji tanpa ulangan, dan parameter numerik.',augmented],
   ['nested','Rancangan','Rancangan Tersarang','Faktor B tersarang di dalam Faktor A, dengan ulangan pada setiap B(A).',nested],
   ['repeated','Rancangan','Repeated Measures','Perlakuan antar-subjek dan Waktu dalam-subjek; setiap subjek diukur pada seluruh waktu.',repeated],
   ['nonparametric','Eksplorasi','Analisis Nonparametrik','Perlakuan, kelompok/subjek, dan skor/nilai numerik untuk Kruskal–Wallis atau Friedman.',nonparametric],
@@ -136,6 +157,7 @@ export function templateHelp(template){
     fral:'Semua kombinasi Faktor A × Faktor B harus tersedia pada setiap ulangan.',
     frak:'Semua kombinasi Faktor A × Faktor B harus tersedia pada setiap kelompok.',
     split:'Faktor A adalah petak utama; Faktor B adalah anak petak; Kelompok adalah blok.',
+    augmented:'Setiap check harus hadir pada setiap blok. Entry/galur uji hanya muncul pada satu plot. Check dapat dideteksi otomatis dari genotipe yang berulang.',
     nested:'Setiap taraf Faktor A harus memiliki jumlah B(A) dan ulangan yang sama. Nama B(A) sebaiknya unik di dalam A.',
     repeated:'Setiap Subjek/Ulangan harus memiliki satu pengamatan pada setiap Waktu. Subjek harus unik di dalam perlakuan.',
     nonparametric:'Untuk Kruskal–Wallis, kolom Kelompok dapat diabaikan. Untuk Friedman, setiap perlakuan harus muncul sekali pada setiap kelompok/subjek.',
