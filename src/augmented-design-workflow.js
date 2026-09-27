@@ -80,8 +80,10 @@ function structurePreview(data){
     if(seen.has(key))duplicates.push(key);else seen.add(key);
   }
   const repeatedNonChecks=tests.filter(value=>rows.filter(row=>String(row[treatmentIndex]??'').trim()===value).length>1);
+  const incompleteChecks=checks.filter(check=>blocks.some(block=>!rows.some(row=>String(row[blockIndex]??'').trim()===block&&String(row[treatmentIndex]??'').trim()===check)));
   const problems=[];
   if(checks.length<2)problems.push('Minimal 2 check berulang');
+  if(incompleteChecks.length)problems.push(incompleteChecks.length+' check tidak lengkap antarblok');
   if(duplicates.length)problems.push(duplicates.length+' unit duplikat');
   if(repeatedNonChecks.length)problems.push(repeatedNonChecks.length+' test berulang');
   const status=problems.length?'Periksa':'Siap';
