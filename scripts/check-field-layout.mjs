@@ -23,6 +23,8 @@ for(const marker of ['field-mode','field-mini-map','field-score-buttons','field-
 assert.match(resultOs,/data-os-field-plot/);
 assert.match(measure,/agrotik-field-handoff/);
 assert.match(chili,/agrotik-field-handoff/);
+for(const marker of ['detail.measurements','detail.advance','matchMeasurementColumn','plot berikutnya yang belum terisi'])assert.ok(field.includes(marker),'Field chili handoff missing '+marker);
+for(const marker of ['measurements','advance:true','Area Rata-rata \(mm²\)'])assert.ok(chili.includes(marker),'Chili field payload missing '+marker);
 
 const matrix=qrMatrix('https://example.com/stat/?field_plot=plot-001');
 assert.ok(Array.isArray(matrix)&&matrix.length>=21&&matrix.length===matrix[0].length);
