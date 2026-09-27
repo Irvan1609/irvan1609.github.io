@@ -7,270 +7,156 @@
   <meta name="application-name" content="Agrotik">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="Hitung dan validasi jumlah buah cabai dari foto dengan AI lokal, koreksi manual, batch, dan integrasi Statistical Web.">
+  <title>Hitung Cabai</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/agrotik.svg" type="image/svg+xml">
-  <meta name="description" content="Alat sederhana untuk menghitung dan memberi kotak penanda pada buah cabai dari foto.">
-  <title>Hitung Cabai</title>
   <link rel="stylesheet" href="/subweb-header.css">
-  <style>
-    :root{font-family:"Segoe UI",Arial,sans-serif;color:#17202a;background:#f4f6f8;--line:#d7dee6;--muted:#617180;--blue:#1f5f8b;--blue-soft:#eaf3f9;--danger:#9d3d3d}
-    *{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a}button,input,select{font:inherit}button{cursor:pointer}
-    .subweb-nav a[href="/hitung-cabai/"]{background:var(--subweb-header-active);color:var(--subweb-header-ink)}
-    main{width:min(1080px,calc(100% - 28px));margin:18px auto 52px}.intro{display:flex;justify-content:space-between;gap:18px;align-items:end;margin-bottom:14px}.intro h1{margin:0;font-size:26px}.intro p{margin:5px 0 0;color:var(--muted);font-size:14px}
-    .panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}.capture-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.btn,.file-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:9px 13px;border:1px solid #afbbc7;border-radius:8px;background:#fff;color:#17202a;font-weight:650;text-decoration:none}.btn.primary,.file-button.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.danger{color:var(--danger)}.btn:disabled{opacity:.5;cursor:default}.file-button input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-    .camera-panel{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#111}.camera-panel[hidden]{display:none}.camera-video-wrap{position:relative;min-height:240px;display:grid;place-items:center;background:#111}.camera-panel video{display:block;width:100%;max-height:68vh;object-fit:contain;background:#111}.camera-controls{display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff}.camera-controls .btn.primary{flex:1;min-width:150px}.camera-hint{margin:0;padding:8px 10px;background:#f7f9fb;color:#5e6d79;font-size:12px}
-    .sample-row{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:12px;align-items:end;margin-top:14px}.field{display:grid;gap:5px}.field label{font-size:12px;font-weight:700;color:#4c5d6d}.field input,.field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid #b8c2cc;border-radius:7px;background:#fff}.count-card{display:flex;align-items:baseline;gap:6px;justify-content:center;min-width:120px;padding:8px 12px;border:1px solid #c7d8e6;border-radius:9px;background:var(--blue-soft)}#count{font-size:26px;font-weight:800;color:#174e74}.count-card span{font-size:12px;color:#526574}
-    .editor-tools{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:14px 0 10px}.editor-tools .field{min-width:132px}.editor-tools .btn{min-height:40px}.editor-tools .detect{background:#eef5f9;border-color:#9eb7c9;color:#17324d}.editor-tools .save{margin-left:auto;background:#17324d;color:#fff;border-color:#17324d}#sendToStat{background:#f7fafc}.detect-settings{margin:2px 0 10px;border:1px solid #dbe2e8;border-radius:8px;background:#fafcfd}.detect-settings>summary{cursor:pointer;padding:8px 10px;font-size:12px;font-weight:700;color:#536575}.detect-settings-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;padding:0 10px 10px}.detect-auto{display:flex;gap:7px;align-items:center;min-height:40px;font-size:12px;color:#526574}
-    #viewport{width:100%;overflow:hidden;min-height:180px;border:1px solid #ccd5de;border-radius:8px;background:#dfe4e8;display:flex;align-items:center;justify-content:center}canvas{display:block;width:auto;height:auto;max-width:100%;max-height:100%;touch-action:none;background:#dfe4e8}.help{margin:10px 0 0;color:#5d6b77;font-size:13px;line-height:1.5}#status{min-height:22px;margin:10px 0 0;color:#304b61;font-size:13px}
-    details.data-panel{margin-top:14px}details.data-panel>summary{cursor:pointer;font-weight:750;list-style:none}details.data-panel>summary::-webkit-details-marker{display:none}details.data-panel>summary::after{content:"+";float:right}details.data-panel[open]>summary::after{content:"−"}.backup-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.records{list-style:none;padding:0;margin:8px 0 0}.records li{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #edf0f3}.records li:first-child{border-top:0}.record-main{min-width:0;flex:1;display:flex;align-items:center;gap:8px}.record-main>span{min-width:0;flex:1}.record-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.record-main small{color:#647584}.record-thumb{width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:7px;border:1px solid #dbe3e9;background:#f4f7f9}.record-actions{display:flex;gap:5px}.record-actions button{min-height:34px;padding:6px 9px;border:1px solid #c1cbd4;border-radius:6px;background:#fff}
-    .training-action{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 10px;padding:8px 9px;border:1px solid #dbe2e8;border-radius:8px;background:#fbfcfd}.training-action #contribute{background:#eef5f9;border-color:#9eb7c9;color:#17324d}.training-action .cloud-state{font-size:11.5px;color:#657684;min-width:0;flex:1}.training-action #turnstileBox{min-height:0;flex-basis:100%}
-    .mobile-actionbar{display:none}
-    @media(max-width:680px){
-      main{width:min(100% - 18px,1080px);margin-top:10px;margin-bottom:88px}.intro{display:block}.intro h1{font-size:22px}.panel{padding:11px;border-radius:10px}.capture-actions{display:grid;grid-template-columns:1fr 1fr}.capture-actions .btn,.capture-actions .file-button{width:100%;min-height:48px}.sample-row{grid-template-columns:1fr auto;gap:8px}.count-card{min-width:96px}.editor-tools{display:grid;grid-template-columns:1fr 1fr auto;gap:7px;align-items:end}.editor-tools .field{min-width:0}.editor-tools .save{display:none}.editor-tools #undo{min-width:44px;padding:8px}.editor-tools #autoDetect{grid-column:1/-1}.editor-tools #sendToStat{grid-column:1/-1}.training-action{display:grid;grid-template-columns:1fr;gap:5px}.training-action #contribute{width:100%;min-height:46px}.training-action .cloud-state{text-align:center}.detect-settings-grid{grid-template-columns:1fr 1fr}.detect-auto{grid-column:1/-1}#viewport{min-height:160px;border-radius:6px}.help{font-size:12px}.camera-video-wrap{min-height:52vh}.camera-controls .btn{min-height:46px}.mobile-actionbar{position:fixed;display:grid;grid-template-columns:auto 1fr;gap:8px;left:0;right:0;bottom:0;z-index:45;padding:9px max(9px,env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(9px,env(safe-area-inset-left));background:rgba(255,255,255,.97);border-top:1px solid var(--line);backdrop-filter:blur(8px)}.mobile-actionbar .btn{min-height:48px}.mobile-actionbar .primary{background:#17324d;color:#fff;border-color:#17324d}.record-actions{flex-shrink:0}
-    }
-    @media(max-width:420px){.editor-tools{grid-template-columns:1fr 1fr}.editor-tools #undo{grid-column:1/-1}.sample-row{grid-template-columns:1fr}.count-card{justify-content:flex-start}.camera-controls{display:grid;grid-template-columns:1fr 1fr}.camera-controls .btn.primary{grid-column:1/-1}}
-  /* BATCH + CONFIDENCE 2026-09-26 */
-    .batch-state{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 2px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#f8fafb}
-    .batch-state[hidden]{display:none}.batch-state>span{display:grid;min-width:0}.batch-state b{font-size:12px}.batch-state small{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.batch-state .btn{min-height:34px}
-    .confidence-inspector{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0;padding:7px;border:1px solid var(--line);border-radius:9px;background:#f8fafb}
-    .confidence-inspector[hidden]{display:none}.confidence-inspector>div{min-width:0;padding:6px 7px;border-radius:7px;background:#fff}.confidence-inspector span,.confidence-inspector b{display:block}.confidence-inspector span{font-size:9.5px;color:var(--muted)}.confidence-inspector b{margin-top:2px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    @media(max-width:680px){.batch-state{align-items:stretch}.batch-state .btn{min-height:46px}.confidence-inspector{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  </style>
-
-  <style>
-    /* UX OVERHAUL 2026-09-26 */
-    body{background:#eef3f6}
-    main{width:min(1160px,calc(100% - 32px));margin:24px auto 56px}
-    .intro{margin:0 0 16px}.page-kicker{display:block;margin-bottom:4px;color:#1f5f8b;font-size:11px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
-    .intro h1{font-size:30px;letter-spacing:-.035em}.intro p{max-width:720px;font-size:14px}
-    .mini-flow{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.mini-flow span{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #d6e1e8;border-radius:999px;background:#fff;color:#536777;font-size:11px;font-weight:700}.mini-flow b{width:20px;height:20px;display:grid;place-items:center;border-radius:7px;background:#e7f0f6;color:#1f5f8b;font-size:10px}
-    .panel{border-color:#d9e3e9;border-radius:16px;padding:18px;box-shadow:0 8px 26px rgba(26,52,73,.055)}
-    .section-heading{display:flex;align-items:center;gap:10px;margin:0 0 12px}.section-heading>span{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:9px;background:#17324d;color:#fff;font-size:11px;font-weight:850}.section-heading strong{display:block;font-size:14px}.section-heading small{display:block;margin-top:1px;color:#657685;font-size:11.5px}.section-heading.compact{margin-top:18px;padding-top:16px;border-top:1px solid #e8edf1}.section-heading.save-step{width:min(1160px,calc(100% - 32px));margin:18px auto 8px}
-    .capture-actions{padding:12px;border:1px solid #e2e8ed;border-radius:12px;background:#fafcfd}.capture-actions .primary{box-shadow:0 5px 14px rgba(31,95,139,.16)}
-    .sample-row{padding:12px;border:1px solid #e2e8ed;border-radius:12px;background:#fafcfd}
-    .count-card{min-height:58px;border-radius:12px}
-    .editor-tools{padding:12px;border:1px solid #dbe4ea;border-radius:12px;background:#f6f9fb}.editor-tools .save{box-shadow:0 5px 14px rgba(23,50,77,.15)}
-    .detect-settings{border-radius:11px;background:#fbfcfd}.detect-settings>summary{min-height:40px;display:flex;align-items:center}
-    .training-action{border-radius:11px}
-    #viewport{height:min(64vh,720px);min-height:320px;border-radius:12px;background:#dbe2e7}
-    canvas{max-width:100%;max-height:100%;object-fit:contain}
-    #status{padding:9px 11px;border:1px solid #dae4eb;border-radius:10px;background:#f7fafc}
-    details.data-panel{margin-top:0}
-    @media(max-width:680px){
-      main{width:min(100% - 18px,1160px);margin-top:12px;margin-bottom:94px}.intro h1{font-size:25px}.mini-flow{gap:5px}
-      .panel{padding:11px;border-radius:12px}.section-heading{margin-bottom:9px}.section-heading.compact{margin-top:13px;padding-top:12px}.section-heading.save-step{width:min(100% - 18px,1160px);margin-top:14px}
-      .capture-actions,.sample-row,.editor-tools{padding:9px;border-radius:10px}
-      #viewport{height:min(58vh,620px);min-height:240px}
-      #status{font-size:12px}.help{line-height:1.45}
-    }
-    @media(max-width:420px){.mini-flow span{font-size:10px}.section-heading small{font-size:11px}#viewport{min-height:210px}}
-
-    .mini-flow span[data-complete="true"]{background:#edf7f1;border-color:#bcd9c9;color:#2f684e}
-    .mini-flow span[data-active="true"]{background:#e8f1f7;border-color:#9fbdd2;color:#173f61}
-    .editor-tools{display:grid;grid-template-columns:minmax(170px,.55fr) minmax(320px,1.35fr) minmax(220px,.75fr);gap:9px;align-items:stretch}
-    .editor-stage{display:grid;align-content:start;gap:8px;min-width:0;padding:10px;border:1px solid #dce5eb;border-radius:10px;background:#fff}
-    .editor-stage-title{display:flex;align-items:center;gap:6px;color:#526779;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
-    .editor-stage-title b{width:21px;height:21px;display:grid;place-items:center;border-radius:7px;background:#e7eff5;color:#214f72;font-size:10px}
-    .editor-stage[data-ready="false"]{opacity:.65;background:#f8fafb}
-    .editor-stage[data-complete="true"]{border-color:#bfd8ca;background:#f8fcfa}
-    .correction-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:7px;align-items:end}
-    .correction-controls .field{min-width:0}.save-stage .save{margin:0;width:100%;min-height:46px}
-    .help{color:#4f6271;font-size:13.5px}.cloud-state{color:#566a79!important}
-    button:disabled,select:disabled{cursor:not-allowed;opacity:.48}
-    @media(max-width:820px){.editor-tools{grid-template-columns:1fr}.correction-controls{grid-template-columns:1fr 1fr auto}}
-    @media(max-width:480px){.correction-controls{grid-template-columns:1fr 1fr}.correction-controls #undo{grid-column:1/-1}.mini-flow span{flex:1 1 calc(50% - 5px)}}
-  </style>
+  <link rel="stylesheet" href="./style.css?v=20260927-1">
   <link rel="stylesheet" href="/account.css?v=20260926-5">
-
-  <style>
-    /* MOBILE-FIRST FINAL 2026-09-26 */
-    @media(max-width:680px){
-      body{background:#f7f9fb}
-      main{width:100%;margin:6px 0 calc(76px + env(safe-area-inset-bottom));padding:0 6px}
-      .intro{padding:2px 4px 6px;margin:0}
-      .intro h1{font-size:20px;margin:0}
-      .intro p{display:none}
-      .page-kicker{font-size:9.5px;margin-bottom:1px}
-      .mini-flow{
-        display:flex;flex-wrap:nowrap;gap:4px;margin-top:7px;
-        overflow-x:auto;scrollbar-width:none
-      }
-      .mini-flow::-webkit-scrollbar{display:none}
-      .mini-flow span{
-        flex:0 0 auto;padding:4px 6px;font-size:9.5px;border-radius:8px
-      }
-      .mini-flow b{width:17px;height:17px;border-radius:5px;font-size:9px}
-      .panel{padding:8px;border-radius:11px;box-shadow:none}
-      .section-heading{margin:2px 0 7px;gap:7px}
-      .section-heading>span{width:24px;height:24px;flex-basis:24px;border-radius:7px}
-      .section-heading strong{font-size:12.5px}
-      .section-heading small{display:none}
-      .section-heading.compact{margin-top:10px;padding-top:9px}
-      .capture-actions{display:grid;grid-template-columns:1fr 1fr;padding:6px;gap:5px}
-      .capture-actions .btn,.capture-actions .file-button{min-height:44px;padding:7px;font-size:12px}
-      .sample-row{padding:7px;margin-top:8px;grid-template-columns:minmax(0,1fr) auto}
-      .field label{font-size:10px}
-      .field input,.field select{min-height:42px;font-size:16px}
-      .count-card{min-width:78px;min-height:50px;padding:5px 8px}
-      #count{font-size:22px}
-      .editor-tools{margin:8px 0 6px;padding:6px;gap:5px;grid-template-columns:1fr!important}
-      .editor-stage{padding:7px;gap:5px}
-      .editor-stage-title{font-size:9.5px}
-      .correction-controls{grid-template-columns:1fr 1fr!important;gap:5px}
-      .correction-controls #undo{grid-column:1/-1}
-      .save-stage{display:none}
-      .detect-settings{margin:5px 0 6px}
-      .detect-settings>summary{min-height:36px;padding:6px 8px;font-size:10.5px}
-      .training-action{padding:6px;margin:5px 0;gap:4px}
-      .training-action .cloud-state{font-size:10px}
-      #viewport{
-        height:calc(100dvh - 360px);
-        min-height:250px;
-        max-height:58dvh;
-        border-radius:8px
-      }
-      .help{display:none}
-      #status{
-        min-height:0;margin:6px 0 0;padding:6px 8px;
-        font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-      }
-      .section-heading.save-step{display:none}
-      details.data-panel{margin-top:7px}
-      details.data-panel>summary{font-size:12px;padding:4px}
-      .record-main b{font-size:12px}
-      .record-main small{font-size:10px}
-      .record-thumb{width:42px;height:42px;flex-basis:42px}
-      .record-actions button{min-height:36px;padding:5px 7px;font-size:11px}
-      .mobile-actionbar{
-        left:5px;right:5px;bottom:max(5px,env(safe-area-inset-bottom));
-        border:1px solid #cfd9e1;border-radius:14px;
-        padding:5px;background:rgba(255,255,255,.97);
-        box-shadow:0 12px 34px rgba(20,42,62,.2)
-      }
-      .mobile-actionbar .btn{min-height:48px;border-radius:10px}
-    }
-    @media(max-width:390px){
-      main{padding-left:4px;padding-right:4px}
-      #viewport{height:calc(100dvh - 345px);min-height:220px}
-      .capture-actions .btn,.capture-actions .file-button{font-size:11px}
-    }
-  </style>
 </head>
 <body>
-  <header class="subweb-header">
-    <div class="subweb-header-inner">
-      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Hitung Cabai</span></a>
-      <nav class="subweb-nav" aria-label="Navigasi situs">
-        <a class="subweb-home-link" href="/">Beranda</a>
-        <details class="subweb-tools">
-          <summary>Alat penelitian <span aria-hidden="true">⌄</span></summary>
-          <div class="subweb-tools-menu">
-            <a href="/stat/">Statistical Web</a>
-            <a href="/hitung-cabai/" aria-current="page">Hitung Cabai</a>
-            <a href="/pengukur/">Pengukur</a>
-            <a href="/mendeley/">Referensi Mendeley</a>
-            <a href="/print-skripsi/">Print Skripsi</a>
-          </div>
-        </details>
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    <div class="intro"><div><span class="page-kicker">Analisis citra</span><h1>Hitung Cabai</h1><p>Ambil foto, deteksi cabai secara otomatis, koreksi bila perlu, lalu simpan hasilnya.</p><div class="mini-flow" aria-label="Alur kerja"><span data-stage="photo"><b>1</b> Foto</span><span data-stage="detect"><b>2</b> Deteksi</span><span data-stage="correct"><b>3</b> Koreksi</span><span data-stage="save"><b>4</b> Simpan</span></div></div></div>
-
-    <section class="panel">
-      <div class="section-heading"><span>1</span><div><strong>Masukkan foto</strong><small>Gunakan kamera atau pilih foto yang sudah ada.</small></div></div>
-      <div class="capture-actions">
-        <button id="openCamera" class="btn primary" type="button">📷 Buka kamera</button>
-        <label class="file-button">🖼 Pilih dari galeri<input id="photo" type="file" accept="image/*" multiple></label>
-        <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
-      </div>
-      <div id="batchState" class="batch-state" hidden>
-        <span><b id="batchProgress">1 / 1</b><small id="batchName">Batch foto</small></span>
-        <button id="batchNext" class="btn" type="button" disabled>Foto berikutnya →</button>
-      </div>
-
-      <section id="cameraPanel" class="camera-panel" hidden aria-label="Kamera">
-        <div class="camera-video-wrap"><video id="cameraVideo" autoplay muted playsinline></video></div>
-        <p id="cameraHint" class="camera-hint">Arahkan kamera ke cabai dan usahakan seluruh buah terlihat jelas.</p>
-        <div class="camera-controls">
-          <button id="snapPhoto" class="btn primary" type="button">Ambil foto</button>
-          <button id="flipCamera" class="btn" type="button">Balik kamera</button>
-          <button id="torchCamera" class="btn" type="button" hidden>Flash</button>
-          <button id="closeCamera" class="btn" type="button">Tutup</button>
-        </div>
-      </section>
-
-      <div class="section-heading compact"><span>2</span><div><strong>Periksa hasil deteksi</strong><small>Isi kode sampel, jalankan deteksi, lalu koreksi kotak bila diperlukan.</small></div></div>
-      <div class="sample-row">
-        <div class="field"><label for="sample">Kode sampel</label><input id="sample" maxlength="100" placeholder="Sampel 01" autocomplete="off"></div>
-        <div class="count-card"><output id="count" aria-live="polite">0</output><span>buah</span></div>
-      </div>
-
-      <div class="editor-tools">
-        <div class="editor-stage" data-editor-stage="detect">
-          <span class="editor-stage-title"><b>2</b> Deteksi</span>
-          <button id="autoDetect" class="btn detect" type="button" disabled title="Masukkan foto terlebih dahulu">Deteksi otomatis</button>
-        </div>
-        <div class="editor-stage correction-stage" data-editor-stage="correct">
-          <span class="editor-stage-title"><b>3</b> Koreksi</span>
-          <div class="correction-controls">
-            <div class="field"><label for="mode">Mode koreksi</label><select id="mode" disabled><option value="add">Tambah kotak</option><option value="delete">Hapus kotak</option></select></div>
-            <div class="field"><label for="zoom">Tampilan</label><select id="zoom" disabled><option value="1">Pas layar</option></select></div>
-            <button id="undo" class="btn" type="button" title="Urungkan kotak terakhir" disabled>↶ Urungkan</button>
-          </div>
-        </div>
-        <div class="editor-stage save-stage" data-editor-stage="save">
-          <span class="editor-stage-title"><b>4</b> Simpan</span>
-          <button id="save" class="btn save" type="button" disabled title="Selesaikan deteksi terlebih dahulu">Simpan & masukkan ke Statistical Web</button>
-        </div>
-        <button id="sendToStat" class="btn" type="button" hidden aria-hidden="true" tabindex="-1">Masukkan ke Statistical Web</button>
-      </div>
-
-      <details class="detect-settings">
-        <summary>Pengaturan deteksi</summary>
-        <div class="detect-settings-grid">
-          <div class="field"><label for="detectColor">Warna cabai</label><select id="detectColor"><option value="all">Merah + hijau</option><option value="red">Merah / oranye</option><option value="green">Hijau</option></select></div>
-          <div class="field"><label for="detectSensitivity">Kepekaan</label><select id="detectSensitivity"><option value="strict">Ketat</option><option value="normal" selected>Normal</option><option value="sensitive">Lebih peka</option></select></div>
-          <label class="detect-auto"><input id="detectOnLoad" type="checkbox" checked> Deteksi otomatis setelah foto dibuka</label>
+<header class="subweb-header">
+  <div class="subweb-header-inner">
+    <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Hitung Cabai</span></a>
+    <nav class="subweb-nav" aria-label="Navigasi situs">
+      <a class="subweb-home-link" href="/">Beranda</a>
+      <details class="subweb-tools">
+        <summary>Alat penelitian <span aria-hidden="true">⌄</span></summary>
+        <div class="subweb-tools-menu">
+          <a href="/stat/">Statistical Web</a>
+          <a href="/hitung-cabai/" aria-current="page">Hitung Cabai</a>
+          <a href="/pengukur/">Pengukur</a>
+          <a href="/mendeley/">Referensi Mendeley</a>
+          <a href="/print-skripsi/">Print Skripsi</a>
         </div>
       </details>
+    </nav>
+  </div>
+</header>
 
-      <div id="confidenceInspector" class="confidence-inspector" hidden aria-live="polite">
-        <div><span>Model</span><b id="confidenceModel">—</b></div>
-        <div><span>Confidence rata-rata</span><b id="confidenceMean">—</b></div>
-        <div><span>Rentang</span><b id="confidenceRange">—</b></div>
-        <div><span>Perlu diperiksa</span><b id="confidenceLow">—</b></div>
+<main>
+  <section class="intro">
+    <span class="page-kicker">Analisis citra · AI lokal</span>
+    <h1>Hitung Cabai</h1>
+    <p>Ambil atau pilih foto, deteksi otomatis, periksa hanya kotak yang meragukan, lalu simpan jumlah dan anotasinya.</p>
+    <div class="mini-flow" aria-label="Alur kerja">
+      <span data-stage="photo"><b>1</b> Foto</span><span data-stage="detect"><b>2</b> Deteksi</span><span data-stage="correct"><b>3</b> Koreksi</span><span data-stage="save"><b>4</b> Simpan</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading"><span>1</span><div><strong>Foto</strong><small>Kamera atau galeri; banyak foto dapat diproses sebagai batch.</small></div></div>
+    <div class="capture-actions">
+      <button id="openCamera" class="btn primary" type="button">📷 Buka kamera</button>
+      <label class="file-button">🖼 Pilih foto<input id="photo" type="file" accept="image/*" multiple></label>
+      <input id="cameraFile" type="file" accept="image/*" capture="environment" hidden>
+    </div>
+
+    <div id="batchState" class="batch-state" hidden>
+      <span><b id="batchProgress">1 / 1</b><small id="batchName">Batch foto</small></span>
+      <button id="batchNext" class="btn" type="button" disabled>Foto berikutnya →</button>
+    </div>
+
+    <section id="cameraPanel" class="camera-panel" hidden aria-label="Kamera">
+      <div class="camera-video-wrap"><video id="cameraVideo" autoplay muted playsinline></video></div>
+      <p id="cameraHint" class="camera-hint">Arahkan kamera sehingga seluruh buah terlihat jelas dan tidak saling menutupi berlebihan.</p>
+      <div class="camera-controls">
+        <button id="snapPhoto" class="btn primary" type="button">Ambil foto</button>
+        <button id="flipCamera" class="btn" type="button">Balik kamera</button>
+        <button id="torchCamera" class="btn" type="button" hidden>Flash</button>
+        <button id="closeCamera" class="btn" type="button">Tutup</button>
       </div>
-
-      <div class="training-action" aria-label="Kontribusi data pelatihan AI">
-        <button id="contribute" class="btn" type="button" disabled>Kirim untuk melatih AI</button>
-        <span id="cloudState" class="cloud-state">Memeriksa koneksi Cloudflare…</span>
-        <div id="turnstileBox" aria-live="polite"></div>
-      </div>
-
-      <div id="viewport"><canvas id="canvas" aria-label="Foto dan kotak penanda cabai"></canvas></div>
-      <p class="help">Setelah foto dimasukkan, jalankan deteksi lalu koreksi kotaknya. Tombol berikutnya akan aktif sesuai tahap yang sudah siap. <b>Simpan & masukkan ke Statistical Web</b> menyimpan foto/kotak di perangkat sekaligus melakukan <i>upsert</i> jumlah buah ke dataset <b>Hitung Cabai</b>. Jika kode sampel yang sama sudah ada, nilainya diperbarui—bukan dibuat duplikat.</p>
-      <p id="status" role="status" aria-live="polite">Ambil foto atau pilih foto dari galeri untuk mulai.</p>
     </section>
 
-    <div class="section-heading save-step"><span>✓</span><div><strong>Data tersimpan & cadangan</strong><small>Lihat hasil yang sudah disimpan atau ekspor cadangan data lokal.</small></div></div>
-    <details class="panel data-panel">
-      <summary>Data tersimpan dan cadangan</summary>
-      <p class="help">Data disimpan di browser perangkat ini. Ekspor cadangan jika foto dan kotak penanda perlu dipindahkan atau diamankan.</p>
-      <div class="backup-actions"><button id="export" class="btn" type="button">Ekspor cadangan</button><label class="file-button">Pulihkan cadangan<input id="import" type="file" accept=".json,application/json"></label></div>
-      <ul id="records" class="records"></ul>
+    <div class="section-heading compact"><span>2</span><div><strong>Deteksi & koreksi</strong><small>Kode sampel wajib diisi sebelum disimpan.</small></div></div>
+
+    <div class="sample-row">
+      <div class="field"><label for="sample">Kode sampel</label><input id="sample" maxlength="100" placeholder="mis. P001" autocomplete="off"></div>
+      <div class="count-card"><output id="count" aria-live="polite">0</output><span>buah</span></div>
+    </div>
+
+    <div id="duplicateBanner" class="duplicate-banner" hidden>
+      <span id="duplicateText">Kode sampel ini sudah tersimpan.</span>
+      <button id="updateDuplicate" class="btn" type="button">Perbarui</button>
+      <button id="saveCopy" class="btn" type="button">Simpan sebagai salinan</button>
+    </div>
+
+    <div class="quality-confidence">
+      <div id="qualityGate" class="quality-gate" data-level="warn">
+        <div class="quality-head"><span>Quality Gate</span><b id="qualityScore">—</b></div>
+        <small id="qualityIssue">Foto belum dimasukkan.</small>
+      </div>
+      <div id="confidenceInspector" class="confidence-inspector" hidden aria-live="polite">
+        <div><span>Model</span><b id="confidenceModel">—</b></div>
+        <div><span>Confidence</span><b id="confidenceMean">—</b></div>
+        <div><span>Rentang</span><b id="confidenceRange">—</b></div>
+        <div><span>Perlu review</span><b id="confidenceLow">—</b></div>
+      </div>
+    </div>
+
+    <div class="review-bar" aria-label="Koreksi cepat">
+      <button id="autoDetect" class="btn primary-lite" type="button" disabled>Deteksi otomatis</button>
+      <button id="reviewLow" class="btn" type="button" disabled>Periksa yang meragukan</button>
+      <button id="deleteSelected" class="btn danger" type="button" disabled>Hapus terpilih</button>
+      <button id="undo" class="btn" type="button" disabled>↶ Urungkan</button>
+      <span class="spacer"></span>
+      <button id="zoomReset" class="btn" type="button" disabled>Pas layar</button>
+    </div>
+
+    <details class="detect-settings">
+      <summary>Pengaturan deteksi & sesi</summary>
+      <div class="detect-settings-grid">
+        <div class="field"><label for="detectColor">Warna cabai</label><select id="detectColor"><option value="all">Merah + hijau</option><option value="red">Merah / oranye</option><option value="green">Hijau</option></select></div>
+        <div class="field"><label for="detectSensitivity">Kepekaan</label><select id="detectSensitivity"><option value="strict">Ketat</option><option value="normal" selected>Normal</option><option value="sensitive">Lebih peka</option></select></div>
+        <div class="field"><label for="condition">Kondisi foto</label><select id="condition"><option value="normal">Normal</option><option value="overlap">Buah bertumpuk</option><option value="occluded">Tertutup daun</option><option value="low-light">Cahaya rendah</option><option value="mixed-color">Warna campuran</option></select></div>
+        <label class="check-field"><input id="detectOnLoad" type="checkbox" checked> Deteksi otomatis setelah foto dibuka</label>
+        <label class="check-field"><input id="autoNext" type="checkbox" checked> Setelah simpan, buka foto berikutnya</label>
+        <label class="check-field"><input id="autoIncrement" type="checkbox" checked> Naikkan kode sampel otomatis</label>
+        <label class="check-field"><input id="batchAuto" type="checkbox" checked> Batch: lewati foto yang sudah aman</label>
+      </div>
     </details>
-  </main>
 
-  <div class="mobile-actionbar" aria-label="Aksi cepat">
-    <button id="mobileUndo" class="btn" type="button" aria-label="Urungkan">↶</button>
-    <button id="mobileSave" class="btn primary" type="button" disabled>Simpan & ke Statistik</button>
-  </div>
+    <div class="training-action" aria-label="Kontribusi data pelatihan AI">
+      <button id="contribute" class="btn" type="button" disabled>Kirim untuk melatih AI</button>
+      <span id="cloudState" class="cloud-state">Memeriksa koneksi Cloudflare…</span>
+      <div id="turnstileBox" aria-live="polite"></div>
+    </div>
 
-  <script type="module" src="./app.js?v=20260926-4"></script>
-  <script type="module" src="/account.js?v=20260926-6"></script>
-  <script src="/pwa-register.js" defer></script>
+    <div id="viewport">
+      <canvas id="canvas" aria-label="Foto dan kotak penanda cabai"></canvas>
+      <div class="canvas-hint">Tap kotak = pilih · drag kotak = pindah · drag sudut = resize · drag area kosong = tambah · dua jari = zoom/pan.</div>
+    </div>
+    <p id="status" role="status" aria-live="polite">Ambil foto atau pilih foto dari galeri untuk mulai.</p>
+  </section>
+
+  <details class="panel data-panel">
+    <summary>Data tersimpan, validasi AI & cadangan</summary>
+    <div id="validationDashboard" class="validation-dashboard">
+      <div><span>Foto tervalidasi</span><b id="metricN">0</b></div>
+      <div><span>MAE hitungan</span><b id="metricMae">—</b></div>
+      <div><span>Bias</span><b id="metricBias">—</b></div>
+      <div><span>Precision</span><b id="metricPrecision">—</b></div>
+      <div><span>Recall</span><b id="metricRecall">—</b></div>
+      <div><span>F1</span><b id="metricF1">—</b></div>
+      <div><span>AP@0.5</span><b id="metricAp50">—</b></div>
+    </div>
+    <div id="conditionMetrics" class="condition-metrics"></div>
+    <div class="backup-actions">
+      <button id="export" class="btn" type="button">Ekspor cadangan</button>
+      <label class="file-button">Pulihkan cadangan<input id="import" type="file" accept=".json,application/json"></label>
+    </div>
+    <ul id="records" class="records"></ul>
+  </details>
+</main>
+
+<div class="mobile-actionbar" aria-label="Aksi cepat">
+  <button id="mobileUndo" class="btn" type="button" aria-label="Urungkan">↶</button>
+  <button id="mobileSave" class="btn primary" type="button" disabled>Simpan & ke Statistik</button>
+</div>
+
+<script type="module" src="./app.js?v=20260927-1"></script>
+<script type="module" src="/account.js?v=20260926-6"></script>
+<script src="/pwa-register.js" defer></script>
 </body>
 </html>
