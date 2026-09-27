@@ -63,23 +63,24 @@
       <button id="quickMore" type="button" title="Lainnya" aria-label="Lainnya">•••</button>
     </nav>
 
-    <section class="hud" aria-label="Status permainan">
-      <div><small>Musim</small><b id="seasonValue">1</b></div>
-      <div><small>Hari</small><b id="dayValue">H1/120</b></div>
-      <div><small>Kas</small><b id="coinValue">Rp150 rb</b></div>
-      <div><small>Tenaga</small><b id="focusValue">3/3</b></div>
-      <div><small>Riset</small><b id="rpValue">0</b></div>
-      <div><small>Level</small><b id="levelValue">1</b></div><div class="market-cell"><small>Jagung</small><b id="marketValue">Rp5.500/kg</b></div>
-      <div class="xp-cell"><small>XP</small><span class="xp-track"><i id="xpBar"></i></span><b id="xpValue">0/100</b></div>
+    <section class="hud hud-focus" aria-label="Status permainan">
+      <div class="hud-secondary"><small>Musim</small><b id="seasonValue">1</b></div>
+      <div class="hud-primary"><small>Hari</small><b id="dayValue">H1/120</b></div>
+      <div class="hud-primary"><small>Kas</small><b id="coinValue">Rp150 rb</b></div>
+      <div class="hud-primary"><small>Tenaga</small><b id="focusValue">3/3</b></div>
+      <div class="today hud-weather"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span><span id="forecastText">—</span></div>
+      <div class="hud-secondary"><small>Riset</small><b id="rpValue">0</b></div>
+      <div class="hud-secondary"><small>Level</small><b id="levelValue">1</b></div>
+      <div class="market-cell hud-secondary"><small>Jagung</small><b id="marketValue">Rp5.500/kg</b></div>
+      <div class="xp-cell hud-secondary"><small>XP</small><span class="xp-track"><i id="xpBar"></i></span><b id="xpValue">0/100</b></div>
     </section>
 
-    <section class="season-bar">
+    <section class="season-bar season-summary" aria-label="Target musim">
       <div class="season-climate"><span id="seasonIcon">☀</span><div><small>Musim</small><b id="seasonName">Normal</b><span id="seasonDesc"></span></div></div>
       <div class="mission"><small>Target</small><b id="missionText">—</b><span id="missionProgress">0/0</span></div>
-      <div class="today"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span><span id="forecastText">—</span></div>
     </section>
     <button id="playHint" class="play-hint" type="button"><span id="playHintIcon">→</span><b id="playHintText">Pilih Tanam lalu petak kosong</b></button>
-    <div id="gameWorkflow" class="game-workflow" aria-label="Alur permainan">
+    <div id="gameWorkflow" class="game-workflow" aria-label="Alur permainan" hidden>
       <span data-flow-step="plant">Tanam</span>
       <span data-flow-step="care">Rawat</span>
       <span data-flow-step="harvest">Panen</span>
@@ -129,7 +130,7 @@
           <button id="nextCritical" type="button">⏩ Ke kejadian</button>
           <button id="finishSeason" type="button" hidden>Akhiri musim</button>
         </div>
-        <nav class="field-primary-actions" aria-label="Aksi utama">
+        <nav class="field-primary-actions" aria-label="Aksi utama" hidden>
           <button type="button" data-main-action="lab">🔬 <span>Lab</span></button>
           <button type="button" data-main-action="research">📐 <span>Penelitian</span></button>
           <button type="button" data-main-action="analysis">📊 <span>Analisis</span></button>
