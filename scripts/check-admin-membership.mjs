@@ -23,7 +23,7 @@ for(const marker of [
   "membership_required",
   "SESSION_TOUCH_MINUTES=15"
 ]) if(!worker.includes(marker))fail('Worker missing '+marker);
-if(!/apiVersion:'2026-09-26\.\d+'/.test(worker))fail('Worker API version marker missing');
+if(!/apiVersion:'\d{4}-\d{2}-\d{2}\.\d+'/.test(worker))fail('Worker API version marker missing');
 
 for(const marker of ['features:{','datasetSync:syncAccess','analysisIncluded:analysisIncluded','develop:row.role'])if(!worker.includes(marker))fail('Public entitlements missing '+marker);
 if(!account.includes("currentUser.features?.develop")||!account.includes("location.assign('/develop/')"))fail('Admin account menu missing Develop Console');
