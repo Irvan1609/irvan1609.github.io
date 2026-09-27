@@ -1817,26 +1817,31 @@ function openSpeciesPicker(){
 }
 function openQuickMore(){
   const firstSeason=state.season===1&&!state.onboarding?.complete;
-  const advanced=firstSeason?'':`
-    <button data-quick-more="research-history">📐<span>Arsip Riset</span></button>
+  const gameButtons=`
+    <button data-quick-more="collection">◆<span>Koleksi</span></button>
+    <button data-quick-more="species">🌱<span>Tanaman</span></button>
+    <button data-quick-more="economy">Rp<span>Ekonomi</span></button>
+    <button data-quick-more="analysis">📊<span>Analisis</span></button>`;
+  const progressButtons=`
+    <button data-quick-more="notebook">▤<span>Notebook</span></button>
+    <button data-quick-more="record">◷<span>Rekor</span></button>
+    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
+    <button data-quick-more="legacy">↺<span>Legacy</span></button>
+    ${firstSeason?'':`<button data-quick-more="research-history">📐<span>Arsip Riset</span></button>
     <button data-quick-more="generation">🧬<span>Generasi</span></button>
     <button data-quick-more="run">⚑<span>Challenge</span></button>
     <button data-quick-more="rival">⚔<span>Rival</span></button>
     <button data-quick-more="academy">🎓<span>Akademi</span></button>
-    <button data-quick-more="map">⌖<span>Lokasi</span></button>`;
-  openMetaModal('MENU',firstSeason?'Musim 1 · dasar':'Lainnya',`<div class="quick-menu-grid">
-    <button data-quick-more="notebook">▤<span>Notebook</span></button>
-    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
-    ${advanced}
-    <button data-quick-more="social">👥<span>Sosial</span></button>
-    <button data-quick-more="record">◷<span>Rekor</span></button>
-    <button data-quick-more="legacy">↺<span>Legacy</span></button>
-    <button data-quick-more="collection">◆<span>Koleksi</span></button>
-    <button data-quick-more="species">🌱<span>Tanaman</span></button>
-    <button data-quick-more="economy">Rp<span>Ekonomi</span></button>
+    <button data-quick-more="map">⌖<span>Lokasi</span></button>
+    <button data-quick-more="social">👥<span>Sosial</span></button>`}`;
+  const settingButtons=`
     <button data-quick-more="comfort">⚙<span>Kenyamanan</span></button>
-    <button data-quick-more="music">♫<span>Audio</span></button>
-  </div>${firstSeason?'<p class="first-season-note">Selesaikan musim pertama untuk membuka Penelitian, Akademi, Rival, dan Challenge.</p>':''}`);
+    <button data-quick-more="music">♫<span>Audio</span></button>`;
+  openMetaModal('MENU',firstSeason?'Musim 1 · dasar':'Menu',`<div class="quick-menu-sections">
+    <section><small>Permainan</small><div class="quick-menu-grid">${gameButtons}</div></section>
+    <section><small>Progres</small><div class="quick-menu-grid">${progressButtons}</div></section>
+    <section><small>Pengaturan</small><div class="quick-menu-grid">${settingButtons}</div></section>
+  </div>${firstSeason?'<p class="first-season-note">Fitur lanjutan terbuka setelah musim pertama.</p>':''}`);
   $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
     const key=button.dataset.quickMore;
     if(key==='notebook')openBreederNotebook();
@@ -1853,6 +1858,7 @@ function openQuickMore(){
     if(key==='academy')openAcademy();
     if(key==='species')openSpeciesPicker();
     if(key==='economy')openEconomyInfo();
+    if(key==='analysis')openAnalysisHub();
     if(key==='comfort')openComfortSettings();
     if(key==='music')openMusicPicker();
   });
