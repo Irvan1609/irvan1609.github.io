@@ -2087,3 +2087,33 @@ body.calm-ui .quick-menu-grid button span{font-size:8px}
   body.calm-ui .hud-focus{grid-template-columns:repeat(2,minmax(0,1fr))}
   body.calm-ui .quick-menu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* FIELD ZERO MOBILE COMFORT FINAL 2026-09-27 */
+@media(max-width:620px){
+  body.calm-ui .game-quick-nav{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  body.calm-ui #quickMap,
+  body.calm-ui #quickSocial{display:none}
+  body.calm-ui .season-summary .mission small{display:none}
+  body.calm-ui .season-summary .mission{
+    grid-template-columns:minmax(0,1fr) auto;
+    min-height:25px;
+    padding:3px 6px
+  }
+  body.calm-ui .season-summary .mission b{font-size:8.5px}
+  body.calm-ui .season-summary .mission span{font-size:7.5px}
+  body.calm-ui .field-legend{display:none}
+  body.calm-ui .field-context{min-height:34px}
+  body.calm-ui .mobile-command-row{gap:4px}
+  body.calm-ui .mobile-command-row button{min-height:44px}
+  body.calm-ui .time-main b{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap
+  }
+  body.calm-ui #timeStop{display:none}
+}
