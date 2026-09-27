@@ -331,7 +331,9 @@ async function autoDetectChilies({automatic=false}={}){
   if(automatic&&qualityStats?.score<45){status('Quality Gate belum lolos. Perbaiki fokus/pencahayaan atau tekan Deteksi otomatis untuk tetap melanjutkan.');return false;}
   detecting=true;$('autoDetect').textContent='Mendeteksi…';updateWorkflowState();status('Mendeteksi cabai pada foto…');
   try{
-    let result=await detectChiliWithModel(image).catch(()=>null),detections=[];
+    const condition=$('condition').value;
+    const inferenceOptions=condition==='overlap'?{iouThreshold:.65}:condition==='occluded'||condition==='low-light'?{confidence:.20,iouThreshold:.58}:{};
+    let result=await detectChiliWithModel(image,inferenceOptions).catch(()=>null),detections=[];
     if(result){
       predictionMethod=result.method||'onnx';modelVersion=result.version||'onnx';
       detections=(result.detections||result.boxes.map(box=>({box,score:null}))).map(d=>({box:[...d.box],score:Number.isFinite(d.score)?d.score:null,source:'onnx'}));
