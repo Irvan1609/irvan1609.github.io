@@ -602,6 +602,7 @@ export function installAccountDatasetSync(){
   window.addEventListener('offline',()=>{clearTimeout(retryTimer);setSyncStatus('Offline · tersimpan di perangkat','pending');});
   window.addEventListener('online',()=>{resetCircuit();scheduleSync(900);});
   document.addEventListener('agrotik-retry-queues',()=>syncNow({manual:true}));
+  document.addEventListener('agrotik-system-ready',()=>publishQueue());
   setTimeout(()=>publishQueue(),0);
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
 }
