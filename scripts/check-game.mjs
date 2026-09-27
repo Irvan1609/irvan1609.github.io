@@ -6,6 +6,8 @@ const html=fs.readFileSync('public/game/index.html','utf8');
 const css=fs.readFileSync('public/game/style.css','utf8');
 const themeCss=fs.readFileSync('public/game/theme.css','utf8');
 const comfortCss=fs.readFileSync('public/game/comfort.css','utf8');
+const farmCss=fs.readFileSync('public/game/farm.css','utf8');
+const farmInputs=fs.readFileSync('public/game/farm-inputs.js','utf8');
 const app=fs.readFileSync('public/game/app.js','utf8');
 const themeInit=fs.readFileSync('public/game/theme-init.js','utf8');
 const competition=fs.readFileSync('public/game/competition.js','utf8');
@@ -28,13 +30,13 @@ for(const marker of ['id="gameWorkflow"','data-main-action="lab"','data-main-act
 for(const marker of ['FIELD ZERO FOCUSED GAMEPLAY FLOW','.game-workflow','.field-primary-actions','.research-steps','.experiment-wizard'])if(!css.includes(marker))fail('focused workflow styling missing '+marker);
 for(const marker of ['renderExperimentWizard','openAnalysisHub','workflowStep','renderProgressiveUI','experimentDraft','PENELITIAN AKTIF'])if(!app.includes(marker))fail('focused game flow missing '+marker);
 if(app.includes('Hipotesis sebelum menghitung'))fail('statistics learning must not block analysis behind a mandatory quiz');
-for(const marker of ['id="phenologyStatus"','id="criticalTask"','id="timeStop"','id="skip3Days"','id="nextCritical"','>Tenaga<'])if(!html.includes(marker))fail('agronomic time UI missing '+marker);
-for(const marker of ['GAME_SAVE_VERSION=8','seasonLengthFor','nitrogenTimingEfficiency','Prakiraan 3 hari','criticalTasks','criticalStopReason','stepOneDay','advanceDays','reproStress'])if(!app.includes(marker))fail('agronomic time engine missing '+marker);
+for(const marker of ['id="phenologyStatus"','id="criticalTask"','id="timeStop"','id="skip3Days"','id="nextCritical"','>Upah<'])if(!html.includes(marker))fail('agronomic time UI missing '+marker);
+for(const marker of ['GAME_SAVE_VERSION=9','seasonLengthFor','nitrogenTimingEfficiency','Prakiraan:','criticalTasks','criticalStopReason','stepOneDay','advanceDays','reproStress'])if(!app.includes(marker))fail('agronomic time engine missing '+marker);
 for(const marker of ['openCareCenter','batchCare','carePriority','careCandidates','applyCareAction'])if(!app.includes(marker))fail('strategic care engine missing '+marker);
 for(const marker of ["theme:'system'","function preferredTheme()","function applyTheme()",'data-comfort="theme"','prefers-color-scheme: light'])if(!app.includes(marker))fail('theme preference system missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!themeCss.includes(marker))fail('light dark theme styling missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-theme="light"]','body.theme-light.calm-ui','.toast{'])if(!themeCss.includes(marker))fail('light theme cleanup missing '+marker);
-for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/theme.css?v=','/game/comfort.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
+for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/theme.css?v=','/game/comfort.css?v=','/game/farm.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
 for(const marker of ['agrotik_field_zero_v1','prefers-color-scheme: light'])if(!themeInit.includes(marker))fail('theme bootstrap missing '+marker);
 if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
 for(const marker of ['hud-focus','season-summary','id="gameWorkflow" class="game-workflow" aria-label="Alur permainan" hidden','class="field-primary-actions" aria-label="Aksi utama" hidden'])if(!html.includes(marker))fail('focused comfort UI missing '+marker);
@@ -48,7 +50,7 @@ for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.compet
 
 for(const marker of ['FIELD ZERO ULTRA COMPACT COMFORT FINAL 2026-09-27','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(4,minmax(0,1fr))!important','min-height:52px!important','.plot-top{display:none!important}'])if(!comfortCss.includes(marker))fail('ultra compact game styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!comfortCss.includes(marker))fail('visual refresh theme missing '+marker);
-if(!html.includes('/game/style.css?v=20260927-comfort4')||!html.includes('/game/theme.css?v=20260927-comfort4')||!html.includes('/game/comfort.css?v=20260927-compact5'))fail('latest game comfort assets must be cache-busted');
+for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v=20260928-farm1'))fail('latest game farm asset missing '+asset);
 
 
 
@@ -58,6 +60,11 @@ for(const marker of ['<span>Rawat</span>','id="attentionCount"'])if(!html.includ
 for(const marker of ['FIELD ZERO CARE CENTER 2026-09-26','.care-choice','.field-tool-dock [data-field-tool="water"]'])if(!css.includes(marker))fail('strategic care styling missing '+marker);
 if(!app.includes("$('#attentionToggle').onclick=openCareCenter;"))fail('Rawat button must open the care center');
 if(app.includes("$('#attentionToggle').onclick=toggleAttention;"))fail('Rawat button must not only cycle attention mode');
+for(const marker of ['LABOR_DAY_RATE','FERTILIZERS','createFarmInputModel','NPK Phonska','SP-36','KCl'])if(!farmInputs.includes(marker))fail('farm input model missing '+marker);
+for(const marker of ['irrigationPlan','recommendedFertilizer','fertilizerActionCost','laborCost','class="plot-needs"','fertilizer-grid','laborCost:0','irrigationM3:0'])if(!app.includes(marker))fail('farm economy integration missing '+marker);
+for(const marker of ['FIELD ZERO FARM INPUTS 2026-09-28','.plot-needs','.fertilizer-grid','.nutrient-stats'])if(!farmCss.includes(marker))fail('farm input styling missing '+marker);
+if(app.includes('state.focus')||html.includes('>Tenaga<'))fail('legacy energy mechanic must not return');
+
 
 for(const marker of ['frequency:14','Setiap 14 hari','Math.max(7,Math.min(28','days:14'])if(!app.includes(marker))fail('real-calendar scheduling missing '+marker);
 if(app.includes('Setiap 2 hari</option>')||app.includes('measureEvery:Math.max(1,Math.min(4'))fail('legacy compressed observation cadence must not return');
@@ -113,6 +120,8 @@ if(Buffer.byteLength(css,'utf8')>100000)fail('game CSS exceeds 100 KB performanc
 if(Buffer.byteLength(themeCss,'utf8')>30000)fail('game theme CSS exceeds 30 KB performance budget');
 if(Buffer.byteLength(themeCss,'utf8')>20000)fail('game theme CSS exceeds 20 KB performance budget');
 if(Buffer.byteLength(comfortCss,'utf8')>30000)fail('game comfort CSS exceeds 30 KB performance budget');
+if(Buffer.byteLength(farmCss,'utf8')>10000)fail('game farm CSS exceeds 10 KB performance budget');
+if(Buffer.byteLength(farmInputs,'utf8')>10000)fail('game farm module exceeds 10 KB performance budget');
 if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
 
 const demoExp={
