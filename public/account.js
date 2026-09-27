@@ -20,6 +20,12 @@ let authChecked=false;
 let cloudState={worker:false,effectiveMode:'unknown',features:{},storage:{},updatedAt:null};
 let cloudCheckedAt=0;
 const CLOUD_STATUS_CACHE_MS=15*60*1000;
+let shellPromise=null;
+function loadShell(){
+  if(shellPromise)return shellPromise;
+  shellPromise=import('./agrotik-shell.js?v=20260927-1').catch(error=>{console.warn('Agrotik shell unavailable',error);return null;});
+  return shellPromise;
+}
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
@@ -120,7 +126,8 @@ function dispatch(){
     request:authFetch,
     refresh:refreshSession,
     login:startLogin,
-    logout
+    logout,
+    endpoint
   };
   document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(currentUser),user:currentUser}}));
 }
@@ -142,7 +149,8 @@ function cloudIndicator(){
   const panel=document.createElement('div');panel.className='account-cloud-panel';panel.hidden=true;
   const refresh=()=>{
     const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{};
-    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span>';
+    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span><button type="button" data-cloud-tools>Cari & perintah</button>';
+    panel.querySelector('[data-cloud-tools]')?.addEventListener('click',async event=>{event.stopPropagation();panel.hidden=true;await loadShell();window.AgrotikShell?.openPalette?.();});
     button.dataset.state=!cloudState.worker?'offline':cloudState.effectiveMode==='emergency'?'emergency':cloudState.effectiveMode==='economy'?'economy':'online';
     button.title=!cloudState.worker?'Cloud tidak tersedia':('Cloud '+cloudState.effectiveMode);
   };
@@ -341,6 +349,8 @@ async function init(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshCloudStatus();});
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
+  const idle=window.requestIdleCallback||((fn)=>setTimeout(fn,900));
+  idle(()=>loadShell());
 }
 
 init();
