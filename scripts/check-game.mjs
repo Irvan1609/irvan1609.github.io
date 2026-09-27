@@ -36,6 +36,11 @@ for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-them
 for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/theme.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
 for(const marker of ['agrotik_field_zero_v1','prefers-color-scheme: light'])if(!themeInit.includes(marker))fail('theme bootstrap missing '+marker);
 if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
+for(const marker of ['hud-focus','season-summary','id="gameWorkflow" class="game-workflow" aria-label="Alur permainan" hidden','class="field-primary-actions" aria-label="Aksi utama" hidden'])if(!html.includes(marker))fail('focused comfort UI missing '+marker);
+for(const marker of ['inspectorQuickAction','inspectorIssueText','fieldConditionSnapshot','skipWeatherLabel','quick-menu-sections','nextDayHold'])if(!app.includes(marker))fail('comfort interaction missing '+marker);
+for(const marker of ['FIELD ZERO COMFORT FOCUS 2026-09-27','.plot-quick-card','.quick-menu-sections'])if(!css.includes(marker))fail('comfort focus CSS missing '+marker);
+for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.competition-brief','.plot-quick-card','.sync-save-card'])if(!themeCss.includes(marker))fail('complete light surfaces missing '+marker);
+
 
 
 
