@@ -3,15 +3,6 @@ import {auditReports} from './analysis-audit.js';
 
 const HISTORY='statistical_web_analysis_history_v1';
 const PIN_STORE='statistical_web_result_pins_v1';
-const STAT_HELP={
-  f:{title:'Nilai F',text:'F adalah rasio kuadrat tengah sumber keragaman terhadap kuadrat tengah galat pembanding yang sesuai. Keputusan inferensial dibaca bersama p-value dan struktur model.'},
-  p:{title:'p-value',text:'p-value adalah peluang memperoleh statistik setidaknya se-ekstrem jika H₀ benar. p < α menunjukkan bukti untuk menolak H₀; p-value bukan ukuran besarnya efek.'},
-  kk:{title:'KK / CV',text:'Koefisien keragaman = √KT galat ÷ |rataan umum| × 100%. Nilai ini menggambarkan variasi residual relatif terhadap rataan dan harus dinilai sesuai karakter serta skala pengukuran.'},
-  se:{title:'SE',text:'Standard error menggambarkan ketelitian estimasi rataan atau selisih. SE berbeda dari SD, karena SD menggambarkan keragaman antarobservasi.'},
-  df:{title:'Derajat bebas',text:'Derajat bebas menentukan banyaknya informasi independen untuk mengestimasi suatu sumber keragaman dan distribusi acuan uji statistik.'},
-  ss:{title:'JK / SS',text:'Jumlah kuadrat mengukur besarnya variasi yang dialokasikan pada suatu sumber dalam model ANOVA.'},
-  ms:{title:'KT / MS',text:'Kuadrat tengah = jumlah kuadrat ÷ derajat bebas. KT galat digunakan sebagai estimasi ragam residual pada uji F yang sesuai.'}
-};
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const fmt=(value,digits=2)=>Number.isFinite(Number(value))?Number(value).toLocaleString('id-ID',{minimumFractionDigits:digits,maximumFractionDigits:digits}):'—';
@@ -186,39 +177,6 @@ function decorateTables(container){
     const button=document.createElement('button');button.type='button';button.className='result-os-copy-table';button.textContent='⧉';button.title='Salin tabel';button.setAttribute('aria-label','Salin tabel ini');wrap.prepend(button);
   });
 }
-function statHelpKey(label){
-  const value=String(label||'').toLowerCase().replace(/[().:%]/g,' ').replace(/\s+/g,' ').trim();
-  if(value==='f'||value==='f hitung')return 'f';
-  if(value==='p'||value==='p value'||value==='p minimum'||value==='p-value')return 'p';
-  if(value==='kk'||value==='cv'||value==='median kk'||value.includes('koefisien keragaman'))return 'kk';
-  if(value==='se'||value==='se beda'||value.startsWith('se '))return 'se';
-  if(value==='db'||value==='df'||value.includes('derajat bebas'))return 'df';
-  if(value==='jk'||value==='ss'||value.includes('jumlah kuadrat'))return 'ss';
-  if(value==='kt'||value==='ms'||value.includes('kuadrat tengah'))return 'ms';
-  return '';
-}
-function installStatHelp(container){
-  container.querySelectorAll('table').forEach(table=>{
-    const headers=[...(table.tHead?.rows?.[0]?.cells||[])],keys=headers.map(cell=>statHelpKey(cell.textContent));
-    headers.forEach((cell,index)=>{if(keys[index]){cell.dataset.statHelp=keys[index];cell.tabIndex=0;cell.title='Ketuk untuk penjelasan statistik';}});
-    table.querySelectorAll('tbody tr').forEach(row=>[...row.cells].forEach((cell,index)=>{if(keys[index]){cell.dataset.statHelp=keys[index];cell.tabIndex=0;}}));
-  });
-  container.querySelectorAll('.result-os-metric,.aug-result-summary>span').forEach(item=>{const key=statHelpKey(item.querySelector('span,small')?.textContent);if(key){item.dataset.statHelp=key;item.tabIndex=0;}});
-}
-function showStatHelp(target,key){
-  const info=STAT_HELP[key];if(!info)return;
-  let box=document.querySelector('#statHelpPopover');
-  if(!box){box=document.createElement('aside');box.id='statHelpPopover';box.className='stat-help-popover';box.setAttribute('role','status');document.body.append(box);}
-  box.innerHTML='<b>'+esc(info.title)+'</b><span>'+esc(info.text)+'</span>';box.hidden=false;
-  const rect=target.getBoundingClientRect(),margin=8;
-  requestAnimationFrame(()=>{
-    const width=box.offsetWidth||260,height=box.offsetHeight||80;
-    const left=Math.max(margin,Math.min(innerWidth-width-margin,rect.left));
-    const below=rect.bottom+6,top=below+height<innerHeight-margin?below:Math.max(margin,rect.top-height-6);
-    box.style.left=left+'px';box.style.top=top+'px';
-  });
-}
-function hideStatHelp(){const box=document.querySelector('#statHelpPopover');if(box)box.hidden=true;}
 function installFieldPlotLinks(container){
   const data=globalThis.StatisticalWebData?.readActiveDataset?.();
   if(!data?.headers?.length||!data?.rows?.length)return;
@@ -236,21 +194,6 @@ function installFieldPlotLinks(container){
 async function openFieldPlot(identifier){
   if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
   return globalThis.AgrotikFieldLayout?.openPlot?.(identifier);
-}
-async function openFieldHeatmap(parameter,mode='raw',values=null){
-  if(!globalThis.AgrotikFieldLayout)await import('./field-layout.js');
-  return globalThis.AgrotikFieldLayout?.openHeatmap?.(parameter,mode,values);
-}
-function exactResidualMap(report){
-  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
-  if(!data?.rows?.length||!Array.isArray(report?.residuals)||!Array.isArray(report?.observations)||report.residuals.length!==report.observations.length)return null;
-  const values=Array(data.rows.length).fill(null);
-  for(let i=0;i<report.observations.length;i++){
-    const row=Number(report.observations[i]?.row),value=Number(report.residuals[i]);
-    if(!Number.isInteger(row)||row<1||row>values.length||!Number.isFinite(value))return null;
-    values[row-1]=value;
-  }
-  return values;
 }
 function setupPinButtons(container,datasetName,pins,grid,originalRank,state){
   const sections=[...container.querySelectorAll('.analysis-result')];
@@ -325,13 +268,8 @@ export function enhanceResultOS(container,reports,options={}){
   shell.innerHTML=
     '<div class="result-os-command">'+
       '<input type="search" data-os-search placeholder="Cari hasil…" aria-label="Cari pada hasil">'+
-      '<button type="button" class="result-os-primary-action" data-os-command="copy">Salin</button>'+
-      '<button type="button" class="result-os-primary-action" data-os-command="export">Ekspor</button>'+
-      '<button type="button" class="result-os-primary-action" data-os-jump="chart">Grafik</button>'+
-      '<details class="result-os-menu result-os-more"><summary aria-label="Aksi lainnya">⋯</summary><div class="result-os-menu-body" role="navigation" aria-label="Aksi hasil lainnya">'+
-        '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
-        '<button type="button" data-os-command="audit">Periksa hasil</button><button type="button" data-os-command="history">Versi hasil</button><button type="button" data-os-command="print">PDF / Cetak</button>'+
-        '<button type="button" data-os-command="field-raw">Denah · nilai</button><button type="button" data-os-command="field-residual">Denah · residual model</button>'+
+      '<details class="result-os-menu"><summary>Bagian</summary><div class="result-os-menu-body" role="navigation" aria-label="Bagian hasil">'+
+        '<button type="button" data-os-jump="summary">Ringkasan</button><button type="button" data-os-jump="parameter">Parameter</button><button type="button" data-os-jump="anova">ANOVA</button><button type="button" data-os-jump="posthoc">Uji lanjut</button><button type="button" data-os-jump="diagnostics">Diagnostik</button><button type="button" data-os-jump="chart">Grafik</button><button type="button" data-os-jump="bab4">BAB IV</button>'+
       '</div></details>'+
     '</div>'+
     renderInsights(reports,!!options.stale)+
@@ -341,7 +279,6 @@ export function enhanceResultOS(container,reports,options={}){
   if(stale)stale.after(shell);else container.prepend(shell);
 
   decorateTables(container);
-  installStatHelp(container);
   installFieldPlotLinks(container);
   const pinSetup=setupPinButtons(container,datasetName,pins,grid,originalRank,state);
   const applyPinnedOrder=pinSetup.applyOrder;
@@ -362,9 +299,6 @@ export function enhanceResultOS(container,reports,options={}){
   };
   let searchTimer=0;
   const clickHandler=async event=>{
-    const help=event.target.closest('[data-stat-help]');
-    if(help){event.preventDefault();showStatHelp(help,help.dataset.statHelp);return;}
-    hideStatHelp();
     const fieldPlot=event.target.closest('[data-os-field-plot]');
     if(fieldPlot){event.preventDefault();await openFieldPlot(fieldPlot.dataset.osFieldPlot);return;}
     const nav=event.target.closest('[data-os-nav]');
@@ -373,24 +307,6 @@ export function enhanceResultOS(container,reports,options={}){
     if(insight){const target=filterButtons.find(button=>button.dataset.resultFilter===insight.dataset.osFilter);target?.click();return;}
     const jump=event.target.closest('[data-os-jump]');
     if(jump){jumpTarget(container,jump.dataset.osJump)?.scrollIntoView({behavior:'smooth',block:'start'});return;}
-    const command=event.target.closest('[data-os-command]');
-    if(command){
-      const action=command.dataset.osCommand;
-      if(action==='copy'){container.querySelector('[data-os-copy-word]')?.click();return;}
-      if(action==='export'){container.querySelector('[data-result-action="export-all"]')?.click();return;}
-      if(action==='audit'){container.querySelector('[data-thesis-check]')?.click();return;}
-      if(action==='history'){container.querySelector('[data-os-history]')?.click();return;}
-      if(action==='print'){container.querySelector('[data-print-results]')?.click();return;}
-      if(action==='field-raw'||action==='field-residual'){
-        const parameter=focusSelect?.value||reports[0]?.name||'';
-        if(action==='field-raw'){await openFieldHeatmap(parameter,'raw');return;}
-        if(options.stale){alert('Residual model tidak dibuka karena dataset telah berubah. Hitung ulang analisis terlebih dahulu.');return;}
-        const report=reports.find(item=>String(item.name)===String(parameter))||reports[0];
-        const residuals=exactResidualMap(report);
-        if(!residuals){alert('Residual model per plot belum tersedia pada versi hasil ini. Hitung ulang analisis untuk membuat peta residual yang tepat.');return;}
-        await openFieldHeatmap(parameter,'residual',residuals);return;
-      }
-    }
     const proxy=event.target.closest('[data-os-proxy]');
     if(proxy){container.querySelector(modeProxy[proxy.dataset.osProxy])?.click();setTimeout(syncModeButtons,0);return;}
     const focusButton=event.target.closest('[data-os-focus]');
@@ -463,8 +379,6 @@ export function enhanceResultOS(container,reports,options={}){
   }
 
   const keyHandler=event=>{
-    const help=event.target?.closest?.('[data-stat-help]');
-    if(help&&(event.key==='Enter'||event.key===' ')){event.preventDefault();showStatHelp(help,help.dataset.statHelp);return;}
     if(container.id!=='analysisDockResults')return;
     const dock=document.querySelector('#analysisResultDock');if(!dock||dock.hidden)return;
     if(event.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
@@ -489,7 +403,6 @@ export function enhanceResultOS(container,reports,options={}){
     container.removeEventListener('click',clickHandler);container.removeEventListener('input',inputHandler);container.removeEventListener('change',changeHandler);
     container.removeEventListener('touchstart',touchStartHandler);container.removeEventListener('touchend',touchEndHandler);
     document.removeEventListener('keydown',keyHandler);
-    hideStatHelp();
     pinSetup.cleanup();
     if(head){head.removeEventListener('touchstart',headStartHandler);head.removeEventListener('touchend',headEndHandler);}
   };
