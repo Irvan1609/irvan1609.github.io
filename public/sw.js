@@ -65,13 +65,14 @@ async function cacheExternal(url){
     }catch{}
   }
 }
+function metaUrl(key){return new URL(key,self.location.origin).href;}
 async function metaRead(key){
-  try{const cache=await caches.open(META_CACHE),response=await cache.match(key);return response?response.json():null;}catch{return null;}
+  try{const cache=await caches.open(META_CACHE),response=await cache.match(metaUrl(key));return response?response.json():null;}catch{return null;}
 }
 async function metaWrite(key,value){
-  const cache=await caches.open(META_CACHE);await cache.put(key,new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}}));
+  const cache=await caches.open(META_CACHE);await cache.put(metaUrl(key),new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}}));
 }
-async function metaDelete(key){try{const cache=await caches.open(META_CACHE);await cache.delete(key);}catch{}}
+async function metaDelete(key){try{const cache=await caches.open(META_CACHE);await cache.delete(metaUrl(key));}catch{}}
 async function rollbackMatch(request){
   const enabled=await metaRead(META_ROLLBACK);if(!enabled?.enabled)return null;
   const previous=await metaRead(META_PREVIOUS);if(!previous?.core&&!previous?.runtime)return null;
