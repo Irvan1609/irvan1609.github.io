@@ -1958,3 +1958,132 @@ body.calm-ui .first-season-note{
   .mobile-command-row button{min-height:44px}
   .care-choice{min-height:58px}
 }
+
+
+/* FIELD ZERO COMFORT FOCUS 2026-09-27 */
+body.calm-ui .hud-focus{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:4px;
+  margin:5px 0
+}
+body.calm-ui .hud-focus>.hud-secondary{display:none!important}
+body.calm-ui .hud-focus>div{padding:6px 8px;box-shadow:none}
+body.calm-ui .hud-focus b{font-size:13px}
+body.calm-ui .hud-focus .hud-weather b{margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.calm-ui .hud-focus .hud-weather>span{display:none}
+body.calm-ui .season-summary{
+  display:block;
+  margin:0 0 5px
+}
+body.calm-ui .season-summary .season-climate{display:none}
+body.calm-ui .season-summary .mission{
+  min-height:30px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px;
+  padding:4px 8px
+}
+body.calm-ui .season-summary .mission small{font-size:7px}
+body.calm-ui .season-summary .mission b{
+  margin:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:9px
+}
+body.calm-ui .season-summary .mission span{margin:0;font-size:8px;white-space:nowrap}
+body.calm-ui .game-workflow,
+body.calm-ui .field-primary-actions{display:none!important}
+body.calm-ui .day-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px
+}
+body.calm-ui .day-actions #skip3Days{display:none!important}
+body.calm-ui .day-actions #finishSeason{grid-column:1/-1}
+body.calm-ui .day-actions button{min-width:0}
+body.calm-ui .time-panel{margin-top:5px}
+body.calm-ui .quick-menu-sections{display:grid;gap:9px}
+body.calm-ui .quick-menu-sections>section{display:grid;gap:4px}
+body.calm-ui .quick-menu-sections>section>small{
+  color:var(--muted);font-size:8px;font-weight:850;letter-spacing:.08em;text-transform:uppercase
+}
+body.calm-ui .quick-menu-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+body.calm-ui .quick-menu-grid button{min-height:50px;padding:5px;font-size:16px}
+body.calm-ui .quick-menu-grid button span{font-size:8px}
+
+.plot-quick-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:7px;
+  padding:7px;
+  border:1px solid #304b3e;
+  border-radius:7px;
+  background:#111c17
+}
+.plot-quick-card>div{min-width:0}
+.plot-quick-card small,.plot-quick-card b,.plot-quick-card span{display:block}
+.plot-quick-card small{color:var(--muted);font-size:8px}
+.plot-quick-card b{margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px}
+.plot-quick-card div>span{margin-top:2px;color:var(--muted);font-size:8.5px}
+.plot-quick-action{
+  flex:0 0 auto;
+  min-height:38px;
+  padding:6px 9px;
+  border:1px solid #456555;
+  border-radius:6px;
+  background:#1c3328;
+  color:var(--ink);
+  font-size:9px;
+  font-weight:800
+}
+.plot-quick-action.harvest{background:#9a762f;border-color:#9a762f;color:#10150f}
+.plot-ok{flex:0 0 auto;color:var(--green-2)!important;font-size:8.5px!important;font-weight:800}
+.plot-details{margin-top:6px;border-top:1px solid #273b31}
+.plot-details>summary{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:780;
+  list-style:none
+}
+.plot-details>summary::-webkit-details-marker{display:none}
+.plot-details>summary::after{content:"+";margin-left:auto}
+.plot-details[open]>summary::after{content:"−"}
+.plot-details-body{display:grid;gap:6px;padding:0 0 4px}
+.compact-seed-picker{margin-top:6px}
+.compact-seed-picker .primary{min-height:40px}
+
+@media(max-width:620px){
+  body.calm-ui .game-shell{margin-top:5px}
+  body.calm-ui .game-head{margin-bottom:4px}
+  body.calm-ui .game-head h1{font-size:20px}
+  body.calm-ui .game-quick-nav{margin-bottom:4px;padding:3px;gap:3px}
+  body.calm-ui .game-quick-nav button{min-height:42px}
+  body.calm-ui .hud-focus{grid-template-columns:repeat(4,minmax(0,1fr));margin:4px 0}
+  body.calm-ui .hud-focus>div{padding:5px 4px;text-align:center}
+  body.calm-ui .hud-focus small{font-size:6.8px}
+  body.calm-ui .hud-focus b{font-size:10px}
+  body.calm-ui .season-summary{margin-bottom:4px}
+  body.calm-ui .season-summary .mission{min-height:27px;padding:3px 6px}
+  body.calm-ui .play-hint{min-height:34px;margin-bottom:4px;padding:5px 7px}
+  body.calm-ui .field-panel{padding:6px}
+  body.calm-ui .field-panel>.panel-head{margin-bottom:4px}
+  body.calm-ui .field-context{margin-bottom:3px}
+  body.calm-ui .time-panel{padding:5px 6px}
+  body.calm-ui .day-actions{position:sticky;bottom:4px;padding:3px}
+  body.calm-ui .day-actions button{min-height:44px}
+  body.calm-ui .quick-menu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body.calm-ui .quick-menu-grid button{min-height:52px}
+  .plot-quick-card{padding:7px}
+  .plot-quick-action{min-height:42px}
+}
+@media(max-width:390px){
+  body.calm-ui .hud-focus{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.calm-ui .quick-menu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
