@@ -6165,3 +6165,27 @@ summary:focus-visible,
     grid-template-columns:1fr 44px!important;
   }
 }
+
+
+/* STAT ANALYSIS HARDENING 2026-09-27 */
+.science-run-status{display:inline-flex;align-items:center;gap:6px;min-height:28px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.science-run-status[data-state]:not([data-state="idle"]):not(:empty)::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.75;flex:0 0 auto}
+.science-run-status[data-state="ready"],.science-run-status[data-state="done"]{color:#2f6b46}
+.science-run-status[data-state="problem"]{color:#8a5a16}
+.science-run-status[data-state="running"]{color:#315b8a}
+.science-run-status[data-state="error"]{color:#8a2424}
+.analysis-load-error,.analysis-recovery-note{margin:6px 0;padding:7px 9px;border:1px solid #e2c8a2;border-radius:6px;background:#fffaf1;color:#6f4c17;font-size:.78rem;line-height:1.3}
+.analysis-recovery-note{margin:8px 0}
+.analysis-core-fallback{min-width:0}
+.analysis-core-fallback .table-scroll{max-width:100%;overflow:auto}
+.analysis-core-fallback .result-table{margin:6px 0}
+.analysis-core-fallback .result-table th,.analysis-core-fallback .result-table td{padding:6px 8px}
+.analysis-smart-suggestion small{overflow-wrap:anywhere}
+@media(max-width:720px){
+  .analysis-workspace-foot{gap:6px!important}
+  .science-run-status{order:2;width:auto;max-width:42vw;overflow:hidden;text-overflow:ellipsis;font-size:.72rem}
+  .science-foot-actions{margin-left:auto}
+  .science-run-button,#closeScience2,.science-back-button{min-height:44px}
+  .analysis-load-error,.analysis-recovery-note{font-size:.76rem;padding:7px 8px}
+  .analysis-core-fallback .result-table{min-width:520px}
+}
