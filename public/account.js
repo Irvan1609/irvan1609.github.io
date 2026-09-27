@@ -1,3 +1,4 @@
+import './resilience.js';
 import {ACCOUNT_CONFIG} from './account-config.js';
 
 const TOKEN_KEY='irvan_account_session_v1'; // legacy localStorage key; migrated on load
@@ -142,9 +143,10 @@ function cloudIndicator(){
   const panel=document.createElement('div');panel.className='account-cloud-panel';panel.hidden=true;
   const refresh=()=>{
     const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{};
-    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span>';
+    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span><button type="button" class="account-cloud-command">Cari alat / perintah</button>';
     button.dataset.state=!cloudState.worker?'offline':cloudState.effectiveMode==='emergency'?'emergency':cloudState.effectiveMode==='economy'?'economy':'online';
     button.title=!cloudState.worker?'Cloud tidak tersedia':('Cloud '+cloudState.effectiveMode);
+    panel.querySelector('.account-cloud-command')?.addEventListener('click',()=>{panel.hidden=true;window.AgrotikResilience?.openPalette?.();});
   };
   refresh();
   button.onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden&&Date.now()-cloudCheckedAt>CLOUD_STATUS_CACHE_MS)void refreshCloudStatus();};
