@@ -3,7 +3,6 @@ import {parseNumber,formatNumber as fmt} from './number-format.js';
 import {numericRows,correlation,pathAnalysis,correlationCritical,correlationCI,coefficientCI} from './association-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 const $=s=>document.querySelector(s);
 const table=(heads,rows)=>`<div class="table-scroll"><table class="result-table"><thead><tr>${heads.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(v=>typeof v==='number'?`<td data-number="${v}">${fmt(v,5)}</td>`:`<td>${esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 const identifierHeader=name=>/^(ulangan|kelompok|blok|block|rep|replicate|replication|id|kode)$/i.test(String(name??'').trim());
@@ -35,7 +34,7 @@ export function openAssociation(kind){
   const numericSet=new Set(numeric.map(c=>c.i));
   const syncPathPredictors=()=>{if(!path)return;const y=$('#assocY').value===''?null:Number($('#assocY').value);document.querySelectorAll('[data-assoc-col]').forEach(input=>{const i=Number(input.value),eligible=numericSet.has(i)&&!identifierHeader(data.headers[i])&&i!==y;input.disabled=i===y||!numericSet.has(i);input.checked=eligible;});};
   $('#associationFields').onchange=event=>{if(path&&event.target.id==='assocY')syncPathPredictors();$('#assocResult').innerHTML='';$('#assocError').textContent='';};
-  $('#runAssociation').onclick=()=>{$('#assocResult').innerHTML='';$('#assocError').textContent='';try{const selected=[...document.querySelectorAll('[data-assoc-col]:checked')].map(x=>Number(x.value));if(path&&$('#assocY').value==='')throw Error('Pilih respons Y.');const columns=path?[Number($('#assocY').value),...selected]:selected,rows=numericRows(data,columns,parseNumber),result=path?pathAnalysis(rows):correlation(rows,$('#assocMethod').value);$('#assocResult').innerHTML=renderAssociation(result,columns.map(i=>data.headers[i]),kind,Number($('#assocAlpha').value));$('#assocResult [data-export-scope]').dataset.datasetName=data.name;void backupRawDataset(data);}catch(e){$('#assocError').textContent=e.message;}};
+  $('#runAssociation').onclick=()=>{$('#assocResult').innerHTML='';$('#assocError').textContent='';try{const selected=[...document.querySelectorAll('[data-assoc-col]:checked')].map(x=>Number(x.value));if(path&&$('#assocY').value==='')throw Error('Pilih respons Y.');const columns=path?[Number($('#assocY').value),...selected]:selected,rows=numericRows(data,columns,parseNumber),result=path?pathAnalysis(rows):correlation(rows,$('#assocMethod').value);$('#assocResult').innerHTML=renderAssociation(result,columns.map(i=>data.headers[i]),kind,Number($('#assocAlpha').value));$('#assocResult [data-export-scope]').dataset.datasetName=data.name;}catch(e){$('#assocError').textContent=e.message;}};
   document.querySelectorAll('[data-assoc-col]').forEach(input=>{const i=Number(input.value),eligible=numericSet.has(i)&&!identifierHeader(data.headers[i]);input.disabled=!numericSet.has(i);input.checked=!path&&eligible;});
   if(path){const autoY=numeric.find(c=>/(produksi|produktivitas|hasil|yield|response|respon)$/i.test(String(c.h).trim()));if(autoY)$('#assocY').value=String(autoY.i);syncPathPredictors();}
 }
