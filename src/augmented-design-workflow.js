@@ -2,7 +2,6 @@ import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,formatNumber} from './number-format.js';
 import {augmentedRcbAnova} from './augmented-design-engine.js?v=20260927-work-aug-v3';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -348,7 +347,6 @@ export function openAugmentedDesign(){
         out.reportMode=reportMode;out.comparisonMethod=comparisonMethod;
         return renderAugmented(out,data.headers[parameter],data.name);
       });
-      void backupRawDataset(data);
       $('#dataToolModal')?.classList.remove('open');
       await showResults(reports.join(''),'Augmented RCBD · '+data.name,data,parameters.length);
     }catch(err){error.innerHTML=`<div class="error-box">${esc(err.message)}</div>`;}
