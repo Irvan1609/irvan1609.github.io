@@ -487,3 +487,32 @@ th[data-stat-help]{text-decoration:underline dotted;text-underline-offset:3px}
   .stat-help-popover{font-size:11.5px;padding:10px;line-height:1.4}
   [data-stat-help]{touch-action:manipulation}
 }
+
+
+/* RESULT OS PHONE NO HORIZONTAL SCROLL 2026-09-27 */
+@media(max-width:720px){
+  .result-os-command,
+  .result-os-panel,
+  .result-os-panel .table-scroll,
+  .result-os-heatmap .table-scroll{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
+  .result-heatmap-table,
+  .result-os-enhanced .result-table-wide,
+  .result-os-enhanced .result-table-narrow{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  .result-os-insights{
+    flex-wrap:wrap!important;
+    width:100%!important;
+    max-width:100%!important;
+  }
+  .result-os-compare-choices{
+    grid-template-columns:1fr!important;
+    width:100%!important;
+  }
+}
