@@ -9,7 +9,7 @@ async function scientificModule(){
 async function openScientificLazy(design){const mod=await scientificModule();mod.openScientific(design);}
 const lazyOpeners={
   designExt:async value=>(await import('./design-extensions-workflow.js')).openDesignExtension(value),
-  augmented:async ()=>(await import('./augmented-design-workflow.js?v=20260927-work-aug-v2')).openAugmentedDesign(),
+  augmented:async ()=>(await import('./augmented-design-workflow.js?v=20260927-work-aug-v3')).openAugmentedDesign(),
   nonparametric:async ()=>(await import('./nonparametric-workflow.js')).openNonparametric(),
   power:async ()=>(await import('./power-workflow.js')).openPowerAnalysis(),
   stabilityIndices:async ()=>(await import('./stability-indices-workflow.js')).openStabilityIndices(),
