@@ -19,8 +19,11 @@ function choose(select,regex,data,exclude=[]){
   return index;
 }
 function firstCategorical(data,exclude=[]){return data.headers.findIndex((_,index)=>!exclude.includes(index)&&!isNumeric(data,index));}
+function structuralAugmentedColumn(header){
+  return /^(geno|line|check|line\s*(?:vs\.?|versus)\s*check|line_vs_check)$/i.test(String(header||'').trim());
+}
 function parameterField(data){
-  return `<div class="aug-parameter-head"><span>Parameter numerik dipilih otomatis</span><b id="augParameterCount">0 aktif</b></div><div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
+  return `<div class="aug-parameter-head"><span>Parameter numerik dipilih otomatis</span><b id="augParameterCount">0 aktif</b></div><div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)&&!structuralAugmentedColumn(header)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
 }
 function updateAugParameterCount(){
   const inputs=[...document.querySelectorAll('[data-aug-param]')].filter(input=>!input.disabled),selected=inputs.filter(input=>input.checked);
