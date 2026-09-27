@@ -447,22 +447,27 @@ async function autoDetectChilies({automatic=false}={}){
   if(automatic&&qualityStats?.score<45){status('Quality Gate belum lolos. Perbaiki fokus/pencahayaan atau tekan Deteksi otomatis untuk tetap melanjutkan.');return false;}
   detecting=true;$('autoDetect').textContent='Mendeteksi…';updateWorkflowState();status('Mendeteksi cabai pada foto…');
   try{
-    const condition=$('condition').value;
-    const inferenceOptions=condition==='overlap'?{iouThreshold:.65}:condition==='occluded'||condition==='low-light'?{confidence:.20,iouThreshold:.58}:{};
+    const condition=$('condition').value,adaptive=Number.isFinite(calibratedThreshold)?calibratedThreshold:null;
+    const inferenceOptions=condition==='overlap'?{confidence:adaptive??.25,iouThreshold:.65}:condition==='occluded'||condition==='low-light'?{confidence:Math.min(adaptive??.25,.20),iouThreshold:.58}:(adaptive?{confidence:adaptive}:{});
     let result=await detectChiliWithModel(image,inferenceOptions).catch(()=>null),detections=[];
     if(result){
       predictionMethod=result.method||'onnx';modelVersion=result.version||'onnx';
+      const calibration=thresholdByModel.get(modelVersion)||optimizeThreshold(allRowsCache,modelVersion);
+      if(Number.isFinite(calibration?.threshold)){thresholdByModel.set(modelVersion,calibration);calibratedThreshold=calibration.threshold;}
       detections=(result.detections||result.boxes.map(box=>({box,score:null}))).map(d=>({box:[...d.box],score:Number.isFinite(d.score)?d.score:null,source:'onnx'}));
+      if(Number.isFinite(calibration?.threshold))detections=detections.filter(d=>!Number.isFinite(d.score)||d.score>=calibration.threshold);
     }else{
       result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
       predictionMethod='heuristic-color';modelVersion='heuristic-color-v1';
       detections=result.boxes.map(box=>({box:[...box],score:null,source:'heuristic-color'}));
     }
     if(detectionRun)checkpoint();else history=[];
-    boxes=detections.map(d=>[...d.box]);predictedDetections=detections.map(d=>({box:[...d.box],score:d.score}));
-    boxMeta=hydrateMeta(detections);confidenceStats=result.stats||null;selected=-1;detectionRun=true;dirty=true;paint();renderConfidence();
+    predictedDetections=detections.map(d=>({box:[...d.box],score:d.score}));
+    blindActive=$('blindValidation').checked;
+    if(blindActive){boxes=[];boxMeta=[];}else{boxes=detections.map(d=>[...d.box]);boxMeta=hydrateMeta(detections);}
+    confidenceStats=result.stats||null;selected=-1;detectionRun=true;dirty=true;updateAgronomicQuality(detections);paint();renderConfidence();
     const needs=reviewIndices().length,engine=predictionMethod==='onnx'?'AI '+modelVersion:'Deteksi warna';
-    status(engine+' menemukan '+boxes.length+' calon cabai'+(needs?' · '+needs+' kotak perlu diperiksa.':' · tidak ada kotak yang ditandai meragukan.'));
+    status(blindActive?'Mode buta aktif. Prediksi AI disimpan tetapi tidak ditampilkan; tandai buah secara manual.':engine+' menemukan '+boxes.length+' calon cabai'+(needs?' · '+needs+' kotak perlu diperiksa.':' · tidak ada kotak yang ditandai meragukan.'));
   }catch(error){status(error.message||'Deteksi otomatis gagal.');return false;}
   finally{detecting=false;$('autoDetect').textContent='Deteksi otomatis';updateWorkflowState();}
   if(automatic)void maybeAutoBatch();
@@ -471,9 +476,9 @@ async function autoDetectChilies({automatic=false}={}){
 
 async function setPhoto(blob,name,{fromBatch=false}={}){
   const prepared=await optimizeBlob(blob);revokePhotoUrl();photoBlob=prepared.blob;photoUrl=prepared.url;image=prepared.image;
-  boxes=[];boxMeta=[];predictedDetections=[];history=[];selected=-1;interaction=null;activeId=null;dirty=true;detectionRun=false;confidenceStats=null;
-  predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';duplicateId='';
-  $('duplicateBanner').hidden=true;$('sample').value=fieldContext?.plot_label||name||nowName();resetView();layoutCanvas();paint();updateQuality();updateWorkflowState();await checkDuplicate();
+  boxes=[];boxMeta=[];predictedDetections=[];history=[];selected=-1;interaction=null;activeId=null;activeDatasetSplit='';dirty=true;detectionRun=false;confidenceStats=null;
+  predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';duplicateId='';phenotype=null;agronomicStats=null;blindActive=false;
+  $('duplicateBanner').hidden=true;$('sample').value=fieldContext?.plot_label||name||nowName();currentImageHash=imageDHash(image);resetView();layoutCanvas();paint();updateQuality();updateWorkflowState();await checkDuplicate();await checkPhotoDuplicate();
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
   else status('Foto siap. Quality Gate '+(qualityStats?.score||0)+'/100 · jalankan Deteksi otomatis.');
   if(!fromBatch)window.scrollTo({top:Math.max(0,viewport.getBoundingClientRect().top+scrollY-120),behavior:'smooth'});
@@ -498,7 +503,7 @@ async function loadNextBatch(){
   updateBatchState();
 }
 async function maybeAutoBatch(){
-  if(batchAutoBusy||batchTotal<=1||!$('batchAuto').checked||!detectionRun)return;
+  if(batchAutoBusy||batchTotal<=1||!$('batchAuto').checked||!detectionRun||blindActive)return;
   const safe=qualityStats?.score>=60&&reviewIndices().length===0&&boxes.length>0;
   if(!safe)return;
   batchAutoBusy=true;
