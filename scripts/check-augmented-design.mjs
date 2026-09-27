@@ -35,6 +35,15 @@ assert.equal(out.sed.checkCheck.n,1);
 assert.equal(out.sed.testSameBlock.n,3);
 assert.equal(out.sed.testDifferentBlock.n,12);
 assert.equal(out.sed.testCheck.n,12);
+assert.ok(out.partitionAdjusted.find(item=>item.label==='Line vs Check'));
+assert.equal(out.partitionAdjusted.find(item=>item.label==='Line vs Check').df,1);
+assert.equal(out.partitionAdjusted.find(item=>item.label==='Check').df,1);
+assert.equal(out.partitionAdjusted.find(item=>item.label==='Line(Check)').df,5);
+near(out.partitionAdjusted.filter(item=>!['Total'].includes(item.label)).reduce((sum,item)=>sum+(Number(item.ss)||0),0),out.partitionAdjusted.find(item=>item.label==='Total').ss);
+assert.ok(Number.isFinite(out.workSummary.standardError));
+assert.ok(Number.isFinite(out.workSummary.lsd));
+assert.ok(Number.isFinite(out.workSummary.cv));
+assert.ok(out.means.filter(item=>item.type==='Test').every(item=>Number.isFinite(item.pCheckHolm)));
 
 const manual=augmentedRcbAnova(rows,{checks:['C1','C2'],alpha:.01});
 assert.deepEqual(manual.checks,['C1','C2']);
@@ -46,13 +55,15 @@ const duplicate=[...rows,[...rows[0]]];
 assert.throws(()=>augmentedRcbAnova(duplicate),/muncul lebih dari sekali/i);
 const repeatedTest=[...rows,['B2','T1',126]];
 assert.throws(()=>augmentedRcbAnova(repeatedTest,{checks:['C1','C2']}),/non-check berulang/i);
+const missingCheck=rows.filter(row=>!(row[0]==='B3'&&row[1]==='C2'));
+assert.throws(()=>augmentedRcbAnova(missingCheck,{checks:['C1','C2']}),/setiap check hadir di setiap blok/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augParameterCount','Parameter numerik dipilih otomatis','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','Detail statistik','Efek blok','Ketelitian perbandingan','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augParameterCount','Parameter numerik dipilih otomatis','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','Partisi perlakuan Work / SAS','Ringkasan kompatibilitas Work','Kode SAS','augComparison','augPrecision','pCheckHolm','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
 for(const marker of ["['augmented','augmented','Augmented Design'","data-analysis-open","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
-console.log('Augmented design verified: automatic/manual checks, connected block+treatment model, adjusted means, check-derived residual error, treatment/block adjusted ANOVA, comparison SE classes, and invalid-design guards.');
+console.log('Augmented design verified: complete checks, adjusted means, Type III whole-treatment model, Work/SAS Type I partitions, Holm, Work summary, SAS code UI, comparison SE classes, and invalid-design guards.');
 
 const dataTools=fs.readFileSync(new URL('../src/data-tools.js',import.meta.url),'utf8');
 assert.ok(dataTools.includes("openTool(title,html,mode=''"),'openTool mode missing');
