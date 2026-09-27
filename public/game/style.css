@@ -2074,6 +2074,13 @@ html[data-theme="light"]{
   color-scheme:light;
   background:#f3f7f4
 }
+html[data-theme="light"] body{
+  background:#f3f7f4!important;
+  color:#183126
+}
+html[data-theme="light"] body::before,
+html[data-theme="light"] body::after{background:transparent!important}
+
 body.theme-light{
   --surface:#ffffff;
   --surface-soft:#f8fbf9;
@@ -2344,3 +2351,14 @@ body.theme-light .play-hint>span{background:#dceee2!important;color:#256543!impo
 body.theme-light .field-tool-dock button[aria-pressed=true] .tool-icon{background:#cfe6d6!important}
 body.theme-light .social-avatar{border-color:#bed0c4!important}
 
+
+body.theme-light .competition-launch{
+  background:#fff7dc!important;
+  border-color:#cdb55c!important;
+  color:#6b5716!important
+}
+body.theme-light .competition-head span{
+  background:#f7fbf8!important;
+  border-color:#c8d8ce!important;
+  color:#476153!important
+}
