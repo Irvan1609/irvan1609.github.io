@@ -31,6 +31,9 @@ for(const marker of ['openCareCenter','batchCare','carePriority','careCandidates
 for(const marker of ["theme:'system'","function preferredTheme()","function applyTheme()",'data-comfort="theme"','prefers-color-scheme: light'])if(!app.includes(marker))fail('theme preference system missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!css.includes(marker))fail('light dark theme styling missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-theme="light"]','body.theme-light.calm-ui','.toast{'])if(!css.includes(marker))fail('light theme cleanup missing '+marker);
+for(const marker of ['20260927-lightfix3','agrotik_field_zero_v1','prefers-color-scheme: light'])if(!html.includes(marker))fail('theme boot/cache bust missing '+marker);
+if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
+
 
 
 for(const marker of ['<span>Rawat</span>','id="attentionCount"'])if(!html.includes(marker))fail('strategic care entry UI missing '+marker);
