@@ -49,7 +49,7 @@ assert.equal(hammingHash('0000','000f'),4);
 const calibrationRows=Array.from({length:6},(_,i)=>({name:'V'+i,datasetSplit:'validation',modelVersion:'v-test',boxes:[[.1,.1,.2,.2]],predictedDetections:[{box:[.1,.1,.2,.2],score:.8},{box:[.7,.7,.1,.1],score:.3}]}));
 const calibrated=optimizeThreshold(calibrationRows,'v-test');assert.ok(calibrated.threshold>=.3);assert.ok(calibrated.f1>.9);
 const uncertainty=operationalUncertainty([{box:[0,0,.1,.1]},{box:[.2,.2,.1,.1]}],[{needsReview:true},{needsReview:false}]);assert.deepEqual([uncertainty.reviewMin,uncertainty.reviewMax],[1,3]);
-const aq=agronomicQuality([{box:[0,0,.2,.2]},{box:[.1,.1,.2,.2]}]);assert.ok(aq.edgeCount>=1);assert.ok(aq.overlapPairs>=1);
+const aq=agronomicQuality([{box:[0,0,.2,.2]},{box:[.08,.08,.2,.2]}]);assert.ok(aq.edgeCount>=1);assert.ok(aq.overlapPairs>=1);
 const errors=errorSummary([{condition:'low-light',boxes:[[.1,.1,.2,.2]],predictedDetections:[]}]);assert.equal(errors.lowLight,1);assert.equal(errors.missed,1);
 const zip=await buildDatasetZip([{name:'S1',datasetSplit:'train',width:100,height:100,boxes:[[.1,.1,.2,.2]],imageBlob:new Blob(['img'],{type:'image/jpeg'})}],{includeImages:true});
 const sig=new Uint8Array(await zip.slice(0,2).arrayBuffer());assert.deepEqual([...sig],[80,75]);
