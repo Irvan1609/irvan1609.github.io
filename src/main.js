@@ -405,18 +405,23 @@ function saveColumnName(event){
 }
 function clearSelection(){
   state.selection={anchor:null,focus:null};
-  document.querySelectorAll('.data-grid td.cell-selected,.data-grid td.cell-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active'));
+  document.querySelectorAll('.data-grid .cell-selected,.data-grid .cell-active,.data-grid .cell-axis-row,.data-grid .cell-axis-col,.data-grid .axis-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active','cell-axis-row','cell-axis-col','axis-active'));
 }
 function selectionRange(){return normalizeCellRange(state.selection.anchor,state.selection.focus);}
 function paintSelection(){
   const range=selectionRange(),wrap=$('#gridWrap');if(!wrap)return;
-  wrap.querySelectorAll('td.cell-selected,td.cell-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active'));
+  wrap.querySelectorAll('.cell-selected,.cell-active,.cell-axis-row,.cell-axis-col,.axis-active').forEach(cell=>cell.classList.remove('cell-selected','cell-active','cell-axis-row','cell-axis-col','axis-active'));
   if(!range)return;
   wrap.querySelectorAll('td[data-r][data-c]').forEach(cell=>{
     const r=Number(cell.dataset.r),c=Number(cell.dataset.c);
     if(r>=range.r1&&r<=range.r2&&c>=range.c1&&c<=range.c2)cell.classList.add('cell-selected');
   });
-  const focus=state.selection.focus;wrap.querySelector(`td[data-r="${focus.r}"][data-c="${focus.c}"]`)?.classList.add('cell-active');
+  const focus=state.selection.focus;if(!focus)return;
+  wrap.querySelectorAll(`td[data-r="${focus.r}"][data-c]`).forEach(cell=>cell.classList.add('cell-axis-row'));
+  wrap.querySelectorAll(`td[data-c="${focus.c}"][data-r]`).forEach(cell=>cell.classList.add('cell-axis-col'));
+  wrap.querySelector(`th[data-column-index="${focus.c}"]`)?.classList.add('axis-active');
+  wrap.querySelector(`td.row-number[data-row-number="${focus.r}"]`)?.classList.add('axis-active');
+  wrap.querySelector(`td[data-r="${focus.r}"][data-c="${focus.c}"]`)?.classList.add('cell-active');
   requestAnimationFrame(positionFillHandle);
 }
 function setSelection(r,c,{extend=false,focus=true}={}){
@@ -494,8 +499,17 @@ function bindGridArrowNavigation(wrap){
         if(nr<0||nr>=state.rows.length)return;
         setSelection(nr,nc);return;
       }
-      if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.ctrlKey||event.metaKey)return;
-      const next={ArrowUp:[r-1,c],ArrowDown:[r+1,c],ArrowLeft:[r,c-1],ArrowRight:[r,c+1]}[event.key];
+      if(event.key==='Escape'){event.preventDefault();clearSelection();cell.blur();return;}
+      if(event.key==='Home'||event.key==='End'){
+        event.preventDefault();
+        const targetCol=event.key==='Home'?0:state.headers.length-1;
+        setSelection(event.ctrlKey||event.metaKey?(event.key==='Home'?0:state.rows.length-1):r,targetCol,{extend:event.shiftKey});return;
+      }
+      if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)||event.altKey||event.metaKey)return;
+      let next;
+      if(event.ctrlKey){
+        next={ArrowUp:[0,c],ArrowDown:[state.rows.length-1,c],ArrowLeft:[r,0],ArrowRight:[r,state.headers.length-1]}[event.key];
+      }else next={ArrowUp:[r-1,c],ArrowDown:[r+1,c],ArrowLeft:[r,c-1],ArrowRight:[r,c+1]}[event.key];
       if(next[0]<0||next[0]>=state.rows.length||next[1]<0||next[1]>=state.headers.length)return;
       event.preventDefault();setSelection(next[0],next[1],{extend:event.shiftKey});
     });
@@ -577,10 +591,21 @@ function deleteColumnAt(index){
   pushUndo('hapus kolom');removeCategoryColumn(displayDatasetName(state.active),header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];
   persist('hapus kolom',true);clearSelection();renderGrid();setStatus('Kolom dihapus.');
 }
+function insertRowAt(index){
+  if(!state.headers.length)return;
+  const row=Math.max(0,Math.min(state.rows.length,Number(index)||0));
+  pushUndo('tambah baris');state.rows.splice(row,0,state.headers.map(()=>''));
+  persist('tambah baris',true);renderGrid();if(state.rows[row])setSelection(row,0);setStatus('✓ Baris ditambahkan.');
+}
+function insertColumnAt(index){
+  const col=Math.max(0,Math.min(state.headers.length,Number(index)||0)),name=nextColumnName(state.headers);
+  pushUndo('tambah kolom');state.headers.splice(col,0,name);state.rows.forEach(row=>row.splice(col,0,''));
+  persist('tambah kolom',true);renderGrid();setStatus(`✓ Kolom ${name} ditambahkan.`);
+}
 function ensureColumnContextMenu(){
   let menu=document.getElementById('columnContextMenu');if(menu)return menu;
   menu=document.createElement('div');menu.id='columnContextMenu';menu.className='column-context-menu';menu.hidden=true;
-  menu.innerHTML='<button data-col-action="rename">Ubah nama</button><button data-col-action="duplicate">Duplikat</button><button data-col-action="left">← Kiri</button><button data-col-action="right">Kanan →</button><button data-col-action="delete" class="danger-text">Hapus</button>';
+  menu.innerHTML='<button data-col-action="metadata">Parameter & metadata</button><button data-col-action="insert-left">+ Kolom kiri</button><button data-col-action="insert-right">+ Kolom kanan</button><button data-col-action="insert-row" data-requires-row>+ Baris bawah</button><button data-col-action="delete-row" data-requires-row class="danger-text">Hapus baris</button><button data-col-action="delete-column" class="danger-text">Hapus kolom</button>';
   document.body.append(menu);
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#columnContextMenu'))menu.hidden=true;});
   return menu;
@@ -595,17 +620,25 @@ function bindColumnLongPress(button,index){
   button.addEventListener('pointermove',event=>{if(Math.hypot(event.clientX-startX,event.clientY-startY)>12)clear();});
   button.addEventListener('pointerup',clear);button.addEventListener('pointercancel',clear);
 }
-function openColumnContextMenu(event,index){
-  event.preventDefault();const menu=ensureColumnContextMenu();menu.dataset.column=String(index);menu.hidden=false;
-  menu.style.left=Math.min(event.clientX,window.innerWidth-170)+'px';menu.style.top=Math.min(event.clientY,window.innerHeight-210)+'px';
+function openColumnContextMenu(event,index,row=null){
+  event.preventDefault();const menu=ensureColumnContextMenu();menu.dataset.column=String(index);
+  if(Number.isInteger(row))menu.dataset.row=String(row);else delete menu.dataset.row;
+  menu.querySelectorAll('[data-requires-row]').forEach(button=>button.hidden=!Number.isInteger(row));
+  menu.hidden=false;
+  const width=190,height=Number.isInteger(row)?258:150;
+  menu.style.left=Math.max(6,Math.min(event.clientX,window.innerWidth-width-6))+'px';
+  menu.style.top=Math.max(6,Math.min(event.clientY,window.innerHeight-height-6))+'px';
   menu.onclick=click=>{
     const action=click.target.closest('[data-col-action]')?.dataset.colAction;if(!action)return;
-    const col=Number(menu.dataset.column);menu.hidden=true;
-    if(action==='rename')openColumnName(col);
-    else if(action==='duplicate')duplicateColumn(col);
-    else if(action==='left'&&col>0)moveColumn(col,col-1);
-    else if(action==='right'&&col<state.headers.length-1)moveColumn(col,col+1);
-    else if(action==='delete')deleteColumnAt(col);
+    const col=Number(menu.dataset.column),targetRow=Number(menu.dataset.row);menu.hidden=true;
+    if(action==='metadata')openColumnName(col);
+    else if(action==='insert-left')insertColumnAt(col);
+    else if(action==='insert-right')insertColumnAt(col+1);
+    else if(action==='insert-row'&&Number.isInteger(targetRow))insertRowAt(targetRow+1);
+    else if(action==='delete-row'&&Number.isInteger(targetRow)){
+      if(!confirm('Hapus baris '+(targetRow+1)+'?'))return;
+      pushUndo('hapus baris');state.rows.splice(targetRow,1);persist('hapus baris',true,{kind:'delete_row',row:targetRow});clearSelection();renderGrid();setStatus('Baris dihapus.');
+    }else if(action==='delete-column')deleteColumnAt(col);
   };
 }
 function ensureGridFind(){
@@ -748,16 +781,19 @@ function virtualRowHeight(){return document.documentElement?.classList?.contains
 function rowMarkup(row,rowIndex,types,widths,quality){
   const duplicate=quality.duplicateRows.has(rowIndex)?' duplicate-row':'';
   const rowHasData=row.some(value=>String(value??'').trim()!=='');
-  return '<tr class="'+duplicate.trim()+'"><td class="row-number"><span data-select-row="'+rowIndex+'">'+(rowIndex+1)+'</span><button class="grid-delete" data-delete-row="'+rowIndex+'" aria-label="Hapus baris '+(rowIndex+1)+'" title="Hapus baris"></button></td>'+state.headers.map((_,col)=>{
+  return '<tr class="'+duplicate.trim()+'"><td class="row-number" data-row-number="'+rowIndex+'"><span data-select-row="'+rowIndex+'">'+(rowIndex+1)+'</span><button class="grid-delete" data-delete-row="'+rowIndex+'" aria-label="Hapus baris '+(rowIndex+1)+'" title="Hapus baris"></button></td>'+state.headers.map((_,col)=>{
     const width=widths[col],style=width?' style="width:'+width+'px;min-width:'+width+'px;max-width:'+width+'px"':'',text=String(row[col]??''),trim=text.trim();
     const classes=[['category','text'].includes(types[col].type)?'string-column-cell':'',rowHasData&&!trim?'cell-missing':'',trim&&quality.mostlyNumeric[col]&&!Number.isFinite(parseNumber(trim))?'cell-type-warning':'',gridFindQuery&&trim.toLocaleLowerCase('id-ID').includes(gridFindQuery)?'cell-find-match':''].filter(Boolean).join(' ');
     return '<td class="'+classes+'" contenteditable="true" spellcheck="false" data-r="'+rowIndex+'" data-c="'+col+'"'+style+'>'+esc(text)+'</td>';
   }).join('')+'</tr>';
 }
 function bindGridBody(wrap){
-  wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{
+  wrap.querySelectorAll('.data-grid [contenteditable=true]').forEach(cell=>{
+    cell.addEventListener('contextmenu',event=>openColumnContextMenu(event,Number(cell.dataset.c),Number(cell.dataset.r)));
+    cell.addEventListener('input',()=>{
     const r=Number(cell.dataset.r),col=Number(cell.dataset.c);state.rows[r][col]=cell.textContent;persist('edit sel',false,{kind:'set_cell',row:r,col,value:cell.textContent});refreshColumnType(col,wrap);
-  }));
+    });
+  });
   bindGridArrowNavigation(wrap);
   wrap.querySelectorAll('[data-select-row]').forEach(label=>label.onclick=event=>{
     const row=Number(label.dataset.selectRow);if(!state.headers.length)return;
@@ -810,7 +846,7 @@ function bindGridHeader(wrap){
 function renderGrid(){
   const wrap=$('#gridWrap');if(!wrap)return;
   if(!state.headers.length){
-    delete wrap.dataset.virtualized;wrap.innerHTML='<div class="empty-state"><div class="empty-state-icon" aria-hidden="true">▦</div><h3>'+esc(displayDatasetName(state.active))+'</h3><div class="empty-state-actions"><button type="button" class="primary" data-empty-paste>Tempel dari Excel</button><button type="button" data-empty-import>Impor berkas</button><button type="button" data-empty-example>Coba contoh</button></div><button type="button" class="empty-add-column" data-add-col>+ Kolom</button></div>';
+    delete wrap.dataset.virtualized;wrap.innerHTML='<div class="empty-state"><div class="empty-state-icon" aria-hidden="true">▦</div><h3>'+esc(displayDatasetName(state.active))+'</h3><div class="empty-state-actions"><button type="button" class="primary" data-empty-paste>Tempel Excel</button><button type="button" data-empty-import>Impor</button><button type="button" data-empty-new>Data baru</button></div></div>';
   }else{
     const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(row=>row[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index)),quality=gridQualityModel();
     const heads=state.headers.map((h,j)=>{
@@ -826,10 +862,7 @@ function renderGrid(){
   }
   wrap.querySelector('[data-empty-paste]')?.addEventListener('click',openModal);
   wrap.querySelector('[data-empty-import]')?.addEventListener('click',()=>$('#quickImportFile')?.click());
-  wrap.querySelector('[data-empty-example]')?.addEventListener('click',()=>{
-    const first=document.querySelector('#exampleDatasets [data-example-id]');
-    if(first)first.click();else $('#dataTemplate')?.click();
-  });
+  wrap.querySelector('[data-empty-new]')?.addEventListener('click',()=>$('#newTxt')?.click());
   wrap.querySelectorAll('[data-add-row]').forEach(button=>button.onclick=addRow);
   wrap.querySelectorAll('[data-add-col]').forEach(button=>button.onclick=addColumn);
   if($('#activeFile'))$('#activeFile').textContent=displayDatasetName(state.active);
