@@ -57,8 +57,8 @@ async function zipStore(files){
 }
 
 export async function buildDatasetZip(records=[],{split='all',includeImages=true}={}){
-  const rows=records.filter(r=>split==='all'||r.datasetSplit===split);
-  if(!rows.length)throw Error('Tidak ada sampel untuk subset ini.');
+  const rows=records.filter(r=>(split==='all'||r.datasetSplit===split)&&(r.validationStatus==='validated'||(!r.validationStatus&&r.reviewed!==false)));
+  if(!rows.length)throw Error('Tidak ada anotasi tervalidasi pada subset ini.');
   const files=[
     {name:'data.yaml',data:'path: .\ntrain: images/train\nval: images/validation\ntest: images/test\nnames:\n  0: cabai\n'},
     {name:'annotations/coco.json',data:coco(rows)},
