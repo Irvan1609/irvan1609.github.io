@@ -1102,6 +1102,7 @@ function installDataGrid(){
 }
 
 async function boot(){
+  try{localStorage.removeItem('statistical_web_drive_backup_v1');}catch{}
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
