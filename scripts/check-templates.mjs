@@ -8,8 +8,9 @@ import {friedman} from '../src/nonparametric-engine.js';
 import {mixedCombinedReml} from '../src/mixed-model-engine.js';
 import {stabilityAnalysis} from '../src/stability-engine.js';
 import {stabilityIndices} from '../src/stability-indices-engine.js';
+import {augmentedRcbAnova} from '../src/augmented-design-engine.js';
 
-const expected=['ral','rak','fral','frak','split','nested','repeated','nonparametric','descriptive','correlation','path','regression','pca','combined','mixed','genetic','stability'];
+const expected=['ral','rak','fral','frak','split','augmented','nested','repeated','nonparametric','descriptive','correlation','path','regression','pca','combined','mixed','genetic','stability'];
 assert.deepEqual(templateCatalog.map(x=>x.id),expected);
 for(const id of expected){
   const t=getDataTemplate(id);
@@ -25,6 +26,7 @@ assert.ok(!getDataTemplate('ral').headers.includes('Kelompok'));
 assert.ok(getDataTemplate('rak').headers.includes('Kelompok'));
 assert.deepEqual(getDataTemplate('frak').headers.slice(0,3),['Faktor A','Faktor B','Kelompok']);
 assert.deepEqual(getDataTemplate('split').headers.slice(0,3),['Faktor A','Faktor B','Kelompok']);
+assert.deepEqual(getDataTemplate('augmented').headers.slice(0,2),['Blok','Genotipe']);
 assert.deepEqual(getDataTemplate('nested').headers,['Faktor A','B dalam A','Ulangan','Respons']);
 assert.deepEqual(getDataTemplate('repeated').headers,['Perlakuan','Subjek','Waktu','Tinggi Tanaman']);
 assert.deepEqual(getDataTemplate('nonparametric').headers,['Perlakuan','Kelompok','Skor']);
@@ -74,6 +76,13 @@ for(const [id,base] of Object.entries(coreConfigs)){
   for(let i=0;i<o.parameters.length;i++){
     const report=analyzeParameter(check.observations,o,i,t.headers[o.parameters[i]]);
     for(const error of report.terms.filter(term=>/^Galat/.test(term.label)))assert.ok(error.df>0&&error.ms>0,id+': '+error.label+' must have positive db and KT');
+  }
+}
+{
+  const t=getDataTemplate('augmented');
+  for(const p of [2,3]){
+    const out=augmentedRcbAnova(t.rows.map(r=>[r[0],r[1],r[p]]),{alpha:.05});
+    assert.equal(out.checks.length,2);assert.ok(out.tests.length>0);assert.ok(out.partitionAdjusted.find(x=>x.label==='Line(Check)'));
   }
 }
 {
