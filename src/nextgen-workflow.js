@@ -5,7 +5,6 @@ import {assessPolynomialRegression} from './regression-quality.js';
 import {combinedAnovaFlexible,stabilityAnalysis} from './stability-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 const $=s=>document.querySelector(s);
 const cell=v=>typeof v==='number'&&Number.isFinite(v)?`<td data-number="${v}">${fmt(v,5)}</td>`:`<td>${v===null||v===undefined?'—':esc(v)}</td>`;
 const table=(heads,rows)=>`<div class="table-scroll"><table class="result-table"><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;
@@ -81,6 +80,6 @@ export function openNextGen(kind){
     if(kind==='pca'){const cols=[...document.querySelectorAll('[data-ng-col]:checked')].map(x=>Number(x.value));if(cols.length<2)throw Error('Pilih minimal dua variabel numerik.');html=renderPca(pca(numericRows(data,cols)),cols.map(i=>data.headers[i]));}
     if(kind==='combined'){const l=Number($('#ngLoc').value),g=Number($('#ngGen').value),b=Number($('#ngBlock').value),y=Number($('#ngY').value);if(new Set([l,g,b,y]).size!==4||[l,g,b,y].some(v=>!Number.isInteger(v)))throw Error('Pilih Lokasi, Genotipe, Kelompok, dan Y yang berbeda.');html=renderCombined(combinedAnovaFlexible(categoricalRows(data,[l,g,b],y)),data.headers[y]);}
     if(kind==='stability'){const l=Number($('#ngLoc').value),g=Number($('#ngGen').value),y=Number($('#ngY').value);if(new Set([l,g,y]).size!==3||[l,g,y].some(v=>!Number.isInteger(v)))throw Error('Pilih Lingkungan, Genotipe, dan Y yang berbeda.');html=renderStability(stabilityAnalysis(categoricalRows(data,[l,g],y)));}
-    $('#nextGenResult').innerHTML=html;$('#nextGenError').textContent='';void backupRawDataset(data);
+    $('#nextGenResult').innerHTML=html;$('#nextGenError').textContent='';
   }catch(e){$('#nextGenResult').innerHTML='';$('#nextGenError').textContent=e.message;}};
 }
