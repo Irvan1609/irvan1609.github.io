@@ -164,7 +164,7 @@ function currentPriority(){
 function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
   $('autoDetect').disabled=!hasImage||detecting;$('undo').disabled=!detected||!history.length;$('mobileUndo').disabled=!detected||!history.length;
-  $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;
+  $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;$('saveDesktop').disabled=!canSave;
   const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing;
   const priority=currentPriority();
   $('contribute').textContent=priority>=60?'Kirim untuk melatih AI · prioritas tinggi':'Kirim untuk melatih AI';
@@ -572,7 +572,7 @@ $('torchCamera').onclick=async()=>{
 $('autoDetect').onclick=()=>autoDetectChilies();$('reviewLow').onclick=reviewNext;$('deleteSelected').onclick=deleteSelected;$('undo').onclick=undo;$('mobileUndo').onclick=undo;$('zoomReset').onclick=resetView;
 $('sample').oninput=()=>{dirty=true;updateWorkflowState();void checkDuplicate();};
 for(const id of ['detectColor','detectSensitivity','detectOnLoad','autoNext','autoIncrement','batchAuto','condition'])$(id).onchange=saveDetectSettings;
-$('mobileSave').onclick=()=>void saveCurrent();$('updateDuplicate').onclick=()=>void saveCurrent({duplicateMode:'update'});$('saveCopy').onclick=()=>void saveCurrent({duplicateMode:'copy'});
+$('mobileSave').onclick=()=>void saveCurrent();$('saveDesktop').onclick=()=>void saveCurrent();$('updateDuplicate').onclick=()=>void saveCurrent({duplicateMode:'update'});$('saveCopy').onclick=()=>void saveCurrent({duplicateMode:'copy'});
 $('contribute').onclick=contributeCurrent;
 $('export').onclick=exportBackup;$('import').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{await importBackup(f);}catch(error){status(error.message||'Pemulihan gagal.');}e.target.value='';};
 window.addEventListener('resize',()=>redraw(true));window.visualViewport?.addEventListener('resize',()=>redraw(true));
