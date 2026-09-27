@@ -5993,3 +5993,34 @@ summary:focus-visible,
   }
   .save-indicator{display:none!important}
 }
+
+
+/* SPREADSHEET SELECTION PRIORITY 2026-09-27 */
+@media(min-width:901px){
+  .data-grid thead th:nth-child(2).axis-active{
+    background:#e7eef3!important;
+    color:#284c65!important;
+  }
+  .data-grid tbody td:nth-child(2).cell-axis-row,
+  .data-grid tbody td:nth-child(2).cell-axis-col{
+    background:#f7fafc!important;
+  }
+  .data-grid tbody td:nth-child(2).cell-selected{
+    background:#edf5fb!important;
+    box-shadow:inset 0 0 0 1px #a7bed0,1px 0 0 #e0e6ea!important;
+  }
+  .data-grid tbody td:nth-child(2).cell-active{
+    background:#f4f9fd!important;
+    box-shadow:inset 0 0 0 2px #4f7897,1px 0 0 #e0e6ea!important;
+  }
+}
+@media(max-width:720px){
+  .data-grid td.cell-selected{
+    background:#edf5fb!important;
+    box-shadow:inset 0 0 0 1px #a7bed0!important;
+  }
+  .data-grid td.cell-active{
+    background:#f4f9fd!important;
+    box-shadow:inset 0 0 0 2px #4f7897!important;
+  }
+}
