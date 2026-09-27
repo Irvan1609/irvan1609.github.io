@@ -170,7 +170,7 @@ async function moduleAvailability(){
 async function runDiagnostics(){
   const [storage,idb,worker,sw,modules]=await Promise.all([updateStorage(),idbCheck(),workerHealth(),serviceWorkerStatus(),moduleAvailability()]),queue=queueSnapshot();
   let local='ok';try{const k='__agrotik_diag__';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch{local='bad';}
-  const persisted=await navigator.storage?.persisted?.().catch?.(()=>false);
+  let persisted=false;try{persisted=Boolean(await navigator.storage?.persisted?.());}catch{}
   const h=worker.data||{};
   return {
     generatedAt:now(),version:SYSTEM_VERSION,safeMode,route,
