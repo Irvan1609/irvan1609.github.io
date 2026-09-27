@@ -63,7 +63,10 @@ export function upsertChiliCountToStatistics(storage,{sample,count}={}){
   storage.setItem(FILES_KEY,JSON.stringify(files));
   storage.setItem(ACTIVE_KEY,target);
   storage.setItem(META_KEY,JSON.stringify(metadata));
-  return {dataset:target.replace(/\.csv$/i,''),file:target,updated,rowCount:data.length,headers:[...HEADERS]};
+  const result={dataset:target.replace(/\.csv$/i,''),file:target,updated,rowCount:data.length,headers:[...HEADERS]};
+  try{globalThis.document?.dispatchEvent?.(new CustomEvent('agrotik-chili-saved',{detail:{sample:name,count:value,dataset:result.dataset}}));}catch{}
+  try{globalThis.document?.dispatchEvent?.(new CustomEvent('stat-dataset-changed',{detail:{type:'upsert',name:target,reason:'Hitung Cabai'}}));}catch{}
+  return result;
 }
 
 export const chiliStatisticsHeaders=()=>[...HEADERS];
