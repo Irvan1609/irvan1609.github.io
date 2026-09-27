@@ -315,7 +315,7 @@ function datasetDimensionLabel(name){
   const text=String(stored||'');
   if(!text.trim())return '0 × 0';
   try{
-    const parsed=csvRows(text,',');
+    const parsed=csvRows(text,detectDelimiter(text));
     return `${Math.max(0,parsed.length-1)} × ${parsed[0]?.length||0}`;
   }catch{return '—';}
 }
