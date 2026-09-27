@@ -10,7 +10,7 @@ const gameSync=fs.readFileSync('public/game/sync.js','utf8');
 const store=fs.readFileSync('src/local-dataset-store.js','utf8');
 const sw=fs.readFileSync('public/sw.js','utf8');
 const develop=fs.readFileSync('public/develop/app.js','utf8');
-has(resilience,['navigator.storage?.estimate','runDiagnostics','copyErrorReport','openPalette','toggleSafeMode','rollbackStatus','setRollback','Ctrl','agrotik_recent_activity_v1'],'resilience');
+has(resilience,['navigator.storage?.estimate','runDiagnostics','copyErrorReport','openPalette','toggleSafeMode','rollbackStatus','setRollback','e.ctrlKey','agrotik_recent_activity_v1'],'resilience');
 has(account,["import './resilience.js'","Cari alat / perintah"],'account');
 has(diagnostic,['Diagnostic','Safe Mode','Versi sebelumnya'],'diagnostic');
 has(diagnosticApp,['runDiagnostics','queue','rollbackStatus'],'diagnostic app');
