@@ -2,6 +2,8 @@ import {CHILI_CLOUD_CONFIG,cloudContributionReady} from './cloud-config.js?v=202
 
 let turnstileLoader=null;
 let widgetId=null;
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
+function reportQueue(pending=0,failed=0){window.AgrotikSystem?.reportQueue?.('chili',{pending,failed,label:'Foto AI'});}
 
 const loadScript=()=>new Promise((resolve,reject)=>{
   if(window.turnstile)return resolve(window.turnstile);
@@ -85,9 +87,11 @@ export async function submitTrainingContribution({
   editToken='',
   operationId=crypto.randomUUID()
 }={}){
+  if(SAFE_MODE)throw Error('Safe mode aktif · kontribusi cloud dijeda.');
   if(!cloudContributionReady())throw Error('Kontribusi cloud belum diaktifkan oleh pengelola.');
   if(!consent)throw Error('Persetujuan penggunaan data untuk pelatihan belum diberikan.');
   const finalBoxes=cleanBoxes(boxes),initialBoxes=cleanBoxes(predictedBoxes);
+  reportQueue(1,0);
   const token=await turnstileToken();
   const endpoint=CHILI_CLOUD_CONFIG.endpoint.replace(/\/+$/,'');
   if(contributionId&&editToken){
@@ -97,8 +101,8 @@ export async function submitTrainingContribution({
       body:JSON.stringify({operationId,boxes:finalBoxes,predictedBoxes:initialBoxes,predictionMethod,modelVersion})
     });
     const payload=await response.json().catch(()=>({}));
-    if(!response.ok)throw Error(payload.error||`Pembaruan anotasi gagal (HTTP ${response.status}).`);
-    return payload;
+    if(!response.ok){reportQueue(0,1);throw Error(payload.error||`Pembaruan anotasi gagal (HTTP ${response.status}).`);}
+    reportQueue(0,0);return payload;
   }
   const prepared=await prepareTrainingImage(image);
   const form=new FormData();
@@ -121,8 +125,8 @@ export async function submitTrainingContribution({
     body:form
   });
   const payload=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(payload.error||`Kontribusi gagal (HTTP ${response.status}).`);
-  return payload;
+  if(!response.ok){reportQueue(0,1);throw Error(payload.error||`Kontribusi gagal (HTTP ${response.status}).`);}
+  reportQueue(0,0);return payload;
 }
 
 export {cloudContributionReady};
