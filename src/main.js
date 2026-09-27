@@ -26,10 +26,55 @@ const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
 const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
-let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
+let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='',mobileGridColumn=0;
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt=formatNumber;
+
+function phoneGridMode(){return !!globalThis.matchMedia?.('(max-width:720px)').matches;}
+function mobileGridColumnBar(){
+  if(!state.headers.length)return '';
+  const selected=Math.max(0,Math.min(state.headers.length-1,Number(state.selection.focus?.c??mobileGridColumn)||0));
+  mobileGridColumn=selected;
+  const options=state.headers.map((header,index)=>'<option value="'+index+'" '+(index===selected?'selected':'')+'>'+esc(header)+'</option>').join('');
+  return '<div class="mobile-grid-column-bar" data-mobile-grid-column-bar><button type="button" data-grid-col-prev aria-label="Kolom sebelumnya">‹</button><label><span>Kolom</span><select data-grid-col-select aria-label="Kolom yang ditampilkan">'+options+'</select></label><button type="button" data-grid-col-next aria-label="Kolom berikutnya">›</button></div>';
+}
+function applyMobileGridColumn(wrap=$('#gridWrap'),column=mobileGridColumn){
+  if(!wrap||!state.headers.length)return;
+  mobileGridColumn=Math.max(0,Math.min(state.headers.length-1,Number(column)||0));
+  wrap.dataset.mobileColumn=String(mobileGridColumn);
+  wrap.querySelectorAll('[data-column-index]').forEach(cell=>cell.classList.toggle('mobile-active-column',Number(cell.dataset.columnIndex)===mobileGridColumn));
+  wrap.querySelectorAll('td[data-c]').forEach(cell=>cell.classList.toggle('mobile-active-column',Number(cell.dataset.c)===mobileGridColumn));
+  const select=wrap.querySelector('[data-grid-col-select]');if(select)select.value=String(mobileGridColumn);
+  const prev=wrap.querySelector('[data-grid-col-prev]'),next=wrap.querySelector('[data-grid-col-next]');
+  if(prev)prev.disabled=mobileGridColumn<=0;if(next)next.disabled=mobileGridColumn>=state.headers.length-1;
+}
+function bindMobileGridColumn(wrap){
+  const select=wrap?.querySelector('[data-grid-col-select]');if(!select)return;
+  select.onchange=()=>applyMobileGridColumn(wrap,Number(select.value));
+  wrap.querySelector('[data-grid-col-prev]')?.addEventListener('click',()=>applyMobileGridColumn(wrap,mobileGridColumn-1));
+  wrap.querySelector('[data-grid-col-next]')?.addEventListener('click',()=>applyMobileGridColumn(wrap,mobileGridColumn+1));
+  applyMobileGridColumn(wrap,Number(select.value));
+}
+function decorateResponsiveTable(table){
+  if(!(table instanceof HTMLTableElement)||table.classList.contains('data-grid'))return;
+  const headers=[...table.querySelectorAll('thead tr:first-child th')].map(cell=>cell.textContent.trim()||'Nilai');
+  if(!headers.length)return;
+  table.classList.add('mobile-responsive-table');
+  table.classList.toggle('mobile-stack-table',headers.length>4);
+  table.querySelectorAll('tbody tr').forEach(row=>[...row.children].forEach((cell,index)=>{
+    if(cell instanceof HTMLElement)cell.dataset.mobileLabel=headers[Math.min(index,headers.length-1)]||'Nilai';
+  }));
+}
+function installMobileResponsiveTables(){
+  const scan=root=>{
+    if(root instanceof HTMLTableElement)decorateResponsiveTable(root);
+    root?.querySelectorAll?.('table.result-table, table.anova-table, table.augmented-means-table').forEach(decorateResponsiveTable);
+  };
+  scan(document);
+  const observer=new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{if(node instanceof Element)scan(node);})));
+  observer.observe(document.body,{childList:true,subtree:true});
+}
 
 function dictionaryRecognitionText(headers,datasetName=''){
   const recognized=recognizedAgronomicHeaders(headers,{datasetName});
@@ -410,6 +455,7 @@ function paintSelection(){
 }
 function setSelection(r,c,{extend=false,focus=true}={}){
   if(r<0||c<0||r>=state.rows.length||c>=state.headers.length)return;
+  if(phoneGridMode()&&c!==mobileGridColumn)applyMobileGridColumn($('#gridWrap'),c);
   if(!extend||!state.selection.anchor)state.selection.anchor={r,c};
   state.selection.focus={r,c};ensureGridRowVisible(r);paintSelection();
   const cell=$('#gridWrap')?.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
@@ -767,7 +813,7 @@ function renderGridRows(wrap,types,widths,quality,{force=false}={}){
   const span=state.headers.length+1,top=windowInfo.top?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.top+'px"></td></tr>':'';
   const bottom=windowInfo.bottom?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.bottom+'px"></td></tr>':'';
   tbody.innerHTML=top+state.rows.slice(windowInfo.start,windowInfo.end).map((row,offset)=>rowMarkup(row,windowInfo.start+offset,types,widths,quality)).join('')+bottom;
-  bindGridBody(wrap);paintSelection();positionFillHandle();
+  bindGridBody(wrap);applyMobileGridColumn(wrap);paintSelection();positionFillHandle();
 }
 function ensureGridRowVisible(row){
   const wrap=$('#gridWrap');if(!wrap||wrap.dataset.virtualized!=='1')return;
@@ -806,8 +852,8 @@ function renderGrid(){
       const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type),width=widths[j],style=width?' style="width:'+width+'px;min-width:'+width+'px;max-width:'+width+'px"':'';
       return '<th data-column-header="'+esc(h)+'" data-column-index="'+j+'" data-column-type="'+esc(type.type)+'" class="type-'+esc(type.type)+' '+(isText?'string-column':'')+'"'+style+'><div class="header-controls"><span class="column-drag-handle" data-drag-column="'+j+'" draggable="true" role="button" tabindex="0" aria-label="Geser kolom '+esc(h)+'" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="'+j+'" title="'+esc(tip)+'" aria-label="Ubah nama kolom '+esc(h)+'">'+columnHeaderMarkup(h)+'</button><span class="column-resizer" data-resize-column="'+j+'" title="Tarik untuk ubah lebar; klik ganda untuk otomatis"></span><button class="grid-delete" data-delete-column="'+j+'" aria-label="Hapus kolom '+esc(h)+'" title="Hapus kolom"></button></div></th>';
     }).join('');
-    wrap.innerHTML='<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>'+heads+'</tr></thead><tbody></tbody></table>';
-    bindGridHeader(wrap);renderGridRows(wrap,types,widths,quality,{force:true});
+    wrap.innerHTML=mobileGridColumnBar()+'<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>'+heads+'</tr></thead><tbody></tbody></table>';
+    bindMobileGridColumn(wrap);bindGridHeader(wrap);renderGridRows(wrap,types,widths,quality,{force:true});
     if(state.rows.length>VIRTUALIZE_AFTER_ROWS){
       let raf=0;
       wrap.onscroll=()=>{positionFillHandle();cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>renderGridRows(wrap,types,widths,quality));};
@@ -1081,7 +1127,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
+  installDataGrid();installMobileResponsiveTables();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js')
