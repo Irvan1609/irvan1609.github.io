@@ -1659,6 +1659,25 @@ function renderField(){
     return `<section class="field-block" data-block="${block+1}"><header><b>Blok ${['I','II','III'][block]}</b><span>Rp ${commercial} · 📐 ${research} · 🧬 ${breeding}</span></header><div class="field-block-grid">${indices.map(i=>plotHtml(state.field[i],i)).join('')}</div></section>`;
   }).join('');
 }
+function inspectorQuickAction(crop){
+  if(!crop)return null;
+  if(crop.health<=0)return {tool:'remove',label:'Bersihkan petak',icon:'×'};
+  if(crop.growth>=100)return {tool:'harvest',label:'Panen sekarang',icon:'🧺'};
+  if(crop.water<30)return {tool:'water',label:'Irigasi',icon:'💧'};
+  if(crop.disease>=35)return {tool:'scout',label:'Periksa penyakit',icon:'◎'};
+  if(crop.n<30&&!activeChallenge().noFertilizer)return {tool:'fertilize',label:'Pupuk N',icon:'N'};
+  return null;
+}
+function inspectorIssueText(crop){
+  if(!crop)return 'Petak kosong';
+  if(crop.health<=0)return 'Tanaman mati · bersihkan sebelum tanam ulang';
+  if(crop.growth>=100)return 'Siap panen';
+  const issues=[];
+  if(crop.water<38)issues.push('Air '+Math.round(crop.water)+'%');
+  if(crop.n<38)issues.push('N '+Math.round(crop.n)+'%');
+  if(crop.disease>=25)issues.push('Penyakit '+Math.round(crop.disease)+'%');
+  return issues.length?issues.slice(0,2).join(' · '):'Kondisi terkendali';
+}
 function renderInspector(){
   const crop=selectedCrop(),plot=state.selectedPlot+1;
   $('#plotTitle').textContent='Petak '+String(plot).padStart(2,'0');
@@ -1668,16 +1687,17 @@ function renderInspector(){
     if(competitionInspector){$('#inspectorBody').innerHTML=competitionInspector;$('#openCupFromPlot').onclick=breedingCup.open;return;}
     const assigned=experimentSeedForPlot(state.selectedPlot),seed=assigned||selectedSeed();
     const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId;
-    $('#inspectorBody').innerHTML=`${plotUseControlHtml(state.selectedPlot)}<div class="seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${speciesVault().map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><div class="seed-card-preview"><b>${esc(seed.name)}</b><p>🌱 ${seed.stock||0} · ${Math.round(seed.viability||0)}% · Potensi ${seed.baseYield.toFixed(1)} kg/25 m² · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<actionCost('plant')||locked||mono||(seed.stock||0)<1||(seed.viability||0)<45?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`Tanam · ${formatRupiah(actionCost('plant'))}`}</button></div>`;
+    $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>Petak kosong</small><b>${esc(seed.name)} · G${seed.generation}</b><span>🌱 ${seed.stock||0} benih · viabilitas ${Math.round(seed.viability||0)}%</span></div></div><div class="seed-picker compact-seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${speciesVault().map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><button id="plantSelected" class="primary" type="button" ${state.focus<1||state.coins<actionCost('plant')||locked||mono||(seed.stock||0)<1||(seed.viability||0)<45?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`🌱 Tanam · ${formatRupiah(actionCost('plant'))}`}</button></div><details class="plot-details"><summary>Detail petak & benih</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} kg/25 m² · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div></div></details>`;
     $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
     $('#plantSelected').onclick=plantSelected;bindPlotUseControls();
     return;
   }
   const knownExtra=crop.revealed&&crop.mutation?[crop.mutation]:[];
   const mutationText=crop.mutation?(crop.revealed?traitMeta(crop.mutation).name:'Belum diketahui'):'Tidak terdeteksi';
-  const fertilizerCost=actionCost(hasTech('precisionN')?'fertilizePrecision':'fertilize'),waterFocus=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,waterCost=actionCost(hasTech('irrigation')?'waterPrecision':'water'),scoutReward=2+(hasTech('drone')?2:0);
+  const fertilizerCost=actionCost(hasTech('precisionN')?'fertilizePrecision':'fertilize'),waterFocus=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,waterCost=actionCost(hasTech('irrigation')?'waterPrecision':'water'),scoutReward=2+(hasTech('drone')?2:0),quick=inspectorQuickAction(crop);
   const hidden=crop.scouted>=2?` · respons air ${crop.waterSensitivity>1?'tinggi':crop.waterSensitivity<.95?'rendah':'sedang'} · kebutuhan N ${crop.nDemand>1?'tinggi':crop.nDemand<.95?'rendah':'sedang'}`:' · karakter respons belum lengkap';
-  $('#inspectorBody').innerHTML=`${plotUseControlHtml(state.selectedPlot)}<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hidden} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||state.coins<waterCost||crop.health<=0?'disabled':''}>💧 Irigasi · ${formatRupiah(waterCost)}</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${formatRupiah(fertilizerCost)}</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Periksa · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Tumbuh ${Math.round(crop.growth)}% · estimasi pasar ${formatRupiah(state.marketPrice)}/kg</p>`;
+  const quickButton=quick?`<button class="plot-quick-action ${quick.tool==='harvest'?'harvest':''}" data-crop-action="${quick.tool}">${quick.icon} ${quick.label}</button>`:'<span class="plot-ok">✓ Tidak perlu tindakan</span>';
+  $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>${esc(stageOf(crop))} · Kesehatan ${Math.round(crop.health)}%</small><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><span>${esc(inspectorIssueText(crop))}</span></div>${quickButton}</div><details class="plot-details"><summary>Detail petak</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="crop-stats"><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>Nitrogen</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hidden} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid"><button data-crop-action="water" ${state.focus<waterFocus||state.coins<waterCost||crop.health<=0?'disabled':''}>💧 Irigasi · ${formatRupiah(waterCost)}</button><button data-crop-action="fertilize" ${activeChallenge().noFertilizer||state.focus<1||state.coins<fertilizerCost||crop.health<=0?'disabled':''}>N Pupuk · ${formatRupiah(fertilizerCost)}</button><button class="scout" data-crop-action="scout" ${state.focus<1||crop.health<=0?'disabled':''}>◎ Periksa · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div><p class="action-note">Tumbuh ${Math.round(crop.growth)}% · estimasi pasar ${formatRupiah(state.marketPrice)}/kg</p></div></details>`;
   $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction));bindPlotUseControls();
 }
 function renderVault(){
