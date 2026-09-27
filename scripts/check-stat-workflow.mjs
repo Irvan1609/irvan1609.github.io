@@ -9,6 +9,7 @@ const css=fs.readFileSync('src/style.css','utf8');
 const resultOs=fs.readFileSync('src/result-os.js','utf8');
 const resultOsCss=fs.readFileSync('src/result-os.css','utf8');
 const engine=fs.readFileSync('src/statistics-engine.js','utf8');
+const integrity=fs.readFileSync('src/analysis-integrity.js','utf8');
 
 function fail(message){console.error('Stat workflow check failed: '+message);process.exit(1);}
 
@@ -24,11 +25,14 @@ for(const marker of [
 for(const marker of ['Cek nilai kosong','event.altKey','summary:datasetSummary'])if(!workflow.includes(marker))fail('workflow readiness missing '+marker);
 for(const marker of ['analysis-group-board','analysis-compact-group','analysis-compact-item','analysisSmartSuggestion','smartAnalysis','Rancangan Percobaan','Hubungan & Regresi','Genetik & Multilokasi','ANOVA Gabungan G×E'])if(!flow.includes(marker))fail('visible grouped/smart analysis flow missing '+marker);
 if(flow.includes('Mode Lengkap')||flow.includes('Mode Sederhana'))fail('analysis mode switch must be removed');
+for(const marker of ['analysisLoadError','viableFactor','strongFactorName'])if(!flow.includes(marker))fail('safe smart analysis missing '+marker);
+if(flow.includes("alert('Modul "))fail('analysis loading errors must be inline, not blocking alerts');
 
-for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis'])if(!scientific.includes(marker))fail('compact results/parameter workspace missing '+marker);
+for(const marker of ['analysisDockData','analysisDockAnalysis','analysis-results-open','scienceParameters','scienceTransforms','scienceAdvancedOptions','data-simple-result-view-select','result-view-summary','result-single-actions','data-result-mode-select','Parameter numerik dipilih otomatis','requireValidCoreReport','attachOptionalDiagnostics','safeShowResults','renderCoreFallback','setRunState'])if(!scientific.includes(marker))fail('compact/safe analysis workspace missing '+marker);
 if(!field.includes('fieldOpenAnalysis')||!field.includes('StatisticalWebWorkflow?.openAnalysis'))fail('field layout is not linked to analysis');
 if(!field.includes('openFieldHeatmap'))fail('field heatmap hook missing');
+for(const marker of ['auditCoreReport','requireValidCoreReport','KT tidak konsisten','Jumlah JK komponen'])if(!integrity.includes(marker))fail('analysis integrity audit missing '+marker);
 for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.stat-workflow-strip','.analysis-dock-actions','STAT ALL ANALYSES COMPACT GROUPS + AUTO PARAMETERS','STAT UNIFORM ANALYSIS CARDS 2026-09-26','.analysis-group-board','grid-template-columns:repeat(5,minmax(0,1fr))!important','height:42px!important','.science-parameter-check-grid','.simple-result-view-select','/* COMPACT RESULT ACTIONS 2026-09-26 */','STAT WORKSPACE CONSOLIDATION 2026-09-27','.analysis-smart-suggestion','.analysis-guardrail'])if(!css.includes(marker))fail('workflow styling missing '+marker);
 
 if(workflow.includes('data-stat-workflow="setup"'))fail('setup must be consolidated into the analysis stage');
-console.log('Stat workflow check OK: three-stage navigation with restored stable analysis execution.');
+console.log('Stat workflow check OK: three-stage navigation, core-first execution, automatic integrity audit, recovery fallback, inline errors, and conservative smart routing.');
