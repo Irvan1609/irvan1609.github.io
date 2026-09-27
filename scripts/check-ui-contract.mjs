@@ -107,7 +107,7 @@ for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',print
 }
 if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
-for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','autoDetect','detectColor','detectSensitivity','detectOnLoad','mode','zoom','undo','sendToStat','save','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
+for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','autoDetect','reviewLow','deleteSelected','zoomReset','detectColor','detectSensitivity','detectOnLoad','undo','sendToStat','save','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
   if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
 }
 for(const marker of ['capture="environment"','playsinline','mobile-actionbar','Pas layar'])if(!chiliHtml.includes(marker))fail(`hitung-cabai mobile UI missing ${marker}`);
