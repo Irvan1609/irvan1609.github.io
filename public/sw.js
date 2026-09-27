@@ -1,7 +1,9 @@
-const VERSION='20260927-field-zero-comfort-v16';;;;;
+const VERSION='20260927-resilience-v17';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
+const CONTROL_CACHE='agrotik-control';
+const ROLLBACK_KEY='/__agrotik_rollback__';
 const CACHE_PREFIX='agrotik-';
 
 const CORE_URLS=[
@@ -62,6 +64,29 @@ async function cacheExternal(url){
     }catch{}
   }
 }
+async function rollbackEnabled(){
+  try{const cache=await caches.open(CONTROL_CACHE);const response=await cache.match(ROLLBACK_KEY);return response?await response.text()==='1':false;}catch{return false;}
+}
+async function setRollback(enabled){
+  const cache=await caches.open(CONTROL_CACHE);
+  if(enabled)await cache.put(ROLLBACK_KEY,new Response('1',{headers:{'Cache-Control':'no-store'}}));
+  else await cache.delete(ROLLBACK_KEY);
+}
+async function previousCacheMatch(request){
+  const names=await caches.keys(),groups=['agrotik-core-','agrotik-runtime-','agrotik-third-party-'];
+  for(const prefix of groups){
+    const candidates=names.filter(name=>name.startsWith(prefix)&&![CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE].includes(name)).sort().reverse();
+    for(const name of candidates.slice(0,1)){
+      const cache=await caches.open(name),direct=await cache.match(request);
+      if(direct)return direct;
+      try{
+        const url=new URL(request.url);url.search='';
+        const loose=await cache.match(url.href,{ignoreSearch:true});if(loose)return loose;
+      }catch{}
+    }
+  }
+  return null;
+}
 async function matchIgnoreSearch(request){
   const direct=await caches.match(request);
   if(direct)return direct;
@@ -72,6 +97,10 @@ async function matchIgnoreSearch(request){
 }
 async function navigationResponse(request){
   const url=new URL(request.url),networkFirstRoute=url.pathname.startsWith('/game/')||url.pathname.startsWith('/stat/');
+  if(await rollbackEnabled()){
+    const previous=await previousCacheMatch(request);
+    if(previous)return previous;
+  }
   const cached=await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
@@ -83,6 +112,10 @@ async function navigationResponse(request){
 }
 async function staticResponse(request){
   const url=new URL(request.url),versioned=url.searchParams.has('v');
+  if(await rollbackEnabled()){
+    const previous=await previousCacheMatch(request);
+    if(previous)return previous;
+  }
   const cached=versioned?await caches.match(request):await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
@@ -112,8 +145,12 @@ self.addEventListener('install',event=>{
 
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
-    const names=await caches.keys();
-    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&![CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE].includes(name)).map(name=>caches.delete(name)));
+    const names=await caches.keys(),keep=new Set([CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE,CONTROL_CACHE]);
+    for(const prefix of ['agrotik-core-','agrotik-runtime-','agrotik-third-party-']){
+      const previous=names.filter(name=>name.startsWith(prefix)&&!keep.has(name)).sort().reverse().slice(0,1);
+      previous.forEach(name=>keep.add(name));
+    }
+    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&!keep.has(name)).map(name=>caches.delete(name)));
     await self.clients.claim();
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     await Promise.allSettled(windows.filter(client=>{
@@ -145,5 +182,16 @@ self.addEventListener('message',event=>{
   if(data.type==='WARM_ROUTE'){
     event.waitUntil(warmResource(data.url||'/'));
     return;
+  }
+  if(data.type==='SET_ROLLBACK'){
+    event.waitUntil((async()=>{
+      await setRollback(Boolean(data.enabled));
+      const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+      windows.forEach(client=>client.postMessage({type:'AGROTIK_ROLLBACK_STATE',enabled:Boolean(data.enabled)}));
+    })());
+    return;
+  }
+  if(data.type==='GET_ROLLBACK'){
+    event.waitUntil((async()=>event.source?.postMessage?.({type:'AGROTIK_ROLLBACK_STATE',enabled:await rollbackEnabled()}))());
   }
 });
