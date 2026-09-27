@@ -1476,10 +1476,10 @@ function statusClass(crop){
   return '';
 }
 function toolLabel(tool){
-  return ({plant:'Tanam',water:'Air',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen',treatment:'Perlakuan'})[tool]||'';
+  return ({plant:'Tanam',water:'Irigasi',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen',treatment:'Perlakuan'})[tool]||'';
 }
 function toolSymbol(tool){
-  return ({plant:'🌱',water:'💧',fertilize:'N',scout:'◎',harvest:'🧺',treatment:'🧪'})[tool]||'•';
+  return ({plant:'🌱',water:'💧',fertilize:'NPK',scout:'◎',harvest:'🧺',treatment:'🧪'})[tool]||'•';
 }
 function playHint(){
   if(breedingCup.active())return {icon:'🏆',text:'Breeding Cup · lanjutkan keputusan',action:'cup'};
