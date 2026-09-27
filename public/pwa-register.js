@@ -1,5 +1,5 @@
 const SW_URL='/sw.js';
-const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
+let SAFE_MODE=false;try{SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';}catch{}
 let deferredInstall=null;
 
 function installStyles(){
