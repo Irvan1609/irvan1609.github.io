@@ -481,6 +481,11 @@ async function ensureOperationsSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      description TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS cloud_controls (
       id INTEGER PRIMARY KEY CHECK(id=1),
       mode TEXT NOT NULL DEFAULT 'auto',
@@ -493,6 +498,8 @@ async function ensureOperationsSchema(env){
   ]);
   await env.DB.prepare(`INSERT OR IGNORE INTO cloud_controls (id,mode,effective_mode,features_json,note,updated_at)
     VALUES (1,'auto','normal','{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}','','1970-01-01T00:00:00.000Z')`).run();
+  await env.DB.prepare('INSERT OR IGNORE INTO schema_migrations (version,description,applied_at) VALUES (18,?,?)')
+    .bind('Resilience, queue diagnostics, and versioned schema tracking',new Date().toISOString()).run();
   const backupInfo=await env.DB.prepare('PRAGMA table_info(backup_runs)').all(),backupColumns=new Set((backupInfo.results||[]).map(row=>row.name));
   if(!backupColumns.has('checksum_sha256'))await env.DB.prepare("ALTER TABLE backup_runs ADD COLUMN checksum_sha256 TEXT NOT NULL DEFAULT ''").run();
   if(!backupColumns.has('verified'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN verified INTEGER NOT NULL DEFAULT 0').run();
@@ -2310,7 +2317,7 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{
         ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:true,idempotentSync:true,quotaGuard:true,
         membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),
-        storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),apiVersion:'2026-09-26.17'
+        storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},schemaVersion:18,retention:retentionPolicy(env),apiVersion:'2026-09-27.1'
       },200,{'Cache-Control':'no-store'});
       if(request.method==='GET'&&url.pathname==='/v1/cloud/status')return await handleCloudStatus(request,env);
       if(url.pathname.startsWith('/v1/datasets')){
