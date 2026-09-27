@@ -34,6 +34,9 @@ body.calm-ui .head-actions .icon-button{
 }
 
 /* Four visible destinations, each self-explanatory. */
+body.calm-ui #quickMap,
+body.calm-ui #quickSocial{display:none!important}
+
 body.calm-ui .game-quick-nav{
   grid-template-columns:repeat(4,minmax(0,1fr))!important;
   gap:3px!important;
