@@ -68,7 +68,7 @@ function smartAnalysis(){
   const uniqueCount=index=>new Set(values(index)).size;
   const header=index=>String(data.headers[index]||'').trim();
   const structuralName=value=>/(^|\b)(id|petak|plot|unit|kode|no|nomor|baris|row|sampel|sample)(\b|$)/i.test(String(value||''));
-  const strongFactorName=value=>/(^|\b)(perlakuan|treatment|genotip|genotype|varietas|variety|galur|entry|aksesi|faktor\s*a|factor\s*a|faktor\s*b|factor\s*b|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i.test(String(value||''));
+  const strongFactorName=value=>/(^|\b)(perlakuan|treatment|geno|genotip|genotype|varietas|variety|galur|entry|aksesi|faktor\s*a|factor\s*a|faktor\s*b|factor\s*b|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i.test(String(value||''));
   const viableFactor=index=>{
     const n=values(index).length,u=uniqueCount(index);
     if(n<2||u<2||u>=n)return false;
@@ -77,7 +77,7 @@ function smartAnalysis(){
   };
   const findNamed=(regex,exclude=new Set())=>data.headers.findIndex((name,index)=>!exclude.has(index)&&regex.test(String(name||''))&&values(index).length);
   const environment=findNamed(/(^|\b)(lingkungan|environment|lokasi|location|site|musim|season)(\b|$)/i);
-  const genotype=findNamed(/(^|\b)(genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
+  const genotype=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
   const rep=findNamed(/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i);
   const candidateParams=()=>data.headers.map((_,index)=>index).filter(index=>numeric(index)&&!structuralName(header(index)));
   if(environment>=0&&genotype>=0&&environment!==genotype){
@@ -102,7 +102,7 @@ function smartAnalysis(){
 
   let factorA=findNamed(/(^|\b)(perlakuan|treatment|faktor\s*a|factor\s*a|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i);
   if(factorA<0){
-    const namedGenetic=findNamed(/(^|\b)(genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
+    const namedGenetic=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
     if(namedGenetic>=0)factorA=namedGenetic;
   }
   if(factorA<0){
