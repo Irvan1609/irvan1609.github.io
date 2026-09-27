@@ -95,8 +95,9 @@ for (const id of ['closeGlobalSearch','closeModal','closeDatasetName','closeData
 }
 
 const moduleScripts = [...html.matchAll(/<script\s+type="module"\s+src="([^"]+)"/g)].map(m => m[1]);
-for (const src of ['/src/main.js']) if (!moduleScripts.includes(src)) fail(`missing module script ${src}`);
-if(moduleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loaded in production shell');
+const normalizedModuleScripts=moduleScripts.map(src=>src.split('?')[0]);
+for (const src of ['/src/main.js']) if (!normalizedModuleScripts.includes(src)) fail(`missing module script ${src}`);
+if(normalizedModuleScripts.includes('/src/ral.js'))fail('legacy RAL module must not be loaded in production shell');
 if (html.includes('report-enhancements.js')) fail('report-enhancements.js must not be loaded in production shell');
 
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
