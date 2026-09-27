@@ -345,7 +345,7 @@ function paint(){
   ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
   boxes.forEach((box,index)=>drawBox(box,index,boxMeta[index]||{},selected===index));
   if(interaction?.type==='add'&&interaction.draft)drawBox(interaction.draft,boxes.length,{},false,{preview:true});
-  $('count').textContent=String(boxes.length);$('deleteSelected').disabled=selected<0;
+  $('count').textContent=blindActive&&!boxes.length?'—':String(boxes.length);$('deleteSelected').disabled=selected<0;
 }
 function redraw(resize=false){if(!image){ctx.clearRect(0,0,canvas.width,canvas.height);$('count').textContent='0';return;}if(resize)layoutCanvas();paint();}
 function checkpoint(){
