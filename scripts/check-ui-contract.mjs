@@ -7,6 +7,7 @@ const printHtml = fs.readFileSync('print-skripsi/index.html', 'utf8');
 const mendeleyHtml = fs.readFileSync('mendeley/index.html', 'utf8');
 const mendeleyApp = fs.readFileSync('mendeley/app.js', 'utf8');
 const main = fs.readFileSync('src/main.js', 'utf8');
+const datasetSidebar = fs.readFileSync('src/dataset-sidebar.js', 'utf8');
 const navigation = fs.readFileSync('src/navigation.js', 'utf8');
 const flow = fs.readFileSync('src/analysis-flow.js', 'utf8');
 const scientific = fs.readFileSync('src/scientific-workflow.js', 'utf8');
@@ -53,6 +54,14 @@ if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(',
 
 for(const marker of ['body>.subweb-header','body>#app','body>.modal-backdrop','body>.analysis-result-dock','body>#columnContextMenu'])if(!displaySettings.includes(marker))fail('display size must scale all Statistical Web UI surfaces: '+marker);
 if(displaySettings.includes('#app{zoom:var(--ui-scale)}'))fail('display size must not scale only #app');
+
+for(const marker of ['/* STAT VISUAL SYSTEM FINAL 2026-09-27 */','--stat-font-small:11px','--stat-font-body:13px','--stat-font-important:14px','--stat-font-title:17px','grid-template-columns:176px minmax(0,1fr)!important']){
+  if(!statStyle.includes(marker))fail('unified Statistical Web visual system missing '+marker);
+}
+for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-size'])if(!main.includes(marker))fail('compact dataset summary missing '+marker);
+for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
+if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
+
 
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
