@@ -7,11 +7,11 @@ import {measurementsToStatistics} from './stat-sync.js';
 
 const $=id=>document.getElementById(id);
 const source=$('source'),result=$('result'),ctx=source.getContext('2d',{willReadFrequently:true}),rctx=result.getContext('2d');
-const SETTINGS_KEY='agrotik_pengukur_settings_v3',RECORDS_KEY='ukur_rows_v3',FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
+const SETTINGS_KEY='agrotik_pengukur_settings_v3',RECORDS_KEY='ukur_rows_v3',FIELD_HANDOFF_KEY='agrotik_field_handoff_v1',CHILI_MEASURE_HANDOFF_KEY='agrotik_chili_measurement_handoff_v1',IMAGE_HANDOFF_DB='agrotik-image-handoff-v1';
 const RESEARCH_IDS=['experimentId','genotype','treatment','replication','harvest','operator'];
 let rawOriginal=null,original=null,points=[],cleanResult=null,calibration=null,filename='foto',batchFiles=[],batchIndex=-1;
 let mode='length',measurePoints=[],activeMeasurement=null,activeMask=null,quality=null,currentFile=null;
-let activeObjects=[],colorPickMode=false,colorPatchPoints=[],batchBusy=false;
+let activeObjects=[],colorPickMode=false,colorPatchPoints=[],batchBusy=false,chiliHandoffMeta=null;
 let records=loadRecords();
 
 const fieldParams=new URLSearchParams(location.search);
@@ -19,6 +19,7 @@ const fieldContext=fieldParams.get('agrotik')==='field'?{
   dataset:fieldParams.get('dataset')||'',plot_uid:fieldParams.get('plot_uid')||'',plot_label:fieldParams.get('plot_label')||'',
   parameter:fieldParams.get('parameter')||'',session_id:fieldParams.get('session_id')||''
 }:null;
+const chiliHandoffId=fieldParams.get('agrotik')==='chili'?(fieldParams.get('handoff')||''):'';
 
 function tell(message){$('status').textContent=message;}
 function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
@@ -145,6 +146,41 @@ async function fileToImageData(file){
     const cctx=c.getContext('2d',{willReadFrequently:true});cctx.drawImage(img,0,0,c.width,c.height);return cctx.getImageData(0,0,c.width,c.height);
   }finally{URL.revokeObjectURL(url);}
 }
+
+function openImageHandoffDb(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(IMAGE_HANDOFF_DB,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('images'))req.result.createObjectStore('images',{keyPath:'id'});};
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+}
+async function loadSharedChiliPhoto(){
+  if(!chiliHandoffId)return false;
+  try{
+    const db=await openImageHandoffDb(),item=await new Promise((resolve,reject)=>{const tx=db.transaction('images','readonly'),req=tx.objectStore('images').get(chiliHandoffId);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
+    db.close();if(!item?.blob)throw Error('Foto handoff tidak ditemukan atau sudah dihapus.');
+    chiliHandoffMeta=item;
+    const name=fileStem(item.sample||'cabai')+'.'+(item.blob.type?.includes('png')?'png':'jpg'),file=new File([item.blob],name,{type:item.blob.type||'image/jpeg'});
+    if($('sampleId'))$('sampleId').value=item.sample||'Cabai';
+    if($('photoLabel')){$('photoLabel').value=item.sample||'Cabai';refreshPhotoLabel();}
+    batchFiles=[file];batchIndex=0;await loadFile(file);
+    tell('Foto dari Hitung Cabai diterima. Lakukan kalibrasi, Deteksi semua objek, lalu Simpan semua objek agar ukuran kembali otomatis.');
+    return true;
+  }catch(error){tell('Handoff Hitung Cabai gagal: '+(error.message||error));return false;}
+}
+function summarizeChiliMeasurements(rows){
+  const metrics=rows.map(r=>r.metrics).filter(Boolean),avg=key=>{const a=metrics.map(m=>Number(m[key])).filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;};
+  return {n:metrics.length,meanAreaMm2:avg('area'),meanWidthMm:avg('width'),meanHeightMm:avg('height'),meanFeretMm:avg('feret')};
+}
+function sendChiliMeasurementSummary(rows){
+  if(!chiliHandoffId||!rows?.length)return false;
+  const summary=summarizeChiliMeasurements(rows),detail={type:'agrotik-chili-measurement',handoffId:chiliHandoffId,sample:chiliHandoffMeta?.sample||$('sampleId')?.value.trim()||'',summary,at:new Date().toISOString()};
+  try{localStorage.setItem(CHILI_MEASURE_HANDOFF_KEY,JSON.stringify(detail));}catch{}
+  try{window.opener?.postMessage({type:'agrotik-chili-measurement',detail},location.origin);window.opener?.focus?.();}catch{}
+  tell('Ukuran '+summary.n+' objek dikirim kembali ke Hitung Cabai.');
+  return true;
+}
+
 async function loadFile(file,{fromBatch=false}={}){
   if(!file)return;currentFile=file;tell('Memproses '+file.name+'…');
   try{
