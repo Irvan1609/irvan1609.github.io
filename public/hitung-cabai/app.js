@@ -3,11 +3,15 @@ import {detectChiliWithModel} from './ml-detector.js';
 import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260926-3';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
 import {boxIoU,matchBoxes,incrementSampleCode,reviewFlags,imageQuality,datasetMetrics,activeLearningPriority} from './review-metrics.js';
+import {assignedSplit,optimizeThreshold,modelHistory,errorSummary,operationalUncertainty,agronomicQuality,imageDHash,nearestDuplicate} from './research-tools.js';
 
 const $=id=>document.getElementById(id);
 const canvas=$('canvas'),ctx=canvas.getContext('2d'),viewport=$('viewport');
 const DETECT_SETTINGS_KEY='chili-detect-settings-v2';
+const RESEARCH_SETTINGS_KEY='chili-research-settings-v1';
 const FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
+const MEASURE_HANDOFF_KEY='agrotik_chili_measurement_handoff_v1';
+const IMAGE_HANDOFF_DB='agrotik-image-handoff-v1';
 const LOW_CONFIDENCE=.5;
 
 let image=null,photoBlob=null,photoUrl='',boxes=[],boxMeta=[],predictedDetections=[],history=[];
@@ -17,6 +21,8 @@ let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=fal
 let batchQueue=[],batchTotal=0,batchIndex=0,batchAutoBusy=false;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='',duplicateId='';
 let viewScale=1,viewX=0,viewY=0,pinchStart=null;
+let allRowsCache=[],currentImageHash='',agronomicStats=null,phenotype=null,blindActive=false,activeMeasureHandoffId='',calibratedThreshold=null;
+const thresholdByModel=new Map();
 const pointers=new Map();
 
 const fieldParams=new URLSearchParams(location.search);
@@ -102,6 +108,27 @@ async function optimizeBlob(blob){
   if(!optimized)throw Error('Foto tidak dapat dioptimalkan.');
   const next=await decodeBlob(optimized);return {blob:optimized,image:next.image,url:next.url};
 }
+
+function readResearchSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(RESEARCH_SETTINGS_KEY)||'{}');
+    return {blind:!!s.blind,lockTest:s.lockTest!==false,split:['auto','train','validation','test'].includes(s.split)?s.split:'auto',exportSplit:['all','train','validation','test'].includes(s.exportSplit)?s.exportSplit:'all',exportImages:s.exportImages!==false};
+  }catch{return {blind:false,lockTest:true,split:'auto',exportSplit:'all',exportImages:true};}
+}
+function applyResearchSettings(){
+  const s=readResearchSettings();
+  $('blindValidation').checked=s.blind;$('lockTestSet').checked=s.lockTest;$('splitMode').value=s.split;$('exportSplit').value=s.exportSplit;$('exportImages').checked=s.exportImages;
+}
+function saveResearchSettings(){
+  const value={blind:$('blindValidation').checked,lockTest:$('lockTestSet').checked,split:$('splitMode').value,exportSplit:$('exportSplit').value,exportImages:$('exportImages').checked};
+  try{localStorage.setItem(RESEARCH_SETTINGS_KEY,JSON.stringify(value));}catch{}
+  updateWorkflowState();
+}
+function currentSplit(name=$('sample')?.value.trim()){
+  const forced=$('splitMode')?.value||'auto';
+  return forced==='auto'?assignedSplit(name||activeId||'sample'):forced;
+}
+function currentIsLockedTest(){return $('lockTestSet')?.checked&&currentSplit()==='test';}
 
 function readDetectSettings(){
   try{
