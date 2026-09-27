@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { transformWithEsbuild } from 'vite';
 
@@ -37,13 +37,15 @@ export default function publicBuild() {
       if (config.publicDir) {
         for (const name of await filesUnder(config.publicDir)) {
           if (!name.endsWith('.js')) continue;
+          const source = path.join(config.publicDir, name);
           const filename = path.join(output, name);
-          const result = await transformWithEsbuild(await readFile(filename, 'utf8'), name, {
+          const result = await transformWithEsbuild(await readFile(source, 'utf8'), name, {
             minify: true,
             sourcemap: false,
             target: 'esnext',
             legalComments: 'inline',
           });
+          await mkdir(path.dirname(filename), { recursive: true });
           await writeFile(filename, result.code);
         }
       }
