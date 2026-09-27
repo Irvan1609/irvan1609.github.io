@@ -292,7 +292,7 @@ function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
   $('autoDetect').disabled=!hasImage||detecting;$('undo').disabled=!detected||!history.length;$('mobileUndo').disabled=!detected||!history.length;
   $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;$('saveDesktop').disabled=!canSave;$('measurePhoto').disabled=!hasImage;
-  const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing||currentIsLockedTest();
+  const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing||currentIsLockedTest()||activeValidationStatus!=='validated'||dirty;
   const priority=currentPriority();
   $('contribute').textContent=priority>=60?'Kirim untuk melatih AI · prioritas tinggi':'Kirim untuk melatih AI';
   document.querySelectorAll('[data-stage]').forEach(node=>{node.dataset.complete='false';node.dataset.active='false';});
@@ -515,7 +515,7 @@ async function loadNextBatch(){
 }
 async function maybeAutoBatch(){
   if(batchAutoBusy||batchTotal<=1||!$('batchAuto').checked||!detectionRun||blindActive)return;
-  const safe=qualityStats?.score>=60&&reviewIndices().length===0&&boxes.length>0;
+  const safe=(qualityStats?.combinedScore??qualityStats?.score??0)>=60&&reviewIndices().length===0&&boxes.length>0;
   if(!safe)return;
   batchAutoBusy=true;
   try{await saveCurrent({auto:true});}finally{batchAutoBusy=false;}
@@ -606,6 +606,7 @@ async function saveCurrent({auto=false,duplicateMode=''}={}){
 
 async function contributeCurrent(){
   if(contributing||!image||!detectionRun)return;
+  if(activeValidationStatus!=='validated'||dirty)return status('Simpan dan validasi anotasi terlebih dahulu. Data AI-screened tidak dikirim sebagai ground truth training.');
   if(currentIsLockedTest())return status('Test set dikunci. Sampel test tidak dikirim untuk training agar evaluasi tetap independen.');
   if(!cloudContributionReady())return status('Kontribusi cloud belum diaktifkan.');
   contributing=true;$('contribute').disabled=true;$('contribute').textContent='Mengirim…';
