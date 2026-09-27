@@ -38,6 +38,10 @@ for(const marker of ['agrotik_field_zero_v1','prefers-color-scheme: light'])if(!
 if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
 for(const marker of ['hud-focus','season-summary','id="gameWorkflow" class="game-workflow" aria-label="Alur permainan" hidden','class="field-primary-actions" aria-label="Aksi utama" hidden'])if(!html.includes(marker))fail('focused comfort UI missing '+marker);
 for(const marker of ['inspectorQuickAction','inspectorIssueText','fieldConditionSnapshot','skipWeatherLabel','quick-menu-sections','nextDayHold'])if(!app.includes(marker))fail('comfort interaction missing '+marker);
+for(const marker of ['careCenterHtml','bindCareCenter','refreshCareCenter'])if(!app.includes(marker))fail('care center refresh missing '+marker);
+for(const marker of ['FIELD ZERO MOBILE COMFORT FINAL 2026-09-27','#quickMap','#quickSocial'])if(!css.includes(marker))fail('mobile comfort final missing '+marker);
+for(const marker of ['FIELD ZERO LIGHT COMPLETION 2026-09-27','.competition-diagnostics button','.social-player-actions .aid-button:hover'])if(!themeCss.includes(marker))fail('light completion missing '+marker);
+
 for(const marker of ['FIELD ZERO COMFORT FOCUS 2026-09-27','.plot-quick-card','.quick-menu-sections'])if(!css.includes(marker))fail('comfort focus CSS missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.competition-brief','.plot-quick-card','.sync-save-card'])if(!themeCss.includes(marker))fail('complete light surfaces missing '+marker);
 
