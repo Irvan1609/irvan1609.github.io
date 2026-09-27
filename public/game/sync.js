@@ -172,6 +172,7 @@ function bind(){
   });
   window.addEventListener('online',()=>{if(user&&!SAFE_MODE)reconcile();});
   document.addEventListener('agrotik-retry-queues',()=>{if(user&&!SAFE_MODE)reconcile({manual:true});});
+  document.addEventListener('agrotik-system-ready',()=>reportQueue());
   window.addEventListener('offline',()=>setStatus('offline','Offline · progres aman di perangkat'));
   if(window.IrvanAccount?.authenticated)onAccount({detail:{authenticated:true,user:window.IrvanAccount.user}});
   else setStatus('local','Progres lokal · masuk untuk sinkron antar perangkat');
