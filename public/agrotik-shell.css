@@ -1,0 +1,34 @@
+.ag-shell-layer{position:fixed;inset:0;z-index:9998;display:grid;place-items:start center;padding:9vh 12px 18px;background:rgba(17,28,38,.34);backdrop-filter:blur(2px)}
+.ag-shell-palette,.ag-shell-diagnostic{width:min(620px,calc(100vw - 24px));max-height:min(76vh,720px);overflow:hidden;border:1px solid #d6e0e7;border-radius:14px;background:#fff;box-shadow:0 24px 70px rgba(17,31,44,.24);font:13px/1.35 "Segoe UI",Arial,sans-serif;color:#243b4d}
+.ag-shell-search,.ag-shell-title{display:flex;align-items:center;gap:8px;padding:9px;border-bottom:1px solid #e6edf2}
+.ag-shell-search input{flex:1;min-width:0;height:38px;padding:7px 10px;border:1px solid #cfd9e2;border-radius:9px;background:#fff;color:#17324d;font:inherit;outline:none}
+.ag-shell-search input:focus{border-color:#8aa6bd;box-shadow:0 0 0 2px rgba(91,127,156,.11)}
+.ag-shell-search button,.ag-shell-title button{width:36px;height:36px;padding:0;border:0;border-radius:8px;background:#f2f5f7;color:#506476;font-size:20px;cursor:pointer}
+.ag-shell-results{overflow:auto;max-height:56vh;padding:5px}
+.ag-shell-results>button{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:9px;width:100%;min-height:42px;padding:7px 9px;border:0;border-radius:8px;background:#fff;color:#284052;text-align:left;cursor:pointer}
+.ag-shell-results>button:hover,.ag-shell-results>button:focus-visible{background:#f2f6f8;outline:none}
+.ag-shell-results>button span{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag-shell-results>button small{max-width:220px;color:#738493;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag-shell-empty{padding:22px;text-align:center;color:#788995}
+.ag-shell-hint{padding:6px 10px;border-top:1px solid #edf1f4;color:#8696a2;font-size:11px}
+.ag-shell-title{justify-content:space-between}.ag-shell-title>div{min-width:0}.ag-shell-title b,.ag-shell-title small{display:block}.ag-shell-title small{margin-top:2px;color:#788894;font-size:11px}
+.ag-shell-loading{padding:24px;color:#70808e}
+.ag-shell-diagnostic-body{overflow:auto;max-height:62vh;padding:7px}
+.ag-shell-kv{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px;padding:5px 7px;border-bottom:1px solid #edf2f5}
+.ag-shell-kv span{color:#667987}.ag-shell-kv b{font-size:12px;color:#243d50;text-align:right}
+.ag-shell-actions{display:flex;flex-wrap:wrap;gap:6px;padding:9px 5px 4px}
+.ag-shell-actions button{min-height:36px;padding:7px 10px;border:1px solid #d3dde5;border-radius:8px;background:#fff;color:#334c5e;font:700 12px/1.2 inherit;cursor:pointer}
+.agrotik-shell-notice{position:fixed;right:12px;bottom:12px;z-index:9999;max-width:min(390px,calc(100vw - 24px));padding:9px 11px;border:1px solid #dbcfae;border-radius:10px;background:#fffdf5;color:#6d5a22;box-shadow:0 10px 28px rgba(21,35,47,.13);font:600 12px/1.4 "Segoe UI",Arial,sans-serif}
+.agrotik-safe-mode *{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;scroll-behavior:auto!important}
+.agrotik-safe-mode video,.agrotik-safe-mode [data-heavy-visual],.agrotik-safe-mode .decorative-animation{display:none!important}
+.account-cloud-panel [data-cloud-tools]{margin-top:6px;width:100%;min-height:30px;padding:5px 7px;border:1px solid #dce4e9;border-radius:6px;background:#f7f9fa;color:#334d5e;text-align:left;font:700 11px/1.2 "Segoe UI",Arial,sans-serif;cursor:pointer}
+@media(max-width:640px){
+  .ag-shell-layer{padding:7vh 8px 10px;place-items:start center}
+  .ag-shell-palette,.ag-shell-diagnostic{width:calc(100vw - 16px);max-height:82vh;border-radius:12px}
+  .ag-shell-search{padding:7px}.ag-shell-search input{height:42px;font-size:16px}
+  .ag-shell-search button,.ag-shell-title button{width:42px;height:42px}
+  .ag-shell-results>button{min-height:46px;padding:8px 9px}
+  .ag-shell-results>button small{max-width:42vw}
+  .ag-shell-actions{display:grid;grid-template-columns:1fr}.ag-shell-actions button{min-height:42px}
+}
+@media(prefers-reduced-motion:reduce){.ag-shell-layer,.agrotik-shell-notice{animation:none!important;transition:none!important}}
