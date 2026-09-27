@@ -22,7 +22,7 @@ function structuralAugmentedColumn(header){
   return /^(geno|line|check|line\s*(?:vs\.?|versus)\s*check|line_vs_check)$/i.test(String(header||'').trim());
 }
 function parameterField(data){
-  return `<div class="aug-parameter-head"><span>Parameter numerik dipilih otomatis</span><b id="augParameterCount">0 aktif</b></div><div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)&&!structuralAugmentedColumn(header)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
+  return `<div class="aug-parameter-head"><span>Parameter yang dianalisis · numerik dipilih otomatis</span><b id="augParameterCount">0 aktif</b></div><div class="aug-parameter-grid">${data.headers.map((header,index)=>isNumeric(data,index)&&!structuralAugmentedColumn(header)?`<label class="aug-param"><input type="checkbox" data-aug-param value="${index}" checked><span>${esc(header)}</span></label>`:'').join('')}</div>`;
 }
 function updateAugParameterCount(){
   const inputs=[...document.querySelectorAll('[data-aug-param]')].filter(input=>!input.disabled),selected=inputs.filter(input=>input.checked);
@@ -353,7 +353,7 @@ export function openAugmentedDesign(){
     <div class="aug-context"><span class="aug-mark">AD</span><div><b>Augmented RCBD</b><small>${esc(data.name)} · ${activeRows(data).length} plot</small></div></div>
     <div class="aug-simple-form aug-work-role-form">
       <label><span>Blok</span><select id="augBlock">${columnOptions(data)}</select></label>
-      <label><span>Genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
+      <label><span>Identitas genotipe</span><select id="augTreatment">${columnOptions(data)}</select></label>
       <label><span>Penanda kontrol</span><select id="augCheckMarker">${checkMarkerOptions(data)}</select></label>
     </div>
     <section class="aug-card aug-parameter-card">${parameterField(data)}</section>
@@ -363,7 +363,7 @@ export function openAugmentedDesign(){
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
 
-  let treatment=choose($('#augTreatment'),/(genotip|genotype|galur|variet|entry|aksesi|perlakuan|treatment)/i,data);
+  let treatment=choose($('#augTreatment'),/(^geno$|genotip|genotype|galur|variet|entry|aksesi|perlakuan|treatment)/i,data);
   if(treatment<0){treatment=firstCategorical(data);if(treatment>=0)$('#augTreatment').value=String(treatment);}
   let block=choose($('#augBlock'),/(blok|block|kelompok|ulangan|replicate|rep)/i,data,[treatment]);
   if(block<0){block=firstCategorical(data,[treatment]);if(block>=0)$('#augBlock').value=String(block);}
