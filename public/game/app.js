@@ -2624,7 +2624,12 @@ function bind(){
     const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();renderGenomeLab();toast('Benih dipilih');
   });
   vault.addEventListener('dragstart',event=>{const card=event.target.closest('[data-seed-drag]');if(!card)return;event.dataTransfer.setData('fieldzero/seed',card.dataset.seedDrag);event.dataTransfer.effectAllowed='copy';});
-  $('#nextDay').onclick=()=>breedingCup.active()?breedingCup.open():state.pendingEvent?renderEvent():advanceDays(1);$('#skip3Days').onclick=()=>advanceDays(3);$('#nextCritical').onclick=()=>advanceDays(30,{untilCritical:true});$('#finishSeason').onclick=finishSeason;
+  let nextDayHold=0,nextDayHeld=false;
+  const clearNextDayHold=()=>{if(nextDayHold){clearTimeout(nextDayHold);nextDayHold=0;}};
+  $('#nextDay').addEventListener('pointerdown',()=>{if(breedingCup.active()||state.pendingEvent)return;nextDayHeld=false;clearNextDayHold();nextDayHold=setTimeout(()=>{nextDayHeld=true;nextDayHold=0;advanceDays(3);},560);});
+  ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#nextDay').addEventListener(type,clearNextDayHold));
+  $('#nextDay').onclick=()=>{if(nextDayHeld){nextDayHeld=false;return;}breedingCup.active()?breedingCup.open():state.pendingEvent?renderEvent():advanceDays(1);};
+  $('#skip3Days').onclick=()=>advanceDays(3);$('#nextCritical').onclick=()=>advanceDays(30,{untilCritical:true});$('#finishSeason').onclick=finishSeason;
   $('#smartAction').onclick=()=>{runSmartAction();openInspectorSheet();};
   $('#attentionToggle').onclick=openCareCenter;
   $('#prevPlot').onclick=()=>selectPlotOffset(-1);
