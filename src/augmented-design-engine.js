@@ -265,9 +265,20 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
     pairSes[target].push(pair(testLevels[i],testLevels[j]));
   }
   for(const test of testLevels)for(const check of checkLevels)pairSes.testCheck.push(pair(test,check));
-  const allPairSes=[];
-  for(let i=0;i<treatments.length;i++)for(let j=i+1;j<treatments.length;j++)allPairSes.push(pair(treatments[i],treatments[j]));
+
+  let pairwise=[];
+  for(let i=0;i<treatments.length;i++)for(let j=i+1;j<treatments.length;j++){
+    const left=treatments[i],right=treatments[j],leftMean=byName.get(left),rightMean=byName.get(right);
+    const se=pair(left,right),diff=leftMean.adjusted-rightMean.adjusted,p=pTwoSided(diff,se,full.df);
+    const leftCheck=checkLevels.includes(left),rightCheck=checkLevels.includes(right);
+    const type=leftCheck&&rightCheck?'check-check':!leftCheck&&!rightCheck?(leftMean.block===rightMean.block?'test-test-same-block':'test-test-different-block'):'test-check';
+    pairwise.push({left,right,diff,se,p,type,leftType:leftMean.type,rightType:rightMean.type});
+  }
+  const pairwiseHolm=holmAdjust(pairwise.map(item=>item.p));
+  pairwise=pairwise.map((item,index)=>({...item,pHolm:pairwiseHolm[index]}));
+
   const tCritical=jStat.studentt.inv(1-alpha/2,full.df);
+  pairwise=pairwise.map(item=>({...item,lsd:tCritical*item.se,significant:Number.isFinite(item.p)&&item.p<alpha,significantHolm:Number.isFinite(item.pHolm)&&item.pHolm<alpha}));
   const sed={
     checkCheck:rangeSummary(pairSes.checkCheck,tCritical),
     testSameBlock:rangeSummary(pairSes.testSameBlock,tCritical),
@@ -275,8 +286,20 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
     testCheck:rangeSummary(pairSes.testCheck,tCritical)
   };
 
+  const selection=testLevels.map(test=>{
+    const testMean=byName.get(test);
+    const comparisons=pairwise.filter(item=>item.type==='test-check'&&(item.left===test||item.right===test)).map(item=>{
+      const testIsLeft=item.left===test,check=testIsLeft?item.right:item.left,diff=testIsLeft?item.diff:-item.diff;
+      return {test,check,diff,se:item.se,lsd:item.lsd,p:item.p,pHolm:item.pHolm,
+        better:diff>0,significant:diff>0&&item.significant,significantHolm:diff>0&&item.significantHolm};
+    });
+    const wins=comparisons.filter(item=>item.significant).length,winsHolm=comparisons.filter(item=>item.significantHolm).length;
+    return {treatment:test,block:testMean.block,adjusted:testMean.adjusted,rank:testMean.rank,
+      checkCount:comparisons.length,wins,winsHolm,comparisons};
+  }).sort((a,b)=>a.rank-b.rank);
+
   const cv=adjustedGrand!==0?Math.abs(Math.sqrt(Math.max(0,mse))/adjustedGrand*100):null;
-  const sasStandardError=allPairSes.length?mean(allPairSes):null;
+  const sasStandardError=pairwise.length?mean(pairwise.map(item=>item.se)):null;
   const workSummary={
     standardError:sasStandardError,
     grandMean:adjustedGrand,
@@ -288,7 +311,7 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChe
   return {
     n:observations.length,blocks,treatments,checks:checkLevels,tests:testLevels,
     rawGrand,adjustedGrand,checkAdjustedMean,mse,dfError:full.df,cv,alpha,warnings,
-    treatmentAdjusted,blockAdjusted,typeIII,partitionAdjusted,means,blockEffects,sed,workSummary,
+    treatmentAdjusted,blockAdjusted,typeIII,partitionAdjusted,means,selection,pairwise,blockEffects,sed,workSummary,
     observations:observations.map(item=>({block:item.block,treatment:item.treatment,y:item.y})),
     model:'Y = μ + Blok + Genotipe/Perlakuan + ε'
   };
