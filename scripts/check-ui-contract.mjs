@@ -19,6 +19,7 @@ const resultOsStyle = fs.readFileSync('src/result-os.css', 'utf8');
 const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
+const dataEnhancements = fs.readFileSync('src/data-enhancements.js', 'utf8');
 const statStyle = fs.readFileSync('src/style.css', 'utf8');
 const displaySettings = fs.readFileSync('src/display-settings.js', 'utf8');
 const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
@@ -257,6 +258,8 @@ for(const marker of ["primaryNav.className='nav-primary'","utilityNav.className=
   if(!navigation.includes(marker))fail('primary Statistical Web navigation missing '+marker);
 }
 if(navigation.includes('fieldLayoutTool')||main.includes('fieldLayoutTool'))fail('Denah must have one primary command only');
+if(dataEnhancements.includes('fieldLayoutTool')||dataEnhancements.includes('createFieldbookMap'))fail('secondary Denah command must stay removed');
+if(dataEnhancements.includes('id="duplicateDataset"'))fail('Data menu must not create a second duplicate-dataset button');
 if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader.includes('summary::before'))fail('shared phone header must use compact icon menu');
 
 if(html.includes('compactEditor')||main.includes('toggleCompactEditor')||navigation.includes('compactEditor'))fail('Normal/Ringkas editor toggle must stay removed');
