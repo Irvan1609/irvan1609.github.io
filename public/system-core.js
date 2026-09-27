@@ -10,7 +10,7 @@ const HEARTBEAT_PREFIX='agrotik_page_heartbeat_v1:';
 const MAX_RECENT=8;
 const MAX_ERRORS=8;
 const route=location.pathname;
-const safeMode=localStorage.getItem(SAFE_KEY)==='1';
+let safeMode=false;try{safeMode=localStorage.getItem(SAFE_KEY)==='1';}catch{}
 let palette=null,diagnostic=null,storageState=null,heartbeatTimer=null;
 
 function safeJson(value,fallback){try{return JSON.parse(value);}catch{return fallback;}}
@@ -83,7 +83,7 @@ function formatBytes(value){
 
 function fieldKey(el){
   if(!(el instanceof HTMLInputElement||el instanceof HTMLTextAreaElement||el instanceof HTMLSelectElement))return '';
-  if(el.type==='password'||el.type==='file'||el.type==='hidden'||el.type==='search'||el.type==='checkbox'||el.type==='radio'||el.dataset.noCrashDraft!==undefined)return '';
+  if(el.type==='password'||el.type==='email'||el.type==='file'||el.type==='hidden'||el.type==='search'||el.type==='checkbox'||el.type==='radio'||el.dataset.noCrashDraft!==undefined)return '';
   const id=el.id||el.name;if(!id||/token|secret|password|csrf|auth/i.test(id))return '';
   return id.slice(0,100);
 }
@@ -161,8 +161,14 @@ async function serviceWorkerStatus(){
     return {state:reg?.active?'ok':'warn',detail:reg?.active?'Aktif':'Belum aktif'};
   }catch{return {state:'warn',detail:'Tidak dapat diperiksa'};}
 }
+async function moduleAvailability(){
+  const routes=['/stat/','/pengukur/','/hitung-cabai/','/game/'];
+  if(navigator.onLine===false)return {state:'warn',detail:'Offline · cache dipakai saat tersedia'};
+  const results=await Promise.all(routes.map(async path=>{try{const r=await fetch(path,{cache:'no-store'});return r.ok;}catch{return false;}}));
+  const ok=results.filter(Boolean).length;return {state:ok===routes.length?'ok':ok?'warn':'bad',detail:ok+'/'+routes.length+' modul dapat dibuka'};
+}
 async function runDiagnostics(){
-  const storage=await updateStorage(),idb=await idbCheck(),worker=await workerHealth(),sw=await serviceWorkerStatus(),queue=queueSnapshot();
+  const [storage,idb,worker,sw,modules]=await Promise.all([updateStorage(),idbCheck(),workerHealth(),serviceWorkerStatus(),moduleAvailability()]),queue=queueSnapshot();
   let local='ok';try{const k='__agrotik_diag__';localStorage.setItem(k,'1');localStorage.removeItem(k);}catch{local='bad';}
   const persisted=await navigator.storage?.persisted?.().catch?.(()=>false);
   const h=worker.data||{};
@@ -173,6 +179,7 @@ async function runDiagnostics(){
       {label:'IndexedDB',...idb},
       {label:'Penyimpanan',state:storage?.level==='critical'?'bad':storage?.level==='high'?'warn':'ok',detail:storage?(formatBytes(storage.usage)+' / '+formatBytes(storage.quota)+(persisted?' · persisten':'')):'Tidak dapat diukur'},
       {label:'Service Worker',...sw},
+      {label:'Modul utama',...modules},
       {label:'Kamera',state:navigator.mediaDevices?.getUserMedia?'ok':'warn',detail:navigator.mediaDevices?.getUserMedia?'Didukung perangkat':'Tidak tersedia'},
       {label:'Worker API',state:worker.state,detail:worker.detail},
       {label:'D1',state:h.storage?.d1?'ok':'warn',detail:h.storage?.d1?'Terhubung':'Tidak terdeteksi'},
@@ -260,6 +267,7 @@ function install(){
   renderRecent();installCrashRecovery();void updateStorage();
   document.addEventListener('stat-dataset-changed',event=>{const name=event.detail?.name||event.detail?.fileName||localStorage.getItem('statistical_web_active_csv_v1')||'';if(name)activity(String(name).replace(/\.csv$/i,''),'/stat/','dataset');});
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openPalette();}if(event.key==='Escape'){if(palette)palette.hidden=true;if(diagnostic)diagnostic.hidden=true;}});
+  document.dispatchEvent(new Event('agrotik-system-ready'));
   if(route.startsWith('/diagnostic')||new URLSearchParams(location.search).get('diagnostic')==='1')setTimeout(openDiagnostics,80);
 }
 window.AgrotikSystem={version:SYSTEM_VERSION,safeMode,activity,reportQueue,queueSnapshot,retryQueues,clearQueueFailures,openDiagnostics,openPalette,runDiagnostics,requestRollback,clearRollback,updateStorage};
