@@ -40,5 +40,8 @@ export function measurementsToStatistics(storage,records=[]){
   files[target]=csvText([MEASUREMENT_HEADERS,...data]);
   const metadata=safeObject(storage.getItem(META_KEY));metadata[target]={...(metadata[target]||{}),source:'Pengukur',plant:metadata[target]?.plant||'',treatment:metadata[target]?.treatment||''};
   storage.setItem(FILES_KEY,JSON.stringify(files));storage.setItem(ACTIVE_KEY,target);storage.setItem(META_KEY,JSON.stringify(metadata));
-  return {dataset:target.replace(/\.csv$/i,''),file:target,rowCount:data.length,headers:[...MEASUREMENT_HEADERS]};
+  const result={dataset:target.replace(/\.csv$/i,''),file:target,rowCount:data.length,headers:[...MEASUREMENT_HEADERS]};
+  try{globalThis.document?.dispatchEvent?.(new CustomEvent('agrotik-measurement-saved',{detail:{sample:rows.at(-1)?.sampleId||'',label:rows.at(-1)?.label||'',dataset:result.dataset}}));}catch{}
+  try{globalThis.document?.dispatchEvent?.(new CustomEvent('stat-dataset-changed',{detail:{type:'upsert',name:target,reason:'Pengukur'}}));}catch{}
+  return result;
 }
