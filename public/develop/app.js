@@ -199,6 +199,34 @@ async function saveCloudControl(){
     return data;
   }catch(error){alert(error.message);}finally{button.disabled=false;}
 }
+function waitShell(){
+  if(window.AgrotikShell)return Promise.resolve(window.AgrotikShell);
+  return new Promise(resolve=>{
+    document.addEventListener('agrotik-shell-ready',()=>resolve(window.AgrotikShell),{once:true});
+    setTimeout(()=>resolve(window.AgrotikShell||null),2200);
+  });
+}
+function renderLocalQueue(shell){
+  const root=$('#localQueue');if(!root)return;
+  const items=shell?.queueSummary?.()||[];
+  if(!items.length){root.innerHTML='<div class="muted">Tidak ada antrean yang terdeteksi.</div>';return;}
+  root.innerHTML=items.map(item=>'<div class="kv"><span>'+esc(item.key)+' · '+esc(item.state||'pending')+(item.message?' · '+esc(item.message):'')+'</span><b>'+Number(item.count||0)+'</b></div>').join('');
+}
+async function loadDeviceDiagnostic(){
+  const root=$('#deviceDiagnostic');if(!root)return;
+  const shell=await waitShell();if(!shell){root.innerHTML='<div class="muted">Diagnostic shell belum tersedia.</div>';return;}
+  const data=await shell.runDiagnostics(),storage=data.storage||{},pct=storage.ratio?Math.round(storage.ratio*100):0;
+  root.innerHTML=[
+    ['Lokal',data.localStorage?.ok&&data.indexedDB?.ok?'Normal':'Periksa'],
+    ['Service Worker',data.serviceWorker?.ok?'Aktif':'Belum'],
+    ['Cloud Worker',data.worker?.ok?'Aktif':'Tidak tersedia'],
+    ['Storage',storage.supported?pct+'%':'—'],
+    ['Safe Mode',data.safeMode?'Aktif':'Nonaktif'],
+    ['Schema lokal',(data.schema?.local??0)+'/'+(data.schema?.target??0)],
+    ['Error sesi',data.errors||0]
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+  renderLocalQueue(shell);
+}
 async function loadServer(){
   const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudControl()]),usage=result[0],u=usage.estimated||{},budget=usage.softBudget||{},ref=usage.platformReference||{};
   const cards=[
@@ -212,6 +240,7 @@ async function loadServer(){
     ['Users',u.users]
   ];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
+  void loadDeviceDiagnostic();
 }
 async function loadSecurity(){
   const data=await api('/v1/develop/security');
@@ -276,6 +305,7 @@ document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activ
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
 $('#refreshHealth').onclick=loadHealth;
 $('#saveCloudControl').onclick=saveCloudControl;
+$('#refreshQueue').onclick=async()=>renderLocalQueue(await waitShell());
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
 $('#migrateAiImages').onclick=async()=>{
