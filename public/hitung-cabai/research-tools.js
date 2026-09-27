@@ -18,7 +18,7 @@ export function effectiveSplit(record){
 }
 
 export function optimizeThreshold(records=[],modelVersion,{min=.25,max=.9,step=.05}={}){
-  const same=records.filter(r=>(r.modelVersion||'')===modelVersion&&Array.isArray(r.boxes)&&Array.isArray(r.predictedDetections)&&r.predictedDetections.some(d=>Number.isFinite(d?.score)));
+  const same=records.filter(r=>(r.modelVersion||'')===modelVersion&&Array.isArray(r.boxes)&&Array.isArray(r.predictedDetections)&&r.predictedDetections.some(d=>Number.isFinite(d?.score))&&(r.validationStatus==='validated'||(!r.validationStatus&&r.reviewed!==false)));
   let pool=same.filter(r=>effectiveSplit(r)==='validation');
   if(pool.length<5)pool=same.filter(r=>effectiveSplit(r)!=='test');
   if(pool.length<4)return {threshold:null,n:pool.length,f1:null,precision:null,recall:null};
@@ -49,6 +49,7 @@ export function modelHistory(records=[]){
 export function errorSummary(records=[]){
   const out={missed:0,falsePositive:0,overlap:0,lowLight:0,occluded:0,mixedColor:0,small:0,edge:0};
   for(const row of records){
+    if(row.validationStatus==='ai-screened'||row.reviewed===false)continue;
     const m=row.correction||matchBoxes(row.predictedDetections||[],row.boxes||[],.5);
     out.missed+=m.fn||0;out.falsePositive+=m.fp||0;
     if(row.condition==='overlap')out.overlap++;
