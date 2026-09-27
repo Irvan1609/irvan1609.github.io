@@ -62,7 +62,7 @@ for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-s
 for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
 if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
 
-for(const marker of ['insertRowAt','insertColumnAt','cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
+for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
 for(const marker of ['position:sticky!important','analysis-dock-body .analysis-result-toolbar','science-context>span+span::before','.result-table td:first-child','.column-context-menu button','min-height:44px!important'])if(!statStyle.includes(marker))fail('responsive UI polish missing '+marker);
 for(const marker of ['/* SHARED SUBWEB UI RHYTHM 2026-09-27 */','--ag-ui-control-mobile:44px','--ag-ui-focus:#5f8ead'])if(!sharedHeader.includes(marker))fail('shared subweb design rhythm missing '+marker);
 
@@ -74,7 +74,7 @@ const requiredIds = [
   'openAnalysis','globalSearchButton','globalSearchModal','closeGlobalSearch','globalSearch','globalSearchResults','renameDataset','deleteDataset','datasetNameForm',
   'status','errorBox','gridWrap','plantName','treatmentName','plantNameSummary','treatmentNameSummary','datasetMetaEditor',
   'columnNameModal','columnNameForm','columnCode','columnFullName','columnUnit','parameterSuggestion','columnStringSection','columnStringUnit','columnStringLevels',
-  'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','compactEditor','saveIndicator'
+  'datasetSearch','duplicateDataset','viewRawDataset','viewDatasetMeta','datasetHistory','datasetViewModal','datasetViewBody','closeDatasetView','saveIndicator'
 ];
 for (const id of requiredIds) if (!ids.includes(id)) fail(`missing required element #${id}`);
 
@@ -151,7 +151,7 @@ if(!main.includes('renderParameterSuggestions')||!main.includes('suggestAgronomi
 if(main.includes('categoryMapMarkup')||main.includes('data-category-value')||main.includes('data-category-unit'))fail('string mapping controls must not be rendered above data columns');
 if(!main.includes('renderStringColumnEditor')||!main.includes('data-column-string-level')||!main.includes('saveCategoryMetadata')||!main.includes('columnStringUnit'))fail('string columns must expose value mapping inside the column editor with one shared unit');
 if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArrowNavigation'))fail('desktop arrow-key navigation must work for grid cells and column-editor inputs');
-for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','toggleCompactEditor','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
+for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
 if(!main.includes('detectColumnType')||!main.includes('columnTooltip'))fail('editor must detect column types and expose metadata tooltips');
 if(!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing selection/compact/autosave styles');
 for(const marker of ['/* STAT NON-DISRUPTIVE SPREADSHEET UX 2026-09-27 */','.data-grid thead th:nth-child(2)','left:58px!important','.data-grid td.cell-axis-row','@media(max-width:720px)']){
@@ -256,10 +256,17 @@ for(const marker of ['ensureMobileDatasetBackdrop','mobileDatasetBackdrop',"butt
 for(const marker of ["primaryNav.className='nav-primary'","utilityNav.className='nav-utilities'","fieldTab.id='fieldLayoutTab'","fieldTab.textContent='Denah'"]){
   if(!navigation.includes(marker))fail('primary Statistical Web navigation missing '+marker);
 }
-if(/\['dataMenu','Data',\[[^\]]*fieldLayoutTool/.test(navigation))fail('Denah must be a separate primary tab, not a Data menu item');
+if(navigation.includes('fieldLayoutTool')||main.includes('fieldLayoutTool'))fail('Denah must have one primary command only');
 if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader.includes('summary::before'))fail('shared phone header must use compact icon menu');
+
+if(html.includes('compactEditor')||main.includes('toggleCompactEditor')||navigation.includes('compactEditor'))fail('Normal/Ringkas editor toggle must stay removed');
+for(const marker of ['insert-left','insert-right','insert-row'])if(main.includes(marker))fail('row/column insertion must stay in the data editor action bar only: '+marker);
+for(const marker of ['configureDriveBackup','drive-backup','Cadangan Drive','Google Apps Script'])if(html.includes(marker)||main.includes(marker)||navigation.includes(marker)||scientific.includes(marker))fail('Google Drive backup integration must stay removed: '+marker);
+for(const marker of ['editor-inline-actions',"addRow.textContent='+ Baris'","addCol.textContent='+ Kolom'"])if(!navigation.includes(marker))fail('editor-only row/column action group missing '+marker);
+if(!statStyle.includes('/* STAT DECLUTTER EDITOR ACTIONS FINAL 2026-09-28 */'))fail('decluttered editor action styling missing');
+
 if(!chiliStyle.includes('@media(max-width:680px)')||!chiliStyle.includes('.mobile-actionbar')||!chiliStyle.includes('.research-panel'))fail('Hitung Cabai phone workspace override missing');
 
-console.log(`UI contract OK: simplified Statistical Web with direct metadata editing, live column typing, drag reorder, and no frozen table.`);
+console.log(`UI contract OK: decluttered Statistical Web with editor-local row/column actions, one Denah command, and no Drive backup UI.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
