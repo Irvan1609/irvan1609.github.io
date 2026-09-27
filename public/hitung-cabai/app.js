@@ -21,7 +21,7 @@ let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=fal
 let batchQueue=[],batchTotal=0,batchIndex=0,batchAutoBusy=false;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='',duplicateId='';
 let viewScale=1,viewX=0,viewY=0,pinchStart=null;
-let allRowsCache=[],currentImageHash='',agronomicStats=null,phenotype=null,blindActive=false,activeMeasureHandoffId='',calibratedThreshold=null;
+let allRowsCache=[],currentImageHash='',agronomicStats=null,phenotype=null,blindActive=false,activeMeasureHandoffId='',activeDatasetSplit='',calibratedThreshold=null;
 const thresholdByModel=new Map();
 const pointers=new Map();
 
@@ -32,6 +32,7 @@ const fieldContext=fieldParams.get('agrotik')==='field'?{
 }:null;
 
 const status=message=>{$('status').textContent=message;};
+const htmlSafe=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const cloneBoxes=()=>boxes.map(box=>[...box]);
 const cloneMeta=()=>boxMeta.map(meta=>({...meta,reasons:[...(meta.reasons||[])]}));
@@ -125,6 +126,7 @@ function saveResearchSettings(){
   updateWorkflowState();
 }
 function currentSplit(name=$('sample')?.value.trim()){
+  if(activeId&&activeDatasetSplit)return activeDatasetSplit;
   const forced=$('splitMode')?.value||'auto';
   return forced==='auto'?assignedSplit(name||activeId||'sample'):forced;
 }
@@ -175,14 +177,28 @@ function hydrateMeta(detections){
 function reviewIndices(){return boxMeta.map((m,i)=>m&&!m.reviewed&&(m.reasons||[]).length?i:-1).filter(i=>i>=0);}
 function renderConfidence(){
   const host=$('confidenceInspector');
-  if(!image||!detectionRun){host.hidden=true;return;}
-  host.hidden=false;$('confidenceModel').textContent=predictionMethod==='onnx'?modelVersion:'Deteksi warna';
+  if(!image||!detectionRun){host.hidden=true;renderCountState();return;}
+  host.hidden=blindActive;
+  $('confidenceModel').textContent=predictionMethod==='onnx'?modelVersion:'Deteksi warna';
   const c=confidenceStats?.confidence;
   $('confidenceMean').textContent=c?.n?(c.mean*100).toFixed(1)+'%':'—';
   $('confidenceRange').textContent=c?.n?(c.min*100).toFixed(0)+'–'+(c.max*100).toFixed(0)+'%':'—';
   const needs=reviewIndices().length;$('confidenceLow').textContent=needs?needs+' kotak':'0';
-  $('reviewLow').disabled=!needs;
-  $('reviewLow').textContent=needs?'Periksa yang meragukan ('+needs+')':'Tidak ada yang meragukan';
+  $('reviewLow').disabled=blindActive||!needs;
+  $('reviewLow').textContent=blindActive?'Mode buta aktif':needs?'Periksa yang meragukan ('+needs+')':'Tidak ada yang meragukan';
+  renderCountState();
+}
+function renderCountState(){
+  const node=$('countState');if(!node)return;
+  node.dataset.state='';
+  if(!image){node.textContent='Belum dianalisis';return;}
+  if(!detectionRun){node.textContent='Foto siap';return;}
+  if(activeId&&!dirty){node.textContent=blindActive?'Tervalidasi buta':'Tervalidasi';node.dataset.state='validated';return;}
+  if(blindActive){node.textContent=boxes.length?'Mode buta · '+boxes.length+' anotasi':'Mode buta · tandai manual';node.dataset.state='review';return;}
+  const needs=reviewIndices().length;
+  if(needs){node.textContent='AI · '+needs+' perlu review';node.dataset.state='review';return;}
+  const flags=reviewFlags(predictedDetections,{lowThreshold:calibratedThreshold||LOW_CONFIDENCE}),u=operationalUncertainty(predictedDetections,flags);
+  node.textContent=u.uncertain?'AI · rentang review '+u.reviewMin+'–'+u.reviewMax:'AI · siap disimpan';
 }
 function correctionNow(){return matchBoxes(predictedDetections,boxes,.5);}
 function currentPriority(){
@@ -191,8 +207,8 @@ function currentPriority(){
 function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
   $('autoDetect').disabled=!hasImage||detecting;$('undo').disabled=!detected||!history.length;$('mobileUndo').disabled=!detected||!history.length;
-  $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;$('saveDesktop').disabled=!canSave;
-  const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing;
+  $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;$('saveDesktop').disabled=!canSave;$('measurePhoto').disabled=!hasImage;
+  const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing||currentIsLockedTest();
   const priority=currentPriority();
   $('contribute').textContent=priority>=60?'Kirim untuk melatih AI · prioritas tinggi':'Kirim untuk melatih AI';
   document.querySelectorAll('[data-stage]').forEach(node=>{node.dataset.complete='false';node.dataset.active='false';});
@@ -201,7 +217,7 @@ function updateWorkflowState(){
   if(detectStage){detectStage.dataset.complete=String(detected);detectStage.dataset.active=String(hasImage&&!detected);}
   if(correctStage){correctStage.dataset.complete=String(detected&&reviewIndices().length===0);correctStage.dataset.active=String(detected&&reviewIndices().length>0);}
   if(saveStage){saveStage.dataset.complete=String(hasImage&&!dirty&&Boolean(activeId));saveStage.dataset.active=String(canSave);}
-  renderConfidence();updateBatchState();
+  renderConfidence();updateBatchState();renderResearch(allRowsCache);
 }
 function updateBatchState(){
   const host=$('batchState'),active=batchTotal>1;host.hidden=!active;if(!active)return;
