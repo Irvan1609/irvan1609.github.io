@@ -1,4 +1,4 @@
-import { installAnalysisFlow } from './analysis-flow.js?v=20260927-mobile-suggestion-v1';
+import { installAnalysisFlow } from './analysis-flow.js?v=20260928-mobile-suggestion-work-parity-v4';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js?v=20260927-navtabs-v1';
