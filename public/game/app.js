@@ -960,6 +960,7 @@ function sendExperimentToStat(){
   if(!state.experiment.researchRewarded&&score>=60){const grant=Math.max(2,Math.round(score/15));state.rp+=grant;state.experiment.researchRewarded=true;addLog('📐 Mutu protokol '+score+'% · hibah +'+grant+' RP.');}
   try{
     localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({version:2,source:'field-zero',design:statDesign,createdAt:new Date().toISOString(),datasets:[raw,summary]}));
+    window.AgrotikSystem?.activity?.(summary.name||'Eksperimen Field Zero','/stat/?from=field-zero&design='+encodeURIComponent(statDesign),'dataset');
     save();location.href='/stat/?from=field-zero&design='+encodeURIComponent(statDesign);
   }catch{toast('Gagal menyiapkan dataset');}
 }
