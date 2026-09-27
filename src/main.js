@@ -625,7 +625,7 @@ function openColumnContextMenu(event,index,row=null){
   if(Number.isInteger(row))menu.dataset.row=String(row);else delete menu.dataset.row;
   menu.querySelectorAll('[data-requires-row]').forEach(button=>button.hidden=!Number.isInteger(row));
   menu.hidden=false;
-  const width=190,height=Number.isInteger(row)?258:150;
+  const width=190,height=Number.isInteger(row)?310:205;
   menu.style.left=Math.max(6,Math.min(event.clientX,window.innerWidth-width-6))+'px';
   menu.style.top=Math.max(6,Math.min(event.clientY,window.innerHeight-height-6))+'px';
   menu.onclick=click=>{
