@@ -252,7 +252,34 @@ async function printSelectedQr(){if(!Number.isInteger(selectedRow))return;const 
 async function printAllQr(){const target=window.open('','_blank');try{const media=await import('./field-layout-media.js'),items=current.rows.map((row,index)=>{const label=plotLabel(current,row,index);return {url:qrUrlForRow(index),label:label.id,secondary:label.secondary,dataset:current.name};});media.printQrLabels(items,{title:`QR Plot · ${current.name}`,target});}catch(error){target?.close();alert(error.message||'Label QR tidak dapat dibuat.');}}
 async function openIntegration(kind){if(!Number.isInteger(selectedRow))return;const target=window.open('',kind==='measure'?'agrotik-measure':'agrotik-chili');try{const media=await import('./field-layout-media.js'),label=plotLabel(current,current.rows[selectedRow],selectedRow),context={dataset:keyFor(current),plot_uid:plotUid(selectedRow),plot_label:label.id,parameter:activeParameterName(),session_id:activeSessionKey()};kind==='measure'?media.openMeasure(context,target):media.openChili(context,target);}catch(error){target?.close();alert(error.message||'Alat tidak dapat dibuka.');}}
 function checkHandoff(){try{const raw=localStorage.getItem(HANDOFF_KEY);if(raw)consumeHandoff(JSON.parse(raw));}catch{}}
-function consumeHandoff(detail){if(!detail||detail.dataset!==keyFor(current))return;const row=rowByUid(detail.plot_uid);if(row<0)return;let col=current.headers.findIndex(h=>String(h)===String(detail.parameter));if(col<0)col=activeColumn();if(col<0)return;const beforeCfg=clone(config),beforeRows=captureRows([row]),result=api()?.updateCells?.([{row,col,value:String(detail.value??'')}],`hasil ${detail.kind||'alat'} ke denah`);if(!result?.ok)return;config.timestamps={...config.timestamps,[plotUid(row)]:now()};writeConfig(current,config);refreshData(false);pushHistory('hasil alat ke plot',beforeCfg,beforeRows,config,captureRows([row]));try{localStorage.removeItem(HANDOFF_KEY);}catch{}if($('#fieldLayoutModal')?.classList.contains('open'))selectRow(row,{force:true,skipSave:true});}
+function consumeHandoff(detail){
+  if(!detail||detail.dataset!==keyFor(current))return;
+  const row=rowByUid(detail.plot_uid);if(row<0)return;
+  let col=current.headers.findIndex(h=>String(h)===String(detail.parameter));if(col<0)col=activeColumn();if(col<0)return;
+  const changes=[{row,col,value:String(detail.value??'')}],used=new Set([col]);
+  const matchMeasurementColumn=label=>{
+    const exact=current.headers.findIndex(h=>String(h).trim().toLocaleLowerCase('id-ID')===String(label).trim().toLocaleLowerCase('id-ID'));if(exact>=0)return exact;
+    const text=String(label||'');
+    const patterns=/^JB\b|jumlah.*cabai|jumlah.*buah/i.test(text)?[/^JB\b/i,/jumlah.*cabai/i,/jumlah.*buah/i]:
+      /area|luas/i.test(text)?[/area.*rata/i,/luas.*rata/i]:
+      /lebar|width/i.test(text)?[/lebar.*rata/i,/width.*mean/i]:
+      /tinggi|height/i.test(text)?[/tinggi.*rata/i,/height.*mean/i]:
+      /feret/i.test(text)?[/feret.*rata/i]:[];
+    return current.headers.findIndex(h=>patterns.some(re=>re.test(String(h))));
+  };
+  if(detail.measurements&&typeof detail.measurements==='object')for(const [label,value] of Object.entries(detail.measurements)){
+    const target=matchMeasurementColumn(label);if(target>=0&&!used.has(target)&&value!==null&&value!==undefined&&value!==''){changes.push({row,col:target,value:String(value)});used.add(target);}
+  }
+  const beforeCfg=clone(config),beforeRows=captureRows([row]),result=api()?.updateCells?.(changes,`hasil ${detail.kind||'alat'} ke denah`);if(!result?.ok)return;
+  config.timestamps={...config.timestamps,[plotUid(row)]:now()};writeConfig(current,config);refreshData(false);pushHistory('hasil alat ke plot',beforeCfg,beforeRows,config,captureRows([row]));
+  try{localStorage.removeItem(HANDOFF_KEY);}catch{}
+  let targetRow=row;
+  if(detail.advance){
+    for(let offset=1;offset<=current.rows.length;offset++){const candidate=(row+offset)%current.rows.length;if(String(current.rows[candidate]?.[col]??'').trim()===''){targetRow=candidate;break;}}
+  }
+  if($('#fieldLayoutModal')?.classList.contains('open'))selectRow(targetRow,{force:true,skipSave:true});
+  const out=$('#fieldEditorStatus');if(out&&detail.advance)out.textContent=targetRow===row?'✓ Data masuk. Semua plot untuk parameter ini sudah terisi.':'✓ Data masuk. Beralih ke plot berikutnya yang belum terisi.';
+}
 
 function exportLayout(){const ids=current.rows.map((row,index)=>plotLabel(current,row,index).id),payload={version:3,dataset:keyFor(current),rows:current.rows.length,headers:[...current.headers],plotIds:ids,exportedAt:now(),config:clone(config),media:'Foto disimpan terpisah di IndexedDB perangkat.'};if(!config.backupMeta){for(const key of ['statuses','notes','timestamps','gps','samples','harvests'])payload.config[key]={};}const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=(String(current.name||'dataset').replace(/[^a-z0-9._-]+/gi,'-')||'dataset')+'-denah-v3.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 async function importLayout(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;try{const payload=JSON.parse(await file.text());if(!payload||typeof payload!=='object'||!payload.config)throw Error('File denah tidak valid.');if(Number(payload.rows)!==current.rows.length)throw Error(`Jumlah plot berbeda: file ${payload.rows}, dataset ${current.rows.length}.`);if(!Array.isArray(payload.headers)||payload.headers.length!==current.headers.length||payload.headers.some((h,i)=>String(h)!==String(current.headers[i])))throw Error('Nama atau urutan kolom berbeda dengan dataset aktif.');const ids=current.rows.map((row,index)=>plotLabel(current,row,index).id);if(Array.isArray(payload.plotIds)&&(payload.plotIds.length!==ids.length||payload.plotIds.some((id,i)=>String(id)!==String(ids[i]))))throw Error('ID plot pada file denah tidak cocok dengan dataset aktif.');if(payload.dataset&&payload.dataset!==keyFor(current)&&!confirm(`Nama dataset berbeda (${payload.dataset}). Struktur dan ID plot cocok. Impor tetap dilanjutkan?`))return;const before=clone(config);config=normalizeConfig(current,payload.config);writeConfig(current,config);pushHistory('impor denah',before,[],config,[]);renderControls();renderMap();if(Number.isInteger(selectedRow))renderEditor(selectedRow);}catch(error){alert(error.message||'File denah tidak dapat dibaca.');}}
