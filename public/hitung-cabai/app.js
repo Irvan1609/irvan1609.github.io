@@ -44,12 +44,19 @@ const nowName=()=>{
 
 function sendCountToField(){
   if(!fieldContext||dirty||!activeId)return false;
+  const measurements={'JB | Jumlah Cabai (buah)':boxes.length};
+  if(phenotype){
+    if(Number.isFinite(phenotype.meanAreaMm2))measurements['Area Rata-rata (mm²)']=phenotype.meanAreaMm2;
+    if(Number.isFinite(phenotype.meanWidthMm))measurements['Lebar Rata-rata (mm)']=phenotype.meanWidthMm;
+    if(Number.isFinite(phenotype.meanHeightMm))measurements['Tinggi Rata-rata (mm)']=phenotype.meanHeightMm;
+    if(Number.isFinite(phenotype.meanFeretMm))measurements['Feret Rata-rata (mm)']=phenotype.meanFeretMm;
+  }
   const detail={type:'agrotik-field-handoff',kind:'chili-count',dataset:fieldContext.dataset,plot_uid:fieldContext.plot_uid,
     plot_label:fieldContext.plot_label,parameter:fieldContext.parameter,session_id:fieldContext.session_id,
-    value:String(boxes.length),unit:'buah',at:new Date().toISOString()};
+    value:String(boxes.length),unit:'buah',measurements,advance:true,validation:'validated',at:new Date().toISOString()};
   try{localStorage.setItem(FIELD_HANDOFF_KEY,JSON.stringify(detail));}catch{}
   try{window.opener?.postMessage({type:'agrotik-field-handoff',detail},location.origin);window.opener?.focus?.();}catch{}
-  status('Tersimpan: '+boxes.length+' buah · hasil dikirim ke plot '+(fieldContext.plot_label||'aktif')+'.');
+  status('Tersimpan: '+boxes.length+' buah · hasil dikirim ke plot '+(fieldContext.plot_label||'aktif')+' dan plot berikutnya dapat dilanjutkan.');
   return true;
 }
 
@@ -552,15 +559,16 @@ function recordFromCurrent(id,existing){
   return {
     id,name:$('sample').value.trim(),imageBlob:photoBlob,thumbnail:existing?.thumbnail||thumbnailDataURL(image),width:image.naturalWidth,height:image.naturalHeight,
     boxes:cloneBoxes(),boxMeta:cloneMeta(),predictedBoxes:predictedDetections.map(d=>[...d.box]),predictedDetections:predictedDetections.map(d=>({box:[...d.box],score:d.score})),
-    predictionMethod,modelVersion,confidenceStats,qualityStats,condition:$('condition').value,correction,learningPriority:priority,
+    predictionMethod,modelVersion,confidenceStats,qualityStats,agronomicQuality:agronomicStats,condition:$('condition').value,correction,learningPriority:priority,
+    imageHash:currentImageHash,datasetSplit:existing?.datasetSplit||currentSplit(),blinded:blindActive,phenotype:phenotype||existing?.phenotype||null,
     cloudContributionId:cloudContributionId||existing?.cloudContributionId||'',cloudEditToken:cloudEditToken||existing?.cloudEditToken||'',
-    reviewed:true,createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
+    reviewed:true,validationStatus:'validated',createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
   };
 }
 function sendCurrentToStatistics({quiet=false}={}){
   if(!image){if(!quiet)status('Ambil foto atau pilih foto terlebih dahulu.');return null;}
   try{
-    const result=upsertChiliCountToStatistics(localStorage,{sample:$('sample').value.trim(),count:boxes.length});
+    const result=upsertChiliCountToStatistics(localStorage,{sample:$('sample').value.trim(),count:boxes.length,status:activeId&&!dirty?'Tervalidasi':'AI',modelVersion,datasetSplit:currentSplit(),quality:qualityStats?.combinedScore??qualityStats?.score,confidence:confidenceStats?.confidence?.mean,correction:correctionNow(),phenotype});
     if(!quiet)status('Masuk ke Statistical Web → '+result.dataset+': '+$('sample').value.trim()+' = '+boxes.length+' buah.');
     return result;
   }catch(error){if(!quiet)status(error.message||'Data belum dapat dikirim ke Statistical Web.');return null;}
@@ -593,6 +601,7 @@ async function saveCurrent({auto=false,duplicateMode=''}={}){
 
 async function contributeCurrent(){
   if(contributing||!image||!detectionRun)return;
+  if(currentIsLockedTest())return status('Test set dikunci. Sampel test tidak dikirim untuk training agar evaluasi tetap independen.');
   if(!cloudContributionReady())return status('Kontribusi cloud belum diaktifkan.');
   contributing=true;$('contribute').disabled=true;$('contribute').textContent='Mengirim…';
   if(!contributionOperationId)contributionOperationId=crypto.randomUUID();
