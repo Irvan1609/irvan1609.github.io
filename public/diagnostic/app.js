@@ -9,7 +9,7 @@ async function render(){
   $('#storage').innerHTML=kv('Terpakai',fmtBytes(d.storage.usage))+kv('Kuota browser',fmtBytes(d.storage.quota))+kv('Persentase',Math.round((d.storage.ratio||0)*100)+'%')+kv('Persisten',d.storage.persisted?'Ya':'Belum');
   const q=d.queue||{},stat=q.stat||{},game=q.game||{};
   $('#queue').innerHTML=kv('Stat',stat.status||'tidak ada')+kv('Dataset tertunda',stat.pendingDatasets||0)+kv('Operasi tertunda',stat.pendingOperations||0)+kv('Field Zero',game.status||'tidak ada')+kv('Konflik game',game.conflict?'Ada':'Tidak');
-  $('#recovery').innerHTML=kv('Safe Mode',d.safeMode?'Aktif':'Nonaktif')+kv('Rollback cache',d.rollback?.available?'Tersedia':'Belum tersedia')+kv('Rollback aktif',d.rollback?.enabled?'Ya':'Tidak')+kv('Worker',d.health?.apiVersion||'—');
+  $('#recovery').innerHTML=kv('Dataset aktif',d.recovery?.activeDataset||'—')+kv('Versi dataset lokal',d.recovery?.statVersions||0)+kv('Checkpoint Field Zero',d.recovery?.gameCheckpoints||0)+kv('Safe Mode',d.safeMode?'Aktif':'Nonaktif')+kv('Rollback cache',d.rollback?.available?'Tersedia':'Belum tersedia')+kv('Rollback aktif',d.rollback?.enabled?'Ya':'Tidak')+kv('Worker',d.health?.apiVersion||'—');
   $('#safe').textContent=d.safeMode?'Keluar Safe Mode':'Aktifkan Safe Mode';
   $('#rollback').textContent=d.rollback?.enabled?'Kembali ke versi terbaru':'Gunakan versi sebelumnya';$('#rollback').disabled=!d.rollback?.available&&!d.rollback?.enabled;
   $('#errors').textContent=d.errors?.length?JSON.stringify(d.errors,null,2):'Belum ada error yang tercatat.';
