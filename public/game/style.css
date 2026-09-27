@@ -2324,3 +2324,23 @@ body.theme-light select,
 body.theme-light textarea,
 body.theme-light button{color-scheme:light}
 body.theme-light ::selection{background:#bde1ca;color:#153c28}
+body.theme-light :is(.stage-badge,.count-badge,.cost-badge){
+  background:#e7f0ea!important;
+  color:#4c6658!important
+}
+body.theme-light #closeInspectorSheet{
+  background:#fff!important;
+  border-color:#bdcfc3!important;
+  color:#355746!important
+}
+body.theme-light .toast{
+  background:#fff!important;
+  border-color:#a9c3b2!important;
+  color:#244a37!important;
+  box-shadow:0 8px 24px rgba(40,72,54,.16)!important
+}
+body.theme-light .progress-track{background:#dce8e0!important}
+body.theme-light .play-hint>span{background:#dceee2!important;color:#256543!important}
+body.theme-light .field-tool-dock button[aria-pressed=true] .tool-icon{background:#cfe6d6!important}
+body.theme-light .social-avatar{border-color:#bed0c4!important}
+
