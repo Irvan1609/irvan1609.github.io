@@ -113,14 +113,14 @@ for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',print
 }
 if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
-for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','autoDetect','detectColor','detectSensitivity','detectOnLoad','reviewLow','deleteSelected','zoomReset','saveDesktop','qualityGate','autoNext','autoIncrement','batchAuto','condition','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
+for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','countState','autoDetect','detectColor','detectSensitivity','detectOnLoad','reviewLow','deleteSelected','zoomReset','saveDesktop','qualityGate','autoNext','autoIncrement','batchAuto','condition','blindValidation','lockTestSet','splitMode','exportDataset','measurePhoto','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
   if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
 }
 for(const marker of ['capture="environment"','playsinline','mobile-actionbar','Pas layar'])if(!chiliHtml.includes(marker))fail(`hitung-cabai mobile UI missing ${marker}`);
 const chiliStyle = fs.readFileSync('public/hitung-cabai/style.css','utf8');
 if(!chiliStyle.includes('#viewport{position:relative;width:100%')||!chiliStyle.includes('overflow:hidden'))fail('hitung-cabai viewport must fit width without internal scrolling');
 if(chiliHtml.includes('<style>'))fail('hitung-cabai styles must be consolidated in external stylesheet');
-for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizeBlob','imageBlob','pinchStart','reviewIndices','maybeAutoBatch','checkDuplicate','warmOfflineModel','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
+for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizeBlob','imageBlob','pinchStart','reviewIndices','maybeAutoBatch','checkDuplicate','checkPhotoDuplicate','warmOfflineModel','measureCurrentPhoto','blindActive','datasetSplit','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
 for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','mergeFragments'])if(!chiliDetector.includes(marker))fail(`hitung-cabai detector missing ${marker}`);
 if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
 
@@ -257,7 +257,7 @@ for(const marker of ["primaryNav.className='nav-primary'","utilityNav.className=
 }
 if(/\['dataMenu','Data',\[[^\]]*fieldLayoutTool/.test(navigation))fail('Denah must be a separate primary tab, not a Data menu item');
 if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader.includes('summary::before'))fail('shared phone header must use compact icon menu');
-if(!chiliStyle.includes('@media(max-width:680px)')||!chiliStyle.includes('.mobile-actionbar'))fail('Hitung Cabai phone workspace override missing');
+if(!chiliStyle.includes('@media(max-width:680px)')||!chiliStyle.includes('.mobile-actionbar')||!chiliStyle.includes('.research-panel'))fail('Hitung Cabai phone workspace override missing');
 
 console.log(`UI contract OK: simplified Statistical Web with direct metadata editing, live column typing, drag reorder, and no frozen table.`);
 
