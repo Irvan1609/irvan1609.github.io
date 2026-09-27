@@ -88,6 +88,19 @@ function openPalette(){
 function toggleSafeMode(){
   const enable=!safeMode();localStorage.setItem(SAFE_KEY,enable?'1':'0');location.reload();
 }
+async function rollbackStatus(){
+  try{
+    const names=await caches.keys(),previous=names.filter(name=>name.startsWith('agrotik-core-')).sort();
+    const cache=await caches.open('agrotik-control'),response=await cache.match('/__agrotik_rollback__'),data=response?await response.json():null;
+    return {available:previous.length>1,enabled:Boolean(data?.enabled),versions:previous};
+  }catch{return {available:false,enabled:false,versions:[]};}
+}
+async function setRollback(enabled){
+  if(!navigator.serviceWorker?.controller){showToast('Service Worker belum aktif untuk rollback.');return false;}
+  navigator.serviceWorker.controller.postMessage({type:'ROLLBACK_PREVIOUS',enabled:Boolean(enabled)});
+  await new Promise(resolve=>setTimeout(resolve,120));
+  location.reload();return true;
+}
 async function copyErrorReport(){
   const info=await storageInfo(),errors=safeJson(localStorage.getItem(ERROR_KEY)||'[]',[]);
   const report={generatedAt:now(),path:location.pathname,browser:navigator.userAgent,online:navigator.onLine,safeMode:safeMode(),storage:{usage:info.usage,quota:info.quota,ratio:Number(info.ratio.toFixed(4)),persisted:info.persisted},queue:safeJson(localStorage.getItem(QUEUE_KEY)||'null',null),errors:errors.slice(0,8)};
@@ -106,7 +119,7 @@ async function runDiagnostics({includeNetwork=true}={}){
     try{const r=await fetch(endpoint+'/v1/health',{cache:'no-store'});health=await r.json();checks.push({id:'worker',label:'Worker API',ok:r.ok&&health?.ok===true,detail:health?.apiVersion||String(r.status)});}catch{checks.push({id:'worker',label:'Worker API',ok:false,detail:'Tidak dapat dihubungi'});}
     try{const r=await fetch(endpoint+'/v1/cloud/status',{cache:'no-store'});cloud=await r.json();checks.push({id:'cloud',label:'Cloud mode',ok:r.ok,detail:cloud?.effectiveMode||String(r.status)});}catch{checks.push({id:'cloud',label:'Cloud mode',ok:false,detail:'Tidak dapat dibaca'});}
   }
-  return {generatedAt:now(),checks,storage,health,cloud,queue:safeJson(localStorage.getItem(QUEUE_KEY)||'null',null),recent:readRecent().slice(0,8),errors:safeJson(localStorage.getItem(ERROR_KEY)||'[]',[]).slice(0,8),safeMode:safeMode()};
+  return {generatedAt:now(),checks,storage,health,cloud,queue:safeJson(localStorage.getItem(QUEUE_KEY)||'null',null),recent:readRecent().slice(0,8),errors:safeJson(localStorage.getItem(ERROR_KEY)||'[]',[]).slice(0,8),safeMode:safeMode(),rollback:await rollbackStatus()};
 }
 function injectRecentHome(){
   if(location.pathname!=='/'||document.getElementById('agrotikRecent'))return;
@@ -124,5 +137,5 @@ function setup(){
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();}});
   if('requestIdleCallback'in window)requestIdleCallback(()=>checkStorageGuard(),{timeout:2500});else setTimeout(()=>checkStorageGuard(),1200);
 }
-window.AgrotikResilience={openPalette,runDiagnostics,storageInfo,copyErrorReport,toggleSafeMode,get safeMode(){return safeMode();},readRecent};
+window.AgrotikResilience={openPalette,runDiagnostics,storageInfo,copyErrorReport,toggleSafeMode,rollbackStatus,setRollback,get safeMode(){return safeMode();},readRecent};
 setup();
