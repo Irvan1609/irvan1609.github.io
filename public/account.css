@@ -58,3 +58,6 @@
 .account-cloud-panel{position:absolute;right:0;top:34px;z-index:80;min-width:170px;padding:8px;border:1px solid #d7e0e7;border-radius:8px;background:#fff;box-shadow:0 6px 18px #0002;font:12px/1.35 system-ui;color:#29414f}
 .account-cloud-panel b,.account-cloud-panel span{display:block}.account-cloud-panel span{margin-top:3px}
 @media(max-width:640px){.account-cloud-button{width:34px;height:34px}.account-cloud-panel{right:-36px}}
+
+.account-cloud-command{width:100%;margin-top:7px;border:1px solid #dbe4ea;border-radius:7px;background:#f7f9fa;color:#29414f;padding:7px 8px;font:700 11px/1.2 system-ui;text-align:left;cursor:pointer}
+.account-cloud-command:hover{background:#edf2f5}
