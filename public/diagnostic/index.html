@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Diagnostic · Agrotik</title>
+  <link rel="stylesheet" href="/account.css?v=20260927-1">
+  <style>
+    :root{font-family:"Segoe UI",Arial,sans-serif;color:#233b4d;background:#f5f7f8}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f5f7f8}
+    header{position:sticky;top:0;z-index:20;border-bottom:1px solid #dce4e9;background:#fff}
+    .bar{max-width:980px;margin:auto;display:flex;align-items:center;gap:8px;padding:7px 12px}
+    .bar a{color:#345165;text-decoration:none;font-weight:750;font-size:13px}.bar h1{margin:0;font-size:14px;flex:1}
+    main{max-width:980px;margin:auto;padding:12px}
+    .panel{border:1px solid #dbe3e8;border-radius:12px;background:#fff;padding:12px}.panel+.panel{margin-top:10px}
+    .head{display:flex;align-items:center;justify-content:space-between;gap:8px}.head h2{margin:0;font-size:15px}.head p{margin:3px 0 0;color:#71818d;font-size:12px}
+    button{min-height:38px;padding:7px 10px;border:1px solid #d1dce4;border-radius:8px;background:#fff;color:#2d485b;font-weight:750;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px;margin-top:10px}
+    .item{display:flex;justify-content:space-between;gap:8px;padding:8px;border:1px solid #edf1f4;border-radius:8px}.item span{color:#687a87;font-size:12px}.item b{font-size:12px;text-align:right}
+    .queue{margin-top:8px}.queue article{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #edf1f4}.queue small{display:block;color:#768793;margin-top:2px}
+    .muted{color:#7b8a95;font-size:12px}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    @media(max-width:640px){.bar{padding:7px 9px}main{padding:8px}.panel{padding:10px}.head{align-items:flex-start}.grid{grid-template-columns:1fr}.head button{min-width:42px}.actions{display:grid;grid-template-columns:1fr}.actions button{min-height:44px}}
+  </style>
+</head>
+<body>
+<header><div class="bar"><a href="/">← Agrotik</a><h1>Diagnostic</h1><div id="accountMount"></div></div></header>
+<main>
+  <section class="panel">
+    <div class="head"><div><h2>Self-check perangkat</h2><p>Read-only. Tidak meminta izin kamera dan tidak mengubah data penelitian.</p></div><button id="run" type="button">Periksa</button></div>
+    <div id="state" class="muted" style="margin-top:8px">Menyiapkan pemeriksaan…</div>
+    <div id="grid" class="grid" hidden></div>
+    <div class="actions"><button id="copy" type="button" disabled>Salin diagnostic</button><button id="copyError" type="button" disabled>Salin laporan error</button><button id="safe" type="button">Safe Mode</button></div>
+  </section>
+  <section class="panel">
+    <div class="head"><div><h2>Antrean lokal</h2><p>Hanya status pekerjaan yang belum tersinkron; data lokal tidak dihapus dari sini.</p></div></div>
+    <div id="queue" class="queue"><span class="muted">Tidak ada antrean yang terdeteksi.</span></div>
+  </section>
+</main>
+<script type="module" src="/account.js?v=20260927-shell1"></script>
+<script type="module" src="/diagnostic/app.js?v=20260927-1"></script>
+<script src="/pwa-register.js" defer></script>
+</body>
+</html>
