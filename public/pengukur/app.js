@@ -372,7 +372,7 @@ async function processBatchAutomatic(){
   batchBusy=false;updateBatchControls();tell(`Batch selesai · ${ok} foto berhasil · ${objects} objek tersimpan · ${fail} foto perlu diperiksa manual.`);
 }
 function sendStat(){
-  try{const out=measurementsToStatistics(localStorage,records);tell(`${out.rowCount} baris dikirim ke dataset ${out.dataset} di /stat.`);window.open('/stat/','_blank','noopener');}
+  try{const out=measurementsToStatistics(localStorage,records);window.AgrotikSystem?.activity?.(out.dataset||'Data Pengukur','/stat/','dataset');tell(`${out.rowCount} baris dikirim ke dataset ${out.dataset} di /stat.`);window.open('/stat/','_blank','noopener');}
   catch(error){tell('Gagal mengirim ke /stat: '+error.message);}
 }
 function calibratedBlob(callback){
