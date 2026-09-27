@@ -20,7 +20,9 @@ for(const marker of [
 for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS"]){
   if(sw.includes(forbidden))fail('service worker must not contain legacy eager prefetch '+forbidden);
 }
-const coreUrlsBlock=sw.match(/const CORE_URLS=\\[([\\s\\S]*?)\\];/)?.[1]||'';
+const coreStart=sw.indexOf('const CORE_URLS=[');
+const coreEnd=coreStart>=0?sw.indexOf('];',coreStart):-1;
+const coreUrlsBlock=coreStart>=0&&coreEnd>coreStart?sw.slice(coreStart,coreEnd+2):'';
 for(const forbidden of ["'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/pengukur/'"]){
   if(coreUrlsBlock.includes(forbidden))fail('service worker must not eagerly preload '+forbidden);
 }
