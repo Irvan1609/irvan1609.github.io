@@ -2065,3 +2065,262 @@ body.theme-light .plot.sick{box-shadow:inset 0 0 0 1px rgba(185,77,77,.28)}
 body.theme-light .plot.ready{border-color:#b58935}
 body.theme-light .plot.stressed{border-color:#b4753d}
 body.theme-light .agrotik-credit{color:#65796e}
+
+
+/* FIELD ZERO LIGHT THEME CLEANUP 2026-09-27 */
+html[data-theme="light"]{
+  --bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
+  --ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
+  color-scheme:light;
+  background:#f3f7f4
+}
+body.theme-light{
+  --surface:#ffffff;
+  --surface-soft:#f8fbf9;
+  --surface-muted:#edf4ef;
+  --surface-active:#e3efe7;
+  --surface-warm:#fff8e9;
+  --light-line:#c7d6cc;
+  --light-line-strong:#aec5b6;
+  --light-text:#183126;
+  --light-muted:#61756a
+}
+
+/* Surfaces that were still hard-coded for the dark theme. */
+body.theme-light :is(
+  .meta-strip button,.tech-node,.expedition-list button,.expedition-running,.genome-start,.evolution-node,
+  .world-node,.challenge-grid button,.rival-grid button,.record-list>div,.lineage-tree article,.codex-grid>div,
+  .seed-item,.discovery,.quick-menu-grid button,.social-me-rank,.social-player,.music-picker button,
+  .help-steps>div,.failure-result,.decision-review article,.selection-list article,.academy-intro,
+  .academy-track-grid article,.design-concept,.professor-case,.stat-interpretation,.professor-feedback,
+  .stat-kpis>div,.genotype-preview span,.cross-protocol-steps li,.professor-casebook button,
+  .stat-correlation,.selection-differential,.care-center>header
+){
+  background:var(--surface-soft);
+  border-color:var(--light-line);
+  color:var(--light-text)
+}
+body.theme-light :is(
+  .genome-start button,.genome-choices button,.mini-button,.collection-toolbar button,.world-node button,
+  .seed-item button,.social-player-actions button,.music-picker button,.academy-intro button,
+  .selection-list button,.selection-modes button,.professor-stat-actions button
+){
+  background:var(--surface);
+  border-color:var(--light-line-strong);
+  color:var(--light-text)
+}
+body.theme-light :is(
+  .trait,.codex-list span,.lineage-tree article>span,.social-avatar,.field-tool-dock .tool-icon,
+  #attentionToggle b,.experiment-history-list article>div span,.research-steps span b,
+  .cross-protocol-steps li>b,.design-audit-list>div>b,.professor-casebook button>span
+){
+  background:var(--surface-muted);
+  color:#416454
+}
+body.theme-light :is(.trait.rare,.daily-card,.prestige-card,.best-candidate){
+  background:#fff8e8;
+  border-color:#dec994;
+  color:#6f571c
+}
+body.theme-light .trait.legendary,
+body.theme-light .genome-markers b{
+  background:#f5eff9;
+  border-color:#ccb9d8;
+  color:#765887
+}
+
+/* The default compact/calm UI is always enabled, so it needs its own light palette. */
+body.theme-light.calm-ui :is(
+  .game-quick-nav,.hud,.season-bar,.field-context,.field-tool-dock,.field-block,.inspector,
+  .lab-hub:not([open]),.lower-grid .compact-panel:not([open]),.game-workflow,.wizard-factor-b,
+  .research-review>div,.augmented-intro,.candidate-metrics span,.recovery-list article,
+  .breeder-notebook article,.experiment-history-list article,.generation-compare article,
+  .decision-review,.research-steps span,.experiment-data-details
+){
+  background:var(--surface-soft)!important;
+  border-color:var(--light-line)!important;
+  color:var(--light-text)!important
+}
+body.theme-light.calm-ui :is(
+  .field-context>button,.mobile-command-row button,.field-primary-actions button,
+  .inspector-head-actions>button,.wizard-actions button,.experiment-wizard>.competition-launch,
+  .focus-experiment-actions button,.analysis-shortcuts button,.recovery-list button
+){
+  background:var(--surface)!important;
+  border-color:var(--light-line-strong)!important;
+  color:var(--light-text)!important
+}
+body.theme-light.calm-ui .play-hint{
+  background:#eef6f0!important;
+  border-color:#c9dace!important;
+  color:#426353!important
+}
+body.theme-light.calm-ui .game-workflow span{color:#718379}
+body.theme-light.calm-ui .game-workflow span.active{
+  background:#dfeee4!important;
+  color:#245b3c!important
+}
+body.theme-light.calm-ui .field-tool-dock button{
+  background:transparent!important;
+  color:#50675a!important
+}
+body.theme-light.calm-ui .field-tool-dock button[aria-pressed=true]{
+  background:#dceee2!important;
+  color:#1f6842!important
+}
+body.theme-light.calm-ui .field-tool-dock button::after{color:#64786c}
+body.theme-light.calm-ui .field-tool-dock .tool-icon{background:#e5f0e8;color:#315d47}
+body.theme-light.calm-ui .plot{
+  background:#eef6f0!important;
+  border-color:#bfd1c5!important;
+  color:var(--light-text)!important
+}
+body.theme-light.calm-ui .plot.empty{background:#f5f8f6!important}
+body.theme-light.calm-ui .plot.selected{
+  border-color:#3d9866!important;
+  box-shadow:inset 0 0 0 1px rgba(47,143,91,.3)!important
+}
+body.theme-light.calm-ui .plot-top{color:#687d71!important}
+body.theme-light.calm-ui .plot-empty-mark{color:#8ba095!important}
+body.theme-light.calm-ui .plot-health{background:#dce7df!important}
+body.theme-light.calm-ui .plot-health i{background:#4b9a68!important}
+body.theme-light.calm-ui .inspector .stage-badge{
+  background:#e4efe7!important;
+  color:#496456!important
+}
+body.theme-light.calm-ui :is(.seed-card-preview,.stat-box){
+  background:#fff!important;
+  border-color:#cbd9d0!important
+}
+body.theme-light.calm-ui .compact-panel summary{color:#4f675a}
+body.theme-light.calm-ui .day-actions{
+  background:rgba(255,255,255,.97)!important;
+  border-color:#c5d5cb!important
+}
+body.theme-light.calm-ui .day-actions button:not(.primary){
+  background:#f8fbf9!important;
+  border-color:#bdcfc3!important;
+  color:#254a37!important
+}
+body.theme-light.calm-ui .day-actions .primary{
+  background:#2f8f5b!important;
+  border-color:#2f8f5b!important;
+  color:#fff!important
+}
+body.theme-light.calm-ui .field-primary-actions button:hover,
+body.theme-light.calm-ui .field-primary-actions button:focus-visible,
+body.theme-light.calm-ui .head-actions .icon-button:hover,
+body.theme-light.calm-ui .head-actions .icon-button:focus-visible,
+body.theme-light.calm-ui .game-quick-nav button:hover,
+body.theme-light.calm-ui .game-quick-nav button:focus-visible{
+  background:#e7f1ea!important;
+  color:#1f5d3d!important
+}
+body.theme-light.calm-ui .research-steps span.active{
+  background:#e2efe6!important;
+  border-color:#9fbea9!important;
+  color:#285b40!important
+}
+body.theme-light.calm-ui .research-steps span.done b{background:#d9ebe0!important;color:#2d7049!important}
+body.theme-light.calm-ui :is(.experiment-wizard input,.experiment-wizard select,.experiment-wizard textarea){
+  background:#fff!important;
+  border-color:#becfc4!important;
+  color:#183126!important
+}
+body.theme-light.calm-ui :is(.experiment-wizard label,.experiment-wizard small,.wizard-note,.research-review small){
+  color:#65796e!important
+}
+body.theme-light.calm-ui .augmented-ranking header{
+  background:#edf4ef!important;
+  border-color:#cbd9d0!important
+}
+body.theme-light.calm-ui .first-season-note{
+  background:#edf6f0!important;
+  color:#50695b!important
+}
+body.theme-light.calm-ui .advance-notice{
+  background:#fff8e9!important;
+  border-color:#d9bd79!important;
+  color:#6f581f!important
+}
+
+/* Lab, analysis, social and research interiors. */
+body.theme-light :is(
+  .experiment-table,.academy-glossary,.design-audit-list>div,.treatment-means span,
+  .experiment-question,.competition-diagnostics,.decision-review,.selection-differential span
+){
+  background:#fff!important;
+  border-color:#cbd9d0!important;
+  color:var(--light-text)!important
+}
+body.theme-light :is(.experiment-table th,.anova-table thead){
+  background:#e8f1eb!important;
+  color:#4e6759!important
+}
+body.theme-light :is(.experiment-table td,.anova-table td,.anova-table th){
+  border-color:#d5e1d9!important
+}
+body.theme-light :is(.experiment-badge,.daily-card,.prestige-card){
+  color:#70571b
+}
+body.theme-light .experiment-badge{
+  background:#fff8df!important;
+  border-color:#d8c16f!important
+}
+body.theme-light .experiment-badge.applied{
+  background:#e4f3e9!important;
+  border-color:#8cb89d!important;
+  color:#276440!important
+}
+body.theme-light .selection-modes button[aria-pressed=true],
+body.theme-light .music-picker button.active,
+body.theme-light .challenge-grid button.active,
+body.theme-light .rival-grid button.active,
+body.theme-light .tech-node.owned,
+body.theme-light .professor-casebook button.done{
+  background:#e1efe6!important;
+  border-color:#79a98a!important;
+  color:#245c3d!important
+}
+body.theme-light :is(.social-player-actions .aid-button,.social-player-actions .burn-button){
+  background:#f8fbf9!important
+}
+body.theme-light .social-player-actions .aid-button{border-color:#9bbdd1!important;color:#346b89!important}
+body.theme-light .social-player-actions .burn-button{border-color:#d2a58c!important;color:#8a4d2e!important}
+body.theme-light .field-tool-dock button[data-field-tool="harvest"]{
+  background:#fff8e2!important;
+  border-color:#d3bc68!important;
+  color:#6b5716!important
+}
+body.theme-light .field-tool-dock button[data-field-tool="treatment"]{
+  background:#f7f0fa!important;
+  border-color:#cbb9d6!important;
+  color:#705481!important
+}
+
+/* Mobile bars and sheets must not fall back to the old dark hard-coded backgrounds. */
+@media(max-width:620px){
+  body.theme-light .game-quick-nav,
+  body.theme-light.calm-ui .game-quick-nav,
+  body.theme-light .field-tool-dock,
+  body.theme-light.calm-ui .field-tool-dock,
+  body.theme-light .day-actions,
+  body.theme-light.calm-ui .day-actions{
+    background:rgba(255,255,255,.98)!important;
+    border-color:#c5d5cb!important;
+    box-shadow:0 -4px 14px rgba(40,72,54,.08)!important
+  }
+  body.theme-light .inspector,
+  body.theme-light.calm-ui .inspector{
+    background:#fff!important;
+    border-color:#c5d5cb!important;
+    box-shadow:0 -10px 26px rgba(40,72,54,.14)!important
+  }
+}
+
+/* Native controls and browser surface should also stay light. */
+body.theme-light input,
+body.theme-light select,
+body.theme-light textarea,
+body.theme-light button{color-scheme:light}
+body.theme-light ::selection{background:#bde1ca;color:#153c28}
