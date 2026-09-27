@@ -12,10 +12,10 @@ const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840,organic:6
 const PLANT_COST=COSTS.plant,COMMERCIAL_SEED_PACK_COST=18000,COMMERCIAL_SEED_PACK_SIZE=8;
 const PLOT_USES={commercial:{icon:'Rp',name:'Produksi'},research:{icon:'📐',name:'Penelitian'},breeding:{icon:'🧬',name:'Pemuliaan'}};
 const SPECIES={
-  maize:{id:'maize',name:'Jagung',latin:'Zea mays',icon:'🌽',maturityDays:110,marketBase:5500,growthRate:1,waterUse:1,nUse:1,yieldScale:1,unlockSeason:1,desc:'Sereal menyerbuk silang; cocok untuk hibrida, inbrida, ASI, dan G×E.'},
-  chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',icon:'🌶',maturityDays:145,marketBase:36000,growthRate:.92,waterUse:1.04,nUse:.94,yieldScale:.56,unlockSeason:1,desc:'Hortikultura bernilai tinggi; responsif terhadap air, mulsa, dan penyakit.'},
-  rice:{id:'rice',name:'Padi',latin:'Oryza sativa',icon:'🌾',maturityDays:120,marketBase:6500,growthRate:.96,waterUse:.84,nUse:1.04,yieldScale:.86,unlockSeason:3,desc:'Tanaman sawah; menekankan anakan, malai, drainase, dan pengelolaan N.'},
-  soybean:{id:'soybean',name:'Kedelai',latin:'Glycine max',icon:'🫘',maturityDays:95,marketBase:10500,growthRate:1.05,waterUse:.94,nUse:.8,yieldScale:.72,unlockSeason:3,desc:'Legum menyerbuk sendiri; cocok untuk seleksi galur dan komponen polong.'}
+  maize:{id:'maize',name:'Jagung',latin:'Zea mays',icon:'🌽',maturityDays:110,marketBase:5500,growthRate:1,waterUse:1,nUse:1,yieldScale:1,unlockSeason:1,desc:'Menyerbuk silang; cocok untuk hibrida, ASI, dan G×E.'},
+  chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',icon:'🌶',maturityDays:145,marketBase:36000,growthRate:.92,waterUse:1.04,nUse:.94,yieldScale:.56,unlockSeason:1,desc:'Hortikultura bernilai tinggi; sensitif air dan penyakit.'},
+  rice:{id:'rice',name:'Padi',latin:'Oryza sativa',icon:'🌾',maturityDays:120,marketBase:6500,growthRate:.96,waterUse:.84,nUse:1.04,yieldScale:.86,unlockSeason:3,desc:'Tanaman sawah; fokus anakan, malai, air, dan N.'},
+  soybean:{id:'soybean',name:'Kedelai',latin:'Glycine max',icon:'🫘',maturityDays:95,marketBase:10500,growthRate:1.05,waterUse:.94,nUse:.8,yieldScale:.72,unlockSeason:3,desc:'Legum menyerbuk sendiri; cocok untuk seleksi galur.'}
 };
 function seasonLengthFor(speciesId='maize',challengeId='standard'){
   const maturity=Number((SPECIES[speciesId]||SPECIES.maize).maturityDays)||110;
