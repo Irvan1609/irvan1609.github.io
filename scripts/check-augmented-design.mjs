@@ -48,6 +48,12 @@ assert.ok(Number.isFinite(out.workSummary.standardError));
 assert.ok(Number.isFinite(out.workSummary.lsd));
 assert.ok(Number.isFinite(out.workSummary.cv));
 assert.ok(out.means.filter(item=>item.type==='Test').every(item=>Number.isFinite(item.pCheckHolm)));
+assert.equal(out.pairwise.length,28);
+assert.ok(out.pairwise.every(item=>Number.isFinite(item.se)&&Number.isFinite(item.p)&&Number.isFinite(item.pHolm)));
+assert.equal(out.selection.length,6);
+assert.ok(out.selection.every(item=>item.comparisons.length===2));
+assert.ok(out.selection.flatMap(item=>item.comparisons).every(item=>item.significant===(item.diff>0&&item.diff>out.workSummary.lsd)));
+near(out.workSummary.standardError,out.pairwise.reduce((sum,item)=>sum+item.se,0)/out.pairwise.length);
 
 const manual=augmentedRcbAnova(rows,{checks:['C1','C2'],alpha:.01});
 assert.deepEqual(manual.checks,['C1','C2']);
@@ -63,15 +69,15 @@ const missingCheck=rows.filter(row=>!(row[0]==='B3'&&row[1]==='C2'));
 assert.throws(()=>augmentedRcbAnova(missingCheck,{checks:['C1','C2']}),/setiap check hadir di setiap blok/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augParameterCount','Parameter numerik dipilih otomatis','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','ANOVA utama Work / SAS · Type III','Partisi perlakuan Work / SAS · Type I','Ringkasan kompatibilitas Work','Kode SAS','augComparison','augPrecision','pCheckHolm','structuralAugmentedColumn','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-work-role-form','augParameterCount','Parameter numerik dipilih otomatis','augCheckMarker','checkMarkerOptions','checksFromMarker','markerMeansCheck','augAdvanced','augStructure','structurePreview','Hasil analisis','Rerata & seleksi','Kode SAS','Panduan & metode','ANOVA utama · SS Type III','Partisi perlakuan · SS Type I','augComparison','augPrecision','Sesuai contoh Excel','selectionTable','checkPairTable','lsdWork','structuralAugmentedColumn','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
 for(const marker of ["['augmented','augmented','Augmented Design'","data-analysis-open","augmented-design-workflow.js","key:'augmented:augmented'"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
-console.log('Augmented design verified: complete checks, adjusted means, Type III whole-treatment model, Work/SAS Type I partitions, Holm, Work summary, SAS code UI, comparison SE classes, and invalid-design guards.');
+console.log('Augmented design verified: Work check-marker setup, Excel precision default, Type III + Type I ANOVA, LSMEANS pairwise selection, global Work LSD, Holm, SAS output, and mobile result sections.');
 
 const dataTools=fs.readFileSync(new URL('../src/data-tools.js',import.meta.url),'utf8');
 assert.ok(dataTools.includes("openTool(title,html,mode=''"),'openTool mode missing');
 const css=fs.readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
-for(const marker of ['AUGMENTED WORKSPACE REFINEMENT','STAT SIMPLE-FIRST UI','data-tool-mode="augmented"','.aug-simple-form','.aug-result-summary','.aug-anova-grid','.aug-view-summary'])assert.ok(css.includes(marker),`augmented UI CSS missing ${marker}`);
+for(const marker of ['AUGMENTED WORKSPACE REFINEMENT','STAT SIMPLE-FIRST UI','AUGMENTED WORK PARITY 2026-09-28','data-tool-mode="augmented"','.aug-work-role-form','.aug-selection-pane','.aug-view-analysis','.aug-view-selection','.aug-view-sas','.aug-view-method'])assert.ok(css.includes(marker),`augmented UI CSS missing ${marker}`);
 
 // UI refresh trigger after master syntax repair
