@@ -308,11 +308,22 @@ function loadActive(save=true){
   applyActiveCsv(stored);localHydrationPromise=Promise.resolve();
   return localHydrationPromise;
 }
+function datasetDimensionLabel(name){
+  if(name===state.active)return `${state.rows.length} × ${state.headers.length}`;
+  const stored=state.files[name]??'';
+  if(localStoreReady()&&isLocalPointer(stored))return 'lokal';
+  const text=String(stored||'');
+  if(!text.trim())return '0 × 0';
+  try{
+    const parsed=csvRows(text,',');
+    return `${Math.max(0,parsed.length-1)} × ${parsed[0]?.length||0}`;
+  }catch{return '—';}
+}
 function renderTree(){
   const tree=$('#fileTree');if(!tree)return;
   const query=($('#datasetSearch')?.value||'').trim().toLocaleLowerCase('id-ID');
   const names=Object.keys(state.files).filter(name=>!query||displayDatasetName(name).toLocaleLowerCase('id-ID').includes(query));
-  tree.innerHTML=names.length?names.map(name=>`<button type="button" class="tree-item ${name===state.active?'active':''}" data-file="${esc(name)}">📄 ${esc(displayDatasetName(name))}</button>`).join(''):'<div class="dataset-empty-search">Tidak ada dataset yang cocok.</div>';
+  tree.innerHTML=names.length?names.map(name=>`<button type="button" class="tree-item ${name===state.active?'active':''}" data-file="${esc(name)}"><span class="dataset-tree-name">${esc(displayDatasetName(name))}</span><small class="dataset-tree-size">${esc(datasetDimensionLabel(name))}</small></button>`).join(''):'<div class="dataset-empty-search">Tidak ada dataset yang cocok.</div>';
 }
 function columnHeaderMarkup(header){
   const meta=parseParameterHeader(header);
