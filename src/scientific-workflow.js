@@ -584,8 +584,11 @@ async function analyze(){
     $('#scienceValidation').innerHTML=`<div class="error-box" role="alert"><b>Analisis belum dapat dijalankan.</b><p>${esc(error.message)}</p></div>`;
     setRunState('error','Gagal',error.message);
   }finally{
-    if(phoneGuardMode()&&$('#scientificModal').classList.contains('open'))validate();
-    else{button.disabled=false;button.setAttribute('aria-disabled','false');button.textContent='Jalankan analisis';}
+    const status=$('#scienceRunStatus'),finalState=status?.dataset.state||'idle',finalText=status?.textContent||'',finalTitle=status?.title||'';
+    if(phoneGuardMode()&&$('#scientificModal').classList.contains('open')){
+      validate();
+      if(['done','error'].includes(finalState))setRunState(finalState,finalText,finalTitle);
+    }else{button.disabled=false;button.setAttribute('aria-disabled','false');button.textContent='Jalankan analisis';}
   }
 }
 export function openScientific(design){
