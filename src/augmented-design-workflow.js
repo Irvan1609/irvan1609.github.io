@@ -247,35 +247,70 @@ data LSD_CV;
   CV=(Standard_Error/Grand_Mean)*100;
 run;`;
 }
-function sasPanel(out){
-  return `<details class="aug-sas-panel"><summary>Kode SAS</summary><div class="aug-sas-actions"><button type="button" data-copy-aug-sas>Salin kode</button><span data-aug-sas-status role="status"></span></div><textarea class="aug-sas-code" readonly spellcheck="false">${esc(sasCode(out))}</textarea></details>`;
+function selectionTable(out){
+  const useHolm=out.comparisonMethod==='holm';
+  const rows=(out.selection||[]).map(item=>{
+    const wins=useHolm?item.winsHolm:item.wins;
+    const status=wins===item.checkCount&&wins>0?'Unggul semua check':wins>0?'Unggul sebagian check':'Belum unggul nyata';
+    const cls=wins===item.checkCount&&wins>0?'aug-select-strong':wins>0?'aug-select-partial':'';
+    return `<tr class="${cls}"><td>${item.rank}</td><td><b>${esc(item.treatment)}</b></td><td>${esc(item.block)}</td><td>${fmtAug(out,item.adjusted)}</td><td>${wins}/${item.checkCount}</td><td>${status}</td></tr>`;
+  }).join('');
+  return `<div class="table-scroll"><table class="result-table aug-selection-table"><thead><tr><th>Rank</th><th>Entry uji</th><th>Blok</th><th>Adjusted mean</th><th>Unggul vs check</th><th>Seleksi</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function checkPairTable(out){
+  const useHolm=out.comparisonMethod==='holm';
+  const rows=(out.selection||[]).flatMap(item=>item.comparisons||[]).map(item=>{
+    const p=useHolm?item.pHolm:item.p,significant=useHolm?item.significantHolm:item.significant;
+    const result=item.diff>0&&significant?'Unggul nyata':item.diff>0?'Lebih tinggi, tn':item.diff<0&&significant?'Lebih rendah nyata':'tn';
+    return `<tr><td>${esc(item.test)}</td><td>${esc(item.check)}</td><td>${fmtAug(out,item.diff)}</td><td>${fmtAug(out,item.se)}</td><td>${fmtAug(out,item.lsd)}</td><td>${fmtAug(out,p,4)}</td><td>${result}</td></tr>`;
+  }).join('');
+  return `<div class="table-scroll"><table class="result-table aug-check-pairs"><thead><tr><th>Entry</th><th>Check</th><th>Selisih</th><th>SE beda</th><th>BNT</th><th>${useHolm?'p Holm':'p'}</th><th>Keputusan</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function sasPane(out){
+  return `<div class="aug-sas-pane"><div class="aug-sas-actions"><button type="button" data-copy-aug-sas>Salin kode SAS</button><span data-aug-sas-status role="status"></span></div><textarea class="aug-sas-code" readonly spellcheck="false">${esc(sasCode(out))}</textarea></div>`;
+}
+function methodPane(out){
+  return `<div class="aug-method-pane">
+    <div class="aug-method-grid">
+      <section><h4>Struktur rancangan</h4><p>Augmented RCBD klasik: setiap check hadir pada setiap blok, sedangkan setiap entry/galur uji diamati pada satu petak. Check menjadi penghubung antarblok.</p></section>
+      <section><h4>Model</h4><p>${esc(out.model)}. ANOVA utama mengikuti blok + genotipe dengan SS Type III. Partisi perlakuan mengikuti urutan Work/SAS: Line vs Check, Check, lalu Line(Check) dengan SS Type I.</p></section>
+      <section><h4>Rerata & seleksi</h4><p>Adjusted mean dihitung dari model blok + genotipe. Seleksi entry menggunakan perbandingan pairwise LSMEANS terhadap masing-masing check; mode Holm menyesuaikan seluruh p-value pairwise.</p></section>
+      <section><h4>Presisi</h4><p>Mode “Sesuai contoh Excel” membulatkan nilai respons menjadi 2 desimal sebelum analisis dan memotong tampilan JK/KK menjadi 2 desimal. Dataset sumber tidak diubah.</p></section>
+    </div>
+    <div class="aug-secondary-grid"><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section></div>
+  </div>`;
 }
 function renderAugmented(out,name,dataName){
   const warning=out.warnings.length?`<div class="analysis-smart-warning"><b>Periksa rancangan:</b> ${out.warnings.map(esc).join(' ')}</div>`:'';
   const cv=Number.isFinite(out.cv)?fmtAug(out,out.cv,2,'cv')+'%':'—';
-  const modeNote=out.reportMode==='excel'?'<div class="analysis-note">Mode sesuai contoh Excel: nilai respons dihitung dari input 2 desimal; JK dan KK laporan dipotong 2 desimal. Dataset sumber tidak diubah.</div>':'';
-  const comparisonNote=out.comparisonMethod==='holm'?'Holm aktif pada perbandingan entry uji terhadap rerata check.':'BNT/LSD memakai p individual entry uji terhadap rerata check.';
-  return `<section class="analysis-result augmented-result aug-view-summary" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
+  const modeNote=out.reportMode==='excel'?'<div class="analysis-note">Sesuai contoh Excel: respons dibulatkan 2 desimal sebelum analisis; JK dan KK laporan dipotong 2 desimal. Data sumber tetap utuh.</div>':'';
+  const useHolm=out.comparisonMethod==='holm';
+  const selected=(out.selection||[]).filter(item=>(useHolm?item.winsHolm:item.wins)>0).length;
+  const selectedAll=(out.selection||[]).filter(item=>{const wins=useHolm?item.winsHolm:item.wins;return wins===item.checkCount&&wins>0;}).length;
+  return `<section class="analysis-result augmented-result aug-view-analysis" data-export-scope data-dataset-name="${esc(dataName)}" data-parameter="${esc(name)}">
     <h3>Augmented RCBD — ${esc(name)}</h3>
-    <div class="aug-result-toolbar"><select data-aug-view-select aria-label="Tampilan hasil augmented"><option value="summary">Rataan</option><option value="anova">ANOVA</option><option value="detail">Detail</option></select></div>
-    <div class="aug-summary-pane">
-      <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Check</small></span><span><b>${out.tests.length}</b><small>Entry uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmtAug(out,out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>CV galat</small></span></div>
-      ${warning}
-      <div class="table-caption aug-main-caption">Rataan terkoreksi genotipe</div>${adjustedMeansTable(out)}
-      <div class="analysis-note">Δ vs check memakai rerata seluruh check. ${comparisonNote} ↑/↓ = arah selisih; * p &lt; 0,05; ** p &lt; 0,01.</div>
-      ${modeNote}
+    <div class="aug-result-toolbar"><select data-aug-view-select aria-label="Bagian hasil augmented"><option value="analysis">Hasil analisis</option><option value="selection">Rerata & seleksi</option><option value="sas">Kode SAS</option><option value="method">Panduan & metode</option></select></div>
+
+    <div class="aug-analysis-pane">
+      <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Kontrol</small></span><span><b>${out.tests.length}</b><small>Galur uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmtAug(out,out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>KK</small></span></div>
+      ${warning}${modeNote}
+      <div class="aug-anova-grid">
+        <section><div class="table-caption">ANOVA utama · SS Type III</div>${anovaTable(out.typeIII,out)}</section>
+        <section><div class="table-caption">Partisi perlakuan · SS Type I</div>${anovaTable(out.partitionAdjusted,out)}</section>
+      </div>
+      <section class="aug-work-summary-wrap"><div class="table-caption">Standard Error, Grand Mean, BNT & KK</div>${workSummaryTable(out)}</section>
     </div>
-    <div class="aug-anova-pane"><div class="aug-anova-grid">
-      <section><div class="table-caption">ANOVA utama Work / SAS · Type III</div>${anovaTable(out.typeIII,out)}</section>
-      <section><div class="table-caption">Partisi perlakuan Work / SAS · Type I</div>${anovaTable(out.partitionAdjusted,out)}</section>
-    </div></div>
-    <div class="aug-detail-pane">
-      <div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmtAug(out,out.checkAdjustedMean)}</b></span></div>
-      <div class="aug-secondary-grid"><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section></div>
-      <section class="aug-work-summary-wrap"><div class="table-caption">Ringkasan kompatibilitas Work</div>${workSummaryTable(out)}</section>
-      ${sasPanel(out)}
-      ${resultActions(`augmented-${name}`)}
+
+    <div class="aug-selection-pane">
+      <div class="aug-result-summary aug-selection-summary"><span><b>${out.tests.length}</b><small>Galur uji</small></span><span><b>${selected}</b><small>Unggul ≥1 check</small></span><span><b>${selectedAll}</b><small>Unggul semua check</small></span><span><b>${useHolm?'Holm':'BNT/LSD'}</b><small>Perbandingan</small></span></div>
+      <div class="table-caption">Keputusan seleksi terhadap check</div>${selectionTable(out)}
+      <div class="table-caption aug-main-caption">Rerata terkoreksi seluruh genotipe</div>${adjustedMeansTable(out)}
+      <details class="aug-pair-details"><summary>Perbandingan entry × check</summary>${checkPairTable(out)}</details>
     </div>
+
+    ${sasPane(out)}
+    ${methodPane(out)}
+    ${resultActions(`augmented-${name}`)}
   </section>`;
 }
 async function showResults(html,title,data,parameterCount){
@@ -291,7 +326,8 @@ async function showResults(html,title,data,parameterCount){
     body.dataset.datasetName=data.name||'Dataset';
     body.querySelectorAll('[data-aug-view-select]').forEach(select=>select.addEventListener('change',()=>{
       const section=select.closest('.augmented-result'),mode=select.value;
-      section.classList.remove('aug-view-summary','aug-view-detail');section.classList.add('aug-view-'+mode);
+      section.classList.remove('aug-view-summary','aug-view-anova','aug-view-detail','aug-view-analysis','aug-view-selection','aug-view-sas','aug-view-method');
+      section.classList.add('aug-view-'+mode);
       section.scrollIntoView({block:'start'});
     }));
     body.querySelectorAll('[data-copy-aug-sas]').forEach(button=>button.addEventListener('click',async()=>{
