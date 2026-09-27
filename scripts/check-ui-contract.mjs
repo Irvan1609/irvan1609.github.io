@@ -62,6 +62,11 @@ for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-s
 for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
 if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
 
+for(const marker of ['insertRowAt','insertColumnAt','cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
+for(const marker of ['position:sticky!important','analysis-dock-body .analysis-result-toolbar','science-context>span+span::before','.result-table td:first-child','.column-context-menu button','min-height:44px!important'])if(!statStyle.includes(marker))fail('responsive UI polish missing '+marker);
+for(const marker of ['/* SHARED SUBWEB UI RHYTHM 2026-09-27 */','--ag-ui-control-mobile:44px','--ag-ui-focus:#5f8ead'])if(!sharedHeader.includes(marker))fail('shared subweb design rhythm missing '+marker);
+
+
 
 const requiredIds = [
   'pasteBtn','importBtn','newTxt','addRow','addCol','clearData','file',
@@ -149,7 +154,9 @@ if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArro
 for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','toggleCompactEditor','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
 if(!main.includes('detectColumnType')||!main.includes('columnTooltip'))fail('editor must detect column types and expose metadata tooltips');
 if(!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing selection/compact/autosave styles');
-if(!statStyle.includes('/* No frozen table rows/columns. */')||!statStyle.includes('position:static!important'))fail('data table must not freeze rows or columns');
+for(const marker of ['/* STAT NON-DISRUPTIVE SPREADSHEET UX 2026-09-27 */','.data-grid thead th:nth-child(2)','left:58px!important','.data-grid td.cell-axis-row','@media(max-width:720px)']){
+  if(!statStyle.includes(marker))fail('responsive spreadsheet orientation/freeze styling missing '+marker);
+}
 if(!dataTools.includes("plant:$('#plantName')")||!dataTools.includes("treatment:$('#treatmentName')"))fail('analysis dataset must carry plant and treatment metadata');
 if(!scientific.includes('data-print-results')||!scientific.includes('datasetMeta={plant:data.plant'))fail('scientific results must include print mode and dataset context');
 
