@@ -4,6 +4,7 @@ import {analyzeExperiment,auditDesign,makeProgeny,genomeStats,speciesProfile,rec
 const root=fs.readFileSync('index.html','utf8');
 const html=fs.readFileSync('public/game/index.html','utf8');
 const css=fs.readFileSync('public/game/style.css','utf8');
+const themeCss=fs.readFileSync('public/game/theme.css','utf8');
 const app=fs.readFileSync('public/game/app.js','utf8');
 const themeInit=fs.readFileSync('public/game/theme-init.js','utf8');
 const competition=fs.readFileSync('public/game/competition.js','utf8');
@@ -30,9 +31,9 @@ for(const marker of ['id="phenologyStatus"','id="criticalTask"','id="timeStop"',
 for(const marker of ['GAME_SAVE_VERSION=8','seasonLengthFor','nitrogenTimingEfficiency','Prakiraan 3 hari','criticalTasks','criticalStopReason','stepOneDay','advanceDays','reproStress'])if(!app.includes(marker))fail('agronomic time engine missing '+marker);
 for(const marker of ['openCareCenter','batchCare','carePriority','careCandidates','applyCareAction'])if(!app.includes(marker))fail('strategic care engine missing '+marker);
 for(const marker of ["theme:'system'","function preferredTheme()","function applyTheme()",'data-comfort="theme"','prefers-color-scheme: light'])if(!app.includes(marker))fail('theme preference system missing '+marker);
-for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!css.includes(marker))fail('light dark theme styling missing '+marker);
-for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-theme="light"]','body.theme-light.calm-ui','.toast{'])if(!css.includes(marker))fail('light theme cleanup missing '+marker);
-for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
+for(const marker of ['FIELD ZERO LIGHT/DARK THEME 2026-09-27','body.theme-light','body.theme-dark'])if(!themeCss.includes(marker))fail('light dark theme styling missing '+marker);
+for(const marker of ['FIELD ZERO LIGHT THEME CLEANUP 2026-09-27','html[data-theme="light"]','body.theme-light.calm-ui','.toast{'])if(!themeCss.includes(marker))fail('light theme cleanup missing '+marker);
+for(const marker of ['/game/theme-init.js?v=','/game/style.css?v=','/game/theme.css?v=','/game/app.js?v='])if(!html.includes(marker))fail('theme asset cache bust missing '+marker);
 for(const marker of ['agrotik_field_zero_v1','prefers-color-scheme: light'])if(!themeInit.includes(marker))fail('theme bootstrap missing '+marker);
 if(!app.includes('meta[name="theme-color"]'))fail('theme-color must follow Field Zero theme');
 
@@ -94,6 +95,7 @@ for(const match of app.matchAll(/\$\('#([^']+)'\)\.(?:onclick|onchange|oninput|a
 }
 if(Buffer.byteLength(app,'utf8')>260000)fail('game app exceeds 260 KB performance budget');
 if(Buffer.byteLength(css,'utf8')>100000)fail('game CSS exceeds 100 KB performance budget');
+if(Buffer.byteLength(themeCss,'utf8')>20000)fail('game theme CSS exceeds 20 KB performance budget');
 if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
 
 const demoExp={
