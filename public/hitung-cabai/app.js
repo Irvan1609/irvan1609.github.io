@@ -378,14 +378,15 @@ async function autoDetectChilies({automatic=false}={}){
   try{
     const condition=$('condition').value;
     const inferenceOptions=condition==='overlap'?{iouThreshold:.65}:condition==='occluded'||condition==='low-light'?{confidence:.20,iouThreshold:.58}:{};
-    let result=await detectChiliWithModel(image,inferenceOptions).catch(()=>null),detections=[];
+    const safeMode=Boolean(window.AgrotikSafeMode)||localStorage.getItem('agrotik_safe_mode_v1')==='1';
+    let result=safeMode?null:await detectChiliWithModel(image,inferenceOptions).catch(()=>null),detections=[];
     if(result){
       predictionMethod=result.method||'onnx';modelVersion=result.version||'onnx';
       detections=(result.detections||result.boxes.map(box=>({box,score:null}))).map(d=>({box:[...d.box],score:Number.isFinite(d.score)?d.score:null,source:'onnx'}));
     }else{
       result=detectChiliBoxesFromImageData(detectionImageData(),{target:$('detectColor').value,sensitivity:$('detectSensitivity').value});
-      predictionMethod='heuristic-color';modelVersion='heuristic-color-v1';
-      detections=result.boxes.map(box=>({box:[...box],score:null,source:'heuristic-color'}));
+      predictionMethod=safeMode?'heuristic-safe':'heuristic-color';modelVersion=safeMode?'heuristic-safe-v1':'heuristic-color-v1';
+      detections=result.boxes.map(box=>({box:[...box],score:null,source:predictionMethod}));
     }
     if(detectionRun)checkpoint();else history=[];
     boxes=detections.map(d=>[...d.box]);predictedDetections=detections.map(d=>({box:[...d.box],score:d.score}));
