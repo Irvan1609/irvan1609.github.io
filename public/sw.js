@@ -1,7 +1,10 @@
-const VERSION='20260927-field-zero-comfort-v17';;;;;;
+const VERSION='20260927-resilience-v18';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
+const META_CACHE='agrotik-meta-v1';
+const META_PREVIOUS='/__agrotik_meta__/previous';
+const META_ROLLBACK='/__agrotik_meta__/rollback';
 const CACHE_PREFIX='agrotik-';
 
 const CORE_URLS=[
@@ -62,6 +65,25 @@ async function cacheExternal(url){
     }catch{}
   }
 }
+function metaUrl(key){return new URL(key,self.location.origin).href;}
+async function metaRead(key){
+  try{const cache=await caches.open(META_CACHE),response=await cache.match(metaUrl(key));return response?response.json():null;}catch{return null;}
+}
+async function metaWrite(key,value){
+  const cache=await caches.open(META_CACHE);
+  await cache.put(metaUrl(key),new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}}));
+}
+async function metaDelete(key){try{const cache=await caches.open(META_CACHE);await cache.delete(metaUrl(key));}catch{}}
+async function rollbackMatch(request){
+  const enabled=await metaRead(META_ROLLBACK);if(!enabled?.enabled)return null;
+  const previous=await metaRead(META_PREVIOUS);if(!previous?.core&&!previous?.runtime)return null;
+  for(const name of [previous.runtime,previous.core].filter(Boolean)){
+    const cache=await caches.open(name),direct=await cache.match(request);
+    if(direct)return direct;
+    try{const url=new URL(request.url);url.search='';const match=await cache.match(url.href,{ignoreSearch:true});if(match)return match;}catch{}
+  }
+  return null;
+}
 async function matchIgnoreSearch(request){
   const direct=await caches.match(request);
   if(direct)return direct;
@@ -113,7 +135,13 @@ self.addEventListener('install',event=>{
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
     const names=await caches.keys();
-    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&![CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE].includes(name)).map(name=>caches.delete(name)));
+    const olderCore=names.filter(name=>name.startsWith('agrotik-core-')&&name!==CORE_CACHE).at(-1)||null;
+    const previousVersion=olderCore?.slice('agrotik-core-'.length)||'';
+    const olderRuntime=previousVersion&&names.includes('agrotik-runtime-'+previousVersion)?'agrotik-runtime-'+previousVersion:null;
+    const olderThird=previousVersion&&names.includes('agrotik-third-party-'+previousVersion)?'agrotik-third-party-'+previousVersion:null;
+    if(olderCore)await metaWrite(META_PREVIOUS,{core:olderCore,runtime:olderRuntime,thirdParty:olderThird,version:previousVersion,savedAt:new Date().toISOString()});
+    const keep=new Set([CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE,META_CACHE,olderCore,olderRuntime,olderThird].filter(Boolean));
+    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&!keep.has(name)).map(name=>caches.delete(name)));
     await self.clients.claim();
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     await Promise.allSettled(windows.filter(client=>{
@@ -133,10 +161,10 @@ self.addEventListener('fetch',event=>{
   }
   if(skipSameOriginPath(url.pathname))return;
   if(request.mode==='navigate'){
-    event.respondWith(navigationResponse(request));
+    event.respondWith((async()=>await rollbackMatch(request)||await navigationResponse(request))());
     return;
   }
-  event.respondWith(staticResponse(request));
+  event.respondWith((async()=>await rollbackMatch(request)||await staticResponse(request))());
 });
 
 self.addEventListener('message',event=>{
@@ -145,5 +173,17 @@ self.addEventListener('message',event=>{
   if(data.type==='WARM_ROUTE'){
     event.waitUntil(warmResource(data.url||'/'));
     return;
+  }
+  if(data.type==='ROLLBACK_PREVIOUS'){
+    event.waitUntil(metaWrite(META_ROLLBACK,{enabled:true,at:new Date().toISOString()}));return;
+  }
+  if(data.type==='CLEAR_ROLLBACK'){
+    event.waitUntil(metaDelete(META_ROLLBACK));return;
+  }
+  if(data.type==='GET_ROLLBACK_STATUS'){
+    event.waitUntil((async()=>{
+      const previous=await metaRead(META_PREVIOUS),rollback=await metaRead(META_ROLLBACK);
+      event.ports?.[0]?.postMessage({previous,enabled:Boolean(rollback?.enabled),current:VERSION});
+    })());return;
   }
 });

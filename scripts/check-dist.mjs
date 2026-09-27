@@ -19,6 +19,9 @@ const chiliSyncPath = 'dist/hitung-cabai/stat-sync.js';
 const pwaManifestPath = 'dist/manifest.webmanifest';
 const serviceWorkerPath = 'dist/sw.js';
 const pwaRegisterPath = 'dist/pwa-register.js';
+const systemCorePath = 'dist/system-core.js';
+const systemCssPath = 'dist/system-core.css';
+const diagnosticPath = 'dist/diagnostic/index.html';
 const offlinePath = 'dist/offline.html';
 const pwaIconPath = 'dist/icons/agrotik.svg';
 if (!fs.existsSync(portfolioPath)) fail('dist/index.html is missing');
@@ -29,7 +32,7 @@ if (!fs.existsSync(chiliPath)) fail('dist/hitung-cabai/index.html is missing');
 if (!fs.existsSync(chiliAppPath)) fail('dist/hitung-cabai/app.js is missing');
 if (!fs.existsSync(chiliDetectorPath)) fail('dist/hitung-cabai/detector.js is missing');
 if (!fs.existsSync(chiliSyncPath)) fail('dist/hitung-cabai/stat-sync.js is missing');
-for (const [pathName,label] of [[pwaManifestPath,'manifest'],[serviceWorkerPath,'service worker'],[pwaRegisterPath,'PWA register'],[offlinePath,'offline fallback'],[pwaIconPath,'PWA icon']]) {
+for (const [pathName,label] of [[pwaManifestPath,'manifest'],[serviceWorkerPath,'service worker'],[pwaRegisterPath,'PWA register'],[systemCorePath,'system core'],[systemCssPath,'system CSS'],[diagnosticPath,'diagnostic route'],[offlinePath,'offline fallback'],[pwaIconPath,'PWA icon']]) {
   if (!fs.existsSync(pathName)) fail('dist '+label+' is missing');
 }
 
@@ -66,7 +69,9 @@ for (const [name,page] of [['root',portfolio],['stat',html],['mendeley',mendeley
   if(!page.includes('/manifest.webmanifest')||!page.includes('/pwa-register.js')) fail(`built ${name} page is missing PWA wiring`);
 }
 const sw=fs.readFileSync(serviceWorkerPath,'utf8'),manifest=JSON.parse(fs.readFileSync(pwaManifestPath,'utf8'));
-if(!sw.includes('agrotik-core-')||!sw.includes('agrotik-runtime-')) fail('built service worker contract is incomplete');
+if(!sw.includes('agrotik-core-')||!sw.includes('agrotik-runtime-')||!sw.includes('ROLLBACK_PREVIOUS')) fail('built service worker contract is incomplete');
+const systemCore=fs.readFileSync(systemCorePath,'utf8');
+for(const marker of ['openDiagnostics','openPalette','restoreDraftIfCrash','queueSnapshot'])if(!systemCore.includes(marker))fail('built system core missing '+marker);
 if(manifest.short_name!=='Agrotik'||manifest.display!=='standalone') fail('built PWA manifest is invalid');
 
 const assetMatches = [...html.matchAll(/(?:src|href)="([^"]*assets\/[^"]+)"/g)].map(m => m[1]);

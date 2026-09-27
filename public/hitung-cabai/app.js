@@ -440,6 +440,7 @@ function sendCurrentToStatistics({quiet=false}={}){
   if(!image){if(!quiet)status('Ambil foto atau pilih foto terlebih dahulu.');return null;}
   try{
     const result=upsertChiliCountToStatistics(localStorage,{sample:$('sample').value.trim(),count:boxes.length});
+    window.AgrotikSystem?.activity?.(result.dataset||'Data Hitung Cabai','/stat/','dataset');
     if(!quiet)status('Masuk ke Statistical Web → '+result.dataset+': '+$('sample').value.trim()+' = '+boxes.length+' buah.');
     return result;
   }catch(error){if(!quiet)status(error.message||'Data belum dapat dikirim ke Statistical Web.');return null;}
@@ -556,7 +557,7 @@ async function importBackup(file){
 }
 
 function warmOfflineModel(){
-  if(!('serviceWorker'in navigator))return;
+  if(localStorage.getItem('agrotik_safe_mode_v1')==='1'||!('serviceWorker'in navigator))return;
   navigator.serviceWorker.ready.then(reg=>{
     const worker=reg.active||reg.waiting||reg.installing;if(!worker)return;
     for(const url of ['/hitung-cabai/','/hitung-cabai/app.js','/hitung-cabai/style.css','/hitung-cabai/detector.js','/hitung-cabai/ml-detector.js','/hitung-cabai/review-metrics.js','/hitung-cabai/model-manifest.json','/hitung-cabai/models/cabai-latest.onnx'])worker.postMessage({type:'WARM_ROUTE',url});

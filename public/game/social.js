@@ -1,6 +1,7 @@
 import {ACCOUNT_CONFIG} from '../account-config.js';
 
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const CACHE_PREFIX='agrotik_fz_social_v3:',RANK_TTL=10*60*1000,FRIENDS_TTL=30*60*1000,INBOX_TTL=5*60*1000,PROFILE_TTL=12*60*60*1000;
@@ -13,6 +14,7 @@ function readCache(name,ttl){
 function writeCache(name,data){try{localStorage.setItem(cacheKey(name),JSON.stringify({at:Date.now(),data}));}catch{}return data;}
 function clearCache(name){try{localStorage.removeItem(cacheKey(name));}catch{}}
 async function api(path,options={}){
+  if(SAFE_MODE)throw Error('Safe mode aktif · fitur sosial cloud dijeda.');
   const request=window.IrvanAccount?.request;
   if(!window.IrvanAccount?.authenticated||!request)throw Error('Masuk dulu.');
   const response=await request(path,{...options,cache:'no-store'});
@@ -35,7 +37,7 @@ function cachedBadge(){
   const cached=readCache('friends',FRIENDS_TTL);setBadge(cached?.incoming?.length||0);
 }
 function open(){
-  $('#socialModal').hidden=false;renderGate();
+  $('#socialModal').hidden=false;if(SAFE_MODE){$('#socialGate').hidden=false;$('#socialApp').hidden=true;$('#socialGate').querySelector('p')?.replaceChildren(document.createTextNode('Safe mode aktif · fitur sosial cloud dijeda.'));return;}renderGate();
   if(user){submitProfile(window.FieldZeroGame?.getProfile?.(),false);processInbox();}
 }
 function close(){$('#socialModal').hidden=true;}
