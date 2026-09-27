@@ -126,7 +126,7 @@ function ap50(records){
 }
 
 export function datasetMetrics(records=[]){
-  const usable=records.filter(r=>Array.isArray(r.boxes)&&Array.isArray(r.predictedDetections||r.predictedBoxes));
+  const usable=records.filter(r=>Array.isArray(r.boxes)&&Array.isArray(r.predictedDetections||r.predictedBoxes)&&(r.validationStatus==='validated'||(!r.validationStatus&&r.reviewed!==false)));
   if(!usable.length)return {n:0,mae:null,rmse:null,bias:null,precision:null,recall:null,f1:null,ap50:null,tp:0,fp:0,fn:0,byCondition:{}};
   let abs=0,sq=0,bias=0,tp=0,fp=0,fn=0;
   const groups={};
