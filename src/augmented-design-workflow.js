@@ -226,6 +226,13 @@ async function showResults(html,title,data,parameterCount){
       section.classList.remove('aug-view-summary','aug-view-detail');section.classList.add('aug-view-'+mode);
       section.scrollIntoView({block:'start'});
     }));
+    body.querySelectorAll('[data-copy-aug-sas]').forEach(button=>button.addEventListener('click',async()=>{
+      const panel=button.closest('.aug-sas-panel'),area=panel?.querySelector('.aug-sas-code'),status=panel?.querySelector('[data-aug-sas-status]');
+      if(!area)return;
+      try{await navigator.clipboard.writeText(area.value);}
+      catch{area.focus();area.select();document.execCommand?.('copy');}
+      if(status){status.textContent='Tersalin';setTimeout(()=>{status.textContent='';},1600);}
+    }));
     if(heading)heading.textContent=title;
     dock.hidden=false;dock.dataset.open='true';
     document.body.classList.add('analysis-results-open');
@@ -246,7 +253,7 @@ export function openAugmentedDesign(){
     </div>
     <section class="aug-card aug-parameter-card">${parameterField(data)}</section>
     <div id="augStructure" class="aug-structure-inline"></div>
-    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali.</small></details>
+    <details id="augAdvanced" class="aug-card aug-advanced"><summary>Pengaturan</summary><div class="aug-form"><label class="wide"><span>Check berulang</span><input id="augChecks" type="text" autocomplete="off" placeholder="T1, T2, T3"></label><label><span>α</span><select id="augAlpha"><option value="0.05">0,05</option><option value="0.01">0,01</option></select></label><label><span>Perbandingan</span><select id="augComparison"><option value="lsd">BNT / LSD</option><option value="holm">Holm</option></select></label><label><span>Presisi</span><select id="augPrecision"><option value="full">Presisi penuh</option><option value="excel">Sesuai contoh Excel</option></select></label></div><small class="aug-help">Check dideteksi otomatis dari genotipe yang muncul lebih dari satu kali. Mode contoh Excel tidak mengubah data sumber.</small></details>
     <div id="augmentedError" role="alert"></div>
     <div class="aug-runbar"><span>μ + Blok + Genotipe + ε</span><button id="runAugmented" class="primary" type="button">Analisis</button></div>
   </div>`,'augmented');
@@ -275,16 +282,20 @@ export function openAugmentedDesign(){
       const parameters=[...document.querySelectorAll('[data-aug-param]:checked')].map(input=>Number(input.value));
       if(!parameters.length)throw Error('Pilih minimal satu parameter numerik.');
       const checks=parseChecks($('#augChecks').value),alpha=Number($('#augAlpha').value),rows=activeRows(data);
+      const comparisonMethod=$('#augComparison')?.value||'lsd',reportMode=$('#augPrecision')?.value||'full';
       const reports=parameters.map(parameter=>{
         if(parameter===blockIndex||parameter===treatmentIndex)throw Error(`${data.headers[parameter]} sedang digunakan sebagai kolom rancangan.`);
         const values=rows.map((row,index)=>{
-          const b=String(row[blockIndex]??'').trim(),t=String(row[treatmentIndex]??'').trim(),y=parseNumber(row[parameter]);
+          const b=String(row[blockIndex]??'').trim(),t=String(row[treatmentIndex]??'').trim();
+          let y=parseNumber(row[parameter]);
           if(!b)throw Error(`Baris ${index+1}: blok kosong.`);
           if(!t)throw Error(`Baris ${index+1}: genotipe/entry kosong.`);
           if(!Number.isFinite(y))throw Error(`${data.headers[parameter]}: nilai tidak numerik pada baris ${index+1}.`);
+          if(reportMode==='excel')y=Math.round(y*100)/100;
           return [b,t,y];
         });
-        const out=augmentedRcbAnova(values,{checks,alpha});
+        const out=augmentedRcbAnova(values,{checks,alpha,requireCompleteChecks:true});
+        out.reportMode=reportMode;out.comparisonMethod=comparisonMethod;
         return renderAugmented(out,data.headers[parameter],data.name);
       });
       void backupRawDataset(data);
