@@ -11,6 +11,7 @@ import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
+import {requireValidCoreReport,attachSupplementWarning} from './analysis-integrity.js';
 import {enhanceResultOS} from './result-os.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
@@ -454,32 +455,85 @@ function validate(){
       runButton.textContent='Jalankan analisis';
     }
   }
+  if(check.issues.length)setRunState('problem',`${check.issues.length} masalah`,check.issues[0]?.message||'Periksa struktur data dan pilihan kolom.');
+  else setRunState('ready','Siap','Data dan pilihan siap dianalisis.');
   return {o,check,quality};
+}
+function setRunState(state,text='',detail=''){
+  const target=$('#scienceRunStatus');if(!target)return;
+  target.dataset.state=state||'idle';target.textContent=text;target.title=detail||text;
+}
+function safeFinalizeReport(report){
+  try{finalizeAgronomyFactorial(report);return true;}
+  catch(error){
+    console.error('Penyempurnaan laporan gagal',error);
+    attachSupplementWarning(report,`Penyempurnaan tampilan agronomi gagal: ${error.message}. ANOVA inti tetap tersedia.`);
+    return false;
+  }
+}
+function attachOptionalDiagnostics(report,observations,engineOptions,index,name){
+  if(!engineOptions.assumptions)return;
+  try{
+    const diagnostic=analyzeParameter(observations,{...engineOptions,posthoc:'none',contrastMode:'none',assumptions:true},index,name);
+    report.assumptions=diagnostic.assumptions||[];
+    report.diagnostics=diagnostic.diagnostics||null;
+    report.wholeResiduals=diagnostic.wholeResiduals||report.wholeResiduals||[];
+    const note=(diagnostic.notes||[]).find(item=>/Pemeriksaan asumsi/i.test(item));
+    if(note&&!report.notes.includes(note))report.notes.push(note);
+  }catch(error){
+    console.error('Diagnostik residual gagal',error);
+    attachSupplementWarning(report,`Diagnostik residual tidak dapat dihitung: ${error.message}. Hasil ANOVA inti tetap tersedia.`);
+  }
+}
+function renderCoreFallback(reports,container,message=''){
+  if(!container)return;
+  const sections=(reports||[]).map(report=>{
+    const rows=(report.terms||[]).map(term=>`<tr><td>${esc(term.label)}</td><td>${Number.isFinite(Number(term.df))?term.df:'—'}</td><td>${Number.isFinite(Number(term.ss))?Number(term.ss).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td><td>${Number.isFinite(Number(term.ms))?Number(term.ms).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td><td>${Number.isFinite(Number(term.f))?Number(term.f).toLocaleString('id-ID',{maximumFractionDigits:4}):'—'}</td><td>${Number.isFinite(Number(term.p))?Number(term.p).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td></tr>`).join('');
+    return `<section class="analysis-result analysis-core-fallback"><h3>${esc(report.name||'Parameter')}</h3><div class="table-scroll"><table class="result-table"><thead><tr><th>Sumber</th><th>db</th><th>JK</th><th>KT</th><th>F</th><th>p</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  }).join('');
+  container.innerHTML=`<div class="analysis-recovery-note"><b>Hasil inti tersedia.</b>${message?` <span>${esc(message)}</span>`:''}</div>${sections}`;
+}
+function safeShowResults(reports,container,datasetName,meta){
+  try{showResults(reports,container,datasetName,meta);return true;}
+  catch(error){
+    console.error('Lapisan hasil gagal dimuat',error);
+    renderCoreFallback(reports,container,`Tampilan tambahan gagal dimuat: ${error.message}`);
+    return false;
+  }
 }
 async function analyze(){
   const runRevision=revision;
-  $('#scienceResults').innerHTML='';const {o,check}=validate();if(check.issues.length)return;
+  $('#scienceResults').innerHTML='';
+  const {o,check}=validate();
+  if(check.issues.length){setRunState('problem',`${check.issues.length} masalah`,check.issues[0]?.message||'Periksa data.');return;}
+  const button=$('#runScience');
   try{
-    globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');
+    try{globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');}catch(error){console.warn('Snapshot dataset dilewati',error);}
     if(o.contrastMode==='polynomial')o.levels=[...document.querySelectorAll('[data-level]')].map(el=>parseNumber(el.value));
-    const metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);saveAnalysisConfig();
-    const button=$('#runScience');button.disabled=true;button.textContent='Menghitung…';
+    let metadata={factorLabels:{a:'',b:''},levels:{a:{},b:{}}};
+    try{metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);}catch(error){console.warn('Metadata perlakuan tidak dapat disimpan',error);}
+    try{saveAnalysisConfig();}catch(error){console.warn('Konfigurasi analisis tidak dapat disimpan',error);}
+    button.disabled=true;button.textContent='Menghitung…';setRunState('running','Menghitung…','ANOVA inti sedang dihitung.');
     const reports=[];
     for(let i=0;i<o.parameters.length;i++){
       await new Promise(resolve=>setTimeout(resolve,0));
       if(runRevision!==revision)return;
       const engineOptions=o.contrastMode==='custom'?{...o,contrastMode:'none'}:o;
+      const coreOptions={...engineOptions,assumptions:false};
       const column=o.parameters[i],transformType=o.transforms?.[column]||'none';
       const transformed=transformObservations(check.observations,i,transformType);
       let beforeTransform=null,beforeTransformError='';
       if(transformType!=='none'){
         try{
-          const before=analyzeParameter(check.observations,{...engineOptions,posthoc:'none',assumptions:false,contrastMode:'none'},i,data.headers[column]);
-          before.factorLabels=metadata.factorLabels;before.treatmentMeta=metadata;finalizeAgronomyFactorial(before);
+          const before=analyzeParameter(check.observations,{...coreOptions,posthoc:'none',contrastMode:'none'},i,data.headers[column]);
+          requireValidCoreReport(before);
+          before.factorLabels=metadata.factorLabels;before.treatmentMeta=metadata;safeFinalizeReport(before);
           beforeTransform={terms:before.terms,cv:before.cv,cvWhole:before.cvWhole,grand:before.grand};
         }catch(error){beforeTransformError=error.message;}
       }
-      const report=analyzeParameter(transformed.observations,engineOptions,i,data.headers[column]);
+      const report=analyzeParameter(transformed.observations,coreOptions,i,data.headers[column]);
+      report.integrity=requireValidCoreReport(report);
+      attachOptionalDiagnostics(report,transformed.observations,engineOptions,i,data.headers[column]);
       report.transform=transformed.meta;
       report.originalObservations=transformType==='none'?null:check.observations.map(obs=>({a:obs.a,b:obs.b,rep:obs.rep,y:obs.values[i]}));
       report.beforeTransform=beforeTransform;report.beforeTransformError=beforeTransformError;
@@ -498,33 +552,40 @@ async function analyze(){
       report.datasetMeta={plant:data.plant||'',treatment:data.treatment||''};
       report.factorLabels={a:metadata.factorLabels.a||data.headers[o.a]||'Perlakuan',b:o.b===null?null:(metadata.factorLabels.b||data.headers[o.b]||'Faktor B')};
       report.treatmentMeta=metadata;
-      finalizeAgronomyFactorial(report);
+      safeFinalizeReport(report);
       reports.push(report);
     }
-    const saved=saveHistory(reports,o),meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
-    showResults(reports,$('#scienceResults'),data.name,meta);
+
+    let saved=null;
+    try{saved=saveHistory(reports,o);}catch(error){console.warn('Riwayat analisis tidak tersimpan',error);attachSupplementWarning(reports[0],`Riwayat tidak tersimpan: ${error.message}`);}
+    const meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
+    const mainRendered=safeShowResults(reports,$('#scienceResults'),data.name,meta);
     const dock=$('#analysisDockResults');
     if(dock){
-      showResults(reports,dock,data.name,meta);
+      const dockRendered=safeShowResults(reports,dock,data.name,meta);
       $('#analysisResultDock').hidden=false;
       $('#analysisResultDock').dataset.open='true';
       document.body.classList.add('analysis-results-open');
       globalThis.StatisticalWebWorkflow?.setActive?.('results');
       $('#analysisDockTitle').textContent=`${data.name} · ${designNames[currentDesign]||currentDesign}`;
       $('#scientificModal').classList.remove('open');
+      if(!dockRendered&&!mainRendered)console.warn('Hasil ditampilkan dalam mode pemulihan inti.');
     }
-    $('#scienceRunStatus').textContent=saved?'Selesai · tersimpan':'Selesai · belum tersimpan';
+    setRunState('done','Selesai',saved?'Hasil selesai dan tersimpan di riwayat.':'Hasil selesai; riwayat tidak tersimpan.');
     const activeSource=globalThis.StatisticalWebData?.readActiveDataset?.();
     document.dispatchEvent(new CustomEvent('agrotik-analysis-complete',{detail:{
       dataset:data.name,fileName:activeSource?.fileName||data.name,design:currentDesign,
       designLabel:designNames[currentDesign]||currentDesign,options:JSON.parse(JSON.stringify(o)),
-      summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null}))
+      summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null,integrity:report.integrity?.ok!==false}))
     }}));
-    void backupRawDataset({name:data.name,fileName:activeSource?.fileName||'',headers:[...data.headers],rows:data.rows.map(row=>[...row])});
-  }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
-  finally{
+    try{void backupRawDataset({name:data.name,fileName:activeSource?.fileName||'',headers:[...data.headers],rows:data.rows.map(row=>[...row])});}catch(error){console.warn('Backup mentah dilewati',error);}
+  }catch(error){
+    console.error('Analisis gagal',error);
+    $('#scienceValidation').innerHTML=`<div class="error-box" role="alert"><b>Analisis belum dapat dijalankan.</b><p>${esc(error.message)}</p></div>`;
+    setRunState('error','Gagal',error.message);
+  }finally{
     if(phoneGuardMode()&&$('#scientificModal').classList.contains('open'))validate();
-    else{$('#runScience').disabled=false;$('#runScience').setAttribute('aria-disabled','false');$('#runScience').textContent='Jalankan analisis';}
+    else{button.disabled=false;button.setAttribute('aria-disabled','false');button.textContent='Jalankan analisis';}
   }
 }
 export function openScientific(design){
@@ -631,7 +692,7 @@ export function installScientificWorkflow(){
     if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();if(!$('#runScience').disabled)$('#runScience').click();}
   });
   $('#scienceFields').onchange=event=>{
-    $('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';
+    $('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';setRunState('idle','','');
     if(['scienceA','scienceB','scienceRep'].includes(event.target.id))syncParameterRoleExclusions(false);
     if(event.target.matches('#scienceParameters input')){
       event.target.dataset.userTouched='true';
@@ -642,7 +703,7 @@ export function installScientificWorkflow(){
     if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();
     saveAnalysisConfig();validate();
   };
-  $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
+  $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';setRunState('idle','','');if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
   document.addEventListener('stat-dataset-changed',()=>{
     let current;try{current=readDataset();}catch{return;}
