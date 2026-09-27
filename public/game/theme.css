@@ -478,3 +478,16 @@ html[data-theme="light"] body.theme-light .quick-menu-grid button{
   border-color:#c4d5ca!important;
   color:#183126!important
 }
+
+
+/* FIELD ZERO LIGHT MODAL COMFORT 2026-09-27 */
+html[data-theme="light"] body.theme-light .event-backdrop{
+  background:rgba(67,92,77,.16)!important;
+  backdrop-filter:blur(2px)
+}
+html[data-theme="light"] body.theme-light :is(.event-card,.meta-modal-card,.social-card,.recap-card,.sync-conflict-card){
+  background:#fff!important;
+  border-color:#c7d6cc!important;
+  color:#183126!important;
+  box-shadow:0 18px 48px rgba(42,70,55,.14)!important
+}
