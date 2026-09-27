@@ -8,14 +8,7 @@ const CORE_URLS=[
   '/',
   '/offline.html',
   '/manifest.webmanifest',
-  '/icons/agrotik.svg',
-  '/hitung-cabai/',
-  '/hitung-cabai/style.css',
-  '/hitung-cabai/app.js',
-  '/hitung-cabai/detector.js',
-  '/hitung-cabai/ml-detector.js',
-  '/hitung-cabai/review-metrics.js',
-  '/hitung-cabai/model-manifest.json'
+  '/icons/agrotik.svg'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
