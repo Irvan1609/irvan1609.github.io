@@ -608,3 +608,78 @@ body.theme-light :is(button:disabled,input:disabled,select:disabled,textarea:dis
     border-color:#bed0c4!important
   }
 }
+
+
+/* FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27 */
+html[data-theme="light"] body.theme-light.calm-ui :is(
+  .game-quick-nav,.hud-focus,.season-summary .mission,.play-hint,.field-panel,
+  .field-context,.field-tool-dock,.field-block,.time-panel,.day-actions,.inspector,
+  .plot-quick-card,.compact-panel
+){
+  background:#fff!important;
+  border-color:#cbd8cf!important;
+  color:#183126!important;
+  box-shadow:none!important
+}
+html[data-theme="light"] body.theme-light.calm-ui :is(
+  .game-quick-nav button:hover,.game-quick-nav button:focus-visible,
+  .field-context>button,.field-tool-dock button[aria-pressed="true"],
+  .mobile-command-row button,.plot-quick-card
+){
+  background:#eef5f0!important;
+  color:#234936!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .field-tool-dock{background:#f6faf7!important}
+html[data-theme="light"] body.theme-light.calm-ui .field-tool-dock button{background:transparent!important;color:#294d3a!important}
+html[data-theme="light"] body.theme-light.calm-ui .field-tool-dock button::after{color:#667a6f!important}
+html[data-theme="light"] body.theme-light.calm-ui .field-block{background:#f7faf8!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot{
+  background:#fff!important;
+  border-color:#c5d5ca!important;
+  color:#183126!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .plot.empty{background:#f6f9f7!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot.selected{
+  border-color:#2f8f5b!important;
+  box-shadow:inset 0 0 0 2px rgba(47,143,91,.24)!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .plot.ready{border-color:#aa812f!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot.stressed{border-color:#b4753d!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot.sick{border-color:#b94d4d!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot-health{background:#dce8e0!important}
+html[data-theme="light"] body.theme-light.calm-ui .plot-health i{background:#3f9662!important}
+html[data-theme="light"] body.theme-light.calm-ui .play-hint>span{background:#dfeee4!important;color:#245d3d!important}
+html[data-theme="light"] body.theme-light.calm-ui .day-actions #nextDay{
+  background:#2f8f5b!important;
+  border-color:#2f8f5b!important;
+  color:#fff!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .day-actions button:not(#nextDay){
+  background:#f8fbf9!important;
+  color:#294d3a!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .plot-quick-action.harvest{
+  background:#fff3c8!important;
+  border-color:#c6a957!important;
+  color:#624f16!important
+}
+html[data-theme="light"] body.theme-light.calm-ui .inspector .stage-badge{
+  background:#e7f0ea!important;
+  color:#4b6557!important
+}
+@media(max-width:620px){
+  html[data-theme="light"] body.theme-light.calm-ui .field-tool-dock,
+  html[data-theme="light"] body.theme-light.calm-ui .day-actions{
+    background:rgba(255,255,255,.98)!important;
+    border-color:#cbd8cf!important;
+    box-shadow:none!important
+  }
+  html[data-theme="light"] body.theme-light.calm-ui.inspector-engaged .inspector{
+    background:#fff!important;
+    border-color:#c5d5cb!important;
+    box-shadow:0 -8px 24px rgba(40,72,54,.12)!important
+  }
+}
+html[data-theme="dark"] body.theme-dark.calm-ui :is(
+  .game-quick-nav,.hud-focus,.season-summary .mission,.field-panel,.inspector
+){box-shadow:none!important}
