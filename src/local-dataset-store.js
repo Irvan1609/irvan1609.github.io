@@ -1,7 +1,8 @@
 const DB_NAME='agrotik-stat-local-v1';
-const DB_VERSION=1;
+const DB_VERSION=2;
 const DATASET_STORE='datasets';
 const SNAPSHOT_STORE='snapshots';
+const META_STORE='meta';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
 export const OFFLOAD_THRESHOLD_BYTES=192*1024;
 const encoder=new TextEncoder();
@@ -26,6 +27,8 @@ function openDb(){
         store.createIndex('dataset','dataset',{unique:false});
         store.createIndex('date','date',{unique:false});
       }
+      const meta=db.objectStoreNames.contains(META_STORE)?request.transaction.objectStore(META_STORE):db.createObjectStore(META_STORE,{keyPath:'key'});
+      meta.put({key:'schema',version:DB_VERSION,previousVersion:request.oldVersion||0,migratedAt:new Date().toISOString()});
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error||Error('IndexedDB tidak dapat dibuka.'));
@@ -133,4 +136,8 @@ export async function renameLocalSnapshots(from,to){
     const tx=db.transaction(SNAPSHOT_STORE,'readwrite'),store=tx.objectStore(SNAPSHOT_STORE);
     rows.forEach(row=>store.put({...row,dataset:String(to)}));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
   });
+}
+
+export async function localDatasetSchemaInfo(){
+  return idbRequest(META_STORE,'readonly',store=>store.get('schema')).catch(()=>({key:'schema',version:DB_VERSION}));
 }
