@@ -3,7 +3,6 @@ import {parseNumber,formatNumber as fmt} from './number-format.js';
 import {descriptiveStatistics,polynomialRegression,pca,combinedAnova,geneticParameters} from './advanced-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 const $=s=>document.querySelector(s);
 const sig=t=>t.f===null?'':t.f>t.f01?'**':t.f>t.f05?'*':'tn';
 const cell=v=>typeof v==='number'&&Number.isFinite(v)?`<td data-number="${v}">${fmt(v,5)}</td>`:`<td>${v===null||v===undefined?'—':v}</td>`;
@@ -71,6 +70,6 @@ export function openAdvanced(kind){
     if(kind==='regression'){const x=Number($('#advX').value),y=Number($('#advY').value);if(!Number.isInteger(x)||!Number.isInteger(y)||x===y)throw Error('Pilih X dan Y yang berbeda.');html=renderRegression(polynomialRegression(numericRows(data,[x,y]),Number($('#advDegree').value)),data.headers[x],data.headers[y]);}
     if(kind==='combined'){const l=Number($('#advLocation').value),t=Number($('#advTreatment').value),b=Number($('#advBlock').value),y=Number($('#advY').value);if(new Set([l,t,b,y]).size!==4||[l,t,b,y].some(i=>!Number.isInteger(i)))throw Error('Pilih empat kolom yang berbeda.');const rows=data.rows.filter(r=>!r.every(v=>String(v??'').trim()==='')).map((r,i)=>{const value=parseNumber(r[y]);if(!Number.isFinite(value))throw Error(`Baris ${i+1}: parameter Y harus angka.`);return [String(r[l]).trim(),String(r[t]).trim(),String(r[b]).trim(),value];});html=renderCombined(combinedAnova(rows),data.headers[y]);}
     if(kind==='genetic'){const t=Number($('#advTreatment').value),b=Number($('#advBlock').value),y=Number($('#advY').value);if(new Set([t,b,y]).size!==3||[t,b,y].some(i=>!Number.isInteger(i)))throw Error('Pilih Genotipe, Kelompok, dan Y yang berbeda.');const rows=data.rows.filter(r=>!r.every(v=>String(v??'').trim()==='')).map((r,i)=>{const value=parseNumber(r[y]);if(!Number.isFinite(value))throw Error(`Baris ${i+1}: parameter Y harus angka.`);return [String(r[t]).trim(),String(r[b]).trim(),value];});html=renderGenetic(geneticParameters(rows),data.headers[y]);}
-    $('#advancedResult').innerHTML=html;$('#advancedError').textContent='';void backupRawDataset(data);
+    $('#advancedResult').innerHTML=html;$('#advancedError').textContent='';
   }catch(e){$('#advancedResult').innerHTML='';$('#advancedError').textContent=e.message;}};
 }
