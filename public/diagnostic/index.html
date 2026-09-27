@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#f3f6f4">
+  <title>Diagnostic | Agrotik</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260928-1">
+  <style>
+    :root{font-family:"Segoe UI",Arial,sans-serif;color:#173026;background:#f3f6f4;--line:#d9e4de;--muted:#63746c;--ok:#27684b;--bad:#9b4141}*{box-sizing:border-box}body{margin:0;background:#f3f6f4}.wrap{width:min(900px,calc(100% - 24px));margin:18px auto 60px}.head{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:12px}.head h1{margin:0;font-size:30px}.head p{margin:5px 0 0;color:var(--muted);font-size:13px}.actions{display:flex;gap:6px;flex-wrap:wrap}button,a.btn{min-height:40px;border:1px solid #c9d7cf;background:#fff;color:#18382b;border-radius:9px;padding:8px 11px;font:700 12px inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}.panel h2{font-size:15px;margin:0 0 9px}.checks{display:grid;gap:6px}.check{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;padding:7px 0;border-bottom:1px solid #edf1ef}.check:last-child{border:0}.dot{width:9px;height:9px;border-radius:50%;margin-top:4px;background:var(--bad)}.check.ok .dot{background:var(--ok)}.check b,.check span{display:block}.check b{font-size:12px}.check span{font-size:11px;color:var(--muted);margin-top:2px}.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:5px 0;border-bottom:1px solid #edf1ef;font-size:11px}.kv:last-child{border:0}.kv span{color:var(--muted)}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#11261d;color:#d9ebe2;border-radius:9px;padding:10px;font:11px/1.45 Consolas,monospace;max-height:260px;overflow:auto}.muted{color:var(--muted);font-size:11px}.status{font-size:12px;color:var(--muted);margin-top:8px}@media(max-width:680px){.wrap{width:min(100% - 14px,900px);margin-top:10px}.head{align-items:stretch;flex-direction:column}.actions{display:grid;grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.panel{padding:11px}button,a.btn{min-height:44px}}@media(max-width:380px){.actions{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header class="subweb-header"><div class="subweb-header-inner"><a class="subweb-brand" href="/" aria-label="Kembali"><span class="subweb-brand-arrow">←</span><span>Diagnostic</span></a><nav class="subweb-nav"><a href="/develop/">Develop</a></nav></div></header>
+<main class="wrap">
+  <div class="head"><div><h1>Diagnostic</h1><p>Pemeriksaan perangkat dan layanan. Tidak membaca isi dataset.</p></div><div class="actions"><button id="run" type="button">Periksa ulang</button><button id="copy" type="button">Salin laporan</button><button id="safe" type="button">Safe Mode</button><button id="rollback" type="button">Versi sebelumnya</button></div></div>
+  <div class="grid">
+    <section class="panel"><h2>Status</h2><div id="checks" class="checks"></div><div id="status" class="status">Memeriksa…</div></section>
+    <section class="panel"><h2>Penyimpanan</h2><div id="storage"></div><p class="muted">Agrotik tidak menghapus data penelitian otomatis saat storage penuh.</p></section>
+    <section class="panel"><h2>Antrean sinkronisasi</h2><div id="queue"></div></section>
+    <section class="panel"><h2>Recovery & versi</h2><div id="recovery"></div></section>
+  </div>
+  <section class="panel" style="margin-top:10px"><h2>Error terakhir</h2><pre id="errors">Belum ada.</pre></section>
+</main>
+<script type="module" src="/account.js?v=20260928-1"></script>
+<script type="module" src="/diagnostic/app.js?v=20260928-1"></script>
+</body>
+</html>

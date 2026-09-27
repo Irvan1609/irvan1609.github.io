@@ -1,4 +1,5 @@
 const META_PREFIX='agrotik_fz_cloud_sync_v1:';
+const QUEUE_KEY='agrotik_sync_queue_v1',SAFE_KEY='agrotik_safe_mode_v1';
 const SYNC_DELAY=20000,MAX_DIRTY_WAIT=60000;
 let user=null,busy=false,timer=0,dirtySince=0,pendingConflict=null,ready=false;
 
@@ -6,6 +7,11 @@ const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const rupiah=value=>'Rp'+Math.max(0,Math.round(Number(value)||0)).toLocaleString('id-ID');
 function game(){return window.FieldZeroGame||null;}
+function queueSummary(extra={}){
+  let root={};try{root=JSON.parse(localStorage.getItem(QUEUE_KEY)||'{}')||{};}catch{}
+  root.game={pending:Boolean(dirtySince),busy:Boolean(busy),conflict:Boolean(pendingConflict),updatedAt:Date.now(),...extra};
+  try{localStorage.setItem(QUEUE_KEY,JSON.stringify(root));}catch{}
+}
 function metaKey(){return META_PREFIX+(user?.id||'anonymous');}
 function readMeta(){
   try{return JSON.parse(localStorage.getItem(metaKey())||'null');}catch{return null;}
@@ -136,11 +142,12 @@ async function reconcile({manual=false}={}){
   }finally{busy=false;}
 }
 function schedule(){
+  if(localStorage.getItem(SAFE_KEY)==='1'){queueSummary({status:'safe-mode'});return;}
   if(!user||pendingConflict)return;
   if(!dirtySince)dirtySince=Date.now();
   clearTimeout(timer);
   const elapsed=Date.now()-dirtySince,delay=elapsed>=MAX_DIRTY_WAIT?100:SYNC_DELAY;
-  setStatus('pending','Perubahan lokal menunggu sinkronisasi');
+  setStatus('pending','Perubahan lokal menunggu sinkronisasi');queueSummary({status:'pending'});
   timer=setTimeout(()=>reconcile(),delay);
 }
 function onAccount(event){
@@ -152,6 +159,7 @@ function onAccount(event){
 }
 function bind(){
   ready=Boolean(game());
+  if(localStorage.getItem(SAFE_KEY)==='1'){setStatus('local','Safe Mode · progres tetap lokal');queueSummary({status:'safe-mode'});return;}
   $('#cloudSync')?.addEventListener('click',()=>{
     if(!window.IrvanAccount?.authenticated)return window.IrvanAccount?.login?.();
     if(pendingConflict)return showConflict(pendingConflict.localSave,pendingConflict.cloud);

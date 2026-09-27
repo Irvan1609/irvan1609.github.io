@@ -8,6 +8,8 @@ const TREATMENT_KEY='statistical_web_treatment_metadata_v1';
 const SYNC_PREFIX='statistical_web_cloud_sync_v1:';
 const OWNER_KEY='statistical_web_cloud_owner_v1';
 const CONFLICT_PREFIX='statistical_web_cloud_conflicts_v1:';
+const QUEUE_KEY='agrotik_sync_queue_v1';
+const SAFE_KEY='agrotik_safe_mode_v1';
 const endpoint='https://hitung-cabai-api.andyirvan1609.workers.dev';
 const encoder=new TextEncoder();
 
@@ -26,6 +28,12 @@ let circuitOpenUntil=0;
 let editBurstCount=0;
 let lastEditAt=0;
 
+function queueSummary(extra={}){
+  const pendingOps=[...pendingPatches.values()].reduce((sum,item)=>sum+(item.operations?.length||0),0);
+  let root={};try{root=JSON.parse(localStorage.getItem(QUEUE_KEY)||'{}')||{};}catch{}
+  root.stat={pendingDatasets:pendingPatches.size,pendingOperations:pendingOps,syncing,circuitMs:circuitRemaining(),updatedAt:Date.now(),...extra};
+  try{localStorage.setItem(QUEUE_KEY,JSON.stringify(root));}catch{}
+}
 function circuitRemaining(){
   return Math.max(0,circuitOpenUntil-Date.now());
 }
@@ -39,6 +47,7 @@ function registerCloudFailure(response=null){
   if(response?.status===429||response?.status===503||cloudFailureCount>=CIRCUIT_FAILURE_LIMIT){
     circuitOpenUntil=Math.max(circuitOpenUntil,Date.now()+retryMs);
   }
+  queueSummary({status:circuitOpenUntil>Date.now()?'paused':'pending'});
 }
 
 const safeObject=(key)=>{
@@ -329,7 +338,7 @@ function queuePatch(name,patch){
     pendingPatches.delete(key);
     return;
   }
-  pendingPatches.set(key,current);
+  pendingPatches.set(key,current);queueSummary({status:'pending'});
 }
 async function remoteFingerprint(row){
   return hashItem({name:normalizeFileName(row.name),content:String(row.content??''),meta:row.meta||{}});
@@ -459,7 +468,7 @@ async function syncNow({manual=false}={}){
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   if(circuitRemaining()>0){scheduleSync();return;}
   if(document.hidden&&!manual)return;
-  syncing=true;setSyncStatus('Menyinkronkan…','syncing');
+  syncing=true;queueSummary({status:'syncing'});setSyncStatus('Menyinkronkan…','syncing');
   try{
     const stores=await readStores(),sync=loadSyncState(currentUser.id);
     const listing=await cloudRows(sync.remoteVersion||'');
@@ -530,14 +539,14 @@ async function syncNow({manual=false}={}){
     if(counters.deleted)parts.push(`${counters.deleted} dihapus`);
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
     const syncTime=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-    setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
+    setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');queueSummary({status:'synced',lastSyncAt:Date.now()});
   }catch(error){
     console.error('Dataset sync failed',error);
     if(error?.circuitOpen||circuitRemaining()>0)setSyncStatus('Cloud dijeda sementara · data aman di perangkat','pending');
     else setSyncStatus(error.message||'Sinkronisasi gagal · data lokal tetap aman','error');
     if(!manual)scheduleSync(8000);
   }finally{
-    syncing=false;
+    syncing=false;queueSummary();
   }
 }
 function onAccount(event){
@@ -569,6 +578,7 @@ function onAccount(event){
   scheduleSync(300);
 }
 export function installAccountDatasetSync(){
+  if(localStorage.getItem(SAFE_KEY)==='1'){queueSummary({status:'safe-mode'});return;}
   const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{

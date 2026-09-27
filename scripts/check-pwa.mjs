@@ -14,7 +14,8 @@ for(const marker of [
   "THIRD_PARTY_CACHE='agrotik-third-party-'",
   "'/offline.html'","'/manifest.webmanifest'","'/icons/agrotik.svg'",
   "request.method!=='GET'","request.mode==='navigate'",
-  "cdn.jsdelivr.net","cdnjs.cloudflare.com"
+  "cdn.jsdelivr.net","cdnjs.cloudflare.com",
+  "CONTROL_CACHE='agrotik-control'","ROLLBACK_PREVIOUS","previousMatch"
 ]) if(!sw.includes(marker))fail('service worker missing '+marker);
 
 for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS"]){
