@@ -1,7 +1,7 @@
 import { installAnalysisFlow } from './analysis-flow.js?v=20260927-hardening-v1';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
-import {installNavigation} from './navigation.js';
+import {installNavigation} from './navigation.js?v=20260927-navtabs-v1';
 import { installDataTools } from './data-tools.js';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
 import { installResultExport } from './result-export.js';
