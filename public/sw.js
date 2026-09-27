@@ -1,4 +1,4 @@
-const VERSION='20260927-field-zero-theme-v10';;
+const VERSION='20260927-field-zero-light-v11';;;
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
