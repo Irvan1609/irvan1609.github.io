@@ -91,11 +91,11 @@ export async function submitTrainingContribution({
   if(!cloudContributionReady())throw Error('Kontribusi cloud belum diaktifkan oleh pengelola.');
   if(!consent)throw Error('Persetujuan penggunaan data untuk pelatihan belum diberikan.');
   const finalBoxes=cleanBoxes(boxes),initialBoxes=cleanBoxes(predictedBoxes);
-  reportQueue(1,0);
   let token;
   try{token=await turnstileToken();}catch(error){reportQueue(0,1);throw error;}
   const endpoint=CHILI_CLOUD_CONFIG.endpoint.replace(/\/+$/,'');
   if(contributionId&&editToken){
+    reportQueue(1,0);
     const response=await fetch(endpoint+'/v1/contributions/'+encodeURIComponent(contributionId),{
       method:'PATCH',
       headers:{'Content-Type':'application/json','CF-Turnstile-Token':token,'X-Contribution-Edit':editToken},
@@ -120,6 +120,7 @@ export async function submitTrainingContribution({
   form.append('consent','true');
   form.append('operation_id',operationId);
 
+  reportQueue(1,0);
   const response=await fetch(endpoint+'/v1/contributions',{
     method:'POST',
     headers:{'CF-Turnstile-Token':token},
@@ -131,3 +132,5 @@ export async function submitTrainingContribution({
 }
 
 export {cloudContributionReady};
+
+if(typeof document!=='undefined')document.addEventListener('agrotik-system-ready',()=>reportQueue(0,0));
