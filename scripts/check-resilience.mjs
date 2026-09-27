@@ -22,7 +22,7 @@ for(const marker of [
   'openDiagnostics','runDiagnostics','navigator.storage?.estimate','indexedDB.open',
   "window.addEventListener('error'","window.addEventListener('unhandledrejection'",
   'DRAFT_PREFIX','HEARTBEAT_PREFIX','restoreDraftIfCrash','queueSnapshot','reportQueue',
-  'openPalette','Control','RECENT_KEY','renderRecent','requestRollback','SAFE_KEY'
+  'openPalette','event.ctrlKey','RECENT_KEY','renderRecent','requestRollback','SAFE_KEY'
 ])must(core,marker,'system core');
 for(const marker of ['@media(max-width:680px)','ag-system-sheet','ag-command','agrotik-recent','data-agrotik-safe'])must(css,marker,'system CSS');
 must(pwa,"import('/system-core.js?v=20260927-1')",'PWA bootstrap');
