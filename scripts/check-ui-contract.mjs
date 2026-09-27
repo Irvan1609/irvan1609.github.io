@@ -23,6 +23,7 @@ const statStyle = fs.readFileSync('src/style.css', 'utf8');
 const displaySettings = fs.readFileSync('src/display-settings.js', 'utf8');
 const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
 const chiliHtml = fs.readFileSync('public/hitung-cabai/index.html', 'utf8');
+const chiliStyle = fs.readFileSync('public/hitung-cabai/style.css', 'utf8');
 const chiliApp = fs.readFileSync('public/hitung-cabai/app.js', 'utf8');
 const chiliDetector = fs.readFileSync('public/hitung-cabai/detector.js', 'utf8');
 
@@ -111,7 +112,7 @@ for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','
   if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
 }
 for(const marker of ['capture="environment"','playsinline','mobile-actionbar','Pas layar'])if(!chiliHtml.includes(marker))fail(`hitung-cabai mobile UI missing ${marker}`);
-if(!chiliHtml.includes('#viewport{width:100%;overflow:hidden'))fail('hitung-cabai viewport must fit width without internal scrolling');
+if(!chiliStyle.includes('#viewport{')||!chiliStyle.includes('width:100%')||!chiliStyle.includes('overflow:hidden'))fail('hitung-cabai viewport must fit width without internal scrolling');
 for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizePhoto','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
 for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','mergeFragments'])if(!chiliDetector.includes(marker))fail(`hitung-cabai detector missing ${marker}`);
 if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
