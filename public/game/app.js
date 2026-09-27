@@ -2347,7 +2347,7 @@ function infectedNeighbors(index,snapshot){
 }
 function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
   if(!crop||crop.health<=0)return;
-  crop.stressLog={water:0,n:0,disease:0,heat:0,burn:0,...(crop.stressLog||{})};
+  crop.stressLog={water:0,n:0,p:0,k:0,disease:0,heat:0,burn:0,...(crop.stressLog||{})};
   if(crop.burned>0){crop.stressLog.burn++;crop.burned=Math.max(0,crop.burned-1);}
   const traits=allCropTraits(crop),loc=activeLocation(),challenge=activeChallenge(),pressure=pressureLevel(),memory=state.weatherMemory||{},streakBoost=Number(challenge.streakBoost||1),gFx=geneticEffects(crop.seed.genome),species=SPECIES[crop.species]||SPECIES.maize,dayScale=clamp(12/Math.max(70,Number(species.maturityDays)||110),.075,.16);
   const droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
@@ -2358,6 +2358,9 @@ function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
   crop.water=clamp(crop.water+waterDelta);
   const wetN=memory.wet>=2?(memory.wet-1)*1.4*streakBoost:0;
   crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0)+wetN)*nLoss*(fx.nLoss||1)*(2-(carry.fertility||1))*dayScale);
+  const fertilityPressure=(2-(carry.fertility||1));
+  crop.p=clamp((Number(crop.p)||0)-(1.35+(memory.wet>=3?.35:0))*fertilityPressure*dayScale);
+  crop.k=clamp((Number(crop.k)||0)-(1.8+(memory.hot>=2?.45:0))*fertilityPressure*dayScale);
   const neighborPressure=infectedNeighbors(index,diseaseSnapshot)*.025*Number(challenge.spreadBoost||1),wetDisease=memory.wet>=2?(memory.wet-1)*.018*streakBoost:0;
   const carryDisease=(Number(state.fieldPressure?.pathogen)||0)*.0018;
   const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0)+neighborPressure+wetDisease+carryDisease+(carry.diseasePressure||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1)*(gFx.diseaseRisk||1)*pressure*Math.min(.18,Math.max(.07,dayScale*1.15));
@@ -2366,16 +2369,18 @@ function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
   let damage=0,stress=0;
   if(crop.water<20){damage+=7*(1-droughtRes);stress+=10;crop.stressLog.water+=2;}else if(crop.water<38){stress+=4;crop.stressLog.water++;}
   if(crop.n<20){damage+=4;stress+=6;crop.stressLog.n+=2;}else if(crop.n<35){stress+=2;crop.stressLog.n++;}
+  if(crop.p<20){damage+=2.5;stress+=4;crop.stressLog.p+=2;}else if(crop.p<35){stress+=1.5;crop.stressLog.p++;}
+  if(crop.k<20){damage+=2.5;stress+=4;crop.stressLog.k+=2;}else if(crop.k<35){stress+=1.5;crop.stressLog.k++;}
   if(weather.heat){damage+=5*(1-heatRes);stress+=6*(1-heatRes);crop.stressLog.heat++;}
   if(memory.hot>=3){damage+=2.5*(memory.hot-2)*(1-heatRes)*streakBoost;stress+=3*(memory.hot-2);crop.stressLog.heat++;}
   if(weather===WEATHER.storm&&crop.growth>55){damage+=2;stress+=2;}
   if(crop.disease>55){damage+=6;stress+=5;crop.stressLog.disease+=2;}else if(crop.disease>30){damage+=2;stress+=2;crop.stressLog.disease++;}
   damage*=dayScale;stress*=dayScale;
-  const ageRatio=(Number(crop.age)||0)/Math.max(1,Number(species.maturityDays)||110);if(ageRatio>=.46&&ageRatio<=.63){const reproductiveLoad=(crop.water<38?1.6:0)+(crop.n<30?.7:0)+(weather.heat?1.4:0)+(crop.disease>35?.8:0);crop.reproStress=clamp((Number(crop.reproStress)||0)+reproductiveLoad*dayScale*3.5,0,100);}
+  const ageRatio=(Number(crop.age)||0)/Math.max(1,Number(species.maturityDays)||110);if(ageRatio>=.46&&ageRatio<=.63){const reproductiveLoad=(crop.water<50?1.6:0)+(crop.n<38?.7:0)+(crop.p<35?.35:0)+(crop.k<40?.45:0)+(weather.heat?1.4:0)+(crop.disease>35?.8:0);crop.reproStress=clamp((Number(crop.reproStress)||0)+reproductiveLoad*dayScale*3.5,0,100);}
   const damagePressure=1+(pressure-1)*.55,guard=traitSum(traits,'healthGuard')+Math.min(.18,(state.legacy||0)*.03);
   crop.health=clamp(crop.health-damage*damagePressure*(1-guard));
   crop.stress=clamp(crop.stress+stress*(1+(pressure-1)*.35),0,120);
-  const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.65+.18*crop.water/100+.17*crop.n/100;
+  const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.62+.18*crop.water/100+.11*crop.n/100+.045*crop.p/100+.045*crop.k/100;
   const firstHarvestBoost=state.achievements.includes('first')?1:1.3,pHFactor=Math.max(.9,1-Math.abs(Number(carry.pH||6.2)-6.2)*.025),compactionPenalty=1-Math.min(.1,Number(carry.compaction||.2)*.16),siteFactor=(.94+.06*(carry.fertility||1))*pHFactor*compactionPenalty,fatiguePenalty=1-Math.min(.08,(Number(state.fieldPressure?.fatigue)||0)*.0012);
   const dailyGrowth=(100/Math.max(60,Number(species.maturityDays)||110))*1.08;crop.growth=clamp(crop.growth+dailyGrowth*(species.growthRate||1)*Math.min(1.14,firstHarvestBoost)*crop.seed.vigor*growthTrait*(gFx.growth||1)*healthFactor*resourceFactor*siteFactor*fatiguePenalty*(fx.growth||1),0,110);crop.age++;
 }
@@ -2390,7 +2395,7 @@ function updateFieldPressure(){
 function fieldConditionSnapshot(){
   const living=state.field.slice(0,fieldLimit()).filter(crop=>crop&&crop.health>0);
   const avg=key=>living.length?living.reduce((sum,crop)=>sum+(Number(crop[key])||0),0)/living.length:0;
-  return {water:avg('water'),n:avg('n'),disease:avg('disease'),stress:living.filter(crop=>(Number(crop.stress)||0)>=35).length,coins:Number(state.coins)||0};
+  return {water:avg('water'),n:avg('n'),p:avg('p'),k:avg('k'),disease:avg('disease'),stress:living.filter(crop=>(Number(crop.stress)||0)>=35).length,coins:Number(state.coins)||0};
 }
 function skipWeatherLabel(counts){
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>(WEATHER[id]?.icon||'·')+count).join(' ');
