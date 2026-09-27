@@ -177,7 +177,6 @@ const META_ACHIEVEMENTS={
 Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
 
 
-function focusMax(){return 0;}
 function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
 function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
 function traitValue(traits,key,base=1){
@@ -1873,6 +1872,10 @@ function openEconomyInfo(){
     <div><small>Referensi Sulsel</small><b>${formatRupiah(PRICE_REFERENCE.cornSulsel)}/kg</b><span>Pembelian KA 14%</span></div>
     <div><small>Urea subsidi</small><b>${formatRupiah(PRICE_REFERENCE.urea)}/kg</b><span>Harga acuan input</span></div>
     <div><small>NPK subsidi</small><b>${formatRupiah(PRICE_REFERENCE.npk)}/kg</b><span>Harga acuan input</span></div>
+    <div><small>Upah pekerja</small><b>${formatRupiah(laborRate())}/HOK</b><span>Tarif simulasi; seluruh pekerjaan dibayar dari kas</span></div>
+    <div><small>Biaya pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b><span>Tanam, rawat, panen & operasi</span></div>
+    <div><small>Biaya input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b><span>Benih, air/pompa & pupuk</span></div>
+    <div><small>Air irigasi</small><b>${round(state.seasonStats.irrigationM3||0,1)} m³</b><span>Akumulasi musim</span></div>
     <div><small>Pendapatan musim</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b><span>Panen × harga</span></div>
     <div><small>Biaya musim</small><b>${formatRupiah(state.seasonStats.cost||0)}</b><span>Input & operasi</span></div>
     <div><small>Margin berjalan</small><b>${formatRupiah(margin)}</b><span>Belum termasuk nilai riset</span></div>
@@ -2479,14 +2482,14 @@ function finishSeason(){
   if(state.weekly){awardAchievement('weekly');state.records['weekly:'+state.weekly.key]=Math.max(Number(state.records['weekly:'+state.weekly.key]||0),rivalScore);}
   updateRecord(state.seasonStats.yield);
   const ghostDelta=round(state.seasonStats.yield-previousGhost,1),review=seasonDecisionReview(researchQuality);
-  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,revenue:state.seasonStats.revenue||0,cost:state.seasonStats.cost||0,marketPrice:state.marketPrice,mission:completed,contractRatio:round(contractRatio,2),rival:rivalTarget,rivalScore,beatRival,rivalMetric:currentRival().metric,boss:!!state.env.boss,quality:researchQuality,review,pressure:structuredClone(state.fieldPressure)});state.history=state.history.slice(0,20);
+  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,revenue:state.seasonStats.revenue||0,cost:state.seasonStats.cost||0,laborCost:state.seasonStats.laborCost||0,inputCost:state.seasonStats.inputCost||0,irrigationM3:round(state.seasonStats.irrigationM3||0,1),marketPrice:state.marketPrice,mission:completed,contractRatio:round(contractRatio,2),rival:rivalTarget,rivalScore,beatRival,rivalMetric:currentRival().metric,boss:!!state.env.boss,quality:researchQuality,review,pressure:structuredClone(state.fieldPressure)});state.history=state.history.slice(0,20);
   noteBreeder('rekap','Musim '+state.season+' · hasil '+state.seasonStats.yield.toFixed(1)+' kg · skor rival '+rivalScore.toFixed(1),{review});
   if(hasTech('cold')&&state.seasonBest&&!state.vault.some(item=>item.id===state.seasonBest.seed.id)){
     const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
   }
   $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
   const seasonMargin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
-  $('#recapStats').innerHTML=`<div><small>Hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Pendapatan</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b></div><div><small>Biaya</small><b>${formatRupiah(state.seasonStats.cost||0)}</b></div><div><small>Margin</small><b>${formatRupiah(seasonMargin)}</b></div><div><small>Target</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Mutu riset</small><b>${researchQuality===null?'—':researchQuality+'%'}</b></div>`;
+  $('#recapStats').innerHTML=`<div><small>Hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Pendapatan</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b></div><div><small>Biaya</small><b>${formatRupiah(state.seasonStats.cost||0)}</b></div><div><small>Margin</small><b>${formatRupiah(seasonMargin)}</b></div><div><small>Target</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Mutu riset</small><b>${researchQuality===null?'—':researchQuality+'%'}</b></div><div><small>Pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b></div><div><small>Input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b></div><div><small>Irigasi</small><b>${round(state.seasonStats.irrigationM3||0,1)} m³</b></div>`;
   const carryNote=document.createElement('p');carryNote.className='recap-note';carryNote.textContent='Carry-over lahan · patogen '+state.fieldPressure.pathogen.toFixed(1)+' · stres '+state.fieldPressure.fatigue.toFixed(1);$('#recapStats').append(carryNote);
   const rivalCard=document.createElement('div');rivalCard.innerHTML='<small>Rival · '+esc(currentRival().style)+'</small><b>'+rivalScore.toFixed(1)+' / '+rivalTarget.toFixed(1)+'</b>';$('#recapStats').append(rivalCard);
   const reviewBox=document.createElement('section');reviewBox.className='decision-review';reviewBox.innerHTML='<b>Keputusan → akibat</b>'+review.map(item=>'<span>'+esc(item)+'</span>').join('');$('#recapStats').append(reviewBox);
@@ -2589,9 +2592,9 @@ function bind(){
       field.querySelector(`[data-plot="${index}"]`)?.classList.add('gesture-used');haptic(8);return;
     }
     if(g.mode){
-      const before=JSON.stringify(state.field[index]||null),beforeFocus=state.focus,beforeCoins=state.coins;
+      const before=JSON.stringify(state.field[index]||null),beforeCoins=state.coins;
       useFieldTool(g.mode,index);
-      if(before!==JSON.stringify(state.field[index]||null)||beforeFocus!==state.focus||beforeCoins!==state.coins){g.applied++;haptic(6);}
+      if(before!==JSON.stringify(state.field[index]||null)||beforeCoins!==state.coins){g.applied++;haptic(6);}
     }
   };
   const finishGesture=event=>{
