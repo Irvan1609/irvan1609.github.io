@@ -123,6 +123,14 @@
             <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
             <pre id="healthJson" class="code-box">—</pre>
           </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Diagnostic perangkat</h2><p>Pemeriksaan read-only untuk browser ini.</p></div><a class="button-like" href="/diagnostic/">Buka lengkap</a></div>
+            <div id="deviceDiagnostic" class="key-values"><div class="muted">Belum diperiksa.</div></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Antrean lokal</h2><p>Status sinkronisasi pada perangkat ini; data tidak dihapus dari panel ini.</p></div><button id="refreshQueue" type="button">Perbarui</button></div>
+            <div id="localQueue" class="key-values"><div class="muted">Tidak ada antrean.</div></div>
+          </article>
         </div>
       </section>
 
@@ -157,7 +165,7 @@
     </div>
   </main>
 
-  <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/develop/app.js?v=20260926-9"></script>
+  <script type="module" src="/account.js?v=20260927-shell1"></script>
+  <script type="module" src="/develop/app.js?v=20260927-10"></script>
 </body>
 </html>
