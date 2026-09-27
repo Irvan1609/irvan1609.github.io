@@ -1,5 +1,4 @@
 import {detectChiliBoxesFromImageData} from './detector.js';
-import {detectChiliWithModel} from './ml-detector.js';
 import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260926-3';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
 import {boxIoU,matchBoxes,incrementSampleCode,reviewFlags,imageQuality,datasetMetrics,activeLearningPriority} from './review-metrics.js';
@@ -13,6 +12,16 @@ const FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
 const MEASURE_HANDOFF_KEY='agrotik_chili_measurement_handoff_v1';
 const IMAGE_HANDOFF_DB='agrotik-image-handoff-v1';
 const LOW_CONFIDENCE=.5;
+const SAFE_MODE=localStorage.getItem('agrotik_safe_mode_v1')==='1';
+let mlModulePromise=null;
+async function detectWithOptionalModel(image,options){
+  if(SAFE_MODE)return null;
+  try{
+    mlModulePromise??=import('./ml-detector.js');
+    const mod=await mlModulePromise;
+    return await mod.detectChiliWithModel(image,options);
+  }catch{return null;}
+}
 
 let image=null,photoBlob=null,photoUrl='',boxes=[],boxMeta=[],predictedDetections=[],history=[];
 let selected=-1,interaction=null,activeId=null,dirty=false,db=null,qualityStats=null;
@@ -460,7 +469,7 @@ async function autoDetectChilies({automatic=false}={}){
   try{
     const condition=$('condition').value,adaptive=Number.isFinite(calibratedThreshold)?calibratedThreshold:null;
     const inferenceOptions=condition==='overlap'?{confidence:adaptive??.25,iouThreshold:.65}:condition==='occluded'||condition==='low-light'?{confidence:Math.min(adaptive??.25,.20),iouThreshold:.58}:(adaptive?{confidence:adaptive}:{});
-    let result=await detectChiliWithModel(image,inferenceOptions).catch(()=>null),detections=[];
+    let result=await detectWithOptionalModel(image,inferenceOptions),detections=[];
     if(result){
       predictionMethod=result.method||'onnx';modelVersion=result.version||'onnx';
       const calibration=thresholdByModel.get(modelVersion)||optimizeThreshold(allRowsCache,modelVersion);
@@ -736,7 +745,7 @@ window.addEventListener('storage',event=>{if(event.key===MEASURE_HANDOFF_KEY&&ev
 try{
   applyDetectSettings();applyResearchSettings();db=await openDB();await list();updateWorkflowState();warmOfflineModel();
   try{const pending=JSON.parse(localStorage.getItem(MEASURE_HANDOFF_KEY)||'null');if(pending)await consumeMeasurementHandoff(pending);}catch{}
-  $('cloudState').textContent=cloudContributionReady()?'Cloudflare siap menerima anotasi yang sudah Anda koreksi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+  $('cloudState').textContent=SAFE_MODE?'Safe Mode aktif · AI cloud dijeda, deteksi warna lokal tetap tersedia.':cloudContributionReady()?'Cloudflare siap menerima anotasi yang sudah Anda koreksi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
   if(fieldContext?.plot_label){$('sample').value=fieldContext.plot_label;status('Mode plot '+fieldContext.plot_label+' · hasil simpan akan dikirim kembali ke Denah Lahan.');}
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch(error){
