@@ -234,7 +234,7 @@ function weatherRiskPreview(){
     const day=state.day+offset,id=forecastWeather(day),weather=WEATHER[id]||WEATHER.clear,confidence=55+Math.floor(simUnit('forecast-confidence',state.season,day,id)*31);
     rows.push('H+'+offset+' '+weather.icon+' '+confidence+'%');
   }
-  return rows.length?'Prakiraan 3 hari: '+rows.join(' · '):'Akhir kalender musim';
+  return rows.length?'Prakiraan: '+rows.join(' · '):'Akhir kalender musim';
 }
 function cropPhenology(crop){
   if(!crop)return 'Kosong';
@@ -1878,7 +1878,7 @@ function openEconomyInfo(){
     <div><small>Pendapatan musim</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b><span>Panen × harga</span></div>
     <div><small>Biaya musim</small><b>${formatRupiah(state.seasonStats.cost||0)}</b><span>Input & operasi</span></div>
     <div><small>Margin berjalan</small><b>${formatRupiah(margin)}</b><span>Belum termasuk nilai riset</span></div>
-  </div><p class="help-note">Harga acuan lapang disederhanakan untuk keseimbangan game.</p>`);
+  </div><p class="help-note">Harga acuan disederhanakan untuk game.</p>`);
 }
 function openComfortSettings(){
   const c=state.comfort;
