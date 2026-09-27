@@ -27,7 +27,7 @@ for(const forbidden of ["'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/p
 
 if(sw.includes("method==='POST'")||sw.includes('method==="POST"'))fail('service worker must not cache POST requests');
 if(!sw.includes("skipSameOriginPath(url.pathname)"))fail('service worker cache exclusion missing');
-if(!register.includes("navigator.serviceWorker.register")||!register.includes("beforeinstallprompt"))fail('PWA registration/install flow incomplete');
+if(!register.includes("navigator.serviceWorker.register")||!register.includes("beforeinstallprompt")||!register.includes("system-core.js"))fail('PWA registration/install flow incomplete');
 if(register.includes("WARM_CHILI")||register.includes("WARM_ROUTE"))fail('PWA register must not warm heavy routes automatically');
 
 if(manifest.name!=='Agrotik · Alat Riset Agronomi')fail('manifest name incorrect');
@@ -46,4 +46,5 @@ for(const path of ['index.html','stat/index.html','public/hitung-cabai/index.htm
 const sync=fs.readFileSync('src/account-dataset-sync.js','utf8');
 if(!sync.includes("navigator.onLine===false")||!sync.includes("window.addEventListener('offline'")||!sync.includes("window.addEventListener('online'"))fail('offline cloud-sync guard missing');
 
-console.log('PWA contract OK: installable lightweight shell, runtime cache, local-first sync, and no eager heavy-asset prefetch.');
+for(const marker of ['ROLLBACK_PREVIOUS','GET_ROLLBACK_STATUS','META_PREVIOUS'])if(!sw.includes(marker))fail('service worker rollback missing '+marker);
+console.log('PWA contract OK: installable lightweight shell, runtime cache, one-build rollback, local-first sync, and no eager heavy-asset prefetch.');
