@@ -123,7 +123,10 @@ async function runDiagnostics({includeNetwork=true}={}){
     try{const r=await fetch(endpoint+'/v1/health',{cache:'no-store'});health=await r.json();checks.push({id:'worker',label:'Worker API',ok:r.ok&&health?.ok===true,detail:health?.apiVersion||String(r.status)});}catch{checks.push({id:'worker',label:'Worker API',ok:false,detail:'Tidak dapat dihubungi'});}
     try{const r=await fetch(endpoint+'/v1/cloud/status',{cache:'no-store'});cloud=await r.json();checks.push({id:'cloud',label:'Cloud mode',ok:r.ok,detail:cloud?.effectiveMode||String(r.status)});}catch{checks.push({id:'cloud',label:'Cloud mode',ok:false,detail:'Tidak dapat dibaca'});}
   }
-  return {generatedAt:now(),checks,storage,health,cloud,queue:safeJson(localStorage.getItem(QUEUE_KEY)||'null',null),recent:readRecent().slice(0,8),errors:safeJson(localStorage.getItem(ERROR_KEY)||'[]',[]).slice(0,8),safeMode:safeMode(),rollback:await rollbackStatus()};
+  const active=String(localStorage.getItem('statistical_web_active_csv_v1')||'').replace(/\.csv$/i,''),history=safeJson(localStorage.getItem('statistical_web_editor_history_v1')||'{}',{});
+  const gameRecovery=safeJson(localStorage.getItem('agrotik_field_zero_recovery_v1')||'[]',[]);
+  const recovery={activeDataset:active,statVersions:Array.isArray(history?.[active])?history[active].length:0,gameCheckpoints:Array.isArray(gameRecovery)?gameRecovery.length:0};
+  return {generatedAt:now(),checks,storage,health,cloud,queue:safeJson(localStorage.getItem(QUEUE_KEY)||'null',null),recent:readRecent().slice(0,8),errors:safeJson(localStorage.getItem(ERROR_KEY)||'[]',[]).slice(0,8),safeMode:safeMode(),rollback:await rollbackStatus(),recovery};
 }
 function injectRecentHome(){
   if(location.pathname!=='/'||document.getElementById('agrotikRecent'))return;
