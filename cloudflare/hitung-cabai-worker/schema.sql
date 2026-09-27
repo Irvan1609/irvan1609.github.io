@@ -191,6 +191,15 @@ CREATE TABLE IF NOT EXISTS idempotent_operations (
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at);
 CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at);
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version INTEGER PRIMARY KEY,
+  description TEXT NOT NULL,
+  applied_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO schema_migrations (version,description,applied_at)
+VALUES (18,'Resilience, queue diagnostics, and versioned schema tracking','2026-09-27T00:00:00.000Z');
+
 CREATE TABLE IF NOT EXISTS cloud_controls (
   id INTEGER PRIMARY KEY CHECK(id=1),
   mode TEXT NOT NULL DEFAULT 'auto',
