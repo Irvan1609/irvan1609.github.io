@@ -3,7 +3,6 @@ import {parseNumber,formatNumber as fmt} from './number-format.js';
 import {mixedCombinedReml} from './mixed-model-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 const $=s=>document.querySelector(s);
 const cell=v=>typeof v==='number'&&Number.isFinite(v)?`<td data-number="${v}">${fmt(v,5)}</td>`:`<td>${v===null||v===undefined?'—':esc(v)}</td>`;
 const table=(heads,rows)=>`<div class="table-scroll"><table class="result-table"><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(cell).join('')}</tr>`).join('')}</tbody></table></div>`;
@@ -21,6 +20,6 @@ export function openMixedModel(){
     const tests=res.fixedTests.map(t=>[t.label,t.df,t.dfDen,t.f,t.p,t.p<.01?'**':t.p<.05?'*':'tn']),groupRows=Object.entries(res.groupCounts).map(([loc,count])=>[loc,count]);
     const warnings=res.warnings.map(w=>`<div class="analysis-note">${esc(w)}</div>`).join('');
     $('#mixedResult').innerHTML=`<section class="analysis-result" data-export-scope><h3>Mixed Model REML — ${esc(data.headers[yi])}</h3>${resultActions('mixed-model')}<div class="analysis-lead">N = ${res.n}; ${res.locations.length} lokasi; ${res.genotypes.length} genotipe; ${res.groups} kelompok tersarang lokasi; db residual = ${res.dfError}.</div><div class="analysis-note"><b>${esc(res.method)}</b>. Komponen ragam diestimasi dengan REML. Uji efek tetap menggunakan Wald F berbasis kovarians GLS; db denominator residual yang ditampilkan merupakan aproksimasi, bukan Satterthwaite/Kenward–Roger.</div><div class="table-caption">Uji efek tetap</div>${table(['Efek','db pembilang','db denominator (aproks.)','Wald F','p','Ket.'],tests)}<div class="table-caption">Komponen ragam</div>${table(['Komponen','Ragam'],[['Kelompok(Lokasi)',res.variance.block],['Residual',res.variance.residual],['ICC kelompok',res.variance.icc]])}<div class="table-caption">Jumlah kelompok per lokasi</div>${table(['Lokasi','Jumlah kelompok'],groupRows)}<div class="table-caption">LS-mean genotipe lintas lokasi</div>${table(['Genotipe','LS-mean','SE','CI 95% bawah','CI 95% atas'],res.lsmeans.map(x=>[x.label,x.mean,x.se,x.lower,x.upper]))}<div class="analysis-note">LS-mean dihitung dengan bobot lokasi sama dari bagian efek tetap model. Selang kepercayaan menggunakan db residual model.</div><div class="table-caption">BLUP Kelompok(Lokasi)</div>${table(['Lokasi','Kelompok','n','BLUP'],res.blockBlups.map(x=>[x.location,x.block,x.n,x.blup]))}${warnings}</section>`;
-    $('#mixedError').textContent='';void backupRawDataset(data);
+    $('#mixedError').textContent='';
   }catch(e){$('#mixedResult').innerHTML='';$('#mixedError').textContent=e.message;}};
 }
