@@ -282,7 +282,7 @@ function methodPane(out){
 }
 function renderAugmented(out,name,dataName){
   const warning=out.warnings.length?`<div class="analysis-smart-warning"><b>Periksa rancangan:</b> ${out.warnings.map(esc).join(' ')}</div>`:'';
-  const cv=Number.isFinite(out.cv)?fmtAug(out,out.cv,2,'cv')+'%':'—';
+  const cv=Number.isFinite(out.workSummary?.cv)?fmtAug(out,out.workSummary.cv,2,'cv')+'%':'—';
   const modeNote=out.reportMode==='excel'?'<div class="analysis-note">Sesuai contoh Excel: respons dibulatkan 2 desimal sebelum analisis; JK dan KK laporan dipotong 2 desimal. Data sumber tetap utuh.</div>':'';
   const useHolm=out.comparisonMethod==='holm';
   const selected=(out.selection||[]).filter(item=>(useHolm?item.winsHolm:item.wins)>0).length;
@@ -295,8 +295,8 @@ function renderAugmented(out,name,dataName){
       <div class="aug-result-summary"><span><b>${out.blocks.length}</b><small>Blok</small></span><span><b>${out.checks.length}</b><small>Kontrol</small></span><span><b>${out.tests.length}</b><small>Galur uji</small></span><span><b>${out.dfError}</b><small>db galat</small></span><span><b>${fmtAug(out,out.mse)}</b><small>KT galat</small></span><span><b>${cv}</b><small>KK</small></span></div>
       ${warning}${modeNote}
       <div class="aug-anova-grid">
-        <section><div class="table-caption">ANOVA utama · SS Type III</div>${anovaTable(out.typeIII,out)}</section>
-        <section><div class="table-caption">Partisi perlakuan · SS Type I</div>${anovaTable(out.partitionAdjusted,out)}</section>
+        <section><div class="table-caption">ANOVA utama · SS Type III</div>${anovaTable(out.typeIII,out)}<div class="analysis-note">SS Type III adalah JK terkoreksi; JK antarbaris tidak dijumlahkan sebagai dekomposisi JK Total.</div></section>
+        <section><div class="table-caption">Partisi perlakuan · SS Type I</div>${anovaTable(out.partitionAdjusted,out)}<div class="analysis-note">Partisi Type I mengikuti urutan Work/SAS dan menutup JK Total bersama Galat.</div></section>
       </div>
       <section class="aug-work-summary-wrap"><div class="table-caption">Standard Error, Grand Mean, BNT & KK</div>${workSummaryTable(out)}</section>
     </div>
