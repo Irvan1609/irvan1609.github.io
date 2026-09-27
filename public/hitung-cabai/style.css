@@ -53,3 +53,14 @@ canvas{display:block;width:auto;height:auto;max-width:100%;max-height:100%;touch
   .mobile-actionbar{position:fixed;display:grid;grid-template-columns:auto 1fr;gap:5px;left:5px;right:5px;bottom:max(5px,env(safe-area-inset-bottom));z-index:45;padding:5px;border:1px solid #cfd9e1;border-radius:13px;background:rgba(255,255,255,.97);box-shadow:0 10px 30px rgba(20,42,62,.18)}.mobile-actionbar .btn{min-height:47px}.mobile-actionbar .primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 }
 @media(max-width:390px){#viewport{height:calc(100dvh - 305px);min-height:225px}.capture-actions .btn,.capture-actions .file-button{font-size:10.5px}}
+
+/* HITUNG CABAI RESEARCH PANEL 2026-09-27 */
+.count-card{flex-wrap:wrap}.count-card small{flex-basis:100%;text-align:center;font-size:8px;color:var(--muted);line-height:1.15}
+.count-card small[data-state="validated"]{color:var(--green);font-weight:800}
+.count-card small[data-state="review"]{color:var(--amber);font-weight:800}
+.photo-duplicate-hint{margin:6px 0;padding:6px 8px;border:1px solid #e1c788;border-radius:8px;background:#fff9e9;color:#6d5724;font-size:9.5px}
+.research-panel{margin-top:8px;border-top:1px solid #e5ebef;padding-top:7px}.research-panel>summary{cursor:pointer;font-size:10.5px;font-weight:800;color:#536777;list-style:none}.research-panel>summary::-webkit-details-marker{display:none}.research-panel>summary::after{content:"+";float:right}.research-panel[open]>summary::after{content:"−"}
+.research-note{margin:5px 0 7px;color:var(--muted);font-size:9.5px}.research-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.research-actions{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}.research-actions .btn{min-height:36px;font-size:10px}
+.research-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:6px 0}.research-summary>div{padding:5px 6px;border:1px solid #e0e7ec;border-radius:7px;background:#fafcfd}.research-summary span,.research-summary b{display:block}.research-summary span{font-size:8px;color:var(--muted)}.research-summary b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:820px){.research-grid{grid-template-columns:1fr 1fr}.research-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.photo-duplicate-hint{font-size:9px}.research-grid{grid-template-columns:1fr}.research-actions{display:grid;grid-template-columns:1fr}.research-actions .btn{min-height:43px}.research-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
