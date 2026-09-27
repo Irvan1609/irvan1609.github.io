@@ -11,7 +11,7 @@ const FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
 const LOW_CONFIDENCE=.5;
 
 let image=null,photoBlob=null,photoUrl='',boxes=[],boxMeta=[],predictedDetections=[],history=[];
-let selected=-1,interaction=null,activeId=null,dirty=false,db=null,qualityStats=null;
+let selected=-1,interaction=null,activeId=null,dirty=false,db=null,qualityStats=null,draftTimer=null;
 let cameraStream=null,cameraQualityTimer=null,facingMode='environment',torchOn=false,detecting=false,contributing=false;
 let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=false,confidenceStats=null;
 let batchQueue=[],batchTotal=0,batchIndex=0,batchAutoBusy=false;
@@ -48,9 +48,10 @@ function sendCountToField(){
 
 function openDB(){
   return new Promise((resolve,reject)=>{
-    const request=indexedDB.open('chili-labels-v1',2);
+    const request=indexedDB.open('chili-labels-v1',3);
     request.onupgradeneeded=()=>{
       if(!request.result.objectStoreNames.contains('samples'))request.result.createObjectStore('samples',{keyPath:'id'});
+      if(!request.result.objectStoreNames.contains('drafts'))request.result.createObjectStore('drafts',{keyPath:'id'});
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error);
@@ -63,6 +64,49 @@ function transaction(mode,action){
     tx.onerror=()=>reject(tx.error);
     tx.onabort=()=>reject(tx.error);
   });
+}
+function draftTransaction(mode,action){
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('drafts',mode),request=action(tx.objectStore('drafts'));
+    tx.oncomplete=()=>resolve(request?.result);
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error);
+  });
+}
+async function saveDraft(){
+  if(!db||!image||!photoBlob||!dirty)return;
+  const draft={
+    id:'current',updatedAt:Date.now(),sample:$('sample')?.value.trim()||'',imageBlob:photoBlob,
+    boxes:cloneBoxes(),boxMeta:cloneMeta(),predictedDetections:predictedDetections.map(d=>({box:[...d.box],score:d.score})),
+    predictionMethod,modelVersion,detectionRun,confidenceStats,qualityStats,condition:$('condition')?.value||'normal',
+    cloudContributionId,cloudEditToken,contributionOperationId
+  };
+  try{await draftTransaction('readwrite',store=>store.put(draft));}catch{}
+}
+function scheduleDraft(){
+  if(!db||!dirty||!image)return;
+  clearTimeout(draftTimer);draftTimer=setTimeout(()=>void saveDraft(),900);
+}
+async function clearDraft(){
+  clearTimeout(draftTimer);draftTimer=null;
+  if(!db)return;try{await draftTransaction('readwrite',store=>store.delete('current'));}catch{}
+}
+async function restoreDraft(){
+  if(!db||fieldContext)return false;
+  let draft=null;try{draft=await draftTransaction('readonly',store=>store.get('current'));}catch{}
+  if(!draft?.imageBlob||Date.now()-Number(draft.updatedAt||0)>24*60*60*1000)return false;
+  try{
+    await setPhoto(draft.imageBlob,draft.sample||nowName(),{fromBatch:true,skipAuto:true});
+    boxes=Array.isArray(draft.boxes)?draft.boxes.map(box=>[...box]):[];
+    boxMeta=Array.isArray(draft.boxMeta)?draft.boxMeta.map(meta=>({...meta,reasons:[...(meta.reasons||[])]})):[];
+    predictedDetections=Array.isArray(draft.predictedDetections)?draft.predictedDetections.map(d=>({box:[...d.box],score:d.score})):[];
+    predictionMethod=draft.predictionMethod||'manual';modelVersion=draft.modelVersion||'heuristic-color-v1';
+    detectionRun=Boolean(draft.detectionRun);confidenceStats=draft.confidenceStats||null;qualityStats=draft.qualityStats||qualityStats;
+    cloudContributionId=draft.cloudContributionId||'';cloudEditToken=draft.cloudEditToken||'';contributionOperationId=draft.contributionOperationId||'';
+    if(draft.condition&&$('condition'))$('condition').value=draft.condition;
+    dirty=true;paint();renderConfidence();updateWorkflowState();status('Draft terakhir dipulihkan otomatis · belum disimpan sebagai sampel.');
+    return true;
+  }catch{return false;}
 }
 function revokePhotoUrl(){if(photoUrl){URL.revokeObjectURL(photoUrl);photoUrl='';}}
 async function decodeBlob(blob){
@@ -163,6 +207,7 @@ function currentPriority(){
 }
 function updateWorkflowState(){
   const hasImage=Boolean(image),hasName=Boolean($('sample')?.value.trim()),detected=hasImage&&detectionRun,canSave=detected&&hasName;
+  if(dirty&&hasImage)scheduleDraft();
   $('autoDetect').disabled=!hasImage||detecting;$('undo').disabled=!detected||!history.length;$('mobileUndo').disabled=!detected||!history.length;
   $('deleteSelected').disabled=selected<0;$('zoomReset').disabled=!hasImage;$('mobileSave').disabled=!canSave;$('saveDesktop').disabled=!canSave;
   const ready=cloudContributionReady();$('contribute').disabled=!ready||!detected||contributing;
@@ -353,13 +398,13 @@ async function autoDetectChilies({automatic=false}={}){
   return true;
 }
 
-async function setPhoto(blob,name,{fromBatch=false}={}){
+async function setPhoto(blob,name,{fromBatch=false,skipAuto=false}={}){
   const prepared=await optimizeBlob(blob);revokePhotoUrl();photoBlob=prepared.blob;photoUrl=prepared.url;image=prepared.image;
   boxes=[];boxMeta=[];predictedDetections=[];history=[];selected=-1;interaction=null;activeId=null;dirty=true;detectionRun=false;confidenceStats=null;
   predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';duplicateId='';
   $('duplicateBanner').hidden=true;$('sample').value=fieldContext?.plot_label||name||nowName();resetView();layoutCanvas();paint();updateQuality();updateWorkflowState();await checkDuplicate();
-  if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
-  else status('Foto siap. Quality Gate '+(qualityStats?.score||0)+'/100 · jalankan Deteksi otomatis.');
+  if(!skipAuto&&$('detectOnLoad').checked)await autoDetectChilies({automatic:true});
+  else if(!skipAuto)status('Foto siap. Quality Gate '+(qualityStats?.score||0)+'/100 · jalankan Deteksi otomatis.');
   if(!fromBatch)window.scrollTo({top:Math.max(0,viewport.getBoundingClientRect().top+scrollY-120),behavior:'smooth'});
 }
 async function loadPhotoFile(file,name,options){if(!file)return;await setPhoto(file,name||file.name.replace(/\.[^.]+$/,''),options);}
@@ -459,7 +504,7 @@ async function saveCurrent({auto=false,duplicateMode=''}={}){
   try{
     targetId=targetId||crypto.randomUUID();existing=await transaction('readonly',store=>store.get(targetId));
     await transaction('readwrite',store=>store.put(recordFromCurrent(targetId,existing)));
-    activeId=targetId;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await list();
+    activeId=targetId;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await clearDraft();await list();
     const synced=fieldContext?null:sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(fieldContext)sendCountToField();
     const savedName=$('sample').value.trim();
@@ -583,7 +628,9 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&cameraStre
 
 try{
   applyDetectSettings();db=await openDB();await list();updateWorkflowState();warmOfflineModel();
+  const recovered=await restoreDraft();
   $('cloudState').textContent=cloudContributionReady()?'Cloudflare siap menerima anotasi yang sudah Anda koreksi.':'Cloudflare belum dikonfigurasi; penyimpanan lokal tetap berfungsi.';
+  if(recovered)window.AgrotikShell?.addRecent?.({type:'recovery',label:'Draft Hitung Cabai',path:'/hitung-cabai/',detail:'Dipulihkan'});
   if(fieldContext?.plot_label){$('sample').value=fieldContext.plot_label;status('Mode plot '+fieldContext.plot_label+' · hasil simpan akan dikirim kembali ke Denah Lahan.');}
   if(!navigator.mediaDevices?.getUserMedia)$('openCamera').textContent='📷 Ambil foto';
 }catch(error){
