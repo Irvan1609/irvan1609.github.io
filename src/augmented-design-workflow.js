@@ -262,7 +262,7 @@ function checkPairTable(out){
   const rows=(out.selection||[]).flatMap(item=>item.comparisons||[]).map(item=>{
     const p=useHolm?item.pHolm:item.p,significant=useHolm?item.significantHolm:item.significant;
     const result=item.diff>0&&significant?'Unggul nyata':item.diff>0?'Lebih tinggi, tn':item.diff<0&&significant?'Lebih rendah nyata':'tn';
-    return `<tr><td>${esc(item.test)}</td><td>${esc(item.check)}</td><td>${fmtAug(out,item.diff)}</td><td>${fmtAug(out,item.se)}</td><td>${fmtAug(out,item.lsd)}</td><td>${fmtAug(out,p,4)}</td><td>${result}</td></tr>`;
+    return `<tr><td>${esc(item.test)}</td><td>${esc(item.check)}</td><td>${fmtAug(out,item.diff)}</td><td>${fmtAug(out,item.se)}</td><td>${fmtAug(out,item.lsdWork)}</td><td>${fmtAug(out,p,4)}</td><td>${result}</td></tr>`;
   }).join('');
   return `<div class="table-scroll"><table class="result-table aug-check-pairs"><thead><tr><th>Entry</th><th>Check</th><th>Selisih</th><th>SE beda</th><th>BNT</th><th>${useHolm?'p Holm':'p'}</th><th>Keputusan</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -274,7 +274,7 @@ function methodPane(out){
     <div class="aug-method-grid">
       <section><h4>Struktur rancangan</h4><p>Augmented RCBD klasik: setiap check hadir pada setiap blok, sedangkan setiap entry/galur uji diamati pada satu petak. Check menjadi penghubung antarblok.</p></section>
       <section><h4>Model</h4><p>${esc(out.model)}. ANOVA utama mengikuti blok + genotipe dengan SS Type III. Partisi perlakuan mengikuti urutan Work/SAS: Line vs Check, Check, lalu Line(Check) dengan SS Type I.</p></section>
-      <section><h4>Rerata & seleksi</h4><p>Adjusted mean dihitung dari model blok + genotipe. Seleksi entry menggunakan perbandingan pairwise LSMEANS terhadap masing-masing check; mode Holm menyesuaikan seluruh p-value pairwise.</p></section>
+      <section><h4>Rerata & seleksi</h4><p>Adjusted mean dihitung dari model blok + genotipe. Mode BNT/LSD memakai BNT global Work yang berasal dari rerata StdErr seluruh DIFFS; mode Holm memakai p-value pairwise yang disesuaikan secara Holm.</p></section>
       <section><h4>Presisi</h4><p>Mode “Sesuai contoh Excel” membulatkan nilai respons menjadi 2 desimal sebelum analisis dan memotong tampilan JK/KK menjadi 2 desimal. Dataset sumber tidak diubah.</p></section>
     </div>
     <div class="aug-secondary-grid"><section><div class="table-caption">Ketelitian perbandingan</div>${sedTable(out)}</section><section><div class="table-caption">Efek blok</div>${blockTable(out)}</section></div>
