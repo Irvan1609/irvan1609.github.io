@@ -6016,157 +6016,6 @@ summary:focus-visible,
 }
 
 
-/* STAT MOBILE NO SIDEWAYS UI 2026-09-27 */
-/* Phone rule: the application itself never requires horizontal panning.
-   Dense spreadsheet data may scroll inside its own bounded viewport only. */
-@media(max-width:720px){
-  html,body{
-    width:100%!important;
-    max-width:100%!important;
-    overflow-x:hidden!important;
-    overscroll-behavior-x:none!important;
-  }
-  #app,.app-shell,.main,.workspace,.project-panel,.app-header,
-  .toolbar,.sheet-header,.dataset-meta-summaryline,
-  .nav-command-panel,.analysis-command-panel,
-  .analysis-workspace-backdrop,.analysis-workspace-modal,
-  .analysis-workspace-body,.science-simple-shell,.science-primary-grid,
-  .science-card,.analysis-result-dock,.analysis-dock-body,
-  .analysis-result,.analysis-summary,.result-os-enhanced,
-  [data-tool-mode="augmented"]{
-    width:100%!important;
-    max-width:100%!important;
-    min-width:0!important;
-  }
-
-  /* All control layouts wrap vertically instead of forcing a sideways swipe. */
-  .toolbar,.sheet-header,.dataset-meta-summaryline,
-  .science-role-grid,.science-option-grid,.science-transform-grid,
-  .analysis-result-toolbar,.result-primary-actions,
-  .result-significance-filter,.aug-simple-form,.aug-two-role-form,
-  .aug-runbar,.analysis-workspace-foot,.science-foot-actions{
-    min-width:0!important;
-  }
-  .toolbar>*,.sheet-header>*,.dataset-meta-summaryline>*,
-  .science-role-grid>*,.science-option-grid>*,
-  .science-transform-grid>*,.analysis-result-toolbar>*,
-  .result-primary-actions>*,.aug-simple-form>*,.aug-two-role-form>*,
-  .analysis-workspace-foot>*,.science-foot-actions>*{
-    min-width:0!important;
-    max-width:100%!important;
-  }
-
-  .analysis-group-board,
-  .analysis-compact-items,
-  .analysis-compact-group:not(:first-child) .analysis-compact-items{
-    width:100%!important;
-    min-width:0!important;
-  }
-  .analysis-compact-item{
-    min-width:0!important;
-    overflow:hidden!important;
-  }
-  .analysis-compact-item>b,
-  .analysis-compact-item>small,
-  .science-context>*,
-  .analysis-note,
-  .analysis-result-meta,
-  .table-caption,.figure-caption{
-    overflow-wrap:anywhere!important;
-    word-break:normal!important;
-  }
-
-  /* Result tables are fitted to the phone. No side-to-side reading. */
-  .analysis-result .table-scroll,
-  .analysis-summary .table-scroll,
-  [data-tool-mode="augmented"] .table-scroll{
-    width:100%!important;
-    max-width:100%!important;
-    overflow-x:hidden!important;
-  }
-  .analysis-result .result-table,
-  .analysis-result .anova-table,
-  .analysis-summary .result-table,
-  .analysis-summary .anova-table,
-  [data-tool-mode="augmented"] .result-table,
-  [data-tool-mode="augmented"] .anova-table,
-  [data-tool-mode="augmented"] .augmented-means-table{
-    width:100%!important;
-    min-width:0!important;
-    max-width:100%!important;
-    table-layout:fixed!important;
-  }
-  .analysis-result .result-table th,
-  .analysis-result .result-table td,
-  .analysis-result .anova-table th,
-  .analysis-result .anova-table td,
-  .analysis-summary .result-table th,
-  .analysis-summary .result-table td,
-  .analysis-summary .anova-table th,
-  .analysis-summary .anova-table td,
-  [data-tool-mode="augmented"] .result-table th,
-  [data-tool-mode="augmented"] .result-table td,
-  [data-tool-mode="augmented"] .anova-table th,
-  [data-tool-mode="augmented"] .anova-table td{
-    min-width:0!important;
-    max-width:none!important;
-    padding:4px 3px!important;
-    white-space:normal!important;
-    overflow-wrap:anywhere!important;
-    word-break:break-word!important;
-    font-size:10.5px!important;
-    line-height:1.2!important;
-  }
-
-  /* Charts and figures shrink to the screen instead of widening the document. */
-  .scientific-chart,
-  .scientific-chart svg,
-  .scientific-chart canvas,
-  .analysis-result svg,
-  .analysis-result canvas,
-  .analysis-result img,
-  [data-tool-mode="augmented"] svg,
-  [data-tool-mode="augmented"] canvas{
-    max-width:100%!important;
-  }
-  .scientific-chart{
-    width:100%!important;
-    overflow-x:hidden!important;
-  }
-
-  /* Fixed/bottom-sheet menus remain fully inside the viewport. */
-  .result-tools-menu-body,
-  .result-card-more-menu,
-  .result-os-menu-body,
-  .mobile-more-panel,
-  .column-context-menu{
-    max-width:calc(100vw - 16px)!important;
-    box-sizing:border-box!important;
-  }
-
-  /* Spreadsheet is the only deliberate exception: scrolling is contained
-     inside the data viewport and can never move the whole page. */
-  .grid-container{
-    width:100%!important;
-    max-width:100%!important;
-    overflow-x:auto!important;
-    overscroll-behavior-x:contain!important;
-    -webkit-overflow-scrolling:touch;
-  }
-  .data-grid{max-width:none!important}
-}
-
-@media(max-width:430px){
-  .analysis-compact-items,
-  .analysis-compact-group:not(:first-child) .analysis-compact-items{
-    grid-template-columns:1fr!important;
-  }
-  .analysis-result-toolbar{
-    grid-template-columns:1fr 44px!important;
-  }
-}
-
-
 /* STAT ANALYSIS HARDENING 2026-09-27 */
 .science-run-status{display:inline-flex;align-items:center;gap:6px;min-height:28px;font-size:.78rem;color:var(--muted);white-space:nowrap}
 .science-run-status[data-state]:not([data-state="idle"]):not(:empty)::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.75;flex:0 0 auto}
@@ -6188,55 +6037,6 @@ summary:focus-visible,
   .science-run-button,#closeScience2,.science-back-button{min-height:44px}
   .analysis-load-error,.analysis-recovery-note{font-size:.76rem;padding:7px 8px}
   .analysis-core-fallback .result-table{min-width:520px}
-}
-
-
-/* STAT MOBILE ANALYSIS ONE COLUMN 2026-09-27 */
-/* On phones, opening Analisis is a vertical list. No left-right card layout. */
-@media(max-width:720px){
-  .analysis-command-panel{
-    overflow-x:hidden!important;
-    overflow-y:auto!important;
-  }
-  .analysis-group-board{
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    width:100%!important;
-    gap:7px!important;
-  }
-  .analysis-compact-group,
-  .analysis-compact-group:first-child{
-    grid-column:1!important;
-    width:100%!important;
-    min-width:0!important;
-  }
-  .analysis-compact-items,
-  .analysis-compact-group:not(:first-child) .analysis-compact-items{
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    grid-auto-flow:row!important;
-    grid-auto-rows:auto!important;
-    width:100%!important;
-    gap:4px!important;
-    padding:5px!important;
-  }
-  .analysis-compact-item,
-  .analysis-simple-card{
-    width:100%!important;
-    min-width:0!important;
-    height:auto!important;
-    min-height:52px!important;
-    max-height:none!important;
-    grid-template-columns:32px minmax(0,1fr)!important;
-    padding:7px 8px!important;
-  }
-  .analysis-compact-item>b,
-  .analysis-simple-card>b{
-    white-space:normal!important;
-    overflow:visible!important;
-    text-overflow:clip!important;
-    line-height:1.25!important;
-  }
 }
 
 
@@ -6341,4 +6141,35 @@ summary:focus-visible,
   .aug-sas-panel>summary{min-height:44px;display:flex;align-items:center}
   .aug-sas-actions button{min-height:44px}
   .aug-sas-code{min-height:150px;max-height:45vh;font-size:10px}
+}
+
+
+/* STAT MOBILE TARGETED ANALYSIS FIX 2026-09-27 */
+@media(max-width:720px){
+  .analysis-smart-suggestion{display:none!important}
+
+  #addRow,#addCol{display:none!important}
+
+  .data-grid .grid-corner{
+    min-width:58px!important;
+    width:58px!important;
+    max-width:58px!important;
+    padding:2px!important;
+  }
+  .grid-add-controls{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:2px!important;
+    width:100%!important;
+  }
+  .grid-add-controls button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:24px!important;
+    padding:2px 1px!important;
+    border-radius:4px!important;
+    font-size:9px!important;
+    line-height:1.05!important;
+    white-space:normal!important;
+  }
 }
