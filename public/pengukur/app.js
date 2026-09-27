@@ -332,7 +332,7 @@ function makeRecord(measurement,sampleId){
 function saveMeasurement(){
   if(!activeMeasurement)return;
   const sampleId=$('sampleId').value.trim()||filename,record=makeRecord(activeMeasurement,sampleId);
-  records.push(record);records=records.slice(-500);persistRecords();renderRecords();tell('Pengukuran disimpan untuk '+sampleId+'.');$('referenceValue').value='';resetMeasurement();
+  records.push(record);records=records.slice(-500);persistRecords();renderRecords();if(chiliHandoffId&&record.metrics)sendChiliMeasurementSummary([record]);else tell('Pengukuran disimpan untuk '+sampleId+'.');$('referenceValue').value='';resetMeasurement();
 }
 function detailText(r){
   if(!r.metrics)return '';
@@ -394,7 +394,7 @@ function saveAllObjects({silent=false}={}){
   if(!activeObjects.length)return 0;const base=$('sampleId').value.trim()||filename,research=researchMeta(),now=Date.now();
   const next=activeObjects.map((o,i)=>({id:'m-'+now+'-'+i+'-'+Math.random().toString(36).slice(2,5),sampleId:`${base}-O${String(i+1).padStart(3,'0')}`,photo:filename,type:'object',label:'Objek',
     primaryValue:o.metrics.area,unit:'mm²',metrics:o.metrics,color:o.color,clipped:!!o.clipped,preset:$('objectPreset').value,referenceValue:null,research,paper:getProfile().name,quality:quality?.score??null,at:new Date().toISOString()}));
-  records.push(...next);records=records.slice(-500);persistRecords();renderRecords();const n=next.length;resetMeasurement();if(!silent)tell(n+' objek disimpan sebagai sampel terpisah.');return n;
+  records.push(...next);records=records.slice(-500);persistRecords();renderRecords();const n=next.length;resetMeasurement();if(chiliHandoffId)sendChiliMeasurementSummary(next);else if(!silent)tell(n+' objek disimpan sebagai sampel terpisah.');return n;
 }
 async function processBatchAutomatic(){
   if(batchBusy||!batchFiles.length||fieldContext)return;batchBusy=true;updateBatchControls();let ok=0,fail=0,objects=0;
@@ -472,3 +472,4 @@ RESEARCH_IDS.forEach(id=>$(id)?.addEventListener('change',saveResearch));
 
 installLiveCamera({onCapture:file=>{batchFiles=[file];batchIndex=0;loadFile(file);},getProfile,getLabel:photoLabel,onQuality:q=>quality=q});
 setMode('length');
+if(chiliHandoffId)void loadSharedChiliPhoto();
