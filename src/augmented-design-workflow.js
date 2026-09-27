@@ -248,9 +248,8 @@ function renderAugmented(out,name,dataName){
       ${modeNote}
     </div>
     <div class="aug-anova-pane"><div class="aug-anova-grid">
-      <section><div class="table-caption">Perlakuan | dikoreksi blok (Type III)</div>${anovaTable(out.treatmentAdjusted,out)}</section>
-      <section><div class="table-caption">Blok | dikoreksi perlakuan</div>${anovaTable(out.blockAdjusted,out)}</section>
-      <section class="aug-partition-section"><div class="table-caption">Partisi perlakuan Work / SAS (Type I)</div>${anovaTable(out.partitionAdjusted,out)}</section>
+      <section><div class="table-caption">ANOVA utama Work / SAS · Type III</div>${anovaTable(out.typeIII,out)}</section>
+      <section><div class="table-caption">Partisi perlakuan Work / SAS · Type I</div>${anovaTable(out.partitionAdjusted,out)}</section>
     </div></div>
     <div class="aug-detail-pane">
       <div class="aug-model-line"><span>${esc(out.model)}</span><span>Check: <b>${out.checks.map(esc).join(', ')}</b></span><span>Rerata check: <b>${fmtAug(out,out.checkAdjustedMean)}</b></span></div>
@@ -270,6 +269,7 @@ async function showResults(html,title,data,parameterCount){
     const dock=$('#analysisResultDock'),body=$('#analysisDockResults'),heading=$('#analysisDockTitle');
     if(!dock||!body)throw Error('dock unavailable');
     body.innerHTML=html;
+    body.classList.remove('result-view-summary','result-view-anova','result-view-diagnostic','result-view-full');
     body.dataset.datasetName=data.name||'Dataset';
     body.querySelectorAll('[data-aug-view-select]').forEach(select=>select.addEventListener('change',()=>{
       const section=select.closest('.augmented-result'),mode=select.value;
