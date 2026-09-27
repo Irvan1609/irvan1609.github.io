@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#14253a">
   <title>Develop | Irvan</title>
   <link rel="stylesheet" href="/subweb-header.css">
-  <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/develop/style.css?v=20260926-3">
+  <link rel="stylesheet" href="/account.css?v=20260928-1">
+  <link rel="stylesheet" href="/develop/style.css?v=20260928-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -35,6 +35,7 @@
         <button data-tab="datasets" type="button">Datasets</button>
         <button data-tab="ai" type="button">Hitung Cabai / AI</button>
         <button data-tab="server" type="button">Server</button>
+        <button data-tab="diagnostic" type="button">Diagnostic</button>
         <button data-tab="security" type="button">Security</button>
         <button data-tab="audit" type="button">Audit Log</button>
         <button data-tab="backups" type="button">Backups</button>
@@ -126,6 +127,23 @@
         </div>
       </section>
 
+      <section class="dev-view" data-view="diagnostic">
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Self-check perangkat</h2><p>Storage, IndexedDB, Service Worker, jaringan, dan Worker API.</p></div><button id="runDiagnostic" type="button">Periksa ulang</button></div>
+            <div id="diagnosticChecks" class="key-values"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Queue inspector</h2><p>Status antrean lokal tanpa membaca isi dataset.</p></div></div>
+            <div id="queueInspector" class="key-values"></div>
+          </article>
+        </div>
+        <div class="dev-panel">
+          <div class="panel-head"><div><h2>Recovery</h2><p>Safe Mode dan rollback hanya digunakan saat diperlukan.</p></div><div class="inline-actions"><button id="copyDiagnostic" type="button">Salin laporan</button><button id="toggleSafeMode" type="button">Safe Mode</button><button id="toggleRollback" type="button">Versi sebelumnya</button><a class="button-link" href="/diagnostic/">Buka lengkap</a></div></div>
+          <div id="recoveryState" class="muted"></div>
+        </div>
+      </section>
+
       <section class="dev-view" data-view="security">
         <div class="stats-grid compact" id="securityGrid"></div>
         <div class="overview-grid">
@@ -157,7 +175,7 @@
     </div>
   </main>
 
-  <script type="module" src="/account.js?v=20260926-6"></script>
-  <script type="module" src="/develop/app.js?v=20260926-9"></script>
+  <script type="module" src="/account.js?v=20260928-1"></script>
+  <script type="module" src="/develop/app.js?v=20260928-1"></script>
 </body>
 </html>
