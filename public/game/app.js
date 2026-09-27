@@ -1632,8 +1632,9 @@ function renderSeason(){
   if(critical)critical.textContent=tasks.length?(tasks.length+' perhatian · '+tasks.slice(0,2).join(' · ')):'Tidak ada keputusan kritis';
   if(stop)stop.textContent=lastTimeStopReason?'Berhenti: '+lastTimeStopReason:'Auto-stop aktif';
   $('#finishSeason').hidden=cupActive||eventPending||state.day<state.maxDay;$('#nextDay').hidden=!cupActive&&!eventPending&&state.day>=state.maxDay;
-  $('#nextDay').textContent=cupActive?'🏆 Breeding Cup':eventPending?'⚠ Tinjau kejadian':'+1 Hari';
-  $('#nextDay').title=eventPending?'Kejadian lapang menunggu keputusan':'Lanjutkan satu hari';
+  $('#nextDay').textContent=cupActive?'🏆 Breeding Cup':eventPending?'⚠ Tinjau kejadian':'Hari berikutnya';
+  $('#nextDay').title=eventPending?'Kejadian lapang menunggu keputusan':'Lanjutkan satu hari · tahan untuk +3 hari';
+  $('#nextCritical').textContent='⏩ Ke keputusan';
   for(const id of ['skip3Days','nextCritical']){const button=$(id.startsWith('#')?id:'#'+id);if(button){button.hidden=cupActive||eventPending||state.day>=state.maxDay;button.disabled=timeLocked;}}
 }
 function plotUseControlHtml(index){
@@ -2251,7 +2252,15 @@ function updateFieldPressure(){
     fatigue:round(clamp((Number(previous.fatigue)||0)*.97+Math.max(0,avgStress-18)*.015+Math.max(0,(state.seasonStats.yield||0)/Math.max(1,fieldLimit())-10)*.04,0,70),1)
   };
 }
-function stepOneDay(){
+function fieldConditionSnapshot(){
+  const living=state.field.slice(0,fieldLimit()).filter(crop=>crop&&crop.health>0);
+  const avg=key=>living.length?living.reduce((sum,crop)=>sum+(Number(crop[key])||0),0)/living.length:0;
+  return {water:avg('water'),n:avg('n'),disease:avg('disease'),stress:living.filter(crop=>(Number(crop.stress)||0)>=35).length,coins:Number(state.coins)||0};
+}
+function skipWeatherLabel(counts){
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>(WEATHER[id]?.icon||'·')+count).join(' ');
+}
+function stepOneDay({logWeather=true}={}){
   state.advanceGuard=null;state.day++;harvestCombo=0;state.focus=focusMax(state.level);
   if(state.daily){
     const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
@@ -2259,29 +2268,38 @@ function stepOneDay(){
   const w=WEATHER[state.weather];weatherMemoryUpdate(state.weather);
   const diseaseSnapshot=state.field.map(crop=>Number(crop?.disease)||0);
   state.field.forEach((crop,index)=>processCrop(crop,w,index,diseaseSnapshot));runScheduledExperimentObservation();tickExpedition();
-  addLog(w.icon+' '+w.name+'. '+w.effect+'.');
+  if(logWeather)addLog(w.icon+' '+w.name+'. '+w.effect+'.');
   const eventChance=state.achievements.includes('first')?(.012+Math.min(.008,Math.max(0,state.season-1)*.001)+(state.env.boss?.006:0)):.006;
   if(simUnit('event',state.season,state.day)<eventChance)state.pendingEvent=createEvent();
-  save();
+  return state.weather;
 }
 function advanceDays(amount=1,{untilCritical=false}={}){
   clearUndo();
   const blockers=blockingAdvanceIssues();
   if(blockers.length){renderAdvanceNotice();toast(state.pendingEvent?'Kejadian lapang menunggu ditinjau':'Selesaikan dulu · '+blockers[0]);return;}
   if(state.day>=state.maxDay){finishSeason();return;}
-  if(untilCritical&&!state.field.slice(0,fieldLimit()).some(Boolean)&&!state.experiment){toast('Tanam dulu sebelum lompat ke kejadian');return;}
-  const startDay=state.day,maxSteps=Math.min(untilCritical?30:Math.max(1,Math.round(Number(amount)||1)),state.maxDay-state.day);lastTimeStopReason='';
+  if(untilCritical&&!state.field.slice(0,fieldLimit()).some(Boolean)&&!state.experiment){toast('Tanam dulu sebelum lompat ke keputusan');return;}
+  const startDay=state.day,maxSteps=Math.min(untilCritical?30:Math.max(1,Math.round(Number(amount)||1)),state.maxDay-state.day),before=fieldConditionSnapshot(),weatherCounts={};lastTimeStopReason='';
   let moved=0;
   for(let i=0;i<maxSteps;i++){
-    stepOneDay();moved++;
+    const weatherId=stepOneDay({logWeather:maxSteps===1&&!untilCritical});weatherCounts[weatherId]=(weatherCounts[weatherId]||0)+1;moved++;
     const reason=criticalStopReason();
     if(reason){lastTimeStopReason=reason;break;}
     const nowBlocking=blockingAdvanceIssues();if(nowBlocking.length){lastTimeStopReason=nowBlocking[0];break;}
   }
-  if(moved>1)addLog('⏩ H'+startDay+' → H'+state.day+(lastTimeStopReason?' · '+lastTimeStopReason:'')+'.');
+  if(moved>1){
+    const after=fieldConditionSnapshot(),parts=['⏩ H'+startDay+'→H'+state.day,skipWeatherLabel(weatherCounts)];
+    const waterDelta=Math.round(after.water-before.water),diseaseDelta=Math.round(after.disease-before.disease);
+    if(waterDelta)parts.push('air '+(waterDelta>0?'+':'')+waterDelta);
+    if(diseaseDelta)parts.push('penyakit '+(diseaseDelta>0?'+':'')+diseaseDelta);
+    if(after.stress!==before.stress)parts.push('stres '+before.stress+'→'+after.stress+' petak');
+    if(after.coins!==before.coins)parts.push('kas '+formatRupiah(after.coins-before.coins,true));
+    if(lastTimeStopReason)parts.push(lastTimeStopReason);
+    addLog(parts.filter(Boolean).join(' · ')+'.');
+  }
   render();
   if(lastTimeStopReason)toast('H'+state.day+' · '+lastTimeStopReason);
-  else if(untilCritical)toast('H'+state.day+' · belum ada kejadian kritis');
+  else if(untilCritical)toast('H'+state.day+' · belum ada keputusan kritis');
 }
 function advanceDay(){advanceDays(1);}
 function createEvent(){
