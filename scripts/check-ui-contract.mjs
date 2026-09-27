@@ -107,12 +107,14 @@ for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',print
 }
 if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
-for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','autoDetect','detectColor','detectSensitivity','detectOnLoad','mode','zoom','undo','sendToStat','save','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
+for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','autoDetect','detectColor','detectSensitivity','detectOnLoad','reviewLow','deleteSelected','zoomReset','saveDesktop','qualityGate','autoNext','autoIncrement','batchAuto','condition','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
   if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
 }
 for(const marker of ['capture="environment"','playsinline','mobile-actionbar','Pas layar'])if(!chiliHtml.includes(marker))fail(`hitung-cabai mobile UI missing ${marker}`);
-if(!chiliHtml.includes('#viewport{width:100%;overflow:hidden'))fail('hitung-cabai viewport must fit width without internal scrolling');
-for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizePhoto','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
+const chiliStyle = fs.readFileSync('public/hitung-cabai/style.css','utf8');
+if(!chiliStyle.includes('#viewport{position:relative;width:100%')||!chiliStyle.includes('overflow:hidden'))fail('hitung-cabai viewport must fit width without internal scrolling');
+if(chiliHtml.includes('<style>'))fail('hitung-cabai styles must be consolidated in external stylesheet');
+for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizeBlob','imageBlob','pinchStart','reviewIndices','maybeAutoBatch','checkDuplicate','warmOfflineModel','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
 for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','mergeFragments'])if(!chiliDetector.includes(marker))fail(`hitung-cabai detector missing ${marker}`);
 if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
 
