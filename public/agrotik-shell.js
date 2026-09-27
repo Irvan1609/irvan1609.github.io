@@ -212,13 +212,36 @@ function diagnosticRows(data){
   ];
   return rows.map(([a,b])=>'<div class="ag-shell-kv"><span>'+esc(a)+'</span><b>'+esc(b)+'</b></div>').join('');
 }
+async function setFrontendRollback(enabled){
+  if(!('serviceWorker' in navigator))return false;
+  try{
+    const reg=await navigator.serviceWorker.ready,worker=reg.active||navigator.serviceWorker.controller;
+    if(!worker)return false;
+    worker.postMessage({type:'SET_ROLLBACK',enabled:Boolean(enabled)});
+    try{localStorage.setItem('agrotik_frontend_rollback_v1',enabled?'1':'0');}catch{}
+    passiveNotice(enabled?'Frontend sebelumnya akan digunakan setelah muat ulang.':'Frontend terbaru akan digunakan setelah muat ulang.');
+    setTimeout(()=>location.reload(),350);
+    return true;
+  }catch{return false;}
+}
+function frontendRollbackEnabled(){return localStorage.getItem('agrotik_frontend_rollback_v1')==='1';}
+function renderHomeRecent(){
+  if(location.pathname!=='/'||document.querySelector('.ag-shell-home-recent'))return;
+  const recent=readRecent().filter(item=>item.path&&item.path!=='/').slice(0,3);
+  if(!recent.length)return;
+  const grid=document.querySelector('.tool-grid');if(!grid)return;
+  const box=document.createElement('div');box.className='ag-shell-home-recent';
+  box.innerHTML='<div class="ag-shell-home-recent-head"><b>Terakhir dibuka</b><small>Lanjutkan pekerjaan</small></div><div class="ag-shell-home-recent-grid">'+recent.map(item=>'<a href="'+esc(item.path)+'"><span>'+esc(item.label)+'</span><small>'+new Date(item.at).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'})+'</small></a>').join('')+'</div>';
+  grid.parentElement?.insertBefore(box,grid);
+}
 function toolCommands(){
   const recent=readRecent();
   const fixed=TOOL_ROUTES.map(item=>({label:item.label,detail:item.path,keywords:item.keywords,run:()=>location.assign(item.path)}));
   const extra=[
     {label:'Jalankan diagnostic',detail:'Periksa perangkat dan cloud',keywords:'diagnostic cek kesehatan',run:()=>openDiagnostics()},
     {label:safeMode()?'Matikan Safe Mode':'Aktifkan Safe Mode',detail:'Mode lokal ringan',keywords:'safe ringan offline',run:()=>setSafeMode(!safeMode())},
-    {label:'Salin laporan error',detail:'Tanpa data penelitian',keywords:'error bug laporan',run:async()=>{await copyErrorReport();passiveNotice('Laporan teknis disalin.');}}
+    {label:'Salin laporan error',detail:'Tanpa data penelitian',keywords:'error bug laporan',run:async()=>{await copyErrorReport();passiveNotice('Laporan teknis disalin.');}},
+    {label:frontendRollbackEnabled()?'Kembali ke frontend terbaru':'Gunakan frontend sebelumnya',detail:'Tidak mengubah data',keywords:'rollback versi frontend cache',run:()=>setFrontendRollback(!frontendRollbackEnabled())}
   ];
   const recentCommands=recent.map(item=>({label:item.label,detail:'Terakhir · '+new Date(item.at).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}),keywords:'recent terakhir '+item.type,run:()=>location.assign(item.path)}));
   return [...recentCommands,...extra,...fixed];
@@ -281,8 +304,8 @@ function bindShortcuts(){
 }
 export function initAgrotikShell(){
   ensureStyle();migrateLocalSchema();applySafeMode();markSessionStart();bindActivity();bindGlobalErrors();bindShortcuts();
-  const idle=window.requestIdleCallback||((fn)=>setTimeout(fn,1200));idle(()=>storageInfo());
-  window.AgrotikShell={openPalette,openDiagnostics,runDiagnostics,queueState,setQueueState,queueSummary,readRecent,addRecent,safeMode,setSafeMode,copyErrorReport,storageInfo,localSchemaVersion:()=>Number(localStorage.getItem(SCHEMA_KEY)||0)};
+  const idle=window.requestIdleCallback||((fn)=>setTimeout(fn,1200));idle(()=>{storageInfo();renderHomeRecent();});
+  window.AgrotikShell={openPalette,openDiagnostics,runDiagnostics,queueState,setQueueState,queueSummary,readRecent,addRecent,safeMode,setSafeMode,copyErrorReport,storageInfo,setFrontendRollback,frontendRollbackEnabled,localSchemaVersion:()=>Number(localStorage.getItem(SCHEMA_KEY)||0)};
   document.dispatchEvent(new CustomEvent('agrotik-shell-ready'));
   return window.AgrotikShell;
 }
