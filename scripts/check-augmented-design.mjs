@@ -30,6 +30,10 @@ assert.equal(checks.df,1);
 assert.equal(testPlus.df,6);
 near(checks.ss+testPlus.ss,treatment.ss);
 assert.equal(out.blockAdjusted.find(item=>item.label==='Blok (dikoreksi Perlakuan)').df,2);
+assert.equal(out.typeIII.find(item=>item.label==='Blok').df,2);
+assert.equal(out.typeIII.find(item=>item.label==='Perlakuan').df,7);
+near(out.typeIII.find(item=>item.label==='Blok').ss,out.blockAdjusted.find(item=>item.label==='Blok (dikoreksi Perlakuan)').ss);
+near(out.typeIII.find(item=>item.label==='Perlakuan').ss,treatment.ss);
 near(out.blockEffects.reduce((total,item)=>total+item.effect,0),0);
 assert.equal(out.sed.checkCheck.n,1);
 assert.equal(out.sed.testSameBlock.n,3);
@@ -59,9 +63,9 @@ const missingCheck=rows.filter(row=>!(row[0]==='B3'&&row[1]==='C2'));
 assert.throws(()=>augmentedRcbAnova(missingCheck,{checks:['C1','C2']}),/setiap check hadir di setiap blok/i);
 
 const workflow=fs.readFileSync(new URL('../src/augmented-design-workflow.js',import.meta.url),'utf8');
-for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augParameterCount','Parameter numerik dipilih otomatis','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','Partisi perlakuan Work / SAS','Ringkasan kompatibilitas Work','Kode SAS','augComparison','augPrecision','pCheckHolm','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ['Augmented RCBD','data-aug-param','aug-simple-form','augParameterCount','Parameter numerik dipilih otomatis','augAdvanced','augStructure','structurePreview','Rataan terkoreksi genotipe','data-aug-view-select','ANOVA utama Work / SAS · Type III','Partisi perlakuan Work / SAS · Type I','Ringkasan kompatibilitas Work','Kode SAS','augComparison','augPrecision','pCheckHolm','structuralAugmentedColumn','agrotik-analysis-complete',"'augmented'"])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 const flow=fs.readFileSync(new URL('../src/analysis-flow.js',import.meta.url),'utf8');
-for(const marker of ["['augmented','augmented','Augmented Design'","data-analysis-open","augmented-design-workflow.js"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
+for(const marker of ["['augmented','augmented','Augmented Design'","data-analysis-open","augmented-design-workflow.js","key:'augmented:augmented'"])assert.ok(flow.includes(marker),`analysis menu missing ${marker}`);
 
 console.log('Augmented design verified: complete checks, adjusted means, Type III whole-treatment model, Work/SAS Type I partitions, Holm, Work summary, SAS code UI, comparison SE classes, and invalid-design guards.');
 
