@@ -213,6 +213,25 @@ async function loadServer(){
   ];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
 }
+function labelMobileTables(){
+  document.querySelectorAll('.table-wrap table').forEach(table=>{
+    const labels=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach(row=>[...row.children].forEach((cell,index)=>{if(cell.tagName==='TD')cell.dataset.label=labels[index]||'';}));
+  });
+}
+async function loadDiagnostic(){
+  const api=window.AgrotikResilience;if(!api){$('#diagnosticChecks').innerHTML='<div class="muted">Modul diagnostic belum siap.</div>';return;}
+  const d=await api.runDiagnostics({includeNetwork:true});
+  $('#diagnosticChecks').innerHTML=d.checks.map(c=>'<div class="kv"><span>'+esc(c.label)+'</span><b class="'+(c.ok?'positive':'negative')+'">'+esc(c.detail)+'</b></div>').join('');
+  const stat=d.queue?.stat||{},game=d.queue?.game||{};
+  $('#queueInspector').innerHTML=[
+    ['Stat',stat.status||'tidak ada'],['Dataset tertunda',stat.pendingDatasets||0],['Operasi tertunda',stat.pendingOperations||0],
+    ['Circuit pause',stat.circuitMs?Math.ceil(stat.circuitMs/1000)+' dtk':'Tidak'],['Field Zero',game.status||'tidak ada'],['Konflik Field Zero',game.conflict?'Ada':'Tidak']
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+  $('#toggleSafeMode').textContent=d.safeMode?'Keluar Safe Mode':'Aktifkan Safe Mode';
+  $('#toggleRollback').textContent=d.rollback?.enabled?'Kembali ke terbaru':'Versi sebelumnya';$('#toggleRollback').disabled=!d.rollback?.available&&!d.rollback?.enabled;
+  $('#recoveryState').textContent='Storage '+Math.round(Number(d.storage?.ratio||0)*100)+'% · '+(d.storage?.persisted?'persisten':'best effort')+' · rollback cache '+(d.rollback?.available?'tersedia':'belum tersedia')+'.';
+}
 async function loadSecurity(){
   const data=await api('/v1/develop/security');
   const cards=[
@@ -260,10 +279,11 @@ async function loadTab(name,force=false){
     if(name==='datasets')await loadDatasets();
     if(name==='ai')await loadAI();
     if(name==='server')await loadServer();
+    if(name==='diagnostic')await loadDiagnostic();
     if(name==='security')await loadSecurity();
     if(name==='audit')await loadAudit();
     if(name==='backups')await loadBackups();
-    loaded.add(name);
+    loaded.add(name);labelMobileTables();
   }catch(error){console.error(error);alert(error.message||'Data develop tidak dapat dimuat.');}
 }
 async function init(){
@@ -276,6 +296,10 @@ document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activ
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
 $('#refreshHealth').onclick=loadHealth;
 $('#saveCloudControl').onclick=saveCloudControl;
+$('#runDiagnostic').onclick=()=>loadDiagnostic();
+$('#copyDiagnostic').onclick=()=>window.AgrotikResilience?.copyErrorReport?.();
+$('#toggleSafeMode').onclick=()=>window.AgrotikResilience?.toggleSafeMode?.();
+$('#toggleRollback').onclick=async()=>{const state=await window.AgrotikResilience?.rollbackStatus?.();window.AgrotikResilience?.setRollback?.(!state?.enabled);};
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
 $('#migrateAiImages').onclick=async()=>{
