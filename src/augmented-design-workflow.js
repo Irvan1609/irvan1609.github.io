@@ -1,6 +1,6 @@
 import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,formatNumber} from './number-format.js';
-import {augmentedRcbAnova} from './augmented-design-engine.js?v=20260927-work-aug-v3';
+import {augmentedRcbAnova} from './augmented-design-engine.js?v=20260928-work-parity-v4';
 import {resultActions} from './result-export.js';
 
 const $=selector=>document.querySelector(selector);
