@@ -136,8 +136,8 @@ const LOCATIONS={
 };
 const TECH={
   sensor:{name:'Sensor Tanah',icon:'◉',cost:10,requires:[],desc:'Inspector menampilkan risiko stres lebih jelas.',effect:'sensor'},
-  irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi memberi +50 air dan tidak memakai tenaga setiap kedua penggunaan.',effect:'irrigation'},
-  precisionN:{name:'Pemupukan Presisi',icon:'N',cost:18,requires:['sensor'],desc:'Biaya aplikasi N turun dan dosis lebih efisien.',effect:'precisionN'},
+  irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi mencapai target air dengan biaya pompa lebih rendah.',effect:'irrigation'},
+  precisionN:{name:'Pemupukan Presisi',icon:'NPK',cost:18,requires:['sensor'],desc:'Efisiensi dosis pupuk meningkat berdasarkan status hara.',effect:'precisionN'},
   drone:{name:'Drone Scout',icon:'◇',cost:20,requires:['sensor'],desc:'Scout menghasilkan +2 RP dan peluang membuka mutasi meningkat.',effect:'drone'},
   expedition:{name:'Field Expedition',icon:'↗',cost:22,requires:['sensor'],desc:'Membuka ekspedisi ke lokasi liar.',effect:'expedition'},
   genome:{name:'Genome Lab',icon:'⌬',cost:24,requires:['drone'],desc:'Membuka puzzle genom untuk menemukan trait laten.',effect:'genome'},
@@ -186,11 +186,7 @@ const META_ACHIEVEMENTS={
 Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
 
 
-function focusMax(level){
-  const legacy=((typeof state!=='undefined'&&state?.legacy)||0)>0?1:0,base=Math.min(5,3+Math.floor((Math.max(1,level)-1)/6)+legacy);
-  const penalty=(typeof state!=='undefined'&&state?.challenge&&CHALLENGES[state.challenge])?Number(CHALLENGES[state.challenge].focusPenalty||0):0;
-  return Math.max(2,base-penalty);
-}
+function focusMax(){return 0;}
 function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
 function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
 function traitValue(traits,key,base=1){
@@ -2457,26 +2453,30 @@ function eventDefinition(event){
       choices:[['spray','Semprot · '+formatRupiah(actionCost('spray'))],['observe','Amati · +4 riset']]},
     trader:{kicker:'VISITOR',title:'Pedagang benih keliling',text:'Seorang pedagang menawarkan lot benih tanpa silsilah lengkap. Potensinya tidak pasti.',
       choices:[['buy','Beli lot · '+formatRupiah(actionCost('trader'))],['pass','Lewati']]},
-    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion yang berulang di bawah satu petak. Mengambil sampel membutuhkan tenaga hari ini.',
-      choices:[['sample','Ambil sampel · 1 tenaga'],['ignore','Abaikan']]},
-    drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran kecil tersumbat setelah hujan. Tanaman dengan penyakit aktif paling berisiko.',
-      choices:[['drain','Buka drainase · 1 tenaga'],['risk','Biarkan']]},
+    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion berulang. Pekerja dapat mengambil sampel tanah untuk dianalisis.',
+      choices:[['sample','Ambil sampel · '+formatRupiah(laborCost('sample'))],['ignore','Abaikan']]},
+    drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran tersumbat setelah hujan. Membuka drainase membutuhkan pekerja lapang.',
+      choices:[['drain','Buka drainase · '+formatRupiah(laborCost('drain'))],['risk','Biarkan']]},
     signal:{kicker:'FIELD ZERO',title:'Sinyal ungu di petak',text:'Selama beberapa detik, sensor, daun, dan tanah menunjukkan pola yang sama. Tidak ada catatan fenomena ini.',
-      choices:[['trace','Lacak sinyal · 2 tenaga'],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))] ]},
+      choices:[['trace','Lacak sinyal · '+formatRupiah(laborCost('trace'))],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))]]},
     pathogen:{kicker:'FOLLOW-UP',title:'Sampel patogen kembali',text:'Data observasi karat sebelumnya membuka dua jalur: dokumentasi mendalam atau tindakan cepat.',
-      choices:[['publish','Dokumentasikan · +8 RP'],['contain','Kendalikan penyakit']]},
-    returnTrader:{kicker:'VISITOR',title:'Pedagang itu kembali',text:'Karena sebelumnya Anda menolak lot pertama, kali ini ia menawarkan galur yang lebih jelas asal-usulnya.',
-      choices:[['buyBetter','Beli galur terseleksi · '+formatRupiah(actionCost('traderSelected'))],['declineAgain','Tolak lagi']]},
-    archive:{kicker:'FIELD ZERO ARCHIVE',title:'Arsip terenkripsi ditemukan',text:'Jejak sinyal membuka satu fragmen arsip. Anda dapat membacanya sekarang atau mengonversi energinya untuk menjaga tanaman.',
+      choices:[['publish','Dokumentasikan · +8 RP'],['control','Kendalikan penyakit']]},
+    returnTrader:{kicker:'RETURN VISITOR',title:'Pedagang kembali dengan lot terseleksi',text:'Lot kedua lebih mahal, tetapi informasi asal dan performanya lebih lengkap.',
+      choices:[['buyBetter','Beli · '+formatRupiah(actionCost('traderSelected'))],['leave','Lewati']]},
+    archive:{kicker:'FIELD ZERO',title:'Arsip lama terbuka',text:'Jejak Zero membuka catatan lama. Pilih membaca arsip atau menstabilkan lahan.',
       choices:[['readArchive','Baca arsip'],['stabilize','Stabilkan lahan']]},
-    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pilih satu respons prioritas untuk seluruh lahan.',
-      choices:[['defendBoss','Pertahanan kolektif · 2 tenaga'],['gambleBoss','Ambil risiko · +10 RP']]}
+    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak. Pekerja dapat menjalankan respons kolektif untuk seluruh lahan.',
+      choices:[['defendBoss','Respons kolektif · '+formatRupiah(laborCost('defendBoss'))],['gambleBoss','Ambil risiko · +10 RP']]}
   };
   return defs[event.kind]||defs.soil;
 }
+function eventLaborTask(choice){
+  return {sample:'sample',drain:'drain',trace:'trace',defendBoss:'defendBoss'}[choice]||'';
+}
 function canEventChoice(kind,choice){
   if(choice==='spray')return state.coins>=actionCost('spray');if(choice==='buy')return state.coins>=actionCost('trader');
-  if(choice==='sample'||choice==='drain')return state.focus>=1;if(choice==='trace'||choice==='defendBoss')return state.focus>=2;if(choice==='shield')return state.coins>=actionCost('shield');
+  const laborTask=eventLaborTask(choice);if(laborTask)return state.coins>=laborCost(laborTask);
+  if(choice==='shield')return state.coins>=actionCost('shield');
   if(choice==='buyBetter')return state.coins>=actionCost('traderSelected');
   return true;
 }
@@ -2504,18 +2504,18 @@ function applyEventChoice(choice){
   }
   if(event.kind==='soil'){
     if(choice==='sample'){
-      state.focus--;state.rp+=6;const item=randomLivingCrop();
+      const worker=laborCost('sample');chargeFarmCost(worker,{labor:worker});state.rp+=6;const item=randomLivingCrop();
       if(item&&chance(.38)&&!item.crop.mutation){item.crop.mutation=pick(MUTATION_POOL.filter(id=>!item.crop.seed.traits.includes(id)));item.crop.revealed=true;discoverTrait(item.crop.mutation);}
       state.eventFlags.sampledSoil=true;note='Sampel menghasilkan +6 riset dan membuka jalur event baru.';
     }else note='Sinyal tanah tidak ditindaklanjuti.';
   }
   if(event.kind==='drainage'){
-    if(choice==='drain'){state.focus--;state.field.forEach(c=>{if(c){c.water=Math.max(45,c.water-12);c.disease=Math.max(0,c.disease-4);}});note='Drainase pulih.';}
+    if(choice==='drain'){const worker=laborCost('drain');chargeFarmCost(worker,{labor:worker});state.field.forEach(c=>{if(c){c.water=Math.max(45,c.water-12);c.disease=Math.max(0,c.disease-4);}});note='Drainase pulih · pekerja '+formatRupiah(worker)+'.';}
     else{state.field.forEach(c=>{if(c&&c.water>75){c.health=clamp(c.health-5);c.stress=clamp(c.stress+6,0,120);}});note='Sebagian petak mengalami stres genangan.';}
   }
   if(event.kind==='signal'){
     if(choice==='trace'){
-      state.focus-=2;state.rp+=10;const item=randomLivingCrop();
+      const worker=laborCost('trace');chargeFarmCost(worker,{labor:worker});state.rp+=10;const item=randomLivingCrop();
       if(item){item.crop.mutation='zero';item.crop.revealed=true;discoverTrait('zero');}
       state.eventFlags.zeroTrace=true;note=item?'Resonansi Zero ditemukan pada P'+(item.index+1)+'. Jalur arsip terbuka.':'Jejak sinyal dikonversi menjadi +10 riset.';
     }else{const eventCost=actionCost('shield');state.coins-=eventCost;state.seasonStats.cost=(state.seasonStats.cost||0)+eventCost;state.field.forEach(c=>{if(c)c.health=clamp(c.health+7);});note='Tanaman dilindungi dari anomali.';}
@@ -2538,7 +2538,7 @@ function applyEventChoice(choice){
     state.eventFlags.zeroTrace=false;
   }
   if(event.kind==='bossChoice'){
-    if(choice==='defendBoss'){state.focus-=2;state.field.forEach(c=>{if(c){c.health=clamp(c.health+8);c.water=clamp(c.water+12);c.disease=Math.max(0,c.disease-10);}});note='Pertahanan kolektif mengurangi tekanan boss.';}
+    if(choice==='defendBoss'){const worker=laborCost('defendBoss');chargeFarmCost(worker,{labor:worker});state.field.forEach(c=>{if(c){c.health=clamp(c.health+8);c.water=clamp(c.water+12);c.disease=Math.max(0,c.disease-10);}});note='Respons pekerja mengurangi tekanan boss · '+formatRupiah(worker)+'.';}
     else{state.rp+=10;state.field.forEach(c=>{if(c)c.stress=clamp(c.stress+8,0,120);});note='Risiko diambil: +10 RP, stres tanaman meningkat.';}
   }
   addLog(note);state.pendingEvent=null;$('#eventModal').hidden=true;beep(580,.06);render();
