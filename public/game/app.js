@@ -1991,28 +1991,28 @@ function openMusicPicker(){
 function openInspectorSheet(){document.body.classList.add('inspector-engaged');document.querySelector('.inspector')?.classList.add('sheet-open');}
 function closeInspectorSheet(){document.body.classList.remove('inspector-engaged');document.querySelector('.inspector')?.classList.remove('sheet-open');}
 function smartActionForSelected(){
-  const crop=selectedCrop();
+  const crop=selectedCrop(),index=state.selectedPlot;
   if(!crop)return {tool:'plant',label:'🌱 Tanam'};
   if(crop.health<=0)return {tool:'remove',label:'× Bersihkan'};
   if(crop.growth>=100)return {tool:'harvest',label:'🧺 Panen'};
-  if(crop.water<30)return {tool:'water',label:'💧 Irigasi'};
+  const irrigation=irrigationPlan(crop,index);if(irrigation.needed)return {tool:'water',label:'💧 Irigasi'};
   if(crop.disease>=35)return {tool:'scout',label:'◎ Periksa'};
-  if(crop.n<30)return {tool:'fertilize',label:'N Pupuk'};
+  const fertilizer=recommendedFertilizer(crop);if(fertilizer)return {tool:'fertilize',fertilizer,label:(FERTILIZERS[fertilizer]?.short||'Pupuk')+' Pupuk'};
   return {tool:'scout',label:'◎ Periksa'};
 }
 function carePriority(action,crop,index){
   if(!crop||crop.health<=0)return -1;
-  const species=SPECIES[crop.species]||SPECIES.maize,maturity=Math.max(1,Number(species.maturityDays)||110),ratio=(Number(crop.age)||0)/maturity,repro=ratio>=.46&&ratio<=.63;
-  if(action==='water')return Math.max(0,48-Number(crop.water||0))*2+(repro?35:0)+(crop.water<20?45:0)+Math.max(0,70-crop.health)*.25;
-  if(action==='fertilize')return Math.max(0,45-Number(crop.n||0))*1.7+(repro?18:0)+nitrogenTimingEfficiency(crop)*18+(crop.n<20?35:0);
+  const ratio=cropRatio(crop),repro=ratio>=.46&&ratio<=.66;
+  if(action==='water'){const plan=irrigationPlan(crop,index);return Math.max(0,plan.trigger-Number(crop.water||0))*2.2+(repro?38:0)+(crop.water<20?50:0);}
+  if(action==='fertilize'){const d=nutrientDeficits(crop);return d.n*1.7+d.p*1.25+d.k*1.35+(repro?12:0)+(recommendedFertilizer(crop)?20:0);}
   if(action==='scout')return Math.max(0,Number(crop.disease||0)-18)*2.2+(repro?12:0)+Math.max(0,70-crop.health)*.2;
   return 0;
 }
 function careCandidates(action){
   return state.field.slice(0,fieldLimit()).map((crop,index)=>({crop,index,score:carePriority(action,crop,index)})).filter(item=>{
     const crop=item.crop;if(!crop||crop.health<=0||crop.growth>=100)return false;
-    if(action==='water')return crop.water<38;
-    if(action==='fertilize')return !activeChallenge().noFertilizer&&crop.n<38;
+    if(action==='water')return irrigationPlan(crop,item.index).needed;
+    if(action==='fertilize')return !activeChallenge().noFertilizer&&!!recommendedFertilizer(crop);
     if(action==='scout')return crop.disease>=25;
     return false;
   }).sort((a,b)=>b.score-a.score||a.index-b.index);
@@ -2021,49 +2021,58 @@ function careSummary(){
   const water=careCandidates('water'),fertilize=careCandidates('fertilize'),scout=careCandidates('scout'),ready=state.field.slice(0,fieldLimit()).map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0&&item.crop.growth>=100);
   return {water,fertilize,scout,ready,total:unique([...water,...fertilize,...scout].map(item=>item.index)).length};
 }
-function applyCareAction(action,index,{quiet=false}={}){
+function applyCareAction(action,index,{quiet=false,fertilizerId=''}={}){
   const crop=state.field[index];if(!crop||crop.health<=0)return false;
   const label='P'+String(index+1).padStart(2,'0');
   if(action==='scout'){
-    if(state.focus<1)return false;
-    state.focus--;crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
-    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog(label+': periksa menemukan '+traitMeta(crop.mutation).name+'.');}
-    else addLog(label+': periksa selesai; penyakit '+Math.round(crop.disease)+'%.');
+    const labor=laborCost('scout');if(state.coins<labor)return false;
+    chargeFarmCost(labor,{labor});crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
+    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog(label+': pekerja menemukan '+traitMeta(crop.mutation).name+' · upah '+formatRupiah(labor)+'.');}
+    else addLog(label+': pemeriksaan pekerja · penyakit '+Math.round(crop.disease)+'% · '+formatRupiah(labor)+'.');
     crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));
-    if(!quiet){beep(540);toast('◎ '+label+' · penyakit '+Math.round(crop.disease)+'%');}
+    if(!quiet){beep(540);toast('◎ '+label+' · '+formatRupiah(labor));}
     return true;
   }
   if(action==='water'){
-    const focusCost=hasTech('irrigation')&&state.irrigationUses%2===1?0:1,cost=actionCost(hasTech('irrigation')?'waterPrecision':'water');
-    if(state.focus<focusCost||state.coins<cost)return false;
-    crop.water=clamp(crop.water+(hasTech('irrigation')?50:38));state.focus-=focusCost;state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;
-    state.irrigationUses++;crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?5:2));addLog(label+': irigasi · '+formatRupiah(cost)+'.');
-    if(!quiet){beep(360);toast('💧 '+label+' · air '+Math.round(crop.water)+'%');}
+    const price=irrigationActionCost(crop,index);if(state.coins<price.total)return false;
+    const before=Number(crop.water)||0;crop.water=Math.max(before,price.plan.target);
+    chargeFarmCost(price.total,{labor:price.labor,input:price.pump});state.irrigationUses++;state.seasonStats.irrigationM3=(state.seasonStats.irrigationM3||0)+price.plan.volumeM3;
+    crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?6:3));
+    addLog(label+': '+price.plan.label+' '+price.plan.depthMm+' mm (±'+price.plan.volumeM3+' m³) · '+formatRupiah(price.total)+'.');
+    if(!quiet){beep(360);toast('💧 '+label+' · '+Math.round(crop.water)+'% · '+formatRupiah(price.total));}
     return true;
   }
   if(action==='fertilize'){
     if(activeChallenge().noFertilizer)return false;
-    const cost=actionCost(hasTech('precisionN')?'fertilizePrecision':'fertilize');if(state.focus<1||state.coins<cost)return false;
-    const highN=crop.n>75,timing=nitrogenTimingEfficiency(crop),addition=(hasTech('precisionN')?46:34)*timing;crop.n=Math.min(110,crop.n+addition);state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;state.focus--;
-    if(highN){crop.stress=clamp(crop.stress+8,0,120);crop.health=clamp(crop.health-3);addLog(label+': N berlebih meningkatkan stres.');}
-    else if(timing<.95){addLog(label+': pemupukan N · efisiensi timing '+Math.round(timing*100)+'% · '+formatRupiah(cost)+'.');recordDecision('pemupukan','N H'+state.day,'Efisiensi timing '+Math.round(timing*100)+'%');}
-    else addLog(label+': pemupukan N pada jendela efektif · '+formatRupiah(cost)+'.');
-    if(!quiet){beep(440);toast('N '+label+' · '+Math.round(crop.n)+'%');}
+    const id=fertilizerId||recommendedFertilizer(crop)||'urea',product=FERTILIZERS[id];if(!product)return false;
+    const price=fertilizerActionCost(crop,id);if(state.coins<price.total)return false;
+    const timing=id==='urea'?nitrogenTimingEfficiency(crop):clamp(1-Math.max(0,cropRatio(crop)-.48)*.65,.68,1);
+    const meta=plotMeta(index),pHFactor=clamp(1-Math.abs((Number(meta.pH)||6.2)-6.2)*.08,.75,1),precision=hasTech('precisionN')?1.08:1;
+    const high=(product.n&&crop.n>82)||(product.p&&crop.p>82)||(product.k&&crop.k>82);
+    crop.n=clamp(crop.n+product.n*timing*pHFactor*precision,0,110);
+    crop.p=clamp(crop.p+product.p*timing*pHFactor,0,110);
+    crop.k=clamp(crop.k+product.k*timing*pHFactor,0,110);
+    if(product.organic){crop.water=clamp(crop.water+4);crop.stress=Math.max(0,crop.stress-2);}
+    chargeFarmCost(price.total,{labor:price.labor,input:price.material});
+    if(high){crop.stress=clamp(crop.stress+5,0,120);crop.health=clamp(crop.health-2);}
+    const doseGram=Math.round(price.doseKg*1000);
+    addLog(label+': '+product.name+' '+doseGram+' g/25 m² · efisiensi '+Math.round(timing*pHFactor*100)+'% · '+formatRupiah(price.total)+'.');
+    recordDecision('pemupukan',product.name+' H'+state.day,'N '+Math.round(crop.n)+' · P '+Math.round(crop.p)+' · K '+Math.round(crop.k));
+    if(!quiet){beep(440);toast(product.short+' '+label+' · '+doseGram+' g · '+formatRupiah(price.total));}
     return true;
   }
   return false;
 }
 function careCenterHtml(){
-  const view=careSummary(),waterCost=actionCost(hasTech('irrigation')?'waterPrecision':'water'),fertilizerCost=actionCost(hasTech('precisionN')?'fertilizePrecision':'fertilize'),forecast=weatherRiskPreview();
-  const card=(action,icon,title,list,cost,note,disabled=false)=>{
-    const priority=list.length?list.slice(0,3).map(item=>'P'+String(item.index+1).padStart(2,'0')).join(', '):'';
-    return '<button type="button" class="care-choice" data-care-batch="'+action+'" '+(disabled||!list.length?'disabled':'')+'><span>'+icon+'</span><div><b>'+title+'</b><small>'+(list.length?list.length+' petak · '+priority:'Tidak ada kebutuhan')+'</small><em>'+note+(cost?' · '+formatRupiah(cost)+'/petak':'')+'</em></div></button>';
-  };
-  let body='<section class="care-center"><header><div><small>H'+state.day+' · '+esc(dominantPhenology())+'</small><b>Tenaga '+state.focus+'/'+focusMax(state.level)+' · '+formatRupiah(state.coins,true)+'</b></div><span>'+(view.total+view.ready.length)+' perlu perhatian</span></header><p>'+esc(forecast)+'</p><div class="care-choices">';
-  body+=card('water','💧','Irigasi',view.water,waterCost,'Gunakan tenaga tersisa');
-  body+=card('fertilize','N','Pupuk N',view.fertilize,fertilizerCost,activeChallenge().noFertilizer?'Dilarang challenge':'Timing menentukan efisiensi',activeChallenge().noFertilizer);
-  body+=card('scout','◎','Periksa penyakit',view.scout,0,'Menghasilkan RP');
-  body+='</div><div class="care-footer">'+(view.ready.length?'<button type="button" data-care-ready>🧺 '+view.ready.length+' siap panen</button>':'')+'<button type="button" data-care-highlight>'+(state.comfort.attention?'Tutup sorotan':'Sorot masalah')+'</button></div><small class="care-rule">Pilih satu prioritas. Biaya dan tenaga tetap dihitung per petak; sistem mendahulukan kondisi paling kritis.</small></section>';
+  const view=careSummary(),forecast=weatherRiskPreview(),firstWater=view.water[0],firstFert=view.fertilize[0];
+  const waterText=firstWater?(()=>{const c=irrigationActionCost(firstWater.crop,firstWater.index);return '±'+c.plan.depthMm+' mm · '+formatRupiah(c.total)+'/petak';})():'Irigasi sesuai fase';
+  const fertNames=unique(view.fertilize.slice(0,5).map(item=>FERTILIZERS[recommendedFertilizer(item.crop)]?.short).filter(Boolean)).join('/');
+  const card=(action,icon,title,list,note,disabled=false)=>'<button type="button" class="care-choice" data-care-batch="'+action+'" '+(disabled||!list.length?'disabled':'')+'><span>'+icon+'</span><div><b>'+title+'</b><small>'+(list.length?list.length+' petak · '+list.slice(0,3).map(item=>'P'+String(item.index+1).padStart(2,'0')).join(', '):'Tidak ada kebutuhan')+'</small><em>'+note+'</em></div></button>';
+  let body='<section class="care-center"><header><div><small>H'+state.day+' · '+esc(dominantPhenology())+'</small><b>Kas '+formatRupiah(state.coins,true)+' · upah '+formatRupiah(laborRate(),true)+'/HOK</b></div><span>'+(view.total+view.ready.length)+' perlu perhatian</span></header><p>'+esc(forecast)+'</p><div class="care-choices">';
+  body+=card('water','💧','Irigasi',view.water,waterText);
+  body+=card('fertilize','NPK','Pemupukan',view.fertilize,activeChallenge().noFertilizer?'Dilarang challenge':'Rekomendasi '+(fertNames||'N/P/K')+' + upah',activeChallenge().noFertilizer);
+  body+=card('scout','◎','Periksa tanaman',view.scout,'Pekerja lapang · +RP');
+  body+='</div><div class="care-footer">'+(view.ready.length?'<button type="button" data-care-ready>🧺 '+view.ready.length+' siap panen</button>':'')+'<button type="button" data-care-highlight>'+(state.comfort.attention?'Tutup sorotan':'Sorot masalah')+'</button></div><small class="care-rule">Tidak ada energi. Pekerjaan berhenti hanya jika kas tidak cukup; biaya pekerja dan input dicatat terpisah.</small></section>';
   return {body,view};
 }
 function bindCareCenter(view){
@@ -2077,22 +2086,20 @@ function refreshCareCenter(){
   const view=careCenterHtml();root.innerHTML=view.body;bindCareCenter(view.view);
 }
 function batchCare(action){
-  const names={water:'Irigasi',fertilize:'Pemupukan N',scout:'Pemeriksaan'},label=names[action]||'Perawatan',candidates=careCandidates(action);
+  const names={water:'Irigasi',fertilize:'Pemupukan',scout:'Pemeriksaan'},label=names[action]||'Perawatan',candidates=careCandidates(action);
   if(!candidates.length){toast('Tidak ada petak yang membutuhkan '+label.toLowerCase());return;}
-  clearUndo();let done=0,spentBefore=state.coins,focusBefore=state.focus;
-  for(const item of candidates.slice(0,6)){
+  clearUndo();let done=0,spentBefore=state.coins;
+  for(const item of candidates){
     state.selectedPlot=item.index;
     if(!applyCareAction(action,item.index,{quiet:true}))break;
     done++;
-    if(action!=='water'&&state.focus<=0)break;
-    if(action==='water'&&state.focus<=0&&!(hasTech('irrigation')&&state.irrigationUses%2===1))break;
   }
-  if(done){addLog('🌿 '+label+' cepat · '+done+' petak · tenaga '+Math.max(0,focusBefore-state.focus)+' · '+formatRupiah(Math.max(0,spentBefore-state.coins))+'.');document.dispatchEvent(new Event('fieldzero-field-change'));}
-  render();refreshCareCenter();toast(done?label+' · '+done+' petak ditangani':'Tenaga atau kas tidak cukup');
+  if(done){addLog('🌿 '+label+' oleh pekerja · '+done+' petak · biaya '+formatRupiah(Math.max(0,spentBefore-state.coins))+'.');document.dispatchEvent(new Event('fieldzero-field-change'));}
+  render();refreshCareCenter();toast(done?label+' · '+done+' petak':'Kas tidak cukup');
 }
 function openCareCenter(){
   const view=careCenterHtml();
-  openMetaModal('RAWAT','Pilih prioritas hari ini',view.body);
+  openMetaModal('RAWAT','Prioritaskan pekerjaan lapang',view.body);
   bindCareCenter(view.view);
 }
 function renderComfortControls(){
