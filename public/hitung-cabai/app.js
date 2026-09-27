@@ -21,7 +21,7 @@ let predictionMethod='manual',modelVersion='heuristic-color-v1',detectionRun=fal
 let batchQueue=[],batchTotal=0,batchIndex=0,batchAutoBusy=false;
 let cloudContributionId='',cloudEditToken='',contributionOperationId='',duplicateId='';
 let viewScale=1,viewX=0,viewY=0,pinchStart=null;
-let allRowsCache=[],currentImageHash='',agronomicStats=null,phenotype=null,blindActive=false,activeMeasureHandoffId='',activeDatasetSplit='',calibratedThreshold=null;
+let allRowsCache=[],currentImageHash='',agronomicStats=null,phenotype=null,blindActive=false,activeMeasureHandoffId='',activeDatasetSplit='',activeValidationStatus='',calibratedThreshold=null;
 const thresholdByModel=new Map();
 const pointers=new Map();
 
@@ -200,7 +200,11 @@ function renderCountState(){
   node.dataset.state='';
   if(!image){node.textContent='Belum dianalisis';return;}
   if(!detectionRun){node.textContent='Foto siap';return;}
-  if(activeId&&!dirty){node.textContent=blindActive?'Tervalidasi buta':'Tervalidasi';node.dataset.state='validated';return;}
+  if(activeId&&!dirty){
+    if(activeValidationStatus==='validated'){node.textContent=blindActive?'Tervalidasi buta':'Tervalidasi';node.dataset.state='validated';}
+    else{node.textContent='AI-screened · belum ground truth';node.dataset.state='review';}
+    return;
+  }
   if(blindActive){node.textContent=boxes.length?'Mode buta · '+boxes.length+' anotasi':'Mode buta · tandai manual';node.dataset.state='review';return;}
   const needs=reviewIndices().length;
   if(needs){node.textContent='AI · '+needs+' perlu review';node.dataset.state='review';return;}
@@ -483,7 +487,7 @@ async function autoDetectChilies({automatic=false}={}){
 
 async function setPhoto(blob,name,{fromBatch=false}={}){
   const prepared=await optimizeBlob(blob);revokePhotoUrl();photoBlob=prepared.blob;photoUrl=prepared.url;image=prepared.image;
-  boxes=[];boxMeta=[];predictedDetections=[];history=[];selected=-1;interaction=null;activeId=null;activeDatasetSplit='';dirty=true;detectionRun=false;confidenceStats=null;
+  boxes=[];boxMeta=[];predictedDetections=[];history=[];selected=-1;interaction=null;activeId=null;activeDatasetSplit='';activeValidationStatus='';dirty=true;detectionRun=false;confidenceStats=null;
   predictionMethod='manual';modelVersion='heuristic-color-v1';cloudContributionId='';cloudEditToken='';contributionOperationId='';duplicateId='';phenotype=null;agronomicStats=null;blindActive=false;
   $('duplicateBanner').hidden=true;$('sample').value=fieldContext?.plot_label||name||nowName();currentImageHash=imageDHash(image);resetView();layoutCanvas();paint();updateQuality();updateWorkflowState();await checkDuplicate();await checkPhotoDuplicate();
   if($('detectOnLoad').checked)await autoDetectChilies({automatic:true});
@@ -554,7 +558,7 @@ async function snapCamera(){
   }catch(error){status(error.message||'Foto tidak dapat diambil.');}
 }
 
-function recordFromCurrent(id,existing){
+function recordFromCurrent(id,existing,{auto=false}={}){
   const correction=correctionNow(),priority=activeLearningPriority({correction,confidence:confidenceStats?.confidence,quality:qualityStats,reviewCount:reviewIndices().length});
   return {
     id,name:$('sample').value.trim(),imageBlob:photoBlob,thumbnail:existing?.thumbnail||thumbnailDataURL(image),width:image.naturalWidth,height:image.naturalHeight,
@@ -562,13 +566,13 @@ function recordFromCurrent(id,existing){
     predictionMethod,modelVersion,confidenceStats,qualityStats,agronomicQuality:agronomicStats,condition:$('condition').value,correction,learningPriority:priority,
     imageHash:currentImageHash,datasetSplit:existing?.datasetSplit||currentSplit(),blinded:blindActive,phenotype:phenotype||existing?.phenotype||null,
     cloudContributionId:cloudContributionId||existing?.cloudContributionId||'',cloudEditToken:cloudEditToken||existing?.cloudEditToken||'',
-    reviewed:true,validationStatus:'validated',createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
+    reviewed:!auto,validationStatus:auto?'ai-screened':'validated',createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()
   };
 }
 function sendCurrentToStatistics({quiet=false}={}){
   if(!image){if(!quiet)status('Ambil foto atau pilih foto terlebih dahulu.');return null;}
   try{
-    const result=upsertChiliCountToStatistics(localStorage,{sample:$('sample').value.trim(),count:boxes.length,status:activeId&&!dirty?'Tervalidasi':'AI',modelVersion,datasetSplit:currentSplit(),quality:qualityStats?.combinedScore??qualityStats?.score,confidence:confidenceStats?.confidence?.mean,correction:correctionNow(),phenotype});
+    const result=upsertChiliCountToStatistics(localStorage,{sample:$('sample').value.trim(),count:boxes.length,status:activeValidationStatus==='validated'?'Tervalidasi':activeValidationStatus==='ai-screened'?'AI-screened':'AI',modelVersion,datasetSplit:currentSplit(),quality:qualityStats?.combinedScore??qualityStats?.score,confidence:confidenceStats?.confidence?.mean,correction:correctionNow(),phenotype});
     if(!quiet)status('Masuk ke Statistical Web → '+result.dataset+': '+$('sample').value.trim()+' = '+boxes.length+' buah.');
     return result;
   }catch(error){if(!quiet)status(error.message||'Data belum dapat dikirim ke Statistical Web.');return null;}
@@ -587,9 +591,9 @@ async function saveCurrent({auto=false,duplicateMode=''}={}){
   }
   try{
     targetId=targetId||crypto.randomUUID();existing=await transaction('readonly',store=>store.get(targetId));
-    const savedRecord=recordFromCurrent(targetId,existing);
+    const savedRecord=recordFromCurrent(targetId,existing,{auto});
     await transaction('readwrite',store=>store.put(savedRecord));
-    activeId=targetId;activeDatasetSplit=savedRecord.datasetSplit;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await list();
+    activeId=targetId;activeDatasetSplit=savedRecord.datasetSplit;activeValidationStatus=savedRecord.validationStatus;dirty=false;duplicateId='';$('duplicateBanner').hidden=true;await list();
     const synced=fieldContext?null:sendCurrentToStatistics({quiet:true});updateWorkflowState();updateBatchState();
     if(fieldContext)sendCountToField();
     const savedName=$('sample').value.trim();
@@ -628,7 +632,7 @@ async function openRecord(row){
     const decoded=await decodeBlob(blob);revokePhotoUrl();photoBlob=blob;photoUrl=decoded.url;image=decoded.image;
     boxes=(row.boxes||[]).map(b=>[...b]);predictedDetections=(row.predictedDetections?.length?row.predictedDetections:(row.predictedBoxes||[]).map(box=>({box,score:null}))).map(d=>({box:[...d.box],score:d.score}));
     boxMeta=(row.boxMeta||hydrateMeta(boxes.map((box,i)=>({box,score:predictedDetections[i]?.score,source:row.predictionMethod})))).map(m=>({...m,reasons:[...(m.reasons||[])]}));
-    history=[];selected=-1;activeId=row.id;activeDatasetSplit=row.datasetSplit||assignedSplit(row.name||row.id);dirty=false;detectionRun=true;predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
+    history=[];selected=-1;activeId=row.id;activeDatasetSplit=row.datasetSplit||assignedSplit(row.name||row.id);activeValidationStatus=row.validationStatus||'validated';dirty=false;detectionRun=true;predictionMethod=row.predictionMethod||'manual';modelVersion=row.modelVersion||'heuristic-color-v1';
     confidenceStats=row.confidenceStats||null;qualityStats=row.qualityStats||null;agronomicStats=row.agronomicQuality||row.qualityStats?.agronomic||null;phenotype=row.phenotype||null;blindActive=!!row.blinded;currentImageHash=row.imageHash||imageDHash(image);cloudContributionId=row.cloudContributionId||'';cloudEditToken=row.cloudEditToken||'';contributionOperationId='';
     batchQueue=[];batchTotal=0;batchIndex=0;$('sample').value=row.name;$('condition').value=row.condition||'normal';resetView();layoutCanvas();paint();if(!qualityStats)updateQuality();renderConfidence();updateWorkflowState();await checkDuplicate();await checkPhotoDuplicate();
     window.scrollTo({top:0,behavior:'smooth'});status('Sampel dibuka: '+boxes.length+' buah.');
