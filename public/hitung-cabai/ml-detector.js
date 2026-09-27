@@ -101,14 +101,14 @@ export function summarizeConfidence(scores=[]){
   };
 }
 
-export async function detectChiliWithModel(source){
+export async function detectChiliWithModel(source,{confidence=null,iouThreshold=null}={}){
   const info=await manifest();
   if(!info?.enabled)return null;
   const active=await session();if(!active)return null;
   const ort=window.ort,size=Number(info.inputSize)||640,prepared=letterbox(source,size);
   const inputName=active.inputNames[0],tensor=tensorFromImageData(prepared.imageData,ort);
   const outputs=await active.run({[inputName]:tensor}),output=outputs[active.outputNames[0]];
-  const decoded=decodeYoloOutput(output.data,output.dims,{inputSize:size,confidence:Number(info.confidence)||.25,iouThreshold:Number(info.iou)||.45});
+  const decoded=decodeYoloOutput(output.data,output.dims,{inputSize:size,confidence:Number.isFinite(confidence)?confidence:(Number(info.confidence)||.25),iouThreshold:Number.isFinite(iouThreshold)?iouThreshold:(Number(info.iou)||.45)});
   const detections=decoded.map(item=>({score:item.score,box:unletterbox(item.box,prepared,size)})).filter(item=>item.box[2]>0&&item.box[3]>0);
   const boxes=detections.map(item=>item.box),confidence=summarizeConfidence(detections.map(item=>item.score));
   return {boxes,detections,version:String(info.version||'onnx'),method:'onnx',stats:{accepted:boxes.length,confidence}};
