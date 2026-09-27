@@ -2,7 +2,11 @@ const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
 const META_KEY='statistical_web_dataset_meta_v1';
 const BASE_NAME='Hitung Cabai';
-const HEADERS=['Sampel','JB | Jumlah Cabai (buah)'];
+const BASE_HEADERS=['Sampel','JB | Jumlah Cabai (buah)'];
+const HEADERS=[
+  ...BASE_HEADERS,'Status Validasi','Model AI','Subset','Quality Gate','Confidence Mean','FP','FN',
+  'Area Rata-rata (mm²)','Lebar Rata-rata (mm)','Tinggi Rata-rata (mm)','Feret Rata-rata (mm)'
+];
 
 const clean=value=>String(value??'').trim();
 const csvCell=value=>{
@@ -31,28 +35,43 @@ function safeObject(text){
   try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
 }
 function compatible(text){
-  const rows=parseCsv(text);
-  return rows.length&&HEADERS.every((header,index)=>rows[0]?.[index]===header)&&rows[0].length===HEADERS.length;
+  const rows=parseCsv(text),head=rows[0]||[];
+  return BASE_HEADERS.every((header,index)=>head[index]===header);
 }
 function destinationName(files){
   const preferred=BASE_NAME+'.csv';
   if(!(preferred in files)||compatible(files[preferred]))return preferred;
-  let n=2,name=`${BASE_NAME} (${n}).csv`;
-  while(name in files&&!compatible(files[name]))name=`${BASE_NAME} (${++n}).csv`;
+  let n=2,name=BASE_NAME+' ('+n+').csv';
+  while(name in files&&!compatible(files[name]))name=BASE_NAME+' ('+(++n)+').csv';
   return name;
 }
+function upgradeRows(rows){
+  if(!rows.length)return [HEADERS];
+  const oldHead=rows[0],indexByName=new Map(oldHead.map((h,i)=>[h,i]));
+  const data=rows.slice(1).filter(row=>row.some(cell=>clean(cell))).map(row=>HEADERS.map((header,i)=>{
+    const old=indexByName.get(header);
+    if(Number.isInteger(old))return row[old]??'';
+    if(i<2)return row[i]??'';
+    return '';
+  }));
+  return [HEADERS,...data];
+}
+function num(value,digits=4){
+  const n=Number(value);return Number.isFinite(n)?String(Math.round(n*10**digits)/10**digits):'';
+}
 
-export function upsertChiliCountToStatistics(storage,{sample,count}={}){
+export function upsertChiliCountToStatistics(storage,{sample,count,status='',modelVersion='',datasetSplit='',quality=null,confidence=null,correction=null,phenotype=null}={}){
   const name=clean(sample),value=Number(count);
   if(!name)throw Error('Kode sampel belum diisi.');
   if(!Number.isFinite(value)||value<0||!Number.isInteger(value))throw Error('Jumlah cabai tidak valid.');
 
   const files=safeObject(storage.getItem(FILES_KEY)),target=destinationName(files);
-  let rows=files[target]?parseCsv(files[target]):[HEADERS];
-  if(!rows.length)rows=[HEADERS];
-  const data=rows.slice(1).filter(row=>row.some(cell=>clean(cell)));
-  const index=data.findIndex(row=>clean(row[0])===name);
-  const next=[name,String(value)];
+  let rows=upgradeRows(files[target]?parseCsv(files[target]):[HEADERS]);
+  const data=rows.slice(1),index=data.findIndex(row=>clean(row[0])===name);
+  const next=[
+    name,String(value),clean(status),clean(modelVersion),clean(datasetSplit),num(quality,1),num(confidence,4),
+    correction?.fp??'',correction?.fn??'',num(phenotype?.meanAreaMm2),num(phenotype?.meanWidthMm),num(phenotype?.meanHeightMm),num(phenotype?.meanFeretMm)
+  ];
   let updated=false;
   if(index>=0){data[index]=next;updated=true;}else data.push(next);
   files[target]=csvText([HEADERS,...data]);
