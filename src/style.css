@@ -5186,3 +5186,490 @@ body.analysis-results-open{overflow:hidden}
     bottom:calc(62px + env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* STAT VISUAL SYSTEM FINAL 2026-09-27 */
+:root{
+  --stat-font-small:11px;
+  --stat-font-body:13px;
+  --stat-font-important:14px;
+  --stat-font-title:17px;
+  --stat-control:32px;
+  --stat-icon-control:30px;
+  --stat-radius:7px;
+  --stat-gap:6px;
+  --stat-line:#dbe2e8;
+  --stat-line-soft:#e8edf1;
+  --stat-surface:#fff;
+  --stat-surface-soft:#f6f8f9;
+  --stat-text:#263b4c;
+  --stat-muted:#687985;
+  --stat-accent:#315c7a;
+}
+
+/* One compact visual language. */
+.app-shell{
+  width:100%!important;
+  max-width:none!important;
+  padding:8px 10px 16px!important;
+}
+.app-header,.project-panel,.workspace,.nav-command-panel,
+.analysis-compact-group,.science-card,.analysis-summary,.analysis-result{
+  box-shadow:none!important;
+}
+.project-panel,.workspace,.analysis-compact-group,.science-card,
+.analysis-summary,.analysis-result,.nav-command-panel{
+  border-color:var(--stat-line)!important;
+  border-radius:var(--stat-radius)!important;
+}
+.nav button,.toolbar button,.dataset-actions button,.dataset-more-actions button,
+.sheet-header button,.modal button,.modal select,.modal input,
+.analysis-result-toolbar button,.analysis-result-toolbar select,
+.result-tools-menu button,.result-tools-menu select{
+  min-height:var(--stat-control);
+  border-radius:var(--stat-radius)!important;
+  font-size:var(--stat-font-body)!important;
+}
+button,.tree-item,select,input,summary{box-shadow:none!important}
+
+/* Editor is the primary workspace. */
+.main{
+  grid-template-columns:176px minmax(0,1fr)!important;
+  gap:8px!important;
+  margin-top:8px!important;
+}
+.project-panel{
+  padding:7px!important;
+  background:var(--stat-surface)!important;
+}
+.panel-title{
+  padding:3px 5px 6px!important;
+  font-size:var(--stat-font-small)!important;
+}
+.dataset-search{
+  min-height:32px!important;
+  margin:0 0 5px!important;
+  padding:4px 7px!important;
+  border-radius:6px!important;
+  font-size:12px!important;
+}
+.dataset-more{
+  margin-top:5px!important;
+  padding-top:5px!important;
+  border-top:1px solid var(--stat-line-soft)!important;
+}
+.dataset-more>summary{
+  min-height:30px;
+  display:flex;
+  align-items:center;
+  padding:3px 5px;
+  font-size:var(--stat-font-small)!important;
+}
+.workspace{
+  background:var(--stat-surface)!important;
+  overflow:hidden!important;
+}
+.sheet-header{
+  min-height:36px!important;
+  padding:5px 8px!important;
+  gap:6px!important;
+  border-bottom:1px solid var(--stat-line)!important;
+  background:#fff!important;
+}
+.dataset-title{gap:5px!important;font-size:12px!important}
+.dataset-title>strong{font-size:var(--stat-font-body)!important}
+#activeFile{font-size:var(--stat-font-body)!important}
+.dataset-meta-summaryline{
+  gap:4px!important;
+  flex-wrap:wrap!important;
+}
+.dataset-meta-summaryline>span{
+  padding:2px 4px!important;
+  border:0!important;
+  background:transparent!important;
+  font-size:var(--stat-font-small)!important;
+}
+.dataset-meta-summaryline b{
+  font-size:var(--stat-font-small)!important;
+  text-transform:none!important;
+  letter-spacing:0!important;
+}
+.dataset-meta-inline{
+  font-size:var(--stat-font-body)!important;
+  color:var(--stat-text)!important;
+}
+.save-indicator{
+  width:7px;height:7px;overflow:hidden;color:#4e7a61!important;
+  font-size:9px!important;line-height:7px!important;opacity:.65!important;
+}
+.grid-container{
+  min-height:420px!important;
+  max-height:calc(100dvh - 184px)!important;
+  background:#fff!important;
+}
+.status{
+  min-height:22px!important;
+  padding:3px 8px!important;
+  border-top:1px solid var(--stat-line-soft)!important;
+  background:#fafbfc!important;
+  color:var(--stat-muted)!important;
+  font-size:var(--stat-font-small)!important;
+  line-height:1.35!important;
+}
+
+/* Compact toolbar without horizontal UI scrolling. */
+.toolbar{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:4px!important;
+  padding:5px 0!important;
+  overflow:visible!important;
+  background:transparent!important;
+}
+.toolbar button{
+  min-height:32px!important;
+  padding:4px 8px!important;
+  border-color:var(--stat-line)!important;
+  background:#fff!important;
+  font-size:12px!important;
+}
+.toolbar #pasteBtn{padding-inline:10px!important}
+.toolbar #clearData{
+  width:32px!important;height:32px!important;min-width:32px!important;
+  padding:0!important;font-size:16px!important;
+}
+
+/* Clear hierarchy: 4 text levels only. */
+.analysis-compact-group-title,
+.science-card-head small,.science-context>span,
+.analysis-result-meta,.analysis-note,.form-help,
+.result-technical-details>summary,.result-action-select,
+.dataset-empty-search{
+  font-size:var(--stat-font-small)!important;
+}
+.analysis-compact-item>b,.science-role-grid label,
+.science-option-grid label,.science-param-check span,
+.science-transform-details>summary,.science-transform-grid label,
+.analysis-result .result-table,.analysis-result .anova-table,
+.analysis-result-toolbar select,.analysis-result-toolbar button{
+  font-size:var(--stat-font-body)!important;
+}
+.science-card-head b,.analysis-result>h3,.summary-head b{
+  font-size:var(--stat-font-important)!important;
+}
+.science-title-stack>strong,.analysis-dock-head strong{
+  font-size:var(--stat-font-title)!important;
+}
+
+/* Analysis chooser: categories clear, cards quiet. */
+.analysis-group-board{
+  gap:6px!important;
+  padding:5px!important;
+}
+.analysis-compact-group{
+  overflow:hidden!important;
+  background:#fff!important;
+}
+.analysis-compact-group-title{
+  min-height:32px!important;
+  padding:6px 8px!important;
+  border-bottom:1px solid var(--stat-line-soft)!important;
+  background:#f3f5f7!important;
+  color:#344b5d!important;
+  font-weight:800!important;
+  letter-spacing:.01em!important;
+}
+.analysis-compact-items{
+  gap:3px!important;
+  padding:4px!important;
+}
+.analysis-compact-item{
+  min-height:44px!important;
+  padding:5px 6px!important;
+  border:0!important;
+  border-radius:6px!important;
+  background:#fff!important;
+}
+.analysis-compact-item:hover,.analysis-compact-item:focus-visible{
+  background:#f3f6f8!important;
+}
+.analysis-compact-item>span{
+  border:0!important;
+  background:#edf2f5!important;
+  color:#3f6076!important;
+}
+
+/* Analysis setup: one main border, fewer boxes inside boxes. */
+.analysis-workspace-modal{
+  border-radius:8px!important;
+}
+.analysis-workspace-body{
+  background:#f5f7f8!important;
+}
+.science-primary-grid,.science-config{
+  gap:6px!important;
+}
+.science-card{
+  background:#fff!important;
+}
+.science-card-head{
+  border-bottom:1px solid var(--stat-line-soft)!important;
+  background:#fafbfc!important;
+}
+.science-role-grid label,.science-option-grid label,
+.science-simple-parameter,.science-switch-row{
+  border-color:var(--stat-line-soft)!important;
+  box-shadow:none!important;
+}
+.science-param-check{
+  border:0!important;
+  background:#f7f9fa!important;
+}
+.science-advanced-options,.science-transform-details,
+.science-multi-parameters{
+  border-color:var(--stat-line-soft)!important;
+}
+
+/* Results: title -> summary -> main table -> notes -> technical details. */
+.analysis-dock-body{
+  background:#f5f7f8!important;
+  padding:6px!important;
+}
+.analysis-result-toolbar{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  gap:4px!important;
+  padding:5px!important;
+  border:1px solid var(--stat-line)!important;
+  border-radius:7px!important;
+  background:#fff!important;
+  overflow:visible!important;
+}
+.analysis-result-toolbar>select{
+  min-width:120px!important;
+  max-width:220px!important;
+  height:32px!important;
+  padding:4px 7px!important;
+}
+.result-single-actions{
+  margin-left:auto!important;
+  position:relative!important;
+}
+.result-single-actions>summary{
+  width:32px!important;
+  min-width:32px!important;
+  height:32px!important;
+  min-height:32px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  border:1px solid var(--stat-line)!important;
+  border-radius:6px!important;
+  background:#fff!important;
+  color:#526978!important;
+  font-size:15px!important;
+  letter-spacing:1px!important;
+  list-style:none!important;
+}
+.result-single-actions>summary::-webkit-details-marker{display:none!important}
+.result-tools-menu-body{
+  border-radius:7px!important;
+  box-shadow:0 10px 28px rgba(27,42,54,.14)!important;
+}
+.analysis-summary{
+  margin:7px 0!important;
+  background:#fff!important;
+}
+.summary-head{
+  padding:7px 8px!important;
+  border-bottom:1px solid var(--stat-line-soft)!important;
+  background:#f7f9fa!important;
+}
+.analysis-result{
+  margin:7px 0!important;
+  background:#fff!important;
+}
+.analysis-result>h3{
+  padding:7px 8px!important;
+  background:#fff!important;
+}
+.analysis-result-meta{
+  padding:0 8px 5px!important;
+  gap:4px!important;
+}
+.analysis-result-meta>span:not(.analysis-result-significance){
+  padding:2px 5px!important;
+  border:0!important;
+  background:#f2f5f7!important;
+}
+.analysis-note{
+  margin:5px 7px!important;
+  padding:5px 7px!important;
+  border:0!important;
+  border-left:2px solid #c9d5dd!important;
+  border-radius:0!important;
+  background:#f8fafb!important;
+}
+.result-technical-details{
+  margin:5px 7px 7px!important;
+  border:1px solid var(--stat-line-soft)!important;
+  border-radius:6px!important;
+}
+.result-technical-details>summary{
+  min-height:30px!important;
+  padding:4px 7px!important;
+  background:#fafbfc!important;
+  color:var(--stat-muted)!important;
+}
+
+/* Quiet color system. */
+button.primary,.nav button.active,.nav button[aria-expanded="true"],
+.analysis-compact-item[aria-pressed="true"]{
+  background:#edf2f5!important;
+  border-color:#b9c7d1!important;
+  color:#29485f!important;
+}
+.error-box,.danger-action{color:#9d342e!important}
+.analysis-stale-banner{background:#fff9e8!important}
+.account-status{font-size:var(--stat-font-small)!important}
+
+/* Tables may scroll; interface controls may not. */
+.app-shell,.app-header,.toolbar,.sheet-header,.project-panel,.workspace,
+.analysis-group-board,.analysis-workspace-modal,.analysis-result-toolbar{
+  max-width:100%!important;
+}
+.table-scroll,.grid-container,.scientific-chart{
+  overflow-x:auto!important;
+}
+.toolbar,.sheet-header,.dataset-meta-summaryline,.analysis-result-toolbar{
+  overflow-x:visible!important;
+}
+
+/* Keep the settings deliberately simple: Kecil / Sedang / Besar only. */
+#appSettingsPanel{
+  width:min(300px,calc(100vw / var(--ui-scale) - 20px))!important;
+  padding:9px!important;
+  border-radius:7px!important;
+}
+.settings-panel-title{margin-bottom:6px!important;font-size:var(--stat-font-important)!important}
+.settings-section{padding:6px 0!important}
+.settings-section label{margin-bottom:4px!important;font-size:var(--stat-font-body)!important}
+.settings-section select{min-height:32px!important;padding:4px 7px!important;font-size:var(--stat-font-body)!important}
+.settings-section p{margin-top:5px!important;font-size:var(--stat-font-small)!important}
+
+/* Mobile: safe taps, no sideways UI navigation. */
+@media(max-width:720px){
+  :root{
+    --stat-control:44px;
+    --stat-font-small:11px;
+    --stat-font-body:13px;
+    --stat-font-important:14px;
+    --stat-font-title:16px;
+  }
+  .app-shell{
+    padding:5px 5px calc(66px + env(safe-area-inset-bottom))!important;
+  }
+  .main{
+    display:block!important;
+    margin-top:5px!important;
+  }
+  .workspace{width:100%!important}
+  .grid-container{
+    min-height:360px!important;
+    max-height:calc(100dvh - 205px)!important;
+  }
+  .toolbar{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:3px!important;
+    padding:4px 0!important;
+  }
+  .toolbar button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:40px!important;
+    padding:4px 5px!important;
+    white-space:normal!important;
+    line-height:1.1!important;
+    font-size:11.5px!important;
+  }
+  .toolbar #clearData{
+    width:100%!important;
+    height:40px!important;
+    min-width:0!important;
+  }
+  .sheet-header{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:3px!important;
+    padding:5px 6px!important;
+  }
+  .dataset-meta-summaryline{
+    justify-content:flex-start!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .dataset-meta-summaryline>span{
+    min-width:0!important;
+    overflow:hidden!important;
+  }
+  .dataset-meta-inline{
+    display:inline-block!important;
+    max-width:100%!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  .analysis-result-toolbar{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px!important;
+    gap:4px!important;
+  }
+  .analysis-result-toolbar>select{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:44px!important;
+    font-size:13px!important;
+  }
+  .result-single-actions{
+    margin-left:0!important;
+  }
+  .result-single-actions>summary{
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+    min-height:44px!important;
+    font-size:17px!important;
+  }
+  .result-tools-menu-body{
+    right:0!important;
+    left:auto!important;
+    width:min(270px,calc(100vw - 24px))!important;
+  }
+  .analysis-compact-item{
+    min-height:52px!important;
+    height:52px!important;
+    max-height:52px!important;
+  }
+  .analysis-compact-item>b{font-size:13px!important}
+  .analysis-compact-group-title{font-size:12px!important}
+  .analysis-workspace-modal button,
+  .analysis-workspace-modal select,
+  .analysis-workspace-modal summary{
+    min-height:44px!important;
+  }
+}
+
+@media(max-width:430px){
+  .toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .dataset-meta-summaryline{grid-template-columns:1fr!important}
+  .analysis-result-toolbar{
+    grid-template-columns:minmax(0,1fr) 44px!important;
+  }
+  .analysis-result-toolbar>select:nth-of-type(2){
+    grid-column:1/-1!important;
+    grid-row:2!important;
+  }
+}
