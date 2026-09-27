@@ -6239,3 +6239,34 @@ summary:focus-visible,
     min-height:44px!important;
   }
 }
+
+
+/* AUGMENTED WORK PARITY 2026-09-28 */
+.aug-work-role-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+.augmented-result>.aug-analysis-pane,
+.augmented-result>.aug-selection-pane,
+.augmented-result>.aug-sas-pane,
+.augmented-result>.aug-method-pane{display:none}
+.aug-view-analysis>.aug-analysis-pane,
+.aug-view-selection>.aug-selection-pane,
+.aug-view-sas>.aug-sas-pane,
+.aug-view-method>.aug-method-pane{display:block}
+.aug-selection-summary{grid-template-columns:repeat(4,minmax(0,1fr))}
+.aug-selection-table .aug-select-strong td{font-weight:700}
+.aug-selection-table .aug-select-partial td:last-child{font-weight:700}
+.aug-pair-details{margin-top:8px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.aug-pair-details>summary{min-height:34px;display:flex;align-items:center;padding:6px 9px;cursor:pointer;font-size:.76rem;font-weight:700;list-style:none}
+.aug-pair-details>summary::-webkit-details-marker{display:none}
+.aug-method-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:6px 0 8px}
+.aug-method-grid section{min-width:0;padding:8px;border:1px solid var(--border);border-radius:7px;background:#fff}
+.aug-method-grid h4{margin:0 0 4px;font-size:.78rem}
+.aug-method-grid p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.35}
+.aug-sas-pane{margin-top:6px}
+.aug-result-toolbar select{min-width:150px}
+@media(max-width:720px){
+  .aug-work-role-form{grid-template-columns:1fr!important}
+  .aug-method-grid{grid-template-columns:1fr}
+  .aug-selection-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .aug-result-toolbar select{width:100%;min-height:44px}
+  .aug-pair-details>summary{min-height:44px}
+}
