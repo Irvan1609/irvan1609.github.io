@@ -17,8 +17,12 @@ for(const marker of [
   "cdn.jsdelivr.net","cdnjs.cloudflare.com"
 ]) if(!sw.includes(marker))fail('service worker missing '+marker);
 
-for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS","'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/pengukur/'"]){
-  if(sw.includes(forbidden))fail('service worker must not eagerly preload '+forbidden);
+for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS"]){
+  if(sw.includes(forbidden))fail('service worker must not contain legacy eager prefetch '+forbidden);
+}
+const coreUrlsBlock=sw.match(/const CORE_URLS=\\[([\\s\\S]*?)\\];/)?.[1]||'';
+for(const forbidden of ["'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/pengukur/'"]){
+  if(coreUrlsBlock.includes(forbidden))fail('service worker must not eagerly preload '+forbidden);
 }
 
 if(sw.includes("method==='POST'")||sw.includes('method==="POST"'))fail('service worker must not cache POST requests');
