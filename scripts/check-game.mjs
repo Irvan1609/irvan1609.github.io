@@ -46,9 +46,9 @@ for(const marker of ['FIELD ZERO LIGHT COMPLETION 2026-09-27','.competition-diag
 for(const marker of ['FIELD ZERO COMFORT FOCUS 2026-09-27','.plot-quick-card','.quick-menu-sections'])if(!css.includes(marker))fail('comfort focus CSS missing '+marker);
 for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.competition-brief','.plot-quick-card','.sync-save-card'])if(!themeCss.includes(marker))fail('complete light surfaces missing '+marker);
 
-for(const marker of ['FIELD ZERO VISUAL REFRESH FINAL 2026-09-27','--fz-touch:44px','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(2,minmax(0,1fr))!important','font-size:11px!important'])if(!comfortCss.includes(marker))fail('visual refresh styling missing '+marker);
+for(const marker of ['FIELD ZERO ULTRA COMPACT COMFORT FINAL 2026-09-27','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(4,minmax(0,1fr))!important','min-height:52px!important','.plot-top{display:none!important}'])if(!comfortCss.includes(marker))fail('ultra compact game styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!comfortCss.includes(marker))fail('visual refresh theme missing '+marker);
-if(!html.includes('/game/style.css?v=20260927-comfort4')||!html.includes('/game/theme.css?v=20260927-comfort4')||!html.includes('/game/comfort.css?v=20260927-comfort4'))fail('latest game comfort assets must be cache-busted');
+if(!html.includes('/game/style.css?v=20260927-comfort4')||!html.includes('/game/theme.css?v=20260927-comfort4')||!html.includes('/game/comfort.css?v=20260927-compact5'))fail('latest game comfort assets must be cache-busted');
 
 
 
