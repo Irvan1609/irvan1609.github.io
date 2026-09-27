@@ -1,7 +1,8 @@
 const DB_NAME='agrotik-stat-local-v1';
-const DB_VERSION=1;
+const DB_VERSION=2;
 const DATASET_STORE='datasets';
 const SNAPSHOT_STORE='snapshots';
+const META_STORE='meta';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
 export const OFFLOAD_THRESHOLD_BYTES=192*1024;
 const encoder=new TextEncoder();
@@ -13,18 +14,31 @@ export function isLocalPointer(value){return String(value||'').startsWith(LOCAL_
 export async function requestPersistentStorage(){
   try{return Boolean(await globalThis.navigator?.storage?.persist?.());}catch{return false;}
 }
+export async function localStoreInfo(){
+  let schema=null;
+  try{schema=await idbRequest(META_STORE,'readonly',store=>store.get('schema'));}catch{}
+  let estimate={usage:0,quota:0};
+  try{estimate=await globalThis.navigator?.storage?.estimate?.()||estimate;}catch{}
+  return {dbName:DB_NAME,schemaVersion:Number(schema?.version||DB_VERSION),migratedAt:schema?.migratedAt||null,usage:Number(estimate.usage||0),quota:Number(estimate.quota||0),opfs:opfsAvailable()};
+}
 
 function openDb(){
   if(typeof indexedDB==='undefined')return Promise.reject(Error('IndexedDB tidak tersedia.'));
   return new Promise((resolve,reject)=>{
     const request=indexedDB.open(DB_NAME,DB_VERSION);
-    request.onupgradeneeded=()=>{
-      const db=request.result;
+    request.onupgradeneeded=event=>{
+      const db=request.result,tx=request.transaction,oldVersion=Number(event.oldVersion||0);
       if(!db.objectStoreNames.contains(DATASET_STORE))db.createObjectStore(DATASET_STORE,{keyPath:'name'});
       if(!db.objectStoreNames.contains(SNAPSHOT_STORE)){
         const store=db.createObjectStore(SNAPSHOT_STORE,{keyPath:'id'});
         store.createIndex('dataset','dataset',{unique:false});
         store.createIndex('date','date',{unique:false});
+      }
+      if(oldVersion<2&&!db.objectStoreNames.contains(META_STORE)){
+        const meta=db.createObjectStore(META_STORE,{keyPath:'key'});
+        meta.put({key:'schema',version:2,migratedAt:new Date().toISOString()});
+      }else if(db.objectStoreNames.contains(META_STORE)){
+        tx.objectStore(META_STORE).put({key:'schema',version:DB_VERSION,migratedAt:new Date().toISOString()});
       }
     };
     request.onsuccess=()=>resolve(request.result);
