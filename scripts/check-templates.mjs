@@ -82,7 +82,7 @@ for(const [id,base] of Object.entries(coreConfigs)){
   const t=getDataTemplate('augmented');
   for(const p of [2,3]){
     const out=augmentedRcbAnova(t.rows.map(r=>[r[0],r[1],r[p]]),{alpha:.05});
-    assert.equal(out.checks.length,2);assert.ok(out.tests.length>0);assert.ok(out.partitionAdjusted.find(x=>x.label==='Line(Check)'));
+    assert.equal(out.checks.length,2);assert.ok(out.tests.length>0);assert.ok(out.mse>0);assert.ok(out.partitionAdjusted.find(x=>x.label==='Line(Check)'));assert.ok(out.typeIII.find(x=>x.label==='Perlakuan'));assert.ok(Number.isFinite(out.workSummary.lsd));
   }
 }
 {
