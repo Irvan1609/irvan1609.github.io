@@ -129,7 +129,7 @@ function rangeSummary(values,critical){
   };
 }
 
-export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
+export function augmentedRcbAnova(rows,{checks=null,alpha=.05,requireCompleteChecks=true}={}){
   if(!Array.isArray(rows)||!rows.length)throw Error('Augmented design memerlukan data.');
   const observations=rows.map((row,index)=>{
     if(!Array.isArray(row)||row.length!==3)throw Error('Format augmented design harus Blok, Genotipe/Perlakuan, dan Y.');
@@ -169,7 +169,11 @@ export function augmentedRcbAnova(rows,{checks=null,alpha=.05}={}){
   for(const check of checkLevels){
     const present=new Set(observations.filter(item=>item.treatment===check).map(item=>item.block));
     const missing=blocks.filter(block=>!present.has(block));
-    if(missing.length)warnings.push(`Check ${check} tidak terdapat pada blok: ${missing.join(', ')}.`);
+    if(missing.length){
+      const message=`Check ${check} tidak terdapat pada blok: ${missing.join(', ')}.`;
+      if(requireCompleteChecks)throw Error(message+' Augmented RCBD klasik mensyaratkan setiap check hadir di setiap blok.');
+      warnings.push(message);
+    }
   }
 
   const full=fitModel(observations,{useBlock:true,useTreatment:true});
