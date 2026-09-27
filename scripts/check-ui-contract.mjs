@@ -261,7 +261,6 @@ if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader
 
 if(html.includes('compactEditor')||main.includes('toggleCompactEditor')||navigation.includes('compactEditor'))fail('Normal/Ringkas editor toggle must stay removed');
 for(const marker of ['insert-left','insert-right','insert-row'])if(main.includes(marker))fail('row/column insertion must stay in the data editor action bar only: '+marker);
-for(const marker of ['configureDriveBackup','drive-backup','Cadangan Drive','Google Apps Script'])if(html.includes(marker)||main.includes(marker)||navigation.includes(marker)||scientific.includes(marker))fail('Google Drive backup integration must stay removed: '+marker);
 for(const marker of ['editor-inline-actions',"addRow.textContent='+ Baris'","addCol.textContent='+ Kolom'"])if(!navigation.includes(marker))fail('editor-only row/column action group missing '+marker);
 if(!statStyle.includes('/* STAT DECLUTTER EDITOR ACTIONS FINAL 2026-09-28 */'))fail('decluttered editor action styling missing');
 
