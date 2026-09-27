@@ -7,11 +7,17 @@ export function installNavigation(){
   const projectToggle=document.getElementById('projectToggle');
   const settingsToggle=document.getElementById('appSettingsToggle');
 
-  const clear=document.getElementById('clearData');
+  const editorActions=document.createElement('div');
+  editorActions.className='editor-inline-actions';
+  editorActions.setAttribute('aria-label','Aksi editor data');
+  const addRow=document.getElementById('addRow'),addCol=document.getElementById('addCol'),clear=document.getElementById('clearData');
+  if(addRow){addRow.textContent='+ Baris';addRow.title='Tambah baris';editorActions.append(addRow);}
+  if(addCol){addCol.textContent='+ Kolom';addCol.title='Tambah kolom';editorActions.append(addCol);}
   if(clear){
     clear.innerHTML='<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg>';
-    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');sheet.append(clear);
+    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');editorActions.append(clear);
   }
+  if(editorActions.childElementCount)sheet.append(editorActions);
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
@@ -27,7 +33,7 @@ export function installNavigation(){
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
     ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
-    ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
+    ['helpMenu','Bantuan',['dataTemplate','analysisHistory']]
   ]){
     const button=document.createElement('button');
     button.id=id+'Button';
@@ -92,8 +98,6 @@ export function installNavigation(){
     closeMenus();
     fieldTab.disabled=true;
     try{
-      const command=document.getElementById('fieldLayoutTool');
-      if(command){command.click();return;}
       const {openFieldLayout}=await import('./field-layout.js');
       openFieldLayout();
     }catch(error){
@@ -141,7 +145,6 @@ export function installNavigation(){
       newTxt:'baru dataset data baru',
       addRow:'tambah baris row',
       addCol:'tambah kolom column',
-      compactEditor:'ringkas compact tampilan',
       undoData:'undo urungkan',
       redoData:'redo ulangi',
       duplicateDataset:'duplikat salin dataset copy',
@@ -149,11 +152,9 @@ export function installNavigation(){
       transformData:'transformasi log sqrt akar',
       outlierData:'outlier pencilan',
       fieldbookTool:'fieldbook buku lapang randomisasi rancangan',
-      fieldLayoutTool:'denah lahan plot petak lapangan field map pengamatan input data',
       fieldLayoutTab:'denah lahan plot petak lapangan field map pengamatan input data',
       dataTemplate:'template contoh data',
       analysisHistory:'riwayat analisis history',
-      configureDriveBackup:'backup drive cadangan',
       clearData:'hapus kosongkan semua data',
       renameDataset:'ubah nama rename dataset',
       viewRawDataset:'data mentah raw csv',
