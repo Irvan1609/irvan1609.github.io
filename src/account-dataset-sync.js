@@ -8,6 +8,7 @@ const TREATMENT_KEY='statistical_web_treatment_metadata_v1';
 const SYNC_PREFIX='statistical_web_cloud_sync_v1:';
 const OWNER_KEY='statistical_web_cloud_owner_v1';
 const CONFLICT_PREFIX='statistical_web_cloud_conflicts_v1:';
+const QUEUE_TELEMETRY_KEY='agrotik_pending_queue_v1';
 const endpoint='https://hitung-cabai-api.andyirvan1609.workers.dev';
 const encoder=new TextEncoder();
 
@@ -26,6 +27,16 @@ let circuitOpenUntil=0;
 let editBurstCount=0;
 let lastEditAt=0;
 
+function safeModeActive(){return Boolean(window.AgrotikSafeMode)||localStorage.getItem('agrotik_safe_mode_v1')==='1';}
+function publishQueue(state='pending',message='',fallbackCount=0){
+  try{
+    const count=[...pendingPatches.values()].reduce((sum,item)=>sum+(item.operations?.length||0),0)||fallbackCount;
+    const value=JSON.parse(localStorage.getItem(QUEUE_TELEMETRY_KEY)||'{}')||{};
+    value.datasets={count,state,message:String(message||'').slice(0,160),updatedAt:Date.now()};
+    localStorage.setItem(QUEUE_TELEMETRY_KEY,JSON.stringify(value));
+    window.AgrotikShell?.setQueueState?.('datasets',value.datasets);
+  }catch{}
+}
 function circuitRemaining(){
   return Math.max(0,circuitOpenUntil-Date.now());
 }
@@ -311,6 +322,7 @@ function adaptiveSyncDelay(requested=null){
 function scheduleSync(delay=null){
   clearTimeout(retryTimer);
   if(!currentUser||!syncAllowed)return;
+  if(safeModeActive()){setSyncStatus('Safe Mode · data tetap lokal','idle');publishQueue('paused','Safe Mode',1);return;}
   if(document.hidden){setSyncStatus('Perubahan aman di perangkat · sinkron saat kembali','pending');return;}
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   const remaining=circuitRemaining();
@@ -330,6 +342,7 @@ function queuePatch(name,patch){
     return;
   }
   pendingPatches.set(key,current);
+  if(currentUser&&syncAllowed)publishQueue('pending','Menunggu sinkronisasi');
 }
 async function remoteFingerprint(row){
   return hashItem({name:normalizeFileName(row.name),content:String(row.content??''),meta:row.meta||{}});
@@ -455,6 +468,7 @@ async function resolveTracked({id,track,remote,stores,sync,counters}){
 }
 async function syncNow({manual=false}={}){
   if(syncing||!currentUser||!syncAllowed||!window.IrvanAccount?.authenticated)return;
+  if(safeModeActive()){setSyncStatus('Safe Mode · data tetap lokal','idle');publishQueue('paused','Safe Mode',1);return;}
   if(manual)resetCircuit();
   if(navigator.onLine===false){setSyncStatus('Offline · tersimpan di perangkat','pending');return;}
   if(circuitRemaining()>0){scheduleSync();return;}
@@ -531,10 +545,12 @@ async function syncNow({manual=false}={}){
     if(counters.conflicts)parts.push(`${counters.conflicts} konflik diamankan`);
     const syncTime=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
     setSyncStatus(parts.length?`Tersinkron ${syncTime} · ${parts.join(' · ')}`:`Tersinkron ${syncTime}`,'synced');
+    publishQueue('synced','',0);
   }catch(error){
     console.error('Dataset sync failed',error);
     if(error?.circuitOpen||circuitRemaining()>0)setSyncStatus('Cloud dijeda sementara · data aman di perangkat','pending');
     else setSyncStatus(error.message||'Sinkronisasi gagal · data lokal tetap aman','error');
+    publishQueue('error',error?.message||'Sinkronisasi gagal',1);
     if(!manual)scheduleSync(8000);
   }finally{
     syncing=false;
@@ -584,7 +600,7 @@ export function installAccountDatasetSync(){
     if(detail.patch&&detail.name)queuePatch(detail.name,detail.patch);
     else if(detail.name)pendingPatches.delete(normalizeFileName(detail.name));
     const now=Date.now();editBurstCount=now-lastEditAt<ACTIVE_EDIT_WINDOW_MS?Math.min(20,editBurstCount+1):1;lastEditAt=now;
-    if(currentUser&&syncAllowed)setSyncStatus('Perubahan belum dicadangkan','pending');
+    if(currentUser&&syncAllowed){setSyncStatus('Perubahan belum dicadangkan','pending');publishQueue('pending','Perubahan dataset belum tersinkron',1);}
     scheduleSync();
   });
   window.addEventListener('storage',event=>{
