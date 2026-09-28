@@ -196,10 +196,10 @@ function render(){
   trigger.onclick=()=>{
     const opening=menu.hidden;menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
   };
-  menu.querySelector('[data-account-profile]').onclick=()=>{location.assign('/account/');};
+  menu.querySelector('[data-account-profile]')?.addEventListener('click',()=>{location.assign('/account/');});
   menu.querySelector('[data-account-membership]')?.addEventListener('click',()=>{location.assign('/membership/');});
   menu.querySelector('[data-account-develop]')?.addEventListener('click',()=>{location.assign('/develop/');});
-  menu.querySelector('[data-account-logout]').onclick=logout;
+  menu.querySelector('[data-account-logout]')?.addEventListener('click',logout);
   mount.append(cloudIndicator(),trigger,menu);
   dispatch();
 }
