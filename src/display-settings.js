@@ -20,22 +20,22 @@ function ensureStyles(){
     body>.agrotik-offline{zoom:var(--ui-scale)}
     .app-header{position:relative}
     .nav{position:relative}
-    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:7px;font-size:14px;line-height:1;margin-left:auto}
+    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:28px;min-width:28px;height:28px;min-height:28px;padding:0;border-radius:6px;font-size:13px;line-height:1;margin-left:auto}
     #appSettingsToggle[aria-expanded="true"]{background:#eaf1fd;border-color:#9ab3d6;color:#194caa}
-    #appSettingsPanel{position:absolute;right:10px;top:calc(100% + 8px);z-index:120;width:min(360px,calc(100vw / var(--ui-scale) - 28px));padding:14px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px #15233426}
+    #appSettingsPanel{position:absolute;right:6px;top:calc(100% + 5px);z-index:120;width:min(260px,calc(100vw / var(--ui-scale) - 20px));padding:8px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 10px 24px #15233422}
     #appSettingsPanel[hidden]{display:none!important}
-    .settings-panel-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-weight:700}
-    #closeAppSettings{width:30px;min-width:30px;height:30px;min-height:30px;padding:0;border-radius:7px}
+    .settings-panel-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;font-size:13px;font-weight:700}
+    #closeAppSettings{width:26px;min-width:26px;height:26px;min-height:26px;padding:0;border-radius:5px}
     .settings-section input[type="range"]{display:block;width:100%;margin:6px 0 2px}
     .settings-range-label{display:flex!important;align-items:center;justify-content:space-between;gap:8px}
     .settings-range-label output{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:700}
-    .settings-section{padding:10px 0;border-top:1px solid #e5eaf0}
+    .settings-section{padding:6px 0;border-top:1px solid #e5eaf0}
     .settings-section:first-of-type{border-top:0;padding-top:0}
-    .settings-section label{display:block;margin-bottom:6px;font-weight:600}
-    .settings-section select{display:block;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);font:inherit}
-    .settings-section p{margin:7px 0 0;color:var(--muted);font-size:.875em;line-height:1.4}
+    .settings-section label{display:block;margin-bottom:3px;font-size:11.5px;font-weight:600}
+    .settings-section select{display:block;width:100%;min-height:30px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--text);font-size:11.5px}
+    .settings-section p{margin:4px 0 0;color:var(--muted);font-size:10px;line-height:1.3}
     .settings-detected{padding:7px 9px;margin-bottom:8px;background:#eef6ff;border:1px solid #c9ddf3;border-radius:6px;color:#315a80;font-size:.875em}
-    @media(max-width:720px){#appSettingsPanel{right:8px;width:min(340px,calc(100vw / var(--ui-scale) - 16px))}}
+    @media(max-width:720px){#appSettingsPanel{right:5px;width:min(270px,calc(100vw / var(--ui-scale) - 10px))}}
   `;
   document.head.appendChild(style);
 }
