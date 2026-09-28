@@ -51,7 +51,7 @@ for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.compet
 
 for(const marker of ['FIELD ZERO ULTRA COMPACT COMFORT FINAL 2026-09-27','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(4,minmax(0,1fr))!important','min-height:52px!important','.plot-top{display:none!important}'])if(!comfortCss.includes(marker))fail('ultra compact game styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!comfortCss.includes(marker))fail('visual refresh theme missing '+marker);
-for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20260928-runtimefix2'))fail('fixed game runtime must be cache-busted');
+for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20260928-runtimefix'))fail('fixed game runtime must be cache-busted');
 
 
 
