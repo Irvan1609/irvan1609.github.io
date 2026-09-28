@@ -13,7 +13,7 @@ import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmen
 import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import {installResearchWorkspace} from './research-workspace.js';
-import {installStatWorkflow} from './stat-workflow.js';
+import {installStatWorkflow} from './stat-workflow.js?v=20260928-nostrip1';
 
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
