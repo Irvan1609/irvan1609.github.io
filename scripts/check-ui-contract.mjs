@@ -69,8 +69,13 @@ for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!nav
 for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
-if(!html.includes('/src/style.css?v=20260928-mobile-editor-v1')||!html.includes('/src/main.js?v=20260928-mobile-editor-v1'))fail('mobile editor asset version missing');
+if(!html.includes('/src/style.css?v=20260928-ultracompact2')||!html.includes('/src/main.js?v=20260928-mobile-editor-v1'))fail('latest compact editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
+
+for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
+for(const marker of ['requested=globalThis.matchMedia?.(\'(max-width:720px)\')?.matches?210:196','Math.max(164'])if(!navigation.includes(marker))fail('compact floating menu sizing missing '+marker);
+for(const marker of ['width:144px','min-height:28px','width:160px','min-height:38px'])if(!datasetSidebar.includes(marker))fail('compact dataset menu sizing missing '+marker);
+
 if(!html.includes('<details class="dataset-more" hidden aria-hidden="true">'))fail('duplicate inline dataset actions must remain hidden');
 
 if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
