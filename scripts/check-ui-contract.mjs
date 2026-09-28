@@ -65,6 +65,11 @@ for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dat
 
 for(const marker of ['position:fixed','positionMenu(menu)','dataset-row-menu-body','z-index:220'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain a floating popover: '+marker);
 for(const marker of ['mobileMoreButton','mobileMorePanel','positionFloatingMenu','openCommandMenu'])if(!navigation.includes(marker))fail('floating navigation popover behavior missing '+marker);
+for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!navigation.includes(marker))fail('mobile settings routing missing '+marker);
+for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
+for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
+for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
+if(!html.includes('/src/style.css?v=20260928-mobile-editor-v1')||!html.includes('/src/main.js?v=20260928-mobile-editor-v1'))fail('mobile editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 if(!html.includes('<details class="dataset-more" hidden aria-hidden="true">'))fail('duplicate inline dataset actions must remain hidden');
 
