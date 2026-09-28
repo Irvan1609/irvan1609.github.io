@@ -7,6 +7,21 @@ export function installNavigation(){
   const projectToggle=document.getElementById('projectToggle');
   const settingsToggle=document.getElementById('appSettingsToggle');
 
+  const appHeader=nav.closest('.app-header');
+  function positionFloatingMenu(anchor,panel){
+    if(!anchor||!panel||!appHeader)return;
+    const headerRect=appHeader.getBoundingClientRect(),anchorRect=anchor.getBoundingClientRect();
+    const scale=headerRect.width&&appHeader.offsetWidth?headerRect.width/appHeader.offsetWidth:1;
+    const headerWidth=appHeader.offsetWidth||headerRect.width/Math.max(scale,.01);
+    const requested=globalThis.matchMedia?.('(max-width:720px)')?.matches?246:224;
+    const width=Math.max(180,Math.min(requested,headerWidth-12));
+    const center=((anchorRect.left+anchorRect.right)/2-headerRect.left)/Math.max(scale,.01);
+    const left=Math.max(6,Math.min(headerWidth-width-6,center-width/2));
+    panel.style.setProperty('--floating-menu-left',left+'px');
+    panel.style.setProperty('--floating-menu-width',width+'px');
+    panel.dataset.anchorId=anchor.id||'';
+  }
+
   const editorActions=document.createElement('div');
   editorActions.className='editor-inline-actions';
   editorActions.setAttribute('aria-label','Aksi editor data');
@@ -53,12 +68,7 @@ export function installNavigation(){
     nav.after(panel);
     menuButtons.set(id,button);
 
-    button.onclick=()=>{
-      const opening=panel.hidden;
-      closeMenus();
-      panel.hidden=!opening;
-      button.setAttribute('aria-expanded',String(opening));
-    };
+    button.onclick=()=>openCommandMenu(id,button);
     panel.addEventListener('click',event=>{if(event.target.closest('button'))closeMenus();});
   }
 
@@ -84,6 +94,56 @@ export function installNavigation(){
   if(projectToggle)utilityNav.append(projectToggle);
   if(searchButton)utilityNav.append(searchButton);
   if(settingsToggle)utilityNav.append(settingsToggle);
+
+  const mobileMoreButton=document.createElement('button');
+  mobileMoreButton.id='mobileMoreButton';
+  mobileMoreButton.type='button';
+  mobileMoreButton.className='header-icon-button';
+  mobileMoreButton.textContent='⋯';
+  mobileMoreButton.title='Menu';
+  mobileMoreButton.setAttribute('aria-label','Menu');
+  mobileMoreButton.setAttribute('aria-expanded','false');
+  const mobileMorePanel=document.createElement('div');
+  mobileMorePanel.id='mobileMorePanel';
+  mobileMorePanel.className='mobile-more-panel';
+  mobileMorePanel.hidden=true;
+  mobileMorePanel.setAttribute('role','menu');
+  mobileMorePanel.innerHTML='<button type="button" data-mobile-menu="search">Cari</button><button type="button" data-mobile-menu="settings">Pengaturan</button><button type="button" data-mobile-menu="fileMenu">File</button><button type="button" data-mobile-menu="dataMenu">Data</button><button type="button" data-mobile-menu="helpMenu">Bantuan</button>';
+  utilityNav.append(mobileMoreButton);
+  appHeader?.append(mobileMorePanel);
+
+  function openCommandMenu(id,anchor=document.getElementById(id+'Button')){
+    const panel=document.getElementById(id),button=document.getElementById(id+'Button');
+    if(!panel)return;
+    const opening=panel.hidden;
+    closeMenus();
+    if(!opening)return;
+    positionFloatingMenu(anchor||button,panel);
+    panel.hidden=false;
+    button?.setAttribute('aria-expanded','true');
+  }
+  function closeMobileMore(){
+    mobileMorePanel.hidden=true;
+    mobileMoreButton.setAttribute('aria-expanded','false');
+  }
+  mobileMoreButton.onclick=event=>{
+    event.stopPropagation();
+    const opening=mobileMorePanel.hidden;
+    closeMenus();closeMobileMore();
+    if(opening){
+      positionFloatingMenu(mobileMoreButton,mobileMorePanel);
+      mobileMorePanel.hidden=false;
+      mobileMoreButton.setAttribute('aria-expanded','true');
+    }
+  };
+  mobileMorePanel.addEventListener('click',event=>{
+    const action=event.target.closest('[data-mobile-menu]')?.dataset.mobileMenu;
+    if(!action)return;
+    event.stopPropagation();closeMobileMore();
+    if(action==='search'){searchButton?.click();return;}
+    if(action==='settings'){settingsToggle?.click();return;}
+    openCommandMenu(action,mobileMoreButton);
+  });
 
   function syncFieldTab(){
     const active=document.body.classList.contains('field-layout-open');
@@ -265,6 +325,7 @@ export function installNavigation(){
   searchModal?.addEventListener('click',event=>{if(event.target===searchModal)closeGlobalSearch();});
 
   function closeMenus(){
+    if(typeof closeMobileMore==='function')closeMobileMore();
     for(const id of ['fileMenu','dataMenu','helpMenu']){
       const panel=document.getElementById(id),button=document.getElementById(id+'Button');
       if(panel)panel.hidden=true;
@@ -276,7 +337,17 @@ export function installNavigation(){
   }
 
   document.addEventListener('click',event=>{
-    if(!event.target.closest('.nav,.nav-command-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
+    if(!event.target.closest('.nav,.nav-command-panel,.mobile-more-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
+  });
+  window.addEventListener('resize',()=>{
+    for(const id of ['fileMenu','dataMenu','helpMenu']){
+      const panel=document.getElementById(id);
+      if(!panel?.hidden){
+        const anchor=document.getElementById(panel.dataset.anchorId)||document.getElementById(id+'Button');
+        positionFloatingMenu(anchor,panel);
+      }
+    }
+    if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
   });
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
