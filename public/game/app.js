@@ -53,7 +53,7 @@ const chance=p=>Math.random()<p;
 const uid=prefix=>prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const shuffle=list=>[...list].sort(()=>Math.random()-.5);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientTargets,nutrientDeficits,fertilizerDoseHa,fertilizerDoseKg,fertilizerActionCost,recommendedFertilizer,initialNutrients}=createFarmInputModel({
+const {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientTargets,nutrientDeficits,fertilizerDoseHa,fertilizerDoseKg,fertilizerActionCost,recommendedFertilizer,initialNutrients,chargeFarmCost}=createFarmInputModel({
   getState:()=>state,getChallenge:()=>activeChallenge(),getSpecies:id=>SPECIES[id]||SPECIES.maize,getPlotMeta:plotMeta,actionCost,hasTech,clamp,round,plotArea:PLOT_AREA_M2
 });
 
@@ -61,14 +61,14 @@ const TRAITS={
   early:{name:'Cepat Berbunga',icon:'⚡',rarity:'common',desc:'Lebih cepat matang, tetapi potensi hasil sedikit turun.',growth:1.15,yield:.95},
   deep:{name:'Akar Dalam',icon:'↧',rarity:'common',desc:'Lebih tahan kekeringan, tetapi kebutuhan awal N sedikit lebih tinggi.',droughtRes:.42,nLoss:1.06},
   nue:{name:'Efisien N',icon:'N',rarity:'common',desc:'Lebih efisien pada N rendah, dengan plafon hasil sedikit lebih rendah.',nLoss:.72,lowNYield:1.12,yield:.97},
-  rust:{name:'Tahan Karat',icon:'◈',rarity:'common',desc:'Tekanan penyakit lebih rendah, dengan biaya hasil kecil.',diseaseRes:.52,yield:.97},
-  giant:{name:'Tongkol Besar',icon:'▰',rarity:'common',desc:'Potensi hasil tinggi, tumbuh lebih lambat dan lebih boros air.',yield:1.18,growth:.92,waterLoss:1.12},
-  prolific:{name:'Prolifik',icon:'✦',rarity:'common',desc:'Potensi hasil naik, tetapi kebutuhan N meningkat.',yield:1.11,nLoss:1.12},
-  saver:{name:'Hemat Air',icon:'◇',rarity:'common',desc:'Kehilangan air lebih lambat, tetapi pertumbuhan sedikit lebih lambat.',waterLoss:.72,growth:.97},
-  plastic:{name:'Plastis',icon:'≈',rarity:'common',desc:'Penalti stres lebih kecil, tanpa bonus hasil langsung.',stressRes:.34,yield:.99},
-  heat:{name:'Tahan Panas',icon:'☀',rarity:'rare',desc:'Tahan hari panas, tetapi hasil maksimum sedikit turun.',heatRes:.7,yield:.98},
-  vigor:{name:'Vigor Tinggi',icon:'↑',rarity:'rare',desc:'Tumbuh cepat dan pulih baik, namun lebih cepat menghabiskan air.',growth:1.1,healthGuard:.23,waterLoss:1.08},
-  myco:{name:'Mikoriza+',icon:'⌁',rarity:'rare',desc:'Akses air dan N membaik, terutama pada lahan marjinal.',waterLoss:.86,nLoss:.8,yield:1.05},
+  rust:{name:'Tahan Karat',icon:'◈',rarity:'common',desc:'Tekanan penyakit lebih rendah.',diseaseRes:.52,yield:.97},
+  giant:{name:'Tongkol Besar',icon:'▰',rarity:'common',desc:'Hasil tinggi, lebih lambat dan boros air.',yield:1.18,growth:.92,waterLoss:1.12},
+  prolific:{name:'Prolifik',icon:'✦',rarity:'common',desc:'Hasil naik, kebutuhan N meningkat.',yield:1.11,nLoss:1.12},
+  saver:{name:'Hemat Air',icon:'◇',rarity:'common',desc:'Hemat air, pertumbuhan sedikit lebih lambat.',waterLoss:.72,growth:.97},
+  plastic:{name:'Plastis',icon:'≈',rarity:'common',desc:'Penalti stres lebih kecil.',stressRes:.34,yield:.99},
+  heat:{name:'Tahan Panas',icon:'☀',rarity:'rare',desc:'Lebih tahan panas.',heatRes:.7,yield:.98},
+  vigor:{name:'Vigor Tinggi',icon:'↑',rarity:'rare',desc:'Tumbuh cepat, lebih boros air.',growth:1.1,healthGuard:.23,waterLoss:1.08},
+  myco:{name:'Mikoriza+',icon:'⌁',rarity:'rare',desc:'Akses air dan N membaik.',waterLoss:.86,nLoss:.8,yield:1.05},
   sentinel:{name:'Sentinel',icon:'◎',rarity:'rare',desc:'Scouting memberi riset ekstra dan deteksi penyakit lebih baik.',scoutRp:2,diseaseRes:.2,yield:.98},
   zero:{name:'Resonansi Zero',icon:'ψ',rarity:'legendary',desc:'Trait misterius: sangat adaptif tetapi tidak selalu stabil.',yield:1.18,stressRes:.45,diseaseRes:.28,growth:1.05}
 };
@@ -407,7 +407,7 @@ function load(){
       if(!crop)return null;
       const seed={...(crop.seed||{}),genome:normalizeGenome(crop.seed?.genome,crop.seed?.id||('plot-'+index),merged.simulationSeed)};
       const uidValue=crop.uid||('legacy-plant-'+index);
-      const baseN=initialNutrients(index);
+      const baseN=initialNutrients(index,merged.plotRegistry?.[index]);
       return {...crop,uid:uidValue,seed,n:clamp(Number.isFinite(Number(crop.n))?Number(crop.n):baseN.n,0,110),p:clamp(Number.isFinite(Number(crop.p))?Number(crop.p):baseN.p,0,110),k:clamp(Number.isFinite(Number(crop.k))?Number(crop.k):baseN.k,0,110),samples:Array.isArray(crop.samples)&&crop.samples.length?crop.samples:makeSubsamples({plotUid:merged.plotRegistry?.[index]?.uid||('P'+index),plantUid:uidValue,species:crop.species||merged.species,simulationSeed:merged.simulationSeed})};
     });
     merged.tech=Array.isArray(merged.tech)?merged.tech:[];
@@ -2745,6 +2745,10 @@ window.FieldZeroGame={
   fingerprintSave:progressFingerprint,getSaveSummary:gameProgressSummary,isFreshSave:isFreshProgress,openSpeciesPicker
 };
 applyComfortSettings();bind();render();lastProgressFingerprint=progressFingerprint();updateCrossPreview();notifyGameProfile();document.dispatchEvent(new Event('fieldzero-ready'));
+if(isFreshProgress()){
+  const recoverable=recoveryEntries().find(item=>!isFreshProgress(item.state));
+  if(recoverable)setTimeout(()=>openRecoveryCenter(),280);
+}
 if(resumeGapMs>30*60*1000){
   const issues=attentionIndexes().length,ready=state.field.filter(crop=>crop&&crop.health>0&&crop.growth>=100).length;
   setTimeout(()=>toast('Kembali · '+ready+' siap panen · '+issues+' perlu perhatian'),350);
