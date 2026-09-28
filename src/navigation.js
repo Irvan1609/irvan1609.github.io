@@ -141,7 +141,10 @@ export function installNavigation(){
     if(!action)return;
     event.stopPropagation();closeMobileMore();
     if(action==='search'){searchButton?.click();return;}
-    if(action==='settings'){settingsToggle?.click();return;}
+    if(action==='settings'){
+      document.dispatchEvent(new CustomEvent('stat-open-settings'));
+      return;
+    }
     openCommandMenu(action,mobileMoreButton);
   });
 
