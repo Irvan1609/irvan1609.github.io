@@ -1,4 +1,4 @@
-const VERSION='20260928-resilience-farmfix-v5';;;;;
+const VERSION='20260928-gamefix-v6';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -101,7 +101,7 @@ async function navigationResponse(request){
     const previous=await previousMatch(request);
     if(previous)return previous;
   }
-  const url=new URL(request.url),networkFirstRoute=url.pathname.startsWith('/game/')||url.pathname.startsWith('/stat/');
+  const url=new URL(request.url),networkFirstRoute=true;
   const cached=await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
@@ -122,6 +122,8 @@ async function staticResponse(request){
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
+  const criticalFresh=(url.pathname.startsWith('/game/')&&url.pathname.endsWith('.js'))||['/account.js','/resilience.js','/pwa-register.js'].includes(url.pathname);
+  if(criticalFresh)return await refresh||cached||new Response('',{status:504,statusText:'Offline'});
   if(cached){void refresh;return cached;}
   return await refresh||new Response('',{status:504,statusText:'Offline'});
 }
