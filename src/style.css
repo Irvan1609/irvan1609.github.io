@@ -6439,3 +6439,221 @@ summary:focus-visible,
     border-radius:10px!important;
   }
 }
+
+
+/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */
+/* Phone layout: the spreadsheet owns the screen; navigation lives in one small bottom dock. */
+@media(max-width:720px){
+  html,body{
+    width:100%!important;
+    height:100%!important;
+    min-height:100%!important;
+    overflow:hidden!important;
+    overscroll-behavior:none!important;
+  }
+  body>.subweb-header{
+    display:none!important;
+  }
+  #app,
+  .app-shell{
+    width:100%!important;
+    height:100dvh!important;
+    min-height:0!important;
+  }
+  .app-shell{
+    padding:2px 2px calc(46px + env(safe-area-inset-bottom))!important;
+    overflow:hidden!important;
+  }
+
+  /* Everything above the sheet is available from the dock/menu instead of consuming editor height. */
+  .toolbar,
+  .sheet-header,
+  .status{
+    display:none!important;
+  }
+  .main{
+    display:block!important;
+    width:100%!important;
+    height:calc(100dvh - 48px - env(safe-area-inset-bottom))!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .workspace{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    border:0!important;
+    border-radius:4px!important;
+    overflow:hidden!important;
+    box-shadow:none!important;
+  }
+  .grid-container{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    border-radius:4px!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-x pan-y!important;
+    background:#fff!important;
+  }
+  .grid-container .data-grid{
+    zoom:var(--stat-grid-zoom,1);
+    transform-origin:0 0;
+  }
+
+  /* Compact four-action bottom dock: Denah, Analisis, Data, Menu. */
+  .app-header{
+    position:fixed!important;
+    left:4px!important;
+    right:4px!important;
+    bottom:max(3px,env(safe-area-inset-bottom))!important;
+    top:auto!important;
+    z-index:150!important;
+    margin:0!important;
+    border:1px solid #d2dbe1!important;
+    border-radius:10px!important;
+    background:rgba(255,255,255,.97)!important;
+    box-shadow:0 5px 16px rgba(27,45,60,.14)!important;
+    backdrop-filter:blur(8px);
+    overflow:visible!important;
+  }
+  .app-header .nav{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:2px!important;
+    padding:2px!important;
+  }
+  .nav-primary{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:2px!important;
+    min-width:0!important;
+  }
+  .nav-utilities{
+    display:grid!important;
+    grid-template-columns:repeat(2,40px)!important;
+    gap:2px!important;
+    margin:0!important;
+    padding:0!important;
+    background:transparent!important;
+  }
+  #fieldLayoutTab,
+  #openAnalysis,
+  #projectToggle,
+  #mobileMoreButton{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    min-width:0!important;
+    height:38px!important;
+    min-height:38px!important;
+    padding:3px 5px!important;
+    border:0!important;
+    border-radius:7px!important;
+    background:transparent!important;
+    font-size:10px!important;
+    line-height:1!important;
+    font-weight:750!important;
+    white-space:nowrap!important;
+  }
+  #openAnalysis::before,
+  #projectToggle::before,
+  #mobileMoreButton::before{
+    display:none!important;
+    content:none!important;
+  }
+  #projectToggle,
+  #mobileMoreButton{
+    font-size:0!important;
+  }
+  #projectToggle::after{
+    content:"Data";
+    font-size:10px!important;
+  }
+  #mobileMoreButton::after{
+    content:"Menu";
+    font-size:10px!important;
+  }
+  #fieldLayoutTab:active,
+  #openAnalysis:active,
+  #projectToggle:active,
+  #mobileMoreButton:active,
+  #fieldLayoutTab.active,
+  #openAnalysis[aria-expanded="true"],
+  #projectToggle[aria-expanded="true"],
+  #mobileMoreButton[aria-expanded="true"]{
+    background:#eef3f6!important;
+  }
+
+  /* All mobile menus float directly above the dock. */
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel,
+  .analysis-command-panel{
+    position:fixed!important;
+    left:4px!important;
+    right:4px!important;
+    top:auto!important;
+    bottom:calc(47px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    z-index:170!important;
+  }
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel{
+    max-height:52dvh!important;
+  }
+  .analysis-command-panel{
+    max-height:72dvh!important;
+  }
+
+  /* Settings is a real phone sheet, independent of its hidden desktop gear button. */
+  #appSettingsPanel{
+    position:fixed!important;
+    left:5px!important;
+    right:5px!important;
+    top:auto!important;
+    bottom:calc(47px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    max-width:none!important;
+    max-height:66dvh!important;
+    margin:0!important;
+    padding:10px!important;
+    z-index:185!important;
+    overflow:auto!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    box-shadow:0 10px 28px rgba(27,45,60,.18)!important;
+  }
+  #appSettingsPanel .settings-panel-title{
+    position:sticky;
+    top:-10px;
+    z-index:2;
+    margin:-10px -10px 6px!important;
+    padding:8px 10px!important;
+    background:#fff!important;
+    border-bottom:1px solid #e5eaee;
+  }
+  #appSettingsPanel .settings-section{
+    padding:7px 0!important;
+  }
+
+  /* Keep errors visible without reintroducing a permanent top bar. */
+  #errorBox:not([hidden]){
+    position:fixed!important;
+    left:5px!important;
+    right:5px!important;
+    top:5px!important;
+    z-index:190!important;
+    max-height:34dvh!important;
+    overflow:auto!important;
+    margin:0!important;
+  }
+}
