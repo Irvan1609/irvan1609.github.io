@@ -13,8 +13,8 @@ export function installNavigation(){
     const headerRect=appHeader.getBoundingClientRect(),anchorRect=anchor.getBoundingClientRect();
     const scale=headerRect.width&&appHeader.offsetWidth?headerRect.width/appHeader.offsetWidth:1;
     const headerWidth=appHeader.offsetWidth||headerRect.width/Math.max(scale,.01);
-    const requested=globalThis.matchMedia?.('(max-width:720px)')?.matches?246:224;
-    const width=Math.max(180,Math.min(requested,headerWidth-12));
+    const requested=globalThis.matchMedia?.('(max-width:720px)')?.matches?210:196;
+    const width=Math.max(164,Math.min(requested,headerWidth-10));
     const center=((anchorRect.left+anchorRect.right)/2-headerRect.left)/Math.max(scale,.01);
     const left=Math.max(6,Math.min(headerWidth-width-6,center-width/2));
     panel.style.setProperty('--floating-menu-left',left+'px');
