@@ -25,6 +25,14 @@ const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
 const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
+const GRID_ZOOM_KEY='statistical_web_grid_zoom_v1';
+const GRID_ZOOM_MIN=.65,GRID_ZOOM_MAX=1.65;
+let gridZoom=1;
+try{
+  const savedGridZoom=Number(localStorage.getItem(GRID_ZOOM_KEY));
+  if(Number.isFinite(savedGridZoom))gridZoom=Math.max(GRID_ZOOM_MIN,Math.min(GRID_ZOOM_MAX,savedGridZoom));
+}catch{}
+
 let editingColumnIndex=null,activeEditCell=null,saveIndicatorTimer=null,lastHistoryWrite=0,localHydrationPromise=null,gridFindQuery='';
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -762,7 +770,63 @@ function gridQualityModel(){
   for(const indexes of signatures.values())if(indexes.length>1)indexes.forEach(index=>duplicateRows.add(index));
   return {duplicateRows,mostlyNumeric:numeric.map(item=>item.filled>=3&&item.numeric/item.filled>=.7)};
 }
-function virtualRowHeight(){return document.documentElement?.classList?.contains('compact-data-editor')?32:40;}
+function clampGridZoom(value){
+  const n=Number(value);
+  return Math.max(GRID_ZOOM_MIN,Math.min(GRID_ZOOM_MAX,Number.isFinite(n)?n:1));
+}
+function applyGridZoom(value,{persist=false,announce=false}={}){
+  gridZoom=clampGridZoom(value);
+  const wrap=$('#gridWrap');
+  if(wrap){
+    wrap.style.setProperty('--stat-grid-zoom',String(gridZoom));
+    wrap.dataset.gridZoom=String(Math.round(gridZoom*100));
+  }
+  document.documentElement?.style?.setProperty('--stat-grid-zoom',String(gridZoom));
+  if(persist){
+    try{localStorage.setItem(GRID_ZOOM_KEY,String(gridZoom));}catch{}
+  }
+  if(announce)setStatus(`Zoom editor ${Math.round(gridZoom*100)}%.`);
+  return gridZoom;
+}
+function installGridPinchZoom(){
+  const wrap=$('#gridWrap');
+  if(!wrap||wrap.dataset.pinchZoomBound==='1')return;
+  wrap.dataset.pinchZoomBound='1';
+  applyGridZoom(gridZoom);
+  let pinch=null;
+  const distance=touches=>{
+    if(!touches||touches.length<2)return 0;
+    const dx=touches[0].clientX-touches[1].clientX,dy=touches[0].clientY-touches[1].clientY;
+    return Math.hypot(dx,dy);
+  };
+  wrap.addEventListener('touchstart',event=>{
+    if(event.touches.length!==2)return;
+    const startDistance=distance(event.touches);
+    if(startDistance>0)pinch={distance:startDistance,zoom:gridZoom};
+  },{passive:true});
+  wrap.addEventListener('touchmove',event=>{
+    if(!pinch||event.touches.length!==2)return;
+    const currentDistance=distance(event.touches);
+    if(!currentDistance)return;
+    event.preventDefault();
+    applyGridZoom(pinch.zoom*(currentDistance/pinch.distance));
+  },{passive:false});
+  const finish=event=>{
+    if(!pinch||event.touches.length>=2)return;
+    pinch=null;
+    applyGridZoom(gridZoom,{persist:true,announce:true});
+    document.dispatchEvent(new CustomEvent('stat-grid-zoom-updated',{detail:{zoom:gridZoom}}));
+    if(wrap.dataset.virtualized==='1')renderGrid();
+  };
+  wrap.addEventListener('touchend',finish,{passive:true});
+  wrap.addEventListener('touchcancel',finish,{passive:true});
+  document.addEventListener('stat-grid-zoom-change',event=>{
+    const commit=event.detail?.commit!==false;
+    applyGridZoom(event.detail?.zoom,{persist:commit,announce:commit});
+    if(commit&&wrap.dataset.virtualized==='1')renderGrid();
+  });
+}
+function virtualRowHeight(){return (document.documentElement?.classList?.contains('compact-data-editor')?32:40)*gridZoom;}
 function rowMarkup(row,rowIndex,types,widths,quality){
   const duplicate=quality.duplicateRows.has(rowIndex)?' duplicate-row':'';
   const rowHasData=row.some(value=>String(value??'').trim()!=='');
@@ -1107,7 +1171,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
+  installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js')
