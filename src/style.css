@@ -6657,3 +6657,389 @@ summary:focus-visible,
     margin:0!important;
   }
 }
+
+
+/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */
+@media(min-width:721px){
+  :root{
+    --stat-font-small:10px;
+    --stat-font-body:12px;
+    --stat-font-important:13px;
+    --stat-font-title:15px;
+    --stat-control:28px;
+    --stat-icon-control:28px;
+    --stat-radius:5px;
+    --stat-gap:4px;
+  }
+
+  body>.subweb-header .subweb-header-inner{min-height:38px!important;padding-block:2px!important}
+  body>.subweb-header .subweb-brand,
+  body>.subweb-header .subweb-home-link,
+  body>.subweb-header .subweb-tools>summary{
+    min-height:28px!important;
+    padding:3px 6px!important;
+    font-size:11px!important;
+  }
+  body>.subweb-header .subweb-brand-arrow{width:24px!important;height:24px!important;font-size:13px!important}
+
+  .app-shell{padding:4px 6px 8px!important}
+  .app-header{border-radius:7px!important}
+  .app-header .nav{gap:4px!important;padding:3px 5px!important}
+  .nav-primary,.nav-utilities{gap:3px!important}
+  .nav-primary>.nav-tab{
+    min-height:28px!important;
+    height:28px!important;
+    padding:3px 6px!important;
+    border-radius:5px!important;
+    font-size:10.5px!important;
+  }
+  #globalSearchButton,#appSettingsToggle,#projectToggle{
+    width:28px!important;
+    min-width:28px!important;
+    height:28px!important;
+    min-height:28px!important;
+    font-size:13px!important;
+  }
+
+  .main{
+    grid-template-columns:152px minmax(0,1fr)!important;
+    gap:5px!important;
+    margin-top:5px!important;
+  }
+  .project-panel{padding:4px!important;border-radius:6px!important}
+  .panel-title{
+    padding:2px 4px 4px!important;
+    font-size:9.5px!important;
+    letter-spacing:.06em!important;
+  }
+  .dataset-search{
+    min-height:28px!important;
+    height:28px!important;
+    margin:0 0 3px!important;
+    padding:3px 5px!important;
+    border-radius:5px!important;
+    font-size:10.5px!important;
+  }
+
+  .workspace{border-radius:6px!important}
+  .sheet-header{
+    min-height:30px!important;
+    padding:3px 5px!important;
+    gap:4px!important;
+  }
+  .dataset-title{gap:3px!important;font-size:10.5px!important}
+  .dataset-title>strong,#activeFile{font-size:11px!important}
+  .dataset-meta-summaryline{gap:2px!important}
+  .dataset-meta-summaryline>span{
+    padding:1px 3px!important;
+    font-size:9.5px!important;
+  }
+  .dataset-meta-summaryline b{font-size:9px!important}
+  .dataset-meta-inline{font-size:10.5px!important}
+  #toggleDatasetMeta{
+    min-height:26px!important;
+    padding:2px 5px!important;
+    font-size:10px!important;
+  }
+  #datasetMetaEditor{gap:3px!important}
+  #datasetMetaEditor label{font-size:9.5px!important}
+  #datasetMetaEditor input{min-height:26px!important;padding:2px 4px!important;font-size:10.5px!important}
+
+  .editor-inline-actions{gap:2px!important}
+  .editor-inline-actions button{
+    min-height:27px!important;
+    height:27px!important;
+    padding:2px 5px!important;
+    border-radius:5px!important;
+    font-size:10px!important;
+  }
+  .editor-inline-actions #clearData{
+    width:27px!important;
+    min-width:27px!important;
+    height:27px!important;
+    min-height:27px!important;
+  }
+
+  .grid-container{
+    min-height:360px!important;
+    max-height:calc(100dvh - 146px)!important;
+  }
+  .data-grid{font-size:11px!important}
+  .data-grid th,.data-grid td{
+    min-width:68px!important;
+    height:28px!important;
+    padding:2px 4px!important;
+    line-height:1.15!important;
+  }
+  .data-grid .row-number{
+    min-width:44px!important;
+    width:44px!important;
+    max-width:44px!important;
+  }
+  .data-grid .header-name{min-height:20px!important;font-size:10.5px!important}
+  .data-grid .grid-delete{
+    width:20px!important;
+    min-width:20px!important;
+    min-height:20px!important;
+    font-size:14px!important;
+  }
+  .column-drag-handle{width:14px!important}
+  .column-resizer{width:7px!important}
+
+  .status{
+    min-height:19px!important;
+    padding:2px 5px!important;
+    font-size:9.5px!important;
+  }
+
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel{
+    padding:3px!important;
+    gap:1px!important;
+    border-radius:6px!important;
+    max-height:min(360px,60dvh)!important;
+  }
+  .nav-command-panel:not(.analysis-command-panel)>button,
+  .mobile-more-panel>button{
+    min-height:28px!important;
+    padding:3px 5px!important;
+    border-radius:4px!important;
+    font-size:10.5px!important;
+  }
+
+  .analysis-command-panel{
+    left:4px!important;
+    right:4px!important;
+    top:calc(100% + 3px)!important;
+    max-height:min(68dvh,620px)!important;
+    border-radius:6px!important;
+  }
+  .analysis-group-board{gap:3px!important;padding:3px!important}
+  .analysis-compact-group{border-radius:5px!important}
+  .analysis-compact-group-title{
+    min-height:27px!important;
+    height:27px!important;
+    padding:4px 6px!important;
+    font-size:10px!important;
+  }
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    gap:2px!important;
+    padding:3px!important;
+  }
+  .analysis-compact-item{
+    min-height:36px!important;
+    height:36px!important;
+    max-height:36px!important;
+    gap:4px!important;
+    padding:3px 4px!important;
+    border-radius:4px!important;
+  }
+  .analysis-compact-item>span{
+    width:24px!important;
+    min-width:24px!important;
+    height:24px!important;
+    min-height:24px!important;
+    font-size:8px!important;
+    border-radius:5px!important;
+  }
+  .analysis-compact-item>b{
+    font-size:10.5px!important;
+    line-height:1.1!important;
+  }
+
+  .modal-backdrop{padding:14px!important}
+  .modal-backdrop>.modal{border-radius:8px!important;max-height:calc(100dvh - 28px)!important}
+  .modal-head{
+    min-height:34px!important;
+    padding:4px 7px!important;
+  }
+  .modal-head>strong{font-size:12.5px!important}
+  .modal-head>button{
+    width:26px!important;
+    min-width:26px!important;
+    height:26px!important;
+    min-height:26px!important;
+    font-size:14px!important;
+  }
+  .modal-body{padding:8px!important}
+  .modal-foot{padding:5px 7px!important;gap:3px!important}
+  .modal-foot button{min-height:28px!important;padding:3px 6px!important;font-size:10.5px!important}
+
+  .science-card-head{padding:5px 6px!important}
+  .science-card-head b{font-size:12px!important}
+  .science-card-head small{font-size:10px!important}
+  .science-role-grid,.science-option-grid,.science-config{gap:4px!important}
+  .science-role-grid label,.science-option-grid label,
+  .science-simple-parameter,.science-switch-row{
+    padding:4px 5px!important;
+    font-size:10.5px!important;
+  }
+  .analysis-workspace-modal select,
+  .analysis-workspace-modal input{
+    min-height:28px!important;
+    padding:3px 5px!important;
+    font-size:11px!important;
+  }
+
+  .analysis-result-toolbar{
+    gap:3px!important;
+    padding:3px!important;
+  }
+  .analysis-result-toolbar>select,
+  .analysis-result-toolbar>button,
+  .result-single-actions>summary{
+    min-height:28px!important;
+    height:28px!important;
+    padding:2px 5px!important;
+    font-size:10.5px!important;
+  }
+  .result-single-actions>summary{width:28px!important;min-width:28px!important}
+  .result-tools-menu-body,.result-card-more-menu{
+    padding:4px!important;
+    gap:2px!important;
+    border-radius:6px!important;
+  }
+  .result-compact-menu button,.result-card-more-menu button{
+    min-height:27px!important;
+    padding:3px 5px!important;
+    font-size:10px!important;
+  }
+  .analysis-result>h3,.analysis-result>h4{
+    min-height:30px!important;
+    padding:5px 7px!important;
+    font-size:12px!important;
+  }
+  .analysis-result .result-table,
+  .analysis-result .anova-table{
+    font-size:11px!important;
+  }
+  .analysis-result .result-table th,
+  .analysis-result .result-table td{
+    height:22px!important;
+    padding:2px 4px!important;
+  }
+  .analysis-note{
+    margin:3px 5px!important;
+    padding:3px 5px!important;
+    font-size:10px!important;
+  }
+  .analysis-result-meta{padding:0 6px 3px!important;font-size:9.5px!important}
+  .table-caption,.figure-caption{font-size:10px!important}
+  .result-technical-details{margin:3px 5px 5px!important}
+  .result-technical-details>summary{min-height:27px!important;padding:3px 5px!important;font-size:10px!important}
+}
+
+@media(max-width:720px){
+  /* Keep touch areas usable; shrink everything around them. */
+  .app-shell{padding:1px 1px calc(44px + env(safe-area-inset-bottom))!important}
+  .main{height:calc(100dvh - 45px - env(safe-area-inset-bottom))!important}
+  .app-header{
+    left:2px!important;
+    right:2px!important;
+    bottom:max(2px,env(safe-area-inset-bottom))!important;
+    border-radius:8px!important;
+  }
+  .app-header .nav{padding:1px!important;gap:1px!important}
+  .nav-primary,.nav-utilities{gap:1px!important}
+  #fieldLayoutTab,#openAnalysis,#projectToggle,#mobileMoreButton{
+    height:38px!important;
+    min-height:38px!important;
+    padding:2px 4px!important;
+    border-radius:6px!important;
+    font-size:9.5px!important;
+  }
+  .nav-utilities{grid-template-columns:repeat(2,38px)!important}
+  #mobileMoreButton{width:38px!important;min-width:38px!important}
+  #projectToggle::after,#mobileMoreButton::after{font-size:9.5px!important}
+
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel,
+  .analysis-command-panel{
+    left:2px!important;
+    right:2px!important;
+    bottom:calc(43px + env(safe-area-inset-bottom))!important;
+    border-radius:7px!important;
+  }
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel{padding:4px!important;gap:2px!important}
+  .nav-command-panel:not(.analysis-command-panel)>button,
+  .mobile-more-panel>button{
+    min-height:40px!important;
+    padding:5px 7px!important;
+    font-size:11px!important;
+  }
+
+  .analysis-command-panel{padding:4px!important;max-height:68dvh!important}
+  .analysis-group-board{gap:3px!important;padding:2px!important}
+  .analysis-compact-group-title{
+    min-height:28px!important;
+    height:28px!important;
+    padding:4px 6px!important;
+    font-size:10.5px!important;
+  }
+  .analysis-compact-items,
+  .analysis-compact-group:not(:first-child) .analysis-compact-items{
+    grid-auto-rows:46px!important;
+    gap:3px!important;
+    padding:3px!important;
+  }
+  .analysis-compact-item{
+    height:46px!important;
+    min-height:46px!important;
+    max-height:46px!important;
+    padding:4px 5px!important;
+  }
+  .analysis-compact-item>span{
+    width:26px!important;
+    min-width:26px!important;
+    height:26px!important;
+    min-height:26px!important;
+  }
+  .analysis-compact-item>b{font-size:11.5px!important}
+
+  #appSettingsPanel{
+    left:auto!important;
+    right:3px!important;
+    width:min(260px,calc(100vw - 6px))!important;
+    bottom:calc(43px + env(safe-area-inset-bottom))!important;
+    padding:7px!important;
+    border-radius:7px!important;
+  }
+  #appSettingsPanel .settings-panel-title{
+    margin:-7px -7px 4px!important;
+    padding:6px 7px!important;
+    font-size:12px!important;
+  }
+  #appSettingsPanel .settings-section{padding:5px 0!important}
+
+  .result-single-actions .result-tools-menu-body,
+  .result-card-more-menu{
+    right:4px!important;
+    bottom:calc(44px + env(safe-area-inset-bottom))!important;
+    width:min(248px,calc(100vw - 8px))!important;
+    max-height:54dvh!important;
+    padding:5px!important;
+    border-radius:7px!important;
+  }
+  .result-single-actions button,
+  .result-compact-menu button,
+  .result-card-more-menu button,
+  .result-significance-filter button{
+    min-height:40px!important;
+    padding:6px 7px!important;
+    font-size:11px!important;
+  }
+
+  .modal-backdrop>.modal{max-height:88dvh!important}
+  .modal-head{min-height:46px!important;padding:4px 6px 4px 8px!important}
+  .modal-head>button{
+    width:40px!important;
+    min-width:40px!important;
+    height:40px!important;
+    min-height:40px!important;
+  }
+  .modal-body{padding:7px!important}
+  .modal-foot{padding:5px!important;gap:3px!important}
+  .modal-foot button{min-height:40px!important}
+}
