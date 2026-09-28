@@ -1102,6 +1102,7 @@ function installDataGrid(){
 }
 
 async function boot(){
+  if(!document.querySelector('#fileTree')||!document.querySelector('#pasteBtn'))return;
   try{localStorage.removeItem('statistical_web_drive_backup_v1');}catch{}
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
