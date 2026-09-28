@@ -502,8 +502,9 @@ function checkpoint(label='Checkpoint'){
 }
 function restoreCheckpoint(id){
   const entry=recoveryEntries().find(item=>item.id===id);if(!entry)return false;
+  const localPrefs={comfort:structuredClone(state.comfort||{}),sound:state.sound,musicTrack:state.musicTrack,selectedPlot:state.selectedPlot};
   try{
-    localStorage.setItem(STORAGE,JSON.stringify(entry.state));state=load();clearUndo();replantCache=null;activeFieldTool='';
+    localStorage.setItem(STORAGE,JSON.stringify({...structuredClone(entry.state),...localPrefs}));state=load();clearUndo();replantCache=null;activeFieldTool='';
     lastProgressFingerprint=progressFingerprint();applyComfortSettings();render();updateCrossPreview();closeMetaModal();toast('Save dipulihkan · '+entry.label);return true;
   }catch{return false;}
 }
@@ -2705,7 +2706,7 @@ function bind(){
     if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);}
     else{state.sound=false;save();renderHud();stopMusic();}
   };
-  const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;checkpoint('Sebelum reset run');state=freshState();applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
+  const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;checkpoint('Sebelum reset run');const localPrefs={comfort:structuredClone(state.comfort||{}),sound:state.sound,musicTrack:state.musicTrack};state=freshState();state.comfort={...state.comfort,...localPrefs.comfort,lastSeenAt:Date.now()};state.sound=localPrefs.sound;state.musicTrack=localPrefs.musicTrack;applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
   let resetHold=0,resetHoldDone=false;
   $('#newRun').addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;resetHoldDone=false;resetHold=setTimeout(()=>{resetHoldDone=true;haptic(20);resetRun(true);},700);});
   ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#newRun').addEventListener(type,()=>{clearTimeout(resetHold);resetHold=0;}));
