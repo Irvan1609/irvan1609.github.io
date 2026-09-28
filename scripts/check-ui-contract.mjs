@@ -20,6 +20,14 @@ const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
 const dataEnhancements = fs.readFileSync('src/data-enhancements.js', 'utf8');
+const designExtensions = fs.readFileSync('src/design-extensions-workflow.js', 'utf8');
+const associationWorkflow = fs.readFileSync('src/association-workflow.js', 'utf8');
+const advancedWorkflow = fs.readFileSync('src/advanced-workflow.js', 'utf8');
+const nonparametricWorkflow = fs.readFileSync('src/nonparametric-workflow.js', 'utf8');
+const powerWorkflow = fs.readFileSync('src/power-workflow.js', 'utf8');
+const nextgenWorkflow = fs.readFileSync('src/nextgen-workflow.js', 'utf8');
+const mixedWorkflow = fs.readFileSync('src/mixed-workflow.js', 'utf8');
+const stabilityWorkflow = fs.readFileSync('src/stability-indices-workflow.js', 'utf8');
 const statStyle = fs.readFileSync('src/style.css', 'utf8');
 const displaySettings = fs.readFileSync('src/display-settings.js', 'utf8');
 const sharedHeader = fs.readFileSync('public/subweb-header.css', 'utf8');
@@ -70,7 +78,7 @@ for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT MOBILE NON-OVERLAY DOCK 2026-09-28 */','grid-template-rows:minmax(0,1fr) auto!important','position:relative!important','inset:auto!important'])if(!statStyle.includes(marker))fail('non-overlay phone dock missing '+marker);
-if(!html.includes('/src/style.css?v=20260928-mobile-dock-nonoverlay-v4')||!html.includes('/src/main.js?v=20260928-nostrip1'))fail('latest compact editor asset version missing');
+if(!html.includes('/src/style.css?v=20260928-parallel-analysis1')||!html.includes('/src/main.js?v=20260928-parallel-analysis1'))fail('latest parallel analysis asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -80,6 +88,12 @@ for(const marker of ['width:144px','min-height:28px','width:160px','min-height:3
 if(!html.includes('<details class="dataset-more" hidden aria-hidden="true">'))fail('duplicate inline dataset actions must remain hidden');
 
 if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
+
+for(const marker of ['science-parallel-grid','science-parallel-left','science-parallel-right'])if(!scientific.includes(marker))fail('scientific analysis parallel layout missing '+marker);
+if(!dataTools.includes("mode==='parallel-analysis'")||!dataTools.includes('analysis-tool-parallel-grid'))fail('generic parallel analysis layout support missing');
+for(const [name,source] of [['design extensions',designExtensions],['association',associationWorkflow],['advanced',advancedWorkflow],['nonparametric',nonparametricWorkflow],['power',powerWorkflow],['nextgen',nextgenWorkflow],['mixed',mixedWorkflow],['stability',stabilityWorkflow]])if(!source.includes("'parallel-analysis'")&&!source.includes('"parallel-analysis"'))fail(name+' analysis must use parallel layout');
+for(const marker of ['/* STAT PARALLEL ANALYSIS WORKSPACES FINAL 2026-09-28 */','.science-parallel-grid','.analysis-tool-parallel-grid','@media(max-width:820px)'])if(!statStyle.includes(marker))fail('parallel analysis styling missing '+marker);
+
 
 for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
 for(const marker of ['position:sticky!important','analysis-dock-body .analysis-result-toolbar','science-context>span+span::before','.result-table td:first-child','.column-context-menu button','min-height:44px!important'])if(!statStyle.includes(marker))fail('responsive UI polish missing '+marker);
