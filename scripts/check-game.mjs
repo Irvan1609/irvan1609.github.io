@@ -126,6 +126,8 @@ if(Buffer.byteLength(farmInputs,'utf8')>10000)fail('game farm module exceeds 10 
 if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
 if(!app.includes('initialNutrients(index,merged.plotRegistry?.[index])'))fail('legacy crop migration must not depend on uninitialized state');
 if(!app.includes('chargeFarmCost}=createFarmInputModel'))fail('farm cost charger must be wired into runtime');
+if(!farmInputs.includes('export const COSTS=')||!app.includes('import {COSTS,FERTILIZERS,createFarmInputModel}'))fail('COSTS export/import must be wired');
+if(!app.includes("farm-inputs.js?v=20260928-costfix1"))fail('farm input module must be cache-busted');
 const mockState={season:1,selectedPlot:0,coins:100000,species:'maize',seasonStats:{cost:0,laborCost:0,inputCost:0},tech:[]};
 const mockMeta={areaM2:25,fertility:1,moisture:1,pH:6.2};
 const farmModel=createFarmInputModel({
