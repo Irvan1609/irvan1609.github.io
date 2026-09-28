@@ -53,7 +53,7 @@ const chance=p=>Math.random()<p;
 const uid=prefix=>prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
 const shuffle=list=>[...list].sort(()=>Math.random()-.5);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientTargets,nutrientDeficits,fertilizerDoseHa,fertilizerDoseKg,fertilizerActionCost,recommendedFertilizer,initialNutrients,chargeFarmCost}=createFarmInputModel({
+const {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientDeficits,fertilizerActionCost,recommendedFertilizer,initialNutrients,chargeFarmCost}=createFarmInputModel({
   getState:()=>state,getChallenge:()=>activeChallenge(),getSpecies:id=>SPECIES[id]||SPECIES.maize,getPlotMeta:plotMeta,actionCost,hasTech,clamp,round,plotArea:PLOT_AREA_M2
 });
 
