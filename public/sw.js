@@ -1,4 +1,4 @@
-const VERSION='20260928-resilience-farmfix-v2';;
+const VERSION='20260928-resilience-farmfix-v3';;;
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
