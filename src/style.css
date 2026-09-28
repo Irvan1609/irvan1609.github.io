@@ -7043,3 +7043,42 @@ summary:focus-visible,
   .modal-foot{padding:5px!important;gap:3px!important}
   .modal-foot button{min-height:40px!important}
 }
+
+
+/* STAT MOBILE NON-OVERLAY DOCK 2026-09-28 */
+@media(max-width:720px){
+  #app,.app-shell{width:100%!important;height:100dvh!important;min-height:0!important}
+  .app-shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:minmax(0,1fr) auto!important;
+    gap:1px!important;
+    padding:1px 1px max(2px,env(safe-area-inset-bottom))!important;
+    overflow:hidden!important;
+  }
+  .main{
+    grid-row:1!important;grid-column:1!important;
+    width:100%!important;height:auto!important;min-height:0!important;
+    margin:0!important;padding:0!important;overflow:hidden!important;
+  }
+  .workspace,.grid-container{
+    width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;
+  }
+  .app-header{
+    grid-row:2!important;grid-column:1!important;
+    position:relative!important;inset:auto!important;
+    left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+    width:100%!important;margin:0!important;z-index:150!important;
+    flex:0 0 auto!important;pointer-events:auto!important;
+  }
+  .app-header .nav{width:100%!important}
+  .nav-command-panel:not(.analysis-command-panel),.mobile-more-panel,.analysis-command-panel{
+    bottom:calc(42px + max(2px,env(safe-area-inset-bottom)))!important;
+  }
+  #appSettingsPanel{
+    bottom:calc(42px + max(2px,env(safe-area-inset-bottom)))!important;
+  }
+  .result-single-actions .result-tools-menu-body,.result-card-more-menu{
+    bottom:calc(43px + max(2px,env(safe-area-inset-bottom)))!important;
+  }
+}
