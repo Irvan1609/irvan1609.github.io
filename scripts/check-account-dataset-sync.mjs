@@ -18,6 +18,8 @@ for(const marker of [
 ]) if(!sync.includes(marker))fail('sync module missing '+marker);
 
 if(sync.includes('setInterval('))fail('dataset sync must not use continuous polling');
+if(sync.includes('Cadangan cloud: tidak tersedia untuk akun ini'))fail('unavailable cloud sync must stay silent');
+if(!sync.includes('if(bar)bar.hidden=true'))fail('cloud sync bar must hide when sync is unavailable');
 
 for(const marker of [
   "request.method==='GET'&&url.pathname==='/v1/datasets'",
