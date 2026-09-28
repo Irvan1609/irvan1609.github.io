@@ -554,14 +554,13 @@ function onAccount(event){
   syncAllowed=true;
   const bar=syncBar();
   if(!currentUser){
-    if(bar)bar.hidden=false;
-    setSyncStatus('Belum dicadangkan ke cloud','idle');
+    syncAllowed=false;
+    if(bar)bar.hidden=true;
     return;
   }
   if(!currentUser.features?.datasetSync){
     syncAllowed=false;
-    if(bar)bar.hidden=false;
-    setSyncStatus('Cadangan cloud: tidak tersedia untuk akun ini','idle');
+    if(bar)bar.hidden=true;
     return;
   }
   if(bar)bar.hidden=false;
@@ -579,7 +578,7 @@ function onAccount(event){
 }
 export function installAccountDatasetSync(){
   if(localStorage.getItem(SAFE_KEY)==='1'){queueSummary({status:'safe-mode'});return;}
-  const bar=syncBar();if(bar){bar.hidden=false;setSyncStatus('Belum dicadangkan ke cloud','idle');}
+  const bar=syncBar();if(bar)bar.hidden=true;
   document.addEventListener('accountchange',onAccount);
   document.addEventListener('stat-dataset-changed',event=>{
     const detail=event.detail||{};
