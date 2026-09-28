@@ -67,54 +67,15 @@ function openResults(){
   if(history){history.click();setActive('results');}
 }
 function setActive(stage){
-  const strip=document.querySelector('#statWorkflowStrip');if(!strip)return;
-  const normalized=stage==='setup'?'analysis':stage==='field'?'data':stage;
-  strip.dataset.stage=normalized;
-  strip.querySelectorAll('[data-stat-workflow]').forEach(button=>{
-    const active=button.dataset.statWorkflow===normalized;
-    button.setAttribute('aria-current',active?'step':'false');
-  });
+  document.documentElement.dataset.statStage=stage==='setup'?'analysis':stage==='field'?'data':stage;
 }
 function update(){
-  const strip=document.querySelector('#statWorkflowStrip');if(!strip)return;
-  const data=datasetSummary(),dataLabel=strip.querySelector('[data-workflow-data-label]'),resultButton=strip.querySelector('[data-stat-workflow="results"]');
-  if(dataLabel)dataLabel.textContent=data.rows?`${data.rows}×${data.columns} · ${data.status}`:'Kosong';
-  strip.dataset.dataState=data.state;
-  const blankText=data.blankRate>0?` · nilai kosong ${data.sampled?'~':''}${Math.round(data.blankRate*100)}%`:'';
-  strip.title=`${data.name} · ${data.rows} baris × ${data.columns} kolom${blankText}`;
-  if(resultButton){
-    resultButton.disabled=!hasResults()&&!document.querySelector('#analysisHistory');
-    resultButton.classList.toggle('has-result',hasResults());
-  }
-}
-function markup(){
-  return `<nav id="statWorkflowStrip" class="stat-workflow-strip" aria-label="Alur kerja Statistical Web" data-stage="data">
-    <button type="button" data-stat-workflow="data" aria-current="step"><b>1</b><span>Data<small data-workflow-data-label>—</small></span></button>
-    <button type="button" data-stat-workflow="analysis"><b>2</b><span>Analisis<small>Metode · kolom · parameter</small></span></button>
-    <button type="button" data-stat-workflow="results"><b>3</b><span>Hasil<small>Ringkas · detail · ekspor</small></span></button>
-  </nav>`;
+  return {data:datasetSummary(),hasResults:hasResults()};
 }
 export function installStatWorkflow(){
-  if(document.querySelector('#statWorkflowStrip'))return;
-  const toolbar=document.querySelector('.toolbar'),host=toolbar?.parentElement;
-  if(!toolbar||!host)return;
-  toolbar.insertAdjacentHTML('afterend',markup());
-  const strip=document.querySelector('#statWorkflowStrip');
-  strip.addEventListener('click',event=>{
-    const button=event.target.closest('[data-stat-workflow]');if(!button)return;
-    const action={data:openData,analysis:openAnalysis,setup:openSetup,results:openResults}[button.dataset.statWorkflow];
-    action?.();
-  });
-  document.addEventListener('stat-dataset-changed',()=>{update();if(!document.body.classList.contains('analysis-results-open'))setActive('data');});
-  document.addEventListener('agrotik-analysis-complete',event=>{
-    const detail=event.detail||{},resultButton=strip.querySelector('[data-stat-workflow="results"]');
-    if(resultButton){
-      const small=resultButton.querySelector('small');
-      if(small)small.textContent=detail.designLabel||detail.design||'Siap dilihat';
-    }
-    update();setActive('results');
-  });
-  document.addEventListener('agrotik-workflow-stage',event=>{const stage=String(event.detail?.stage||'');if(stage)setActive(stage);update();});
+  document.addEventListener('stat-dataset-changed',()=>{if(!document.body.classList.contains('analysis-results-open'))setActive('data');});
+  document.addEventListener('agrotik-analysis-complete',()=>setActive('results'));
+  document.addEventListener('agrotik-workflow-stage',event=>{const stage=String(event.detail?.stage||'');if(stage)setActive(stage);});
   document.addEventListener('click',event=>{
     if(event.target.closest('#openAnalysis'))setActive('analysis');
     else if(event.target.closest('#runScience,#runAugmented'))setActive('analysis');
@@ -128,5 +89,5 @@ export function installStatWorkflow(){
     event.preventDefault();action();
   });
   globalThis.StatisticalWebWorkflow={openData,openField,openAnalysis,openSetup,openResults,setActive,update,summary:datasetSummary};
-  update();
+  setActive('data');
 }
