@@ -1,5 +1,6 @@
 export const LABOR_DAY_RATE=80000;
 export const LABOR_FRACTIONS={plant:.08,irrigation:.05,fertilize:.06,scout:.04,harvest:.07,sample:.25,drain:.5,trace:.4,defendBoss:.65};
+export const COSTS={plant:2000,water:1500,waterPrecision:1000,fertilize:0,fertilizePrecision:0,spray:15000,trader:75000,traderSelected:90000,shield:20000};
 export const FERTILIZERS={
   urea:{id:'urea',name:'Urea',short:'Urea',grade:'46% N',doseHa:100,priceKg:1800,n:36,p:0,k:0},
   phonska:{id:'phonska',name:'NPK Phonska',short:'NPK',grade:'15-15-15',doseHa:250,priceKg:1840,n:17,p:25,k:24},
