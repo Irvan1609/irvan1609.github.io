@@ -1,9 +1,9 @@
 import { installAnalysisFlow } from './analysis-flow.js?v=20260928-mobile-suggestion-work-parity-v5';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
-import {installNavigation} from './navigation.js?v=20260927-navtabs-v1';
+import {installNavigation} from './navigation.js?v=20260928-mobile-editor-v1';
 import { installDataTools } from './data-tools.js';
-import { parseNumber, formatNumber, initNumberSettings } from './number-format.js';
+import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260928-mobile-editor-v1';
 import { installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from './agronomic-data-dictionary.js';
