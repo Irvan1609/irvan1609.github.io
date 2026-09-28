@@ -2,21 +2,21 @@ const $=selector=>document.querySelector(selector);
 
 let scientificReady=false;
 async function scientificModule(){
-  const mod=await import('./scientific-workflow.js?v=20260927-hardening-v1');
+  const mod=await import('./scientific-workflow.js?v=20260928-parallel1');
   if(!scientificReady&&!document.getElementById('scientificModal')){mod.installScientificWorkflow();scientificReady=true;}
   return mod;
 }
 async function openScientificLazy(design){const mod=await scientificModule();mod.openScientific(design);}
 const lazyOpeners={
-  designExt:async value=>(await import('./design-extensions-workflow.js')).openDesignExtension(value),
+  designExt:async value=>(await import('./design-extensions-workflow.js?v=20260928-parallel1')).openDesignExtension(value),
   augmented:async ()=>(await import('./augmented-design-workflow.js?v=20260928-work-parity-v5')).openAugmentedDesign(),
-  nonparametric:async ()=>(await import('./nonparametric-workflow.js')).openNonparametric(),
-  power:async ()=>(await import('./power-workflow.js')).openPowerAnalysis(),
-  stabilityIndices:async ()=>(await import('./stability-indices-workflow.js')).openStabilityIndices(),
-  association:async value=>(await import('./association-workflow.js')).openAssociation(value),
-  advanced:async value=>(await import('./advanced-workflow.js')).openAdvanced(value),
-  nextgen:async value=>(await import('./nextgen-workflow.js')).openNextGen(value),
-  mixed:async ()=>(await import('./mixed-workflow.js')).openMixedModel()
+  nonparametric:async ()=>(await import('./nonparametric-workflow.js?v=20260928-parallel1')).openNonparametric(),
+  power:async ()=>(await import('./power-workflow.js?v=20260928-parallel1')).openPowerAnalysis(),
+  stabilityIndices:async ()=>(await import('./stability-indices-workflow.js?v=20260928-parallel1')).openStabilityIndices(),
+  association:async value=>(await import('./association-workflow.js?v=20260928-parallel1')).openAssociation(value),
+  advanced:async value=>(await import('./advanced-workflow.js?v=20260928-parallel1')).openAdvanced(value),
+  nextgen:async value=>(await import('./nextgen-workflow.js?v=20260928-parallel1')).openNextGen(value),
+  mixed:async ()=>(await import('./mixed-workflow.js?v=20260928-parallel1')).openMixedModel()
 };
 
 const analysisGroups=[
