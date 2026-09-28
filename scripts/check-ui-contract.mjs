@@ -36,6 +36,7 @@ for (const marker of ['Mahasiswa Agronomi','href="/stat/"','href="/print-skripsi
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
+if(/<script\s+type="module"\s+src="\/src\/main\.js(?:\?[^\"]*)?"/.test(portfolioHtml))fail('portfolio root must not load Statistical Web runtime');
 if (main.includes('installReferenceManager') || navigation.includes("['referencesMenu','Referensi'")) fail('Mendeley helper must not be embedded in /stat');
 for (const marker of ['Referensi Mendeley','referenceQuery','referenceExportRis','referenceLibrary','/mendeley/app.js']) if (!mendeleyHtml.includes(marker)) fail(`/mendeley missing marker: ${marker}`);
 for (const marker of ['api.crossref.org','toRis','toBibtex','statistical_web_reference_library_v1']) if (!mendeleyApp.includes(marker)) fail(`/mendeley app missing marker: ${marker}`);
