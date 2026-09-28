@@ -1,61 +1,61 @@
 /* FIELD ZERO LIGHT/DARK THEME 2026-09-27 */
 body.theme-dark{
-  --bg:#0d1713;--panel:#14231d;--panel-2:#1a2c24;--panel-3:#20382e;--line:#2c4a3d;
-  --ink:#ecf5ef;--muted:#9bb0a5;--green:#63c987;--green-2:#9ae3ad;--gold:#e3b65f;--red:#df7575;--blue:#72b7de;
-  color-scheme:dark
+--bg:#0d1713;--panel:#14231d;--panel-2:#1a2c24;--panel-3:#20382e;--line:#2c4a3d;
+--ink:#ecf5ef;--muted:#9bb0a5;--green:#63c987;--green-2:#9ae3ad;--gold:#e3b65f;--red:#df7575;--blue:#72b7de;
+color-scheme:dark
 }
 body.theme-light{
-  --bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
-  --ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
-  color-scheme:light;
-  background:radial-gradient(circle at 20% -10%,#dceee2 0,transparent 36%),var(--bg);
-  color:var(--ink)
+--bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
+--ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
+color-scheme:light;
+background:radial-gradient(circle at 20% -10%,#dceee2 0,transparent 36%),var(--bg);
+color:var(--ink)
 }
 body.theme-light .subweb-header{
-  --subweb-header-bg:rgba(250,253,251,.97);
-  --subweb-header-line:#c7d6cc;
-  --subweb-header-ink:#183126;
-  --subweb-header-muted:#687c71;
-  --subweb-header-active:#e3efe7
+--subweb-header-bg:rgba(250,253,251,.97);
+--subweb-header-line:#c7d6cc;
+--subweb-header-ink:#183126;
+--subweb-header-muted:#687c71;
+--subweb-header-active:#e3efe7
 }
 body.theme-light :is(.hud>div,.season-bar>div,.panel,.game-quick-nav,.field-context,.time-panel){
-  background:rgba(255,255,255,.96);
-  border-color:var(--line);
-  box-shadow:0 6px 22px rgba(35,68,51,.07)
+background:rgba(255,255,255,.96);
+border-color:var(--line);
+box-shadow:0 6px 22px rgba(35,68,51,.07)
 }
 body.theme-light :is(
-  .icon-button,.game-quick-nav button,.field-tool-dock button,.mobile-command-row button,
-  .field-primary-actions button,.quick-menu-grid button,.care-choice,.care-footer button,
-  .inspector-head-actions>button,.day-actions button,.action-grid button,.cross-form button,
-  .experiment-actions button,.wizard-actions button,.competition-launch,.social-tabs button
+.icon-button,.game-quick-nav button,.field-tool-dock button,.mobile-command-row button,
+.field-primary-actions button,.quick-menu-grid button,.care-choice,.care-footer button,
+.inspector-head-actions>button,.day-actions button,.action-grid button,.cross-form button,
+.experiment-actions button,.wizard-actions button,.competition-launch,.social-tabs button
 ){
-  background:#f8fbf9;
-  border-color:#c4d5ca;
-  color:var(--ink)
+background:#f8fbf9;
+border-color:#c4d5ca;
+color:var(--ink)
 }
 body.theme-light :is(button.primary,.primary,.game-shell .day-actions #nextDay){
-  background:var(--green);
-  border-color:var(--green);
-  color:#fff
+background:var(--green);
+border-color:var(--green);
+color:#fff
 }
 body.theme-light :is(input,select,textarea,.seed-picker select,.cross-form select,.experiment-form input,.experiment-form select,.experiment-table input,.comfort-settings select){
-  background:#fff;
-  border-color:#c4d5ca;
-  color:var(--ink)
+background:#fff;
+border-color:#c4d5ca;
+color:var(--ink)
 }
 body.theme-light :is(.seed-card-preview,.economy-grid>div,.comfort-settings label,.audio-mixer label,.care-center>header,.augmented-intro){
-  background:#f8fbf9;
-  border-color:#cbd9d0;
-  color:var(--ink)
+background:#f8fbf9;
+border-color:#cbd9d0;
+color:var(--ink)
 }
 body.theme-light .plot{
-  border-color:#b9cfc0;
-  background:linear-gradient(160deg,#edf6ef,#e2eee6);
-  color:var(--ink)
+border-color:#b9cfc0;
+background:linear-gradient(160deg,#edf6ef,#e2eee6);
+color:var(--ink)
 }
 body.theme-light .plot:hover{border-color:#75a98a}
 body.theme-light .plot.empty{
-  background:repeating-linear-gradient(135deg,#f1f6f2,#f1f6f2 8px,#e9f1eb 8px,#e9f1eb 16px)
+background:repeating-linear-gradient(135deg,#f1f6f2,#f1f6f2 8px,#e9f1eb 8px,#e9f1eb 16px)
 }
 body.theme-light .plot.selected{box-shadow:inset 0 0 0 1px rgba(47,143,91,.28)}
 body.theme-light .plot-top{color:#667a6f}
@@ -64,9 +64,9 @@ body.theme-light :is(.mini-meter,.plot-health,.xp-track){background:#dce8e0}
 body.theme-light .field-block{background:#f8fbf9;border-color:#d0ddd5}
 body.theme-light .field-block>header{color:#5f7468}
 body.theme-light .advance-notice{
-  background:#fff8e9!important;
-  border-color:#d9bd79!important;
-  color:#6f581f!important
+background:#fff8e9!important;
+border-color:#d9bd79!important;
+color:#6f581f!important
 }
 body.theme-light .time-panel{background:#f8fbf9}
 body.theme-light .care-choice>span{background:#e4f0e8}
@@ -76,25 +76,25 @@ body.theme-light .experiment-table{background:#fff}
 body.theme-light .experiment-table th{background:#edf4ef;color:#526a5d}
 body.theme-light .experiment-table td{border-bottom-color:#d7e3db}
 body.theme-light .experiment-status span{
-  background:#f4f8f5;border-color:#cbd9d0;color:#496357
+background:#f4f8f5;border-color:#cbd9d0;color:#496357
 }
 body.theme-light .event-card,
 body.theme-light .meta-card,
 body.theme-light .recap-card,
 body.theme-light .social-card{
-  background:#fff;
-  border-color:#c7d6cc;
-  color:var(--ink)
+background:#fff;
+border-color:#c7d6cc;
+color:var(--ink)
 }
 body.theme-light .event-backdrop,
 body.theme-light .meta-backdrop,
 body.theme-light .recap-backdrop,
 body.theme-light .social-backdrop{background:rgba(33,53,43,.35)}
 body.theme-light .undo-toast{
-  background:#fff;
-  border-color:#b9cfc0;
-  color:var(--ink);
-  box-shadow:0 8px 28px rgba(41,69,54,.16)
+background:#fff;
+border-color:#b9cfc0;
+color:var(--ink);
+box-shadow:0 8px 28px rgba(41,69,54,.16)
 }
 body.theme-light .undo-toast button{background:#e3f0e7;border-color:#9cbea9;color:#225d3c}
 body.theme-light .inspector.sheet-open{box-shadow:0 -12px 34px rgba(45,70,56,.18)!important}
@@ -107,150 +107,150 @@ body.theme-light .agrotik-credit{color:#65796e}
 
 /* FIELD ZERO LIGHT THEME CLEANUP 2026-09-27 */
 html[data-theme="light"]{
-  --bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
-  --ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
-  color-scheme:light;
-  background:#f3f7f4
+--bg:#f3f7f4;--panel:#ffffff;--panel-2:#edf4ef;--panel-3:#e2eee6;--line:#c7d6cc;
+--ink:#183126;--muted:#61756a;--green:#2f8f5b;--green-2:#1f7448;--gold:#9a6e18;--red:#b94d4d;--blue:#357ca4;
+color-scheme:light;
+background:#f3f7f4
 }
 html[data-theme="light"] body{
-  background:#f3f7f4!important;
-  color:#183126
+background:#f3f7f4!important;
+color:#183126
 }
 html[data-theme="light"] body::before,
 html[data-theme="light"] body::after{background:transparent!important}
 
 body.theme-light{
-  --surface:#ffffff;
-  --surface-soft:#f8fbf9;
-  --surface-muted:#edf4ef;
-  --surface-active:#e3efe7;
-  --surface-warm:#fff8e9;
-  --light-line:#c7d6cc;
-  --light-line-strong:#aec5b6;
-  --light-text:#183126;
-  --light-muted:#61756a
+--surface:#ffffff;
+--surface-soft:#f8fbf9;
+--surface-muted:#edf4ef;
+--surface-active:#e3efe7;
+--surface-warm:#fff8e9;
+--light-line:#c7d6cc;
+--light-line-strong:#aec5b6;
+--light-text:#183126;
+--light-muted:#61756a
 }
 
 /* Surfaces that were still hard-coded for the dark theme. */
 body.theme-light :is(
-  .meta-strip button,.tech-node,.expedition-list button,.expedition-running,.genome-start,.evolution-node,
-  .world-node,.challenge-grid button,.rival-grid button,.record-list>div,.lineage-tree article,.codex-grid>div,
-  .seed-item,.discovery,.quick-menu-grid button,.social-me-rank,.social-player,.music-picker button,
-  .help-steps>div,.failure-result,.decision-review article,.selection-list article,.academy-intro,
-  .academy-track-grid article,.design-concept,.professor-case,.stat-interpretation,.professor-feedback,
-  .stat-kpis>div,.genotype-preview span,.cross-protocol-steps li,.professor-casebook button,
-  .stat-correlation,.selection-differential,.care-center>header
+.meta-strip button,.tech-node,.expedition-list button,.expedition-running,.genome-start,.evolution-node,
+.world-node,.challenge-grid button,.rival-grid button,.record-list>div,.lineage-tree article,.codex-grid>div,
+.seed-item,.discovery,.quick-menu-grid button,.social-me-rank,.social-player,.music-picker button,
+.help-steps>div,.failure-result,.decision-review article,.selection-list article,.academy-intro,
+.academy-track-grid article,.design-concept,.professor-case,.stat-interpretation,.professor-feedback,
+.stat-kpis>div,.genotype-preview span,.cross-protocol-steps li,.professor-casebook button,
+.stat-correlation,.selection-differential,.care-center>header
 ){
-  background:var(--surface-soft);
-  border-color:var(--light-line);
-  color:var(--light-text)
+background:var(--surface-soft);
+border-color:var(--light-line);
+color:var(--light-text)
 }
 body.theme-light :is(
-  .genome-start button,.genome-choices button,.mini-button,.collection-toolbar button,.world-node button,
-  .seed-item button,.social-player-actions button,.music-picker button,.academy-intro button,
-  .selection-list button,.selection-modes button,.professor-stat-actions button
+.genome-start button,.genome-choices button,.mini-button,.collection-toolbar button,.world-node button,
+.seed-item button,.social-player-actions button,.music-picker button,.academy-intro button,
+.selection-list button,.selection-modes button,.professor-stat-actions button
 ){
-  background:var(--surface);
-  border-color:var(--light-line-strong);
-  color:var(--light-text)
+background:var(--surface);
+border-color:var(--light-line-strong);
+color:var(--light-text)
 }
 body.theme-light :is(
-  .trait,.codex-list span,.lineage-tree article>span,.social-avatar,.field-tool-dock .tool-icon,
-  #attentionToggle b,.experiment-history-list article>div span,.research-steps span b,
-  .cross-protocol-steps li>b,.design-audit-list>div>b,.professor-casebook button>span
+.trait,.codex-list span,.lineage-tree article>span,.social-avatar,.field-tool-dock .tool-icon,
+#attentionToggle b,.experiment-history-list article>div span,.research-steps span b,
+.cross-protocol-steps li>b,.design-audit-list>div>b,.professor-casebook button>span
 ){
-  background:var(--surface-muted);
-  color:#416454
+background:var(--surface-muted);
+color:#416454
 }
 body.theme-light :is(.trait.rare,.daily-card,.prestige-card,.best-candidate){
-  background:#fff8e8;
-  border-color:#dec994;
-  color:#6f571c
+background:#fff8e8;
+border-color:#dec994;
+color:#6f571c
 }
 body.theme-light .trait.legendary,
 body.theme-light .genome-markers b{
-  background:#f5eff9;
-  border-color:#ccb9d8;
-  color:#765887
+background:#f5eff9;
+border-color:#ccb9d8;
+color:#765887
 }
 
 /* The default compact/calm UI is always enabled, so it needs its own light palette. */
 body.theme-light.calm-ui :is(
-  .game-quick-nav,.hud,.season-bar,.field-context,.field-tool-dock,.field-block,.inspector,
-  .lab-hub:not([open]),.lower-grid .compact-panel:not([open]),.game-workflow,.wizard-factor-b,
-  .research-review>div,.augmented-intro,.candidate-metrics span,.recovery-list article,
-  .breeder-notebook article,.experiment-history-list article,.generation-compare article,
-  .decision-review,.research-steps span,.experiment-data-details
+.game-quick-nav,.hud,.season-bar,.field-context,.field-tool-dock,.field-block,.inspector,
+.lab-hub:not([open]),.lower-grid .compact-panel:not([open]),.game-workflow,.wizard-factor-b,
+.research-review>div,.augmented-intro,.candidate-metrics span,.recovery-list article,
+.breeder-notebook article,.experiment-history-list article,.generation-compare article,
+.decision-review,.research-steps span,.experiment-data-details
 ){
-  background:var(--surface-soft)!important;
-  border-color:var(--light-line)!important;
-  color:var(--light-text)!important
+background:var(--surface-soft)!important;
+border-color:var(--light-line)!important;
+color:var(--light-text)!important
 }
 body.theme-light.calm-ui :is(
-  .field-context>button,.mobile-command-row button,.field-primary-actions button,
-  .inspector-head-actions>button,.wizard-actions button,.experiment-wizard>.competition-launch,
-  .focus-experiment-actions button,.analysis-shortcuts button,.recovery-list button
+.field-context>button,.mobile-command-row button,.field-primary-actions button,
+.inspector-head-actions>button,.wizard-actions button,.experiment-wizard>.competition-launch,
+.focus-experiment-actions button,.analysis-shortcuts button,.recovery-list button
 ){
-  background:var(--surface)!important;
-  border-color:var(--light-line-strong)!important;
-  color:var(--light-text)!important
+background:var(--surface)!important;
+border-color:var(--light-line-strong)!important;
+color:var(--light-text)!important
 }
 body.theme-light.calm-ui .play-hint{
-  background:#eef6f0!important;
-  border-color:#c9dace!important;
-  color:#426353!important
+background:#eef6f0!important;
+border-color:#c9dace!important;
+color:#426353!important
 }
 body.theme-light.calm-ui .game-workflow span{color:#718379}
 body.theme-light.calm-ui .game-workflow span.active{
-  background:#dfeee4!important;
-  color:#245b3c!important
+background:#dfeee4!important;
+color:#245b3c!important
 }
 body.theme-light.calm-ui .field-tool-dock button{
-  background:transparent!important;
-  color:#50675a!important
+background:transparent!important;
+color:#50675a!important
 }
 body.theme-light.calm-ui .field-tool-dock button[aria-pressed=true]{
-  background:#dceee2!important;
-  color:#1f6842!important
+background:#dceee2!important;
+color:#1f6842!important
 }
 body.theme-light.calm-ui .field-tool-dock button::after{color:#64786c}
 body.theme-light.calm-ui .field-tool-dock .tool-icon{background:#e5f0e8;color:#315d47}
 body.theme-light.calm-ui .plot{
-  background:#eef6f0!important;
-  border-color:#bfd1c5!important;
-  color:var(--light-text)!important
+background:#eef6f0!important;
+border-color:#bfd1c5!important;
+color:var(--light-text)!important
 }
 body.theme-light.calm-ui .plot.empty{background:#f5f8f6!important}
 body.theme-light.calm-ui .plot.selected{
-  border-color:#3d9866!important;
-  box-shadow:inset 0 0 0 1px rgba(47,143,91,.3)!important
+border-color:#3d9866!important;
+box-shadow:inset 0 0 0 1px rgba(47,143,91,.3)!important
 }
 body.theme-light.calm-ui .plot-top{color:#687d71!important}
 body.theme-light.calm-ui .plot-empty-mark{color:#8ba095!important}
 body.theme-light.calm-ui .plot-health{background:#dce7df!important}
 body.theme-light.calm-ui .plot-health i{background:#4b9a68!important}
 body.theme-light.calm-ui .inspector .stage-badge{
-  background:#e4efe7!important;
-  color:#496456!important
+background:#e4efe7!important;
+color:#496456!important
 }
 body.theme-light.calm-ui :is(.seed-card-preview,.stat-box){
-  background:#fff!important;
-  border-color:#cbd9d0!important
+background:#fff!important;
+border-color:#cbd9d0!important
 }
 body.theme-light.calm-ui .compact-panel summary{color:#4f675a}
 body.theme-light.calm-ui .day-actions{
-  background:rgba(255,255,255,.97)!important;
-  border-color:#c5d5cb!important
+background:rgba(255,255,255,.97)!important;
+border-color:#c5d5cb!important
 }
 body.theme-light.calm-ui .day-actions button:not(.primary){
-  background:#f8fbf9!important;
-  border-color:#bdcfc3!important;
-  color:#254a37!important
+background:#f8fbf9!important;
+border-color:#bdcfc3!important;
+color:#254a37!important
 }
 body.theme-light.calm-ui .day-actions .primary{
-  background:#2f8f5b!important;
-  border-color:#2f8f5b!important;
-  color:#fff!important
+background:#2f8f5b!important;
+border-color:#2f8f5b!important;
+color:#fff!important
 }
 body.theme-light.calm-ui .field-primary-actions button:hover,
 body.theme-light.calm-ui .field-primary-actions button:focus-visible,
@@ -258,64 +258,64 @@ body.theme-light.calm-ui .head-actions .icon-button:hover,
 body.theme-light.calm-ui .head-actions .icon-button:focus-visible,
 body.theme-light.calm-ui .game-quick-nav button:hover,
 body.theme-light.calm-ui .game-quick-nav button:focus-visible{
-  background:#e7f1ea!important;
-  color:#1f5d3d!important
+background:#e7f1ea!important;
+color:#1f5d3d!important
 }
 body.theme-light.calm-ui .research-steps span.active{
-  background:#e2efe6!important;
-  border-color:#9fbea9!important;
-  color:#285b40!important
+background:#e2efe6!important;
+border-color:#9fbea9!important;
+color:#285b40!important
 }
 body.theme-light.calm-ui .research-steps span.done b{background:#d9ebe0!important;color:#2d7049!important}
 body.theme-light.calm-ui :is(.experiment-wizard input,.experiment-wizard select,.experiment-wizard textarea){
-  background:#fff!important;
-  border-color:#becfc4!important;
-  color:#183126!important
+background:#fff!important;
+border-color:#becfc4!important;
+color:#183126!important
 }
 body.theme-light.calm-ui :is(.experiment-wizard label,.experiment-wizard small,.wizard-note,.research-review small){
-  color:#65796e!important
+color:#65796e!important
 }
 body.theme-light.calm-ui .augmented-ranking header{
-  background:#edf4ef!important;
-  border-color:#cbd9d0!important
+background:#edf4ef!important;
+border-color:#cbd9d0!important
 }
 body.theme-light.calm-ui .first-season-note{
-  background:#edf6f0!important;
-  color:#50695b!important
+background:#edf6f0!important;
+color:#50695b!important
 }
 body.theme-light.calm-ui .advance-notice{
-  background:#fff8e9!important;
-  border-color:#d9bd79!important;
-  color:#6f581f!important
+background:#fff8e9!important;
+border-color:#d9bd79!important;
+color:#6f581f!important
 }
 
 /* Lab, analysis, social and research interiors. */
 body.theme-light :is(
-  .experiment-table,.academy-glossary,.design-audit-list>div,.treatment-means span,
-  .experiment-question,.competition-diagnostics,.decision-review,.selection-differential span
+.experiment-table,.academy-glossary,.design-audit-list>div,.treatment-means span,
+.experiment-question,.competition-diagnostics,.decision-review,.selection-differential span
 ){
-  background:#fff!important;
-  border-color:#cbd9d0!important;
-  color:var(--light-text)!important
+background:#fff!important;
+border-color:#cbd9d0!important;
+color:var(--light-text)!important
 }
 body.theme-light :is(.experiment-table th,.anova-table thead){
-  background:#e8f1eb!important;
-  color:#4e6759!important
+background:#e8f1eb!important;
+color:#4e6759!important
 }
 body.theme-light :is(.experiment-table td,.anova-table td,.anova-table th){
-  border-color:#d5e1d9!important
+border-color:#d5e1d9!important
 }
 body.theme-light :is(.experiment-badge,.daily-card,.prestige-card){
-  color:#70571b
+color:#70571b
 }
 body.theme-light .experiment-badge{
-  background:#fff8df!important;
-  border-color:#d8c16f!important
+background:#fff8df!important;
+border-color:#d8c16f!important
 }
 body.theme-light .experiment-badge.applied{
-  background:#e4f3e9!important;
-  border-color:#8cb89d!important;
-  color:#276440!important
+background:#e4f3e9!important;
+border-color:#8cb89d!important;
+color:#276440!important
 }
 body.theme-light .selection-modes button[aria-pressed=true],
 body.theme-light .music-picker button.active,
@@ -323,44 +323,44 @@ body.theme-light .challenge-grid button.active,
 body.theme-light .rival-grid button.active,
 body.theme-light .tech-node.owned,
 body.theme-light .professor-casebook button.done{
-  background:#e1efe6!important;
-  border-color:#79a98a!important;
-  color:#245c3d!important
+background:#e1efe6!important;
+border-color:#79a98a!important;
+color:#245c3d!important
 }
 body.theme-light :is(.social-player-actions .aid-button,.social-player-actions .burn-button){
-  background:#f8fbf9!important
+background:#f8fbf9!important
 }
 body.theme-light .social-player-actions .aid-button{border-color:#9bbdd1!important;color:#346b89!important}
 body.theme-light .social-player-actions .burn-button{border-color:#d2a58c!important;color:#8a4d2e!important}
 body.theme-light .field-tool-dock button[data-field-tool="harvest"]{
-  background:#fff8e2!important;
-  border-color:#d3bc68!important;
-  color:#6b5716!important
+background:#fff8e2!important;
+border-color:#d3bc68!important;
+color:#6b5716!important
 }
 body.theme-light .field-tool-dock button[data-field-tool="treatment"]{
-  background:#f7f0fa!important;
-  border-color:#cbb9d6!important;
-  color:#705481!important
+background:#f7f0fa!important;
+border-color:#cbb9d6!important;
+color:#705481!important
 }
 
 /* Mobile bars and sheets must not fall back to the old dark hard-coded backgrounds. */
 @media(max-width:620px){
-  body.theme-light .game-quick-nav,
-  body.theme-light.calm-ui .game-quick-nav,
-  body.theme-light .field-tool-dock,
-  body.theme-light.calm-ui .field-tool-dock,
-  body.theme-light .day-actions,
-  body.theme-light.calm-ui .day-actions{
-    background:rgba(255,255,255,.98)!important;
-    border-color:#c5d5cb!important;
-    box-shadow:0 -4px 14px rgba(40,72,54,.08)!important
-  }
-  body.theme-light .inspector,
-  body.theme-light.calm-ui .inspector{
-    background:#fff!important;
-    border-color:#c5d5cb!important;
-    box-shadow:0 -10px 26px rgba(40,72,54,.14)!important
-  }
+body.theme-light .game-quick-nav,
+body.theme-light.calm-ui .game-quick-nav,
+body.theme-light .field-tool-dock,
+body.theme-light.calm-ui .field-tool-dock,
+body.theme-light .day-actions,
+body.theme-light.calm-ui .day-actions{
+background:rgba(255,255,255,.98)!important;
+border-color:#c5d5cb!important;
+box-shadow:0 -4px 14px rgba(40,72,54,.08)!important
+}
+body.theme-light .inspector,
+body.theme-light.calm-ui .inspector{
+background:#fff!important;
+border-color:#c5d5cb!important;
+box-shadow:0 -10px 26px rgba(40,72,54,.14)!important
+}
 }
 
 /* Native controls and browser surface should also stay light. */
@@ -370,19 +370,19 @@ body.theme-light textarea,
 body.theme-light button{color-scheme:light}
 body.theme-light ::selection{background:#bde1ca;color:#153c28}
 body.theme-light :is(.stage-badge,.count-badge,.cost-badge){
-  background:#e7f0ea!important;
-  color:#4c6658!important
+background:#e7f0ea!important;
+color:#4c6658!important
 }
 body.theme-light #closeInspectorSheet{
-  background:#fff!important;
-  border-color:#bdcfc3!important;
-  color:#355746!important
+background:#fff!important;
+border-color:#bdcfc3!important;
+color:#355746!important
 }
 body.theme-light .toast{
-  background:#fff!important;
-  border-color:#a9c3b2!important;
-  color:#244a37!important;
-  box-shadow:0 8px 24px rgba(40,72,54,.16)!important
+background:#fff!important;
+border-color:#a9c3b2!important;
+color:#244a37!important;
+box-shadow:0 8px 24px rgba(40,72,54,.16)!important
 }
 body.theme-light .progress-track{background:#dce8e0!important}
 body.theme-light .play-hint>span{background:#dceee2!important;color:#256543!important}
@@ -391,152 +391,152 @@ body.theme-light .social-avatar{border-color:#bed0c4!important}
 
 
 body.theme-light .competition-launch{
-  background:#fff7dc!important;
-  border-color:#cdb55c!important;
-  color:#6b5716!important
+background:#fff7dc!important;
+border-color:#cdb55c!important;
+color:#6b5716!important
 }
 body.theme-light .competition-head span{
-  background:#f7fbf8!important;
-  border-color:#c8d8ce!important;
-  color:#476153!important
+background:#f7fbf8!important;
+border-color:#c8d8ce!important;
+color:#476153!important
 }
 
 
 /* FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27 */
 html[data-theme="light"] body.theme-light :is(
-  .recap-stats div,.competition-brief,.competition-budget,.competition-podium article,
-  .competition-plot-soil,.sync-save-card,.academy-progress,.plot-academy-context,
-  .plot-quick-card
+.recap-stats div,.competition-brief,.competition-budget,.competition-podium article,
+.competition-plot-soil,.sync-save-card,.academy-progress,.plot-academy-context,
+.plot-quick-card
 ){
-  background:#fff!important;
-  border-color:#c7d6cc!important;
-  color:#183126!important
+background:#fff!important;
+border-color:#c7d6cc!important;
+color:#183126!important
 }
 html[data-theme="light"] body.theme-light :is(
-  .competition-actions button,.failure-actions button,.plot-use-switch button,
-  .selection-open,.plot-quick-action
+.competition-actions button,.failure-actions button,.plot-use-switch button,
+.selection-open,.plot-quick-action
 ){
-  background:#f7faf8!important;
-  border-color:#b9cdc0!important;
-  color:#284b39!important
+background:#f7faf8!important;
+border-color:#b9cdc0!important;
+color:#284b39!important
 }
 html[data-theme="light"] body.theme-light .plot-use-switch button[aria-pressed=true],
 html[data-theme="light"] body.theme-light .species-picker button[aria-pressed="true"]{
-  background:#dfeee4!important;
-  border-color:#7eaa8d!important;
-  color:#225d3b!important
+background:#dfeee4!important;
+border-color:#7eaa8d!important;
+color:#225d3b!important
 }
 html[data-theme="light"] body.theme-light .failure-case{
-  background:#fff9eb!important;
-  border-color:#dec78d!important;
-  color:#70581d!important
+background:#fff9eb!important;
+border-color:#dec78d!important;
+color:#70581d!important
 }
 html[data-theme="light"] body.theme-light .social-search input,
 html[data-theme="light"] body.theme-light .stat-parameter-select select{
-  background:#fff!important;
-  border-color:#bdcfc3!important;
-  color:#183126!important
+background:#fff!important;
+border-color:#bdcfc3!important;
+color:#183126!important
 }
 html[data-theme="light"] body.theme-light .plot-quick-card small,
 html[data-theme="light"] body.theme-light .plot-quick-card div>span{
-  color:#61756a!important
+color:#61756a!important
 }
 html[data-theme="light"] body.theme-light .plot-quick-action.harvest{
-  background:#fff3c8!important;
-  border-color:#c6a957!important;
-  color:#624f16!important
+background:#fff3c8!important;
+border-color:#c6a957!important;
+color:#624f16!important
 }
 html[data-theme="light"] body.theme-light .plot-details{
-  border-color:#d2dfd6!important
+border-color:#d2dfd6!important
 }
 html[data-theme="light"] body.theme-light .plot-details>summary{
-  color:#5f7568!important
+color:#5f7568!important
 }
 html[data-theme="light"] body.theme-light .plot-ok{
-  color:#24704a!important
+color:#24704a!important
 }
 html[data-theme="light"] body.theme-light .quick-menu-sections>section>small{
-  color:#64796d!important
+color:#64796d!important
 }
 html[data-theme="light"] body.theme-light .season-summary .mission{
-  background:#fff!important;
-  border-color:#c7d6cc!important
+background:#fff!important;
+border-color:#c7d6cc!important
 }
 html[data-theme="light"] body.theme-light .hud-focus>div{
-  background:#fff!important;
-  border-color:#c7d6cc!important
+background:#fff!important;
+border-color:#c7d6cc!important
 }
 html[data-theme="light"] body.theme-light .hud-focus .hud-weather{
-  background:#eef6f0!important
+background:#eef6f0!important
 }
 html[data-theme="light"] body.theme-light .day-actions{
-  background:rgba(255,255,255,.98)!important;
-  border-color:#c5d5cb!important
+background:rgba(255,255,255,.98)!important;
+border-color:#c5d5cb!important
 }
 html[data-theme="light"] body.theme-light .quick-menu-grid button{
-  background:#fff!important;
-  border-color:#c4d5ca!important;
-  color:#183126!important
+background:#fff!important;
+border-color:#c4d5ca!important;
+color:#183126!important
 }
 
 
 /* FIELD ZERO LIGHT MODAL COMFORT 2026-09-27 */
 html[data-theme="light"] body.theme-light .event-backdrop{
-  background:rgba(67,92,77,.16)!important;
-  backdrop-filter:blur(2px)
+background:rgba(67,92,77,.16)!important;
+backdrop-filter:blur(2px)
 }
 html[data-theme="light"] body.theme-light :is(.event-card,.meta-modal-card,.social-card,.recap-card,.sync-conflict-card){
-  background:#fff!important;
-  border-color:#c7d6cc!important;
-  color:#183126!important;
-  box-shadow:0 18px 48px rgba(42,70,55,.14)!important
+background:#fff!important;
+border-color:#c7d6cc!important;
+color:#183126!important;
+box-shadow:0 18px 48px rgba(42,70,55,.14)!important
 }
 
 
 /* FIELD ZERO LIGHT COMPLETION 2026-09-27 */
 body.theme-light :is(
-  .icon-button[aria-pressed=true],.social-tabs button[aria-pressed=true],
-  .help-steps b,.professor-casebook button.done>span
+.icon-button[aria-pressed=true],.social-tabs button[aria-pressed=true],
+.help-steps b,.professor-casebook button.done>span
 ){
-  background:#e1efe6!important;border-color:#a7c4b1!important;color:#285e40!important
+background:#e1efe6!important;border-color:#a7c4b1!important;color:#285e40!important
 }
 body.theme-light :is(.competition-diagnostics button,.competition-diagnostics article){
-  background:#fff!important;border-color:#c9d9cf!important;color:#183126!important
+background:#fff!important;border-color:#c9d9cf!important;color:#183126!important
 }
 body.theme-light .social-player-actions .aid-button:hover{
-  background:#eef6fb!important;border-color:#9dbdce!important;color:#315f78!important
+background:#eef6fb!important;border-color:#9dbdce!important;color:#315f78!important
 }
 
 
 /* FIELD ZERO LIGHT SAFETY NET 2026-09-28 */
 html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button){
-  background:#fffaf0!important;
-  border-color:#d9c48e!important;
-  color:#684f17!important
+background:#fffaf0!important;
+border-color:#d9c48e!important;
+color:#684f17!important
 }
 html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button):hover,
 html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button):focus-visible{
-  background:#fff4d8!important;
-  border-color:#c7aa61!important;
-  color:#59440f!important
+background:#fff4d8!important;
+border-color:#c7aa61!important;
+color:#59440f!important
 }
 html[data-theme="light"] body.theme-light #harvestBasket.basket-ready{
-  background:#fff3c8!important;
-  border-color:#c6a957!important;
-  color:#624f16!important
+background:#fff3c8!important;
+border-color:#c6a957!important;
+color:#624f16!important
 }
 html[data-theme="light"] body.theme-light .mobile-command-row button[aria-pressed="true"]{
-  background:#eef5f0!important;
-  border-color:#a9c6b4!important;
-  color:#27543d!important
+background:#eef5f0!important;
+border-color:#a9c6b4!important;
+color:#27543d!important
 }
 html[data-theme="light"] body.theme-light .field-tool-dock button[data-field-tool="treatment"][aria-pressed="true"]{
-  background:#f2e8f7!important;
-  border-color:#bca4ca!important;
-  color:#654775!important
+background:#f2e8f7!important;
+border-color:#bca4ca!important;
+color:#654775!important
 }
 html[data-theme="light"] body.theme-light :is(.care-footer button,.professor-stat-actions button){
-  background:#fff!important;
-  border-color:#b9cdc0!important;
-  color:#284b39!important
+background:#fff!important;
+border-color:#b9cdc0!important;
+color:#284b39!important
 }
