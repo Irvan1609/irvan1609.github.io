@@ -62,6 +62,12 @@ for(const marker of ['/* STAT VISUAL SYSTEM FINAL 2026-09-27 */','--stat-font-sm
 }
 for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-size'])if(!main.includes(marker))fail('compact dataset summary missing '+marker);
 for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
+
+for(const marker of ['position:fixed','positionMenu(menu)','dataset-row-menu-body','z-index:220'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain a floating popover: '+marker);
+for(const marker of ['mobileMoreButton','mobileMorePanel','positionFloatingMenu','openCommandMenu'])if(!navigation.includes(marker))fail('floating navigation popover behavior missing '+marker);
+for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
+if(!html.includes('<details class="dataset-more" hidden aria-hidden="true">'))fail('duplicate inline dataset actions must remain hidden');
+
 if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
 
 for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
