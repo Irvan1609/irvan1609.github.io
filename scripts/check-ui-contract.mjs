@@ -169,7 +169,7 @@ if(flow.includes('analysisOtherSelect')||flow.includes('data-analysis-more')||fl
 if(flow.includes('analysisSearch'))fail('analysis-specific search must be replaced by the global search');
 for(const required of ["Rancangan Percobaan","Hubungan & Regresi","Multivariat","Genetik & Multilokasi","Perencanaan","'association','correlation'","'association','path'"])if(!flow.includes(required))fail('analysis flow missing visible grouped analysis requirement: '+required);
 if(!flow.includes("openScientificLazy(value)")&&!flow.includes("openScientific(button.dataset.design)"))fail('analysis flow must open the selected scientific design, directly or lazily');
-for(const marker of ["import('./scientific-workflow.js","import('./association-workflow.js')","import('./advanced-workflow.js')","import('./nextgen-workflow.js')"])if(!flow.includes(marker))fail('analysis flow must lazy-load heavy analysis modules: '+marker);
+for(const marker of ["import('./scientific-workflow.js","import('./association-workflow.js","import('./advanced-workflow.js","import('./nextgen-workflow.js"])if(!flow.includes(marker))fail('analysis flow must lazy-load heavy analysis modules: '+marker);
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','plantNameSummary','treatmentNameSummary'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
