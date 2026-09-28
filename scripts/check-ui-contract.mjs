@@ -290,3 +290,5 @@ if(!chiliStyle.includes('@media(max-width:680px)')||!chiliStyle.includes('.mobil
 console.log(`UI contract OK: decluttered Statistical Web with editor-local row/column actions, one Denah command, and no Drive backup UI.`);
 
 if (scientific.includes('export-appendix') || scientific.includes('Lampiran Skripsi/Tesis (.xlsx)')) fail('scientific workflow must not add a separate appendix export button');
+
+// validation trigger: stat mobile dock final
