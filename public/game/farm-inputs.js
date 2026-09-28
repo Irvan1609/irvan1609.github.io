@@ -71,9 +71,15 @@ export function createFarmInputModel({getState,getChallenge,getSpecies,getPlotMe
     if(d.p>=7||d.k>=7)return 'phonska';
     return '';
   }
-  function initialNutrients(index){
-    const meta=getPlotMeta(index),fertility=Number(meta?.fertility)||1,pH=Number(meta?.pH)||6,pHAvail=clamp(1-Math.abs(pH-6.2)*.08,.75,1);
+  function initialNutrients(index,metaOverride=null){
+    const meta=metaOverride||getPlotMeta(index),fertility=Number(meta?.fertility)||1,pH=Number(meta?.pH)||6,pHAvail=clamp(1-Math.abs(pH-6.2)*.08,.75,1);
     return {n:clamp(56+(fertility-1)*35,42,72),p:clamp((54+(fertility-1)*25)*pHAvail,38,70),k:clamp(55+(fertility-1)*28,40,72)};
   }
-  return {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientTargets,nutrientDeficits,fertilizerDoseHa,fertilizerDoseKg,fertilizerActionCost,recommendedFertilizer,initialNutrients};
+  function chargeFarmCost(total,{labor=0,input=0}={}){
+    const state=getState();total=Math.max(0,Math.round(Number(total)||0));state.coins-=total;
+    state.seasonStats.cost=(state.seasonStats.cost||0)+total;
+    state.seasonStats.laborCost=(state.seasonStats.laborCost||0)+Math.max(0,Math.round(labor));
+    state.seasonStats.inputCost=(state.seasonStats.inputCost||0)+Math.max(0,Math.round(input));
+  }
+  return {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientTargets,nutrientDeficits,fertilizerDoseHa,fertilizerDoseKg,fertilizerActionCost,recommendedFertilizer,initialNutrients,chargeFarmCost};
 }
