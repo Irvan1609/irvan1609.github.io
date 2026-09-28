@@ -138,10 +138,13 @@ function onAccount(event){
   if(user)cachedBadge();else setBadge(0);
 }
 function bind(){
-  $('#quickSocial').onclick=open;$('#closeSocial').onclick=close;$('#socialModal').addEventListener('click',event=>{if(event.target.id==='socialModal')close();});
-  $('#socialLogin').onclick=()=>window.IrvanAccount?.login?.();
+  const quickSocial=$('#quickSocial'),closeSocial=$('#closeSocial'),socialModal=$('#socialModal'),socialLogin=$('#socialLogin'),socialContent=$('#socialContent');
+  if(quickSocial)quickSocial.onclick=open;
+  if(closeSocial)closeSocial.onclick=close;
+  if(socialModal)socialModal.addEventListener('click',event=>{if(event.target.id==='socialModal')close();});
+  if(socialLogin)socialLogin.onclick=()=>window.IrvanAccount?.login?.();
   document.querySelectorAll('[data-social-tab]').forEach(button=>button.onclick=()=>{currentTab=button.dataset.socialTab;renderTab();});
-  $('#socialContent').addEventListener('click',event=>{
+  if(socialContent)socialContent.addEventListener('click',event=>{
     const add=event.target.closest('[data-friend-add]'),accept=event.target.closest('[data-friend-accept]'),remove=event.target.closest('[data-friend-remove]'),burn=event.target.closest('[data-friend-burn]'),aid=event.target.closest('[data-friend-aid]');
     if(add)friendAction('add',add.dataset.friendAdd);
     if(accept)friendAction('accept',accept.dataset.friendAccept);
