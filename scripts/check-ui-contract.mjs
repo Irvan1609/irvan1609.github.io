@@ -69,7 +69,8 @@ for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!nav
 for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
-if(!html.includes('/src/style.css?v=20260928-ultracompact2')||!html.includes('/src/main.js?v=20260928-quietcloud1'))fail('latest compact editor asset version missing');
+for(const marker of ['/* STAT MOBILE NON-OVERLAY DOCK 2026-09-28 */','grid-template-rows:minmax(0,1fr) auto!important','position:relative!important','inset:auto!important'])if(!statStyle.includes(marker))fail('non-overlay phone dock missing '+marker);
+if(!html.includes('/src/style.css?v=20260928-mobile-dock-nonoverlay-v2')||!html.includes('/src/main.js?v=20260928-quietcloud1'))fail('latest compact editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
