@@ -1174,7 +1174,7 @@ async function boot(){
   installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
-  const start=()=>import('./account-dataset-sync.js')
+  const start=()=>import('./account-dataset-sync.js?v=20260928-quietcloud1')
     .then(({installAccountDatasetSync})=>installAccountDatasetSync())
     .catch(error=>console.warn('Sinkronisasi akun tidak dapat dimuat.',error));
   if('requestIdleCallback' in window)window.requestIdleCallback(start,{timeout:1800});
