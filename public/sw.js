@@ -1,4 +1,4 @@
-const VERSION='20260928-stat-mobile-editor-v1';
+const VERSION='20260928-stat-mobile-dock-nonoverlay-v1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
