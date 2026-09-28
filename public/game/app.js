@@ -1,6 +1,6 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
-import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20260928-costfix1';
+import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20260928-gamefix6';
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
 const RECOVERY_STORAGE='agrotik_field_zero_recovery_v1';
