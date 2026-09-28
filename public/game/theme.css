@@ -506,3 +506,37 @@ body.theme-light :is(.competition-diagnostics button,.competition-diagnostics ar
 body.theme-light .social-player-actions .aid-button:hover{
   background:#eef6fb!important;border-color:#9dbdce!important;color:#315f78!important
 }
+
+
+/* FIELD ZERO LIGHT SAFETY NET 2026-09-28 */
+html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button){
+  background:#fffaf0!important;
+  border-color:#d9c48e!important;
+  color:#684f17!important
+}
+html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button):hover,
+html[data-theme="light"] body.theme-light :is(.daily-card button,.prestige-card button):focus-visible{
+  background:#fff4d8!important;
+  border-color:#c7aa61!important;
+  color:#59440f!important
+}
+html[data-theme="light"] body.theme-light #harvestBasket.basket-ready{
+  background:#fff3c8!important;
+  border-color:#c6a957!important;
+  color:#624f16!important
+}
+html[data-theme="light"] body.theme-light .mobile-command-row button[aria-pressed="true"]{
+  background:#eef5f0!important;
+  border-color:#a9c6b4!important;
+  color:#27543d!important
+}
+html[data-theme="light"] body.theme-light .field-tool-dock button[data-field-tool="treatment"][aria-pressed="true"]{
+  background:#f2e8f7!important;
+  border-color:#bca4ca!important;
+  color:#654775!important
+}
+html[data-theme="light"] body.theme-light :is(.care-footer button,.professor-stat-actions button){
+  background:#fff!important;
+  border-color:#b9cdc0!important;
+  color:#284b39!important
+}
