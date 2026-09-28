@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import {analyzeExperiment,auditDesign,makeProgeny,genomeStats,speciesProfile,recommendedParameters} from '../public/game/academy.js';
+import {createFarmInputModel,FERTILIZERS} from '../public/game/farm-inputs.js';
 
 const root=fs.readFileSync('index.html','utf8');
 const html=fs.readFileSync('public/game/index.html','utf8');
@@ -123,6 +124,22 @@ if(Buffer.byteLength(comfortCss,'utf8')>30000)fail('game comfort CSS exceeds 30 
 if(Buffer.byteLength(farmCss,'utf8')>10000)fail('game farm CSS exceeds 10 KB performance budget');
 if(Buffer.byteLength(farmInputs,'utf8')>10000)fail('game farm module exceeds 10 KB performance budget');
 if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performance budget');
+if(!app.includes('initialNutrients(index,merged.plotRegistry?.[index])'))fail('legacy crop migration must not depend on uninitialized state');
+if(!app.includes('chargeFarmCost}=createFarmInputModel'))fail('farm cost charger must be wired into runtime');
+const mockState={season:1,selectedPlot:0,coins:100000,species:'maize',seasonStats:{cost:0,laborCost:0,inputCost:0},tech:[]};
+const mockMeta={areaM2:25,fertility:1,moisture:1,pH:6.2};
+const farmModel=createFarmInputModel({
+  getState:()=>mockState,getChallenge:()=>({}),getSpecies:()=>({maturityDays:110}),
+  getPlotMeta:()=>{throw Error('migration touched live state');},actionCost:()=>1500,hasTech:()=>false,
+  clamp:(v,min=0,max=100)=>Math.max(min,Math.min(max,v)),round:(v,d=1)=>Number(v.toFixed(d)),plotArea:25
+});
+const migrated=farmModel.initialNutrients(0,mockMeta);
+if(!Number.isFinite(migrated.n)||!Number.isFinite(migrated.p)||!Number.isFinite(migrated.k))fail('save-safe NPK migration invalid');
+const costBefore=mockState.coins;
+farmModel.chargeFarmCost(10000,{labor:6000,input:4000});
+if(mockState.coins!==costBefore-10000||mockState.seasonStats.cost!==10000||mockState.seasonStats.laborCost!==6000||mockState.seasonStats.inputCost!==4000)fail('paid labor/input accounting runtime invalid');
+if(!FERTILIZERS.urea||!FERTILIZERS.phonska)fail('core fertilizer catalog missing');
+
 
 const demoExp={
   design:'ral',kind:'genotype',
