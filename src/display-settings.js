@@ -65,6 +65,7 @@ function ensureSettingsUi(){
     topbar.append(panel);
   }
   const openPanel=()=>{
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'settings'}}));
     panel.hidden=false;
     toggle.setAttribute('aria-expanded','true');
   };
@@ -81,6 +82,7 @@ function ensureSettingsUi(){
     panel.addEventListener('click',event=>event.stopPropagation());
     document.addEventListener('click',()=>{if(!panel.hidden)closePanel();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){closePanel();toggle.focus();}});
+    document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='settings'&&!panel.hidden)closePanel();});
   }
   if(!panel.dataset.mobileOpenBound){
     panel.dataset.mobileOpenBound='1';
