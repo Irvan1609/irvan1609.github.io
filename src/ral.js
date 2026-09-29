@@ -1,5 +1,5 @@
 import { parseNumber, formatNumber } from './number-format.js';
-import { resultActions, installResultExport } from './result-export.js';
+import { resultActions, installResultExport } from './result-export.js?v=20260929-cleanmenus6';
 import { fCritical, effectLevel, isSignificantAt, cvPercent, descriptiveMeanChart } from './report-utils.js';
 import jStat from 'jstat';
 
