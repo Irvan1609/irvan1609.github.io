@@ -316,7 +316,7 @@ function renderAugmented(out,name,dataName){
 async function showResults(html,title,data,parameterCount){
   try{
     if(!document.querySelector('#analysisResultDock')){
-      const module=await import('./scientific-workflow.js');
+      const module=await import('./scientific-workflow.js?v=20260928-resultfocus1');
       if(!document.querySelector('#scientificModal'))module.installScientificWorkflow();
     }
     const dock=$('#analysisResultDock'),body=$('#analysisDockResults'),heading=$('#analysisDockTitle');
