@@ -153,6 +153,9 @@ function applyParallelAnalysisLayout(body){
   body._analysisResultObserver=observer;sync();
 }
 export function openTool(title,html,mode=''){
+  document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'data-tool-modal'}}));
+  document.documentElement.classList.remove('mobile-project-open');
+  document.getElementById('projectToggle')?.setAttribute('aria-expanded','false');
   const modal=$('#dataToolModal'),body=$('#dataToolBody');
   $('#dataToolTitle').textContent=title;body.innerHTML=html;
   modal.dataset.toolMode=String(mode||'');
@@ -160,6 +163,6 @@ export function openTool(title,html,mode=''){
   if(analysisMode)document.body.classList.add('analysis-mode-active');
   if(mode==='parallel-analysis')applyParallelAnalysisLayout(body);
   else body.classList.remove('analysis-tool-parallel-body');
-  modal.classList.add('open');
+  modal.classList.add('open');requestAnimationFrame(()=>{modal.scrollTop=0;body.scrollTop=0;});
 }
 export function downloadBlob(buffer,name){const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
