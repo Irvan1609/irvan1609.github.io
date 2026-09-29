@@ -664,7 +664,7 @@ export function openScientificRecipe(recipe){
 }
 
 export function installScientificWorkflow(){
-  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><div><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><div class="analysis-dock-actions"><button id="analysisDockData" type="button">▦ Data</button><button id="analysisDockAnalysis" type="button">Σ Analisis lain</button><button id="closeAnalysisDock" type="button" aria-label="Tutup hasil">✕</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
+  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><button id="closeAnalysisDock" class="analysis-dock-close" type="button" aria-label="Tutup hasil">✕</button><div class="analysis-dock-title"><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><button id="analysisDockMore" class="analysis-dock-more" type="button" aria-label="Aksi hasil" aria-expanded="false">•••</button><div id="analysisDockMenu" class="analysis-dock-menu" hidden><button type="button" data-dock-proxy="copy-word">Salin ke Word</button><button type="button" data-dock-proxy="share">Salin ringkasan</button><button type="button" data-dock-proxy="bab4">BAB IV (.doc)</button><button type="button" data-dock-proxy="excel">Excel (.xlsx)</button><button type="button" data-dock-proxy="formula">Excel formula</button><button type="button" data-dock-proxy="print">PDF / Cetak</button><button type="button" data-dock-proxy="check">Periksa hasil</button><button type="button" data-dock-proxy="history">Versi hasil</button><button id="analysisDockAnalysis" type="button">Analisis lain</button><button id="analysisDockData" type="button" hidden>Kembali ke data</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
   <div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop science-simple-mode"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle">
     <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div>
     <div class="modal-body analysis-workspace-body"><main id="scienceFields" class="science-simple-shell">
@@ -687,9 +687,19 @@ export function installScientificWorkflow(){
     <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Analisis</button></div></div>
   </div></div>`);
   const close=()=>{$('#scientificModal').classList.remove('open');document.body.classList.remove('analysis-mode-active');};$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
-  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
+  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
-  $('#analysisDockAnalysis').onclick=()=>globalThis.StatisticalWebWorkflow?.openAnalysis?.();
+  $('#analysisDockAnalysis').onclick=()=>{$('#analysisDockMenu').hidden=true;globalThis.StatisticalWebWorkflow?.openAnalysis?.();};
+  $('#analysisDockMore').onclick=event=>{event.stopPropagation();const menu=$('#analysisDockMenu'),opening=menu.hidden;menu.hidden=!opening;$('#analysisDockMore').setAttribute('aria-expanded',String(opening));};
+  $('#analysisDockMenu').onclick=event=>{
+    const action=event.target.closest('[data-dock-proxy]')?.dataset.dockProxy;if(!action)return;
+    const host=$('#analysisDockResults');
+    const selectors={copyWord:'[data-os-copy-word]',share:'[data-os-share]',bab4:'[data-result-action="export-bab4"]',excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-print-results], [data-generic-print-results]',check:'[data-thesis-check]',history:'[data-os-history]'};
+    const key=action==='copy-word'?'copyWord':action;
+    host?.querySelector(selectors[key]||'')?.click();
+    $('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');
+  };
+  document.addEventListener('click',event=>{if(!event.target.closest('#analysisDockMore,#analysisDockMenu')){$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');}});
   $('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
   $('#scientificModal').addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();if(!$('#runScience').disabled)$('#runScience').click();}
