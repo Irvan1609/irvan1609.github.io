@@ -1,6 +1,6 @@
 import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
-import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
+import {installDatasetSidebarEnhancements} from './dataset-sidebar.js?v=20260929-cleanmenus2';
 import {installDataEnhancements} from './data-enhancements.js';
 import {validateColumnNames} from './dataset-columns.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
