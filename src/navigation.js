@@ -372,7 +372,7 @@ export function installNavigation(){
   document.addEventListener('stat-close-floating',event=>{
     const except=event.detail?.except||'';
     if(!['fileMenu','dataMenu','helpMenu'].includes(except))closeMenus();
-    if(except!=='dataset-panel'){
+    if(!['dataset-panel','dataset-menu'].includes(except)){
       document.documentElement.classList.remove('mobile-project-open');
       projectToggle?.setAttribute('aria-expanded','false');
     }
