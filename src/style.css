@@ -8282,3 +8282,205 @@ summary:focus-visible,
     width:min(210px,calc(100vw - 8px))!important;
   }
 }
+
+
+/* STAT PHONE FINAL NON-OVERLAY + FREEZE PANES 2026-09-29 */
+.freeze-row-setting{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(120px,42%);
+  align-items:center;
+  gap:10px;
+  margin:0 0 8px!important;
+  padding:6px;
+  border:1px solid #e5eaee;
+  border-radius:6px;
+  background:#fafbfc;
+}
+.freeze-row-setting>span{font-weight:700;color:#405665}
+.freeze-row-setting select{width:100%;min-height:34px}
+
+/* Complete freeze panes: selected columns + top rows. */
+#gridWrap.has-frozen-rows .data-grid thead th,
+#gridWrap.has-frozen-columns .data-grid thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:20!important;
+}
+#gridWrap.has-frozen-rows .data-grid td.row-frozen{
+  position:sticky!important;
+  top:var(--freeze-top)!important;
+  z-index:12!important;
+  background:#fff!important;
+  box-shadow:inset 0 -1px 0 #d9e1e6;
+}
+#gridWrap.has-frozen-rows .data-grid tbody tr:nth-child(even) td.row-frozen{
+  background:#fbfcfd!important;
+}
+#gridWrap.has-frozen-rows .data-grid td.row-frozen.string-column-cell{
+  background:#f3f9f5!important;
+}
+#gridWrap.has-frozen-rows .data-grid tbody tr:nth-child(even) td.row-frozen.string-column-cell{
+  background:#edf6f0!important;
+}
+#gridWrap.has-frozen-rows .data-grid td.row-frozen.row-number{
+  z-index:17!important;
+  background:#f5f7fa!important;
+}
+#gridWrap.has-frozen-rows.has-frozen-columns .data-grid td.row-frozen.column-frozen{
+  z-index:18!important;
+}
+#gridWrap.has-frozen-rows.has-frozen-columns .data-grid td.row-frozen.row-number{
+  z-index:19!important;
+}
+
+/* Phone: the dock is a real layout row, never an overlay on the editor. */
+@media(max-width:720px){
+  #app{
+    width:calc(100vw / var(--ui-scale))!important;
+    height:calc(100dvh / var(--ui-scale))!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  .app-shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:minmax(0,1fr) auto!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    padding:1px 1px calc(env(safe-area-inset-bottom) / var(--ui-scale))!important;
+    overflow:hidden!important;
+  }
+  .main{
+    grid-column:1!important;
+    grid-row:1!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  .workspace,
+  .grid-container{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+  }
+  .app-header{
+    grid-column:1!important;
+    grid-row:2!important;
+    position:relative!important;
+    inset:auto!important;
+    left:auto!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:auto!important;
+    width:100%!important;
+    min-height:48px!important;
+    max-height:48px!important;
+    margin:0!important;
+    z-index:600!important;
+    overflow:visible!important;
+  }
+  .app-header .nav{
+    height:48px!important;
+    min-height:48px!important;
+    padding:2px!important;
+  }
+
+  /* Menus float above the dock, while the dock itself remains tappable. */
+  .nav-command-panel:not(.analysis-command-panel),
+  .analysis-command-panel,
+  .mobile-more-panel,
+  #appSettingsPanel{
+    position:fixed!important;
+    top:auto!important;
+    bottom:calc(52px + env(safe-area-inset-bottom) / var(--ui-scale))!important;
+    z-index:590!important;
+  }
+  html.mobile-project-open .project-panel{
+    bottom:calc(52px + env(safe-area-inset-bottom) / var(--ui-scale))!important;
+    z-index:585!important;
+  }
+  .mobile-dataset-backdrop{
+    z-index:570!important;
+  }
+
+  /* Full dialogs never fight with the dock. */
+  body.mobile-blocking-overlay .app-header{display:none!important}
+  body.mobile-blocking-overlay .app-shell{grid-template-rows:minmax(0,1fr)!important}
+  body.mobile-blocking-overlay .main{grid-row:1!important}
+
+  .modal-backdrop.open{
+    width:calc(100vw / var(--ui-scale))!important;
+    height:calc(100dvh / var(--ui-scale))!important;
+    inset:0 auto auto 0!important;
+  }
+  #dataToolModal.open{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:8px!important;
+    z-index:650!important;
+  }
+  #dataToolModal.open>.modal{
+    display:flex!important;
+    width:calc(100% - 16px)!important;
+    max-width:none!important;
+    max-height:calc(100% - 16px)!important;
+    margin:auto!important;
+    border:1px solid #d8e0e5!important;
+    border-radius:10px!important;
+    opacity:1!important;
+    visibility:visible!important;
+    transform:none!important;
+    background:#fff!important;
+  }
+
+  /* Search remains above the editor but below the dock, so tapping Search twice closes it. */
+  #globalSearchModal.open{
+    width:calc(100vw / var(--ui-scale))!important;
+    height:calc((100dvh - 52px - env(safe-area-inset-bottom)) / var(--ui-scale))!important;
+    inset:0 auto auto 0!important;
+    z-index:580!important;
+  }
+
+  .simple-web-dialog-backdrop{
+    width:calc(100vw / var(--ui-scale))!important;
+    height:calc(100dvh / var(--ui-scale))!important;
+    inset:0 auto auto 0!important;
+    z-index:650!important;
+  }
+
+  /* Result mode remains full screen because the dock is intentionally hidden there. */
+  body.analysis-mode-active .app-header{display:none!important}
+  body.analysis-mode-active .app-shell{grid-template-rows:minmax(0,1fr)!important;padding-bottom:0!important}
+  body.analysis-mode-active .main{height:auto!important}
+  body.analysis-mode-active.analysis-results-open .analysis-result-dock{
+    width:calc(100vw / var(--ui-scale))!important;
+    height:calc(100dvh / var(--ui-scale))!important;
+    inset:0 auto auto 0!important;
+  }
+
+  /* Freeze panes override older phone rules that disabled sticky cells. */
+  #gridWrap.has-frozen-rows .data-grid thead th,
+  #gridWrap.has-frozen-columns .data-grid thead th{
+    position:sticky!important;
+    top:0!important;
+  }
+  #gridWrap.has-frozen-columns .data-grid .column-frozen{
+    position:sticky!important;
+    left:var(--freeze-left)!important;
+  }
+  #gridWrap.has-frozen-rows .data-grid td.row-frozen{
+    position:sticky!important;
+    top:var(--freeze-top)!important;
+  }
+  #gridWrap.has-frozen-rows.has-frozen-columns .data-grid td.row-frozen.column-frozen{
+    position:sticky!important;
+    left:var(--freeze-left)!important;
+    top:var(--freeze-top)!important;
+  }
+}
