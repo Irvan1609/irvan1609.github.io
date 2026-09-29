@@ -1,4 +1,4 @@
-import { installAnalysisFlow } from './analysis-flow.js?v=20260928-resultfocus1';
+import { installAnalysisFlow } from './analysis-flow.js?v=20260928-resultfocus2';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js?v=20260928-mobile-editor-v1';
