@@ -2,7 +2,7 @@ const $=selector=>document.querySelector(selector);
 
 let scientificReady=false;
 async function scientificModule(){
-  const mod=await import('./scientific-workflow.js?v=20260929-dockhide1');
+  const mod=await import('./scientific-workflow.js?v=20260929-cleanmenus2');
   if(!scientificReady&&!document.getElementById('scientificModal')){mod.installScientificWorkflow();scientificReady=true;}
   return mod;
 }
