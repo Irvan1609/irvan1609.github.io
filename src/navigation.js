@@ -311,8 +311,9 @@ export function installNavigation(){
   }
 
   function openGlobalSearch(){
-    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'search'}}));
     if(!searchModal||!searchInput)return;
+    if(searchModal.classList.contains('open')){closeGlobalSearch();return;}
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'search'}}));
     closeMenus();
     searchModal.classList.add('open');
     searchInput.value='';
