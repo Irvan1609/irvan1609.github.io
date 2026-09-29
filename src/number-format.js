@@ -1,4 +1,4 @@
-import {initDisplaySettings} from './display-settings.js?v=20260928-mobile-editor-v1';
+import {initDisplaySettings} from './display-settings.js?v=20260929-cleanmenus2';
 const KEY = 'statistical_web_decimal_separator';
 
 function detectedSeparator() {
