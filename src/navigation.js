@@ -378,13 +378,6 @@ export function installNavigation(){
     }
     if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
   });
-  settingsToggle?.addEventListener('click',event=>{
-    if(globalThis.matchMedia?.('(max-width:720px)')?.matches){
-      event.stopPropagation();
-      document.dispatchEvent(new CustomEvent('stat-open-settings'));
-    }
-  });
-
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openGlobalSearch();return;}
