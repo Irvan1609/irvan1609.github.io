@@ -329,8 +329,8 @@ if(!sharedHeader.includes('/* MOBILE HEADER FINAL 2026-09-26 */')||!sharedHeader
 
 if(html.includes('compactEditor')||main.includes('toggleCompactEditor')||navigation.includes('compactEditor'))fail('Normal/Ringkas editor toggle must stay removed');
 for(const marker of ['insert-left','insert-right','insert-row'])if(main.includes(marker))fail('row/column insertion must stay in the data editor action bar only: '+marker);
-for(const marker of ['editor-inline-actions',"addRow.textContent='+ Baris'","addCol.textContent='+ Kolom'"])if(!navigation.includes(marker))fail('editor-only row/column action group missing '+marker);
-if(!statStyle.includes('/* STAT DECLUTTER EDITOR ACTIONS FINAL 2026-09-28 */'))fail('decluttered editor action styling missing');
+for(const marker of ['grid-add-controls','data-add-row','data-add-col'])if(!main.includes(marker))fail('grid-corner row/column action missing '+marker);
+for(const marker of ['/* STAT CLEAN GRID CORNER + POPOVER EXCLUSIVITY FINAL 2026-09-29 */','.editor-inline-actions{display:none!important}','.grid-add-controls'])if(!statStyle.includes(marker))fail('grid-corner row/column action styling missing '+marker);
 
 if(!chiliStyle.includes('@media(max-width:680px)')||!chiliStyle.includes('.mobile-actionbar')||!chiliStyle.includes('.research-panel'))fail('Hitung Cabai phone workspace override missing');
 

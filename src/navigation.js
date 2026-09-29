@@ -7,18 +7,6 @@ export function installNavigation(){
   const projectToggle=document.getElementById('projectToggle');
   const settingsToggle=document.getElementById('appSettingsToggle');
 
-  const editorActions=document.createElement('div');
-  editorActions.className='editor-inline-actions';
-  editorActions.setAttribute('aria-label','Aksi editor data');
-  const addRow=document.getElementById('addRow'),addCol=document.getElementById('addCol'),clear=document.getElementById('clearData');
-  if(addRow){addRow.textContent='+ Baris';addRow.title='Tambah baris';editorActions.append(addRow);}
-  if(addCol){addCol.textContent='+ Kolom';addCol.title='Tambah kolom';editorActions.append(addCol);}
-  if(clear){
-    clear.innerHTML='<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg>';
-    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');editorActions.append(clear);
-  }
-  if(editorActions.childElementCount)sheet.append(editorActions);
-
   const appHeader=nav.closest('.app-header');
   function positionFloatingMenu(anchor,panel){
     if(!anchor||!panel||!appHeader)return;
