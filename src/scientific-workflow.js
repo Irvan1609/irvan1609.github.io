@@ -693,6 +693,7 @@ export function installScientificWorkflow(){
   $('#analysisDockMore').onclick=event=>{
     event.stopPropagation();
     const menu=$('#analysisDockMenu'),host=$('#analysisDockResults'),opening=menu.hidden;
+    if(opening)document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'analysis-result-menu'}}));
     const selectors={copyWord:'[data-os-copy-word]',share:'[data-os-share]',bab4:'[data-result-action="export-bab4"]',excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-print-results], [data-generic-print-results]',check:'[data-thesis-check]',history:'[data-os-history]'};
     menu.querySelectorAll('[data-dock-proxy]').forEach(button=>{
       const action=button.dataset.dockProxy,key=action==='copy-word'?'copyWord':action;
@@ -709,6 +710,7 @@ export function installScientificWorkflow(){
     $('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');
   };
   document.addEventListener('click',event=>{if(!event.target.closest('#analysisDockMore,#analysisDockMenu')){$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');}});
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='analysis-result-menu'){$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');}});
   $('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
   $('#scientificModal').addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();if(!$('#runScience').disabled)$('#runScience').click();}
