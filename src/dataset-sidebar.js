@@ -13,7 +13,7 @@ function ensureStyle(){
     #fileTree .dataset-row-menu>summary{width:28px;height:28px;display:grid;place-items:center;cursor:pointer;list-style:none;border-radius:5px;color:#657582;font-size:15px;font-weight:800}
     #fileTree .dataset-row-menu>summary::-webkit-details-marker{display:none}
     #fileTree .dataset-row-menu[open]>summary,#fileTree .dataset-row-menu>summary:hover{background:#edf2f5;color:#29475e}
-    #fileTree .dataset-row-menu-body{position:fixed;left:0;top:0;right:auto;z-index:220;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 10px 24px rgba(25,43,58,.16)}
+    #fileTree .dataset-row-menu-body{position:fixed;left:0;top:0;right:auto;z-index:460;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 8px 20px rgba(25,43,58,.14)}
     #fileTree .dataset-row-menu-body button{width:100%;min-height:28px;padding:3px 6px;border:0;border-radius:4px;background:transparent;text-align:left;font-size:11px;color:#344b5d}
     #fileTree .dataset-row-menu-body button:hover{background:#f1f4f6}
     #fileTree .dataset-row-menu-body button[data-dataset-action="delete"]{color:#9c302a}
@@ -57,15 +57,15 @@ function decorateTree(){
 function positionMenu(menu){
   const summary=menu?.querySelector('summary'),body=menu?.querySelector('.dataset-row-menu-body');
   if(!summary||!body)return;
-  const rect=summary.getBoundingClientRect(),gap=4,pad=8,mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+  const rect=summary.getBoundingClientRect(),gap=2,pad=6,mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
   const width=Math.min(mobile?160:144,window.innerWidth-pad*2);
-  const reservedBottom=mobile?56:pad,bottomLimit=window.innerHeight-reservedBottom;
+  const reservedBottom=mobile?58:pad,bottomLimit=window.innerHeight-reservedBottom;
   body.style.width=width+'px';
   body.style.left=Math.max(pad,Math.min(window.innerWidth-width-pad,rect.right-width))+'px';
-  body.style.top=(rect.bottom+gap)+'px';
   requestAnimationFrame(()=>{
-    const h=Math.min(body.scrollHeight,Math.max(120,bottomLimit-pad)),below=rect.bottom+gap+h<=bottomLimit;
-    const top=below?rect.bottom+gap:Math.max(pad,Math.min(bottomLimit-h,rect.top-gap-h));
+    const h=Math.min(body.scrollHeight,Math.max(108,bottomLimit-pad));
+    const below=rect.bottom+gap+h<=bottomLimit;
+    const top=below?rect.bottom+gap:Math.max(pad,rect.top-gap-h);
     body.style.maxHeight=Math.max(96,bottomLimit-top)+'px';
     body.style.top=top+'px';
   });
@@ -80,7 +80,10 @@ export function installDatasetSidebarEnhancements(){
 
   tree.addEventListener('toggle',event=>{
     const menu=event.target.closest?.('.dataset-row-menu');
-    if(menu?.open){closeMenus(menu);positionMenu(menu);}
+    if(menu?.open){
+      document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'dataset-menu'}}));
+      closeMenus(menu);positionMenu(menu);
+    }
   },true);
 
   tree.addEventListener('click',event=>{
@@ -105,6 +108,7 @@ export function installDatasetSidebarEnhancements(){
   });
 
   document.addEventListener('click',event=>{if(!event.target.closest('#fileTree .dataset-row-menu'))closeMenus();});
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='dataset-menu')closeMenus();});
   window.addEventListener('resize',()=>document.querySelectorAll('#fileTree .dataset-row-menu[open]').forEach(positionMenu));
   document.addEventListener('scroll',event=>{if(event.target.closest?.('#projectPanel')||event.target===document)closeMenus();},true);
 }
