@@ -7487,3 +7487,122 @@ summary:focus-visible,
     font-size:10.5px!important;
   }
 }
+
+
+/* STAT CLEAN MOBILE DOCK + ANALYSIS HIDE FINAL 2026-09-29 */
+@media(max-width:720px){
+  /* Four equal, quiet actions while working with data. */
+  .app-header{
+    left:4px!important;
+    right:4px!important;
+    bottom:max(3px,env(safe-area-inset-bottom))!important;
+    border:1px solid #d8e0e5!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+  }
+  .app-header .nav{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:2px!important;
+    padding:2px!important;
+  }
+  .nav-primary,
+  .nav-utilities{
+    display:contents!important;
+  }
+  #fileMenuButton,
+  #dataMenuButton,
+  #helpMenuButton,
+  #globalSearchButton,
+  #appSettingsToggle{
+    display:none!important;
+  }
+  #fieldLayoutTab,
+  #openAnalysis,
+  #projectToggle,
+  #mobileMoreButton{
+    display:grid!important;
+    grid-template-rows:14px 12px!important;
+    place-items:center!important;
+    align-content:center!important;
+    gap:1px!important;
+    width:100%!important;
+    min-width:0!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:3px 2px!important;
+    border:0!important;
+    border-radius:7px!important;
+    background:transparent!important;
+    color:#4e6270!important;
+    font-size:0!important;
+    line-height:1!important;
+    font-weight:700!important;
+  }
+  #fieldLayoutTab::before,
+  #openAnalysis::before,
+  #projectToggle::before,
+  #mobileMoreButton::before{
+    display:block!important;
+    margin:0!important;
+    font-size:13px!important;
+    line-height:14px!important;
+    font-weight:750!important;
+    color:#506675!important;
+  }
+  #fieldLayoutTab::after,
+  #openAnalysis::after,
+  #projectToggle::after,
+  #mobileMoreButton::after{
+    display:block!important;
+    margin:0!important;
+    font-size:9.5px!important;
+    line-height:11px!important;
+    font-weight:700!important;
+    color:#5e707c!important;
+  }
+  #fieldLayoutTab::before{content:"▦"!important}
+  #fieldLayoutTab::after{content:"Denah"!important}
+  #openAnalysis::before{content:"Σ"!important}
+  #openAnalysis::after{content:"Analisis"!important}
+  #projectToggle::before{content:"▤"!important}
+  #projectToggle::after{content:"Data"!important}
+  #mobileMoreButton::before{content:"•••"!important;letter-spacing:.5px!important}
+  #mobileMoreButton::after{content:"Menu"!important}
+
+  #fieldLayoutTab.active,
+  #fieldLayoutTab[aria-current="page"],
+  #openAnalysis[aria-expanded="true"],
+  #projectToggle[aria-expanded="true"],
+  #mobileMoreButton[aria-expanded="true"]{
+    background:#eef3f6!important;
+    color:#274a62!important;
+  }
+
+  /* The dock is editor navigation, not part of an analysis workspace. */
+  body.analysis-mode-active .app-header{
+    display:none!important;
+  }
+  body.analysis-mode-active .app-shell{
+    padding-bottom:1px!important;
+  }
+  body.analysis-mode-active .main{
+    height:100dvh!important;
+  }
+  body.analysis-mode-active.analysis-results-open .analysis-result-dock{
+    inset:0!important;
+    width:100vw!important;
+    height:100dvh!important;
+    max-height:none!important;
+  }
+
+  /* Floating menus line up with the cleaned dock. */
+  .nav-command-panel:not(.analysis-command-panel),
+  .mobile-more-panel,
+  .analysis-command-panel,
+  #appSettingsPanel{
+    bottom:calc(51px + env(safe-area-inset-bottom))!important;
+  }
+}
