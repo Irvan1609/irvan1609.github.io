@@ -7403,6 +7403,9 @@ summary:focus-visible,
   width:100%!important;
   margin:0!important;
 }
+#dataToolBody.analysis-tool-results-only .result-card-actions{
+  display:none!important;
+}
 
 /* Phone dock is fixed again, while results occupy the space above it. */
 @media(max-width:720px){
