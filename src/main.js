@@ -902,7 +902,7 @@ function renderGrid(){
       const type=types[j],category=readCategoryMetadata(displayDatasetName(state.active),h),tip=columnTooltip(h,type,category),isText=['category','text'].includes(type.type),width=widths[j],style=width?' style="width:'+width+'px;min-width:'+width+'px;max-width:'+width+'px"':'';
       return '<th data-column-header="'+esc(h)+'" data-column-index="'+j+'" data-column-type="'+esc(type.type)+'" class="type-'+esc(type.type)+' '+(isText?'string-column':'')+'"'+style+'><div class="header-controls"><span class="column-drag-handle" data-drag-column="'+j+'" draggable="true" role="button" tabindex="0" aria-label="Geser kolom '+esc(h)+'" title="Geser kolom">⋮⋮</span><button class="header-name" data-rename-column="'+j+'" title="'+esc(tip)+'" aria-label="Ubah nama kolom '+esc(h)+'">'+columnHeaderMarkup(h)+'</button><span class="column-resizer" data-resize-column="'+j+'" title="Tarik untuk ubah lebar; klik ganda untuk otomatis"></span><button class="grid-delete" data-delete-column="'+j+'" aria-label="Hapus kolom '+esc(h)+'" title="Hapus kolom"></button></div></th>';
     }).join('');
-    wrap.innerHTML='<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-row>+ Baris</button><button type="button" data-add-col>+ Kolom</button></div></th>'+heads+'</tr></thead><tbody></tbody></table>';
+    wrap.innerHTML='<table class="data-grid"><thead><tr><th class="row-number grid-corner"><div class="grid-add-controls"><button type="button" data-add-col title="Tambah kolom">+ Kolom</button><button type="button" data-add-row title="Tambah baris">+ Baris</button></div></th>'+heads+'</tr></thead><tbody></tbody></table>';
     bindGridHeader(wrap);renderGridRows(wrap,types,widths,quality,{force:true});
     if(state.rows.length>VIRTUALIZE_AFTER_ROWS){
       let raf=0;
@@ -937,7 +937,7 @@ function quickImport(event){
     showError('Berkas belum dapat diteruskan ke pengimpor. Gunakan tombol impor pada toolbar.',error);
   }
 }
-function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=[];state.rows=[];state.meta[name]={plant:'',treatment:''};persist();try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}loadActive(false);setStatus(`✓ ${displayDatasetName(name)} dibuat.`);}
+function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=['Perlakuan'];state.rows=[['']];state.meta[name]={plant:'',treatment:''};persist('dataset baru',true);try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}renderTree();renderGrid();renderDatasetMeta();clearSelection();setSelection(0,0,{focus:true});setStatus(`✓ ${displayDatasetName(name)} dibuat · 1 baris × 1 kolom.`);}
 function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');pushUndo('tambah baris');const row=state.headers.map(()=>'');state.rows.push(row);persist('tambah baris',true,{kind:'append_row',values:row});renderGrid();setStatus('✓ Baris baru ditambahkan.');}
 function addColumn(){pushUndo('tambah kolom');if(!state.headers.length)state.rows=[];state.headers.push(nextColumnName(state.headers));state.rows.forEach(r=>r.push(''));persist('tambah kolom',true);renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
 function clearData(){
