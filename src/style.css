@@ -8057,3 +8057,48 @@ summary:focus-visible,
     z-index:470!important;
   }
 }
+
+
+/* GRID CORNER + FLOATING MENU POLISH 2026-09-29 */
+.data-grid thead .grid-corner{
+  min-width:96px!important;
+  width:96px!important;
+  max-width:96px!important;
+  padding:4px!important;
+}
+.grid-add-controls{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  align-items:center!important;
+  gap:3px!important;
+  width:100%!important;
+}
+.grid-add-controls button{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:0!important;
+  min-height:28px!important;
+  padding:3px 4px!important;
+  border-radius:5px!important;
+  font-size:10px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+@media(max-width:720px){
+  .data-grid thead .grid-corner{
+    min-width:88px!important;
+    width:88px!important;
+    max-width:88px!important;
+    position:static!important;
+  }
+  .grid-add-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:2px!important;
+  }
+  .grid-add-controls button{
+    min-height:30px!important;
+    padding:2px 3px!important;
+    font-size:9.5px!important;
+  }
+}
