@@ -20,7 +20,7 @@ function ensureStyles(){
     body>.agrotik-offline{zoom:var(--ui-scale)}
     .app-header{position:relative}
     .nav{position:relative}
-    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:28px;min-width:28px;height:28px;min-height:28px;padding:0;border-radius:6px;font-size:13px;line-height:1;margin-left:auto}
+    #appSettingsToggle{display:inline-flex;align-items:center;justify-content:center;width:28px;min-width:28px;height:28px;min-height:28px;padding:0;border-radius:6px;font-size:13px;line-height:1;margin-left:auto}\n    .settings-toggle-icon{width:17px;height:17px;display:block}
     #appSettingsToggle[aria-expanded="true"]{background:#eaf1fd;border-color:#9ab3d6;color:#194caa}
     #appSettingsPanel{position:absolute;right:6px;top:calc(100% + 5px);z-index:120;width:min(260px,calc(100vw / var(--ui-scale) - 20px));padding:8px;background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 10px 24px #15233422}
     #appSettingsPanel[hidden]{display:none!important}
@@ -50,7 +50,7 @@ function ensureSettingsUi(){
     toggle=document.createElement('button');
     toggle.id='appSettingsToggle';
     toggle.type='button';
-    toggle.textContent='⚙';
+    toggle.innerHTML='<svg class="settings-toggle-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M8 14v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
     toggle.title='Pengaturan';
     toggle.setAttribute('aria-label','Pengaturan');
     toggle.setAttribute('aria-haspopup','true');
