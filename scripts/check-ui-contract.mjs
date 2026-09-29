@@ -80,7 +80,7 @@ for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
-if(!html.includes('/src/style.css?v=20260929-cleanmenus5')||!html.includes('/src/main.js?v=20260929-cleanmenus5'))fail('latest clean-menu editor asset version missing');
+if(!html.includes('/src/style.css?v=20260929-cleanmenus6')||!html.includes('/src/main.js?v=20260929-cleanmenus6'))fail('latest clean-menu editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -115,6 +115,12 @@ for(const marker of ['/* STAT MOBILE OVERLAY PRIORITY FINAL 2026-09-29 */','#glo
 for(const marker of ['stat-close-floating',"except:'settings'"])if(!displaySettings.includes(marker))fail('settings must participate in exclusive floating menus: '+marker);
 
 
+
+for(const marker of ['FROZEN_COLUMNS_KEY','openFreezeColumns','applyFrozenColumns','freezeColumnsDialog','confirmDeleteDataset'])if(!main.includes(marker))fail('selectable frozen columns/simple dataset delete missing '+marker);
+for(const marker of ['freezeColumns','closeLoosePopovers'])if(!navigation.includes(marker))fail('bottom dock exclusive popup/freeze command missing '+marker);
+for(const marker of ['settings-toggle-icon','viewBox="0 0 24 24"'])if(!displaySettings.includes(marker))fail('simple settings icon missing '+marker);
+for(const [name,source] of [['scientific result',scientific],['data tool result',dataTools]])if(!source.includes('>⋮</button>'))fail(name+' vertical result menu icon missing');
+for(const marker of ['/* STAT SIMPLE RESULT + FREEZE COLUMNS FINAL 2026-09-29 */','simple-web-dialog-backdrop','has-frozen-columns','.column-frozen','position:static!important'])if(!statStyle.includes(marker))fail('flat result/freeze styling missing '+marker);
 
 for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
 for(const marker of ['position:sticky!important','analysis-dock-body .analysis-result-toolbar','science-context>span+span::before','.result-table td:first-child','.column-context-menu button','min-height:44px!important'])if(!statStyle.includes(marker))fail('responsive UI polish missing '+marker);
