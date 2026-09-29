@@ -8037,3 +8037,22 @@ summary:focus-visible,
     z-index:470!important;
   }
 }
+
+
+/* STAT MOBILE OVERLAY PRIORITY FINAL 2026-09-29 */
+@media(max-width:720px){
+  .modal-backdrop.open{
+    z-index:450!important;
+  }
+  #globalSearchModal.open{
+    z-index:480!important;
+  }
+  #appSettingsPanel,
+  .nav-command-panel,
+  .analysis-command-panel{
+    z-index:440!important;
+  }
+  #fileTree .dataset-row-menu-body{
+    z-index:470!important;
+  }
+}
