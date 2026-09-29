@@ -36,7 +36,7 @@ export function installNavigation(){
   const menuButtons=new Map();
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','validateDataset','transformData','outlierData','fieldbookTool','clearData']],
+    ['dataMenu','Data',['undoData','redoData','freezeColumns','validateDataset','transformData','outlierData','fieldbookTool','clearData']],
     ['helpMenu','Bantuan',['dataTemplate','analysisHistory']]
   ]){
     const button=document.createElement('button');
@@ -225,6 +225,7 @@ export function installNavigation(){
       newTxt:'baru dataset data baru',
       addRow:'tambah baris row',
       addCol:'tambah kolom column',
+      freezeColumns:'freeze bekukan kolom sticky column',
       undoData:'undo urungkan',
       redoData:'redo ulangi',
       duplicateDataset:'duplikat salin dataset copy',
@@ -345,7 +346,12 @@ export function installNavigation(){
   });
   searchModal?.addEventListener('click',event=>{if(event.target===searchModal)closeGlobalSearch();});
 
+  function closeLoosePopovers(){
+    const columnMenu=document.getElementById('columnContextMenu');if(columnMenu)columnMenu.hidden=true;
+    document.querySelectorAll('.result-card-more[open],.result-os-menu[open],.result-more-actions[open],.subweb-tools[open]').forEach(details=>{details.open=false;});
+  }
   function closeMenus(){
+    closeLoosePopovers();
     if(typeof closeMobileMore==='function')closeMobileMore();
     for(const id of ['fileMenu','dataMenu','helpMenu']){
       const panel=document.getElementById(id),button=document.getElementById(id+'Button');
@@ -371,6 +377,7 @@ export function installNavigation(){
     if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
   });
   document.addEventListener('stat-close-floating',event=>{
+    closeLoosePopovers();
     const except=event.detail?.except||'';
     if(!['fileMenu','dataMenu','helpMenu','mobile-more'].includes(except))closeMenus();
     if(except!=='search')closeGlobalSearch();
