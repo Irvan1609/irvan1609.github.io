@@ -15,6 +15,7 @@ function ensureStyles(){
     body>.modal-backdrop,
     body>.analysis-result-dock,
     body>.mobile-dataset-backdrop,
+    body>.simple-web-dialog-backdrop,
     body>#columnContextMenu,
     body>.account-status,
     body>.agrotik-offline{zoom:var(--ui-scale)}
