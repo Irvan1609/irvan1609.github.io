@@ -162,6 +162,7 @@ export function installAnalysisFlow(){
   async function openDescriptor(item,sourceButton=null){
     if(!item)return;
     const [type,value,label]=item;closeMenu();if(sourceButton)sourceButton.disabled=true;
+    document.body.classList.add('analysis-mode-active');
     try{
       if(type==='design')await openScientificLazy(value);
       else if(type==='augmented')await lazyOpeners.augmented();
@@ -175,6 +176,7 @@ export function installAnalysisFlow(){
       else if(type==='mixed')await lazyOpeners.mixed();
     }catch(error){
       console.error('Analisis gagal dimuat',error);
+      document.body.classList.remove('analysis-mode-active');
       panel.hidden=false;open.setAttribute('aria-expanded','true');
       const loadError=$('#analysisLoadError');if(loadError){loadError.hidden=false;loadError.textContent=`${label} belum dapat dimuat. Coba lagi atau muat ulang halaman.`;}
     }finally{if(sourceButton)sourceButton.disabled=false;}
@@ -194,7 +196,8 @@ export function installAnalysisFlow(){
   });
   document.addEventListener('agrotik-run-recipe',async event=>{
     const recipe=event.detail?.recipe;if(!recipe)return;
-    try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error(error);}
+    document.body.classList.add('analysis-mode-active');
+    try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){document.body.classList.remove('analysis-mode-active');console.error(error);}
   });
   document.addEventListener('stat-dataset-changed',refreshSmartSuggestion);
   document.addEventListener('close-navigation',closeMenu);
