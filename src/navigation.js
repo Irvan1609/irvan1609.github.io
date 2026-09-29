@@ -22,17 +22,6 @@ export function installNavigation(){
     panel.dataset.anchorId=anchor.id||'';
   }
 
-  const editorActions=document.createElement('div');
-  editorActions.className='editor-inline-actions';
-  editorActions.setAttribute('aria-label','Aksi editor data');
-  const addRow=document.getElementById('addRow'),addCol=document.getElementById('addCol'),clear=document.getElementById('clearData');
-  if(addRow){addRow.textContent='+ Baris';addRow.title='Tambah baris';editorActions.append(addRow);}
-  if(addCol){addCol.textContent='+ Kolom';addCol.title='Tambah kolom';editorActions.append(addCol);}
-  if(clear){
-    clear.innerHTML='<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg>';
-    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');editorActions.append(clear);
-  }
-  if(editorActions.childElementCount)sheet.append(editorActions);
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
@@ -47,7 +36,7 @@ export function installNavigation(){
   const menuButtons=new Map();
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','validateDataset','transformData','outlierData','fieldbookTool']],
+    ['dataMenu','Data',['undoData','redoData','validateDataset','transformData','outlierData','fieldbookTool','clearData']],
     ['helpMenu','Bantuan',['dataTemplate','analysisHistory']]
   ]){
     const button=document.createElement('button');
@@ -125,6 +114,7 @@ export function installNavigation(){
     const panel=document.getElementById(id),button=document.getElementById(id+'Button');
     if(!panel)return;
     const opening=panel.hidden;
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:id}}));
     closeMenus();
     if(!opening)return;
     positionFloatingMenu(anchor||button,panel);
@@ -319,6 +309,7 @@ export function installNavigation(){
   }
 
   function openGlobalSearch(){
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'search'}}));
     if(!searchModal||!searchInput)return;
     closeMenus();
     searchModal.classList.add('open');
@@ -378,6 +369,16 @@ export function installNavigation(){
     }
     if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
   });
+  document.addEventListener('stat-close-floating',event=>{
+    const except=event.detail?.except||'';
+    if(!['fileMenu','dataMenu','helpMenu'].includes(except))closeMenus();
+    if(except!=='dataset-panel'){
+      document.documentElement.classList.remove('mobile-project-open');
+      projectToggle?.setAttribute('aria-expanded','false');
+    }
+  });
+  projectToggle?.addEventListener('click',()=>document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'dataset-panel'}})),{capture:true});
+
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openGlobalSearch();return;}
