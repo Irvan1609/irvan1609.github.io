@@ -949,14 +949,14 @@ function installGridPinchZoom(){
     pinch=null;
     applyGridZoom(gridZoom,{persist:true,announce:true});
     document.dispatchEvent(new CustomEvent('stat-grid-zoom-updated',{detail:{zoom:gridZoom}}));
-    if(wrap.dataset.virtualized==='1')renderGrid();
+    if(wrap.dataset.virtualized==='1')renderGrid();else requestAnimationFrame(()=>applyFrozenGrid(wrap));
   };
   wrap.addEventListener('touchend',finish,{passive:true});
   wrap.addEventListener('touchcancel',finish,{passive:true});
   document.addEventListener('stat-grid-zoom-change',event=>{
     const commit=event.detail?.commit!==false;
     applyGridZoom(event.detail?.zoom,{persist:commit,announce:commit});
-    if(commit&&wrap.dataset.virtualized==='1')renderGrid();
+    if(commit&&wrap.dataset.virtualized==='1')renderGrid();else requestAnimationFrame(()=>applyFrozenGrid(wrap));
   });
 }
 function virtualRowHeight(){return (document.documentElement?.classList?.contains('compact-data-editor')?32:40)*gridZoom;}
