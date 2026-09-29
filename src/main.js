@@ -1,8 +1,8 @@
-import { installAnalysisFlow } from './analysis-flow.js?v=20260928-parallel2';
+import { installAnalysisFlow } from './analysis-flow.js?v=20260928-resultfocus1';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js?v=20260928-mobile-editor-v1';
-import { installDataTools } from './data-tools.js?v=20260928-parallel1';
+import { installDataTools } from './data-tools.js?v=20260928-resultfocus1';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260928-mobile-editor-v1';
 import { installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
