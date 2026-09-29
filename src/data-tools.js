@@ -131,6 +131,13 @@ function applyParallelAnalysisLayout(body){
     const active=resultTargets.find(target=>target.children.length||String(target.textContent||'').trim());
     resultTargets.forEach(target=>target.classList.toggle('analysis-tool-result-active',target===active));
     body.classList.toggle('analysis-tool-results-only',!!active);
+    if(active&&!active.querySelector('.analysis-export-footer')){
+      active.setAttribute('data-all-results','');
+      const footer=document.createElement('section');footer.className='analysis-export-footer';footer.setAttribute('aria-label','Ekspor hasil');
+      footer.innerHTML='<div class="analysis-export-footer-head"><b>Ekspor hasil</b><span>Hasil analisis</span></div><div class="analysis-export-footer-actions"><button data-result-action="export-all">Excel (.xlsx)</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-generic-print-results>PDF / Cetak</button></div>';
+      active.append(footer);
+      footer.querySelector('[data-generic-print-results]').onclick=()=>{document.body.classList.add('print-analysis-mode');const clean=()=>document.body.classList.remove('print-analysis-mode');window.addEventListener('afterprint',clean,{once:true});window.print();setTimeout(clean,1500);};
+    }
   };
   const observer=new MutationObserver(sync);resultTargets.forEach(target=>observer.observe(target,{childList:true,subtree:true,characterData:true}));
   body._analysisResultObserver=observer;sync();
