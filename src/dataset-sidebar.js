@@ -13,11 +13,11 @@ function ensureStyle(){
     #fileTree .dataset-row-menu>summary{width:28px;height:28px;display:grid;place-items:center;cursor:pointer;list-style:none;border-radius:5px;color:#657582;font-size:15px;font-weight:800}
     #fileTree .dataset-row-menu>summary::-webkit-details-marker{display:none}
     #fileTree .dataset-row-menu[open]>summary,#fileTree .dataset-row-menu>summary:hover{background:#edf2f5;color:#29475e}
-    #fileTree .dataset-row-menu-body{position:fixed;left:0;top:0;right:auto;z-index:460;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 8px 20px rgba(25,43,58,.14)}
+    #fileTree .dataset-row-menu-body{position:fixed;left:0;top:0;right:auto;z-index:460;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 8px 20px rgba(25,43,58,.14);transform-origin:top right}
     #fileTree .dataset-row-menu-body button{width:100%;min-height:28px;padding:3px 6px;border:0;border-radius:4px;background:transparent;text-align:left;font-size:11px;color:#344b5d}
     #fileTree .dataset-row-menu-body button:hover{background:#f1f4f6}
     #fileTree .dataset-row-menu-body button[data-dataset-action="delete"]{color:#9c302a}
-    #projectPanel>.dataset-actions{display:none!important}
+    #projectPanel>.dataset-actions,#projectPanel>.dataset-more{display:none!important}
     @media(max-width:720px){
       #fileTree .dataset-tree-row{grid-template-columns:minmax(0,1fr) 38px;gap:2px}
       #fileTree .dataset-tree-row .tree-item{min-height:38px;padding:5px 6px}
@@ -57,17 +57,27 @@ function decorateTree(){
 function positionMenu(menu){
   const summary=menu?.querySelector('summary'),body=menu?.querySelector('.dataset-row-menu-body');
   if(!summary||!body)return;
-  summary.scrollIntoView({block:'nearest'});
   requestAnimationFrame(()=>{
     const rect=summary.getBoundingClientRect(),gap=2,pad=6,mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
     const width=Math.min(mobile?160:144,window.innerWidth-pad*2);
-    const reservedBottom=mobile?58:pad,bottomLimit=window.innerHeight-reservedBottom;
+    const reservedBottom=mobile?72:pad;
+    const spaceBelow=Math.max(0,window.innerHeight-reservedBottom-rect.bottom-gap);
+    const spaceAbove=Math.max(0,rect.top-pad-gap);
+    const openAbove=spaceBelow<150&&spaceAbove>spaceBelow;
+    const available=openAbove?spaceAbove:spaceBelow;
     const left=Math.max(pad,Math.min(window.innerWidth-width-pad,rect.right-width));
-    const top=Math.max(pad,rect.bottom+gap);
     body.style.width=width+'px';
     body.style.left=left+'px';
-    body.style.top=top+'px';
-    body.style.maxHeight=Math.max(96,bottomLimit-top)+'px';
+    body.style.maxHeight=Math.max(92,Math.min(300,available||92))+'px';
+    if(openAbove){
+      body.style.top='auto';
+      body.style.bottom=Math.max(pad,window.innerHeight-rect.top+gap)+'px';
+      body.dataset.side='above';
+    }else{
+      body.style.bottom='auto';
+      body.style.top=Math.max(pad,rect.bottom+gap)+'px';
+      body.dataset.side='below';
+    }
   });
 }
 function closeMenus(except=null){
