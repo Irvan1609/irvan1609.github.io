@@ -690,7 +690,16 @@ export function installScientificWorkflow(){
   $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
   $('#analysisDockAnalysis').onclick=()=>{$('#analysisDockMenu').hidden=true;globalThis.StatisticalWebWorkflow?.openAnalysis?.();};
-  $('#analysisDockMore').onclick=event=>{event.stopPropagation();const menu=$('#analysisDockMenu'),opening=menu.hidden;menu.hidden=!opening;$('#analysisDockMore').setAttribute('aria-expanded',String(opening));};
+  $('#analysisDockMore').onclick=event=>{
+    event.stopPropagation();
+    const menu=$('#analysisDockMenu'),host=$('#analysisDockResults'),opening=menu.hidden;
+    const selectors={copyWord:'[data-os-copy-word]',share:'[data-os-share]',bab4:'[data-result-action="export-bab4"]',excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-print-results], [data-generic-print-results]',check:'[data-thesis-check]',history:'[data-os-history]'};
+    menu.querySelectorAll('[data-dock-proxy]').forEach(button=>{
+      const action=button.dataset.dockProxy,key=action==='copy-word'?'copyWord':action;
+      button.hidden=!host?.querySelector(selectors[key]||'[data-never-match]');
+    });
+    menu.hidden=!opening;$('#analysisDockMore').setAttribute('aria-expanded',String(opening));
+  };
   $('#analysisDockMenu').onclick=event=>{
     const action=event.target.closest('[data-dock-proxy]')?.dataset.dockProxy;if(!action)return;
     const host=$('#analysisDockResults');
