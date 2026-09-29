@@ -80,7 +80,7 @@ for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
-if(!html.includes('/src/style.css?v=20260929-cleanmenus3')||!html.includes('/src/main.js?v=20260929-cleanmenus2'))fail('latest clean-menu editor asset version missing');
+if(!html.includes('/src/style.css?v=20260929-cleanmenus4')||!html.includes('/src/main.js?v=20260929-cleanmenus4'))fail('latest clean-menu editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -106,7 +106,11 @@ for(const marker of ["mobileBackButton.id='mobileBackButton'","['fileMenu','File
 for(const marker of ['analysisDockMore','analysisDockMenu','data-dock-proxy="excel"','data-dock-proxy="print"'])if(!scientific.includes(marker))fail('fixed result topbar action menu missing '+marker);
 for(const marker of ['dataToolResultMore','dataToolResultMenu','analysis-tool-result-mode','section.open=false'])if(!dataTools.includes(marker))fail('special result topbar/example collapse missing '+marker);
 for(const marker of ["state.headers=['Perlakuan']","state.rows=[['']]","data-add-col","data-add-row"])if(!main.includes(marker))fail('new 1x1 dataset/grid-corner controls missing '+marker);
-for(const marker of ['/* STAT CLEAN GRID CORNER + POPOVER EXCLUSIVITY FINAL 2026-09-29 */','.grid-add-controls{','display:grid!important','z-index:460!important'])if(!statStyle.includes(marker))fail('grid corner/exclusive popover styling missing '+marker);
+for(const marker of ['/* STAT CLEAN GRID CORNER + POPOVER EXCLUSIVITY FINAL 2026-09-29 */','.grid-add-controls{','grid-template-columns:repeat(2,minmax(0,1fr))!important','z-index:460!important'])if(!statStyle.includes(marker))fail('grid corner/exclusive popover styling missing '+marker);
+for(const marker of ['>+Col</button>','>+Row</button>'])if(!main.includes(marker))fail('compact grid corner control missing '+marker);
+for(const marker of ['summary.scrollIntoView({block:\'nearest\'})','rect.bottom+gap'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must stay attached below trigger: '+marker);
+for(const marker of ["except:'analysis-result-menu'",'stat-close-floating'])if(!scientific.includes(marker))fail('analysis result menu must participate in exclusive floating menus: '+marker);
+for(const marker of ["except:'data-tool-result-menu'",'stat-close-floating'])if(!dataTools.includes(marker))fail('special result menu must participate in exclusive floating menus: '+marker);
 for(const marker of ['/* STAT MOBILE OVERLAY PRIORITY FINAL 2026-09-29 */','#globalSearchModal.open','z-index:480!important'])if(!statStyle.includes(marker))fail('mobile overlay priority missing '+marker);
 for(const marker of ['stat-close-floating',"except:'settings'"])if(!displaySettings.includes(marker))fail('settings must participate in exclusive floating menus: '+marker);
 
