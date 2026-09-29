@@ -155,10 +155,7 @@ function installResultControls(container,reports,datasetName){
   };
   if(prev)prev.onclick=()=>step(-1);if(next)next.onclick=()=>step(1);
 
-  if(phoneGuardMode()&&sections().length){
-    container.classList.add('phone-parameter-mode');
-    const first=matching()[0];if(focus&&first)focus.value=first.dataset.parameter;
-  }else{
+  {
     let dragged=null;
     for(const section of sections()){
       const heading=section.querySelector(':scope > h3');if(!heading)continue;
@@ -194,7 +191,7 @@ function restoreAnalysisConfig(design){
   $('#scienceAlpha').value=String(saved.alpha===.01?.01:.05);
   $('#scienceAssumptions').checked=!!saved.assumptions;
   $('#scienceContrastMode').value=['none','custom','polynomial'].includes(saved.contrastMode)?saved.contrastMode:'none';
-  document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=(saved.parameters||[]).includes(data.headers[Number(input.value)]));
+  document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=isNumericColumn(Number(input.value)));
   document.querySelectorAll('[data-transform-param]').forEach(select=>{const name=data.headers[Number(select.dataset.transformParam)],value=saved.transforms?.[name];if(value&&[...select.options].some(option=>option.value===value))select.value=value;});
   return true;
 }
@@ -211,13 +208,15 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   let stale=false;
   try{const current=readDataset();stale=!!fingerprint&&current?.name===datasetName&&datasetFingerprint(current)!==fingerprint;}catch{}
   container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|presentation-results-mode|phone-parameter-mode|result-view-summary|result-view-anova|result-view-diagnostic|result-view-full)\b/g,'').trim();
-  container.classList.add('result-view-summary');
-  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div><div class="analysis-result-toolbar"><select class="simple-result-view-select" data-simple-result-view-select aria-label="Tampilan hasil"><option value="summary">Ringkas</option><option value="full">Detail</option></select><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select>${resultVersion?`<span class="analysis-version-badge">V${resultVersion}</span>`:''}<details class="result-tools-menu result-single-actions"><summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary><div class="result-compact-menu result-tools-menu-body"><label class="result-action-select">Tampilan<select data-result-mode-select><option value="">Normal</option><option value="compare">Bandingkan</option><option value="thesis">Skripsi</option><option value="publication">Publikasi</option><option value="presentation">Presentasi</option></select></label><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><button type="button" data-os-copy-word>Salin ke Word</button><button type="button" data-os-share>Salin ringkasan</button><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button type="button" data-print-results>PDF / Cetak</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-thesis-check>Periksa hasil</button><button type="button" data-os-history>Versi hasil</button><button hidden type="button" data-compare-mode aria-pressed="false"></button><button hidden type="button" data-thesis-table-mode aria-pressed="false"></button><button hidden type="button" data-publication-mode aria-pressed="false"></button><button hidden type="button" data-presentation-mode aria-pressed="false"></button></div></details><div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
+  container.classList.add('result-view-full','result-all-parameters');
+  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div>${resultVersion?`<div class="analysis-result-version">Versi ${resultVersion}</div>`:''}<div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}<section class="analysis-export-footer" aria-label="Ekspor hasil"><div class="analysis-export-footer-head"><b>Ekspor hasil</b><span>Semua parameter</span></div><div class="analysis-export-footer-actions"><button type="button" data-os-copy-word>Salin ke Word</button><button type="button" data-os-share>Salin ringkasan</button><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-print-results>PDF / Cetak</button><button type="button" data-thesis-check>Periksa hasil</button><button type="button" data-os-history>Versi hasil</button></div></section>`;
   container.dataset.datasetName=datasetName;container.dataset.analysisFingerprint=fingerprint;container.dataset.resultVersion=String(resultVersion||'');
   markResultsStale(container,stale);
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   installResultControls(container,ordered,datasetName);
+  container.querySelectorAll('.analysis-result details:not(.result-card-more)').forEach(details=>details.open=true);
   enhanceResultOS(container,ordered,{datasetName,resultVersion,stale});
+  container.querySelectorAll('.analysis-result details:not(.result-card-more)').forEach(details=>details.open=true);
   const rerun=container.querySelector('[data-rerun-stale]');if(rerun)rerun.onclick=async()=>{rerun.disabled=true;await quickRunLastScientific();};
   container.querySelectorAll('[data-print-results]').forEach(printButton=>printButton.onclick=()=>{
     document.body.classList.add('print-analysis-mode');
@@ -618,12 +617,9 @@ export function openScientific(design){
   $('#scienceAssumptions').checked=false;
   $('#sciencePosthoc').value='none';$('#scienceAlpha').value='0.05';
   $('#scienceContrastMode').value='none';$('#scienceContrastMode').disabled=multi;$('#scienceContrastHelp').textContent=multi?'Kontras/polinomial tersedia pada rancangan satu faktor RAL/RAK.':'';
-  const restored=restoreAnalysisConfig(design);
-  syncParameterRoleExclusions(!restored);
-  if(restored){
-    document.querySelectorAll('#scienceParameters input').forEach(input=>input.dataset.userTouched='true');
-    syncParameterRoleExclusions(false);
-  }
+  restoreAnalysisConfig(design);
+  document.querySelectorAll('#scienceParameters input').forEach(input=>{input.checked=isNumericColumn(Number(input.value));delete input.dataset.userTouched;});
+  syncParameterRoleExclusions(true);
   $('#sciencePreset').value='';
   if(pendingPreset&&PRESETS[pendingPreset]?.design===design){
     const value=pendingPreset;pendingPreset='';applyAnalysisPreset(value);
