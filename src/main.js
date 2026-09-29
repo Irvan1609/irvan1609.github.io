@@ -1,10 +1,10 @@
-import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus4';
+import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus6';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
-import {installNavigation} from './navigation.js?v=20260929-cleanmenus5';
-import { installDataTools } from './data-tools.js?v=20260929-cleanmenus5';
-import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260929-cleanmenus2';
-import { installResultExport } from './result-export.js';
+import {installNavigation} from './navigation.js?v=20260929-cleanmenus6';
+import { installDataTools } from './data-tools.js?v=20260929-cleanmenus6';
+import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260929-cleanmenus6';
+import { installResultExport } from './result-export.js?v=20260929-cleanmenus6';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from './agronomic-data-dictionary.js';
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
