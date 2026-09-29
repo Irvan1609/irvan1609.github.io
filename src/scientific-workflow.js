@@ -436,6 +436,7 @@ function validate(){
   $('#scienceValidation').querySelectorAll('[data-focus-error-row]').forEach(button=>button.onclick=()=>{
     const row=Number(button.dataset.focusErrorRow),column=Number(button.dataset.focusErrorCol);
     $('#scientificModal').classList.remove('open');
+    document.body.classList.remove('analysis-mode-active');
     globalThis.StatisticalWebData?.focusCell?.(row,column);
   });
   document.querySelectorAll('.data-grid td.data-invalid').forEach(td=>td.classList.remove('data-invalid'));
@@ -589,6 +590,7 @@ async function analyze(){
   }
 }
 export function openScientific(design){
+  document.body.classList.add('analysis-mode-active');
   revision++;
   data=readDataset();currentDesign=design;
   $('#scienceTitle').textContent=designNames[design]||'Analisis data';
@@ -684,8 +686,8 @@ export function installScientificWorkflow(){
     </main><div id="scienceResults" data-all-results></div></div>
     <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Analisis</button></div></div>
   </div></div>`);
-  const close=()=>$('#scientificModal').classList.remove('open');$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
-  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
+  const close=()=>{$('#scientificModal').classList.remove('open');document.body.classList.remove('analysis-mode-active');};$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
+  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
   $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
   $('#analysisDockAnalysis').onclick=()=>globalThis.StatisticalWebWorkflow?.openAnalysis?.();
   $('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
@@ -714,6 +716,6 @@ export function installScientificWorkflow(){
       markResultsStale(container,!!container.dataset.analysisFingerprint&&container.dataset.analysisFingerprint!==fingerprint);
     });
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const dock=$('#analysisResultDock');if(dock&&!dock.hidden){dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open');return;}close();$('#dataToolModal').classList.remove('open');}});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const dock=$('#analysisResultDock');if(dock&&!dock.hidden){dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');return;}close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
 }
