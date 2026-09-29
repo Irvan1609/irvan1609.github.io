@@ -117,7 +117,7 @@ export function installDataTools(){
   };
 }
 function applyParallelAnalysisLayout(body){
-  body.classList.remove('analysis-tool-parallel-body');
+  body.classList.remove('analysis-tool-parallel-body','analysis-tool-results-only');
   body.querySelector('.analysis-tool-parallel-grid')?.replaceWith(...body.querySelector('.analysis-tool-parallel-grid')?.children||[]);
   body.classList.add('analysis-tool-parallel-body');
   const candidates=[...body.children].filter(el=>el.matches('.form-grid,fieldset,details,#associationFields'));
@@ -125,6 +125,15 @@ function applyParallelAnalysisLayout(body){
     const grid=document.createElement('div');grid.className='analysis-tool-parallel-grid';
     candidates[0].before(grid);grid.append(candidates[0],candidates[1]);
   }
+  body._analysisResultObserver?.disconnect?.();
+  const resultTargets=[...body.querySelectorAll('[data-all-results],#assocResult,#advancedResult,#nextGenResult,#mixedResult,#siResult,#powerResult')];
+  const sync=()=>{
+    const active=resultTargets.find(target=>target.children.length||String(target.textContent||'').trim());
+    resultTargets.forEach(target=>target.classList.toggle('analysis-tool-result-active',target===active));
+    body.classList.toggle('analysis-tool-results-only',!!active);
+  };
+  const observer=new MutationObserver(sync);resultTargets.forEach(target=>observer.observe(target,{childList:true,subtree:true,characterData:true}));
+  body._analysisResultObserver=observer;sync();
 }
 export function openTool(title,html,mode=''){
   const modal=$('#dataToolModal'),body=$('#dataToolBody');
