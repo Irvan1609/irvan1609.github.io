@@ -46,6 +46,7 @@ function installExampleDatasets(){
     $('#copyExampleDataset').onclick=()=>{
       try{
         importDataset({name:template.name,headers:[...template.headers],rows:rows.map(row=>[...row])});
+        section.open=false;
         $('#dataToolModal').classList.remove('open');
       }catch(error){$('#exampleDatasetStatus').textContent=error.message;}
     };
@@ -56,8 +57,11 @@ export function installDataTools(){
   const toolbar=$('.toolbar');
   toolbar.insertAdjacentHTML('beforeend','<button id="importXlsx">Impor Excel</button><button id="dataTemplate">Template data</button><button id="analysisHistory">Riwayat analisis</button>');
   installDataEnhancements();
-  document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head"><strong id="dataToolTitle"></strong><button id="closeDataTool" aria-label="Tutup">✕</button></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
-  $('#closeDataTool').onclick=()=>{const modal=$('#dataToolModal');modal.classList.remove('open');if(['parallel-analysis','augmented'].includes(modal.dataset.toolMode))document.body.classList.remove('analysis-mode-active');};
+  document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head data-tool-head"><button id="closeDataTool" aria-label="Tutup">✕</button><strong id="dataToolTitle"></strong><button id="dataToolResultMore" type="button" aria-label="Aksi hasil" aria-expanded="false" hidden>•••</button><div id="dataToolResultMenu" class="analysis-dock-menu data-tool-result-menu" hidden><button type="button" data-tool-proxy="excel">Excel (.xlsx)</button><button type="button" data-tool-proxy="formula">Excel formula</button><button type="button" data-tool-proxy="print">PDF / Cetak</button></div></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
+  $('#closeDataTool').onclick=()=>{const modal=$('#dataToolModal');modal.classList.remove('open','analysis-tool-result-mode');$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');if(['parallel-analysis','augmented'].includes(modal.dataset.toolMode))document.body.classList.remove('analysis-mode-active');};
+  $('#dataToolResultMore').onclick=event=>{event.stopPropagation();const menu=$('#dataToolResultMenu'),opening=menu.hidden;menu.hidden=!opening;$('#dataToolResultMore').setAttribute('aria-expanded',String(opening));};
+  $('#dataToolResultMenu').onclick=event=>{const action=event.target.closest('[data-tool-proxy]')?.dataset.toolProxy;if(!action)return;const host=$('#dataToolBody .analysis-tool-result-active');const selectors={excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-generic-print-results], [data-print-results]'};host?.querySelector(selectors[action])?.click();$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');};
+  document.addEventListener('click',event=>{if(!event.target.closest('#dataToolResultMore,#dataToolResultMenu')){$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');}});
   installExampleDatasets();
   $('#importXlsx').onclick=()=>$('#xlsxInput').click();
   $('#xlsxInput').onchange=async event=>{
@@ -103,6 +107,7 @@ export function installDataTools(){
     $('#createTemplateDataset').onclick=()=>{try{
       const template=getDataTemplate($('#templateDesign').value),rows=rowsForEditor(template,getDecimalSeparator());
       importDataset({name:template.name,headers:template.headers,rows});
+      const examples=$('#exampleDatasets');if(examples)examples.open=false;
       const status=$('#status');if(status)status.textContent=`✓ Dataset ${template.label} dibuat dari template dan siap diedit.`;
       $('#dataToolModal').classList.remove('open');
     }catch(e){$('#templateStatus').textContent=e.message;}};
@@ -131,6 +136,10 @@ function applyParallelAnalysisLayout(body){
     const active=resultTargets.find(target=>target.children.length||String(target.textContent||'').trim());
     resultTargets.forEach(target=>target.classList.toggle('analysis-tool-result-active',target===active));
     body.classList.toggle('analysis-tool-results-only',!!active);
+    const modal=$('#dataToolModal'),more=$('#dataToolResultMore');
+    modal?.classList.toggle('analysis-tool-result-mode',!!active);
+    if(more)more.hidden=!active;
+    if(!active){$('#dataToolResultMenu').hidden=true;more?.setAttribute('aria-expanded','false');}
     if(active&&!active.querySelector('.analysis-export-footer')){
       active.setAttribute('data-all-results','');
       const footer=document.createElement('section');footer.className='analysis-export-footer';footer.setAttribute('aria-label','Ekspor hasil');
