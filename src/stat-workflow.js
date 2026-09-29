@@ -30,10 +30,12 @@ function setDockOpen(open){
   if(open&&!hasResults())return false;
   dock.hidden=!open;dock.dataset.open=String(open);
   document.body.classList.toggle('analysis-results-open',open);
+  if(open)document.body.classList.add('analysis-mode-active');
   return true;
 }
 function openData(){
   setDockOpen(false);
+  document.body.classList.remove('analysis-mode-active');
   document.querySelector('#scientificModal')?.classList.remove('open');
   document.querySelector('#fieldLayoutModal')?.classList.remove('open','field-mode');
   document.body.classList.remove('field-layout-open');
@@ -44,6 +46,7 @@ function openData(){
 }
 async function openField(){
   setDockOpen(false);
+  document.body.classList.remove('analysis-mode-active');
   if(globalThis.AgrotikFieldLayout?.open){globalThis.AgrotikFieldLayout.open();return;}
   try{const {openFieldLayout}=await import('./field-layout.js');openFieldLayout();}
   catch(error){console.error('Denah lahan gagal dibuka',error);}
@@ -51,13 +54,14 @@ async function openField(){
 function openSetup(){
   setDockOpen(false);
   const science=document.querySelector('#scientificModal');
-  if(science?.classList.contains('open')){setActive('setup');return;}
+  if(science?.classList.contains('open')){document.body.classList.add('analysis-mode-active');setActive('setup');return;}
   const tool=document.querySelector('#dataToolModal');
-  if(tool?.classList.contains('open')&&tool.dataset.toolMode==='augmented'){setActive('setup');return;}
+  if(tool?.classList.contains('open')&&['augmented','parallel-analysis'].includes(tool.dataset.toolMode)){document.body.classList.add('analysis-mode-active');setActive('setup');return;}
   openAnalysis();
 }
 function openAnalysis(){
   setDockOpen(false);
+  document.body.classList.remove('analysis-mode-active');
   document.querySelector('#openAnalysis')?.click();
   setActive('analysis');
 }
