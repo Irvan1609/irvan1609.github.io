@@ -22,6 +22,7 @@ const LEGACY_ACTIVE_KEY='statistical_web_active_txt_v2';
 const META_KEY='statistical_web_dataset_meta_v1';
 const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
+const FROZEN_COLUMNS_KEY='statistical_web_frozen_columns_v1';
 const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
 const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
@@ -563,11 +564,95 @@ function setColumnVisualWidth(wrap,index,width){
   if(th){th.style.width=value+'px';th.style.minWidth=value+'px';th.style.maxWidth=value+'px';}
   wrap.querySelectorAll(`td[data-c="${index}"]`).forEach(cell=>{cell.style.width=value+'px';cell.style.minWidth=value+'px';cell.style.maxWidth=value+'px';});
 }
+function frozenColumnStore(){
+  try{const value=JSON.parse(localStorage.getItem(FROZEN_COLUMNS_KEY)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
+}
+function frozenColumnNames(){
+  const list=frozenColumnStore()[state.active];
+  return Array.isArray(list)?state.headers.filter(header=>list.includes(header)):[];
+}
+function saveFrozenColumnNames(names){
+  const store=frozenColumnStore(),valid=state.headers.filter(header=>names.includes(header));
+  if(valid.length)store[state.active]=valid;else delete store[state.active];
+  try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
+  return valid;
+}
+function moveFrozenDataset(previous,next){
+  const store=frozenColumnStore();if(previous===next||!Array.isArray(store[previous]))return;
+  store[next]=store[previous];delete store[previous];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
+}
+function copyFrozenDataset(source,target){
+  const store=frozenColumnStore();if(!Array.isArray(store[source]))return;
+  store[target]=[...store[source]];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
+}
+function deleteFrozenDataset(name){
+  const store=frozenColumnStore();if(!(name in store))return;
+  delete store[name];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
+}
+function removeFrozenColumnName(header){
+  const current=frozenColumnNames();if(!current.includes(header))return;
+  saveFrozenColumnNames(current.filter(name=>name!==header));
+}
+function applyFrozenColumns(wrap=$('#gridWrap')){
+  const table=wrap?.querySelector('.data-grid');if(!table)return;
+  const selected=new Set(frozenColumnNames());
+  wrap.classList.toggle('has-frozen-columns',selected.size>0);
+  wrap.querySelectorAll('.column-frozen').forEach(node=>{node.classList.remove('column-frozen');node.style.removeProperty('--freeze-left');});
+  if(!selected.size)return;
+  const corner=table.querySelector('thead .row-number');
+  let left=Math.ceil(corner?.getBoundingClientRect().width||56);
+  state.headers.forEach((header,index)=>{
+    if(!selected.has(header))return;
+    const th=table.querySelector('th[data-column-index="'+index+'"]'),width=Math.ceil(th?.getBoundingClientRect().width||savedColumnWidth(index)||96);
+    [th,...table.querySelectorAll('td[data-c="'+index+'"]')].filter(Boolean).forEach(node=>{node.classList.add('column-frozen');node.style.setProperty('--freeze-left',left+'px');});
+    left+=width;
+  });
+}
+function ensureFreezeColumnsDialog(){
+  let dialog=$('#freezeColumnsDialog');if(dialog)return dialog;
+  dialog=document.createElement('div');dialog.id='freezeColumnsDialog';dialog.className='simple-web-dialog-backdrop';dialog.hidden=true;
+  dialog.innerHTML='<form class="simple-web-dialog freeze-columns-dialog"><div class="simple-web-dialog-head"><strong>Freeze kolom</strong><button type="button" data-simple-close aria-label="Tutup">×</button></div><div class="simple-web-dialog-body"><p>Pilih kolom yang tetap terlihat saat tabel digeser ke kanan.</p><div id="freezeColumnsList" class="freeze-columns-list"></div></div><div class="simple-web-dialog-actions"><button type="button" data-freeze-clear>Tidak ada</button><button type="submit" class="primary">Simpan</button></div></form>';
+  document.body.append(dialog);
+  const close=()=>{dialog.hidden=true;};
+  dialog.querySelector('[data-simple-close]').onclick=close;
+  dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
+  dialog.querySelector('[data-freeze-clear]').onclick=()=>{saveFrozenColumnNames([]);applyFrozenColumns();dialog.hidden=true;setStatus('✓ Freeze kolom dilepas.');};
+  dialog.querySelector('form').onsubmit=event=>{
+    event.preventDefault();
+    const names=[...dialog.querySelectorAll('[data-freeze-index]:checked')].map(input=>state.headers[Number(input.dataset.freezeIndex)]).filter(Boolean);
+    const saved=saveFrozenColumnNames(names);applyFrozenColumns();dialog.hidden=true;
+    setStatus(saved.length?'✓ '+saved.length+' kolom di-freeze.':'✓ Freeze kolom dilepas.');
+  };
+  return dialog;
+}
+function openFreezeColumns(){
+  document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'freeze-columns'}}));
+  const dialog=ensureFreezeColumnsDialog(),selected=new Set(frozenColumnNames()),list=dialog.querySelector('#freezeColumnsList');
+  list.innerHTML=state.headers.length?state.headers.map((header,index)=>'<label class="freeze-column-option"><input type="checkbox" data-freeze-index="'+index+'" '+(selected.has(header)?'checked':'')+'><span>'+esc(header)+'</span></label>').join(''):'<p class="form-help">Belum ada kolom.</p>';
+  dialog.hidden=false;
+}
+function ensureDeleteDatasetDialog(){
+  let dialog=$('#deleteDatasetDialog');if(dialog)return dialog;
+  dialog=document.createElement('div');dialog.id='deleteDatasetDialog';dialog.className='simple-web-dialog-backdrop';dialog.hidden=true;
+  dialog.innerHTML='<div class="simple-web-dialog delete-dataset-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDatasetDialogTitle"><div class="simple-web-dialog-head"><strong id="deleteDatasetDialogTitle">Hapus dataset?</strong><button type="button" data-simple-close aria-label="Tutup">×</button></div><div class="simple-web-dialog-body"><b id="deleteDatasetDialogName"></b><p id="deleteDatasetDialogInfo"></p></div><div class="simple-web-dialog-actions"><button type="button" data-delete-cancel>Batal</button><button type="button" class="simple-danger" data-delete-confirm>Hapus</button></div></div>';
+  document.body.append(dialog);return dialog;
+}
+function confirmDeleteDataset(name,detail){
+  document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'delete-dataset'}}));
+  const dialog=ensureDeleteDatasetDialog();dialog.querySelector('#deleteDatasetDialogName').textContent=name;dialog.querySelector('#deleteDatasetDialogInfo').textContent=detail;dialog.hidden=false;
+  return new Promise(resolve=>{
+    const finish=value=>{dialog.hidden=true;dialog.querySelector('[data-delete-confirm]').onclick=null;dialog.querySelector('[data-delete-cancel]').onclick=null;dialog.querySelector('[data-simple-close]').onclick=null;resolve(value);};
+    dialog.querySelector('[data-delete-confirm]').onclick=()=>finish(true);
+    dialog.querySelector('[data-delete-cancel]').onclick=()=>finish(false);
+    dialog.querySelector('[data-simple-close]').onclick=()=>finish(false);
+    dialog.onclick=event=>{if(event.target===dialog)finish(false);};
+  });
+}
 function autoSizeColumn(wrap,index){
   const th=wrap.querySelector(`th[data-column-index="${index}"]`);if(!th)return;
   let width=Math.max(90,th.querySelector('.header-controls')?.scrollWidth||th.scrollWidth||90);
   wrap.querySelectorAll(`td[data-c="${index}"]`).forEach(cell=>{width=Math.max(width,Math.min(380,cell.scrollWidth+24));});
-  width=Math.min(380,width+12);setColumnVisualWidth(wrap,index,width);saveColumnWidth(index,width);
+  width=Math.min(380,width+12);setColumnVisualWidth(wrap,index,width);saveColumnWidth(index,width);applyFrozenColumns(wrap);
 }
 function bindColumnResize(wrap){
   wrap.querySelectorAll('[data-resize-column]').forEach(handle=>{
@@ -579,7 +664,7 @@ function bindColumnResize(wrap){
       const move=moveEvent=>setColumnVisualWidth(wrap,index,startWidth+(moveEvent.clientX-startX));
       const stop=stopEvent=>{
         handle.releasePointerCapture?.(stopEvent.pointerId);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);
-        document.documentElement.classList.remove('column-resizing');const current=wrap.querySelector(`th[data-column-index="${index}"]`);if(current)saveColumnWidth(index,current.getBoundingClientRect().width);
+        document.documentElement.classList.remove('column-resizing');const current=wrap.querySelector(`th[data-column-index="${index}"]`);if(current)saveColumnWidth(index,current.getBoundingClientRect().width);applyFrozenColumns(wrap);
       };
       handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);
     });
@@ -595,7 +680,7 @@ function deleteColumnAt(index){
   const j=Number(index),header=state.headers[j];if(!header)return;
   const filled=state.rows.filter(row=>String(row[j]??'').trim()!=='').length,warning=filled>=100?`Kolom ini berisi ${filled} nilai. `:'';
   if(!confirm(`${warning}Hapus kolom ${header} beserta datanya?`))return;
-  pushUndo('hapus kolom');removeCategoryColumn(displayDatasetName(state.active),header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];
+  pushUndo('hapus kolom');removeCategoryColumn(displayDatasetName(state.active),header);removeFrozenColumnName(header);state.headers.splice(j,1);state.rows.forEach(row=>row.splice(j,1));if(!state.headers.length)state.rows=[];
   persist('hapus kolom',true);clearSelection();renderGrid();setStatus('Kolom dihapus.');
 }
 function ensureColumnContextMenu(){
@@ -604,6 +689,7 @@ function ensureColumnContextMenu(){
   menu.innerHTML='<button data-col-action="metadata">Parameter & metadata</button><button data-col-action="delete-row" data-requires-row class="danger-text">Hapus baris</button><button data-col-action="delete-column" class="danger-text">Hapus kolom</button>';
   document.body.append(menu);
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('#columnContextMenu'))menu.hidden=true;});
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='column-context-menu')menu.hidden=true;});
   return menu;
 }
 function bindColumnLongPress(button,index){
@@ -617,7 +703,7 @@ function bindColumnLongPress(button,index){
   button.addEventListener('pointerup',clear);button.addEventListener('pointercancel',clear);
 }
 function openColumnContextMenu(event,index,row=null){
-  event.preventDefault();const menu=ensureColumnContextMenu();menu.dataset.column=String(index);
+  event.preventDefault();document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'column-context-menu'}}));const menu=ensureColumnContextMenu();menu.dataset.column=String(index);
   if(Number.isInteger(row))menu.dataset.row=String(row);else delete menu.dataset.row;
   menu.querySelectorAll('[data-requires-row]').forEach(button=>button.hidden=!Number.isInteger(row));
   menu.hidden=false;
@@ -863,7 +949,7 @@ function renderGridRows(wrap,types,widths,quality,{force=false}={}){
   const span=state.headers.length+1,top=windowInfo.top?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.top+'px"></td></tr>':'';
   const bottom=windowInfo.bottom?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.bottom+'px"></td></tr>':'';
   tbody.innerHTML=top+state.rows.slice(windowInfo.start,windowInfo.end).map((row,offset)=>rowMarkup(row,windowInfo.start+offset,types,widths,quality)).join('')+bottom;
-  bindGridBody(wrap);paintSelection();positionFillHandle();
+  bindGridBody(wrap);applyFrozenColumns(wrap);paintSelection();positionFillHandle();
 }
 function ensureGridRowVisible(row){
   const wrap=$('#gridWrap');if(!wrap||wrap.dataset.virtualized!=='1')return;
@@ -966,7 +1052,7 @@ function saveDatasetName(event) {
     const meta={...state.meta},oldKey=displayDatasetName(previous),newKey=displayDatasetName(target);
     meta[target]=meta[previous]||{plant:'',treatment:''};delete meta[previous];
     localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,target);localStorage.setItem(META_KEY,JSON.stringify(meta));
-    if(previous!==target){moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);}
+    if(previous!==target){moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);moveFrozenDataset(previous,target);}
     const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
     state.files=files;state.active=target;state.meta=meta;
     if(offloaded)void saveLocalDataset(target,content).then(()=>deleteLocalDataset(previous)).catch(error=>showError('Dataset besar gagal diganti nama.',error));
@@ -976,11 +1062,11 @@ function saveDatasetName(event) {
     $('#datasetNameModal').classList.remove('open');renderTree();renderGrid();renderDatasetMeta();setStatus(`✓ Dataset diganti nama menjadi ${displayDatasetName(target)}.`);
   }catch(e){box.hidden=false;box.textContent='Nama dataset tidak dapat disimpan.';showError('Gagal mengganti nama dataset.',e);}
 }
-function deleteDataset(){
+async function deleteDataset(){
   const name=displayDatasetName(state.active),rows=state.rows.length,cols=state.headers.length;
-  const detail=rows||cols?`${rows} baris × ${cols} kolom beserta metadata dan riwayat lokal`:'dataset kosong beserta metadata dan riwayat lokal';
-  if(!confirm(`Hapus dataset “${name}” secara permanen dari perangkat ini?\n\nCakupan: ${detail}.\nTindakan ini tidak dapat diurungkan.`))return;
-  const removed=state.active,removedStored=state.files[removed];removeCategoryDataset(name);removeTreatmentMetadataDataset(name);delete state.files[removed];delete state.meta[removed];
+  const detail=rows||cols?`${rows} baris × ${cols} kolom`:'Dataset kosong';
+  if(!await confirmDeleteDataset(name,detail))return;
+  const removed=state.active,removedStored=state.files[removed];removeCategoryDataset(name);removeTreatmentMetadataDataset(name);deleteFrozenDataset(removed);delete state.files[removed];delete state.meta[removed];
   try{const all=editorHistoryStore();delete all[name];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));}catch{}
   state.active=Object.keys(state.files)[0]||'dataset.csv';if(!(state.active in state.files))state.files[state.active]='';
   try{saveFilesManifest();localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch(error){return showError('Dataset tidak dapat dihapus.',error);}
@@ -994,7 +1080,7 @@ function duplicateDataset(){
   while(Object.prototype.hasOwnProperty.call(state.files,name))name=`${base} (${n++}).csv`;
   const offloaded=localStoreReady()&&shouldOffloadDataset(content);
   state.files[name]=offloaded?localPointer(name):content;state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
-  copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));
+  copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));copyFrozenDataset(source,name);
   try{
     localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);
     if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Salinan besar gagal disimpan.',error));
@@ -1160,7 +1246,7 @@ function installDataGrid(){
       showError('Gagal membuat dataset.',error);
     }
   });
-  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#activeFile').onclick=renameDataset;$('#activeFile').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();renameDataset();}};$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();installPanelResize();ensureGridFind();ensureMobileDatasetBackdrop();
+  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#freezeColumns').onclick=openFreezeColumns;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#activeFile').onclick=renameDataset;$('#activeFile').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();renameDataset();}};$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();installPanelResize();ensureGridFind();ensureMobileDatasetBackdrop();
   document.documentElement?.classList?.add('compact-data-editor');
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
