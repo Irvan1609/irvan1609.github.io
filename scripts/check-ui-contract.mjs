@@ -20,6 +20,8 @@ const report = fs.readFileSync('src/report-utils.js', 'utf8');
 const printApp = fs.readFileSync('print-skripsi/app.js', 'utf8');
 const dataTools = fs.readFileSync('src/data-tools.js', 'utf8');
 const dataEnhancements = fs.readFileSync('src/data-enhancements.js', 'utf8');
+const analysisFlow = fs.readFileSync('src/analysis-flow.js', 'utf8');
+const statWorkflow = fs.readFileSync('src/stat-workflow.js', 'utf8');
 const designExtensions = fs.readFileSync('src/design-extensions-workflow.js', 'utf8');
 const associationWorkflow = fs.readFileSync('src/association-workflow.js', 'utf8');
 const advancedWorkflow = fs.readFileSync('src/advanced-workflow.js', 'utf8');
@@ -78,7 +80,7 @@ for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
-if(!html.includes('/src/style.css?v=20260928-resultfocus2')||!html.includes('/src/main.js?v=20260928-resultfocus2'))fail('latest result-focus asset version missing');
+if(!html.includes('/src/style.css?v=20260929-dockhide1')||!html.includes('/src/main.js?v=20260929-dockhide1'))fail('latest analysis-hide dock asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -94,6 +96,10 @@ if(!dataTools.includes("mode==='parallel-analysis'")||!dataTools.includes('analy
 for(const [name,source] of [['design extensions',designExtensions],['association',associationWorkflow],['advanced',advancedWorkflow],['nonparametric',nonparametricWorkflow],['power',powerWorkflow],['nextgen',nextgenWorkflow],['mixed',mixedWorkflow],['stability',stabilityWorkflow]])if(!source.includes("'parallel-analysis'")&&!source.includes('"parallel-analysis"'))fail(name+' analysis must use parallel layout');
 for(const marker of ['/* STAT PARALLEL ANALYSIS WORKSPACES FINAL 2026-09-28 */','.science-parallel-grid','.analysis-tool-parallel-grid','@media(max-width:820px)'])if(!statStyle.includes(marker))fail('parallel analysis styling missing '+marker);
 for(const marker of ['.analysis-export-footer','.result-all-parameters','#dataToolBody.analysis-tool-results-only','body.analysis-results-open #analysisDockData'])if(!statStyle.includes(marker))fail('result-focused styling missing '+marker);
+
+for(const marker of ['/* STAT CLEAN MOBILE DOCK + ANALYSIS HIDE FINAL 2026-09-29 */','grid-template-columns:repeat(4,minmax(0,1fr))!important','body.analysis-mode-active .app-header','body.analysis-mode-active.analysis-results-open .analysis-result-dock'])if(!statStyle.includes(marker))fail('clean analysis-aware mobile dock missing '+marker);
+for(const [name,source] of [['analysis flow',analysisFlow],['scientific workflow',scientific],['data tools',dataTools],['stat workflow',statWorkflow]])if(!source.includes('analysis-mode-active'))fail(name+' must synchronize analysis-mode-active');
+
 if(!dataTools.includes('analysis-tool-results-only')||!dataTools.includes('analysis-export-footer'))fail('generic analyses must collapse to result-only view with export footer');
 
 
