@@ -77,8 +77,8 @@ for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!nav
 for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
-for(const marker of ['/* STAT MOBILE NON-OVERLAY DOCK 2026-09-28 */','grid-template-rows:minmax(0,1fr) auto!important','position:relative!important','inset:auto!important'])if(!statStyle.includes(marker))fail('non-overlay phone dock missing '+marker);
-if(!html.includes('/src/style.css?v=20260928-parallel-analysis1')||!html.includes('/src/main.js?v=20260928-parallel-analysis2'))fail('latest parallel analysis asset version missing');
+for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
+if(!html.includes('/src/style.css?v=20260928-resultfocus1')||!html.includes('/src/main.js?v=20260928-resultfocus1'))fail('latest result-focus asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -87,12 +87,14 @@ for(const marker of ['width:144px','min-height:28px','width:160px','min-height:3
 
 if(!html.includes('<details class="dataset-more" hidden aria-hidden="true">'))fail('duplicate inline dataset actions must remain hidden');
 
-if(!scientific.includes('<summary aria-label="Aksi hasil" title="Aksi hasil">•••</summary>'))fail('result actions must remain consolidated in the ellipsis menu');
+for(const marker of ['result-view-full','result-all-parameters','analysis-export-footer','Excel (.xlsx)','Excel formula','PDF / Cetak'])if(!scientific.includes(marker))fail('full result/export footer missing '+marker);
 
 for(const marker of ['science-parallel-grid','science-parallel-left','science-parallel-right'])if(!scientific.includes(marker))fail('scientific analysis parallel layout missing '+marker);
 if(!dataTools.includes("mode==='parallel-analysis'")||!dataTools.includes('analysis-tool-parallel-grid'))fail('generic parallel analysis layout support missing');
 for(const [name,source] of [['design extensions',designExtensions],['association',associationWorkflow],['advanced',advancedWorkflow],['nonparametric',nonparametricWorkflow],['power',powerWorkflow],['nextgen',nextgenWorkflow],['mixed',mixedWorkflow],['stability',stabilityWorkflow]])if(!source.includes("'parallel-analysis'")&&!source.includes('"parallel-analysis"'))fail(name+' analysis must use parallel layout');
 for(const marker of ['/* STAT PARALLEL ANALYSIS WORKSPACES FINAL 2026-09-28 */','.science-parallel-grid','.analysis-tool-parallel-grid','@media(max-width:820px)'])if(!statStyle.includes(marker))fail('parallel analysis styling missing '+marker);
+for(const marker of ['.analysis-export-footer','.result-all-parameters','#dataToolBody.analysis-tool-results-only','body.analysis-results-open #analysisDockData'])if(!statStyle.includes(marker))fail('result-focused styling missing '+marker);
+if(!dataTools.includes('analysis-tool-results-only')||!dataTools.includes('analysis-export-footer'))fail('generic analyses must collapse to result-only view with export footer');
 
 
 for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
@@ -187,9 +189,10 @@ if(!main.includes('bindGridArrowNavigation')||!main.includes('bindColumnFormArro
 for(const marker of ['pushUndo','undoEditor','redoEditor','pasteIntoGrid','selectionRange','copySelectedCells','duplicateDataset','recordEditorHistory','showRawDataset','showDatasetMetadata','showDatasetHistory','installEditorShortcuts'])if(!main.includes(marker))fail(`editor feature missing ${marker}`);
 if(!main.includes('detectColumnType')||!main.includes('columnTooltip'))fail('editor must detect column types and expose metadata tooltips');
 if(!statStyle.includes('.cell-selected')||!statStyle.includes('.compact-data-editor')||!statStyle.includes('.save-indicator'))fail('editor CSS missing selection/compact/autosave styles');
-for(const marker of ['/* STAT NON-DISRUPTIVE SPREADSHEET UX 2026-09-27 */','.data-grid thead th:nth-child(2)','left:58px!important','.data-grid td.cell-axis-row','@media(max-width:720px)']){
-  if(!statStyle.includes(marker))fail('responsive spreadsheet orientation/freeze styling missing '+marker);
+for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','.data-grid thead th:nth-child(2)','position:static!important','.data-grid td.cell-axis-row','@media(max-width:720px)']){
+  if(!statStyle.includes(marker))fail('stable spreadsheet styling missing '+marker);
 }
+if(/left:58px!important/.test(statStyle.slice(statStyle.indexOf('/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */'))))fail('final spreadsheet layer must not freeze data columns');
 if(!dataTools.includes("plant:$('#plantName')")||!dataTools.includes("treatment:$('#treatmentName')"))fail('analysis dataset must carry plant and treatment metadata');
 if(!scientific.includes('data-print-results')||!scientific.includes('datasetMeta={plant:data.plant'))fail('scientific results must include print mode and dataset context');
 
@@ -245,7 +248,7 @@ if(html.includes('id="focusData"')||html.includes('id="toggleDatasetMeta"'))fail
 if(!html.includes('contenteditable="true" role="textbox" aria-label="Tanaman"')||!html.includes('contenteditable="true" role="textbox" aria-label="Perlakuan"'))fail('plant and treatment metadata must be directly editable');
 if(!statStyle.includes('.analysis-command-panel')||!statStyle.includes('.column-drag-handle')||!statStyle.includes('.result-collapse-toggle'))fail('responsive analysis/column-drag/collapse styles are missing');
 if(!scientific.includes('data-thesis-table-mode')||!scientific.includes('thesis-table-mode')||!scientific.includes('data-summary-parameter'))fail('compact analysis results must provide thesis-table mode and summary-to-parameter navigation');
-for(const marker of ['data-simple-result-view-select','result-single-actions','data-result-mode-select','data-os-copy-word','export-bab4','scienceParameters','scienceTransforms','science-param-check','Parameter numerik dipilih otomatis'])if(!scientific.includes(marker))fail('compact result/parameter workflow missing '+marker);
+for(const marker of ['data-os-copy-word','export-bab4','scienceParameters','scienceTransforms','science-param-check','Parameter numerik dipilih otomatis','input.checked=isNumericColumn','syncParameterRoleExclusions(true)'])if(!scientific.includes(marker))fail('full result/all-parameter workflow missing '+marker);
 for(const marker of ['result-card-actions','result-card-copy','result-card-export','result-card-more'])if(!resultExport.includes(marker))fail('per-result compact actions missing '+marker);
 for(const marker of ['result-os-menu','result-os-menu-body'])if(!resultOs.includes(marker))fail('Result OS compact menu missing '+marker);
 if(!statStyle.includes('/* COMPACT RESULT ACTIONS 2026-09-26 */')||!resultOsStyle.includes('/* COMPACT RESULT OS CONTROLS 2026-09-26 */'))fail('compact result action styles missing');
