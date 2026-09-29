@@ -1,7 +1,7 @@
 import {readDataset,openTool} from './data-tools.js';
 import {parseNumber,formatNumber} from './number-format.js';
 import {augmentedRcbAnova} from './augmented-design-engine.js?v=20260928-work-parity-v5';
-import {resultActions} from './result-export.js?v=20260929-cleanmenus6';
+import {resultActions} from './result-export.js?v=20260929-cleanmenus7';
 
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
