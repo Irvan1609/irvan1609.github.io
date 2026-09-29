@@ -57,7 +57,7 @@ export function installDataTools(){
   toolbar.insertAdjacentHTML('beforeend','<button id="importXlsx">Impor Excel</button><button id="dataTemplate">Template data</button><button id="analysisHistory">Riwayat analisis</button>');
   installDataEnhancements();
   document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head"><strong id="dataToolTitle"></strong><button id="closeDataTool" aria-label="Tutup">✕</button></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
-  $('#closeDataTool').onclick=()=>$('#dataToolModal').classList.remove('open');
+  $('#closeDataTool').onclick=()=>{const modal=$('#dataToolModal');modal.classList.remove('open');if(['parallel-analysis','augmented'].includes(modal.dataset.toolMode))document.body.classList.remove('analysis-mode-active');};
   installExampleDatasets();
   $('#importXlsx').onclick=()=>$('#xlsxInput').click();
   $('#xlsxInput').onchange=async event=>{
@@ -146,6 +146,8 @@ export function openTool(title,html,mode=''){
   const modal=$('#dataToolModal'),body=$('#dataToolBody');
   $('#dataToolTitle').textContent=title;body.innerHTML=html;
   modal.dataset.toolMode=String(mode||'');
+  const analysisMode=mode==='parallel-analysis'||mode==='augmented';
+  if(analysisMode)document.body.classList.add('analysis-mode-active');
   if(mode==='parallel-analysis')applyParallelAnalysisLayout(body);
   else body.classList.remove('analysis-tool-parallel-body');
   modal.classList.add('open');
