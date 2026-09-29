@@ -321,15 +321,16 @@ async function showResults(html,title,data,parameterCount){
     }
     const dock=$('#analysisResultDock'),body=$('#analysisDockResults'),heading=$('#analysisDockTitle');
     if(!dock||!body)throw Error('dock unavailable');
-    body.innerHTML=html;
-    body.classList.remove('result-view-summary','result-view-anova','result-view-diagnostic','result-view-full');
+    body.innerHTML=html+`<section class="analysis-export-footer" aria-label="Ekspor hasil"><div class="analysis-export-footer-head"><b>Ekspor hasil</b><span>Semua parameter</span></div><div class="analysis-export-footer-actions"><button data-result-action="export-all">Excel (.xlsx)</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-print-results>PDF / Cetak</button></div></section>`;
+    body.classList.remove('result-view-summary','result-view-anova','result-view-diagnostic');
+    body.classList.add('result-view-full','result-all-parameters');
     body.dataset.datasetName=data.name||'Dataset';
-    body.querySelectorAll('[data-aug-view-select]').forEach(select=>select.addEventListener('change',()=>{
-      const section=select.closest('.augmented-result'),mode=select.value;
+    body.querySelectorAll('.augmented-result').forEach(section=>{
       section.classList.remove('aug-view-summary','aug-view-anova','aug-view-detail','aug-view-analysis','aug-view-selection','aug-view-sas','aug-view-method');
-      section.classList.add('aug-view-'+mode);
-      section.scrollIntoView({block:'start'});
-    }));
+      section.classList.add('aug-view-full');
+    });
+    body.querySelectorAll('.augmented-result details:not(.result-card-more)').forEach(details=>details.open=true);
+    body.querySelectorAll('[data-print-results]').forEach(button=>button.onclick=()=>{document.body.classList.add('print-analysis-mode');const clean=()=>document.body.classList.remove('print-analysis-mode');window.addEventListener('afterprint',clean,{once:true});window.print();setTimeout(clean,1500);});
     body.querySelectorAll('[data-copy-aug-sas]').forEach(button=>button.addEventListener('click',async()=>{
       const panel=button.closest('.aug-sas-panel'),area=panel?.querySelector('.aug-sas-code'),status=panel?.querySelector('[data-aug-sas-status]');
       if(!area)return;
