@@ -94,6 +94,15 @@ export function installNavigation(){
   if(projectToggle)utilityNav.append(projectToggle);
   if(searchButton)utilityNav.append(searchButton);
   if(settingsToggle)utilityNav.append(settingsToggle);
+  const mobileBackButton=document.createElement('button');
+  mobileBackButton.id='mobileBackButton';
+  mobileBackButton.type='button';
+  mobileBackButton.className='header-icon-button';
+  mobileBackButton.textContent='‹';
+  mobileBackButton.title='Kembali';
+  mobileBackButton.setAttribute('aria-label','Kembali');
+  primaryNav.prepend(mobileBackButton);
+
 
   const mobileMoreButton=document.createElement('button');
   mobileMoreButton.id='mobileMoreButton';
@@ -170,6 +179,23 @@ export function installNavigation(){
     }finally{fieldTab.disabled=false;}
   };
 
+
+  mobileBackButton.onclick=()=>{
+    const searchOpen=searchModal?.classList.contains('open');
+    const settingsPanel=document.getElementById('appSettingsPanel');
+    const analysisMenu=document.getElementById('analysisMenu');
+    const openCommand=[...document.querySelectorAll('.nav-command-panel')].find(panel=>!panel.hidden);
+    if(searchOpen){closeGlobalSearch();return;}
+    if(settingsPanel&&!settingsPanel.hidden){document.getElementById('closeAppSettings')?.click();return;}
+    if(document.documentElement.classList.contains('mobile-project-open')){projectToggle?.click();return;}
+    if(analysisMenu&&!analysisMenu.hidden){analysisMenu.hidden=true;analysisButton?.setAttribute('aria-expanded','false');return;}
+    if(openCommand){closeMenus();return;}
+    const openModal=document.querySelector('.modal-backdrop.open');
+    if(openModal){openModal.querySelector('[aria-label="Tutup"],#closeDataTool,#closeGlobalSearch')?.click();return;}
+    if(document.body.classList.contains('field-layout-open')){globalThis.AgrotikFieldLayout?.close?.();return;}
+    if(history.length>1)history.back();
+    else location.href='/';
+  };
 
   const searchModal=document.getElementById('globalSearchModal');
   const searchInput=document.getElementById('globalSearch');
@@ -352,6 +378,13 @@ export function installNavigation(){
     }
     if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
   });
+  settingsToggle?.addEventListener('click',event=>{
+    if(globalThis.matchMedia?.('(max-width:720px)')?.matches){
+      event.stopPropagation();
+      document.dispatchEvent(new CustomEvent('stat-open-settings'));
+    }
+  });
+
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openGlobalSearch();return;}
