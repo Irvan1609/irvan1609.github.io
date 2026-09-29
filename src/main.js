@@ -1,9 +1,9 @@
-import { installAnalysisFlow } from './analysis-flow.js?v=20260929-dockhide1';
+import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus2';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
-import {installNavigation} from './navigation.js?v=20260928-mobile-editor-v1';
-import { installDataTools } from './data-tools.js?v=20260929-dockhide1';
-import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260928-mobile-editor-v1';
+import {installNavigation} from './navigation.js?v=20260929-cleanmenus2';
+import { installDataTools } from './data-tools.js?v=20260929-cleanmenus2';
+import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260929-cleanmenus2';
 import { installResultExport } from './result-export.js';
 import {parseParameterHeader,buildParameterHeader} from './parameter-metadata.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from './agronomic-data-dictionary.js';
@@ -13,7 +13,7 @@ import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmen
 import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import {installResearchWorkspace} from './research-workspace.js';
-import {installStatWorkflow} from './stat-workflow.js?v=20260929-dockhide1';
+import {installStatWorkflow} from './stat-workflow.js?v=20260929-cleanmenus2';
 
 const FILES_KEY='statistical_web_csv_files_v1';
 const ACTIVE_KEY='statistical_web_active_csv_v1';
