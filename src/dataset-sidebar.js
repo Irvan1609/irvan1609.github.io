@@ -57,14 +57,16 @@ function decorateTree(){
 function positionMenu(menu){
   const summary=menu?.querySelector('summary'),body=menu?.querySelector('.dataset-row-menu-body');
   if(!summary||!body)return;
-  const rect=summary.getBoundingClientRect(),gap=4,pad=8;
-  const width=Math.min(globalThis.matchMedia?.('(max-width:720px)')?.matches?160:144,window.innerWidth-pad*2);
+  const rect=summary.getBoundingClientRect(),gap=4,pad=8,mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+  const width=Math.min(mobile?160:144,window.innerWidth-pad*2);
+  const reservedBottom=mobile?56:pad,bottomLimit=window.innerHeight-reservedBottom;
   body.style.width=width+'px';
   body.style.left=Math.max(pad,Math.min(window.innerWidth-width-pad,rect.right-width))+'px';
   body.style.top=(rect.bottom+gap)+'px';
   requestAnimationFrame(()=>{
-    const h=Math.min(body.scrollHeight,window.innerHeight-pad*2),below=rect.bottom+gap+h<=window.innerHeight-pad;
-    const top=below?rect.bottom+gap:Math.max(pad,rect.top-gap-h);
+    const h=Math.min(body.scrollHeight,Math.max(120,bottomLimit-pad)),below=rect.bottom+gap+h<=bottomLimit;
+    const top=below?rect.bottom+gap:Math.max(pad,Math.min(bottomLimit-h,rect.top-gap-h));
+    body.style.maxHeight=Math.max(96,bottomLimit-top)+'px';
     body.style.top=top+'px';
   });
 }
