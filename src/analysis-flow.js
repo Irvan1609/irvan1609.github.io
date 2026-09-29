@@ -153,6 +153,7 @@ export function installAnalysisFlow(){
 
   function closeMenu(){panel.hidden=true;open.setAttribute('aria-expanded','false');}
   function openMenu(){
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'analysisMenu'}}));
     document.dispatchEvent(new Event('close-navigation'));
     const loadError=$('#analysisLoadError');if(loadError){loadError.hidden=true;loadError.textContent='';}
     refreshSmartSuggestion();
@@ -200,6 +201,7 @@ export function installAnalysisFlow(){
     try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){document.body.classList.remove('analysis-mode-active');console.error(error);}
   });
   document.addEventListener('stat-dataset-changed',refreshSmartSuggestion);
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='analysisMenu')closeMenu();});
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
