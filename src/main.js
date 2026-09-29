@@ -23,6 +23,7 @@ const META_KEY='statistical_web_dataset_meta_v1';
 const EDITOR_HISTORY_KEY='statistical_web_editor_history_v1';
 const COLUMN_WIDTHS_KEY='statistical_web_column_widths_v1';
 const FROZEN_COLUMNS_KEY='statistical_web_frozen_columns_v1';
+const FROZEN_ROWS_KEY='statistical_web_frozen_rows_v1';
 const EXTERNAL_IMPORT_KEY='agrotik_stat_import_queue_v1';
 const LOCAL_ONLY_KEY='statistical_web_local_only_datasets_v1';
 const state={files:{},active:'dataset.csv',headers:[],rows:[],meta:{},undo:[],redo:[],selection:{anchor:null,focus:null}};
@@ -577,15 +578,60 @@ function saveFrozenColumnNames(names){
   try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
   return valid;
 }
+function frozenRowStore(){
+  try{const value=JSON.parse(localStorage.getItem(FROZEN_ROWS_KEY)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}
+}
+function frozenRowCount(){
+  const value=Number(frozenRowStore()[state.active]||0);
+  return Number.isFinite(value)?Math.max(0,Math.min(10,Math.floor(value))):0;
+}
+function saveFrozenRowCount(count){
+  const store=frozenRowStore(),value=Math.max(0,Math.min(10,Math.floor(Number(count)||0)));
+  if(value)store[state.active]=value;else delete store[state.active];
+  try{localStorage.setItem(FROZEN_ROWS_KEY,JSON.stringify(store));}catch{}
+  return value;
+}
+function moveFrozenRows(previous,next){
+  const store=frozenRowStore();if(previous===next||!Number(store[previous]))return;
+  store[next]=store[previous];delete store[previous];try{localStorage.setItem(FROZEN_ROWS_KEY,JSON.stringify(store));}catch{}
+}
+function copyFrozenRows(source,target){
+  const store=frozenRowStore();if(!Number(store[source]))return;
+  store[target]=store[source];try{localStorage.setItem(FROZEN_ROWS_KEY,JSON.stringify(store));}catch{}
+}
+function deleteFrozenRows(name){
+  const store=frozenRowStore();if(!(name in store))return;
+  delete store[name];try{localStorage.setItem(FROZEN_ROWS_KEY,JSON.stringify(store));}catch{}
+}
+function applyFrozenRows(wrap=$('#gridWrap')){
+  const table=wrap?.querySelector('.data-grid');if(!table)return;
+  const count=Math.min(frozenRowCount(),state.rows.length);
+  wrap.classList.toggle('has-frozen-rows',count>0);
+  wrap.querySelectorAll('.row-frozen').forEach(node=>{node.classList.remove('row-frozen');node.style.removeProperty('--freeze-top');});
+  if(!count)return;
+  let top=Math.ceil(table.querySelector('thead')?.getBoundingClientRect().height||36);
+  const rows=[...table.querySelectorAll('tbody tr:not(.virtual-spacer)')];
+  for(const tr of rows){
+    const first=tr.querySelector('td[data-r]'),row=Number(first?.dataset.r);
+    if(!Number.isInteger(row)||row>=count)continue;
+    const height=Math.ceil(tr.getBoundingClientRect().height||36);
+    [...tr.cells].forEach(cell=>{cell.classList.add('row-frozen');cell.style.setProperty('--freeze-top',top+'px');});
+    top+=height;
+  }
+}
+function applyFrozenGrid(wrap=$('#gridWrap')){applyFrozenColumns(wrap);applyFrozenRows(wrap);}
 function moveFrozenDataset(previous,next){
+  moveFrozenRows(previous,next);
   const store=frozenColumnStore();if(previous===next||!Array.isArray(store[previous]))return;
   store[next]=store[previous];delete store[previous];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
 }
 function copyFrozenDataset(source,target){
+  copyFrozenRows(source,target);
   const store=frozenColumnStore();if(!Array.isArray(store[source]))return;
   store[target]=[...store[source]];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
 }
 function deleteFrozenDataset(name){
+  deleteFrozenRows(name);
   const store=frozenColumnStore();if(!(name in store))return;
   delete store[name];try{localStorage.setItem(FROZEN_COLUMNS_KEY,JSON.stringify(store));}catch{}
 }
@@ -611,23 +657,24 @@ function applyFrozenColumns(wrap=$('#gridWrap')){
 function ensureFreezeColumnsDialog(){
   let dialog=$('#freezeColumnsDialog');if(dialog)return dialog;
   dialog=document.createElement('div');dialog.id='freezeColumnsDialog';dialog.className='simple-web-dialog-backdrop';dialog.hidden=true;
-  dialog.innerHTML='<form class="simple-web-dialog freeze-columns-dialog"><div class="simple-web-dialog-head"><strong>Freeze kolom</strong><button type="button" data-simple-close aria-label="Tutup">×</button></div><div class="simple-web-dialog-body"><p>Pilih kolom yang tetap terlihat saat tabel digeser ke kanan.</p><div id="freezeColumnsList" class="freeze-columns-list"></div></div><div class="simple-web-dialog-actions"><button type="button" data-freeze-clear>Tidak ada</button><button type="submit" class="primary">Simpan</button></div></form>';
+  dialog.innerHTML='<form class="simple-web-dialog freeze-columns-dialog"><div class="simple-web-dialog-head"><strong>Freeze data editor</strong><button type="button" data-simple-close aria-label="Tutup">×</button></div><div class="simple-web-dialog-body"><label class="freeze-row-setting"><span>Baris teratas</span><select id="freezeRowCount"><option value="0">Tidak ada</option><option value="1">1 baris</option><option value="2">2 baris</option><option value="3">3 baris</option><option value="4">4 baris</option><option value="5">5 baris</option><option value="10">10 baris</option></select></label><p>Pilih kolom yang tetap terlihat saat tabel digeser ke kanan.</p><div id="freezeColumnsList" class="freeze-columns-list"></div></div><div class="simple-web-dialog-actions"><button type="button" data-freeze-clear>Lepas semua</button><button type="submit" class="primary">Simpan</button></div></form>';
   document.body.append(dialog);
   const close=()=>{dialog.hidden=true;};
   dialog.querySelector('[data-simple-close]').onclick=close;
   dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
-  dialog.querySelector('[data-freeze-clear]').onclick=()=>{saveFrozenColumnNames([]);applyFrozenColumns();dialog.hidden=true;setStatus('✓ Freeze kolom dilepas.');};
+  dialog.querySelector('[data-freeze-clear]').onclick=()=>{saveFrozenColumnNames([]);saveFrozenRowCount(0);renderGrid();dialog.hidden=true;setStatus('✓ Freeze dilepas.');};
   dialog.querySelector('form').onsubmit=event=>{
     event.preventDefault();
     const names=[...dialog.querySelectorAll('[data-freeze-index]:checked')].map(input=>state.headers[Number(input.dataset.freezeIndex)]).filter(Boolean);
-    const saved=saveFrozenColumnNames(names);applyFrozenColumns();dialog.hidden=true;
-    setStatus(saved.length?'✓ '+saved.length+' kolom di-freeze.':'✓ Freeze kolom dilepas.');
+    const saved=saveFrozenColumnNames(names),rows=saveFrozenRowCount(dialog.querySelector('#freezeRowCount')?.value);renderGrid();dialog.hidden=true;
+    setStatus(saved.length||rows?'✓ Freeze aktif: '+saved.length+' kolom · '+rows+' baris.':'✓ Freeze dilepas.');
   };
   return dialog;
 }
 function openFreezeColumns(){
   document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'freeze-columns'}}));
   const dialog=ensureFreezeColumnsDialog(),selected=new Set(frozenColumnNames()),list=dialog.querySelector('#freezeColumnsList');
+  const rowSelect=dialog.querySelector('#freezeRowCount');if(rowSelect)rowSelect.value=String(frozenRowCount());
   list.innerHTML=state.headers.length?state.headers.map((header,index)=>'<label class="freeze-column-option"><input type="checkbox" data-freeze-index="'+index+'" '+(selected.has(header)?'checked':'')+'><span>'+esc(header)+'</span></label>').join(''):'<p class="form-help">Belum ada kolom.</p>';
   dialog.hidden=false;
 }
@@ -652,7 +699,7 @@ function autoSizeColumn(wrap,index){
   const th=wrap.querySelector(`th[data-column-index="${index}"]`);if(!th)return;
   let width=Math.max(90,th.querySelector('.header-controls')?.scrollWidth||th.scrollWidth||90);
   wrap.querySelectorAll(`td[data-c="${index}"]`).forEach(cell=>{width=Math.max(width,Math.min(380,cell.scrollWidth+24));});
-  width=Math.min(380,width+12);setColumnVisualWidth(wrap,index,width);saveColumnWidth(index,width);applyFrozenColumns(wrap);
+  width=Math.min(380,width+12);setColumnVisualWidth(wrap,index,width);saveColumnWidth(index,width);applyFrozenGrid(wrap);
 }
 function bindColumnResize(wrap){
   wrap.querySelectorAll('[data-resize-column]').forEach(handle=>{
@@ -664,7 +711,7 @@ function bindColumnResize(wrap){
       const move=moveEvent=>setColumnVisualWidth(wrap,index,startWidth+(moveEvent.clientX-startX));
       const stop=stopEvent=>{
         handle.releasePointerCapture?.(stopEvent.pointerId);handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',stop);handle.removeEventListener('pointercancel',stop);
-        document.documentElement.classList.remove('column-resizing');const current=wrap.querySelector(`th[data-column-index="${index}"]`);if(current)saveColumnWidth(index,current.getBoundingClientRect().width);applyFrozenColumns(wrap);
+        document.documentElement.classList.remove('column-resizing');const current=wrap.querySelector(`th[data-column-index="${index}"]`);if(current)saveColumnWidth(index,current.getBoundingClientRect().width);applyFrozenGrid(wrap);
       };
       handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',stop);handle.addEventListener('pointercancel',stop);
     });
@@ -943,18 +990,22 @@ function bindGridBody(wrap){
 function renderGridRows(wrap,types,widths,quality,{force=false}={}){
   const tbody=wrap.querySelector('.data-grid tbody');if(!tbody)return;
   const viewport=Math.max(240,wrap.clientHeight||600),rowHeight=virtualRowHeight();
-  const windowInfo=virtualWindow({rowCount:state.rows.length,scrollTop:wrap.scrollTop,viewportHeight:viewport,rowHeight});
-  if(windowInfo.virtualized&&!force&&Number(wrap.dataset.virtualStart)===windowInfo.start&&Number(wrap.dataset.virtualEnd)===windowInfo.end)return;
-  wrap.dataset.virtualized=windowInfo.virtualized?'1':'0';wrap.dataset.virtualStart=String(windowInfo.start);wrap.dataset.virtualEnd=String(windowInfo.end);
-  const span=state.headers.length+1,top=windowInfo.top?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.top+'px"></td></tr>':'';
-  const bottom=windowInfo.bottom?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+windowInfo.bottom+'px"></td></tr>':'';
-  tbody.innerHTML=top+state.rows.slice(windowInfo.start,windowInfo.end).map((row,offset)=>rowMarkup(row,windowInfo.start+offset,types,widths,quality)).join('')+bottom;
-  bindGridBody(wrap);applyFrozenColumns(wrap);paintSelection();positionFillHandle();
+  const windowInfo=virtualWindow({rowCount:state.rows.length,scrollTop:wrap.scrollTop,viewportHeight:viewport,rowHeight}),freezeRows=Math.min(frozenRowCount(),state.rows.length);
+  const bodyStart=Math.max(freezeRows,windowInfo.start),bodyEnd=Math.max(bodyStart,windowInfo.end);
+  if(windowInfo.virtualized&&!force&&Number(wrap.dataset.virtualStart)===bodyStart&&Number(wrap.dataset.virtualEnd)===bodyEnd)return;
+  wrap.dataset.virtualized=windowInfo.virtualized?'1':'0';wrap.dataset.virtualStart=String(bodyStart);wrap.dataset.virtualEnd=String(bodyEnd);
+  const span=state.headers.length+1,topHeight=Math.max(0,(bodyStart-freezeRows)*rowHeight);
+  const top=topHeight?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+topHeight+'px"></td></tr>':'';
+  const bottomHeight=Math.max(0,(state.rows.length-bodyEnd)*rowHeight),bottom=bottomHeight?'<tr class="virtual-spacer" aria-hidden="true"><td colspan="'+span+'" style="height:'+bottomHeight+'px"></td></tr>':'';
+  const frozen=freezeRows?state.rows.slice(0,freezeRows).map((row,index)=>rowMarkup(row,index,types,widths,quality)).join(''):'';
+  const bodyRows=state.rows.slice(bodyStart,bodyEnd).map((row,offset)=>rowMarkup(row,bodyStart+offset,types,widths,quality)).join('');
+  tbody.innerHTML=frozen+top+bodyRows+bottom;
+  bindGridBody(wrap);applyFrozenGrid(wrap);paintSelection();positionFillHandle();
 }
 function ensureGridRowVisible(row){
   const wrap=$('#gridWrap');if(!wrap||wrap.dataset.virtualized!=='1')return;
   const start=Number(wrap.dataset.virtualStart||0),end=Number(wrap.dataset.virtualEnd||0);
-  if(row>=start&&row<end)return;
+  if(row<frozenRowCount()||(row>=start&&row<end))return;
   wrap.scrollTop=Math.max(0,row*virtualRowHeight()-virtualRowHeight()*3);
   const types=state.headers.map((header,index)=>detectColumnType(state.rows.map(item=>item[index]))),widths=state.headers.map((_,index)=>savedColumnWidth(index)),quality=gridQualityModel();
   renderGridRows(wrap,types,widths,quality,{force:true});
@@ -1153,6 +1204,17 @@ function toggleMobileProjectPanel(force){
 }
 
 
+function installMobileOverlayGuard(){
+  if(!document.body||document.body.dataset.mobileOverlayGuard==='1')return;
+  document.body.dataset.mobileOverlayGuard='1';
+  const sync=()=>{
+    const blockingModal=[...document.querySelectorAll('.modal-backdrop.open')].some(node=>node.id!=='globalSearchModal');
+    const simple=[...document.querySelectorAll('.simple-web-dialog-backdrop')].some(node=>!node.hidden);
+    document.body.classList.toggle('mobile-blocking-overlay',blockingModal||simple);
+  };
+  new MutationObserver(sync).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden']});
+  sync();
+}
 function installEditorShortcuts(){
   document.addEventListener('keydown',async event=>{
     const key=event.key.toLowerCase(),modifier=event.ctrlKey||event.metaKey;
@@ -1246,7 +1308,7 @@ function installDataGrid(){
       showError('Gagal membuat dataset.',error);
     }
   });
-  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#freezeColumns').onclick=openFreezeColumns;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#activeFile').onclick=renameDataset;$('#activeFile').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();renameDataset();}};$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();installPanelResize();ensureGridFind();ensureMobileDatasetBackdrop();
+  $('#pasteBtn').onclick=openModal;$('#closeModal').onclick=closeModal;$('#cancelPaste').onclick=closeModal;$('#applyPaste').onclick=applyPasted;$('#pasteArea').oninput=previewPaste;$('#importBtn').onclick=()=>$('#file').click();$('#file').onchange=importCSV;$('#quickImportFile').onchange=quickImport;$('#newTxt').onclick=newTXT;$('#addRow').onclick=addRow;$('#addCol').onclick=addColumn;$('#freezeColumns').onclick=openFreezeColumns;$('#clearData').onclick=clearData;$('#renameDataset').onclick=renameDataset;$('#activeFile').onclick=renameDataset;$('#activeFile').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();renameDataset();}};$('#duplicateDataset').onclick=duplicateDataset;$('#closeDatasetName').onclick=()=>$('#datasetNameModal').classList.remove('open');$('#datasetNameForm').onsubmit=saveDatasetName;$('#deleteDataset').onclick=deleteDataset;$('#viewRawDataset').onclick=showRawDataset;$('#viewDatasetMeta').onclick=showDatasetMetadata;$('#datasetHistory').onclick=showDatasetHistory;$('#closeDatasetView').onclick=()=>$('#datasetViewModal').classList.remove('open');$('#projectToggle').onclick=()=>toggleMobileProjectPanel();$('#datasetSearch').oninput=renderTree;$('#closeColumnName').onclick=()=>$('#columnNameModal').classList.remove('open');$('#columnNameForm').onsubmit=saveColumnName;bindInlineDatasetMeta();bindColumnFormArrowNavigation();installEditorShortcuts();installPanelResize();ensureGridFind();ensureMobileDatasetBackdrop();installMobileOverlayGuard();
   document.documentElement?.classList?.add('compact-data-editor');
   $('#fileTree').addEventListener('click',event=>{const item=event.target.closest('[data-file]');if(!item)return;clearError();state.active=item.dataset.file;loadActive();if(globalThis.matchMedia?.('(max-width:720px)').matches)toggleMobileProjectPanel(false);setStatus(`✓ ${displayDatasetName(state.active)} dibuka.`);});
 }
