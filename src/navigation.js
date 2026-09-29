@@ -128,6 +128,7 @@ export function installNavigation(){
   mobileMoreButton.onclick=event=>{
     event.stopPropagation();
     const opening=mobileMorePanel.hidden;
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'mobile-more'}}));
     closeMenus();closeMobileMore();
     if(opening){
       positionFloatingMenu(mobileMoreButton,mobileMorePanel);
@@ -371,7 +372,8 @@ export function installNavigation(){
   });
   document.addEventListener('stat-close-floating',event=>{
     const except=event.detail?.except||'';
-    if(!['fileMenu','dataMenu','helpMenu'].includes(except))closeMenus();
+    if(!['fileMenu','dataMenu','helpMenu','mobile-more'].includes(except))closeMenus();
+    if(except!=='search')closeGlobalSearch();
     if(!['dataset-panel','dataset-menu'].includes(except)){
       document.documentElement.classList.remove('mobile-project-open');
       projectToggle?.setAttribute('aria-expanded','false');
