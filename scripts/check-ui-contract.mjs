@@ -73,14 +73,14 @@ for(const marker of ['/* STAT VISUAL SYSTEM FINAL 2026-09-27 */','--stat-font-sm
 for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-size'])if(!main.includes(marker))fail('compact dataset summary missing '+marker);
 for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
 
-for(const marker of ['position:fixed','positionMenu(menu)','dataset-row-menu-body','z-index:220'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain a floating popover: '+marker);
+for(const marker of ['position:fixed','positionMenu(menu)','dataset-row-menu-body','z-index:460','stat-close-floating','dataset-menu'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain an anchored exclusive popover: '+marker);
 for(const marker of ['mobileMoreButton','mobileMorePanel','positionFloatingMenu','openCommandMenu'])if(!navigation.includes(marker))fail('floating navigation popover behavior missing '+marker);
 for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!navigation.includes(marker))fail('mobile settings routing missing '+marker);
 for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
-if(!html.includes('/src/style.css?v=20260929-dockhide1')||!html.includes('/src/main.js?v=20260929-dockhide1'))fail('latest analysis-hide dock asset version missing');
+if(!html.includes('/src/style.css?v=20260929-cleanmenus2')||!html.includes('/src/main.js?v=20260929-cleanmenus2'))fail('latest clean-menu editor asset version missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -97,10 +97,18 @@ for(const [name,source] of [['design extensions',designExtensions],['association
 for(const marker of ['/* STAT PARALLEL ANALYSIS WORKSPACES FINAL 2026-09-28 */','.science-parallel-grid','.analysis-tool-parallel-grid','@media(max-width:820px)'])if(!statStyle.includes(marker))fail('parallel analysis styling missing '+marker);
 for(const marker of ['.analysis-export-footer','.result-all-parameters','#dataToolBody.analysis-tool-results-only','body.analysis-results-open #analysisDockData'])if(!statStyle.includes(marker))fail('result-focused styling missing '+marker);
 
-for(const marker of ['/* STAT CLEAN MOBILE DOCK + ANALYSIS HIDE FINAL 2026-09-29 */','grid-template-columns:repeat(4,minmax(0,1fr))!important','body.analysis-mode-active .app-header','body.analysis-mode-active.analysis-results-open .analysis-result-dock'])if(!statStyle.includes(marker))fail('clean analysis-aware mobile dock missing '+marker);
+for(const marker of ['/* STAT 8-ACTION DOCK + RESULT TOPBAR FINAL 2026-09-29 */','grid-template-columns:repeat(8,minmax(0,1fr))!important','#mobileBackButton','body.analysis-mode-active .app-header','body.analysis-mode-active.analysis-results-open .analysis-result-dock'])if(!statStyle.includes(marker))fail('eight-action analysis-aware mobile dock missing '+marker);
 for(const [name,source] of [['analysis flow',analysisFlow],['scientific workflow',scientific],['data tools',dataTools],['stat workflow',statWorkflow]])if(!source.includes('analysis-mode-active'))fail(name+' must synchronize analysis-mode-active');
 
 if(!dataTools.includes('analysis-tool-results-only')||!dataTools.includes('analysis-export-footer'))fail('generic analyses must collapse to result-only view with export footer');
+
+for(const marker of ["mobileBackButton.id='mobileBackButton'","['fileMenu','File'","['dataMenu','Data'","['helpMenu','Bantuan'","stat-close-floating"])if(!navigation.includes(marker))fail('requested eight-action/exclusive mobile navigation missing '+marker);
+for(const marker of ['analysisDockMore','analysisDockMenu','data-dock-proxy="excel"','data-dock-proxy="print"'])if(!scientific.includes(marker))fail('fixed result topbar action menu missing '+marker);
+for(const marker of ['dataToolResultMore','dataToolResultMenu','analysis-tool-result-mode','section.open=false'])if(!dataTools.includes(marker))fail('special result topbar/example collapse missing '+marker);
+for(const marker of ["state.headers=['Perlakuan']","state.rows=[['']]","data-add-col","data-add-row"])if(!main.includes(marker))fail('new 1x1 dataset/grid-corner controls missing '+marker);
+for(const marker of ['/* STAT CLEAN GRID CORNER + POPOVER EXCLUSIVITY FINAL 2026-09-29 */','.grid-add-controls{','display:grid!important','z-index:460!important'])if(!statStyle.includes(marker))fail('grid corner/exclusive popover styling missing '+marker);
+for(const marker of ['stat-close-floating',"except:'settings'"])if(!displaySettings.includes(marker))fail('settings must participate in exclusive floating menus: '+marker);
+
 
 
 for(const marker of ['cell-axis-row','cell-axis-col',"event.key==='Home'","event.key==='End'",'data-empty-new','Parameter & metadata'])if(!main.includes(marker))fail('non-disruptive spreadsheet behavior missing '+marker);
