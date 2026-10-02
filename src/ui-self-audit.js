@@ -10,10 +10,10 @@ function run(){
   const w=innerWidth,h=innerHeight,checks=[];
   const add=(...x)=>checks.push(result(...x));
   const buttons=qa('button').filter(visible);
-  const badTargets=buttons.filter(b=>{const r=rect(b);return r&&(r.width<32||r.height<32)});
+  const badTargets=buttons.filter(b=>{if(b.closest('#agrotikUIAudit'))return false;const r=rect(b);return r&&(r.width<32||r.height<32)});
   add('Viewport',w>0&&h>0,Math.round(w)+' × '+Math.round(h),1);
   add('Tidak ada horizontal overflow',document.documentElement.scrollWidth<=w+2,'scrollWidth '+document.documentElement.scrollWidth+' / viewport '+w,2);
-  add('Tidak ada elemen keluar layar',!qa('body *').some(e=>{if(!visible(e))return false;const r=rect(e);return r&&r.width>1&&(r.right>w+3||r.left<-3)}),'elemen visible di luar viewport',2);
+  add('Tidak ada elemen keluar layar',!qa('body *').some(e=>{if(!visible(e)||e.closest('#agrotikUIAudit'))return false;const r=rect(e);return r&&r.width>1&&(r.right>w+3||r.left<-3)}),'elemen visible di luar viewport',2);
   add('Target sentuh',badTargets.length===0,badTargets.length+' tombol di bawah 32px',2);
   add('Navigasi mobile',!isMobile()||(['mobileBackButton','openAnalysis','dataMenuButton','projectToggle','mobileMoreButton'].every(id=>visible(q('#'+id)))&&qa('.app-header .nav button').filter(visible).length<=5),'dock mobile harus ringkas',2);
   add('Editor terlihat',!!q('.grid-container')&&visible(q('.grid-container')),q('.grid-container')?'Data Editor terdeteksi':'Data Editor tidak terlihat',2);
@@ -23,7 +23,7 @@ function run(){
   add('Ukuran font global',!!document.documentElement.dataset.uiFont||!!getComputedStyle(document.documentElement).getPropertyValue('--ui-scale'),'pengaturan skala terdeteksi',1);
   add('Menu tidak bertumpuk',true,'overlay manager/navigation menggunakan satu floating context',1);
   add('ID duplikat',new Set(qa('[id]').map(e=>e.id).filter(Boolean)).size===qa('[id]').map(e=>e.id).filter(Boolean).length,'tidak ada ID HTML duplikat',1);
-  const dense=qa('.panel,.card,.modal,.nav-command-panel').filter(visible).length;
+  const dense=qa('.panel,.card,.modal,.nav-command-panel').filter(e=>visible(e)&&!e.closest('#agrotikUIAudit')).length;
   add('Kepadatan visual',dense<18,dense+' panel/card/modal terlihat bersamaan',1);
   const borders=qa('*').filter(visible).reduce((n,e)=>n+(getComputedStyle(e).borderStyle!=='none'?1:0),0);
   add('Beban border',borders<Math.max(80,buttons.length*5),borders+' elemen visible memiliki border',1);
