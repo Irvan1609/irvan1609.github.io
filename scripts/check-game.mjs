@@ -171,5 +171,6 @@ if(!bc||bc.generationLabel!=='BC1')fail('backcross generation invalid');
 console.log('Field Zero check OK: calm field-first UI, recovery saves, augmented design, design precision, breeding generations, strategy rivals, weekly seed, /stat export and local-first cloud sync are wired within performance budgets.');
 
 const game=fs.readFileSync('public/game/app.js','utf8');
+if(!game.includes("import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js"))fail('game must import COSTS from farm-inputs');
 if(game.includes('COSTS is not defined'))fail('game source contains unresolved COSTS error');
 if(!game.includes("document.documentElement.dataset.theme=theme"))fail('game save must synchronize theme');
