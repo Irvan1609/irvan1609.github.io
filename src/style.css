@@ -8500,22 +8500,31 @@ summary:focus-visible,
 }
 
 
-/* AGROTIK MOBILE NAV 8-ACTION FINAL 2026-10-02 */
+/* AGROTIK MOBILE NAV COMPACT FINAL 2026-10-02 */
 @media(max-width:720px){
   .app-shell{padding:0 1px calc(44px + env(safe-area-inset-bottom))!important}
   .app-header{left:2px!important;right:2px!important;bottom:max(2px,env(safe-area-inset-bottom))!important;border-radius:8px!important}
-  .app-header .nav{display:grid!important;grid-template-columns:repeat(8,minmax(0,1fr))!important;gap:1px!important;padding:2px!important}
+  .app-header .nav{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:1px!important;padding:2px!important}
   .nav-primary,.nav-utilities{display:contents!important}
-  #mobileBackButton,#fileMenuButton,#openAnalysis,#projectToggle,#dataMenuButton,#helpMenuButton,#globalSearchButton,#appSettingsToggle{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;padding:2px 1px!important;border:0!important;border-radius:6px!important;background:transparent!important;font-size:9px!important;line-height:1!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-  #mobileBackButton{font-size:18px!important;font-weight:500!important} #globalSearchButton,#appSettingsToggle{font-size:16px!important}
-  #mobileMoreButton,#fieldLayoutTab{display:none!important}
+  #mobileBackButton,#openAnalysis,#dataMenuButton,#projectToggle,#mobileMoreButton{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;padding:2px 1px!important;border:0!important;border-radius:6px!important;background:transparent!important;font-size:9px!important;line-height:1!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #mobileBackButton{font-size:18px!important;font-weight:500!important}
+  #mobileMoreButton{font-size:18px!important;font-weight:700!important}
+  #fileMenuButton,#helpMenuButton,#globalSearchButton,#appSettingsToggle,#fieldLayoutTab{display:none!important}
   #projectToggle::after,#mobileMoreButton::after{content:none!important}
   .app-header .nav button:active,.app-header .nav button[aria-expanded="true"],.app-header .nav button.active{background:#eef3f6!important}
   .nav-command-panel,.mobile-more-panel,#appSettingsPanel,.analysis-command-panel{bottom:calc(43px + env(safe-area-inset-bottom))!important}
+  .mobile-more-panel{display:grid!important;grid-template-columns:repeat(2,minmax(120px,1fr))!important;gap:4px!important;max-width:min(94vw,360px)!important;padding:5px!important;border:1px solid #d7dee7!important;border-radius:8px!important;background:#fff!important;box-shadow:0 8px 24px #15233424!important}
+  .mobile-more-panel button{min-height:38px!important;padding:6px 8px!important;border:1px solid #e0e5ea!important;border-radius:6px!important;background:#fff!important;font-size:11px!important;text-align:left!important}
+  .mobile-more-panel button:active{background:#eef3f6!important}
   .grid-container,.grid-container .data-grid{touch-action:pan-x pan-y pinch-zoom!important}
   .data-grid .grid-corner{position:sticky!important;left:0!important;top:0!important;z-index:12!important;min-width:88px!important;width:88px!important;background:#edf2f8!important}
   .grid-add-controls{display:flex!important;flex-direction:row!important;gap:2px!important;justify-content:center!important;align-items:center!important;padding:2px!important}
   .grid-add-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:40px!important;min-width:40px!important;height:26px!important;min-height:26px!important;padding:2px!important;font-size:9px!important;border-radius:4px!important}
+  #gridWrap.has-frozen-columns .data-grid .column-frozen{box-shadow:inset -2px 0 0 #b7c6d4!important}
+  #gridWrap.has-frozen-rows .data-grid td.row-frozen{box-shadow:inset 0 -2px 0 #b7c6d4!important}
+  #gridWrap.has-frozen-rows.has-frozen-columns .data-grid td.row-frozen.column-frozen{box-shadow:inset -2px 0 0 #b7c6d4,inset 0 -2px 0 #b7c6d4!important}
   body.analysis-results-open .app-header{display:none!important}
   body.analysis-results-open .analysis-result-dock{z-index:700!important}
+  .sheet-header,.status{font-size:var(--data-font-size)!important}
+  .workspace{border-radius:4px!important}
 }
