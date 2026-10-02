@@ -12,6 +12,7 @@ import {readCategoryMetadata,categoryLevelDescription} from './category-metadata
 import {auditReports,renderAudit} from './analysis-audit.js';
 import {requireValidCoreReport,attachSupplementWarning} from './analysis-integrity.js';
 import {enhanceResultOS} from './result-os.js';
+import {saveLocalAnalysis,listLocalAnalyses,getLocalAnalysis} from './local-dataset-store.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
@@ -232,6 +233,17 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   };
 }
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
+async function hydrateAnalysisHistoryFromIndexedDB(){
+  if(!data?.dataset_uid)return;
+  try{
+    const entries=await listLocalAnalyses(data.dataset_uid,100);
+    if(!entries.length)return;
+    const legacy=getHistory();
+    const byId=new Map([...legacy,...entries].map(entry=>[entry.id||entry.analysis_uid,entry]));
+    const merged=[...byId.values()].sort((a,b)=>String(b.date||b.updatedAt||'').localeCompare(String(a.date||a.updatedAt||''))).slice(0,20);
+    localStorage.setItem(HISTORY,JSON.stringify(merged));
+  }catch(error){console.warn('Riwayat analisis IndexedDB tidak dapat dipulihkan',error);}
+}
 function saveHistory(reports,options){
   const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
   const resultVersion=Math.max(same.length,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
@@ -240,8 +252,10 @@ function saveHistory(reports,options){
     if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
   }
   for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
-  const entry={id:crypto.randomUUID(),version:1,resultVersion,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
-  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
+  const entry={id:crypto.randomUUID(),analysis_uid:'analysis_'+(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(16).slice(2)),version:1,resultVersion,date:new Date().toISOString(),dataset_uid:data.dataset_uid||'',dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
+  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));}catch{return null;}
+  void saveLocalAnalysis(entry).catch(error=>console.warn('Riwayat analisis IndexedDB tidak tersimpan',error));
+  return entry;
 }
 function compareHistoryEntries(a,b){
   const names=[...new Set([...(a.reports||[]).map(report=>report.name),...(b.reports||[]).map(report=>report.name)])];
@@ -664,6 +678,7 @@ export function openScientificRecipe(recipe){
 }
 
 export function installScientificWorkflow(){
+  void hydrateAnalysisHistoryFromIndexedDB();
   document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><button id="closeAnalysisDock" class="analysis-dock-close" type="button" aria-label="Tutup hasil">✕</button><div class="analysis-dock-title"><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><button id="analysisDockMore" class="analysis-dock-more" type="button" aria-label="Aksi hasil" aria-expanded="false">⋮</button><div id="analysisDockMenu" class="analysis-dock-menu" hidden><button type="button" data-dock-proxy="copy-word">Salin ke Word</button><button type="button" data-dock-proxy="share">Salin ringkasan</button><button type="button" data-dock-proxy="bab4">BAB IV (.doc)</button><button type="button" data-dock-proxy="excel">Excel (.xlsx)</button><button type="button" data-dock-proxy="formula">Excel formula</button><button type="button" data-dock-proxy="print">PDF / Cetak</button><button type="button" data-dock-proxy="check">Periksa hasil</button><button type="button" data-dock-proxy="history">Versi hasil</button><button id="analysisDockAnalysis" type="button">Analisis lain</button><button id="analysisDockData" type="button" hidden>Kembali ke data</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
   <div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop science-simple-mode"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle">
     <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div>

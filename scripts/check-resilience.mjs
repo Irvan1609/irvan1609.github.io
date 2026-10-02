@@ -16,7 +16,7 @@ has(diagnostic,['Diagnostic','Safe Mode','Versi sebelumnya'],'diagnostic');
 has(diagnosticApp,['runDiagnostics','queue','rollbackStatus'],'diagnostic app');
 has(sync,['agrotik_sync_queue_v1','safe-mode','queueSummary'],'stat queue');
 has(gameSync,['agrotik_sync_queue_v1','safe-mode','queueSummary'],'game queue');
-has(store,['DB_VERSION=2',"META_STORE='meta'",'localStoreInfo'],'local migration');
+has(store,['DB_VERSION=4',"META_STORE='meta'",'HISTORY_STORE','ANALYSIS_STORE','SYNC_STORE','TRASH_STORE','migrateLegacyResearchStores','localStoreInfo'],'local migration');
 has(sw,['CONTROL_CACHE','ROLLBACK_PREVIOUS','previousMatch','agrotik-control'],'service worker rollback');
 has(develop,['loadDiagnostic','labelMobileTables','queueInspector'],'develop diagnostic');
 console.log('Resilience contract OK.');

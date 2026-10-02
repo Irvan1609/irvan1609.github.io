@@ -1,8 +1,14 @@
 const DB_NAME='agrotik-stat-local-v1';
-const DB_VERSION=2;
+const DB_VERSION=4;
 const DATASET_STORE='datasets';
+const IDENTITY_INDEX='dataset_uid';
+const LEGACY_MIGRATION_KEY='core-migration-v1';
 const SNAPSHOT_STORE='snapshots';
 const META_STORE='meta';
+const HISTORY_STORE='history';
+const ANALYSIS_STORE='analyses';
+const SYNC_STORE='sync_queue';
+const TRASH_STORE='trash';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
 export const OFFLOAD_THRESHOLD_BYTES=192*1024;
 const encoder=new TextEncoder();
@@ -29,10 +35,32 @@ function openDb(){
     request.onupgradeneeded=event=>{
       const db=request.result,tx=request.transaction,oldVersion=Number(event.oldVersion||0);
       if(!db.objectStoreNames.contains(DATASET_STORE))db.createObjectStore(DATASET_STORE,{keyPath:'name'});
+      const datasetStore=tx.objectStore(DATASET_STORE);
+      if(!datasetStore.indexNames.contains(IDENTITY_INDEX))datasetStore.createIndex(IDENTITY_INDEX,IDENTITY_INDEX,{unique:true});
       if(!db.objectStoreNames.contains(SNAPSHOT_STORE)){
         const store=db.createObjectStore(SNAPSHOT_STORE,{keyPath:'id'});
         store.createIndex('dataset','dataset',{unique:false});
         store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(HISTORY_STORE)){
+        const store=db.createObjectStore(HISTORY_STORE,{keyPath:'id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(ANALYSIS_STORE)){
+        const store=db.createObjectStore(ANALYSIS_STORE,{keyPath:'analysis_uid'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(TRASH_STORE)){
+        const store=db.createObjectStore(TRASH_STORE,{keyPath:'trash_id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('expiresAt','expiresAt',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(SYNC_STORE)){
+        const store=db.createObjectStore(SYNC_STORE,{keyPath:'change_id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('createdAt','createdAt',{unique:false});
       }
       if(oldVersion<2&&!db.objectStoreNames.contains(META_STORE)){
         const meta=db.createObjectStore(META_STORE,{keyPath:'key'});
@@ -72,16 +100,16 @@ async function deleteOpfs(name){
   try{const dir=await opfsDirectory();await dir.removeEntry(opfsFileName(name));}catch{}
 }
 
-export async function saveLocalDataset(name,content){
+export async function saveLocalDataset(name,content,{dataset_uid=null}={}){
   const cleanName=String(name||'dataset.csv'),text=String(content??''),now=new Date().toISOString();
   if(opfsAvailable()){
     try{
       await writeOpfs(cleanName,text);
-      await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,backend:'opfs',size:datasetBytes(text),updatedAt:now}));
+      await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,dataset_uid:dataset_uid||null,backend:'opfs',size:datasetBytes(text),updatedAt:now}));
       return {backend:'opfs',size:datasetBytes(text)};
     }catch(error){console.warn('OPFS fallback to IndexedDB',error);}
   }
-  await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,backend:'idb',content:text,size:datasetBytes(text),updatedAt:now}));
+  await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,dataset_uid:dataset_uid||null,backend:'idb',content:text,size:datasetBytes(text),updatedAt:now}));
   return {backend:'idb',size:datasetBytes(text)};
 }
 export async function loadLocalDataset(name){
@@ -147,4 +175,78 @@ export async function renameLocalSnapshots(from,to){
     const tx=db.transaction(SNAPSHOT_STORE,'readwrite'),store=tx.objectStore(SNAPSHOT_STORE);
     rows.forEach(row=>store.put({...row,dataset:String(to)}));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
   });
+}
+
+export async function saveLocalHistory(entry){
+  const record={...entry,id:String(entry?.id||globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random()),date:entry?.date||new Date().toISOString()};
+  await idbRequest(HISTORY_STORE,'readwrite',store=>store.put(record));
+  return record.id;
+}
+export async function listLocalHistory(dataset_uid,limit=100){
+  if(!dataset_uid)return [];
+  try{return await idbRequest(HISTORY_STORE,'readonly',store=>store.index('dataset_uid').getAll(IDBKeyRange.only(String(dataset_uid)))).then(rows=>rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,limit));}catch{return [];}
+}
+export async function saveLocalAnalysis(entry){
+  if(!entry?.analysis_uid)throw Error('analysis_uid wajib diisi.');
+  await idbRequest(ANALYSIS_STORE,'readwrite',store=>store.put({...entry,schemaVersion:Number(entry.schemaVersion||1),updatedAt:new Date().toISOString()}));
+  return entry.analysis_uid;
+}
+export async function getLocalAnalysis(analysis_uid){
+  if(!analysis_uid)return null;
+  try{return await idbRequest(ANALYSIS_STORE,'readonly',store=>store.get(String(analysis_uid)));}catch{return null;}
+}
+export async function listLocalAnalyses(dataset_uid,limit=100){
+  if(!dataset_uid)return [];
+  try{return await idbRequest(ANALYSIS_STORE,'readonly',store=>store.index('dataset_uid').getAll(IDBKeyRange.only(String(dataset_uid)))).then(rows=>rows.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,limit));}catch{return [];}
+}
+export async function queueLocalSync(change){
+  const change_id=String(change?.change_id||globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random());
+  await idbRequest(SYNC_STORE,'readwrite',store=>store.put({...change,change_id,createdAt:change?.createdAt||new Date().toISOString()}));
+  return change_id;
+}
+export async function listLocalSyncQueue(limit=500){try{return await idbRequest(SYNC_STORE,'readonly',store=>store.getAll()).then(rows=>rows.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).slice(0,limit));}catch{return [];}}
+export async function removeLocalSync(change_id){if(!change_id)return false;try{await idbRequest(SYNC_STORE,'readwrite',store=>store.delete(String(change_id)));return true;}catch{return false;}}
+
+export async function getLocalDatasetRecordByUid(dataset_uid){
+  if(!dataset_uid)return null;
+  try{return await idbRequest(DATASET_STORE,'readonly',store=>store.index(IDENTITY_INDEX).get(String(dataset_uid)));}catch{return null;}
+}
+
+export async function listLocalDatasetRecords(){
+  try{return await idbRequest(DATASET_STORE,'readonly',store=>store.getAll());}catch{return [];}
+}
+
+export async function migrateLegacyResearchStores({meta={},history=[],analyses=[]}={}){
+  const result={meta:0,history:0,analyses:0,skipped:false};
+  try{
+    const marker=await idbRequest(META_STORE,'readonly',store=>store.get(LEGACY_MIGRATION_KEY));
+    if(marker?.done){result.skipped=true;return result;}
+    const db=await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction([META_STORE,HISTORY_STORE,ANALYSIS_STORE],'readwrite');
+      const metaStore=tx.objectStore(META_STORE),historyStore=tx.objectStore(HISTORY_STORE),analysisStore=tx.objectStore(ANALYSIS_STORE);
+      Object.entries(meta||{}).forEach(([key,value])=>metaStore.put({key:'dataset-meta:'+key,value,schemaVersion:1,updatedAt:new Date().toISOString()}));
+      (Array.isArray(history)?history:[]).forEach(entry=>historyStore.put({...entry,id:String(entry.id||entry.analysis_uid||globalThis.crypto?.randomUUID?.()),dataset_uid:entry.dataset_uid||null,schemaVersion:1}));
+      (Array.isArray(analyses)?analyses:[]).forEach(entry=>{if(entry?.analysis_uid)analysisStore.put({...entry,schemaVersion:Number(entry.schemaVersion||1)});});
+      tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error||Error('Migrasi storage gagal.'));};tx.onabort=()=>{db.close();reject(tx.error||Error('Migrasi storage dibatalkan.'));};
+    });
+    await idbRequest(META_STORE,'readwrite',store=>store.put({key:LEGACY_MIGRATION_KEY,done:true,date:new Date().toISOString(),schemaVersion:1}));
+    result.meta=Object.keys(meta||{}).length;result.history=Array.isArray(history)?history.length:0;result.analyses=Array.isArray(analyses)?analyses.length:0;
+    return result;
+  }catch(error){return {...result,error};}
+}
+
+export async function moveLocalDatasetToTrash(record,{retentionMs=86400000,reason='delete'}={}){
+  const trash_id=String(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random());
+  const now=new Date(),expiresAt=new Date(now.getTime()+Math.max(0,Number(retentionMs)||0)).toISOString();
+  await idbRequest(TRASH_STORE,'readwrite',store=>store.put({trash_id,dataset_uid:record?.dataset_uid||null,name:record?.name||null,record,reason,deletedAt:now.toISOString(),expiresAt}));
+  return trash_id;
+}
+export async function listLocalTrash(limit=100){try{return await idbRequest(TRASH_STORE,'readonly',store=>store.getAll()).then(rows=>rows.sort((a,b)=>String(b.deletedAt).localeCompare(String(a.deletedAt))).slice(0,limit));}catch{return [];}}
+export async function purgeExpiredLocalTrash(now=new Date().toISOString()){
+  const rows=await listLocalTrash(10000),expired=rows.filter(row=>String(row.expiresAt)<String(now));
+  if(!expired.length)return 0;
+  const db=await openDb();
+  await new Promise((resolve,reject)=>{const tx=db.transaction(TRASH_STORE,'readwrite'),store=tx.objectStore(TRASH_STORE);expired.forEach(row=>store.delete(row.trash_id));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};});
+  return expired.length;
 }

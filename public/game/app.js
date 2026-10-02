@@ -581,7 +581,11 @@ if(!out.length)out.push('Keputusan musim tercatat; lanjutkan untuk membandingkan
 return out.slice(0,4);
 }
 function save(){
-try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}
+try{
+localStorage.setItem(STORAGE,JSON.stringify(state));
+const theme=state?.comfort?.theme;
+if(theme==='light'||theme==='dark'){document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}
+}catch{}
 const fingerprint=progressFingerprint();
 if(lastProgressFingerprint&&fingerprint!==lastProgressFingerprint){
 document.dispatchEvent(new CustomEvent('fieldzero-save-change',{detail:{fingerprint}}));
