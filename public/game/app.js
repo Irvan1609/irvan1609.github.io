@@ -1,8 +1,12 @@
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
-import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20261002-mobile-final1';
+import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20261003-game-final2';
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
+const THEME_STORAGE='agrotik_field_zero_theme_v2';
+function readThemePreference(){try{const value=localStorage.getItem(THEME_STORAGE);return ['system','light','dark'].includes(value)?value:null;}catch{return null;}}
+function persistThemePreference(theme){if(!['system','light','dark'].includes(theme))return;try{localStorage.setItem(THEME_STORAGE,theme);}catch{}}
+
 const RECOVERY_STORAGE='agrotik_field_zero_recovery_v1';
 const RECOVERY_LIMIT=3;
 const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=120,CROSS_COST=12;
@@ -370,7 +374,7 @@ const streak=m.hot>=2?' · Gelombang panas ×'+m.hot:m.wet>=2?' · Basah ×'+m.w
 return 'Tekanan '+p.toFixed(2)+'×'+streak;
 }
 function freshState(){
-const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
+const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:readThemePreference()||'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
 return {
 version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:250000,rp:0,xp:0,level:1,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
 field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
@@ -391,7 +395,7 @@ if(!raw)return freshState();
 const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:GAME_SAVE_VERSION};
 if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
 if((Number(raw.version)||2)<3&&Number(raw.coins)<10000)merged.coins=Math.round((Number(raw.coins)||78)*LEGACY_COIN_RP);
-merged.comfort={...base.comfort,...(raw.comfort||{}),lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
+merged.comfort={...base.comfort,...(raw.comfort||{}),theme:readThemePreference()||raw.comfort?.theme||base.comfort.theme,lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
 merged.species=SPECIES[raw.species]?raw.species:'maize';
 merged.marketPrice=Number(raw.marketPrice)||rollMarketPrice(merged.season,merged.env?.id,merged.location,merged.species);
 merged.level=levelFromXp(merged.xp||0);
