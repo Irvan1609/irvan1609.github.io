@@ -1,9 +1,12 @@
 const DB_NAME='agrotik-stat-local-v1';
-const DB_VERSION=2;
+const DB_VERSION=3;
 const DATASET_STORE='datasets';
 const IDENTITY_INDEX='dataset_uid';
 const SNAPSHOT_STORE='snapshots';
 const META_STORE='meta';
+const HISTORY_STORE='history';
+const ANALYSIS_STORE='analyses';
+const SYNC_STORE='sync_queue';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
 export const OFFLOAD_THRESHOLD_BYTES=192*1024;
 const encoder=new TextEncoder();
@@ -36,6 +39,21 @@ function openDb(){
         const store=db.createObjectStore(SNAPSHOT_STORE,{keyPath:'id'});
         store.createIndex('dataset','dataset',{unique:false});
         store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(HISTORY_STORE)){
+        const store=db.createObjectStore(HISTORY_STORE,{keyPath:'id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(ANALYSIS_STORE)){
+        const store=db.createObjectStore(ANALYSIS_STORE,{keyPath:'analysis_uid'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(SYNC_STORE)){
+        const store=db.createObjectStore(SYNC_STORE,{keyPath:'change_id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('createdAt','createdAt',{unique:false});
       }
       if(oldVersion<2&&!db.objectStoreNames.contains(META_STORE)){
         const meta=db.createObjectStore(META_STORE,{keyPath:'key'});
@@ -151,6 +169,36 @@ export async function renameLocalSnapshots(from,to){
     rows.forEach(row=>store.put({...row,dataset:String(to)}));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
   });
 }
+
+export async function saveLocalHistory(entry){
+  const record={...entry,id:String(entry?.id||globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random()),date:entry?.date||new Date().toISOString()};
+  await idbRequest(HISTORY_STORE,'readwrite',store=>store.put(record));
+  return record.id;
+}
+export async function listLocalHistory(dataset_uid,limit=100){
+  if(!dataset_uid)return [];
+  try{return await idbRequest(HISTORY_STORE,'readonly',store=>store.index('dataset_uid').getAll(IDBKeyRange.only(String(dataset_uid)))).then(rows=>rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,limit));}catch{return [];}
+}
+export async function saveLocalAnalysis(entry){
+  if(!entry?.analysis_uid)throw Error('analysis_uid wajib diisi.');
+  await idbRequest(ANALYSIS_STORE,'readwrite',store=>store.put({...entry,schemaVersion:Number(entry.schemaVersion||1),updatedAt:new Date().toISOString()}));
+  return entry.analysis_uid;
+}
+export async function getLocalAnalysis(analysis_uid){
+  if(!analysis_uid)return null;
+  try{return await idbRequest(ANALYSIS_STORE,'readonly',store=>store.get(String(analysis_uid)));}catch{return null;}
+}
+export async function listLocalAnalyses(dataset_uid,limit=100){
+  if(!dataset_uid)return [];
+  try{return await idbRequest(ANALYSIS_STORE,'readonly',store=>store.index('dataset_uid').getAll(IDBKeyRange.only(String(dataset_uid)))).then(rows=>rows.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,limit));}catch{return [];}
+}
+export async function queueLocalSync(change){
+  const change_id=String(change?.change_id||globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random());
+  await idbRequest(SYNC_STORE,'readwrite',store=>store.put({...change,change_id,createdAt:change?.createdAt||new Date().toISOString()}));
+  return change_id;
+}
+export async function listLocalSyncQueue(limit=500){try{return await idbRequest(SYNC_STORE,'readonly',store=>store.getAll()).then(rows=>rows.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).slice(0,limit));}catch{return [];}}
+export async function removeLocalSync(change_id){if(!change_id)return false;try{await idbRequest(SYNC_STORE,'readwrite',store=>store.delete(String(change_id)));return true;}catch{return false;}}
 
 export async function getLocalDatasetRecordByUid(dataset_uid){
   if(!dataset_uid)return null;
