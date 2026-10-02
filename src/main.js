@@ -152,7 +152,7 @@ function saveFilesManifest(){localStorage.setItem(FILES_KEY,JSON.stringify(state
 function storeDatasetContent(name,content){
   const next=manifestValue(name,content),offloaded=localStoreReady()&&isLocalPointer(next);
   state.files[name]=next;saveFilesManifest();
-  if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Penyimpanan lokal besar gagal.',error));
+  if(offloaded)void saveLocalDataset(name,content,{dataset_uid:state.meta[name]?.dataset_uid}).catch(error=>showError('Penyimpanan lokal besar gagal.',error));
   return offloaded;
 }
 async function hydrateDatasetContent(name){
@@ -165,7 +165,7 @@ async function migrateLargeLocalDatasets(){
   let changed=false;
   for(const [name,value] of Object.entries(state.files)){
     if(isLocalPointer(value)||!shouldOffloadDataset(value))continue;
-    await saveLocalDataset(name,value);state.files[name]=localPointer(name);changed=true;
+    await saveLocalDataset(name,value,{dataset_uid:state.meta[name]?.dataset_uid});state.files[name]=localPointer(name);changed=true;
   }
   if(changed)saveFilesManifest();
 }
@@ -1118,7 +1118,7 @@ function saveDatasetName(event) {
     if(previous!==target){moveCategoryDataset(oldKey,newKey);moveTreatmentMetadataDataset(oldKey,newKey);moveFrozenDataset(previous,target);}
     const allHistory=editorHistoryStore();if(allHistory[oldKey]){allHistory[newKey]=allHistory[oldKey];delete allHistory[oldKey];localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(allHistory));}
     state.files=files;state.active=target;state.meta=meta;
-    if(offloaded)void saveLocalDataset(target,content).then(()=>deleteLocalDataset(previous)).catch(error=>showError('Dataset besar gagal diganti nama.',error));
+    if(offloaded)void saveLocalDataset(target,content,{dataset_uid:state.meta[target]?.dataset_uid}).then(()=>deleteLocalDataset(previous)).catch(error=>showError('Dataset besar gagal diganti nama.',error));
     else if(localStoreReady()&&isLocalPointer(previousStored))void deleteLocalDataset(previous);
     if(localStoreReady())void renameLocalSnapshots(previous,target).catch(()=>{});
     notifyDatasetChange({type:'rename',name:target,previous});
@@ -1146,7 +1146,7 @@ function duplicateDataset(){
   copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));copyFrozenDataset(source,name);
   try{
     localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);
-    if(offloaded)void saveLocalDataset(name,content).catch(error=>showError('Salinan besar gagal disimpan.',error));
+    if(offloaded)void saveLocalDataset(name,content,{dataset_uid:state.meta[name]?.dataset_uid}).catch(error=>showError('Salinan besar gagal disimpan.',error));
     notifyDatasetChange({type:'upsert',name,reason:'duplikat'});applyActiveCsv(content,{history:false});setStatus(`✓ Salinan dibuat: ${displayDatasetName(name)}.`);
   }catch(error){showError('Gagal membuat salinan dataset.',error);}
 }
