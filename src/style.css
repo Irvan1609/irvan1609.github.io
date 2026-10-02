@@ -8484,3 +8484,17 @@ summary:focus-visible,
     top:var(--freeze-top)!important;
   }
 }
+
+
+/* AGROTIK MOBILE FINAL 2026-10-02 */
+@media(max-width:720px){
+  .app-header{min-height:42px!important;max-height:42px!important}
+  .app-header .nav{height:42px!important;min-height:42px!important;padding:1px!important;gap:2px!important}
+  .app-header .nav button{min-height:38px!important;height:38px!important;padding:3px 5px!important;font-size:9px!important}
+  .main{padding-bottom:0!important}
+  .grid-container{overscroll-behavior:contain;touch-action:pan-x pan-y pinch-zoom!important}
+  .data-grid{touch-action:pan-x pan-y pinch-zoom!important}
+  .data-grid .grid-corner{min-width:88px!important;width:88px!important;max-width:88px!important}
+  .grid-add-controls button{min-height:28px!important;height:28px!important;font-size:9px!important}
+  body.analysis-results-open .analysis-result-dock{z-index:700!important}
+}
