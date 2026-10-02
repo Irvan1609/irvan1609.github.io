@@ -77,6 +77,8 @@ export function installNavigation(){
       const results=[...document.querySelectorAll('.analysis-result')].some(el=>{const s=getComputedStyle(el);return !el.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&el.getBoundingClientRect().height>0;});
       dock.style.setProperty('display',mobile&&!results?'grid':'none','important');
       document.documentElement.style.setProperty('--mobile-dock-space',mobile&&!results?'44px':'0px');
+      const main=document.querySelector('.main');
+      if(main)main.style.setProperty('padding-bottom',mobile&&!results?'44px':'0px','important');
     };
     new MutationObserver(syncDock).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden']});
     globalThis.addEventListener('resize',syncDock,{passive:true});
