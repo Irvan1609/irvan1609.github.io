@@ -1334,8 +1334,8 @@ async function boot(){
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
   installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
   void migrateLegacyResearchStores({meta:state.meta}).catch(error=>console.warn('Migrasi metadata lokal tertunda',error));
-  agrotikCore.modules.register({name:'stat',version:'1.0.0',capabilities:['dataset','analysis','export']});
-  agrotikCore.modules.register({name:'denah',version:'1.0.0',capabilities:['dataset-layout']});
+  if(!agrotikCore.modules.get('stat'))agrotikCore.modules.register({name:'stat',version:'1.0.0',capabilities:['dataset','analysis','export']});
+  if(!agrotikCore.modules.get('denah'))agrotikCore.modules.register({name:'denah',version:'1.0.0',capabilities:['dataset-layout']});
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js?v=20260928-quietcloud1')
