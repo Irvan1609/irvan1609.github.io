@@ -19,7 +19,7 @@
   .dataset-title{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dataset-meta-compact{min-width:0;overflow:auto;white-space:nowrap}
   .dataset-meta-summaryline{font-size:11px}
-  .grid-container{height:calc(100dvh - 125px);max-height:none;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .grid-container{height:calc(100dvh - 125px);max-height:none;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-x pan-y!important}
   .data-grid th,.data-grid td{padding:5px 7px;min-width:76px;height:34px}
   .data-grid .row-number{min-width:38px}
   .status{display:none}
