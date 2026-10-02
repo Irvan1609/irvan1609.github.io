@@ -584,6 +584,25 @@ if(state.fieldPressure.pathogen>20||state.fieldPressure.fatigue>20)out.push('Tek
 if(!out.length)out.push('Keputusan musim tercatat; lanjutkan untuk membandingkan konsekuensinya.');
 return out.slice(0,4);
 }
+
+function setupFloatingGameActions(){
+ const root=$('#floatingGameActions'),button=$('#floatingGameButton'),menu=$('#floatingGameMenu');
+ if(!root||!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false');};
+ button.onclick=()=>{const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',String(open));};
+ menu.addEventListener('click',event=>{
+   const item=event.target.closest('[data-float-action]');if(!item)return;
+   const action=item.dataset.floatAction;
+   if(action==='plant'||action==='water'||action==='fertilize'||action==='scout'||action==='harvest')setFieldTool(action);
+   else if(action==='smart'){runSmartAction();openInspectorSheet();}
+   else if(action==='next')$('#nextDay')?.click();
+   else if(action==='lab')openSeedVault();
+   else if(action==='research')openExperiment();
+   close();
+ });
+ document.addEventListener('pointerdown',event=>{if(!root.contains(event.target))close();});
+}
+
 function save(){
 try{
 localStorage.setItem(STORAGE,JSON.stringify(state));
@@ -2698,6 +2717,7 @@ function bind(){
   ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#nextDay').addEventListener(type,clearNextDayHold));
   $('#nextDay').onclick=()=>{if(nextDayHeld){nextDayHeld=false;return;}breedingCup.active()?breedingCup.open():state.pendingEvent?renderEvent():advanceDays(1);};
   $('#skip3Days').onclick=()=>advanceDays(3);$('#nextCritical').onclick=()=>advanceDays(30,{untilCritical:true});$('#finishSeason').onclick=finishSeason;
+  setupFloatingGameActions();
   $('#smartAction').onclick=()=>{runSmartAction();openInspectorSheet();};
   $('#attentionToggle').onclick=openCareCenter;
   $('#prevPlot').onclick=()=>selectPlotOffset(-1);
