@@ -489,36 +489,45 @@ th[data-stat-help]{text-decoration:underline dotted;text-underline-offset:3px}
 }
 
 
-/* RESULT TABLE FREE HORIZONTAL READING 2026-10-02 */
-/* Hasil analisis kembali ke pola worksheet: ruang kolom tidak dipaksa mengecil di HP. */
+/* RESULT BOX LAYOUT + HORIZONTAL TABLE READING 2026-10-02 */
+/* Kembalikan hasil analisis ke kartu/kotak yang selama ini digunakan.
+   Geser kiri-kanan hanya terjadi di area tabel, bukan pada seluruh kartu hasil. */
 .result-os-enhanced .analysis-result{
+  overflow:visible!important;
+  max-width:100%;
+}
+.result-os-enhanced .result-os-grid{
+  min-width:0!important;
+}
+.result-os-enhanced .table-scroll{
+  width:100%;
+  max-width:100%;
   overflow-x:auto!important;
-  overflow-y:visible!important;
+  overflow-y:hidden;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior-x:contain;
   touch-action:pan-x pan-y;
   scrollbar-width:thin;
 }
-.result-os-enhanced .analysis-result .result-table,
-.result-os-enhanced .analysis-result .anova-table{
-  width:max-content!important;
-  min-width:560px!important;
-  table-layout:auto!important;
+.result-os-enhanced .table-scroll>table{
+  width:max-content;
+  min-width:100%;
+  table-layout:auto;
 }
-.result-os-enhanced .analysis-result .result-table th,
-.result-os-enhanced .analysis-result .result-table td,
-.result-os-enhanced .analysis-result .anova-table th,
-.result-os-enhanced .analysis-result .anova-table td{
+.result-os-enhanced .table-scroll th,
+.result-os-enhanced .table-scroll td{
   white-space:nowrap;
 }
 @media(max-width:720px){
-  .result-os-enhanced .analysis-result{
-    max-width:100%;
-    overflow-x:auto!important;
+  .result-os-enhanced .table-scroll{
+    margin-right:0;
     padding-bottom:2px;
   }
-  .result-os-enhanced .analysis-result .result-table,
-  .result-os-enhanced .analysis-result .anova-table{
-    min-width:620px!important;
+  .result-os-enhanced .table-scroll>table.result-table-wide,
+  .result-os-enhanced .table-scroll>table.result-heatmap-table{
+    min-width:560px!important;
+  }
+  .result-os-enhanced .table-scroll>table.anova-table{
+    min-width:520px!important;
   }
 }
