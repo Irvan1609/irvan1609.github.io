@@ -22,8 +22,31 @@ export function installNavigation(){
     panel.dataset.anchorId=anchor.id||'';
   }
 
+  function enforceMobileBottomNav(){
+    const mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+    if(!appHeader||!nav)return;
+    if(mobile){
+      Object.assign(appHeader.style,{
+        position:'fixed',top:'auto',left:'3px',right:'3px',
+        bottom:'max(2px, env(safe-area-inset-bottom))',
+        width:'auto',height:'42px',minHeight:'42px',maxHeight:'42px',
+        zIndex:'2000',margin:'0',padding:'0',boxSizing:'border-box'
+      });
+      Object.assign(nav.style,{
+        display:'grid',gridTemplateColumns:'repeat(8,minmax(0,1fr))',
+        width:'100%',height:'40px',minHeight:'40px',
+        padding:'1px',margin:'0',gap:'1px',boxSizing:'border-box'
+      });
+    }else{
+      for(const prop of ['position','top','left','right','bottom','width','height','minHeight','maxHeight','zIndex','margin','padding'])appHeader.style.removeProperty(prop.replace(/[A-Z]/g,m=>'-'+m.toLowerCase()));
+      for(const prop of ['display','grid-template-columns','width','height','min-height','padding','margin','gap'])nav.style.removeProperty(prop);
+    }
+  }
+
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
+  enforceMobileBottomNav();
+  globalThis.addEventListener('resize',enforceMobileBottomNav,{passive:true});
 
   const primaryNav=document.createElement('div');
   primaryNav.className='nav-primary';
