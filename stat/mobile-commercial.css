@@ -14,6 +14,8 @@
   .toolbar button{flex:0 0 auto;min-height:34px;white-space:nowrap}
   .main{display:block;margin:0}
   .project-panel{display:none}
+  html.mobile-project-open .project-panel{display:block;position:relative;top:auto;max-height:46dvh;overflow:auto;z-index:35}
+  html.mobile-project-open .main{grid-template-columns:1fr}
   .workspace{border:0;border-radius:0;min-height:calc(100dvh - 82px)}
   .sheet-header{position:sticky;top:82px;z-index:20;min-height:38px;padding:6px 8px;gap:6px;background:#fff}
   .dataset-title{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
