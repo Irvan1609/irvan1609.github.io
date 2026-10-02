@@ -1,6 +1,7 @@
 const DB_NAME='agrotik-stat-local-v1';
 const DB_VERSION=2;
 const DATASET_STORE='datasets';
+const IDENTITY_INDEX='dataset_uid';
 const SNAPSHOT_STORE='snapshots';
 const META_STORE='meta';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
@@ -29,6 +30,8 @@ function openDb(){
     request.onupgradeneeded=event=>{
       const db=request.result,tx=request.transaction,oldVersion=Number(event.oldVersion||0);
       if(!db.objectStoreNames.contains(DATASET_STORE))db.createObjectStore(DATASET_STORE,{keyPath:'name'});
+      const datasetStore=tx.objectStore(DATASET_STORE);
+      if(!datasetStore.indexNames.contains(IDENTITY_INDEX))datasetStore.createIndex(IDENTITY_INDEX,IDENTITY_INDEX,{unique:true});
       if(!db.objectStoreNames.contains(SNAPSHOT_STORE)){
         const store=db.createObjectStore(SNAPSHOT_STORE,{keyPath:'id'});
         store.createIndex('dataset','dataset',{unique:false});
@@ -72,16 +75,16 @@ async function deleteOpfs(name){
   try{const dir=await opfsDirectory();await dir.removeEntry(opfsFileName(name));}catch{}
 }
 
-export async function saveLocalDataset(name,content){
+export async function saveLocalDataset(name,content,{dataset_uid=null}={}){
   const cleanName=String(name||'dataset.csv'),text=String(content??''),now=new Date().toISOString();
   if(opfsAvailable()){
     try{
       await writeOpfs(cleanName,text);
-      await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,backend:'opfs',size:datasetBytes(text),updatedAt:now}));
+      await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,dataset_uid:dataset_uid||null,backend:'opfs',size:datasetBytes(text),updatedAt:now}));
       return {backend:'opfs',size:datasetBytes(text)};
     }catch(error){console.warn('OPFS fallback to IndexedDB',error);}
   }
-  await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,backend:'idb',content:text,size:datasetBytes(text),updatedAt:now}));
+  await idbRequest(DATASET_STORE,'readwrite',store=>store.put({name:cleanName,dataset_uid:dataset_uid||null,backend:'idb',content:text,size:datasetBytes(text),updatedAt:now}));
   return {backend:'idb',size:datasetBytes(text)};
 }
 export async function loadLocalDataset(name){
@@ -147,4 +150,13 @@ export async function renameLocalSnapshots(from,to){
     const tx=db.transaction(SNAPSHOT_STORE,'readwrite'),store=tx.objectStore(SNAPSHOT_STORE);
     rows.forEach(row=>store.put({...row,dataset:String(to)}));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};
   });
+}
+
+export async function getLocalDatasetRecordByUid(dataset_uid){
+  if(!dataset_uid)return null;
+  try{return await idbRequest(DATASET_STORE,'readonly',store=>store.index(IDENTITY_INDEX).get(String(dataset_uid)));}catch{return null;}
+}
+
+export async function listLocalDatasetRecords(){
+  try{return await idbRequest(DATASET_STORE,'readonly',store=>store.getAll());}catch{return [];}
 }
