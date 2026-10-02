@@ -3,7 +3,7 @@ import { agrotikCore } from './core/core.js';
 import { createUid } from './core/ids.js';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
-import {installNavigation} from './navigation.js?v=20260929-cleanmenus7';
+import {installNavigation} from './navigation.js?v=20261003-mobilebar7';
 import { installDataTools } from './data-tools.js?v=20260929-cleanmenus7';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260929-cleanmenus7';
 import { installResultExport } from './result-export.js?v=20260929-cleanmenus7';
