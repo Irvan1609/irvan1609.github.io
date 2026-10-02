@@ -5,4 +5,4 @@ export {createEventBus} from './events.js';
 export {ERROR_CODES,AgrotikError,normalizeError} from './errors.js';
 export {createModuleRegistry} from './module-registry.js';
 export {createSettingsStore} from './settings.js';
-export {createOverlayManager} from './overlay-manager.js';
+export {createOverlayManager,bindOverlayManager} from './overlay-manager.js';
