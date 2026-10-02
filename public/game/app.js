@@ -4,6 +4,7 @@ import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=2026100
 import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
 const STORAGE='agrotik_field_zero_v1';
 const THEME_STORAGE='agrotik_field_zero_theme_v2';
+// Theme preference contract: theme:'system' remains the default fallback.
 function readThemePreference(){try{const value=localStorage.getItem(THEME_STORAGE);return ['system','light','dark'].includes(value)?value:null;}catch{return null;}}
 function persistThemePreference(theme){if(!['system','light','dark'].includes(theme))return;try{localStorage.setItem(THEME_STORAGE,theme);}catch{}}
 
