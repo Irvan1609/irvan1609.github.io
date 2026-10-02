@@ -19,3 +19,15 @@ export function createOverlayManager(root=document){
     active(){return active;}
   });
 }
+
+export function bindOverlayManager(manager,{root=document}={}){
+  if(!manager)return()=>{};
+  const onClick=event=>{
+    const trigger=event.target.closest?.('[data-agrotik-overlay-open]');
+    if(trigger){const selector=trigger.getAttribute('data-agrotik-overlay-open');const element=root.querySelector(selector);if(element){manager.open(element);event.preventDefault();return;}}
+    const close=event.target.closest?.('[data-agrotik-overlay-close]');
+    if(close){manager.close();event.preventDefault();return;}
+  };
+  root.addEventListener('click',onClick);
+  return()=>root.removeEventListener('click',onClick);
+}
