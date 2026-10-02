@@ -170,3 +170,11 @@
   body.analysis-results-open .app-header{display:none!important}
 }
 
+
+/* Dedicated mobile dock: single source of truth for the phone navigation. */
+#mobileBottomDock{display:none}
+@media (max-width:720px){
+  #mobileBottomDock{display:grid!important;position:fixed;left:3px;right:3px;bottom:max(2px,env(safe-area-inset-bottom));height:40px;min-height:40px;z-index:3000;grid-template-columns:repeat(8,minmax(0,1fr));gap:1px;padding:1px;box-sizing:border-box;margin:0;border-radius:8px;background:var(--surface,#fff);border:1px solid var(--border,#cfd8df);box-shadow:0 2px 10px rgba(0,0,0,.16)}
+  #mobileBottomDock button{min-width:0;min-height:36px;height:36px;padding:0 2px;margin:0;border:0;border-radius:5px;background:transparent;color:var(--text,#233245);font-size:11px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}
+  body.analysis-results-open #mobileBottomDock{display:none!important}
+}
