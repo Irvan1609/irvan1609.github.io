@@ -1,5 +1,5 @@
 const DB_NAME='agrotik-stat-local-v1';
-const DB_VERSION=3;
+const DB_VERSION=4;
 const DATASET_STORE='datasets';
 const IDENTITY_INDEX='dataset_uid';
 const LEGACY_MIGRATION_KEY='core-migration-v1';
@@ -8,6 +8,7 @@ const META_STORE='meta';
 const HISTORY_STORE='history';
 const ANALYSIS_STORE='analyses';
 const SYNC_STORE='sync_queue';
+const TRASH_STORE='trash';
 export const LOCAL_POINTER_PREFIX='@agrotik-local:';
 export const OFFLOAD_THRESHOLD_BYTES=192*1024;
 const encoder=new TextEncoder();
@@ -50,6 +51,11 @@ function openDb(){
         const store=db.createObjectStore(ANALYSIS_STORE,{keyPath:'analysis_uid'});
         store.createIndex('dataset_uid','dataset_uid',{unique:false});
         store.createIndex('date','date',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(TRASH_STORE)){
+        const store=db.createObjectStore(TRASH_STORE,{keyPath:'trash_id'});
+        store.createIndex('dataset_uid','dataset_uid',{unique:false});
+        store.createIndex('expiresAt','expiresAt',{unique:false});
       }
       if(!db.objectStoreNames.contains(SYNC_STORE)){
         const store=db.createObjectStore(SYNC_STORE,{keyPath:'change_id'});
@@ -228,4 +234,19 @@ export async function migrateLegacyResearchStores({meta={},history=[],analyses=[
     result.meta=Object.keys(meta||{}).length;result.history=Array.isArray(history)?history.length:0;result.analyses=Array.isArray(analyses)?analyses.length:0;
     return result;
   }catch(error){return {...result,error};}
+}
+
+export async function moveLocalDatasetToTrash(record,{retentionMs=86400000,reason='delete'}={}){
+  const trash_id=String(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random());
+  const now=new Date(),expiresAt=new Date(now.getTime()+Math.max(0,Number(retentionMs)||0)).toISOString();
+  await idbRequest(TRASH_STORE,'readwrite',store=>store.put({trash_id,dataset_uid:record?.dataset_uid||null,name:record?.name||null,record,reason,deletedAt:now.toISOString(),expiresAt}));
+  return trash_id;
+}
+export async function listLocalTrash(limit=100){try{return await idbRequest(TRASH_STORE,'readonly',store=>store.getAll()).then(rows=>rows.sort((a,b)=>String(b.deletedAt).localeCompare(String(a.deletedAt))).slice(0,limit));}catch{return [];}}
+export async function purgeExpiredLocalTrash(now=new Date().toISOString()){
+  const rows=await listLocalTrash(10000),expired=rows.filter(row=>String(row.expiresAt)<String(now));
+  if(!expired.length)return 0;
+  const db=await openDb();
+  await new Promise((resolve,reject)=>{const tx=db.transaction(TRASH_STORE,'readwrite'),store=tx.objectStore(TRASH_STORE);expired.forEach(row=>store.delete(row.trash_id));tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error);};});
+  return expired.length;
 }
