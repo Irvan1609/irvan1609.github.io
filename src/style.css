@@ -8858,3 +8858,23 @@ summary:focus-visible,
     display:none!important;
   }
 }
+
+
+/* MOBILE TOUCH + FLOATING SAFETY FINAL 2026-10-02 */
+@media(max-width:720px){
+  /* Semua kontrol yang benar-benar dapat disentuh memenuhi target minimum tanpa memperbesar dock utama. */
+  body button:not(.grid-cell):not([data-audit-close]){min-height:32px;}
+  .app-header .nav button,
+  .analysis-dock-head button,
+  .mobile-more-panel button,
+  #analysisDockMenu button{min-height:38px!important;}
+
+  /* Menu floating tetap menempel pada trigger dan tidak boleh keluar viewport. */
+  .mobile-more-panel{max-width:calc(100vw - 12px)!important;box-sizing:border-box!important;overflow:auto!important;overscroll-behavior:contain!important;}
+  #analysisDockMenu{max-height:calc(100dvh - 66px)!important;overflow:auto!important;box-sizing:border-box!important;}
+  #fileTree .dataset-row-menu-body{max-width:calc(100vw - 12px)!important;box-sizing:border-box!important;}
+
+  /* Editor tetap menjadi area kerja utama; dock tidak menutup kontrol data. */
+  .grid-container{min-height:0!important;}
+  .grid-add-controls button{min-height:32px!important;height:32px!important;}
+}
