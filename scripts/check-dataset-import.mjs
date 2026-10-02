@@ -44,7 +44,9 @@ assert.match(csvText,/^Perlakuan,Y\nM0,15\.89\nM1,20\.97$/);
 assert.equal(csvText.includes('\t'),false);
 assert.equal(send({name:'Meta',headers,rows,plant:'Jagung',treatment:'Dosis N'}).name,'Meta.csv');
 const metaState=JSON.parse(snapshot());
-assert.deepEqual(metaState.meta['Meta.csv'],{plant:'Jagung',treatment:'Dosis N'});
+assert.equal(metaState.meta['Meta.csv'].plant,'Jagung');
+assert.equal(metaState.meta['Meta.csv'].treatment,'Dosis N');
+assert.match(String(metaState.meta['Meta.csv'].dataset_uid||''),/^dataset_/);
 const valid=snapshot(),persisted=JSON.stringify([...storage]);
 for(const detail of [
   {headers:['A'],rows:[]},{headers:['A'],rows:[[1,2]]},
