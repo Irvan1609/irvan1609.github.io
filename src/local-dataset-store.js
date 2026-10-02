@@ -2,6 +2,7 @@ const DB_NAME='agrotik-stat-local-v1';
 const DB_VERSION=3;
 const DATASET_STORE='datasets';
 const IDENTITY_INDEX='dataset_uid';
+const LEGACY_MIGRATION_KEY='core-migration-v1';
 const SNAPSHOT_STORE='snapshots';
 const META_STORE='meta';
 const HISTORY_STORE='history';
@@ -207,4 +208,24 @@ export async function getLocalDatasetRecordByUid(dataset_uid){
 
 export async function listLocalDatasetRecords(){
   try{return await idbRequest(DATASET_STORE,'readonly',store=>store.getAll());}catch{return [];}
+}
+
+export async function migrateLegacyResearchStores({meta={},history=[],analyses=[]}={}){
+  const result={meta:0,history:0,analyses:0,skipped:false};
+  try{
+    const marker=await idbRequest(META_STORE,'readonly',store=>store.get(LEGACY_MIGRATION_KEY));
+    if(marker?.done){result.skipped=true;return result;}
+    const db=await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction([META_STORE,HISTORY_STORE,ANALYSIS_STORE],'readwrite');
+      const metaStore=tx.objectStore(META_STORE),historyStore=tx.objectStore(HISTORY_STORE),analysisStore=tx.objectStore(ANALYSIS_STORE);
+      Object.entries(meta||{}).forEach(([key,value])=>metaStore.put({key:'dataset-meta:'+key,value,schemaVersion:1,updatedAt:new Date().toISOString()}));
+      (Array.isArray(history)?history:[]).forEach(entry=>historyStore.put({...entry,id:String(entry.id||entry.analysis_uid||globalThis.crypto?.randomUUID?.()),dataset_uid:entry.dataset_uid||null,schemaVersion:1}));
+      (Array.isArray(analyses)?analyses:[]).forEach(entry=>{if(entry?.analysis_uid)analysisStore.put({...entry,schemaVersion:Number(entry.schemaVersion||1)});});
+      tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>{db.close();reject(tx.error||Error('Migrasi storage gagal.'));};tx.onabort=()=>{db.close();reject(tx.error||Error('Migrasi storage dibatalkan.'));};
+    });
+    await idbRequest(META_STORE,'readwrite',store=>store.put({key:LEGACY_MIGRATION_KEY,done:true,date:new Date().toISOString(),schemaVersion:1}));
+    result.meta=Object.keys(meta||{}).length;result.history=Array.isArray(history)?history.length:0;result.analyses=Array.isArray(analyses)?analyses.length:0;
+    return result;
+  }catch(error){return {...result,error};}
 }
