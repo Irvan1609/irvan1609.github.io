@@ -12,7 +12,7 @@ import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParame
 import {readCategoryMetadata,saveCategoryMetadata,moveCategoryDataset,copyCategoryDataset,removeCategoryDataset,moveCategoryColumn,removeCategoryColumn} from './category-metadata.js';
 import {detectColumnType,normalizeCellRange,rangeMatrix,matrixTsv,columnTooltip} from './editor-features.js';
 import {moveTreatmentMetadataDataset,copyTreatmentMetadataDataset,removeTreatmentMetadataDataset} from './treatment-metadata.js';
-import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage} from './local-dataset-store.js';
+import {isLocalPointer,localPointer,shouldOffloadDataset,saveLocalDataset,loadLocalDataset,deleteLocalDataset,saveLocalSnapshot,listLocalSnapshots,getLocalSnapshot,deleteLocalSnapshots,renameLocalSnapshots,requestPersistentStorage,saveLocalHistory} from './local-dataset-store.js';
 import {virtualWindow,VIRTUALIZE_AFTER_ROWS} from './virtual-grid.js';
 import {installResearchWorkspace} from './research-workspace.js';
 import {installStatWorkflow} from './stat-workflow.js?v=20260929-cleanmenus2';
@@ -220,6 +220,7 @@ function recordEditorHistory(reason='edit',force=false){
     const entry={date:new Date(now).toISOString(),reason,csv,meta};
     if(list[0]?.csv===entry.csv&&JSON.stringify(list[0]?.meta||{})===JSON.stringify(entry.meta))return;
     all[key]=[entry,...list].slice(0,12);localStorage.setItem(EDITOR_HISTORY_KEY,JSON.stringify(all));
+    void saveLocalHistory({id:entry.id,dataset_uid:state.meta[key]?.dataset_uid||ensureDatasetUid(key),date:entry.date,reason:entry.reason,changes:entry}).catch(()=>{});
   }catch{}
 }
 function persist(reason='edit',history=true,patch=null){
