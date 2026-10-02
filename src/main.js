@@ -1,4 +1,6 @@
 import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus7';
+import { agrotikCore } from './core/core.js';
+import { createUid } from './core/ids.js';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js?v=20260929-cleanmenus7';
@@ -70,7 +72,7 @@ function serializeRows(headers,rows){if(!headers?.length)return '';return [heade
 function serialize(){return serializeRows(state.headers,state.rows.map(row=>state.headers.map((_,i)=>row[i]??'')));}
 function activeDatasetPayload(){
   const meta=state.meta[state.active]||{plant:'',treatment:''};
-  return {name:displayDatasetName(state.active),fileName:state.active,plant:meta.plant||'',treatment:meta.treatment||'',headers:[...state.headers],rows:state.rows.map(row=>[...row])};
+  return {dataset_uid:ensureDatasetUid(state.active),name:displayDatasetName(state.active),fileName:state.active,plant:meta.plant||'',treatment:meta.treatment||'',headers:[...state.headers],rows:state.rows.map(row=>[...row])};
 }
 if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
   readActiveDataset:()=>activeDatasetPayload(),
@@ -242,6 +244,15 @@ function migrateLegacyStorage(){
   return {files,active};
 }
 function activeMeta(){return state.meta[state.active]||{plant:'',treatment:''};}
+function ensureDatasetUid(name){
+  const key=String(name||state.active||'dataset.csv');
+  const meta=state.meta[key]||{};
+  if(meta.dataset_uid)return meta.dataset_uid;
+  const uid=createUid('dataset');
+  state.meta[key]={...meta,dataset_uid:uid};
+  try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}
+  return uid;
+}
 function updateDatasetMetaSummary(meta=activeMeta()){
   if($('#plantNameSummary'))$('#plantNameSummary').textContent=meta.plant||'—';
   if($('#treatmentNameSummary'))$('#treatmentNameSummary').textContent=meta.treatment||'—';
@@ -302,6 +313,7 @@ function loadStorage(){
     state.files=migrated?.files||(JSON.parse(localStorage.getItem(FILES_KEY)||'{}')||{});
     state.active=migrated?.active||localStorage.getItem(ACTIVE_KEY)||Object.keys(state.files)[0]||'dataset.csv';
     if(!(state.active in state.files))state.files[state.active]='';
+    Object.keys(state.files).forEach(name=>ensureDatasetUid(name));
   }catch(e){state.files={'dataset.csv':''};state.active='dataset.csv';state.meta={};showError('Penyimpanan browser tidak dapat dibaca; dataset baru dibuat.',e);}
   loadActive(false);
 }
@@ -1074,7 +1086,7 @@ function quickImport(event){
     showError('Berkas belum dapat diteruskan ke pengimpor. Gunakan tombol impor pada toolbar.',error);
   }
 }
-function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=['Perlakuan'];state.rows=[['']];state.meta[name]={plant:'',treatment:''};persist('dataset baru',true);try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}renderTree();renderGrid();renderDatasetMeta();clearSelection();setSelection(0,0,{focus:true});setStatus(`✓ ${displayDatasetName(name)} dibuat · 1 baris × 1 kolom.`);}
+function newTXT(){let i=1,name='dataset.csv';while(Object.prototype.hasOwnProperty.call(state.files,name))name=`dataset${i++}.csv`;state.files[name]='';state.active=name;state.headers=['Perlakuan'];state.rows=[['']];state.meta[name]={plant:'',treatment:'',dataset_uid:createUid('dataset')};persist('dataset baru',true);try{localStorage.setItem(META_KEY,JSON.stringify(state.meta));}catch{}renderTree();renderGrid();renderDatasetMeta();clearSelection();setSelection(0,0,{focus:true});setStatus(`✓ ${displayDatasetName(name)} dibuat · 1 baris × 1 kolom.`);}
 function addRow(){if(!state.headers.length)return showError('Tambahkan data atau kolom terlebih dahulu.');pushUndo('tambah baris');const row=state.headers.map(()=>'');state.rows.push(row);persist('tambah baris',true,{kind:'append_row',values:row});renderGrid();setStatus('✓ Baris baru ditambahkan.');}
 function addColumn(){pushUndo('tambah kolom');if(!state.headers.length)state.rows=[];state.headers.push(nextColumnName(state.headers));state.rows.forEach(r=>r.push(''));persist('tambah kolom',true);renderGrid();setStatus('✓ Kolom baru ditambahkan.');}
 function clearData(){
@@ -1130,7 +1142,7 @@ function duplicateDataset(){
   const source=state.active,content=serialize(),base=displayDatasetName(source)+' - salinan';let name=base+'.csv',n=2;
   while(Object.prototype.hasOwnProperty.call(state.files,name))name=`${base} (${n++}).csv`;
   const offloaded=localStoreReady()&&shouldOffloadDataset(content);
-  state.files[name]=offloaded?localPointer(name):content;state.meta[name]={...(state.meta[source]||{plant:'',treatment:''})};
+  state.files[name]=offloaded?localPointer(name):content;state.meta[name]={...(state.meta[source]||{plant:'',treatment:''}),dataset_uid:createUid('dataset')};
   copyCategoryDataset(displayDatasetName(source),displayDatasetName(name));copyTreatmentMetadataDataset(displayDatasetName(source),displayDatasetName(name));copyFrozenDataset(source,name);
   try{
     localStorage.setItem(FILES_KEY,JSON.stringify(state.files));localStorage.setItem(META_KEY,JSON.stringify(state.meta));state.active=name;localStorage.setItem(ACTIVE_KEY,name);
@@ -1290,7 +1302,7 @@ function installDataGrid(){
       const names=new Set(Object.keys(state.files).map(x=>x.toLowerCase()));
       while(names.has(name.toLowerCase()))name=`${base} (${suffix++}).csv`;
       const csv=serializeRows(headers,rows),value=localStoreReady()&&shouldOffloadDataset(csv)?localPointer(name):csv;
-      const files={...state.files,[name]:value},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim()}};
+      const files={...state.files,[name]:value},meta={...state.meta,[name]:{plant:String(detail.plant||'').trim(),treatment:String(detail.treatment||'').trim(),dataset_uid:createUid('dataset')}};
       const previousFiles=localStorage.getItem(FILES_KEY),previousActive=localStorage.getItem(ACTIVE_KEY),previousMeta=localStorage.getItem(META_KEY);
       try{localStorage.setItem(FILES_KEY,JSON.stringify(files));localStorage.setItem(ACTIVE_KEY,name);localStorage.setItem(META_KEY,JSON.stringify(meta));}
       catch(error){
@@ -1320,6 +1332,8 @@ async function boot(){
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
   installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
+  agrotikCore.modules.register({name:'stat',version:'1.0.0',capabilities:['dataset','analysis','export']});
+  agrotikCore.modules.register({name:'denah',version:'1.0.0',capabilities:['dataset-layout']});
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js?v=20260928-quietcloud1')
