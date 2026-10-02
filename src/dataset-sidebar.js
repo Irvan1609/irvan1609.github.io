@@ -13,7 +13,7 @@ function ensureStyle(){
     #fileTree .dataset-row-menu>summary{width:28px;height:28px;display:grid;place-items:center;cursor:pointer;list-style:none;border-radius:5px;color:#657582;font-size:15px;font-weight:800}
     #fileTree .dataset-row-menu>summary::-webkit-details-marker{display:none}
     #fileTree .dataset-row-menu[open]>summary,#fileTree .dataset-row-menu>summary:hover{background:#edf2f5;color:#29475e}
-    #fileTree .dataset-row-menu-body{position:fixed;left:0;top:0;right:auto;z-index:460;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 8px 20px rgba(25,43,58,.14);transform-origin:top right}
+    #fileTree .dataset-row-menu-body{position:absolute;left:auto;right:0;top:calc(100% + 2px);bottom:auto;z-index:700;width:144px;max-height:min(300px,66dvh);overflow:auto;padding:3px;border:1px solid #d5dde4;border-radius:6px;background:#fff;box-shadow:0 8px 20px rgba(25,43,58,.14);transform-origin:top right}
     #fileTree .dataset-row-menu-body button{width:100%;min-height:28px;padding:3px 6px;border:0;border-radius:4px;background:transparent;text-align:left;font-size:11px;color:#344b5d}
     #fileTree .dataset-row-menu-body button:hover{background:#f1f4f6}
     #fileTree .dataset-row-menu-body button[data-dataset-action="delete"]{color:#9c302a}
@@ -60,22 +60,24 @@ function positionMenu(menu){
   requestAnimationFrame(()=>{
     const rect=summary.getBoundingClientRect(),gap=2,pad=6,mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
     const width=Math.min(mobile?160:144,window.innerWidth-pad*2);
+    const panel=menu.closest('.dataset-tree-row');
+    const panelRect=panel?.getBoundingClientRect();
     const reservedBottom=mobile?72:pad;
     const spaceBelow=Math.max(0,window.innerHeight-reservedBottom-rect.bottom-gap);
     const spaceAbove=Math.max(0,rect.top-pad-gap);
     const openAbove=spaceBelow<150&&spaceAbove>spaceBelow;
     const available=openAbove?spaceAbove:spaceBelow;
-    const left=Math.max(pad,Math.min(window.innerWidth-width-pad,rect.right-width));
     body.style.width=width+'px';
-    body.style.left=left+'px';
     body.style.maxHeight=Math.max(92,Math.min(300,available||92))+'px';
+    body.style.left='auto';
+    body.style.right='0px';
     if(openAbove){
       body.style.top='auto';
-      body.style.bottom=Math.max(pad,window.innerHeight-rect.top+gap)+'px';
+      body.style.bottom='calc(100% + 2px)';
       body.dataset.side='above';
     }else{
       body.style.bottom='auto';
-      body.style.top=Math.max(pad,rect.bottom+gap)+'px';
+      body.style.top='calc(100% + 2px)';
       body.dataset.side='below';
     }
   });
