@@ -2136,3 +2136,17 @@ body.calm-ui .quick-menu-grid button span{font-size:8px}
 }
 @media(max-width:390px){.floating-game-menu{grid-template-columns:repeat(3,43px);}.floating-game-menu button{width:43px;height:43px;min-width:43px;min-height:43px}.floating-game-menu button b{font-size:6.5px}.floating-game-button{width:44px;height:44px;min-width:44px;min-height:44px}}
 body.theme-light .floating-game-menu,body.theme-light .floating-game-button{box-shadow:0 7px 20px #26362a2b}
+
+
+/* FIELD ZERO FULL-BLEED MOBILE 2026-10-03 */
+@media(max-width:620px){
+  html,body{width:100%;min-width:100%;min-height:100%;overflow-x:hidden}
+  .subweb-header{display:none!important}
+  .game-shell{width:100%!important;max-width:none!important;min-height:100dvh!important;margin:0!important;padding:6px 6px calc(78px + env(safe-area-inset-bottom))!important}
+  .game-head{margin:0 0 6px!important;padding:0 2px!important}
+  .game-head h1{font-size:22px!important}
+  .game-quick-nav{left:4px!important;right:4px!important;bottom:calc(4px + env(safe-area-inset-bottom))!important}
+}
+@media(max-width:390px){
+  .game-shell{padding:4px 4px calc(76px + env(safe-area-inset-bottom))!important}
+}
