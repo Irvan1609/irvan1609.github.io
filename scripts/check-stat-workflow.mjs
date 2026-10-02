@@ -30,3 +30,7 @@ for(const marker of ['STAT UNIFIED WORKFLOW + FULLSCREEN RESULTS','.analysis-doc
 
 if(workflow.includes('data-stat-workflow="setup"'))fail('setup must be consolidated into the analysis stage');
 console.log('Stat workflow check OK: invisible workflow controls, core-first execution, automatic integrity audit, recovery fallback, inline errors, and conservative smart routing.');
+
+const store=fs.readFileSync('src/local-dataset-store.js','utf8');
+for(const marker of ['DB_VERSION=4','HISTORY_STORE','ANALYSIS_STORE','SYNC_STORE','TRASH_STORE','migrateLegacyResearchStores'])if(!store.includes(marker))fail('storage contract missing '+marker);
+for(const marker of ['analysis_uid','dataset_uid'])if(!scientific.includes(marker))fail('analysis provenance missing '+marker);
