@@ -4,32 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#17324d">
-  <meta name="application-name" content="Agrotik">
+  <meta name="application-name" content="Agrotik Stat">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/agrotik.svg" type="image/svg+xml">
-  <title>Statistical Web</title>
+  <title>Agrotik Stat — Analisis Data Pertanian</title>
   <link rel="stylesheet" href="/subweb-header.css">
   <link rel="stylesheet" href="/src/style.css?v=20261002-mobile-final5">
   <link rel="stylesheet" href="/account.css?v=20260928-1">
+  <link rel="stylesheet" href="/stat/mobile-commercial.css?v=20261003-1">
 </head>
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
-      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Statistical Web</span></a>
-      <nav class="subweb-nav" aria-label="Navigasi situs">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke Agrotik"><span class="subweb-brand-arrow">←</span><span>Agrotik Stat</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi Agrotik">
         <a class="subweb-home-link" href="/">Beranda</a>
-        <details class="subweb-tools">
-          <summary>Alat penelitian <span aria-hidden="true">⌄</span></summary>
-          <div class="subweb-tools-menu">
-            <a href="/stat/" aria-current="page">Statistical Web</a>
-            <a href="/hitung-cabai/">Hitung Cabai</a>
-            <a href="/pengukur/">Pengukur</a>
-            <a href="/mendeley/">Referensi Mendeley</a>
-            <a href="/print-skripsi/">Print Skripsi</a>
-          </div>
-        </details>
       </nav>
     </div>
   </header>
@@ -37,9 +28,9 @@
   <div id="app">
     <div class="app-shell">
       <header class="app-header">
-        <nav class="nav" aria-label="Perintah Statistical Web">
+        <nav class="nav" aria-label="Perintah Agrotik Stat">
           <button id="openAnalysis" class="primary" type="button">Analisis</button>
-          <button id="globalSearchButton" class="header-icon-button" type="button" aria-label="Cari" title="Cari (/)" aria-haspopup="dialog" aria-controls="globalSearchModal">⌕</button>
+          <button id="globalSearchButton" class="header-icon-button" type="button" aria-label="Cari" title="Cari (/) " aria-haspopup="dialog" aria-controls="globalSearchModal">⌕</button>
           <button id="projectToggle" class="header-icon-button" type="button" aria-label="Dataset" title="Dataset" aria-expanded="false">☰</button>
         </nav>
       </header>
@@ -80,7 +71,7 @@
         <section class="workspace">
           <div class="sheet-header">
             <div class="dataset-title">
-              <strong>Tabel data</strong><span>/</span><span id="activeFile" role="button" tabindex="0" title="Klik untuk ubah nama">dataset</span>
+              <strong>Data</strong><span>/</span><span id="activeFile" role="button" tabindex="0" title="Klik untuk ubah nama">dataset</span>
               <span id="saveIndicator" class="save-indicator visible" aria-live="polite" aria-label="Tersimpan di perangkat ini" title="Tersimpan di perangkat ini">●</span>
             </div>
             <div class="dataset-meta-compact">
@@ -103,12 +94,10 @@
 
     <div id="globalSearchModal" class="modal-backdrop">
       <div class="modal global-search-dialog" role="dialog" aria-modal="true" aria-labelledby="globalSearchTitle">
-        <div class="modal-head"><strong id="globalSearchTitle">Cari di Statistical Web</strong><button id="closeGlobalSearch" type="button" aria-label="Tutup pencarian">✕</button></div>
+        <div class="modal-head"><strong id="globalSearchTitle">Cari di Agrotik Stat</strong><button id="closeGlobalSearch" type="button" aria-label="Tutup pencarian">✕</button></div>
         <div class="modal-body">
           <input id="globalSearch" type="search" autocomplete="off" placeholder="Cari fitur, analisis, dataset, kolom…" aria-label="Cari fitur, analisis, dataset, kolom">
-          <div id="globalSearchResults" class="global-search-results" role="listbox">
-            <div class="global-search-empty">Ketik untuk mencari seluruh Statistical Web.</div>
-          </div>
+          <div id="globalSearchResults" class="global-search-results" role="listbox"><div class="global-search-empty">Ketik untuk mencari seluruh Agrotik Stat.</div></div>
         </div>
       </div>
     </div>
@@ -169,9 +158,10 @@
     <input id="quickImportFile" class="file-input" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
   </div>
 
-  <noscript><div class="fatal-error">JavaScript harus diaktifkan untuk menggunakan Statistical Web.</div></noscript>
+  <noscript><div class="fatal-error">JavaScript harus diaktifkan untuk menggunakan Agrotik Stat.</div></noscript>
   <script type="module" src="/src/main.js?v=20261002-mobile-final5"></script>
   <script type="module" src="/account.js?v=20260928-gamefix6"></script>
   <script src="/pwa-register.js" defer></script>
-<script type="module" src="/src/ui-self-audit.js?v=20261002-audit1"></script></body>
+  <script type="module" src="/src/ui-self-audit.js?v=20261002-audit1"></script>
+</body>
 </html>

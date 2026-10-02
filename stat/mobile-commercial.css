@@ -1,0 +1,40 @@
+/* Agrotik Stat — mobile workspace pass
+   Keeps the existing editor/analysis UI but removes the desktop chrome on phones.
+*/
+@media (max-width:720px){
+  html,body{width:100%;min-height:100%;overflow-x:hidden}
+  body{background:#fff}
+  .subweb-header{display:none!important}
+  .app-shell{max-width:none;width:100%;min-height:100dvh;margin:0;padding:0}
+  .app-header{position:sticky;top:0;z-index:30;border:0;border-radius:0;border-bottom:1px solid var(--border)}
+  .app-header .nav{min-height:44px;padding:5px 8px;justify-content:flex-end;gap:5px}
+  .app-header .nav button{min-height:34px;padding:5px 9px}
+  .toolbar{position:sticky;top:44px;z-index:25;display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:5px 7px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:#fff}
+  .toolbar::-webkit-scrollbar{display:none}
+  .toolbar button{flex:0 0 auto;min-height:34px;white-space:nowrap}
+  .main{display:block;margin:0}
+  .project-panel{display:none}
+  .workspace{border:0;border-radius:0;min-height:calc(100dvh - 82px)}
+  .sheet-header{position:sticky;top:82px;z-index:20;min-height:38px;padding:6px 8px;gap:6px;background:#fff}
+  .dataset-title{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dataset-meta-compact{min-width:0;overflow:auto;white-space:nowrap}
+  .dataset-meta-summaryline{font-size:11px}
+  .grid-container{height:calc(100dvh - 125px);max-height:none;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .data-grid th,.data-grid td{padding:5px 7px;min-width:76px;height:34px}
+  .data-grid .row-number{min-width:38px}
+  .status{display:none}
+  #clearData{margin-left:0}
+  .modal-backdrop{padding:6px}
+  .modal-backdrop>.modal{width:100%;max-height:calc(100dvh - 12px);border-radius:8px}
+  .modal-body{padding:10px}
+  .modal-head,.modal-foot{padding:9px 10px}
+  .result-actions{overflow-x:auto;flex-wrap:nowrap}
+  .result-actions button{flex:0 0 auto}
+  .analysis-result{margin:10px 0 0;border-left:0;border-right:0}
+  .analysis-result .result-table{min-width:620px}
+}
+@media (max-width:380px){
+  .app-header .nav button{font-size:12px;padding:4px 7px}
+  .toolbar button{font-size:12px}
+  .sheet-header{font-size:12px}
+}
