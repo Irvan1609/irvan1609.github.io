@@ -23,3 +23,7 @@ assert.match(scientific,/analysis_uid/);
 assert.match(scientific,/dataset_uid:data\.dataset_uid/);
 
 console.log('Core contract check OK');
+
+const store=fs.readFileSync('src/local-dataset-store.js','utf8');
+assert.match(store,/IDENTITY_INDEX/);
+assert.match(store,/getLocalDatasetRecordByUid/);
