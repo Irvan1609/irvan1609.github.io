@@ -8878,3 +8878,31 @@ summary:focus-visible,
   .grid-container{min-height:0!important;}
   .grid-add-controls button{min-height:32px!important;height:32px!important;}
 }
+
+/* COMMERCIAL MOBILE UX FINAL */
+@media(max-width:720px){
+  .app-header .nav{justify-content:flex-start}
+  .app-header .nav #openAnalysis{order:3;margin-left:auto}
+  .app-header .nav #globalSearchButton{order:1}
+  .app-header .nav #projectToggle{order:2}
+  .header-icon-button{width:38px;min-width:38px;padding:4px!important}
+  .toolbar{padding-left:6px;padding-right:6px}
+  .sheet-header{overflow:hidden}
+  .dataset-meta-compact{flex:1}
+  .dataset-meta-summaryline{display:flex;gap:10px}
+  .dataset-meta-summaryline>span{display:inline-flex;gap:3px;align-items:center}
+  .grid-container{touch-action:pan-x pan-y pinch-zoom}
+  .data-grid{user-select:text;-webkit-user-select:text}
+  .data-grid td,.data-grid th{touch-action:manipulation}
+  .modal-backdrop.open{align-items:stretch}
+  .modal-backdrop>.modal{margin:auto}
+}
+/* Keep floating/context menus above sticky mobile chrome and prevent stacking collisions. */
+.nav-command-panel,.mobile-more-panel,#analysisMenu,#fileMenu,#dataMenu,#helpMenu,#appSettingsPanel{
+  z-index:60!important;
+}
+@media(max-width:720px){
+  .nav-command-panel,.mobile-more-panel,#analysisMenu,#fileMenu,#dataMenu,#helpMenu,#appSettingsPanel{
+    max-width:calc(100vw - 12px);
+  }
+}
