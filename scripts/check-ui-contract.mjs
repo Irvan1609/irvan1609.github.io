@@ -327,7 +327,6 @@ if(!statStyle.includes('AGROTIK MOBILE NAV COMPACT FINAL 2026-10-02')||!statStyl
 if(!statStyle.includes('/* MOBILE RESULTS POLISH 2 — actual report-enhancement classes — 2026-10-02 */')||!statStyle.includes('.anova-report-table'))fail('mobile RAK/RAL report card styling missing');
 if(!navigation.includes('data-mobile-menu="fieldLayout">Denah'))fail('mobile More menu must expose Denah');
 if(!navigation.includes('data-mobile-menu="uiAudit">Audit UI'))fail('mobile More menu must expose UI Audit');
-if(!test.includes('ui-self-audit.js')){}
 if(!navigation.includes("if(action==='fieldLayout'){fieldTab?.click();return;}"))fail('mobile Denah action must reuse the primary Denah command');
 if(dataEnhancements.includes('fieldLayoutTool')||dataEnhancements.includes('createFieldbookMap'))fail('secondary Denah command must stay removed');
 if(dataEnhancements.includes('id="duplicateDataset"'))fail('Data menu must not create a second duplicate-dataset button');
