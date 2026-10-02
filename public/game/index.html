@@ -42,6 +42,21 @@
   </header>
 
   <main class="game-shell">
+
+    <aside id="floatingGameActions" class="floating-game-actions" aria-label="Aksi melayang">
+      <div id="floatingGameMenu" class="floating-game-menu" hidden>
+        <button type="button" data-float-action="plant" title="Tanam"><span>🌱</span><b>Tanam</b></button>
+        <button type="button" data-float-action="water" title="Air"><span>💧</span><b>Air</b></button>
+        <button type="button" data-float-action="fertilize" title="Pupuk"><span>🧪</span><b>Pupuk</b></button>
+        <button type="button" data-float-action="scout" title="Periksa"><span>◎</span><b>Periksa</b></button>
+        <button type="button" data-float-action="harvest" title="Panen"><span>🧺</span><b>Panen</b></button>
+        <button type="button" data-float-action="smart" title="Aksi petak"><span>⚡</span><b>Aksi</b></button>
+        <button type="button" data-float-action="next" title="Hari berikutnya"><span>＋</span><b>Hari</b></button>
+        <button type="button" data-float-action="lab" title="Lab"><span>🔬</span><b>Lab</b></button>
+        <button type="button" data-float-action="research" title="Rancob & Breeding"><span>📐</span><b>Rancob</b></button>
+      </div>
+      <button id="floatingGameButton" class="floating-game-button" type="button" aria-expanded="false" aria-controls="floatingGameMenu" aria-label="Buka aksi cepat" title="Aksi cepat">＋</button>
+    </aside>
     <section class="game-head">
       <div>
         <span class="kicker">AKADEMI RISET · PEMULIAAN</span>
