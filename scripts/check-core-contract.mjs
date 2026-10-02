@@ -41,3 +41,5 @@ const modules=fs.readFileSync('src/core/module-registry.js','utf8');
 assert.match(modules,/contractVersion/);
 
 assert.match(main,/if\(!agrotikCore\.modules\.get\('stat'\)\)/);
+
+console.log('Core contract static verification OK');
