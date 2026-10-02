@@ -12,6 +12,7 @@ import {readCategoryMetadata,categoryLevelDescription} from './category-metadata
 import {auditReports,renderAudit} from './analysis-audit.js';
 import {requireValidCoreReport,attachSupplementWarning} from './analysis-integrity.js';
 import {enhanceResultOS} from './result-os.js';
+import {saveLocalAnalysis,listLocalAnalyses,getLocalAnalysis} from './local-dataset-store.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
@@ -232,6 +233,17 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   };
 }
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
+async function hydrateAnalysisHistoryFromIndexedDB(){
+  if(!data?.dataset_uid)return;
+  try{
+    const entries=await listLocalAnalyses(data.dataset_uid,100);
+    if(!entries.length)return;
+    const legacy=getHistory();
+    const byId=new Map([...legacy,...entries].map(entry=>[entry.id||entry.analysis_uid,entry]));
+    const merged=[...byId.values()].sort((a,b)=>String(b.date||b.updatedAt||'').localeCompare(String(a.date||a.updatedAt||''))).slice(0,20);
+    localStorage.setItem(HISTORY,JSON.stringify(merged));
+  }catch(error){console.warn('Riwayat analisis IndexedDB tidak dapat dipulihkan',error);}
+}
 function saveHistory(reports,options){
   const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
   const resultVersion=Math.max(same.length,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
@@ -241,7 +253,9 @@ function saveHistory(reports,options){
   }
   for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
   const entry={id:crypto.randomUUID(),analysis_uid:'analysis_'+(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(16).slice(2)),version:1,resultVersion,date:new Date().toISOString(),dataset_uid:data.dataset_uid||'',dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
-  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
+  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));}catch{return null;}
+  void saveLocalAnalysis(entry).catch(error=>console.warn('Riwayat analisis IndexedDB tidak tersimpan',error));
+  return entry;
 }
 function compareHistoryEntries(a,b){
   const names=[...new Set([...(a.reports||[]).map(report=>report.name),...(b.reports||[]).map(report=>report.name)])];
