@@ -8528,3 +8528,214 @@ summary:focus-visible,
   .sheet-header,.status{font-size:var(--data-font-size)!important}
   .workspace{border-radius:4px!important}
 }
+
+
+/* MOBILE RESEARCH RESULTS — readable cards, no clipped desktop tables — 2026-10-02 */
+@media(max-width:720px){
+  html,body{overflow-x:hidden!important}
+  body.analysis-results-open{background:#f4f6f8!important}
+
+  /* Compact dock: Back | Analisis | Data | Dataset | More */
+  .app-header .nav-primary,.app-header .nav-utilities{display:contents!important}
+  #mobileBackButton{order:1!important}
+  #openAnalysis{order:2!important}
+  #dataMenuButton{order:3!important}
+  #projectToggle{order:4!important}
+  #mobileMoreButton{order:5!important}
+  #fileMenuButton,#helpMenuButton,#fieldLayoutTab{display:none!important}
+  #projectToggle{font-size:0!important}
+  #projectToggle::before{content:'▤';font-size:17px!important;line-height:1}
+  #mobileMoreButton{font-size:20px!important}
+  .app-header .nav{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+
+  /* Result surface uses the whole phone, with one clean scroll area. */
+  .analysis-result-dock{
+    top:0!important;left:0!important;right:0!important;bottom:0!important;
+    width:100vw!important;border:0!important;border-radius:0!important;
+    box-shadow:none!important;background:#f4f6f8!important;
+  }
+  .analysis-dock-head{
+    min-height:52px!important;height:52px!important;padding:5px 8px!important;
+    background:#fff!important;border-bottom:1px solid #d8e0e6!important;
+  }
+  .analysis-dock-head .analysis-dock-close,
+  .analysis-dock-head .analysis-dock-more{
+    width:42px!important;height:42px!important;min-width:42px!important;
+    border:1px solid #d4dde4!important;border-radius:9px!important;
+    background:#fff!important;font-size:25px!important;
+  }
+  .analysis-dock-title{min-width:0!important}
+  .analysis-dock-kicker{display:none!important}
+  .analysis-dock-title strong{font-size:16px!important}
+  .analysis-dock-body{
+    padding:7px 6px 18px!important;overflow:auto!important;
+    overscroll-behavior:contain!important;
+  }
+  .analysis-dock-body .master-result-actions{display:none!important}
+
+  /* Header/summary metadata: compact and never clipped. */
+  .analysis-result-meta{
+    display:flex!important;flex-wrap:wrap!important;gap:4px!important;
+    margin:0 0 5px!important;padding:0!important;
+  }
+  .analysis-result-meta>*{
+    max-width:100%!important;font-size:12px!important;
+  }
+  .analysis-dock-body .analysis-result{
+    width:100%!important;max-width:100%!important;
+    margin:6px 0!important;border:1px solid #d5dde4!important;
+    border-radius:9px!important;overflow:hidden!important;
+  }
+  .analysis-dock-body .analysis-result>h3{
+    position:static!important;padding:8px 10px!important;
+    font-size:14px!important;border-bottom:1px solid #d7dfe5!important;
+  }
+
+  /* Export menu stays attached to the ⋮ button and fits the phone. */
+  #analysisDockMenu{
+    position:fixed!important;top:58px!important;right:8px!important;left:auto!important;
+    width:min(320px,calc(100vw - 16px))!important;max-width:none!important;
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:4px!important;padding:6px!important;z-index:900!important;
+    border:1px solid #cfd9e1!important;border-radius:9px!important;
+    background:#fff!important;box-shadow:0 10px 28px #15233430!important;
+  }
+  #analysisDockMenu[hidden]{display:none!important}
+  #analysisDockMenu button{
+    width:100%!important;min-width:0!important;min-height:38px!important;
+    padding:5px 7px!important;border:1px solid #e0e5ea!important;
+    border-radius:6px!important;background:#fff!important;
+    font-size:11px!important;line-height:1.15!important;text-align:left!important;
+    white-space:normal!important;
+  }
+
+  /* Ringkasan 7-column desktop table becomes readable two-column cards. */
+  .analysis-summary{
+    margin:5px 0 10px!important;border:1px solid #d4dde4!important;
+    border-radius:8px!important;overflow:hidden!important;
+  }
+  .summary-head{padding:8px 9px!important}
+  .summary-head b{font-size:14px!important}
+  .summary-head small{font-size:11px!important}
+  .summary-table{display:block!important;width:100%!important;min-width:0!important}
+  .summary-table thead{display:none!important}
+  .summary-table tbody{display:grid!important;gap:5px!important;padding:5px!important;background:#f7f9fa!important}
+  .summary-table tbody tr{
+    display:grid!important;grid-template-columns:1fr 1fr!important;
+    gap:0!important;border:1px solid #d9e1e7!important;border-radius:7px!important;
+    background:#fff!important;overflow:hidden!important;
+  }
+  .summary-table td{
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
+    min-width:0!important;width:auto!important;height:auto!important;
+    padding:6px 8px!important;border:0!important;border-top:1px solid #edf0f2!important;
+    font-size:11px!important;text-align:right!important;white-space:normal!important;
+  }
+  .summary-table td:first-child{
+    grid-column:1/-1!important;border-top:0!important;padding:7px 8px!important;
+    background:#f3f6f8!important;font-weight:700!important;text-align:left!important;
+  }
+  .summary-table td:nth-child(2)::before{content:'N';}
+  .summary-table td:nth-child(3)::before{content:'Rataan';}
+  .summary-table td:nth-child(4)::before{content:'KK';}
+  .summary-table td:nth-child(5)::before{content:'Ket.';}
+  .summary-table td:nth-child(6)::before{content:'Sumber';}
+  .summary-table td:nth-child(7)::before{content:'Uji lanjut';}
+  .summary-table td:nth-child(6),.summary-table td:nth-child(7){display:block!important;text-align:left!important}
+  .summary-table td:nth-child(6)::before,.summary-table td:nth-child(7)::before{
+    display:block!important;margin-bottom:2px!important;font-weight:700!important;color:#687783!important;
+  }
+  .summary-table td::before{
+    flex:0 0 auto!important;margin-right:8px!important;color:#687783!important;font-weight:600!important;
+  }
+  .summary-table .summary-parameter-link{
+    width:100%!important;min-height:0!important;padding:0!important;
+    font-size:12px!important;font-weight:700!important;
+  }
+  .analysis-summary>.table-scroll{overflow:visible!important}
+  .analysis-summary>.analysis-note{margin:0!important;border:0!important;border-top:1px solid #dce3e8!important;
+    padding:7px 9px!important;font-size:10.5px!important;line-height:1.35!important}
+
+  /* Observation table and ANOVA: no more right-edge clipping. */
+  .analysis-result .observation-table,
+  .analysis-result .anova-table{
+    display:block!important;width:100%!important;min-width:0!important;
+  }
+  .analysis-result .observation-table thead,
+  .analysis-result .anova-table thead{display:none!important}
+  .analysis-result .observation-table tbody,
+  .analysis-result .anova-table tbody{
+    display:grid!important;gap:4px!important;padding:5px!important;
+  }
+  .analysis-result .observation-table tbody tr,
+  .analysis-result .anova-table tbody tr{
+    display:grid!important;grid-template-columns:1fr 1fr!important;
+    border:1px solid #d8e0e6!important;border-radius:6px!important;
+    overflow:hidden!important;background:#fff!important;
+  }
+  .analysis-result .observation-table td,
+  .analysis-result .anova-table td{
+    display:flex!important;justify-content:space-between!important;align-items:center!important;
+    min-width:0!important;height:auto!important;padding:5px 7px!important;
+    border:0!important;border-top:1px solid #edf0f2!important;
+    font-size:11px!important;white-space:normal!important;text-align:right!important;
+  }
+  .analysis-result .observation-table td:first-child,
+  .analysis-result .anova-table td:first-child{
+    grid-column:1/-1!important;border-top:0!important;
+    background:#f4f7f9!important;font-weight:700!important;text-align:left!important;
+  }
+  .analysis-result .observation-table td:nth-child(2)::before{content:'Kelompok 1';}
+  .analysis-result .observation-table td:nth-child(3)::before{content:'Kelompok 2';}
+  .analysis-result .observation-table td:nth-child(4)::before{content:'Kelompok 3';}
+  .analysis-result .observation-table td:nth-child(5)::before{content:'Total';}
+  .analysis-result .observation-table td:nth-child(6)::before{content:'Rata-rata';}
+  .analysis-result .anova-table td:nth-child(2)::before{content:'db';}
+  .analysis-result .anova-table td:nth-child(3)::before{content:'JK';}
+  .analysis-result .anova-table td:nth-child(4)::before{content:'KT';}
+  .analysis-result .anova-table td:nth-child(5)::before{content:'F hitung';}
+  .analysis-result .anova-table td:nth-child(6)::before{content:'F tabel 0.05';}
+  .analysis-result .anova-table td:nth-child(7)::before{content:'F tabel 0.01';}
+  .analysis-result .observation-table td::before,
+  .analysis-result .anova-table td::before{
+    flex:0 0 auto!important;margin-right:7px!important;
+    color:#687783!important;font-weight:600!important;
+  }
+  .analysis-result .table-caption{
+    padding:6px 8px!important;margin:0!important;
+    font-size:11px!important;font-weight:700!important;
+  }
+  .analysis-result .analysis-note{
+    margin:0!important;border-left:0!important;border-right:0!important;
+    border-bottom:0!important;border-top:1px solid #dce3e8!important;
+    padding:7px 8px!important;font-size:10.5px!important;line-height:1.4!important;
+  }
+
+  /* Keep other result tables inside their own card rather than widening the page. */
+  .analysis-result .table-scroll{
+    max-width:100%!important;overflow-x:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .analysis-result .posthoc-table,
+  .analysis-result .contrast-summary-table{
+    min-width:420px!important;
+  }
+
+  /* Reduce empty chrome between result sections. */
+  .analysis-result+.analysis-result{margin-top:8px!important}
+  .analysis-export-footer{margin:8px 0!important;padding:8px!important;border:1px solid #d5dde4!important;border-radius:8px!important}
+  .analysis-export-footer-actions{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important;
+  }
+  .analysis-export-footer-actions button{min-width:0!important;min-height:36px!important;padding:5px!important;font-size:10px!important}
+}
+
+/* MOBILE NAV ORDER 2026-10-02 */
+@media(max-width:720px){
+  .app-header .nav>*{order:10}
+  #mobileBackButton{order:1!important}
+  #openAnalysis{order:2!important}
+  #dataMenuButton{order:3!important}
+  #projectToggle{order:4!important}
+  #mobileMoreButton{order:5!important}
+}
