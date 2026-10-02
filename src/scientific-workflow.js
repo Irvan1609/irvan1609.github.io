@@ -240,7 +240,7 @@ function saveHistory(reports,options){
     if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
   }
   for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
-  const entry={id:crypto.randomUUID(),version:1,resultVersion,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
+  const entry={id:crypto.randomUUID(),analysis_uid:'analysis_'+(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(16).slice(2)),version:1,resultVersion,date:new Date().toISOString(),dataset_uid:data.dataset_uid||'',dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
   try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
 }
 function compareHistoryEntries(a,b){
