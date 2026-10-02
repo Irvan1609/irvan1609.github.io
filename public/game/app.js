@@ -598,6 +598,8 @@ function setupFloatingGameActions(){
    else if(action==='next')$('#nextDay')?.click();
    else if(action==='lab')openSeedVault();
    else if(action==='research')openExperiment();
+   else if(action==='map')$('#quickMap')?.click();
+   else if(action==='social')$('#quickSocial')?.click();
    close();
  });
  document.addEventListener('pointerdown',event=>{if(!root.contains(event.target))close();});
