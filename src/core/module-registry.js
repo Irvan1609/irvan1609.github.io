@@ -5,6 +5,7 @@ export function createModuleRegistry({bus=createEventBus()}={}){
   const modules=new Map();
   return Object.freeze({
     register(definition){
+      if(!definition?.contractVersion)definition={...definition,contractVersion:'1.0'};
       const name=String(definition?.name||'').trim();
       if(!name)throw new AgrotikError(ERROR_CODES.CORE_MODULE_LOAD,'Nama module wajib diisi.');
       if(modules.has(name))throw new AgrotikError(ERROR_CODES.CORE_MODULE_LOAD,'Module '+name+' sudah terdaftar.');
