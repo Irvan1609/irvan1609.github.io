@@ -8498,3 +8498,24 @@ summary:focus-visible,
   .grid-add-controls button{min-height:28px!important;height:28px!important;font-size:9px!important}
   body.analysis-results-open .analysis-result-dock{z-index:700!important}
 }
+
+
+/* AGROTIK MOBILE NAV 8-ACTION FINAL 2026-10-02 */
+@media(max-width:720px){
+  .app-shell{padding:0 1px calc(44px + env(safe-area-inset-bottom))!important}
+  .app-header{left:2px!important;right:2px!important;bottom:max(2px,env(safe-area-inset-bottom))!important;border-radius:8px!important}
+  .app-header .nav{display:grid!important;grid-template-columns:repeat(8,minmax(0,1fr))!important;gap:1px!important;padding:2px!important}
+  .nav-primary,.nav-utilities{display:contents!important}
+  #mobileBackButton,#fileMenuButton,#openAnalysis,#projectToggle,#dataMenuButton,#helpMenuButton,#globalSearchButton,#appSettingsToggle{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;padding:2px 1px!important;border:0!important;border-radius:6px!important;background:transparent!important;font-size:9px!important;line-height:1!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #mobileBackButton{font-size:18px!important;font-weight:500!important} #globalSearchButton,#appSettingsToggle{font-size:16px!important}
+  #mobileMoreButton,#fieldLayoutTab{display:none!important}
+  #projectToggle::after,#mobileMoreButton::after{content:none!important}
+  .app-header .nav button:active,.app-header .nav button[aria-expanded="true"],.app-header .nav button.active{background:#eef3f6!important}
+  .nav-command-panel,.mobile-more-panel,#appSettingsPanel,.analysis-command-panel{bottom:calc(43px + env(safe-area-inset-bottom))!important}
+  .grid-container,.grid-container .data-grid{touch-action:pan-x pan-y pinch-zoom!important}
+  .data-grid .grid-corner{position:sticky!important;left:0!important;top:0!important;z-index:12!important;min-width:88px!important;width:88px!important;background:#edf2f8!important}
+  .grid-add-controls{display:flex!important;flex-direction:row!important;gap:2px!important;justify-content:center!important;align-items:center!important;padding:2px!important}
+  .grid-add-controls button{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:40px!important;min-width:40px!important;height:26px!important;min-height:26px!important;padding:2px!important;font-size:9px!important;border-radius:4px!important}
+  body.analysis-results-open .app-header{display:none!important}
+  body.analysis-results-open .analysis-result-dock{z-index:700!important}
+}
