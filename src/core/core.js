@@ -3,13 +3,15 @@ import {createModuleRegistry} from './module-registry.js';
 import {createOverlayManager} from './overlay-manager.js';
 import {createSettingsStore} from './settings.js';
 import {SCHEMAS} from './schema.js';
+import {createUid} from './ids.js';
+import {ERROR_CODES,normalizeError} from './errors.js';
 
 export function createAgrotikCore({root=document,storage=globalThis.localStorage}={}){
   const bus=createEventBus(root);
   const modules=createModuleRegistry({bus});
   const overlays=createOverlayManager(root);
   const settings=createSettingsStore({storage});
-  return Object.freeze({version:'1.0.0',schemas:SCHEMAS,bus,modules,overlays,settings});
+  return Object.freeze({version:'1.0.0',schemas:SCHEMAS,bus,modules,overlays,settings,ids:{createUid},errors:{codes:ERROR_CODES,normalize:normalizeError}});
 }
 
 export const agrotikCore=createAgrotikCore();
