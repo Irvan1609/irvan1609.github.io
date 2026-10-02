@@ -27,3 +27,9 @@ console.log('Core contract check OK');
 const store=fs.readFileSync('src/local-dataset-store.js','utf8');
 assert.match(store,/IDENTITY_INDEX/);
 assert.match(store,/getLocalDatasetRecordByUid/);
+
+assert.match(store,/HISTORY_STORE/);
+assert.match(store,/ANALYSIS_STORE/);
+assert.match(store,/SYNC_STORE/);
+assert.match(store,/TRASH_STORE/);
+assert.match(store,/migrateLegacyResearchStores/);
