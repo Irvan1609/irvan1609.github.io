@@ -36,3 +36,6 @@ assert.match(store,/migrateLegacyResearchStores/);
 
 const overlay=fs.readFileSync('src/core/overlay-manager.js','utf8');
 assert.match(overlay,/bindOverlayManager/);
+
+const modules=fs.readFileSync('src/core/module-registry.js','utf8');
+assert.match(modules,/contractVersion/);
