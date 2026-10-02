@@ -40,3 +40,133 @@
   .toolbar button{font-size:12px}
   .sheet-header{font-size:12px}
 }
+
+/* AGROTIK MOBILE BOTTOM BAR — FINAL CASCADE */
+@media (max-width:720px){
+  .app-shell{
+    padding-bottom:48px!important;
+  }
+  .app-header{
+    position:fixed!important;
+    top:auto!important;
+    left:3px!important;
+    right:3px!important;
+    bottom:max(2px,env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    z-index:2000!important;
+    margin:0!important;
+    padding:0!important;
+    border:1px solid #d5dde3!important;
+    border-radius:8px!important;
+    background:#fff!important;
+    box-shadow:0 2px 10px rgba(24,43,58,.10)!important;
+  }
+  .app-header .nav{
+    display:grid!important;
+    grid-template-columns:repeat(8,minmax(0,1fr))!important;
+    width:100%!important;
+    height:40px!important;
+    min-height:40px!important;
+    padding:1px!important;
+    margin:0!important;
+    gap:1px!important;
+    align-items:stretch!important;
+  }
+  .app-header .nav-primary,
+  .app-header .nav-utilities{display:contents!important}
+  .app-header .nav #fieldLayoutTab,
+  .app-header .nav #mobileMoreButton{display:none!important}
+  .app-header .nav #mobileBackButton{order:1!important}
+  .app-header .nav #fileMenuButton{order:2!important}
+  .app-header .nav #openAnalysis{order:3!important}
+  .app-header .nav #projectToggle{order:4!important}
+  .app-header .nav #dataMenuButton{order:5!important}
+  .app-header .nav #helpMenuButton{order:6!important}
+  .app-header .nav #globalSearchButton{order:7!important}
+  .app-header .nav #appSettingsToggle{order:8!important}
+  .app-header .nav #mobileBackButton,
+  .app-header .nav #fileMenuButton,
+  .app-header .nav #openAnalysis,
+  .app-header .nav #projectToggle,
+  .app-header .nav #dataMenuButton,
+  .app-header .nav #helpMenuButton,
+  .app-header .nav #globalSearchButton,
+  .app-header .nav #appSettingsToggle{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    min-width:0!important;
+    height:38px!important;
+    min-height:38px!important;
+    max-height:38px!important;
+    margin:0!important;
+    padding:1px 0!important;
+    border:0!important;
+    border-radius:6px!important;
+    background:transparent!important;
+    color:#233245!important;
+    font-size:9px!important;
+    line-height:1!important;
+    font-weight:600!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .app-header .nav #mobileBackButton{font-size:18px!important;font-weight:500!important}
+  .app-header .nav #mobileBackButton::before,
+  .app-header .nav #fileMenuButton::before,
+  .app-header .nav #openAnalysis::before,
+  .app-header .nav #projectToggle::before,
+  .app-header .nav #dataMenuButton::before,
+  .app-header .nav #helpMenuButton::before,
+  .app-header .nav #globalSearchButton::before,
+  .app-header .nav #appSettingsToggle::before{
+    display:block!important;
+    height:18px!important;
+    line-height:18px!important;
+    font-size:15px!important;
+    font-weight:700!important;
+  }
+  .app-header .nav #mobileBackButton::after,
+  .app-header .nav #fileMenuButton::after,
+  .app-header .nav #openAnalysis::after,
+  .app-header .nav #projectToggle::after,
+  .app-header .nav #dataMenuButton::after,
+  .app-header .nav #helpMenuButton::after,
+  .app-header .nav #globalSearchButton::after,
+  .app-header .nav #appSettingsToggle::after{
+    display:block!important;
+    height:12px!important;
+    line-height:12px!important;
+    font-size:8px!important;
+    font-weight:600!important;
+  }
+  .app-header .nav #mobileBackButton::before{content:"‹"!important}
+  .app-header .nav #mobileBackButton::after{content:"Kembali"!important}
+  .app-header .nav #fileMenuButton::before{content:"▣"!important}
+  .app-header .nav #fileMenuButton::after{content:"File"!important}
+  .app-header .nav #openAnalysis::before{content:"▤"!important}
+  .app-header .nav #openAnalysis::after{content:"Analisis"!important}
+  .app-header .nav #projectToggle::before{content:"☰"!important}
+  .app-header .nav #projectToggle::after{content:"Dataset"!important}
+  .app-header .nav #dataMenuButton::before{content:"▦"!important}
+  .app-header .nav #dataMenuButton::after{content:"Data"!important}
+  .app-header .nav #helpMenuButton::before{content:"?"!important}
+  .app-header .nav #helpMenuButton::after{content:"Bantuan"!important}
+  .app-header .nav #globalSearchButton::before{content:"⌕"!important}
+  .app-header .nav #globalSearchButton::after{content:"Cari"!important}
+  .app-header .nav #appSettingsToggle::before{content:"⚙"!important}
+  .app-header .nav #appSettingsToggle::after{content:"Pengaturan"!important}
+  .app-header .nav button:active,
+  .app-header .nav button[aria-expanded="true"],
+  .app-header .nav button.active{
+    background:#eef3f6!important;
+  }
+  body.analysis-results-open .app-header{display:none!important}
+}
+
