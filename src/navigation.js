@@ -25,28 +25,66 @@ export function installNavigation(){
   function enforceMobileBottomNav(){
     const mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
     if(!appHeader||!nav)return;
+    const important='important';
     if(mobile){
-      Object.assign(appHeader.style,{
-        position:'fixed',top:'auto',left:'3px',right:'3px',
-        bottom:'max(2px, env(safe-area-inset-bottom))',
-        width:'auto',height:'42px',minHeight:'42px',maxHeight:'42px',
-        zIndex:'2000',margin:'0',padding:'0',boxSizing:'border-box'
-      });
-      Object.assign(nav.style,{
-        display:'grid',gridTemplateColumns:'repeat(8,minmax(0,1fr))',
-        width:'100%',height:'40px',minHeight:'40px',
-        padding:'1px',margin:'0',gap:'1px',boxSizing:'border-box'
-      });
+      // The mobile dock is a separate fixed layer. Do not depend on the large
+      // number of legacy .app-header/.nav CSS overrides in style.css.
+      appHeader.style.setProperty('display','none',important);
+      nav.style.setProperty('display','none',important);
+      const dock=document.getElementById('mobileBottomDock');
+      if(dock)dock.style.setProperty('display','grid',important);
     }else{
-      for(const prop of ['position','top','left','right','bottom','width','height','minHeight','maxHeight','zIndex','margin','padding'])appHeader.style.removeProperty(prop.replace(/[A-Z]/g,m=>'-'+m.toLowerCase()));
-      for(const prop of ['display','grid-template-columns','width','height','min-height','padding','margin','gap'])nav.style.removeProperty(prop);
+      appHeader.style.removeProperty('display');
+      nav.style.removeProperty('display');
+      const dock=document.getElementById('mobileBottomDock');
+      if(dock)dock.style.setProperty('display','none',important);
     }
+  }
+
+  function installDedicatedMobileDock(){
+    let dock=document.getElementById('mobileBottomDock');
+    if(!dock){
+      dock=document.createElement('nav');
+      dock.id='mobileBottomDock';
+      dock.setAttribute('aria-label','Navigasi mobile');
+      document.body.append(dock);
+    }
+    dock.replaceChildren();
+    const items=[
+      ['back','‹','Kembali',()=>mobileBackButton?.click()],
+      ['file','File','File',()=>document.getElementById('fileMenuButton')?.click()],
+      ['analysis','Analisis','Analisis',()=>analysisButton?.click()],
+      ['dataset','Dataset','Dataset',()=>projectToggle?.click()],
+      ['data','Data','Data',()=>document.getElementById('dataMenuButton')?.click()],
+      ['help','Bantuan','Bantuan',()=>document.getElementById('helpMenuButton')?.click()],
+      ['search','Cari','Cari',()=>searchButton?.click()],
+      ['settings','Pengaturan','Pengaturan',()=>settingsToggle?.click()]
+    ];
+    for(const [key,label,title,action] of items){
+      const button=document.createElement('button');
+      button.type='button';button.dataset.mobileDockAction=key;
+      button.textContent=label;button.title=title;button.setAttribute('aria-label',title);
+      button.addEventListener('click',event=>{event.stopPropagation();action();});
+      dock.append(button);
+    }
+    Object.assign(dock.style,{position:'fixed',left:'3px',right:'3px',bottom:'max(2px, env(safe-area-inset-bottom))',height:'40px',minHeight:'40px',zIndex:'3000',gridTemplateColumns:'repeat(8,minmax(0,1fr))',gap:'1px',padding:'1px',boxSizing:'border-box',margin:'0',borderRadius:'8px',background:'var(--surface,#fff)',border:'1px solid var(--border,#cfd8df)',boxShadow:'0 2px 10px rgba(0,0,0,.16)'});
+    dock.style.setProperty('display','none','important');
+    for(const button of dock.children){
+      Object.assign(button.style,{minWidth:'0',minHeight:'36px',height:'36px',padding:'0 2px',margin:'0',borderRadius:'5px',fontSize:'11px',lineHeight:'1',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',boxSizing:'border-box'});
+    }
+    const syncDock=()=>{
+      const mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+      const results=[...document.querySelectorAll('.analysis-result')].some(el=>{const s=getComputedStyle(el);return !el.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&el.getBoundingClientRect().height>0;});
+      dock.style.setProperty('display',mobile&&!results?'grid':'none','important');
+      document.documentElement.style.setProperty('--mobile-dock-space',mobile&&!results?'44px':'0px');
+    };
+    new MutationObserver(syncDock).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden']});
+    globalThis.addEventListener('resize',syncDock,{passive:true});
+    syncDock();
   }
 
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
-  enforceMobileBottomNav();
-  globalThis.addEventListener('resize',enforceMobileBottomNav,{passive:true});
 
   const primaryNav=document.createElement('div');
   primaryNav.className='nav-primary';
@@ -132,6 +170,8 @@ export function installNavigation(){
   mobileMorePanel.innerHTML='<button type="button" data-mobile-menu="search">Cari</button><button type="button" data-mobile-menu="settings">Pengaturan</button><button type="button" data-mobile-menu="fileMenu">File</button><button type="button" data-mobile-menu="dataMenu">Data</button><button type="button" data-mobile-menu="fieldLayout">Denah</button><button type="button" data-mobile-menu="helpMenu">Bantuan</button><button type="button" data-mobile-menu="uiAudit">Audit UI</button>';
   utilityNav.append(mobileMoreButton);
   appHeader?.append(mobileMorePanel);
+  installDedicatedMobileDock();
+  enforceMobileBottomNav();
 
   function openCommandMenu(id,anchor=document.getElementById(id+'Button')){
     const panel=document.getElementById(id),button=document.getElementById(id+'Button');
