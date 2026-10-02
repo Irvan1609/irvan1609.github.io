@@ -15,3 +15,7 @@ export const SCHEMAS=Object.freeze({
 export function versioned(type,data,version=SCHEMAS[type]||1){
   return {schema:String(type),schemaVersion:Number(version)||1,data};
 }
+
+export const RECORD_TYPES=Object.freeze({DATASET:'dataset',ANALYSIS:'analysis',HISTORY:'history',SYNC:'sync'});
+export const DATASET_REQUIRED_FIELDS=Object.freeze(['dataset_uid','name','schemaVersion']);
+export const ANALYSIS_REQUIRED_FIELDS=Object.freeze(['analysis_uid','dataset_uid','schemaVersion']);
