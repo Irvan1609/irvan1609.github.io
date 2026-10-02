@@ -325,6 +325,8 @@ for(const marker of ["primaryNav.className='nav-primary'","utilityNav.className=
 if(!navigation.includes('fieldLayoutTab')||!navigation.includes('data-mobile-menu="fieldLayout"'))fail('Denah must remain a single primary command with mobile More access');
 if(!statStyle.includes('AGROTIK MOBILE NAV COMPACT FINAL 2026-10-02')||!statStyle.includes('grid-template-columns:repeat(5'))fail('mobile dock must use compact five-action layout');
 if(!navigation.includes('data-mobile-menu="fieldLayout">Denah'))fail('mobile More menu must expose Denah');
+if(!navigation.includes('data-mobile-menu="uiAudit">Audit UI'))fail('mobile More menu must expose UI Audit');
+if(!test.includes('ui-self-audit.js')){}
 if(!navigation.includes("if(action==='fieldLayout'){fieldTab?.click();return;}"))fail('mobile Denah action must reuse the primary Denah command');
 if(dataEnhancements.includes('fieldLayoutTool')||dataEnhancements.includes('createFieldbookMap'))fail('secondary Denah command must stay removed');
 if(dataEnhancements.includes('id="duplicateDataset"'))fail('Data menu must not create a second duplicate-dataset button');
