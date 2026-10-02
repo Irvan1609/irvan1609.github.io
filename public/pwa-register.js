@@ -1,4 +1,4 @@
-const SW_URL='/sw.js?v=20261003-mobilebar6';
+const SW_URL='/sw.js?v=20261003-mobilebar7';
 let deferredInstall=null;
 
 function installStyles(){
