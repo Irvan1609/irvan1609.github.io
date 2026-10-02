@@ -33,3 +33,6 @@ assert.match(store,/ANALYSIS_STORE/);
 assert.match(store,/SYNC_STORE/);
 assert.match(store,/TRASH_STORE/);
 assert.match(store,/migrateLegacyResearchStores/);
+
+const overlay=fs.readFileSync('src/core/overlay-manager.js','utf8');
+assert.match(overlay,/bindOverlayManager/);
