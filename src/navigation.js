@@ -106,7 +106,7 @@ export function installNavigation(){
   mobileMorePanel.className='mobile-more-panel';
   mobileMorePanel.hidden=true;
   mobileMorePanel.setAttribute('role','menu');
-  mobileMorePanel.innerHTML='<button type="button" data-mobile-menu="search">Cari</button><button type="button" data-mobile-menu="settings">Pengaturan</button><button type="button" data-mobile-menu="fileMenu">File</button><button type="button" data-mobile-menu="dataMenu">Data</button><button type="button" data-mobile-menu="fieldLayout">Denah</button><button type="button" data-mobile-menu="helpMenu">Bantuan</button>';
+  mobileMorePanel.innerHTML='<button type="button" data-mobile-menu="search">Cari</button><button type="button" data-mobile-menu="settings">Pengaturan</button><button type="button" data-mobile-menu="fileMenu">File</button><button type="button" data-mobile-menu="dataMenu">Data</button><button type="button" data-mobile-menu="fieldLayout">Denah</button><button type="button" data-mobile-menu="helpMenu">Bantuan</button><button type="button" data-mobile-menu="uiAudit">Audit UI</button>';
   utilityNav.append(mobileMoreButton);
   appHeader?.append(mobileMorePanel);
 
@@ -145,7 +145,7 @@ export function installNavigation(){
       document.dispatchEvent(new CustomEvent('stat-open-settings'));
       return;
     }
-    if(action==='fieldLayout'){fieldTab?.click();return;} openCommandMenu(action,mobileMoreButton);
+    if(action==='fieldLayout'){fieldTab?.click();return;} if(action==='uiAudit'){window.AgrotikUIAudit?.open?.();return;} openCommandMenu(action,mobileMoreButton);
   });
 
   function syncFieldTab(){
