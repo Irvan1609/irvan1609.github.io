@@ -51,7 +51,7 @@ for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.compet
 
 for(const marker of ['FIELD ZERO ULTRA COMPACT COMFORT FINAL 2026-09-27','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(4,minmax(0,1fr))!important','min-height:52px!important','.plot-top{display:none!important}'])if(!comfortCss.includes(marker))fail('ultra compact game styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!comfortCss.includes(marker))fail('visual refresh theme missing '+marker);
-for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20260928-prefsave8'))fail('fixed game runtime must be cache-busted');
+for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20261002-mobile-final1'))fail('fixed game runtime must be cache-busted');
 
 
 
@@ -127,7 +127,7 @@ if(Buffer.byteLength(html,'utf8')>30000)fail('game shell exceeds 30 KB performan
 if(!app.includes('initialNutrients(index,merged.plotRegistry?.[index])'))fail('legacy crop migration must not depend on uninitialized state');
 if(!app.includes('chargeFarmCost}=createFarmInputModel'))fail('farm cost charger must be wired into runtime');
 if(!farmInputs.includes('export const COSTS=')||!app.includes('import {COSTS,FERTILIZERS,createFarmInputModel}'))fail('COSTS export/import must be wired');
-if(!app.includes("farm-inputs.js?v=20260928-gamefix6"))fail('farm input module must be cache-busted');
+if(!app.includes("farm-inputs.js?v=20261002-mobile-final1"))fail('farm input module must be cache-busted');
 if(!app.includes("const localPrefs={comfort:structuredClone(state.comfort||{}),sound:state.sound,musicTrack:state.musicTrack}"))fail('new run must preserve local UI preferences');
 const mockState={season:1,selectedPlot:0,coins:100000,species:'maize',seasonStats:{cost:0,laborCost:0,inputCost:0},tech:[]};
 const mockMeta={areaM2:25,fertility:1,moisture:1,pH:6.2};
