@@ -487,3 +487,38 @@ th[data-stat-help]{text-decoration:underline dotted;text-underline-offset:3px}
   .stat-help-popover{font-size:11.5px;padding:10px;line-height:1.4}
   [data-stat-help]{touch-action:manipulation}
 }
+
+
+/* RESULT TABLE FREE HORIZONTAL READING 2026-10-02 */
+/* Hasil analisis kembali ke pola worksheet: ruang kolom tidak dipaksa mengecil di HP. */
+.result-os-enhanced .analysis-result{
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  touch-action:pan-x pan-y;
+  scrollbar-width:thin;
+}
+.result-os-enhanced .analysis-result .result-table,
+.result-os-enhanced .analysis-result .anova-table{
+  width:max-content!important;
+  min-width:560px!important;
+  table-layout:auto!important;
+}
+.result-os-enhanced .analysis-result .result-table th,
+.result-os-enhanced .analysis-result .result-table td,
+.result-os-enhanced .analysis-result .anova-table th,
+.result-os-enhanced .analysis-result .anova-table td{
+  white-space:nowrap;
+}
+@media(max-width:720px){
+  .result-os-enhanced .analysis-result{
+    max-width:100%;
+    overflow-x:auto!important;
+    padding-bottom:2px;
+  }
+  .result-os-enhanced .analysis-result .result-table,
+  .result-os-enhanced .analysis-result .anova-table{
+    min-width:620px!important;
+  }
+}
