@@ -25,6 +25,7 @@ sebelumnya.
 - Baca bagian ini dan catatan perubahan (bagian 16), lalu seluruh konteks yang relevan sebelum melanjutkan. Pernyataan historis pada bagian 1–15 tetap perlu diverifikasi terhadap keadaan terkini.
 - Dokumen ini adalah memori kerja yang dipelihara oleh asisten, bukan sinkronisasi otomatis percakapan lintas akun. Instruksi eksplisit terbaru pengguna tetap menjadi acuan.
 - Status aplikasi, bug, dan deployment dalam dokumen impor belum diaudit ulang dalam tugas dokumentasi ini.
+- Arahan terbaru fitur Pengamatan (10 Oktober 2026): sampel anak langsung unit percobaan (tanaman/buah), jumlah dapat berbeda antarunit; urutan campuran BB semua sampel lalu PB/TB/LB per sampel diulang pada unit berikutnya; panen berbeda menjadi parameter tersendiri (bb-p1, bb-p2). Rekap rerata/jumlah per unit disetujui.
 
 ## 1. Profil dan cara bekerja
 
@@ -201,6 +202,14 @@ ulang sebelum menyatakan fitur ini aktif di produksi.
     data tidak memenuhi syarat atau asumsi tidak diperiksa.
 -   Tidak boleh mengarang hasil statistik atau menyamarkan data yang
     hilang.
+
+### Menu Pengamatan — keputusan 10 Oktober 2026
+
+- Sampel anak langsung unit percobaan; jenis dapat tanaman, buah, atau lainnya. Label U1G1(1), U1G1(2); U1 menunjukkan ulangan 1.
+- Urutan pengguna: bb-1, bb-2, bb-3, bb-4, bb-5, pb-1, tb-1, lb-1, pb-2, tb-2, lb-2, …, lb-5; setelah selesai diulang pada unit berikutnya.
+- Jumlah sampel boleh berbeda antarunit. Parameter panen terpisah, misalnya bb-p1 dan bb-p2; tidak menambah tingkat tanaman → buah atau dimensi panen tersendiri.
+- Pengguna menyetujui data mentah sampel dan rekap rerata/jumlah per unit. Sampel tidak otomatis menjadi ulangan independen.
+- Pilihan implementasi asisten: kelompok per parameter/per sampel serta urutan rinci manual; identitas internal stabil, penyimpanan lokal IndexedDB terpisah, cadangan JSON, ekspor CSV, dataset rekap baru tanpa menimpa data aktif.
 
 ### Modul `/denah`
 
@@ -531,3 +540,25 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Verifikasi dan hasil nyata:**
 - **Status serta hal yang belum diuji/hambatan:**
 - **Langkah berikutnya:**
+
+### 2026-10-10 — Menu Pengamatan sampel (implementasi awal)
+
+- **Tujuan pengguna:** mengikuti urutan kerja penimbangan dan pengukuran lapang yang dapat disusun sebelum mulai, kemudian berulang per unit percobaan.
+- **Keputusan:** sampel anak unit (tanaman/buah), jumlah fleksibel, panen dikodekan di parameter; data mentah serta rekap per unit disediakan.
+- **File:** src/observation-engine.js, src/observation-store.js, src/observation-workflow.js, src/observation.css, src/main.js, scripts/check-observations.mjs, package.json, dan dokumen konteks.
+- **Implementasi:** susun kelompok atau urutan rinci, input berurutan, nilai tidak tersedia terpisah dari nol, autosave lokal, undo/redo nilai, cadangan/pulihan JSON, ekspor data sampel dan rekap, dataset rekap baru, penolakan konflik tulis lintas tab.
+- **Branch:** development terlebih dahulu. Branch development divergen dari master; hanya perubahan fitur ini yang akan dipromosikan, bukan seluruh perubahan lama development.
+- **Verifikasi saat catatan ini disusun:** uji mesin pengamatan dan npm run verify lokal pada development lulus (syntax, kontrak UI, statistik, build, dist). Uji browser Chromium lokal juga lulus: urutan campuran, sampel berbeda, desimal/nol/hilang, reload, undo/redo, rekap ke dataset baru, viewport 360 × 764 tanpa overflow horizontal, validasi angka, backup/pulihan JSON, dan konflik tulis; tidak ada pageerror. CI Validate Statistical Web pada development lulus untuk commit cc7115b98a4c6af8f7d77d3b66065980d5d6f8b7 (run 38027166516). Integrasi fitur pada basis master juga lulus uji browser yang sama. Belum diklaim ter-deploy.
+- **Batasan:** sesi pengamatan disimpan lokal dan belum tersinkron dengan cloud; pindah perangkat melalui JSON. Jumlah adalah total sampel terukur, bukan otomatis estimasi total unit. Kolom n/hilang/belum diisi tidak diperlakukan sebagai parameter hasil untuk analisis.
+- **Langkah berikutnya:** lihat catatan validasi integrasi di bawah; promosi tertahan gate ukuran berkas lama.
+
+### 2026-10-10 — Validasi integrasi dengan master
+
+- **Tujuan:** mempromosikan fitur Pengamatan yang sudah diuji pada development tanpa menggabungkan perubahan lama branch tersebut.
+- **Temuan:** master memiliki kontrak tes lama untuk halaman portofolio “Mahasiswa Agronomi”, tautan modul staging di landing, akun/PWA pada landing statis, serta posisi menu dan versi aset yang sudah berubah sebelum fitur ini dibuat.
+- **Perbaikan pendukung:** selaraskan scripts/check-ui-contract.mjs, check-account-auth.mjs, check-pwa.mjs, check-game.mjs, dan check-dist.mjs dengan landing Agrotik yang hanya menawarkan Stat, sambil tetap memeriksa fungsi/keamanan akun, PWA, game, dan modul staging secara terpisah. Tidak mengubah aplikasi modul-modul tersebut.
+- **Verifikasi:** development CI lulus; pengujian browser integrasi pada master lulus tanpa pageerror. Build produksi dan test:dist integrasi lulus. Pemeriksaan lengkap integrasi tertahan batas ukuran berkas Field Zero yang sudah terlampaui pada master sebelum perubahan fitur: app.js 260.354 byte (batas 260.000), style.css 100.224 byte (batas 100.000), comfort.css 31.187 byte (batas 30.000). Percobaan pemadatan whitespace telah dibatalkan; tidak ada perubahan kode game dalam PR.
+- **Branch promosi:** feat/observation-samples-20261010. Deployment hanya melalui workflow yang sudah ada setelah CI berhasil.
+
+- **Status serah terima:** fitur Pengamatan selesai diimplementasikan dan teruji lokal; CI development lulus. Promosi master belum diizinkan oleh gate CI yang ada. Siapkan PR draf untuk fitur; jangan merge atau mengklaim fitur aktif di URL publik sebelum batas ukuran Field Zero dibereskan dan semua gate lulus.
+- **Langkah berikutnya:** selesaikan masalah ukuran berkas Field Zero secara terpisah tanpa menaikkan batas atau menonaktifkan tes; jalankan CI integrasi lagi, lalu merge/deploy dan verifikasi /stat/ jika lolos. Data pengamatan lokal tidak ikut sinkronisasi cloud.

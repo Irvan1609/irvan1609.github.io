@@ -42,7 +42,7 @@ function fail(message) {
   process.exit(1);
 }
 
-for (const marker of ['Mahasiswa Agronomi','href="/stat/"','href="/print-skripsi/"','href="/mendeley/"','Statistical Web']) {
+for (const marker of ['Agrotik','href="/stat/"','Analisis data pertanian','Research Data Tools']) {
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
@@ -56,10 +56,14 @@ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 for(const page of [html,printHtml,mendeleyHtml,chiliHtml]){
   if(page.includes('agrotik-credit'))fail('module credits must live on dashboard cards only');
 }
-for(const [module,author] of [['Statistical Web','Irvan'],['Hitung Cabai','Irvan'],['Pengukur','Irvan'],['Referensi Mendeley','Kautsar'],['Print Skripsi','Irvan'],['Field Zero','Irvan']]){
-  const credit='<h3>'+module+'</h3>\n            <span class="tool-credit">'+author+'</span>';
-  if(!portfolioHtml.includes(credit))fail('module credits must live on dashboard cards only: '+module);
+// The public landing page now exposes only the Stat product. Other modules
+// remain independently tested below, but are not advertised as production products.
+const landingLinks=[...portfolioHtml.matchAll(/href="([^"#]+)"/g)].map(m=>m[1]);
+for(const route of ['/print-skripsi/','/mendeley/','/game/','/hitung-cabai/']){
+  if(landingLinks.includes(route))fail('landing page must expose only the Stat product: '+route);
 }
+if((landingLinks.filter(href=>href==='/stat/')).length<2)fail('landing page needs working Stat entry links');
+
 
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
 if (duplicates.length) fail(`duplicate id(s): ${[...new Set(duplicates)].join(', ')}`);
@@ -73,14 +77,14 @@ for(const marker of ['/* STAT VISUAL SYSTEM FINAL 2026-09-27 */','--stat-font-sm
 for(const marker of ['datasetDimensionLabel','dataset-tree-name','dataset-tree-size'])if(!main.includes(marker))fail('compact dataset summary missing '+marker);
 for(const marker of ['dataset-row-menu','data-dataset-action="rename"','data-dataset-action="duplicate"','data-dataset-action="history"','data-dataset-action="delete"'])if(!datasetSidebar.includes(marker))fail('compact dataset action menu missing '+marker);
 
-for(const marker of ['position:fixed','positionMenu(menu)','dataset-row-menu-body','z-index:460','stat-close-floating','dataset-menu'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain an anchored exclusive popover: '+marker);
+for(const marker of ['position:absolute','positionMenu(menu)','dataset-row-menu-body','z-index:700','stat-close-floating','dataset-menu'])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must remain an anchored exclusive popover: '+marker);
 for(const marker of ['mobileMoreButton','mobileMorePanel','positionFloatingMenu','openCommandMenu'])if(!navigation.includes(marker))fail('floating navigation popover behavior missing '+marker);
 for(const marker of ['stat-open-settings','data-mobile-menu="settings"'])if(!navigation.includes(marker))fail('mobile settings routing missing '+marker);
 for(const marker of ['stat-open-settings','editorZoom','stat-grid-zoom-change','closeAppSettings'])if(!displaySettings.includes(marker))fail('working display settings missing '+marker);
 for(const marker of ['GRID_ZOOM_KEY','installGridPinchZoom','touchstart','touchmove','stat-grid-zoom-updated'])if(!main.includes(marker))fail('two-finger editor zoom missing '+marker);
 for(const marker of ['/* STAT MOBILE EDITOR-FIRST DOCK + PINCH 2026-09-28 */','body>.subweb-header','touch-action:pan-x pan-y!important','zoom:var(--stat-grid-zoom,1)','height:38px!important'])if(!statStyle.includes(marker))fail('editor-first phone dock styling missing '+marker);
 for(const marker of ['/* STAT STABLE GRID + RESULT FOCUS FINAL 2026-09-28 */','position:fixed!important','body.analysis-results-open .analysis-result-dock','bottom:max(2px,env(safe-area-inset-bottom))!important'])if(!statStyle.includes(marker))fail('fixed phone dock/result focus missing '+marker);
-if(!html.includes('/src/style.css?v=20261002-mobile-final5')||!html.includes('/src/main.js?v=20261002-mobile-final5'))fail('latest clean-menu editor asset version missing');
+if(!/href="\/src\/style\.css\?v=[^"]+"/.test(html)||!/<script\s+type="module"\s+src="\/src\/main\.js\?v=[^"]+"/.test(html))fail('versioned Stat editor stylesheet or module entry missing');
 for(const marker of ['/* STAT FLOATING POPOVERS FINAL 2026-09-28 */','--floating-menu-left','bottom:calc(100% + 5px)!important','.result-card-more-menu'])if(!statStyle.includes(marker))fail('floating popover styling missing '+marker);
 
 for(const marker of ['/* STAT ULTRA COMPACT VISUAL FINAL 2026-09-28 */','grid-template-columns:152px minmax(0,1fr)!important','min-width:68px!important','height:28px!important','grid-auto-rows:46px!important'])if(!statStyle.includes(marker))fail('ultra compact Statistical Web styling missing '+marker);
@@ -108,7 +112,7 @@ for(const marker of ['dataToolResultMore','dataToolResultMenu','analysis-tool-re
 for(const marker of ["state.headers=['Perlakuan']","state.rows=[['']]","data-add-col","data-add-row"])if(!main.includes(marker))fail('new 1x1 dataset/grid-corner controls missing '+marker);
 for(const marker of ['/* STAT CLEAN GRID CORNER + POPOVER EXCLUSIVITY FINAL 2026-09-29 */','.grid-add-controls{','grid-template-columns:repeat(2,minmax(0,1fr))!important','z-index:460!important'])if(!statStyle.includes(marker))fail('grid corner/exclusive popover styling missing '+marker);
 for(const marker of ['>+Col</button>','>+Row</button>'])if(!main.includes(marker))fail('compact grid corner control missing '+marker);
-for(const marker of ['spaceBelow','spaceAbove','rect.bottom+gap',"body.style.bottom=Math.max(pad,window.innerHeight-rect.top+gap)+'px'"])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must stay attached to its trigger without forced scrolling: '+marker);
+for(const marker of ['spaceBelow','spaceAbove',"body.style.top='calc(100% + 2px)'","body.style.bottom='calc(100% + 2px)'"])if(!datasetSidebar.includes(marker))fail('dataset ellipsis must stay attached to its trigger without forced scrolling: '+marker);
 for(const marker of ["except:'analysis-result-menu'",'stat-close-floating'])if(!scientific.includes(marker))fail('analysis result menu must participate in exclusive floating menus: '+marker);
 for(const marker of ["except:'data-tool-result-menu'",'stat-close-floating'])if(!dataTools.includes(marker))fail('special result menu must participate in exclusive floating menus: '+marker);
 for(const marker of ['/* STAT MOBILE OVERLAY PRIORITY FINAL 2026-09-29 */','#globalSearchModal.open','z-index:480!important'])if(!statStyle.includes(marker))fail('mobile overlay priority missing '+marker);
@@ -173,10 +177,11 @@ if (html.includes('report-enhancements.js')) fail('report-enhancements.js must n
 const nav=html.match(/<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/)?.[1]||'';
 if((nav.match(/<button\b/g)||[]).length!==3||!nav.includes('openAnalysis')||!nav.includes('globalSearchButton')||!nav.includes('projectToggle')||nav.includes('focusData')||!/>Analisis<\/button>/.test(nav))fail('top navigation must stay minimal: Analisis, Cari, and Dataset');
 for(const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]){
-  for(const href of ['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'])if(!page.includes(href))fail(`${name} shared header missing ${href}`);
+  const routes=name==='stat'?['href="/"']:['href="/"','href="/stat/"','href="/hitung-cabai/"','href="/print-skripsi/"','href="/mendeley/"'];
+  for(const href of routes)if(!page.includes(href))fail(`${name} shared header missing ${href}`);
   if(!page.includes('/subweb-header.css')||!page.includes('class="subweb-header"')||!page.includes('class="subweb-nav"'))fail(`${name} must use shared sub-web header`);
 }
-if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Statistical Web'))fail('stat header must use Statistical Web brand link back to portfolio');
+if(!html.includes('class="subweb-brand" href="/"')||!html.includes('Agrotik Stat'))fail('stat header must use Agrotik Stat brand link back to landing page');
 if(!sharedHeader.includes('.subweb-header')||!sharedHeader.includes('.subweb-nav'))fail('shared sub-web header stylesheet missing core classes');
 for(const id of ['openCamera','cameraFile','photo','cameraPanel','cameraVideo','snapPhoto','flipCamera','torchCamera','closeCamera','sample','count','countState','autoDetect','detectColor','detectSensitivity','detectOnLoad','reviewLow','deleteSelected','zoomReset','saveDesktop','qualityGate','autoNext','autoIncrement','batchAuto','condition','blindValidation','lockTestSet','splitMode','exportDataset','measurePhoto','viewport','canvas','status','mobileSave','mobileUndo','records','export','import']){
   if(!chiliHtml.includes(`id="${id}"`))fail(`hitung-cabai missing #${id}`);
@@ -187,7 +192,7 @@ if(!chiliStyle.includes('#viewport{position:relative;width:100%')||!chiliStyle.i
 if(chiliHtml.includes('<style>'))fail('hitung-cabai styles must be consolidated in external stylesheet');
 for(const marker of ['getUserMedia','facingMode','applyConstraints','torch','pointerdown','pointermove','pointerup','optimizeBlob','imageBlob','pinchStart','reviewIndices','maybeAutoBatch','checkDuplicate','checkPhotoDuplicate','warmOfflineModel','measureCurrentPhoto','blindActive','datasetSplit','indexedDB','beforeunload','autoDetectChilies','detectChiliBoxesFromImageData','upsertChiliCountToStatistics','sendCurrentToStatistics'])if(!chiliApp.includes(marker))fail(`hitung-cabai app missing ${marker}`);
 for(const marker of ['detectChiliBoxesFromImageData','rgbToHsv','components','mergeFragments'])if(!chiliDetector.includes(marker))fail(`hitung-cabai detector missing ${marker}`);
-if(!portfolioHtml.includes('href="/hitung-cabai/"'))fail('portfolio must link to hitung-cabai');
+if(!chiliHtml.includes('href="/"'))fail('staging hitung-cabai must retain a route back to Agrotik');
 
 if(html.includes('src="/src/rak-dnd.js"'))fail('legacy drag interface must not be loaded');
 for(const id of ['openAnalysis','analysisMenu'])if(!flow.includes(id))fail('analysis flow missing '+id);
@@ -236,7 +241,7 @@ if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanya
 for(const [name,page] of [['portfolio',portfolioHtml],['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
   for(const phrase of ['Interpretasi otomatis siap BAB IV','Reference workflow','PDF utility','>Analyze<'])if(page.includes(phrase))fail(`${name} still contains overly generic/generated UI phrase: ${phrase}`);
 }
-if(!portfolioHtml.includes('Mahasiswa Agronomi')||portfolioHtml.includes('Statistik Irvan'))fail('portfolio and sub-web branding must stay modest and student-oriented');
+if(!portfolioHtml.includes('Agrotik Stat')||portfolioHtml.includes('Statistik Irvan'))fail('landing and sub-web branding must use Agrotik Stat');
 
 
 const toolsInit = main.indexOf('installDataTools();');
@@ -292,7 +297,7 @@ for(const marker of ['data-result-filter','data-result-focus','data-compare-mode
 for(const marker of ['detectScientificDesign','quickRunLastScientific','hasSavedScientificConfig','datasetFingerprint','snapshotActiveDataset','data-stale-banner','data-presentation-mode','data-rerun-stale','resultVersion','compareHistoryEntries','data-history-compare','data-focus-error-row'])if(!scientific.includes(marker)&&!main.includes(marker))fail('analysis productivity feature missing '+marker);
 for(const marker of ['export-bab4','exportBab4Doc','application/msword','copy-publication'])if(!resultExport.includes(marker))fail('BAB IV/Word export workflow missing '+marker);
 for(const marker of ['focusCell','snapshotActiveDataset',"key==='/'","simpan manual"])if(!main.includes(marker))fail('editor analysis integration missing '+marker);
-if(!html.includes('class="header-icon-button"')||!html.includes('title="Cari (/)"'))fail('secondary header controls must stay compact and shortcut-aware');
+if(!html.includes('class="header-icon-button"')||!/title="Cari \(\/\)\s*"/.test(html))fail('secondary header controls must stay compact and shortcut-aware');
 for(const marker of ['data-overall-significance','overallSignificance','analysis-smart-warning','smartPosthocWarning'])if(!scientificReport.includes(marker))fail('result significance/warning behavior missing '+marker);
 if(!scientificReport.includes("if(interaction&&Number.isFinite(interaction.p)&&interaction.p<.05)html+=interactionHtml"))fail('irrelevant interaction graphs must stay hidden');
 if(!statStyle.includes('.analysis-result-toolbar')||!statStyle.includes('.publication-table-mode')||!statStyle.includes('.mobile-result-nav')||!statStyle.includes('.result-drag-handle'))fail('analysis filter/publication/mobile/drag styles are missing');

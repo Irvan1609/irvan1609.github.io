@@ -38,7 +38,8 @@ if(!Array.isArray(manifest.shortcuts)||manifest.shortcuts.length<3)fail('manifes
 if(!offline.includes('/stat/')||!offline.includes('/hitung-cabai/')||!offline.includes('/pengukur/'))fail('offline fallback links incomplete');
 if(!icon.includes('<svg')||!icon.includes('#0d6648'))fail('Agrotik SVG icon invalid');
 
-for(const path of ['index.html','stat/index.html','public/hitung-cabai/index.html','public/pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
+// The public landing page is static; offline/PWA entry points are the applications.
+for(const path of ['stat/index.html','public/hitung-cabai/index.html','public/pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
   const html=fs.readFileSync(path,'utf8');
   if(!html.includes('rel="manifest" href="/manifest.webmanifest"'))fail(path+' missing manifest link');
   if(!html.includes('src="/pwa-register.js"'))fail(path+' missing PWA registration');
