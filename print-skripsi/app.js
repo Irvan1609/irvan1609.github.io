@@ -1,3 +1,4 @@
+await (await import(/* @vite-ignore */ '/admin-subweb-access.js')).requireAdminSubweb();
 import { buildPdfSplitPlan, compactPageList, detectChapterOnePage } from '../src/pdf-split-plan.js';
 
 const $ = (selector) => document.querySelector(selector);
