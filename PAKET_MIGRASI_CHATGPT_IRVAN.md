@@ -517,7 +517,7 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **File:** AGENTS.md (prosedur wajib), README.md (petunjuk dan prompt), PAKET_MIGRASI_CHATGPT_IRVAN.md (keputusan aktif dan catatan serah terima).
 - **Batasan:** pertahankan konteks historis; jangan menganggap status lama sebagai bukti keadaan aplikasi; jangan mencatat rahasia; hindari catatan rekursif.
 - **Branch:** master. Hash pembaruan dokumentasi tersedia pada riwayat Git file.
-- **Status/verifikasi saat catatan disusun:** isi pembaruan disiapkan berdasarkan permintaan pengguna dan versi repo yang dibaca; penyimpanan dan pembacaan ulang harus dibuktikan oleh hasil operasi GitHub dalam sesi ini. Entri ini sendiri bukan bukti bahwa operasi tulis atau pengujian berhasil.
+- **Status/verifikasi:** selesai terverifikasi untuk dokumentasi. Ketiga file berhasil ditulis dan dibaca kembali melalui GitHub; isinya cocok dengan perubahan yang dikirim. Commit aturan: ab34259a2c6f077371e557197c77e2fcce78e710; README: 366557e84fa66ca5113af6682369ade1c305c4e3; konteks: f0c7efc61003ab42c7b9b1f17dd22c4f58974fa1. Catatan status ini ditambahkan setelah pemeriksaan tersebut.
 - **Belum dilakukan:** audit aplikasi, build, pemeriksaan UI, dan deployment; tugas ini hanya dokumentasi. Tidak ada sistem yang otomatis membaca percakapan akun lain.
 - **Langkah berikutnya:** asisten berikutnya membaca konteks, memverifikasi keadaan repo sesuai tugas, lalu menambahkan catatan dengan prosedur AGENTS.md.
 
