@@ -1,3 +1,4 @@
+import {installObservationWorkflow} from './observation-workflow.js';
 import { installAnalysisFlow } from './analysis-flow.js';
 import { installPaymentGate } from './payment-gate.js';
 import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
@@ -1004,7 +1005,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installPaymentGate();installResultExport();
+  installDataGrid();installDataTools();installNavigation();installObservationWorkflow();installAnalysisFlow();installResearchWorkspace();installPaymentGate();installResultExport();
 
 function installDeferredFeatures(){
   const start=()=>import('./account-dataset-sync.js')
