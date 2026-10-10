@@ -7,6 +7,10 @@ const clone=value=>structuredClone(value);
 let root,plan,draft,queue=[],cursor=0,view='list',timer,saveChain=Promise.resolve(),saveError='',returnFocus,navigationBusy=false;
 const $=selector=>root.querySelector(selector);
 const status=message=>{if($('#obsSave'))$('#obsSave').textContent=message;};
+function datasetOptions(selected=''){
+  const datasets=globalThis.StatisticalWebData?.listDatasets?.()||[];
+  return '<option value="">Tanpa dataset — isi manual</option>'+datasets.map(({fileName,name})=>`<option value="${esc(fileName)}" ${fileName===selected?'selected':''}>${esc(name)}</option>`).join('');
+}
 function error(message){$('#obsError').textContent=message||'';$('#obsError').hidden=!message;}
 function debounceSave(){clearTimeout(timer);timer=null;status('Menyimpan…');timer=setTimeout(()=>void persist(),300);}
 async function persist(){
@@ -44,7 +48,7 @@ function shell(){
 function render(next=view){
   view=next;error(saveError);root.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);b.disabled=!plan&&b.dataset.view!=='list';});
   if(view==='list')void renderList();
-  if(view==='setup'){draft=clone(plan.configDraft||{name:plan.name,parameters:plan.parameters,units:plan.units,groups:plan.groups,orderMode:plan.orderMode,manualOrder:plan.manualOrder});renderSetup();}
+  if(view==='setup'){draft=clone(plan.configDraft||{name:plan.name,parameters:plan.parameters,units:plan.units,groups:plan.groups,orderMode:plan.orderMode,manualOrder:plan.manualOrder,sourceDataset:plan.sourceDataset||''});renderSetup();}
   if(view==='observe'){queue=observationQueue(plan);cursor=Math.min(plan.cursor||0,queue.length-1);renderEntry();}
   if(view==='summary')renderSummary();
 }
@@ -52,10 +56,21 @@ async function renderList(){
   $('#obsBody').innerHTML='<p>Memuat pengamatan…</p>';
   try{
     const sessions=await listObservations();if(view!=='list')return;
-    $('#obsBody').innerHTML=`<div class="obs-intro"><h2>Pengamatan lapang</h2><p>Susun sekali, isi sesuai urutan kerja. Sampel dapat berupa tanaman atau buah.</p><button type="button" id="obsNew" class="primary">+ Pengamatan baru</button><label class="obs-file">Pulihkan cadangan JSON<input id="obsRestore" type="file" accept=".json,application/json"></label></div><div class="obs-session-list">${sessions.map(s=>`<button type="button" data-session="${esc(s.id)}"><strong>${esc(s.name)}</strong><span>${s.units.length} unit · ${s.parameters.length} parameter · ${s.configured?'Siap dilanjutkan':'Draf susunan'}</span><small>${esc(new Date(s.updatedAt).toLocaleString('id-ID'))}</small></button>`).join('')||'<p>Belum ada pengamatan. Data tersimpan di perangkat ini; unduh cadangan untuk berpindah perangkat.</p>'}</div>`;
+    const activeDataset=globalThis.StatisticalWebData?.readActiveDataset?.().fileName||'';
+    $('#obsBody').innerHTML=`<div class="obs-intro"><h2>Pengamatan lapang</h2><p>Susun sekali, isi sesuai urutan kerja. Sampel dapat berupa tanaman atau buah.</p><div class="obs-dataset-picker"><label>Dataset sumber <select id="obsDataset">${datasetOptions(activeDataset)}</select></label><div class="obs-actions"><button type="button" id="obsNew" class="primary">+ Pengamatan baru</button><button type="button" id="obsOpenDataset">Buka dataset di editor</button></div></div><label class="obs-file">Pulihkan cadangan JSON<input id="obsRestore" type="file" accept=".json,application/json"></label></div><div class="obs-session-list">${sessions.map(s=>`<button type="button" data-session="${esc(s.id)}"><strong>${esc(s.name)}</strong><span>${s.units.length} unit · ${s.parameters.length} parameter · ${s.configured?'Siap dilanjutkan':'Draf susunan'}</span><small>${esc(new Date(s.updatedAt).toLocaleString('id-ID'))}</small></button>`).join('')||'<p>Belum ada pengamatan. Data tersimpan di perangkat ini; unduh cadangan untuk berpindah perangkat.</p>'}</div>`;
+    $('#obsOpenDataset').onclick=async()=>{
+      try{
+        const selected=$('#obsDataset').value;
+        if(!selected)throw Error('Pilih dataset dari daftar terlebih dahulu.');
+        await globalThis.StatisticalWebData.activateDataset(selected);
+        if(!await close())return;
+        const toggle=document.getElementById('projectToggle');
+        if(toggle?.getAttribute('aria-expanded')!=='true')toggle?.click();
+      }catch(e){error(e.message);}
+    };
     $('#obsNew').onclick=async()=>{
       saveError='';const parameters=parseParameters('bb | Bobot buah | g\npb | Panjang buah | cm\ntb | Tebal buah | mm\nlb | Lebar buah | mm');
-      plan={version:1,id:uid(),revision:0,name:'Pengamatan baru',parameters,units:[{id:uid(),code:'U1G1',block:'1',treatment:'G1',count:5,kind:'buah'}],groups:[{id:uid(),mode:'parameter',parameterIds:[parameters[0].id]},{id:uid(),mode:'sample',parameterIds:parameters.slice(1).map(p=>p.id)}],orderMode:'groups',manualOrder:'',values:{},drafts:{},undo:[],redo:[],cursor:0,configured:false};
+      plan={version:1,id:uid(),revision:0,name:'Pengamatan baru',sourceDataset:$('#obsDataset').value,parameters,units:[{id:uid(),code:'U1G1',block:'1',treatment:'G1',count:5,kind:'buah'}],groups:[{id:uid(),mode:'parameter',parameterIds:[parameters[0].id]},{id:uid(),mode:'sample',parameterIds:parameters.slice(1).map(p=>p.id)}],orderMode:'groups',manualOrder:'',values:{},drafts:{},undo:[],redo:[],cursor:0,configured:false};
       await persist();render('setup');
     };
     root.querySelectorAll('[data-session]').forEach(b=>b.onclick=async()=>{plan=await loadObservation(b.dataset.session);saveError='';status('Tersimpan di perangkat');render(plan.configured?'observe':'setup');});
@@ -75,7 +90,8 @@ async function renderList(){
 function stashDraft(){plan.configDraft=clone(draft);debounceSave();}
 function unitRows(){return draft.units.map((u,i)=>`<tr data-unit="${i}"><td><input data-field="code" aria-label="Kode unit ${i+1}" value="${esc(u.code)}" maxlength="80"></td><td><input data-field="block" aria-label="Ulangan unit ${i+1}" value="${esc(u.block)}" maxlength="60"></td><td><input data-field="treatment" aria-label="Perlakuan unit ${i+1}" value="${esc(u.treatment)}" maxlength="80"></td><td><input data-field="count" type="number" min="1" max="500" aria-label="Jumlah sampel unit ${i+1}" value="${u.count}"></td><td><select data-field="kind" aria-label="Jenis sampel unit ${i+1}">${['buah','tanaman','lainnya'].map(k=>`<option ${u.kind===k?'selected':''}>${k}</option>`).join('')}</select></td><td><button type="button" data-remove-unit="${i}" aria-label="Hapus unit ${esc(u.code)}">×</button></td></tr>`).join('');}
 function renderSetup(){
-  $('#obsBody').innerHTML=`<div class="obs-setup-grid"><section class="obs-card"><h2>1. Parameter & unit</h2><label>Nama pengamatan<input id="obsName" value="${esc(draft.name)}" maxlength="100"></label><label>Parameter — satu per baris: kode | nama | satuan<textarea id="obsParameters" rows="5" spellcheck="false">${esc(draft.parametersText??draft.parameters.map(p=>[p.code,p.name,p.unit].join(' | ')).join('\n'))}</textarea></label><p class="obs-help">Panen berbeda dapat menjadi parameter terpisah, misalnya bb-p1 dan bb-p2.</p><button type="button" id="obsApplyParameters">Terapkan daftar parameter</button><h3>Unit percobaan</h3><p class="obs-help">Sampel menjadi anak langsung unit: U1G1(1), U1G1(2), dan seterusnya. Jumlah boleh berbeda antarunit.</p><div class="obs-table-scroll"><table><thead><tr><th>Unit</th><th>Ulangan</th><th>Perlakuan</th><th>Sampel</th><th>Jenis</th><th></th></tr></thead><tbody id="obsUnits">${unitRows()}</tbody></table></div><div class="obs-actions"><button type="button" id="obsAddUnit">+ Unit</button><button type="button" id="obsImportUnits">Ambil unit dari dataset aktif</button></div><div id="obsUnitMapping"></div></section><section class="obs-card"><h2>2. Susun urutan</h2><label>Penyusunan<select id="obsOrderMode"><option value="groups" ${draft.orderMode!=='manual'?'selected':''}>Kelompok parameter</option><option value="manual" ${draft.orderMode==='manual'?'selected':''}>Urutan rinci (bebas)</option></select></label><div id="obsOrderEditor"></div><h3>Pratinjau satu unit</h3><p id="obsSequence" class="obs-sequence"></p><p class="obs-help">Urutan diulang pada unit berikutnya. Langkah sampel di luar jumlah unit tersebut dilewati otomatis.</p><button type="button" class="primary" id="obsStart">Terapkan & mulai pengamatan</button></section></div>`;
+  const sourceDataset=draft.sourceDataset||'';
+  $('#obsBody').innerHTML=`<div class="obs-setup-grid"><section class="obs-card"><h2>1. Parameter & unit</h2><label>Nama pengamatan<input id="obsName" value="${esc(draft.name)}" maxlength="100"></label><label>Parameter — satu per baris: kode | nama | satuan<textarea id="obsParameters" rows="5" spellcheck="false">${esc(draft.parametersText??draft.parameters.map(p=>[p.code,p.name,p.unit].join(' | ')).join('\n'))}</textarea></label><p class="obs-help">Panen berbeda dapat menjadi parameter terpisah, misalnya bb-p1 dan bb-p2.</p><button type="button" id="obsApplyParameters">Terapkan daftar parameter</button><h3>Unit percobaan</h3><label>Dataset sumber<select id="obsSourceDataset">${datasetOptions(sourceDataset)}</select></label><p class="obs-help">Sampel menjadi anak langsung unit: U1G1(1), U1G1(2), dan seterusnya. Jumlah boleh berbeda antarunit.</p><div class="obs-table-scroll"><table><thead><tr><th>Unit</th><th>Ulangan</th><th>Perlakuan</th><th>Sampel</th><th>Jenis</th><th></th></tr></thead><tbody id="obsUnits">${unitRows()}</tbody></table></div><div class="obs-actions"><button type="button" id="obsAddUnit">+ Unit</button><button type="button" id="obsImportUnits">Ambil unit dari dataset terpilih</button></div><div id="obsUnitMapping"></div></section><section class="obs-card"><h2>2. Susun urutan</h2><label>Penyusunan<select id="obsOrderMode"><option value="groups" ${draft.orderMode!=='manual'?'selected':''}>Kelompok parameter</option><option value="manual" ${draft.orderMode==='manual'?'selected':''}>Urutan rinci (bebas)</option></select></label><div id="obsOrderEditor"></div><h3>Pratinjau satu unit</h3><p id="obsSequence" class="obs-sequence"></p><p class="obs-help">Urutan diulang pada unit berikutnya. Langkah sampel di luar jumlah unit tersebut dilewati otomatis.</p><button type="button" class="primary" id="obsStart">Terapkan & mulai pengamatan</button></section></div>`;
   $('#obsName').oninput=e=>{draft.name=e.target.value;stashDraft();};
   $('#obsParameters').oninput=e=>{draft.parametersText=e.target.value;stashDraft();};
   $('#obsApplyParameters').onclick=()=>{try{applyParameterDraft();stashDraft();renderOrder();}catch(e){error(e.message);}};
@@ -90,7 +106,8 @@ function renderSetup(){
     draft.units.splice(index,1);stashDraft();renderSetup();
   };
   $('#obsAddUnit').onclick=()=>{draft.units.push({id:uid(),code:'',block:'',treatment:'',count:draft.units.at(-1)?.count||5,kind:draft.units.at(-1)?.kind||'buah'});stashDraft();renderSetup();};
-  $('#obsImportUnits').onclick=showUnitMapping;
+  $('#obsSourceDataset').onchange=e=>{draft.sourceDataset=e.target.value;stashDraft();$('#obsUnitMapping').replaceChildren();};
+  $('#obsImportUnits').onclick=()=>void showUnitMapping();
   $('#obsOrderMode').onchange=e=>{
     if(e.target.value==='manual'&&!draft.manualOrder){try{draft.manualOrder=templateSteps(draft).map(s=>`${draft.parameters.find(p=>p.id===s.parameterId).code}-${s.sample}`).join(', ');}catch{}}
     draft.orderMode=e.target.value;stashDraft();renderOrder();
@@ -137,9 +154,14 @@ function preview(){
     $('#obsSequence').classList.remove('obs-invalid');
   }catch(e){$('#obsSequence').textContent=e.message;$('#obsSequence').classList.add('obs-invalid');}
 }
-function showUnitMapping(){
-  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
-  if(!data?.headers?.length){error('Dataset aktif belum memiliki kolom.');return;}
+async function showUnitMapping(){
+  try{
+    if(!draft.sourceDataset)throw Error('Pilih dataset sumber di atas sebelum mengambil unit.');
+    const requested=draft.sourceDataset;
+    const data=await globalThis.StatisticalWebData?.readDataset?.(requested);
+    if(view!=='setup'||draft.sourceDataset!==requested)return;
+    if(!data?.headers?.length)throw Error('Dataset terpilih belum memiliki kolom.');
+    error('');
   const options='<option value="">Tidak dipilih</option>'+data.headers.map((h,i)=>`<option value="${i}">${esc(h)}</option>`).join('');
   $('#obsUnitMapping').innerHTML=`<div class="obs-mapping"><p>${esc(data.name)} — pilih kolom identitas. Baris dengan unit yang sama digabung menjadi satu unit.</p><label>Kode unit (opsional jika ulangan & perlakuan dipilih)<select id="obsMapUnit">${options}</select></label><label>Ulangan<select id="obsMapBlock">${options}</select></label><label>Perlakuan / genotipe<select id="obsMapTreatment">${options}</select></label><label>Jumlah sampel awal<input id="obsMapCount" type="number" value="5" min="1" max="500"></label><button type="button" id="obsMapApply">Tambahkan unit</button></div>`;
   for(const [id,re] of [['obsMapUnit',/^(unit|unit percobaan|plot)$/i],['obsMapBlock',/^(ulangan|rep|replication|block|blok)$/i],['obsMapTreatment',/^(perlakuan|genotipe|treatment|genotype)$/i]]){
@@ -150,19 +172,23 @@ function showUnitMapping(){
       const unitCol=$('#obsMapUnit').value,blockCol=$('#obsMapBlock').value,treatmentCol=$('#obsMapTreatment').value,count=Number($('#obsMapCount').value);
       if(unitCol===''&&(blockCol===''||treatmentCol===''))throw Error('Pilih kode unit, atau pasangan ulangan dan perlakuan.');
       if(!Number.isInteger(count)||count<1||count>500)throw Error('Jumlah sampel harus 1–500.');
+      const starterOnly=!plan.configured&&!Object.keys(plan.values).length&&draft.units.length===1&&draft.units[0].code==='U1G1'&&draft.units[0].block==='1'&&draft.units[0].treatment==='G1';
+      const existingUnits=starterOnly?[]:draft.units;
       const units=new Map();
       for(const row of data.rows){
         const block=blockCol===''?'':String(row[blockCol]??'').trim(),treatment=treatmentCol===''?'':String(row[treatmentCol]??'').trim();
         const code=unitCol!==''?String(row[unitCol]??'').trim():(block&&treatment?`${/^U/i.test(block)?block:'U'+block}${/^[a-z]/i.test(treatment)?treatment:'G'+treatment}`:'');
         if(!code)continue;
-        const existing=units.get(code.toLowerCase())||draft.units.find(u=>u.code.toLowerCase()===code.toLowerCase());
+        const existing=units.get(code.toLowerCase())||existingUnits.find(u=>u.code.toLowerCase()===code.toLowerCase());
         if(existing&&(existing.block!==block||existing.treatment!==treatment))throw Error(`Identitas ${code} memiliki ulangan/perlakuan berbeda. Periksa pemetaan.`);
         if(!existing)units.set(code.toLowerCase(),{id:uid(),code,block,treatment,count,kind:'buah'});
       }
       if(!units.size)throw Error('Tidak ada unit baru. Periksa kolom atau unit yang sudah ada.');
+      if(starterOnly)draft.units=[];
       draft.units.push(...units.values());stashDraft();renderSetup();
     }catch(e){error(e.message);}
   };
+  }catch(e){error(e.message);}
 }
 function current(){const step=queue[cursor];return {...step,unit:plan.units.find(u=>u.id===step.unitId),parameter:plan.parameters.find(p=>p.id===step.parameterId)};}
 function commitInput(){
@@ -250,7 +276,7 @@ async function close(){
   if(navigationBusy)return;
   if(view==='observe')commitInput();
   if(!await persist())return;
-  root.hidden=true;document.body.classList.remove('observation-open');returnFocus?.focus();
+  root.hidden=true;document.body.classList.remove('observation-open');returnFocus?.focus();return true;
 }
 export async function openObservations(){
   if(!root){root=document.createElement('section');root.id='observationWorkspace';root.hidden=true;root.setAttribute('aria-label','Pengamatan lapang');document.body.append(root);shell();}
@@ -266,6 +292,10 @@ export function installObservationWorkflow(){
   if(document.getElementById('observationTab'))return;
   const nav=document.querySelector('.nav-primary')||document.querySelector('.nav');if(!nav)return;
   const make=(id,label)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=label;b.className='nav-tab';b.onclick=()=>void openObservations();return b;};
+  const datasetTab=document.createElement('button');
+  datasetTab.id='datasetNavTab';datasetTab.type='button';datasetTab.className='nav-tab';datasetTab.textContent='Dataset';
+  datasetTab.onclick=()=>document.getElementById('projectToggle')?.click();
+  nav.append(datasetTab);
   nav.append(make('observationTab','Pengamatan'));
   document.querySelector('#dataMenu')?.prepend(make('observationMenu','Pengamatan sampel'));
   const entry=make('observationQuick','Pengamatan');entry.title='Susun dan isi pengamatan sampel';document.querySelector('.sheet-header')?.append(entry);

@@ -27,6 +27,9 @@ body.observation-open #mobileBottomDock{visibility:hidden!important;pointer-even
 #observationWorkspace .obs-card{padding:18px;background:var(--surface,#fff);border:1px solid var(--border,#d5dfd9);border-radius:10px;min-width:0}
 #observationWorkspace .obs-setup-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
 #observationWorkspace .obs-intro{padding:18px 0}
+#observationWorkspace .obs-dataset-picker{max-width:540px;padding:14px;border:1px solid var(--border,#d5dfd9);border-radius:9px;background:var(--surface,#fff);margin:12px 0}
+#observationWorkspace .obs-dataset-picker label{margin:0}
+#observationWorkspace .obs-dataset-picker .obs-actions{margin-bottom:0}
 #observationWorkspace .obs-help{font-size:12px;opacity:.78;margin:10px 0}
 #observationWorkspace .obs-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 #observationWorkspace .obs-group{padding:12px;border:1px solid var(--border,#d5dfd9);border-radius:8px;margin:12px 0}
