@@ -1,0 +1,12 @@
+/* Locked by default on administrator-only subwebs, before application scripts run. */
+body.admin-subweb-locked>:not(.subweb-header):not(#adminSubwebGate):not(script):not(noscript){display:none!important}
+body.admin-subweb-locked{min-height:100dvh;background:#f5f8f6!important}
+#adminSubwebGate{display:none}
+body.admin-subweb-locked>#adminSubwebGate{box-sizing:border-box;display:block!important;width:min(560px,calc(100% - 28px));margin:clamp(30px,8vh,90px) auto;padding:28px;border:1px solid #d9e5de;border-radius:18px;background:white;color:#14231d;font:15px/1.6 Inter,"Segoe UI",Arial,sans-serif;box-shadow:0 15px 48px rgba(18,54,40,.09)}
+#adminSubwebGate h1{font-size:clamp(25px,5vw,34px);line-height:1.15;letter-spacing:-.025em;margin:8px 0}
+#adminSubwebGate p{margin:10px 0 18px;max-width:55ch;color:#5b6d65}
+#adminSubwebGate .admin-gate-tag{display:inline-block;padding:5px 10px;border:1px solid #e7d6b2;border-radius:99px;background:#fff4db;color:#7f591d;font-size:12px;font-weight:800}
+#adminSubwebGate .admin-gate-actions{display:flex;flex-wrap:wrap;gap:10px}
+#adminSubwebGate button,#adminSubwebGate a{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:8px 14px;border:1px solid #ccd9d1;border-radius:9px;background:#fff;color:#0c6246;font:750 13px/1.4 Inter,"Segoe UI",Arial,sans-serif;text-decoration:none;cursor:pointer}
+#adminSubwebGate button{background:#0d6648;color:white;border-color:#0d6648}
+#adminSubwebGate button:disabled{opacity:.6;cursor:wait}
