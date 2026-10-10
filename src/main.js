@@ -3,7 +3,7 @@ import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus7';
 import { agrotikCore } from './core/core.js';
 import { createUid } from './core/ids.js';
 import { installPaymentGate } from './payment-gate.js';
-import {nextColumnName,isUniqueColumnName,validateColumnNames} from './dataset-columns.js';
+import {nextColumnName,isUniqueColumnName,validateColumnNames,prepareImportedColumnNames} from './dataset-columns.js';
 import {installNavigation} from './navigation.js?v=20261003-mobilebar7';
 import { installDataTools } from './data-tools.js?v=20260929-cleanmenus7';
 import { parseNumber, formatNumber, initNumberSettings } from './number-format.js?v=20260929-cleanmenus7';
@@ -1094,9 +1094,42 @@ function detectDelimiter(text){let semis=0,commas=0,quotes=false;for(const c of 
 function csvRows(text,delimiter){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(c===delimiter&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);row=[];cell='';}else cell+=c;}if(cell!==''||row.length){row.push(cell);if(row.some(v=>v.trim()!==''))rows.push(row);}return rows;}
 function openModal(){clearError();const m=$('#pasteModal');m.classList.add('open');$('#pasteArea').value='';$('#preview').textContent='';setTimeout(()=>$('#pasteArea').focus(),0);}
 function closeModal(){$('#pasteModal').classList.remove('open');}
-function previewPaste(){const a=excelRows($('#pasteArea').value);$('#preview').textContent=a.length?`${a.length} baris × ${a[0].length} kolom terdeteksi.`:'';}
-function applyPasted(){try{const a=excelRows($('#pasteArea').value);if(!a.length)return showError('Tidak ada data Excel yang ditempel.');pushUndo('tempel dataset');const hasHeader=$('#hasHeader').checked;state.headers=hasHeader?validateColumnNames(a[0]):a[0].map((_,i)=>`Variable${i+1}`);state.rows=a.slice(hasHeader?1:0).map(r=>state.headers.map((_,i)=>r[i]??''));persist('tempel dataset',true);clearSelection();renderGrid();closeModal();setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${displayDatasetName(state.active)}${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
-async function importCSV(event){try{const file=event.target.files?.[0];if(!file)return;const text=await file.text();if(!text.trim())return showError('File CSV kosong.');const delimiter=detectDelimiter(text);const a=csvRows(text,delimiter);if(!a.length)return showError('CSV tidak dapat dibaca.');pushUndo('impor CSV');state.headers=validateColumnNames(a[0]);state.rows=a.slice(1).map(r=>state.headers.map((_,i)=>r[i]??''));persist('impor CSV',true);clearSelection();renderGrid();setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
+function importHeaderNotice(renamed){
+  if(!renamed.length)return '';
+  const examples=renamed.slice(0,3).map(change=>`${change.from||'(kosong)'} → ${change.to}`).join('; ');
+  return ` · ${renamed.length} judul kolom diperbaiki otomatis: ${examples}${renamed.length>3?'; …':''}`;
+}
+function importedColumnCount(rows){return rows.reduce((max,row)=>Math.max(max,row.length),0);}
+function previewPaste(){
+  const a=excelRows($('#pasteArea').value);
+  if(!a.length){$('#preview').textContent='';return;}
+  const columns=importedColumnCount(a),hasHeader=$('#hasHeader').checked;
+  const renamed=hasHeader?prepareImportedColumnNames(Array.from({length:columns},(_,i)=>a[0][i]??'')).renamed:[];
+  $('#preview').textContent=`${a.length-(hasHeader?1:0)} baris data × ${columns} kolom terdeteksi${importHeaderNotice(renamed)}.`;
+}
+function applyPasted(){try{
+  const a=excelRows($('#pasteArea').value);
+  if(!a.length)return showError('Tidak ada data Excel yang ditempel.');
+  const hasHeader=$('#hasHeader').checked,columns=importedColumnCount(a);
+  const imported=hasHeader?prepareImportedColumnNames(Array.from({length:columns},(_,i)=>a[0][i]??'')):{headers:Array.from({length:columns},(_,i)=>'Variable'+(i+1)),renamed:[]};
+  const rows=a.slice(hasHeader?1:0).map(r=>imported.headers.map((_,i)=>r[i]??''));
+  pushUndo('tempel dataset');
+  state.headers=imported.headers;state.rows=rows;
+  persist('tempel dataset',true);clearSelection();renderGrid();closeModal();
+  setStatus(`✓ ${state.rows.length} baris × ${state.headers.length} kolom tersimpan di ${displayDatasetName(state.active)}${importHeaderNotice(imported.renamed)}${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);
+}catch(e){showError('Gagal memasukkan data dari Excel.',e);}}
+async function importCSV(event){try{
+  const file=event.target.files?.[0];if(!file)return;
+  const text=await file.text();if(!text.trim())return showError('File CSV kosong.');
+  const delimiter=detectDelimiter(text),a=csvRows(text,delimiter);
+  if(!a.length)return showError('CSV tidak dapat dibaca.');
+  const columns=importedColumnCount(a);
+  const imported=prepareImportedColumnNames(Array.from({length:columns},(_,i)=>a[0][i]??''));
+  const rows=a.slice(1).map(r=>imported.headers.map((_,i)=>r[i]??''));
+  pushUndo('impor CSV');state.headers=imported.headers;state.rows=rows;
+  persist('impor CSV',true);clearSelection();renderGrid();
+  setStatus(`✓ CSV diimpor menggunakan pemisah “${delimiter}”: ${state.rows.length} baris × ${state.headers.length} kolom${importHeaderNotice(imported.renamed)}${dictionaryRecognitionText(state.headers,displayDatasetName(state.active))}.`);
+}catch(e){showError('Gagal mengimpor CSV.',e);}finally{event.target.value='';}}
 function quickImport(event){
   const input=event.target,file=input.files?.[0];input.value='';if(!file)return;
   const isXlsx=/\.xlsx$/i.test(file.name)||file.type==='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
