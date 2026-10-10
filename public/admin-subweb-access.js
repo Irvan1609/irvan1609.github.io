@@ -21,17 +21,8 @@ async function verifyAdmin(){
     await import(src);
     const account=window.IrvanAccount;
     if(!account?.refresh)throw Error('Layanan akun tidak tersedia.');
-    // The OAuth callback is processed asynchronously by account.js.
-    if(new URL(location.href).searchParams.has('auth_code')){
-      await new Promise(resolve=>{
-        const timeout=setTimeout(()=>{document.removeEventListener('accountchange',onChange);resolve();},7000);
-        function onChange(event){
-          if(!event.detail?.authenticated)return;
-          clearTimeout(timeout);document.removeEventListener('accountchange',onChange);resolve();
-        }
-        document.addEventListener('accountchange',onChange);
-      });
-    }
+    // Complete OAuth exchange/refresh first; the cached role alone is never trusted.
+    await account.ready?.();
     const user=await account.refresh();
     if(user?.role!=='admin')throw Error(user?'Akun ini bukan admin. Akses hanya untuk admin.':'Masuk dengan akun Google admin untuk menggunakan subweb ini.');
     gate?.remove();
