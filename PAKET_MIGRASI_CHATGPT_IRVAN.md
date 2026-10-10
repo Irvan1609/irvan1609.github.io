@@ -16,6 +16,16 @@ sebelumnya.
 
 ------------------------------------------------------------------------
 
+## 0. Keputusan terbaru dan cara melanjutkan
+
+**Pembaruan: 10 Oktober 2026, Asia/Makassar.**
+
+- Pengguna meminta konteks kerja lintas akun disimpan di repo dan dibaca terlebih dahulu oleh asisten baru.
+- Arahan terbaru: setiap tugas yang mengubah file juga harus memperbarui dokumen ini tanpa perlu diminta lagi. Catat keinginan pengguna, alasan keputusan, perubahan aktual, verifikasi, dan pekerjaan tersisa. Aturan lengkap ada di [AGENTS.md](AGENTS.md).
+- Baca bagian ini dan catatan perubahan (bagian 16), lalu seluruh konteks yang relevan sebelum melanjutkan. Pernyataan historis pada bagian 1–15 tetap perlu diverifikasi terhadap keadaan terkini.
+- Dokumen ini adalah memori kerja yang dipelihara oleh asisten, bukan sinkronisasi otomatis percakapan lintas akun. Instruksi eksplisit terbaru pengguna tetap menjadi acuan.
+- Status aplikasi, bug, dan deployment dalam dokumen impor belum diaudit ulang dalam tugas dokumentasi ini.
+
 ## 1. Profil dan cara bekerja
 
 -   Nama panggilan yang disukai: Irvan. Jangan terlalu sering menyebut
@@ -486,3 +496,38 @@ agronomi, gunakan Bahasa Indonesia akademik, bersikap seperti reviewer
 Q1, jelaskan mekanisme dan statistik, dan sertakan literatur mutakhir
 dengan tautan yang dapat diverifikasi. Jangan mengarang data, sitasi,
 status pekerjaan, atau hasil pengujian.
+
+## 16. Catatan perubahan dan serah terima
+
+Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga bagian topik terkait apabila keputusan atau statusnya berubah.
+
+### 2026-10-10 — Penyimpanan konteks lintas akun
+
+- **Tujuan pengguna:** menyimpan dokumen migrasi di repo agar akun baru membaca konteks terlebih dahulu.
+- **File:** PAKET_MIGRASI_CHATGPT_IRVAN.md, AGENTS.md, README.md.
+- **Perubahan:** dokumen impor disimpan utuh, ditambah petunjuk pembacaan awal dan prompt untuk akun baru.
+- **Branch/bukti:** master; commit dokumen 420d2711371888f89562c701d5f66f37d2bb97fd, petunjuk 334f810a54de59912a12898fae963e2ef5f53d66, README f7c1ad79a7c00d0542b33b430e73faae3f4b0bbf.
+- **Verifikasi:** ketiga file dibaca kembali melalui GitHub dan cocok dengan isi yang dikirim.
+- **Status:** selesai terverifikasi untuk penyimpanan dokumen. Tidak ada pengujian aplikasi atau deployment dalam tugas ini.
+
+### 2026-10-10 — Konteks wajib dipelihara bersama perubahan file
+
+- **Tujuan pengguna:** setiap perubahan file harus membawa catatan tentang keinginan pengguna dan hasil pekerjaan; asisten dari akun berikutnya wajib melanjutkan kebiasaan ini.
+- **Keputusan:** pembaruan konteks menjadi bagian setiap tugas yang mengubah file, tanpa permintaan terpisah; pemeriksaan baca-saja tidak memerlukan commit jika tidak ada koreksi atau keputusan baru.
+- **File:** AGENTS.md (prosedur wajib), README.md (petunjuk dan prompt), PAKET_MIGRASI_CHATGPT_IRVAN.md (keputusan aktif dan catatan serah terima).
+- **Batasan:** pertahankan konteks historis; jangan menganggap status lama sebagai bukti keadaan aplikasi; jangan mencatat rahasia; hindari catatan rekursif.
+- **Branch:** master. Hash pembaruan dokumentasi tersedia pada riwayat Git file.
+- **Status/verifikasi saat catatan disusun:** isi pembaruan disiapkan berdasarkan permintaan pengguna dan versi repo yang dibaca; penyimpanan dan pembacaan ulang harus dibuktikan oleh hasil operasi GitHub dalam sesi ini. Entri ini sendiri bukan bukti bahwa operasi tulis atau pengujian berhasil.
+- **Belum dilakukan:** audit aplikasi, build, pemeriksaan UI, dan deployment; tugas ini hanya dokumentasi. Tidak ada sistem yang otomatis membaca percakapan akun lain.
+- **Langkah berikutnya:** asisten berikutnya membaca konteks, memverifikasi keadaan repo sesuai tugas, lalu menambahkan catatan dengan prosedur AGENTS.md.
+
+### Format entri berikutnya
+
+- **Tanggal/zona waktu:**
+- **Tujuan pengguna dan alasan:**
+- **Keputusan/batasan:** bedakan arahan pengguna dan pilihan implementasi asisten.
+- **File dan perubahan:**
+- **Branch/commit/PR yang sudah tersedia:**
+- **Verifikasi dan hasil nyata:**
+- **Status serta hal yang belum diuji/hambatan:**
+- **Langkah berikutnya:**
