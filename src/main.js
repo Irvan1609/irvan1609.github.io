@@ -77,6 +77,27 @@ function activeDatasetPayload(){
 }
 if(typeof globalThis!=='undefined')globalThis.StatisticalWebData={
   readActiveDataset:()=>activeDatasetPayload(),
+  listDatasets:()=>Object.keys(state.files).map(fileName=>({fileName,name:displayDatasetName(fileName),active:fileName===state.active})),
+  readDataset:async name=>{
+    const fileName=String(name||state.active);
+    if(!Object.prototype.hasOwnProperty.call(state.files,fileName))throw Error('Dataset tidak ditemukan. Pilih dataset yang masih tersedia.');
+    if(fileName===state.active){
+      if(localHydrationPromise)await localHydrationPromise;
+      return activeDatasetPayload();
+    }
+    const stored=state.files[fileName]??'';
+    const content=localStoreReady()&&isLocalPointer(stored)?await loadLocalDataset(fileName):stored;
+    if(content===null||content===undefined)throw Error('Isi dataset lokal tidak tersedia.');
+    const parsed=String(content).trim()?csvRows(String(content),','):[];
+    return {name:displayDatasetName(fileName),fileName,headers:parsed[0]||[],rows:parsed.slice(1)};
+  },
+  activateDataset:async name=>{
+    const fileName=String(name||state.active);
+    if(!Object.prototype.hasOwnProperty.call(state.files,fileName))throw Error('Dataset tidak ditemukan.');
+    if(fileName!==state.active){state.active=fileName;await loadActive();}
+    else if(localHydrationPromise)await localHydrationPromise;
+    return activeDatasetPayload();
+  },
   readDatasetContent:async name=>{
     const file=String(name||state.active);
     if(file===state.active)return serialize();
