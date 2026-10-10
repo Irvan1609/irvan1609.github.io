@@ -2,7 +2,7 @@ import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 import {installDatasetSidebarEnhancements} from './dataset-sidebar.js?v=20260929-cleanmenus7';
 import {installDataEnhancements} from './data-enhancements.js';
-import {validateColumnNames} from './dataset-columns.js';
+import {validateColumnNames,prepareImportedColumnNames} from './dataset-columns.js';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 function importDataset(detail){
@@ -91,12 +91,13 @@ export function installDataTools(){
         let cols=rows.reduce((m,r)=>Math.max(m,r.findLastIndex(v=>v!=='')+1),0);
         return rows.map(r=>r.slice(0,cols));
       };
-      function preview(){try{const rows=extract();$('#sheetPreview').innerHTML=`<table class="result-table">${rows.slice(0,7).map((r,i)=>`<tr>${r.map(v=>`<${i?'td':'th'}>${esc(v)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table><p>${Math.max(0,rows.length-1)} pengamatan.</p>`;$('#importError').textContent='';}catch(e){$('#importError').textContent=e.message;}}
+      function preview(){try{const rows=extract(),prepared=rows.length?prepareImportedColumnNames(rows[0]):{renamed:[]};$('#sheetPreview').innerHTML=`<table class="result-table">${rows.slice(0,7).map((r,i)=>`<tr>${r.map(v=>`<${i?'td':'th'}>${esc(v)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table><p>${Math.max(0,rows.length-1)} pengamatan. ${prepared.renamed.length?`${prepared.renamed.length} judul kolom duplikat/kosong akan diperbaiki otomatis saat impor.`:''}</p>`;$('#importError').textContent='';}catch(e){$('#importError').textContent=e.message;}}
       $('#importSheet').onchange=preview;preview();
       $('#applyXlsx').onclick=()=>{try{
-        const [headers,...rows]=extract(),cleanHeaders=validateColumnNames(headers);
+        const [headers,...rows]=extract(),prepared=prepareImportedColumnNames(headers),cleanHeaders=prepared.headers;
         if(!rows.length)throw Error('Belum ada baris pengamatan.');
         importDataset({name:file.name.replace(/\.xlsx$/i,'')+'-'+sheets[Number($('#importSheet').value)].name,headers:cleanHeaders,rows});
+        if(prepared.renamed.length)document.getElementById('status').textContent=`✓ Excel berhasil diimpor. ${prepared.renamed.length} judul kolom duplikat/kosong diperbaiki otomatis; semua nilai dipertahankan.`;
         $('#dataToolModal').classList.remove('open');
       }catch(e){$('#importError').textContent=e.message;}};
     }catch(e){$('#dataToolBody').innerHTML=`<p role="alert">${esc(e.message)}</p>`;}
