@@ -34,11 +34,12 @@ for (const [pathName,label] of [[pwaManifestPath,'manifest'],[serviceWorkerPath,
 }
 
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
-if (!portfolio.includes('Agrotik Stat')) fail('built root does not contain Agrotik landing content');
+if (!portfolio.includes('Irvan · Agronomi')) fail('built root does not contain restored Irvan landing');
 if (!portfolio.includes('/stat/')) fail('built landing does not link to /stat/');
-for (const route of ['/print-skripsi/','/mendeley/','/hitung-cabai/','/game/']) {
-  if (portfolio.includes('href="'+route+'"')) fail('built landing advertises a staging-only module: '+route);
+for (const route of ['/print-skripsi/','/mendeley/','/hitung-cabai/','/game/','/pengukur/']) {
+  if (!portfolio.includes('href="'+route+'"')) fail('restored landing missing '+route);
 }
+if (!portfolio.includes('data-admin-only')) fail('admin-only link identification missing');
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
