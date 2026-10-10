@@ -1,3 +1,4 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
 import {ACCOUNT_CONFIG} from '../account-config.js';
 
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');

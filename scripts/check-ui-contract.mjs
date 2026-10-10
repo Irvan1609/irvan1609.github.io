@@ -42,7 +42,7 @@ function fail(message) {
   process.exit(1);
 }
 
-for (const marker of ['Agrotik','href="/stat/"','Analisis data pertanian','Research Data Tools']) {
+for (const marker of ['Irvan · Agronomi','href="/stat/"','Analisis data pertanian','Hitung Cabai','Field Zero','Referensi Mendeley','Print Skripsi']) {
   if (!portfolioHtml.includes(marker)) fail(`portfolio root missing marker: ${marker}`);
 }
 if (portfolioHtml.includes('id="gridWrap"')) fail('portfolio root must not contain the statistical application shell');
@@ -56,13 +56,13 @@ const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
 for(const page of [html,printHtml,mendeleyHtml,chiliHtml]){
   if(page.includes('agrotik-credit'))fail('module credits must live on dashboard cards only');
 }
-// The public landing page now exposes only the Stat product. Other modules
-// remain independently tested below, but are not advertised as production products.
+// Restore the historic Irvan research directory; modules other than Stat are admin-only.
 const landingLinks=[...portfolioHtml.matchAll(/href="([^"#]+)"/g)].map(m=>m[1]);
-for(const route of ['/print-skripsi/','/mendeley/','/game/','/hitung-cabai/']){
-  if(landingLinks.includes(route))fail('landing page must expose only the Stat product: '+route);
+for(const route of ['/print-skripsi/','/mendeley/','/game/','/hitung-cabai/','/pengukur/']){
+  if(!landingLinks.includes(route))fail('restored landing must list '+route);
 }
 if((landingLinks.filter(href=>href==='/stat/')).length<2)fail('landing page needs working Stat entry links');
+if((portfolioHtml.match(/data-admin-only/g)||[]).length<6)fail('restricted module links must be visibly identified');
 
 
 const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
@@ -241,7 +241,7 @@ if(portfolioHtml.includes('Peneliti Agronomi')||portfolioHtml.includes('Pertanya
 for(const [name,page] of [['portfolio',portfolioHtml],['stat',html],['mendeley',mendeleyHtml],['print',printHtml]]){
   for(const phrase of ['Interpretasi otomatis siap BAB IV','Reference workflow','PDF utility','>Analyze<'])if(page.includes(phrase))fail(`${name} still contains overly generic/generated UI phrase: ${phrase}`);
 }
-if(!portfolioHtml.includes('Agrotik Stat')||portfolioHtml.includes('Statistik Irvan'))fail('landing and sub-web branding must use Agrotik Stat');
+if(!portfolioHtml.includes('Statistical Web')||!portfolioHtml.includes('Irvan · Agronomi'))fail('old Irvan directory branding must be restored');
 
 
 const toolsInit = main.indexOf('installDataTools();');

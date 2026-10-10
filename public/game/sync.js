@@ -1,3 +1,4 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
 const META_PREFIX='agrotik_fz_cloud_sync_v1:';
 const QUEUE_KEY='agrotik_sync_queue_v1',SAFE_KEY='agrotik_safe_mode_v1';
 const SYNC_DELAY=20000,MAX_DIRTY_WAIT=60000;

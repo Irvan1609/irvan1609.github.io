@@ -1,3 +1,4 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
 import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
 import {createBreedingCup} from './competition.js';
 import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20261002-mobile-final1';

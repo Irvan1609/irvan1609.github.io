@@ -25,7 +25,7 @@ const datasetSync=fs.readFileSync('src/account-dataset-sync.js','utf8');
 function fail(message){console.error('Field Zero check failed: '+message);process.exit(1);}
 
 if(!root.includes('href="/stat/"')||!html.includes('Field Zero'))fail('landing Stat entry or standalone Field Zero title missing');
-if(!html.includes('class="calm-ui"'))fail('game must default to calm focus UI');
+if(!/<body[^>]*class="[^"]*calm-ui/.test(html))fail('game must default to calm focus UI');
 if(!css.includes('FIELD ZERO CALM FOCUS UI'))fail('calm focus styling missing');
 for(const marker of ['id="gameWorkflow"','data-main-action="lab"','data-main-action="research"','data-main-action="analysis"'])if(!html.includes(marker))fail('focused game workflow missing '+marker);
 for(const marker of ['FIELD ZERO FOCUSED GAMEPLAY FLOW','.game-workflow','.field-primary-actions','.research-steps','.experiment-wizard'])if(!css.includes(marker))fail('focused workflow styling missing '+marker);
@@ -51,7 +51,7 @@ for(const marker of ['FIELD ZERO LIGHT THEME FINAL SURFACES 2026-09-27','.compet
 
 for(const marker of ['FIELD ZERO ULTRA COMPACT COMFORT FINAL 2026-09-27','#quickField::after','grid-template-columns:repeat(8,minmax(0,1fr))!important','grid-template-columns:repeat(4,minmax(0,1fr))!important','min-height:52px!important','.plot-top{display:none!important}'])if(!comfortCss.includes(marker))fail('ultra compact game styling missing '+marker);
 for(const marker of ['FIELD ZERO VISUAL REFRESH THEME FINAL 2026-09-27','html[data-theme="light"] body.theme-light.calm-ui .plot','html[data-theme="dark"] body.theme-dark.calm-ui'])if(!comfortCss.includes(marker))fail('visual refresh theme missing '+marker);
-for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20261002-mobile-final1'))fail('fixed game runtime must be cache-busted');
+for(const asset of ['theme-init.js','style.css','theme.css','comfort.css','farm.css','app.js'])if(!html.includes('/game/'+asset+'?v='))fail('versioned game asset missing '+asset);if(!html.includes('/game/app.js?v=20261010-adminroutes2'))fail('admin-gated game runtime must be cache-busted');
 
 
 
