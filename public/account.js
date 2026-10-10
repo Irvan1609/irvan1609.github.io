@@ -18,6 +18,7 @@ let mount=null;
 let menu=null;
 let authReady=false;
 let authChecked=false;
+let readyPromise=Promise.resolve();
 let cloudState={worker:false,effectiveMode:'unknown',features:{},storage:{},updatedAt:null};
 let cloudCheckedAt=0;
 const CLOUD_STATUS_CACHE_MS=15*60*1000;
@@ -120,6 +121,7 @@ function dispatch(){
     getCsrfToken:()=>csrfToken,
     request:authFetch,
     refresh:refreshSession,
+    ready:()=>readyPromise,
     login:startLogin,
     logout
   };
@@ -345,4 +347,4 @@ async function init(){
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
 
-init();
+readyPromise=init();
