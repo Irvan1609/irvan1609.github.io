@@ -172,16 +172,19 @@ async function showUnitMapping(){
       const unitCol=$('#obsMapUnit').value,blockCol=$('#obsMapBlock').value,treatmentCol=$('#obsMapTreatment').value,count=Number($('#obsMapCount').value);
       if(unitCol===''&&(blockCol===''||treatmentCol===''))throw Error('Pilih kode unit, atau pasangan ulangan dan perlakuan.');
       if(!Number.isInteger(count)||count<1||count>500)throw Error('Jumlah sampel harus 1–500.');
+      const starterOnly=!plan.configured&&!Object.keys(plan.values).length&&draft.units.length===1&&draft.units[0].code==='U1G1'&&draft.units[0].block==='1'&&draft.units[0].treatment==='G1';
+      const existingUnits=starterOnly?[]:draft.units;
       const units=new Map();
       for(const row of data.rows){
         const block=blockCol===''?'':String(row[blockCol]??'').trim(),treatment=treatmentCol===''?'':String(row[treatmentCol]??'').trim();
         const code=unitCol!==''?String(row[unitCol]??'').trim():(block&&treatment?`${/^U/i.test(block)?block:'U'+block}${/^[a-z]/i.test(treatment)?treatment:'G'+treatment}`:'');
         if(!code)continue;
-        const existing=units.get(code.toLowerCase())||draft.units.find(u=>u.code.toLowerCase()===code.toLowerCase());
+        const existing=units.get(code.toLowerCase())||existingUnits.find(u=>u.code.toLowerCase()===code.toLowerCase());
         if(existing&&(existing.block!==block||existing.treatment!==treatment))throw Error(`Identitas ${code} memiliki ulangan/perlakuan berbeda. Periksa pemetaan.`);
         if(!existing)units.set(code.toLowerCase(),{id:uid(),code,block,treatment,count,kind:'buah'});
       }
       if(!units.size)throw Error('Tidak ada unit baru. Periksa kolom atau unit yang sudah ada.');
+      if(starterOnly)draft.units=[];
       draft.units.push(...units.values());stashDraft();renderSetup();
     }catch(e){error(e.message);}
   };
@@ -273,7 +276,7 @@ async function close(){
   if(navigationBusy)return;
   if(view==='observe')commitInput();
   if(!await persist())return;
-  root.hidden=true;document.body.classList.remove('observation-open');returnFocus?.focus();
+  root.hidden=true;document.body.classList.remove('observation-open');returnFocus?.focus();return true;
 }
 export async function openObservations(){
   if(!root){root=document.createElement('section');root.id='observationWorkspace';root.hidden=true;root.setAttribute('aria-label','Pengamatan lapang');document.body.append(root);shell();}
