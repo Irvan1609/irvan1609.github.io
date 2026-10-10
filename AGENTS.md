@@ -20,6 +20,29 @@ Urutan awal:
 - Daftar pekerjaan dan jadwal lama dalam dokumen migrasi bukan perintah untuk langsung menjalankan semuanya atau membuat otomatisasi baru.
 - Jangan menyalin token, kata sandi, atau rahasia ke dokumen konteks.
 
-## Pemeliharaan konteks
+## Pemeliharaan konteks wajib pada setiap perubahan
 
-Jika pengguna meminta pembaruan konteks, perbarui dokumen migrasi dengan tanggal, keputusan terbaru, status terverifikasi, bukti commit bila ada, dan pekerjaan yang belum selesai. Jangan menandai pekerjaan selesai tanpa bukti.
+Arahan pengguna, 10 Oktober 2026 (Asia/Makassar): setiap perubahan file harus disertai pembaruan konteks agar tujuan pengguna dan hasil pekerjaan dapat diteruskan ke akun/asisten berikutnya. Ini bagian dari tugas, bukan pekerjaan opsional yang harus diminta lagi.
+
+### Awal sesi dan pemeriksaan repo
+- Baca dokumen migrasi, terutama bagian 0 (keputusan terbaru) dan bagian 16 (catatan perubahan), sebelum menyimpulkan status atau mengedit file.
+- Bandingkan catatan dengan branch/HEAD dan perubahan aktual yang relevan. Jika ada perubahan yang belum tercatat, jangan menebak maksud pengguna dari diff: pisahkan fakta kode, tujuan yang dinyatakan pengguna, dan dugaan yang belum dikonfirmasi.
+- Pemeriksaan baca-saja tidak memerlukan commit baru bila tidak ada keputusan atau koreksi status yang perlu disimpan.
+
+### Setiap tugas yang mengubah file
+1. Catat tujuan dan hasil yang diinginkan pengguna dari percakapan, batasan yang harus dipertahankan, serta keputusan baru. Bedakan instruksi pengguna dari pilihan implementasi asisten.
+2. Setelah satu rangkaian perubahan yang terkait, perbarui PAKET_MIGRASI_CHATGPT_IRVAN.md pada branch pekerjaan yang sama, sebelum mengakhiri tugas atau menyerahkan PR. Tidak perlu memperbarui untuk setiap penekanan tombol atau file sementara.
+3. Perbarui bagian topik terkait dan bagian 0 bila keputusan/status aktif berubah; tambahkan catatan ringkas di bagian 16 berisi tanggal/zona waktu, tujuan, file yang diubah, perubahan, verifikasi yang benar-benar dilakukan, status, dan langkah berikutnya.
+4. Sertakan konteks dalam commit/PR yang sama bila memungkinkan. Jika API menulis satu file per commit, gunakan commit dokumentasi pendamping dalam tugas yang sama. Jangan menggabungkan perubahan aplikasi lain hanya untuk memperbarui konteks di branch default; ikuti UPDATE_POLICY.md untuk perubahan aplikasi.
+5. Catat branch dan hash commit implementasi yang sudah tersedia. Jangan mengarang hash commit yang belum dibuat atau membuat siklus commit hanya untuk mencantumkan hash commit dokumen itu sendiri; riwayat Git menjadi buktinya.
+6. Baca kembali file yang tersimpan untuk memverifikasi pembaruan. Bila ada perubahan bersamaan, baca versi terbaru dan gabungkan catatan tanpa menimpa pekerjaan orang lain.
+7. Di jawaban akhir, laporkan hasil dan bahwa konteks telah diperbarui, beserta tautan/commit yang tersedia. Jika akses tulis tidak tersedia atau gagal, berikan teks pembaruan yang siap diterapkan dan nyatakan bahwa repo belum diperbarui.
+
+### Mutu catatan
+- Simpan tujuan dan alasan keputusan, bukan hanya daftar nama file.
+- Gunakan status yang jujur: direncanakan, dikerjakan, terhambat, selesai terverifikasi, atau digantikan.
+- Tulis pengujian yang belum dilakukan secara eksplisit. Commit bukan bukti build/deployment/UI berhasil.
+- Bila tujuan berubah, tandai keputusan lama sebagai digantikan, dengan tanggal dan alasan; pertahankan riwayat yang masih relevan.
+- Simpan ringkasan yang ringkas dan dapat ditindaklanjuti, bukan seluruh percakapan. Jangan memasukkan kredensial atau data pribadi baru yang tidak diperlukan ke repo publik.
+- Pembaruan dokumentasi ini sendiri cukup dicatat satu kali; tidak memerlukan catatan rekursif untuk setiap perubahan catatan.
+- Aturan ini berlaku juga bagi ChatGPT di akun berikutnya yang membaca repo. Markdown tidak memperbarui dirinya sendiri dan tidak dapat mengakses percakapan akun lain; asisten yang memiliki konteks dan akses tulis harus menjalankannya.
