@@ -1,4 +1,5 @@
-await (await import(/* @vite-ignore */ '/admin-subweb-access.js')).requireAdminSubweb();
+const adminGateUrl = new URL('/admin-subweb-access.js', location.origin).href;
+await (await import(/* @vite-ignore */ adminGateUrl)).requireAdminSubweb();
 import { buildPdfSplitPlan, compactPageList, detectChapterOnePage } from '../src/pdf-split-plan.js';
 
 const $ = (selector) => document.querySelector(selector);
