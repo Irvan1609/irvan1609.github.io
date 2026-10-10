@@ -1,3 +1,4 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
 import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,grayPatchRects} from './paper.js';
 import {PPM,homography,project,detectMarkers,bilinearSample} from './geometry.js';
 import {alignmentCheck,scaleCheck} from './alignment.js';
