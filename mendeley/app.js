@@ -1,4 +1,5 @@
-await (await import(/* @vite-ignore */ '/admin-subweb-access.js')).requireAdminSubweb();
+const adminGateUrl = new URL('/admin-subweb-access.js', location.origin).href;
+await (await import(/* @vite-ignore */ adminGateUrl)).requireAdminSubweb();
 import {extractDoi,formatApa,formatHarvard,mergeUniqueReferences,normalizeDoi,referenceFromCrossref,toBibtex,toRis} from '../src/reference-core.js';
 
 const KEY='statistical_web_reference_library_v1';
