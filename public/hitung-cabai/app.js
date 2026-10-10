@@ -1,3 +1,4 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
 import {detectChiliBoxesFromImageData} from './detector.js';
 import {submitTrainingContribution,cloudContributionReady} from './cloud-sync.js?v=20260926-3';
 import {upsertChiliCountToStatistics} from './stat-sync.js';
