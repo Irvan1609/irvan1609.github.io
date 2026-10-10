@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {nextColumnName,isUniqueColumnName,validateColumnNames} from '../src/dataset-columns.js';
+import {nextColumnName,isUniqueColumnName,validateColumnNames,prepareImportedColumnNames} from '../src/dataset-columns.js';
 import {parseNumber,formatNumber,getDecimalSeparator} from '../src/number-format.js';
 assert.equal(nextColumnName([]),'Variable1');
 assert.equal(nextColumnName(['Variable1','Variable2']),'Variable3');
@@ -21,6 +21,25 @@ assert.throws(()=>validateColumnNames(['Perlakuan','']),/harus terisi/);
 assert.throws(()=>validateColumnNames(['Café','Cafe\u0301']),/harus unik/);
 const importedHeaders=[' Perlakuan ','Produksi'];
 validateColumnNames(importedHeaders);assert.deepEqual(importedHeaders,[' Perlakuan ','Produksi']);
+
+// Imported Excel/CSV headers should be repaired, not cause complete data rejection.
+// The strict validator must remain unchanged for manual column editing.
+const incoming=[' Produksi ','produksi','Produksi (2)','','Variable4','Ｙ','y','  '];
+const originalIncoming=[...incoming];
+const repaired=prepareImportedColumnNames(incoming);
+assert.deepEqual(incoming,originalIncoming,'must not mutate source names');
+assert.deepEqual(repaired.headers,['Produksi','produksi (3)','Produksi (2)','Variable5','Variable4','Ｙ','y (2)','Variable8']);
+assert.equal(repaired.renamed.length,4);
+assert.deepEqual(validateColumnNames(repaired.headers),repaired.headers);
+assert.deepEqual(prepareImportedColumnNames(['Perlakuan','Y']).headers,['Perlakuan','Y']);
+assert.deepEqual(prepareImportedColumnNames(['Café','Cafe\\u0301']).headers,['Café','Cafe\\u0301 (2)']);
+assert.deepEqual(prepareImportedColumnNames(['','']).headers,['Variable1','Variable2']);
+assert.throws(()=>prepareImportedColumnNames([]),/tidak memiliki kolom/);
+const sampleRows=[['Parameter','parameter'],['P1',12,34],['P2',14,36]];
+const sampleWidth=sampleRows.reduce((width,row)=>Math.max(width,row.length),0);
+const repairedHeaders=prepareImportedColumnNames(Array.from({length:sampleWidth},(_,i)=>sampleRows[0][i]??''));
+assert.deepEqual(repairedHeaders.headers,['Parameter','parameter (2)','Variable3']);
+assert.deepEqual(sampleRows.slice(1).map(row=>repairedHeaders.headers.map((_,i)=>row[i]??'')),[['P1',12,34],['P2',14,36]]);
 
 // Numeric parsing is a statistical input boundary: accept only the configured
 // decimal convention and reject grouping/ambiguous text before analysis.
