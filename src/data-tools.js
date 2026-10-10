@@ -2,7 +2,7 @@ import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
 import {installDatasetSidebarEnhancements} from './dataset-sidebar.js?v=20260929-cleanmenus7';
 import {installDataEnhancements} from './data-enhancements.js';
-import {validateColumnNames,prepareImportedColumnNames} from './dataset-columns.js';
+import {validateColumnNames,prepareImportedColumnNames} from './dataset-columns.js?v=20261010-import-unique1';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 function importDataset(detail){
