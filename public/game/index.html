@@ -19,8 +19,9 @@
   <link rel="stylesheet" href="/game/theme.css?v=20261002-mobile-final1">
   <link rel="stylesheet" href="/game/comfort.css?v=20261003-fullscreen2">
   <link rel="stylesheet" href="/game/farm.css?v=20261002-mobile-final1">
+  <link rel="stylesheet" href="/admin-subweb-gate.css?v=20261010-admin1">
 </head>
-<body class="calm-ui">
+<body class="admin-subweb-locked calm-ui">
   <header class="subweb-header">
     <div class="subweb-header-inner">
       <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Field Zero</span></a>
@@ -293,5 +294,11 @@
   <script type="module" src="/game/social.js?v=20261002-mobile-final1"></script>
   <script type="module" src="/game/sync.js?v=20261002-mobile-final1"></script>
   <script src="/pwa-register.js?v=20261002-mobile-final1"></script>
+<main id="adminSubwebGate" aria-labelledby="adminSubwebTitle">
+  <span class="admin-gate-tag">Khusus Admin</span>
+  <h1 id="adminSubwebTitle">Subweb ini hanya dapat digunakan oleh admin.</h1>
+  <p data-admin-gate-message role="status">Memeriksa sesi admin dengan server…</p>
+  <div class="admin-gate-actions"><button type="button" data-admin-gate-login disabled>Masuk dengan Google</button><a href="/">Kembali ke beranda</a></div>
+</main>
 </body>
 </html>
