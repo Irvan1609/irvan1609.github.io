@@ -1,3 +1,4 @@
+await (await import(/* @vite-ignore */ '/admin-subweb-access.js')).requireAdminSubweb();
 import {extractDoi,formatApa,formatHarvard,mergeUniqueReferences,normalizeDoi,referenceFromCrossref,toBibtex,toRis} from '../src/reference-core.js';
 
 const KEY='statistical_web_reference_library_v1';
