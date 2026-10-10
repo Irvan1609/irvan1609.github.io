@@ -34,15 +34,15 @@ for (const [pathName,label] of [[pwaManifestPath,'manifest'],[serviceWorkerPath,
 }
 
 const portfolio = fs.readFileSync(portfolioPath, 'utf8');
-if (!portfolio.includes('Mahasiswa Agronomi')) fail('built root does not contain student-oriented portfolio content');
-if (!portfolio.includes('/stat/')) fail('built portfolio does not link to /stat/');
-if (!portfolio.includes('/print-skripsi/')) fail('built portfolio does not link to /print-skripsi/');
-if (!portfolio.includes('/mendeley/')) fail('built portfolio does not link to /mendeley/');
-if (!portfolio.includes('/hitung-cabai/')) fail('built portfolio does not link to /hitung-cabai/');
+if (!portfolio.includes('Agrotik Stat')) fail('built root does not contain Agrotik landing content');
+if (!portfolio.includes('/stat/')) fail('built landing does not link to /stat/');
+for (const route of ['/print-skripsi/','/mendeley/','/hitung-cabai/','/game/']) {
+  if (portfolio.includes('href="'+route+'"')) fail('built landing advertises a staging-only module: '+route);
+}
 if (portfolio.includes('id="gridWrap"')) fail('built portfolio unexpectedly contains the statistical application shell');
 
 const html = fs.readFileSync(statPath, 'utf8');
-if (!html.includes('Statistical Web')) fail('built /stat page does not contain application title');
+if (!html.includes('Agrotik Stat')) fail('built /stat page does not contain application title');
 if (!html.includes('subweb-brand') || !html.includes('subweb-brand-arrow') || !html.includes('href="/"')) fail('built /stat page is missing shared return-to-portfolio header');
 if (/src\/[^"']+\.js/.test(html)) fail('built /stat page still references source JavaScript under /src/');
 if (/src\/[^"']+\.css/.test(html)) fail('built /stat page still references source CSS under /src/');
@@ -62,7 +62,7 @@ if(!chiliDetector.includes('detectChiliBoxesFromImageData'))fail('built /hitung-
 if(!chiliSync.includes('upsertChiliCountToStatistics')||!chiliSync.includes('statistical_web_csv_files_v1'))fail('built /hitung-cabai sync bridge is missing Statistical Web integration');
 
 for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]) if(!page.includes('/subweb-header.css')||!page.includes('subweb-nav')) fail(`built /${name} page is missing shared sub-web header`);
-for (const [name,page] of [['root',portfolio],['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]) {
+for (const [name,page] of [['stat',html],['mendeley',mendeleyHtml],['print',printHtml],['hitung-cabai',chiliHtml]]) {
   if(!page.includes('/manifest.webmanifest')||!page.includes('/pwa-register.js')) fail(`built ${name} page is missing PWA wiring`);
 }
 const sw=fs.readFileSync(serviceWorkerPath,'utf8'),manifest=JSON.parse(fs.readFileSync(pwaManifestPath,'utf8'));
@@ -81,7 +81,7 @@ if (!jsFiles.length) fail('no JavaScript bundle was produced');
 if (!cssFiles.length) fail('no CSS bundle was produced');
 
 const js = jsFiles.map(f => fs.readFileSync(path.join(assetDir, f), 'utf8')).join('\n');
-for (const marker of ['pasteBtn','openAnalysis','globalSearch','globalSearchResults','analysisMenu','cutoffPage','processPdf','previewCanvas','downloadAll']) {
+for (const marker of ['observationTab','observationWorkspace','obsStart','obsValue','pasteBtn','openAnalysis','globalSearch','globalSearchResults','analysisMenu','cutoffPage','processPdf','previewCanvas','downloadAll']) {
   if (!js.includes(marker)) fail(`JavaScript bundle is missing marker ${marker}`);
 }
 if (/from\s*["']jstat["']/.test(js)) fail('bundle still contains a bare jstat import');

@@ -24,7 +24,7 @@ const datasetSync=fs.readFileSync('src/account-dataset-sync.js','utf8');
 
 function fail(message){console.error('Field Zero check failed: '+message);process.exit(1);}
 
-if(!root.includes('href="/game/"')||!root.includes('Field Zero'))fail('homepage must link to /game/');
+if(!root.includes('href="/stat/"')||!html.includes('Field Zero'))fail('landing Stat entry or standalone Field Zero title missing');
 if(!html.includes('class="calm-ui"'))fail('game must default to calm focus UI');
 if(!css.includes('FIELD ZERO CALM FOCUS UI'))fail('calm focus styling missing');
 for(const marker of ['id="gameWorkflow"','data-main-action="lab"','data-main-action="research"','data-main-action="analysis"'])if(!html.includes(marker))fail('focused game workflow missing '+marker);

@@ -1,3 +1,4 @@
+import {installObservationWorkflow} from './observation-workflow.js';
 import { installAnalysisFlow } from './analysis-flow.js?v=20260929-cleanmenus7';
 import { agrotikCore } from './core/core.js';
 import { createUid } from './core/ids.js';
@@ -1332,7 +1333,7 @@ async function boot(){
   loadStorage();
   if(localStoreReady())void requestPersistentStorage();
   try{await migrateLargeLocalDatasets();if(localHydrationPromise)await localHydrationPromise;}catch(error){console.warn('Migrasi penyimpanan lokal dilewati',error);}
-  installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
+  installDataGrid();installGridPinchZoom();consumeExternalDatasetImport();installDataTools();installNavigation();installObservationWorkflow();installAnalysisFlow();installResearchWorkspace();installStatWorkflow();installPaymentGate();installResultExport();
   if(!agrotikCore.modules.get('stat'))agrotikCore.modules.register({name:'stat',version:'1.0.0',capabilities:['dataset','analysis','export']});
   if(!agrotikCore.modules.get('denah'))agrotikCore.modules.register({name:'denah',version:'1.0.0',capabilities:['dataset-layout']});
 
