@@ -32,7 +32,7 @@ assert.deepEqual(repaired.headers,['Produksi','produksi (3)','Produksi (2)','Var
 assert.equal(repaired.renamed.length,4);
 assert.deepEqual(validateColumnNames(repaired.headers),repaired.headers);
 assert.deepEqual(prepareImportedColumnNames(['Perlakuan','Y']).headers,['Perlakuan','Y']);
-assert.deepEqual(prepareImportedColumnNames(['Café','Cafe\\u0301']).headers,['Café','Cafe\\u0301 (2)']);
+assert.deepEqual(prepareImportedColumnNames(['Café','Café']).headers,['Café','Café (2)']);
 assert.deepEqual(prepareImportedColumnNames(['','']).headers,['Variable1','Variable2']);
 assert.throws(()=>prepareImportedColumnNames([]),/tidak memiliki kolom/);
 const sampleRows=[['Parameter','parameter'],['P1',12,34],['P2',14,36]];
