@@ -1,4 +1,4 @@
-const SW_URL='/sw.js?v=20261010-observation-dataset1';
+const SW_URL='/sw.js?v=20261010-import-unique1';
 let deferredInstall=null;
 
 function installStyles(){
