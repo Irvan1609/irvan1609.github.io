@@ -210,7 +210,7 @@ for(const marker of ["import('./scientific-workflow.js","import('./association-w
 
 const mainBindings = ['pasteBtn','importBtn','newTxt','addRow','addCol','clearData','closeModal','cancelPaste','applyPaste','pasteArea','renameDataset','closeDatasetName','deleteDataset','closeColumnName','columnNameForm','columnCode','columnFullName','columnUnit','columnStringSection','columnStringUnit','columnStringLevels','plantName','treatmentName','plantNameSummary','treatmentNameSummary'];
 for (const id of mainBindings) if (!main.includes(`#${id}`)) fail(`main.js does not reference #${id}`);
-if ((main.match(/prepareImportedColumnNames\(Array\.from\(\{length:columns\}/g) || []).length !== 2) fail('paste and CSV imports must both repair duplicate and blank column names');
+if ((main.match(/prepareImportedColumnNames\(Array\.from\(\{length:columns\}/g) || []).length !== 3) fail('paste preview, paste commit, and CSV imports must all normalize duplicate and blank column names');
 if (!dataTools.includes('prepareImportedColumnNames(headers)')) fail('Excel import must use the shared safe import-header normalizer');
 if(!main.includes("statistical_web_csv_files_v1")||!main.includes("statistical_web_active_csv_v1"))fail('dataset editor must use CSV-backed storage');
 if(!main.includes('migrateLegacyStorage')||!main.includes('statistical_web_txt_files_v2'))fail('CSV storage must retain legacy TXT migration');
