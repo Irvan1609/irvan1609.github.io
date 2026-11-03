@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261104-1">
+  <link rel="stylesheet" href="./style.css?v=20261104-2">
 </head>
 <body>
   <header class="subweb-header">
@@ -20,10 +20,10 @@
 
   <main class="app">
     <section class="hero">
-      <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER</div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER & SOLO VS BOT</div>
       <h1>THE VILLAGE<br><em>AFTER DARK</em></h1>
       <p>Di siang hari, semua tampak biasa. Saat malam tiba, tidak semua orang bisa dipercaya.</p>
-      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Kartu rahasia</span><span>✦ Diskusi hybrid</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
+      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Solo vs Bot</span><span>✦ Kartu rahasia</span><span>✦ Diskusi hybrid</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
     </section>
 
     <section id="entryPanel" class="panel entry-panel">
@@ -47,6 +47,7 @@
             <label class="check-row"><input id="includeSeer" type="checkbox" checked><span><b>Seer</b><small>Memeriksa identitas satu pemain setiap malam.</small></span></label>
             <label class="check-row"><input id="includeDoctor" type="checkbox" checked><span><b>Doctor</b><small>Melindungi satu pemain dari serangan.</small></span></label>
           </div>
+          <label class="check-row solo-mode-row"><input id="soloMode" type="checkbox" checked><span><b>Mode latihan solo · 4 bot</b><small>Room langsung diisi empat bot agar kamu bisa bermain sendiri. Matikan opsi ini jika ingin bermain dengan teman.</small></span></label>
           <button class="primary wide" id="createButton" type="submit">Buat room</button>
           <p class="hint">Kamu menjadi host sekaligus pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
         </form>
@@ -89,6 +90,6 @@
     <footer>Werewolf · Semua kartu, aksi, dan voting dikelola melalui room. Diskusi dapat dilakukan tatap muka atau online.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261104-1"></script>
+  <script type="module" src="./app.js?v=20261104-2"></script>
 </body>
 </html>
