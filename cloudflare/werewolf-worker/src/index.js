@@ -220,6 +220,7 @@ export default {
   }
 };
 
+// Durable Objects keep authoritative room state and broadcast private player snapshots over WebSocket.
 export class WerewolfRoom {
   constructor(state, env) {
     this.state = state;
@@ -554,6 +555,7 @@ export class WerewolfRoom {
       let protectedId = null;
       for (const actor of actors) {
         const action = room.nightActions[actor.id];
+        if (!action) continue;
         if (action.type === 'wolf_vote') wolfVotes[action.targetId] = (wolfVotes[action.targetId] || 0) + 1;
         if (action.type === 'doctor_protect') protectedId = action.targetId;
         if (action.type === 'seer_inspect') {

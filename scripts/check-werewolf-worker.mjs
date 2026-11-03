@@ -48,6 +48,11 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: '
 const afterStart = await room.loadRoom();
 assert.equal(afterStart.phase, 'role_draw');
 assert.equal(afterStart.players.every(player => player.role), true);
+for (const token of tokens) {
+  const privateBeforeDraw = (await payload(await room.fetch(makeRequest('/internal/state', 'GET', undefined, token)))).state;
+  assert.equal(privateBeforeDraw.self.role, null);
+  assert.ok(privateBeforeDraw.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'isWolf')));
+}
 
 for (const token of tokens) await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, token)));
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, tokens[0])));
@@ -78,6 +83,16 @@ for (const item of actorIndexes) {
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, tokens[0])));
 const afterNight = await room.loadRoom();
 assert.ok(['discussion', 'finished'].includes(afterNight.phase));
+const seerIndex = afterNight.players.findIndex(player => player.role === 'seer');
+if (seerIndex >= 0) {
+  const seerSnapshot = (await payload(await room.fetch(makeRequest('/internal/state', 'GET', undefined, tokens[seerIndex])))).state;
+  assert.ok(seerSnapshot.self.seerResult);
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (index === seerIndex) continue;
+    const otherSnapshot = (await payload(await room.fetch(makeRequest('/internal/state', 'GET', undefined, tokens[index])))).state;
+    assert.equal(otherSnapshot.self.seerResult, null);
+  }
+}
 
 if (afterNight.phase === 'discussion') {
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
