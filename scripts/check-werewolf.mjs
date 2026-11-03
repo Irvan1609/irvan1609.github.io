@@ -15,3 +15,6 @@ assert.match(home,/Hybrid discussion/);assert.match(home,/href="\/werewolf\//);a
 assert.match(sw,/20261104-werewolf-visual1/);assert.match(sw,/\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.doesNotMatch(html,/disabled>Buat room/);
 console.log('Werewolf illustrated redesign checks passed: game art, secret roles, responsive UI, PWA assets, and multiplayer contract.');
+
+assert.match(app,/location\.hostname === 'irvan1609\.github\.io'/);
+assert.match(html,/href="\.\/subweb-header\.css"/);
