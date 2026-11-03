@@ -2,6 +2,7 @@ const ROOM_TTL_MS = 12 * 60 * 60 * 1000;
 const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 20;
 const MAX_CHAT_MESSAGES = 100;
+const BOT_NAMES = ['Aruna', 'Bima', 'Citra', 'Damar', 'Elang', 'Farah', 'Genta', 'Hana', 'Indra', 'Jihan', 'Kirana', 'Laras', 'Mahesa', 'Nadia', 'Raka', 'Salsa', 'Tara', 'Umar', 'Vina'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function json(data, status = 200, headers = {}) {
@@ -257,6 +258,7 @@ export class WerewolfRoom {
         alive: player.alive,
         connected: Boolean(player.connected),
         isHost: player.id === room.hostId,
+        isBot: Boolean(player.isBot),
         hasDrawn: Boolean(player.hasDrawn),
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, player.id))
       };
@@ -327,6 +329,82 @@ export class WerewolfRoom {
       },
       token
     };
+  }
+
+  makeBot(room) {
+    const used = new Set(room.players.map(player => player.name.toLowerCase()));
+    let name = 'Bot ' + (BOT_NAMES.find(candidate => !used.has(('Bot ' + candidate).toLowerCase())) || '');
+    if (name === 'Bot ') {
+      let suffix = room.players.length + 1;
+      do { name = 'Bot ' + suffix; suffix += 1; } while (used.has(name.toLowerCase()));
+    }
+    return {
+      id: crypto.randomUUID(),
+      name,
+      role: null,
+      alive: true,
+      connected: false,
+      hasDrawn: false,
+      joinedAt: Date.now(),
+      isHost: false,
+      isBot: true
+    };
+  }
+
+  runBotNightActions(room) {
+    const alive = room.players.filter(player => player.alive);
+    for (const bot of alive.filter(player => player.isBot && ['wolf', 'seer', 'doctor'].includes(player.role))) {
+      if (room.nightActions[bot.id]) continue;
+      let selected = null;
+      let type = '';
+      if (bot.role === 'wolf') {
+        type = 'wolf_vote';
+        const coordinated = Object.entries(room.nightActions).find(([playerId, action]) =>
+          action.type === 'wolf_vote' && room.players.some(player => player.id === playerId && player.role === 'wolf'));
+        selected = coordinated
+          ? alive.find(player => player.id === coordinated[1].targetId && player.role !== 'wolf')
+          : null;
+        if (!selected) {
+          const candidates = alive.filter(player => player.role !== 'wolf');
+          selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+        }
+      } else if (bot.role === 'seer') {
+        type = 'seer_inspect';
+        const candidates = alive.filter(player => player.id !== bot.id);
+        selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+      } else {
+        type = 'doctor_protect';
+        selected = alive.length ? alive[randomInt(alive.length)] : null;
+      }
+      if (selected) room.nightActions[bot.id] = { type, targetId: selected.id };
+    }
+  }
+
+  runBotVotes(room, now) {
+    const alive = room.players.filter(player => player.alive);
+    for (const bot of alive.filter(player => player.isBot)) {
+      if (Object.prototype.hasOwnProperty.call(room.votes, bot.id)) continue;
+      let selected = null;
+      if (bot.role === 'wolf') {
+        const coordinated = Object.entries(room.votes).find(([playerId, targetId]) =>
+          room.players.some(player => player.id === playerId && player.role === 'wolf')
+          && alive.some(player => player.id === targetId && player.role !== 'wolf'));
+        selected = coordinated ? alive.find(player => player.id === coordinated[1]) : null;
+      } else {
+        const clue = room.seerResults?.[bot.id];
+        if (clue?.result === 'wolf') {
+          selected = alive.find(player => player.name === clue.playerName && player.role === 'wolf');
+        }
+      }
+      if (!selected) {
+        const candidates = alive.filter(player => player.id !== bot.id && (bot.role !== 'wolf' || player.role !== 'wolf'));
+        selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+      }
+      if (selected) room.votes[bot.id] = selected.id;
+    }
+    if (alive.length && alive.every(player => Object.prototype.hasOwnProperty.call(room.votes, player.id))) {
+      this.finishVote(room, now);
+    }
   }
 
   async fetch(request) {
@@ -484,6 +562,16 @@ export class WerewolfRoom {
       if (room.winner) room.phase = 'finished';
     };
 
+    if (type === 'add_bots') {
+      requireHost();
+      requirePhase('lobby');
+      const count = Number(body.count ?? 4);
+      if (!Number.isInteger(count) || count < 1 || count > 19) throw new HttpError(400, 'Jumlah bot harus 1–19.');
+      if (room.players.length + count > MAX_PLAYERS) throw new HttpError(409, 'Jumlah pemain maksimal 20 termasuk host dan bot.');
+      for (let index = 0; index < count; index += 1) room.players.push(this.makeBot(room));
+      return;
+    }
+
     if (type === 'start_game') {
       requireHost();
       requirePhase('lobby');
@@ -497,7 +585,7 @@ export class WerewolfRoom {
       room.players.forEach((item, index) => {
         item.role = deck[index];
         item.alive = true;
-        item.hasDrawn = false;
+        item.hasDrawn = Boolean(item.isBot);
       });
       room.round = 1;
       room.phase = 'role_draw';
@@ -524,6 +612,7 @@ export class WerewolfRoom {
       room.phase = 'night';
       room.nightActions = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
+      this.runBotNightActions(room);
       return;
     }
 
@@ -610,6 +699,22 @@ export class WerewolfRoom {
       room.discussionEndsAt = now + duration * 60 * 1000;
       room.callUrl = mode === 'online' ? cleanCallUrl(body.callUrl) : '';
       room.chat = [];
+      if (mode === 'online') {
+        const botLines = [
+          'Aku belum punya bukti kuat. Jangan terburu-buru menentukan siapa yang bersalah.',
+          'Coba perhatikan siapa yang paling diuntungkan dari kejadian malam tadi.',
+          'Aku ingin mendengar alasan semua orang sebelum memberikan suara.'
+        ];
+        room.players.filter(player => player.isBot && player.alive).slice(0, 3).forEach((bot, index) => {
+          room.chat.push({
+            id: crypto.randomUUID(),
+            playerId: bot.id,
+            name: bot.name,
+            text: botLines[index],
+            at: now + index
+          });
+        });
+      }
       return;
     }
 
@@ -639,6 +744,7 @@ export class WerewolfRoom {
       }
       room.phase = 'voting';
       room.votes = {};
+      this.runBotVotes(room, now);
       return;
     }
 
@@ -678,6 +784,7 @@ export class WerewolfRoom {
       room.callUrl = '';
       room.chat = [];
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
+      this.runBotNightActions(room);
       return;
     }
 
