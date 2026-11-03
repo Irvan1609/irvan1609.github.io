@@ -10,7 +10,8 @@ const CORE_URLS=[
   '/',
   '/offline.html',
   '/manifest.webmanifest',
-  '/icons/agrotik.svg',\n  '/werewolf/'
+  '/icons/agrotik.svg',
+  '/werewolf/'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
