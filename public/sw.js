@@ -1,4 +1,4 @@
-const VERSION='20261103-werewolf2';
+const VERSION='20261104-werewolf-visual1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -13,7 +13,13 @@ const CORE_URLS=[
   '/icons/agrotik.svg',
   '/werewolf/',
   '/werewolf/style.css',
-  '/werewolf/app.js'
+  '/werewolf/app.js',
+  '/werewolf/assets/illustrations/hero-night.svg',
+  '/werewolf/assets/illustrations/card-back.svg',
+  '/werewolf/assets/illustrations/role-wolf.svg',
+  '/werewolf/assets/illustrations/role-seer.svg',
+  '/werewolf/assets/illustrations/role-doctor.svg',
+  '/werewolf/assets/illustrations/role-villager.svg'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
