@@ -183,6 +183,7 @@ await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
 soloState = await soloRoom.loadRoom();
 assert.ok(soloState.chat.length > 0);
 assert.ok(soloState.chat.every(message => soloState.players.some(player => player.id === message.playerId && player.isBot)));
+const soloAliveBeforeVote = soloState.players.filter(player => player.alive).length;
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_voting', force: true
 }, soloToken)));
@@ -196,5 +197,5 @@ if (soloHost.alive && soloState.phase === 'voting') {
   soloState = await soloRoom.loadRoom();
 }
 assert.ok(['result', 'finished'].includes(soloState.phase));
-assert.equal(Object.keys(soloState.votes).length, soloState.players.filter(player => player.alive).length);
+assert.equal(Object.keys(soloState.votes).length, soloAliveBeforeVote);
 console.log('Werewolf solo bot checks passed: bot lobby fill, automatic role draw, night actions, discussion messages, and voting.');
