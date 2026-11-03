@@ -590,3 +590,16 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Branch/PR:** tetap pada development; PR #152 ke master diperbarui otomatis. Belum merge ke master, belum mengaktifkan URL produksi, dan belum menyatakan multiplayer siap digunakan sampai CI, deploy staging, dan uji browser lintas perangkat lulus.
 - **Verifikasi yang direncanakan:** CI memeriksa sintaks, kontrak UI, serta simulasi backend room (buat/join, role privacy, aksi malam, diskusi hybrid, chat, voting, dan transisi ronde). Workflow terpisah men-deploy Worker staging pada branch development dan memeriksa endpoint health.
 - **Langkah berikutnya:** periksa hasil Validate Statistical Web dan Deploy Werewolf Room API; perbaiki kegagalan jika ada; lakukan uji dua atau lebih perangkat dengan room staging; baru setelah itu minta persetujuan promosi PR ke master.
+
+
+### 2026-11-04 — Redesign visual Werewolf (Dark Fantasy 2D Illustrated)
+
+- **Arahan pengguna:** redesign khusus subweb Werewolf, bukan mengubah desain global Agrotik. Pertahankan backend multiplayer dan mekanisme permainan.
+- **Keputusan desain:** tema Dark Fantasy 2D Illustrated, mobile-first, identitas visual "The Village After Dark"; hero ilustrasi desa malam, palet biru arang dan emas, kartu role bergambar, avatar pemain, panel fase, dan transisi ringan.
+- **Perubahan frontend:** landing/lobby game dirancang ulang; formulir create/join beserta ID yang dipakai JavaScript dipertahankan. Room, daftar pemain, panel fase, chat, voting, timer, dan status koneksi tetap memakai kontrak aplikasi yang sama. Kartu role menampilkan ilustrasi SVG berdasarkan role. Panel fase mendapat atribut data-phase untuk treatment visual.
+- **Aset lokal SVG:** `public/werewolf/assets/illustrations/hero-night.svg`, `card-back.svg`, `role-wolf.svg`, `role-seer.svg`, `role-doctor.svg`, `role-villager.svg`. Aset vektor ringan dan tidak memerlukan layanan gambar eksternal.
+- **Responsivitas & aksesibilitas:** layout desktop/tablet/mobile, focus-visible, dan dukungan `prefers-reduced-motion`. Font memakai fallback sistem/serif agar tidak bergantung pada CDN font eksternal.
+- **PWA:** cache version dinaikkan menjadi `20261104-werewolf-visual1`; semua ilustrasi ditambahkan ke daftar core precache.
+- **Backend:** tidak diubah. Worker staging dan kontrak Durable Objects/WebSocket dipertahankan.
+- **Verifikasi:** pemeriksaan kontrak UI diperbarui untuk memastikan elemen form dan ID kompatibel, aset ilustrasi tersedia, fase visual aktif, dan kontrak backend tidak berubah. Hasil CI serta uji browser lintas perangkat tetap perlu diperiksa.
+- **Branch:** `development`; PR #152 tetap menjadi jalur review ke `master`. Belum dipublikasikan ke produksi.
