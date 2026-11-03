@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
-const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
-  ? 'https://werewolf-room-api-dev.andyirvan1609.workers.dev'
-  : 'https://werewolf-room-api.andyirvan1609.workers.dev';
+const API_BASE = location.hostname === 'irvan1609.github.io'
+  ? 'https://werewolf-room-api.andyirvan1609.workers.dev'
+  : 'https://werewolf-room-api-dev.andyirvan1609.workers.dev';
 const SESSION_PREFIX = 'werewolf.session.';
 const ROLE_INFO = {
   wolf: ['Werewolf', 'Kamu bagian dari kawanan Werewolf. Pilih satu warga untuk diserang setiap malam.'],
