@@ -1,8 +1,92 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101827"><meta name="description" content="Werewolf — permainan deduksi sosial bersama teman."><title>Werewolf · Irvan</title><link rel="stylesheet" href="/subweb-header.css"><link rel="stylesheet" href="./style.css"></head>
-<body><header class="subweb-header"><div class="subweb-header-inner"><a class="subweb-brand" href="/" aria-label="Kembali"><span class="subweb-brand-arrow">←</span><span>Werewolf</span></a><nav class="subweb-nav"><a class="subweb-home-link" href="/">Beranda</a><details class="subweb-tools"><summary>Menu <span>⌄</span></summary><div class="subweb-tools-menu"><a href="/werewolf/" aria-current="page">Werewolf</a><a href="/">Beranda Irvan</a></div></details></nav></div></header>
-<main class="app"><section class="hero"><div class="eyebrow">SOCIAL DEDUCTION GAME</div><h1>WERE<span>WOLF</span></h1><p>Siapa yang bisa dipercaya saat malam tiba?</p><div class="hero-actions"><button class="primary" id="localMode">Main satu perangkat</button><button class="secondary" id="onlineMode">Online multiplayer</button></div><small id="onlineNote">Mode online memerlukan layanan room realtime yang belum dikonfigurasi.</small></section>
-<section id="setup" class="panel"><div class="section-title"><div><small>LOCAL PLAY</small><h2>Siapkan permainan</h2></div><span class="pill">Pass & play</span></div><label>Nama pemain <textarea id="players" rows="5" placeholder="Satu nama per baris&#10;Alya&#10;Bima&#10;Citra&#10;Doni&#10;Eka&#10;Fajar"></textarea></label><div class="grid"><label>Jumlah Werewolf<select id="wolfCount"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label><label>Peran khusus<select id="specials"><option value="seer">Seer + Doctor</option><option value="seer-doctor-hunter">Seer + Doctor + Hunter</option><option value="none">Tanpa peran khusus</option></select></label></div><button class="primary wide" id="startGame">Bagikan peran & mulai</button><p class="hint">Minimal 5 pemain. Setiap pemain melihat perannya sendiri secara bergiliran. Pastikan layar tidak dilihat pemain lain.</p></section>
-<section id="online" class="panel hidden"><div class="section-title"><div><small>ONLINE MULTIPLAYER</small><h2>Main dari perangkat berbeda</h2></div><span class="pill muted">Belum aktif</span></div><p>Mode online membutuhkan Worker realtime dan penyimpanan room. Antarmuka room akan diaktifkan setelah endpoint backend dipasang dan diuji. Tidak ada room palsu yang dibuat di browser.</p><div class="grid"><label>Nama pemain<input id="onlineName" placeholder="Nama pemain"></label><label>Kode room<input id="roomCode" maxlength="6" placeholder="6 karakter" autocapitalize="characters"></label></div><button class="secondary wide" disabled>Buat room / Gabung room</button><p class="hint">Status: backend belum terpasang. Mode lokal sudah dapat dimainkan.</p></section>
-<section id="game" class="panel hidden"><div class="gamebar"><span id="phase" class="pill">Persiapan</span><span id="round">Hari 1</span><button id="reset" class="textbtn">Akhiri</button></div><div id="gameContent"></div></section>
-<footer>Werewolf · Local pass-and-play · Dibuat untuk bermain bersama</footer></main><script type="module" src="./app.js"></script></body></html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="Werewolf — ambil kartu, jalankan aksi rahasia, diskusi offline atau online, lalu voting bersama.">
+  <title>Werewolf · Irvan</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Werewolf</span></a>
+      <nav class="subweb-nav"><a class="subweb-home-link" href="/">Beranda</a></nav>
+    </div>
+  </header>
+
+  <main class="app">
+    <section class="hero">
+      <div class="eyebrow">SOCIAL DEDUCTION · MULTIPLAYER</div>
+      <h1>WERE<span>WOLF</span></h1>
+      <p>Ambil peran rahasia. Jalankan aksi di web. Diskusikan kecurigaan dengan cara yang kamu pilih.</p>
+      <div class="hero-tags"><span>Room realtime</span><span>Kartu rahasia</span><span>Offline / online discussion</span></div>
+    </section>
+
+    <section id="entryPanel" class="panel entry-panel">
+      <div class="section-heading">
+        <div><small>MULAI BERMAIN</small><h2>Buat atau gabung room</h2></div>
+        <span class="status-pill" id="apiStatus">Menghubungkan layanan</span>
+      </div>
+      <div class="entry-grid">
+        <form id="createForm" class="entry-card">
+          <div class="card-kicker">HOST ROOM</div>
+          <h3>Buat room baru</h3>
+          <label>Nama pemain
+            <input id="createName" maxlength="20" placeholder="Masukkan nama kamu" required>
+          </label>
+          <div class="form-row">
+            <label>Jumlah Werewolf
+              <select id="wolfCount"><option value="1">1 Werewolf</option><option value="2" selected>2 Werewolf</option><option value="3">3 Werewolf</option><option value="4">4 Werewolf</option></select>
+            </label>
+          </div>
+          <div class="role-options">
+            <label class="check-row"><input id="includeSeer" type="checkbox" checked><span><b>Seer</b><small>Memeriksa identitas satu pemain setiap malam.</small></span></label>
+            <label class="check-row"><input id="includeDoctor" type="checkbox" checked><span><b>Doctor</b><small>Melindungi satu pemain dari serangan.</small></span></label>
+          </div>
+          <button class="primary wide" id="createButton" type="submit">Buat room</button>
+          <p class="hint">Kamu menjadi host sekaligus pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
+        </form>
+
+        <form id="joinForm" class="entry-card join-card">
+          <div class="card-kicker">JOIN ROOM</div>
+          <h3>Gabung permainan</h3>
+          <label>Nama pemain
+            <input id="joinName" maxlength="20" placeholder="Masukkan nama kamu" required>
+          </label>
+          <label>Kode room
+            <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
+          </label>
+          <button class="secondary wide" id="joinButton" type="submit">Gabung room</button>
+          <p class="hint">Minta kode room dari host. Satu pemain menggunakan satu perangkat agar kartu dan aksinya tetap rahasia.</p>
+        </form>
+      </div>
+      <p id="entryMessage" class="message-line" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="roomPanel" class="hidden">
+      <div class="panel room-panel">
+        <div class="room-top">
+          <div><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button></div></div>
+          <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
+        </div>
+        <div class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
+        <div class="players-section">
+          <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Peran pemain lain tetap rahasia.</span></div>
+          <div id="playersList" class="players-list"></div>
+        </div>
+      </div>
+
+      <section class="panel phase-panel">
+        <div id="phaseContent"></div>
+      </section>
+    </section>
+
+    <footer>Werewolf · Semua kartu, aksi, dan voting dikelola melalui room. Diskusi dapat dilakukan tatap muka atau online.</footer>
+  </main>
+
+  <script type="module" src="./app.js?v=20261103-2"></script>
+</body>
+</html>
