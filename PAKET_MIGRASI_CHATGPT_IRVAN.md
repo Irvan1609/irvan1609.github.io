@@ -619,3 +619,14 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Status:** preview aktif di `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`; branch `master` dan website produksi tidak berubah. PR #152 masih draft dan belum di-merge.
 - **Batas verifikasi:** belum ada uji manual melalui browser dengan dua atau lebih perangkat; alur create/join, role draw, night action, diskusi, chat, voting, dan reconnect perlu dicoba oleh pengguna.
 - **Langkah berikutnya:** buka URL preview pada dua perangkat/browser berbeda, buat room minimal 5 pemain, lalu uji satu siklus permainan. Laporkan bila ada error agar dapat diperbaiki pada branch development.
+
+
+### 2026-11-04 — Mode latihan Werewolf vs bot
+
+- **Arahan pengguna:** sediakan bot agar pengguna dapat menguji permainan sendiri.
+- **Implementasi pada branch development:** mode latihan solo membuat room dengan 1 host manusia + 4 bot otomatis (opsi default dapat dimatikan untuk multiplayer biasa). Lobby juga menyediakan kontrol untuk menambah bot 1–19 sesuai kapasitas room.
+- **Perilaku bot:** bot memiliki identitas roster dan peran yang diacak server; kartu bot otomatis dianggap diambil; Werewolf bot melakukan serangan, Seer memeriksa pemain, Doctor melindungi pemain; bot menulis komentar diskusi singkat saat mode online; bot melakukan voting otomatis. Host dapat melewati timer diskusi untuk mempercepat uji coba.
+- **Keamanan:** bot tidak memiliki token login dan aksi NPC dijalankan di Durable Object/server, bukan dari browser. Snapshot hanya menandai status bot; peran tetap dirahasiakan sesuai aturan game.
+- **Transparansi:** bot menggunakan logika otomatis berbasis aturan/acak dan petunjuk Seer, bukan model AI percakapan. Komentar diskusi merupakan teks skrip.
+- **Verifikasi:** ditambahkan integrasi test untuk satu host + empat bot, pengambilan kartu, aksi malam, komentar diskusi, dan voting. Menunggu GitHub Actions serta deployment Worker development.
+- **Produksi:** perubahan tetap pada branch development; jangan merge ke master tanpa persetujuan pengguna.
