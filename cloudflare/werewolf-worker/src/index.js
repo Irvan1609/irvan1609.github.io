@@ -255,7 +255,6 @@ export class WerewolfRoom {
         connected: Boolean(player.connected),
         isHost: player.id === room.hostId,
         hasDrawn: Boolean(player.hasDrawn),
-        hasActed: Boolean(room.nightActions && room.nightActions[player.id]),
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, player.id))
       };
       if (!player.alive || canReveal) item.role = player.role;

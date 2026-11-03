@@ -52,6 +52,7 @@ for (const token of tokens) {
   const privateBeforeDraw = (await payload(await room.fetch(makeRequest('/internal/state', 'GET', undefined, token)))).state;
   assert.equal(privateBeforeDraw.self.role, null);
   assert.ok(privateBeforeDraw.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'isWolf')));
+  assert.ok(privateBeforeDraw.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'hasActed')));
 }
 
 for (const token of tokens) await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, token)));
@@ -65,6 +66,7 @@ for (const token of tokens) {
 }
 assert.equal(stateByToken.every(snapshot => snapshot.players.every(player => !player.role || !player.alive || snapshot.room.phase === 'finished')), true);
 assert.equal(stateByToken.every(snapshot => snapshot.self.role), true);
+assert.ok(stateByToken.every(snapshot => snapshot.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'hasActed'))));
 for (const snapshot of stateByToken) {
   if (snapshot.self.role === 'wolf') assert.ok(snapshot.players.some(player => player.isWolf === true));
   else assert.ok(snapshot.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'isWolf')));
