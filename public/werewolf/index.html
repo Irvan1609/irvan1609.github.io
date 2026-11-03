@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101827">
+  <meta name="theme-color" content="#0b101b">
   <meta name="description" content="Werewolf — ambil kartu, jalankan aksi rahasia, diskusi offline atau online, lalu voting bersama.">
-  <title>Werewolf · Irvan</title>
+  <title>Werewolf — The Village After Dark</title>
+  <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="/subweb-header.css">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=20261104-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -19,10 +20,10 @@
 
   <main class="app">
     <section class="hero">
-      <div class="eyebrow">SOCIAL DEDUCTION · MULTIPLAYER</div>
-      <h1>WERE<span>WOLF</span></h1>
-      <p>Ambil peran rahasia. Jalankan aksi di web. Diskusikan kecurigaan dengan cara yang kamu pilih.</p>
-      <div class="hero-tags"><span>Room realtime</span><span>Kartu rahasia</span><span>Offline / online discussion</span></div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER</div>
+      <h1>THE VILLAGE<br><em>AFTER DARK</em></h1>
+      <p>Di siang hari, semua tampak biasa. Saat malam tiba, tidak semua orang bisa dipercaya.</p>
+      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Kartu rahasia</span><span>✦ Diskusi hybrid</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
     </section>
 
     <section id="entryPanel" class="panel entry-panel">
@@ -80,7 +81,7 @@
         </div>
       </div>
 
-      <section class="panel phase-panel">
+      <section id="phasePanel" class="panel phase-panel" data-phase="lobby">
         <div id="phaseContent"></div>
       </section>
     </section>
@@ -88,6 +89,6 @@
     <footer>Werewolf · Semua kartu, aksi, dan voting dikelola melalui room. Diskusi dapat dilakukan tatap muka atau online.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261103-2"></script>
+  <script type="module" src="./app.js?v=20261104-1"></script>
 </body>
 </html>
