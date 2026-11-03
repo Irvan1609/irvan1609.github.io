@@ -97,7 +97,8 @@ async function enterRoom(nextSession) {
   const invite = new URL(location.href);
   invite.searchParams.set('room', session.code);
   history.replaceState({}, '', invite);
-  await refreshState();
+  try { await refreshState(); }
+  catch (error) { showMessage('Sesi tersimpan, tetapi data room belum dapat dimuat: ' + error.message, true); }
   connectRealtime();
   pollTimer = setInterval(() => {
     if (!socket || socket.readyState !== WebSocket.OPEN) refreshState().catch(() => {});

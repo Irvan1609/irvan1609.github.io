@@ -60,6 +60,10 @@ for (const token of tokens) {
 }
 assert.equal(stateByToken.every(snapshot => snapshot.players.every(player => !player.role || !player.alive || snapshot.room.phase === 'finished')), true);
 assert.equal(stateByToken.every(snapshot => snapshot.self.role), true);
+for (const snapshot of stateByToken) {
+  if (snapshot.self.role === 'wolf') assert.ok(snapshot.players.some(player => player.isWolf === true));
+  else assert.ok(snapshot.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'isWolf')));
+}
 
 const liveRoom = await room.loadRoom();
 const actorIndexes = liveRoom.players.map((player, index) => ({ player, index }))
@@ -79,12 +83,12 @@ if (afterNight.phase === 'discussion') {
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
     type: 'set_discussion', mode: 'online', durationMinutes: 1, callUrl: 'https://meet.example.com/werewolf'
   }, tokens[0])));
+  const current = await room.loadRoom();
   const chatPlayerIndex = current.players.findIndex(player => player.alive && player.id !== current.hostId);
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
     type: 'send_chat', text: 'Diskusi dimulai.'
   }, tokens[chatPlayerIndex])));
   assert.equal((await room.loadRoom()).chat.length, 1);
-  const current = await room.loadRoom();
   current.discussionEndsAt = Date.now() - 1;
   await room.saveRoom(current);
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, tokens[0])));

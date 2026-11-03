@@ -1,4 +1,4 @@
-const VERSION='20261103-werewolf1';
+const VERSION='20261103-werewolf2';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -11,7 +11,9 @@ const CORE_URLS=[
   '/offline.html',
   '/manifest.webmanifest',
   '/icons/agrotik.svg',
-  '/werewolf/'
+  '/werewolf/',
+  '/werewolf/style.css',
+  '/werewolf/app.js'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);

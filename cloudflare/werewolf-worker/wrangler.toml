@@ -13,3 +13,19 @@ class_name = "WerewolfRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["WerewolfRoom"]
+
+[[ratelimits]]
+name = "ROOM_CREATE_LIMITER"
+namespace_id = "91609101"
+
+[ratelimits.simple]
+limit = 5
+period = 60
+
+[[ratelimits]]
+name = "ROOM_JOIN_LIMITER"
+namespace_id = "91609102"
+
+[ratelimits.simple]
+limit = 20
+period = 60

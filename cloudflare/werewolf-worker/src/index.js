@@ -150,6 +150,11 @@ export default {
 
     try {
       if (url.pathname === '/rooms' && request.method === 'POST') {
+        const createLimiter = env.ROOM_CREATE_LIMITER;
+        if (createLimiter?.limit) {
+          const limit = await createLimiter.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+          if (!limit.success) return withCors(json({ error: 'Terlalu banyak membuat room. Coba lagi sebentar.' }, 429), request, env);
+        }
         const body = await readJson(request);
         const name = validName(body.name);
         const settings = normalizeSettings(body.settings);
@@ -172,6 +177,11 @@ export default {
       const code = match[1].toUpperCase();
       const route = match[2] || '';
       if (route === 'join' && request.method === 'POST') {
+        const joinLimiter = env.ROOM_JOIN_LIMITER;
+        if (joinLimiter?.limit) {
+          const limit = await joinLimiter.limit({ key: (request.headers.get('CF-Connecting-IP') || 'unknown') + ':' + code });
+          if (!limit.success) return withCors(json({ error: 'Terlalu banyak percobaan bergabung. Coba lagi sebentar.' }, 429), request, env);
+        }
         const body = await readJson(request);
         const name = validName(body.name);
         return withCors(await callRoom(env, code, '/internal/join', new Request(request.url, {
@@ -200,7 +210,7 @@ export default {
         if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
           return withCors(json({ error: 'WebSocket upgrade diperlukan.' }, 426), request, env);
         }
-        return await callRoom(env, code, '/internal/ws', request);
+        return await env.ROOMS.get(env.ROOMS.idFromName(code)).fetch(request);
       }
       return withCors(json({ error: 'Metode tidak didukung.' }, 405), request, env);
     } catch (error) {
@@ -248,7 +258,7 @@ export class WerewolfRoom {
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, player.id))
       };
       if (!player.alive || canReveal) item.role = player.role;
-      if (self && self.role === 'wolf') item.isWolf = player.role === 'wolf';
+      if (self && self.hasDrawn && self.role === 'wolf') item.isWolf = player.role === 'wolf';
       return item;
     });
     const nightActionsRequired = room.players.filter(player => player.alive && ['wolf', 'seer', 'doctor'].includes(player.role)).length;
@@ -397,7 +407,7 @@ export class WerewolfRoom {
         return json({ state: this.snapshot(room, player.id) });
       }
 
-      if (url.pathname === '/internal/ws' && request.method === 'GET') {
+      if ((url.pathname === '/internal/ws' || /^\/rooms\/[A-HJ-NP-Z2-9]{6}\/ws$/.test(url.pathname)) && request.method === 'GET') {
         if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') throw new HttpError(426, 'WebSocket upgrade diperlukan.');
         const origin = request.headers.get('Origin') || '';
         if (origin && !allowedOrigins(this.env).has(origin)) throw new HttpError(403, 'Origin tidak diizinkan.');
