@@ -34,9 +34,12 @@ function button(text, className, onClick, disabled = false) {
 }
 
 function showMessage(message, isError = false) {
-  const target = $('entryMessage');
-  target.textContent = message || '';
-  target.classList.toggle('error', Boolean(isError));
+  for (const id of ['entryMessage', 'roomMessage']) {
+    const target = $(id);
+    if (!target) continue;
+    target.textContent = message || '';
+    target.classList.toggle('error', Boolean(isError));
+  }
 }
 
 function setConnection(connected) {
@@ -338,9 +341,11 @@ function renderNight(parent) {
   const progress = roomState.room.nightActionsSubmitted + ' / ' + roomState.room.nightActionsRequired + ' aksi malam terkirim';
   addText(parent, 'div', 'notice', progress);
   if (isHost()) {
+    const complete = roomState.room.nightActionsSubmitted >= roomState.room.nightActionsRequired;
     parent.append(button('Selesaikan malam & umumkan hasil', 'primary wide',
-      () => sendAction('resolve_night'),
-      roomState.room.nightActionsSubmitted < roomState.room.nightActionsRequired));
+      () => sendAction('resolve_night'), !complete));
+    if (!complete) parent.append(button('Paksa selesaikan malam (lewati aksi yang belum masuk)', 'secondary wide',
+      () => { if (confirm('Aksi pemain yang belum mengirim akan dilewati. Lanjutkan?')) sendAction('resolve_night', { force: true }); }));
   } else {
     addText(parent, 'p', 'hint', 'Host akan menyelesaikan fase malam setelah semua peran aktif mengirim aksi.');
   }
@@ -478,6 +483,12 @@ function renderVoting(parent) {
   fill.style.width = (room.votesRequired ? Math.min(100, room.votesSubmitted / room.votesRequired * 100) : 0) + '%';
   bar.append(fill);
   parent.append(bar);
+  if (isHost()) {
+    const allVotesIn = room.votesSubmitted >= room.votesRequired;
+    parent.append(button('Selesaikan voting', 'secondary wide', () => sendAction('resolve_vote'), !allVotesIn));
+    if (!allVotesIn) parent.append(button('Paksa hitung suara yang sudah masuk', 'secondary wide',
+      () => { if (confirm('Pemain yang belum memilih akan dilewati. Lanjutkan?')) sendAction('resolve_vote', { force: true }); }));
+  }
   if (!roomState.players.find(player => player.id === roomState.self.id)?.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
     return;

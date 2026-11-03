@@ -430,6 +430,31 @@ export class WerewolfRoom {
     }
   }
 
+  finishVote(room, now) {
+    const tally = {};
+    for (const targetId of Object.values(room.votes || {})) tally[targetId] = (tally[targetId] || 0) + 1;
+    const highestVote = Math.max(0, ...Object.values(tally));
+    const winners = Object.keys(tally).filter(id => tally[id] === highestVote);
+    let message = 'Voting seri atau belum ada suara. Tidak ada pemain yang dieliminasi.';
+    let eliminatedId = null;
+    if (winners.length === 1) {
+      const eliminated = room.players.find(item => item.id === winners[0] && item.alive);
+      if (eliminated) {
+        eliminated.alive = false;
+        eliminatedId = eliminated.id;
+        message = eliminated.name + ' tereliminasi melalui voting.';
+      }
+    }
+    room.lastResult = { kind: 'vote', message, eliminatedId, at: now, round: room.round };
+    const alive = room.players.filter(item => item.alive);
+    const wolves = alive.filter(item => item.role === 'wolf').length;
+    const villagers = alive.length - wolves;
+    if (wolves === 0) room.winner = 'villagers';
+    else if (wolves >= villagers) room.winner = 'wolves';
+    if (room.winner) room.phase = 'finished';
+    else room.phase = 'result';
+  }
+
   async applyAction(room, player, body) {
     const type = String(body.type || '');
     const now = Date.now();
@@ -514,7 +539,7 @@ export class WerewolfRoom {
       requirePhase('night');
       const actors = room.players.filter(item => item.alive && ['wolf', 'seer', 'doctor'].includes(item.role));
       const missing = actors.filter(item => !room.nightActions[item.id]);
-      if (missing.length) throw new HttpError(409, 'Belum semua peran aktif mengirim aksi.');
+      if (missing.length && body.force !== true) throw new HttpError(409, 'Belum semua peran aktif mengirim aksi.');
       const wolfVotes = {};
       let protectedId = null;
       for (const actor of actors) {
@@ -579,13 +604,13 @@ export class WerewolfRoom {
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat mengirim pesan.');
       if (room.discussionMode !== 'online') throw new HttpError(409, 'Chat hanya aktif pada diskusi online.');
       const text = String(body.text || '').trim();
+      if (!text || text.length > 500) throw new HttpError(400, 'Pesan harus terdiri dari 1–500 karakter.');
       const rateKey = 'chat-rate:' + player.id;
       const rate = await this.state.storage.get(rateKey) || { start: now, count: 0 };
       if (now - rate.start >= 10000) { rate.start = now; rate.count = 0; }
       if (rate.count >= 5) throw new HttpError(429, 'Terlalu banyak pesan. Tunggu beberapa detik.');
       rate.count += 1;
       await this.state.storage.put(rateKey, rate);
-      if (!text || text.length > 500) throw new HttpError(400, 'Pesan harus terdiri dari 1–500 karakter.');
       room.chat.push({ id: crypto.randomUUID(), playerId: player.id, name: player.name, text, at: now });
       if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
       return;
@@ -612,24 +637,18 @@ export class WerewolfRoom {
       room.votes[player.id] = selected.id;
       const alivePlayers = room.players.filter(item => item.alive);
       if (alivePlayers.every(item => Object.prototype.hasOwnProperty.call(room.votes, item.id))) {
-        const tally = {};
-        for (const targetId of Object.values(room.votes)) tally[targetId] = (tally[targetId] || 0) + 1;
-        const highestVote = Math.max(0, ...Object.values(tally));
-        const winners = Object.keys(tally).filter(id => tally[id] === highestVote);
-        let message = 'Voting seri. Tidak ada pemain yang dieliminasi.';
-        let eliminatedId = null;
-        if (winners.length === 1) {
-          const eliminated = room.players.find(item => item.id === winners[0] && item.alive);
-          if (eliminated) {
-            eliminated.alive = false;
-            eliminatedId = eliminated.id;
-            message = eliminated.name + ' tereliminasi melalui voting.';
-          }
-        }
-        room.lastResult = { kind: 'vote', message, eliminatedId, at: now, round: room.round };
-        checkWinner();
-        if (!room.winner) room.phase = 'result';
+        this.finishVote(room, now);
       }
+      return;
+    }
+
+    if (type === 'resolve_vote') {
+      requireHost();
+      requirePhase('voting');
+      const alivePlayers = room.players.filter(item => item.alive);
+      const missing = alivePlayers.filter(item => !Object.prototype.hasOwnProperty.call(room.votes, item.id));
+      if (missing.length && body.force !== true) throw new HttpError(409, 'Belum semua pemain memberikan suara.');
+      this.finishVote(room, now);
       return;
     }
 
