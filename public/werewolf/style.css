@@ -24,3 +24,15 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 .hero{text-align:left;padding:62px 58px 72px}.hero h1{font-family:var(--serif);font-size:clamp(45px,7vw,82px);line-height:.98;letter-spacing:.035em}.hero h1 em{font-size:.82em;color:var(--gold2)}.hero>p{max-width:460px;margin:0;color:#d0d3d6;line-height:1.8;font-size:14px}.hero .eyebrow{justify-content:flex-start}
+
+/* Solo practice and NPC bot roster */
+.bot-setup{margin:15px 0;padding:15px;border:1px solid #695637;border-radius:13px;background:linear-gradient(135deg,#29271988,#172337)}
+.bot-setup h3{margin:0 0 5px;color:var(--gold2);font:600 19px var(--serif)}
+.bot-setup .hint{margin:5px 0 12px}
+.bot-count-label{display:grid;gap:7px;margin:10px 0;color:#e4d7bf}
+.bot-count-label select{max-width:220px}
+.player-chip.bot{border-color:#6a5839;background:linear-gradient(110deg,#292719,#111c2c)}
+.bot-mark{display:inline-flex;margin-left:5px;padding:2px 5px;border:1px solid #78623d;border-radius:5px;color:#f0d6a6;font-size:8px;letter-spacing:.1em;vertical-align:middle}
+.solo-mode-row{margin:12px 0 16px;border-color:#665537;background:#171f2b}
+.solo-mode-row b{color:var(--gold2)}
+@media(max-width:620px){.bot-count-label select{max-width:none}.bot-setup{padding:12px}}
