@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: werewolf-worker-\${{ github.ref }}
+  group: werewolf-worker-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Generate environment-specific Wrangler config
         id: config
         env:
-          BRANCH_NAME: \${{ github.ref_name }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -69,14 +69,14 @@ jobs:
       - name: Deploy Durable Object Worker
         uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
         with:
-          apiToken: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
           command: deploy --config ./wrangler.werewolf.json
 
       - name: Verify Worker health
         env:
-          WORKER_NAME: \${{ steps.config.outputs.worker_name }}
+          WORKER_NAME: ${{ steps.config.outputs.worker_name }}
         shell: bash
         run: |
           set -euo pipefail
