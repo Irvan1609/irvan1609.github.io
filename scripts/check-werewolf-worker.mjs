@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { WerewolfRoom } from '../cloudflare/werewolf-worker/src/index.js';
+import worker, { WerewolfRoom } from '../cloudflare/werewolf-worker/src/index.js';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -123,3 +123,20 @@ if (afterNight.phase === 'discussion') {
 }
 
 console.log('Werewolf Worker integration checks passed: room creation/join, private role draw, server-side night actions, hybrid discussion, online chat, voting and phase transitions.');
+
+const assetRequests = [];
+const assetResponse = await worker.fetch(new Request('https://werewolf-room-api-dev.andyirvan1609.workers.dev/'), {
+  ALLOWED_ORIGINS: 'https://werewolf-room-api-dev.andyirvan1609.workers.dev',
+  ASSETS: {
+    async fetch(request) {
+      assetRequests.push(new URL(request.url).pathname);
+      return new Response('<!doctype html><h1>THE VILLAGE</h1>', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      });
+    }
+  }
+});
+assert.equal(assetResponse.status, 200);
+assert.match(await assetResponse.text(), /THE VILLAGE/);
+assert.deepEqual(assetRequests, ['/']);
+console.log('Werewolf static preview asset routing check passed.');
