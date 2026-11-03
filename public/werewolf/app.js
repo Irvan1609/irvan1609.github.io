@@ -359,6 +359,7 @@ function renderNight(parent) {
 function renderDiscussion(parent) {
   phaseHeader(parent, 'FASE DISKUSI', 'Diskusikan kecurigaan', 'Pilih cara berdiskusi. Semua pemain tetap berada di room yang sama dan voting berikutnya dilakukan melalui web.');
   const room = roomState.room;
+  if (room.lastResult?.kind === 'night') addText(parent, 'div', 'notice success', room.lastResult.message);
   if (!room.discussionMode) {
     if (isHost()) {
       const form = node('form', 'discussion-form');
@@ -521,6 +522,7 @@ function renderResult(parent) {
 function renderFinished(parent) {
   phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Seluruh peran kini dibuka dan hasil akhir dapat dilihat semua pemain.');
   addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
+  if (roomState.room.lastResult?.message) addText(parent, 'div', 'notice success', roomState.room.lastResult.message);
   const card = node('div', 'result-card');
   for (const player of roomState.players) {
     const line = node('p', '', player.name + ' — ' + roleLabel(player.role) + (player.alive ? ' · Hidup' : ' · Tereliminasi'));
