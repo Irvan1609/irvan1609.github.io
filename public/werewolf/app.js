@@ -201,15 +201,13 @@ function renderPlayers() {
   $('playerCount').textContent = players.length + ' / 20 pemain';
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead'));
+    const avatar = node('span', 'player-avatar', (player.name || '?').slice(0, 1).toUpperCase());
     const name = node('span', 'player-name', player.name);
-    if (player.isHost) {
-      const host = node('span', 'host-mark', ' HOST');
-      name.append(host);
-    }
+    if (player.isHost) name.append(node('span', 'host-mark', ' HOST'));
     const status = node('span', 'player-meta', !player.alive
       ? 'Tereliminasi' + (player.role ? ' · ' + roleLabel(player.role) : '')
       : (player.connected ? 'Online' : 'Terputus') + (player.hasDrawn ? ' · Kartu diambil' : ''));
-    chip.append(name, status);
+    chip.append(avatar, name, status);
     list.append(chip);
   }
 }
@@ -234,6 +232,8 @@ function renderRoom() {
   const activeElement = document.activeElement;
   const activeId = activeElement && activeElement.id ? activeElement.id : '';
   const activeValue = activeElement && 'value' in activeElement ? activeElement.value : undefined;
+  const phasePanel = $('phasePanel');
+  if (phasePanel) phasePanel.dataset.phase = room.phase;
   const content = $('phaseContent');
   content.replaceChildren();
   switch (room.phase) {
@@ -282,6 +282,14 @@ function renderLobby(parent) {
 function renderRoleCard(parent, role) {
   const info = ROLE_INFO[role] || ['Peran', ''];
   const card = node('div', 'role-card');
+  card.dataset.role = role;
+  const art = node('div', 'role-art');
+  const image = node('img');
+  image.src = './assets/illustrations/role-' + (ROLE_INFO[role] ? role : 'villager') + '.svg';
+  image.alt = 'Ilustrasi peran ' + info[0];
+  image.loading = 'eager';
+  art.append(image);
+  card.append(art);
   addText(card, 'div', 'eyebrow-small', 'KARTU RAHASIA KAMU');
   addText(card, 'div', 'role-name', info[0]);
   addText(card, 'p', '', info[1]);
