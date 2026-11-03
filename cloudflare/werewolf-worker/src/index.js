@@ -60,6 +60,7 @@ function validName(value) {
 }
 
 function normalizeSettings(input = {}) {
+  input = input && typeof input === 'object' ? input : {};
   const wolves = Number(input.wolves ?? 1);
   if (!Number.isInteger(wolves) || wolves < 1 || wolves > 4) throw new HttpError(400, 'Jumlah Werewolf harus 1–4.');
   return { wolves, seer: input.seer !== false, doctor: input.doctor !== false };
@@ -220,6 +221,7 @@ export class WerewolfRoom {
   }
 
   async saveRoom(room) {
+    room.expiresAt = Date.now() + ROOM_TTL_MS;
     await this.state.storage.put('room', room);
     if (this.state.storage.setAlarm) await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
   }
@@ -246,6 +248,7 @@ export class WerewolfRoom {
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, player.id))
       };
       if (!player.alive || canReveal) item.role = player.role;
+      if (self && self.role === 'wolf') item.isWolf = player.role === 'wolf';
       return item;
     });
     const nightActionsRequired = room.players.filter(player => player.alive && ['wolf', 'seer', 'doctor'].includes(player.role)).length;
@@ -319,6 +322,7 @@ export class WerewolfRoom {
       if (url.pathname === '/internal/create' && request.method === 'POST') {
         const body = await readJson(request);
         const existing = await this.loadRoom();
+        if (!validCode(body.code)) throw new HttpError(400, 'Kode room tidak valid.');
         if (existing && existing.expiresAt > Date.now()) return json({ error: 'Kode room sudah digunakan.' }, 409);
         const host = await this.makePlayer(validName(body.name), true);
         const room = {
@@ -572,8 +576,15 @@ export class WerewolfRoom {
 
     if (type === 'send_chat') {
       requirePhase('discussion');
+      if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat mengirim pesan.');
       if (room.discussionMode !== 'online') throw new HttpError(409, 'Chat hanya aktif pada diskusi online.');
       const text = String(body.text || '').trim();
+      const rateKey = 'chat-rate:' + player.id;
+      const rate = await this.state.storage.get(rateKey) || { start: now, count: 0 };
+      if (now - rate.start >= 10000) { rate.start = now; rate.count = 0; }
+      if (rate.count >= 5) throw new HttpError(429, 'Terlalu banyak pesan. Tunggu beberapa detik.');
+      rate.count += 1;
+      await this.state.storage.put(rateKey, rate);
       if (!text || text.length > 500) throw new HttpError(400, 'Pesan harus terdiri dari 1–500 karakter.');
       room.chat.push({ id: crypto.randomUUID(), playerId: player.id, name: player.name, text, at: now });
       if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);

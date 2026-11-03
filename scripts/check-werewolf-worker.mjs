@@ -32,7 +32,7 @@ const state = { storage, getWebSockets: () => [] };
 const room = new WerewolfRoom(state, { ALLOWED_ORIGINS: 'https://irvan1609.github.io' });
 
 const created = await payload(await room.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WOLF23',
+  code: 'WALF23',
   name: 'Host',
   settings: { wolves: 1, seer: true, doctor: true }
 })));
@@ -79,9 +79,10 @@ if (afterNight.phase === 'discussion') {
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
     type: 'set_discussion', mode: 'online', durationMinutes: 1, callUrl: 'https://meet.example.com/werewolf'
   }, tokens[0])));
+  const chatPlayerIndex = current.players.findIndex(player => player.alive && player.id !== current.hostId);
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
     type: 'send_chat', text: 'Diskusi dimulai.'
-  }, tokens[1])));
+  }, tokens[chatPlayerIndex])));
   assert.equal((await room.loadRoom()).chat.length, 1);
   const current = await room.loadRoom();
   current.discussionEndsAt = Date.now() - 1;

@@ -227,6 +227,9 @@ function renderRoom() {
   $('roundLabel').textContent = room.round ? 'Ronde ' + room.round : 'Lobby';
   $('roomCodeLabel').textContent = room.code;
   renderPlayers();
+  const activeElement = document.activeElement;
+  const activeId = activeElement && activeElement.id ? activeElement.id : '';
+  const activeValue = activeElement && 'value' in activeElement ? activeElement.value : undefined;
   const content = $('phaseContent');
   content.replaceChildren();
   switch (room.phase) {
@@ -238,6 +241,16 @@ function renderRoom() {
     case 'result': renderResult(content); break;
     case 'finished': renderFinished(content); break;
     default: addText(content, 'p', 'notice', 'Status permainan tidak dikenali.');
+  }
+  if (activeId) {
+    const replacement = document.getElementById(activeId);
+    if (replacement && activeValue !== undefined) {
+      replacement.value = activeValue;
+      replacement.focus({ preventScroll: true });
+      if (typeof replacement.setSelectionRange === 'function') {
+        try { replacement.setSelectionRange(activeValue.length, activeValue.length); } catch {}
+      }
+    }
   }
 }
 
@@ -312,7 +325,7 @@ function renderNight(parent) {
       addText(parent, 'h3', '', title);
       const grid = node('div', 'action-grid');
       const targets = roomState.players.filter(player => player.alive && player.id !== self.id
-        && (self.role !== 'wolf' || player.role !== 'wolf'));
+        && (self.role !== 'wolf' || !player.isWolf));
       for (const target of targets) {
         grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
       }
@@ -379,6 +392,10 @@ function renderDiscussion(parent) {
     return;
   }
 
+  if (roomState.self.role === 'seer' && roomState.self.seerResult) {
+    const privateResult = roomState.self.seerResult.result === 'wolf' ? 'terindikasi Werewolf' : 'bukan Werewolf';
+    addText(parent, 'div', 'notice success', 'Hasil pemeriksaan rahasia: ' + roomState.self.seerResult.playerName + ' ' + privateResult + '.');
+  }
   const timer = addText(parent, 'div', 'timer', '--:--');
   addText(parent, 'p', 'hint', room.discussionMode === 'offline'
     ? 'Mode offline aktif: silakan berdiskusi langsung. Gunakan perangkat masing-masing hanya untuk melihat status dan melakukan voting.'
@@ -431,6 +448,7 @@ function renderChat(parent) {
   box.append(list);
   const form = node('form', 'chat-form');
   const input = node('input');
+  input.id = 'chatInput';
   input.maxLength = 500;
   input.placeholder = 'Tulis pesan diskusi...';
   input.autocomplete = 'off';
