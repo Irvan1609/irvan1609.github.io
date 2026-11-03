@@ -200,13 +200,14 @@ function renderPlayers() {
   const players = roomState.players || [];
   $('playerCount').textContent = players.length + ' / 20 pemain';
   for (const player of players) {
-    const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead'));
+    const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
     const avatar = node('span', 'player-avatar', (player.name || '?').slice(0, 1).toUpperCase());
     const name = node('span', 'player-name', player.name);
     if (player.isHost) name.append(node('span', 'host-mark', ' HOST'));
+    if (player.isBot) name.append(node('span', 'bot-mark', ' BOT'));
     const status = node('span', 'player-meta', !player.alive
       ? 'Tereliminasi' + (player.role ? ' · ' + roleLabel(player.role) : '')
-      : (player.connected ? 'Online' : 'Terputus') + (player.hasDrawn ? ' · Kartu diambil' : ''));
+      : player.isBot ? 'Bot otomatis' : (player.connected ? 'Online' : 'Terputus') + (player.hasDrawn ? ' · Kartu diambil' : ''));
     chip.append(avatar, name, status);
     list.append(chip);
   }
@@ -272,6 +273,24 @@ function renderLobby(parent) {
   phaseHeader(parent, 'LOBBY ROOM', 'Menunggu pemain bergabung', 'Bagikan kode room kepada teman. Setiap pemain sebaiknya menggunakan HP sendiri agar kartu dan aksinya tidak terlihat orang lain.');
   addText(parent, 'div', 'notice', 'Permainan dimulai setelah minimal 5 pemain masuk. Maksimal 20 pemain.');
   if (isHost()) {
+    const maxBots = Math.min(19, 20 - roomState.players.length);
+    const botBox = node('div', 'bot-setup');
+    addText(botBox, 'h3', '', 'Mode latihan vs bot');
+    addText(botBox, 'p', 'hint', 'Bot otomatis mengambil kartu, menjalankan aksi malam, memberi komentar singkat saat diskusi online, dan melakukan voting. Tambahkan 4 bot untuk bermain sendiri.');
+    const botLabel = node('label', 'bot-count-label');
+    botLabel.append(node('span', '', 'Jumlah bot tambahan'));
+    const botCount = node('select');
+    botCount.id = 'botCount';
+    const choices = [4, 7, 9, 14, 19].filter(value => value <= maxBots);
+    if (maxBots > 0 && !choices.length) choices.push(maxBots);
+    for (const value of choices) botCount.append(new Option(value + ' bot', String(value)));
+    botCount.value = String(choices.includes(4) ? 4 : (choices[0] || 0));
+    botLabel.append(botCount);
+    botBox.append(botLabel);
+    botBox.append(button('Tambahkan bot otomatis', 'secondary wide', () => sendAction('add_bots', { count: Number(botCount.value) }), maxBots < 1));
+    if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
+    parent.append(botBox);
+
     const start = button('Mulai permainan & acak kartu', 'primary wide', () => sendAction('start_game'), roomState.players.length < 5);
     parent.append(start);
   } else {
@@ -311,6 +330,7 @@ function renderRoleDraw(parent) {
     addText(parent, 'div', 'notice success', 'Kartu berhasil diambil. Peranmu sudah tersimpan secara rahasia di room.');
   }
   const allDrawn = roomState.players.every(player => player.hasDrawn);
+  if (roomState.players.some(player => player.isBot)) addText(parent, 'div', 'notice success', 'Bot sudah mengambil kartu secara otomatis.');
   if (isHost()) {
     parent.append(button('Mulai malam pertama', 'primary wide', () => sendAction('start_night'), !allDrawn));
     if (!allDrawn) addText(parent, 'p', 'hint', 'Host dapat memulai setelah semua pemain mengambil kartu.');
@@ -407,6 +427,8 @@ function renderDiscussion(parent) {
     return;
   }
 
+  const botCount = roomState.players.filter(player => player.isBot).length;
+  if (botCount) addText(parent, 'div', 'notice', botCount + ' bot aktif. Bot akan mengikuti voting otomatis; mode online menampilkan komentar diskusi singkat dari bot.');
   if (roomState.self.role === 'seer' && roomState.self.seerResult) {
     const privateResult = roomState.self.seerResult.result === 'wolf' ? 'terindikasi Werewolf' : 'bukan Werewolf';
     addText(parent, 'div', 'notice success', 'Hasil pemeriksaan rahasia: ' + roomState.self.seerResult.playerName + ' ' + privateResult + '.');
@@ -431,6 +453,7 @@ function renderDiscussion(parent) {
     const startVote = button('Mulai voting', 'primary wide', () => sendAction('start_voting'), true);
     startVote.id = 'startVoting';
     parent.append(startVote);
+    if (botCount) parent.append(button('Lewati diskusi & lanjut voting', 'secondary wide', () => sendAction('start_voting', { force: true })));
     clockTimer = setInterval(() => updateDiscussionClock(timer, startVote, room.discussionEndsAt), 1000);
     updateDiscussionClock(timer, startVote, room.discussionEndsAt);
   } else {
@@ -488,6 +511,7 @@ function renderVoting(parent) {
   const room = roomState.room;
   const progress = room.votesSubmitted + ' / ' + room.votesRequired + ' suara masuk';
   addText(parent, 'div', 'notice', progress);
+  if (roomState.players.some(player => player.isBot)) addText(parent, 'p', 'hint', 'Bot telah memberikan suara secara otomatis. Pilihan tetap dirahasiakan sampai voting selesai.');
   const bar = node('div', 'progress');
   const fill = node('span');
   fill.style.width = (room.votesRequired ? Math.min(100, room.votesSubmitted / room.votesRequired * 100) : 0) + '%';
@@ -559,6 +583,7 @@ $('createForm').addEventListener('submit', async event => {
   event.preventDefault();
   const buttonElement = $('createButton');
   buttonElement.disabled = true;
+  const soloMode = $('soloMode').checked;
   showMessage('Membuat room...');
   try {
     const result = await request('/rooms', {
@@ -574,6 +599,7 @@ $('createForm').addEventListener('submit', async event => {
       }
     });
     await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('createName').value.trim() });
+    if (soloMode) await sendAction('add_bots', { count: 4 });
   } catch (error) {
     showMessage(error.message, true);
   } finally {
