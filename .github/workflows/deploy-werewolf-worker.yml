@@ -100,11 +100,11 @@ jobs:
                 ART="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/assets/illustrations/hero-night.svg" || true)"
                 HEADER="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/subweb-header.css" || true)"
                 APP="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/app.js" || true)"
-                if ! printf '%s' "$PAGE" | grep -q 'THE VILLAGE' || ! printf '%s' "$PAGE" | grep -q './subweb-header.css' || ! printf '%s' "$ART" | grep -q '<svg' || ! printf '%s' "$HEADER" | grep -q '.subweb-header' || ! printf '%s' "$APP" | grep -q 'location.hostname === .irvan1609.github.io.' || ! printf '%s' "$APP" | grep -q 'werewolf-room-api-dev.andyirvan1609.workers.dev'; then
-                  echo "::error::Worker staging hidup, tetapi halaman game, stylesheet, API staging, atau ilustrasinya tidak lengkap."
+                if ! printf '%s' "$PAGE" | grep -q 'THE VILLAGE' || ! printf '%s' "$PAGE" | grep -q 'soloMode' || ! printf '%s' "$PAGE" | grep -q './subweb-header.css' || ! printf '%s' "$ART" | grep -q '<svg' || ! printf '%s' "$HEADER" | grep -q '.subweb-header' || ! printf '%s' "$APP" | grep -q 'add_bots' || ! printf '%s' "$APP" | grep -q 'werewolf-room-api-dev.andyirvan1609.workers.dev'; then
+                  echo "::error::Worker staging hidup, tetapi halaman game, mode solo bot, stylesheet, API staging, atau ilustrasinya tidak lengkap."
                   exit 1
                 fi
-                echo "Werewolf preview ready: $BASE/"
+                echo "Werewolf preview ready (solo bots enabled): $BASE/"
               fi
               exit 0
             fi
