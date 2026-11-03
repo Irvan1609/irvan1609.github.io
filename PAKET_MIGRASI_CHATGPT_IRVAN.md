@@ -25,6 +25,8 @@ sebelumnya.
 - Baca bagian ini dan catatan perubahan (bagian 16), lalu seluruh konteks yang relevan sebelum melanjutkan. Pernyataan historis pada bagian 1–15 tetap perlu diverifikasi terhadap keadaan terkini.
 - Dokumen ini adalah memori kerja yang dipelihara oleh asisten, bukan sinkronisasi otomatis percakapan lintas akun. Instruksi eksplisit terbaru pengguna tetap menjadi acuan.
 - Status aplikasi, bug, dan deployment dalam dokumen impor belum diaudit ulang dalam tugas dokumentasi ini.
+- **Pembaruan 4 November 2026 — Werewolf:** pengguna meminta agar game dapat dilihat dan dimainkan melalui web. Branch `master` adalah produksi; jangan merge PR #152 hanya untuk memperoleh URL preview. Deployment Cloudflare Pages preview dicoba, tetapi token `CLOUDFLARE_API_TOKEN` yang tersedia ditolak endpoint Pages dengan error autentikasi 10000 (token dapat men-deploy Worker, tetapi tidak memiliki akses Pages). Jalur preview dialihkan ke Worker development `werewolf-room-api-dev.andyirvan1609.workers.dev`, yang menyajikan frontend game dan API realtime dari origin yang sama. Worker produksi tetap terpisah.
+- **URL preview target:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Status baru dianggap terdeploy setelah workflow Deploy Werewolf Room API lulus health check dan verifikasi halaman/aset statis.
 - Arahan terbaru fitur Pengamatan (10 Oktober 2026): sampel anak langsung unit percobaan (tanaman/buah), jumlah dapat berbeda antarunit; urutan campuran BB semua sampel lalu PB/TB/LB per sampel diulang pada unit berikutnya; panen berbeda menjadi parameter tersendiri (bb-p1, bb-p2). Rekap rerata/jumlah per unit disetujui.
 
 ## 1. Profil dan cara bekerja
@@ -603,3 +605,16 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Backend:** tidak diubah. Worker staging dan kontrak Durable Objects/WebSocket dipertahankan.
 - **Verifikasi:** pemeriksaan kontrak UI diperbarui untuk memastikan elemen form dan ID kompatibel, aset ilustrasi tersedia, fase visual aktif, dan kontrak backend tidak berubah. Hasil CI serta uji browser lintas perangkat tetap perlu diperiksa.
 - **Branch:** `development`; PR #152 tetap menjadi jalur review ke `master`. Belum dipublikasikan ke produksi.
+
+
+### 2026-11-04 — Deploy preview Werewolf tanpa mengubah produksi
+
+- **Arahan pengguna:** minta game dapat dilihat dan dimainkan melalui web.
+- **Keputusan:** jangan merge PR #152 ke `master` hanya untuk preview; alur produksi tetap mengikuti `UPDATE_POLICY.md`. Percobaan Cloudflare Pages preview gagal di tahap daftar project karena token Cloudflare menghasilkan authentication error 10000 untuk endpoint Pages. Karena token yang sama berhasil men-deploy Workers, preview dialihkan untuk disajikan langsung oleh Worker development.
+- **File yang diubah:** `.github/workflows/deploy-werewolf-worker.yml`, `cloudflare/werewolf-worker/src/index.js`, `public/werewolf/app.js`, `public/werewolf/index.html`, `public/werewolf/subweb-header.css`, `scripts/check-werewolf.mjs`, `scripts/check-werewolf-worker.mjs`. Workflow Pages preview sementara yang gagal dihapus.
+- **Perubahan:** Wrangler config menyertakan aset statis dari `public/werewolf` dengan binding `ASSETS`; request GET non-API disajikan sebagai frontend game; Worker dev mengizinkan origin-nya sendiri. HTML memakai stylesheet header relatif. Frontend memilih Worker produksi hanya pada host `irvan1609.github.io`; host preview/lokal menggunakan Worker development.
+- **Backend:** Durable Objects, API room, role secrecy, WebSocket, dan aturan game dipertahankan. Worker development tetap terpisah dari Worker produksi.
+- **Verifikasi sebelumnya:** build penuh `npm run verify` pada workflow preview Cloudflare Pages lulus, tetapi deployment Pages gagal karena token tidak memiliki akses Pages. Worker development berhasil deploy dan health check lulus sebelum penambahan static asset binding.
+- **Verifikasi setelah perubahan ini:** menunggu workflow `Deploy Werewolf Room API` pada branch development; workflow harus lulus health check API dan memverifikasi halaman `/` serta ilustrasi `/assets/illustrations/hero-night.svg`. Uji bermain dengan dua atau lebih perangkat tetap perlu dilakukan.
+- **Status:** preview Worker sedang disiapkan; produksi tidak berubah dan PR #152 belum di-merge.
+- **Langkah berikutnya:** periksa hasil deploy Worker terbaru; buka URL preview; uji create room, join dengan kode dari perangkat lain, draw role, night action, diskusi, chat, voting, dan reconnect.
