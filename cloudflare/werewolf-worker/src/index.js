@@ -173,7 +173,10 @@ export default {
       }
 
       const match = url.pathname.match(/^\/rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(join|ticket|state|action|ws))?$/);
-      if (!match) return withCors(json({ error: 'Endpoint tidak ditemukan.' }, 404), request, env);
+      if (!match) {
+        if (request.method === 'GET' && env.ASSETS) return env.ASSETS.fetch(request);
+        return withCors(json({ error: 'Endpoint tidak ditemukan.' }, 404), request, env);
+      }
       const code = match[1].toUpperCase();
       const route = match[2] || '';
       if (route === 'join' && request.method === 'POST') {
