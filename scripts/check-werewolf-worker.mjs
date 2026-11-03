@@ -145,7 +145,7 @@ console.log('Werewolf static preview asset routing check passed.');
 const soloStorage = new MemoryStorage();
 const soloRoom = new WerewolfRoom({ storage: soloStorage, getWebSockets: () => [] }, {});
 const soloCreated = await payload(await soloRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'B7T123',
+  code: 'B7T234',
   name: 'Solo',
   settings: { wolves: 1, seer: true, doctor: true }
 })));
