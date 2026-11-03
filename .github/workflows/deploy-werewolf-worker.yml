@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://\${WORKER_NAME}.andyirvan1609.workers.dev/health"
+          URL="https://${WORKER_NAME}.andyirvan1609.workers.dev/health"
           for attempt in {1..12}; do
             BODY="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)"
             if printf '%s' "$BODY" | jq -e '.ok == true and .service == "werewolf-room-api" and .realtime == true and .storage == "durable-objects"' >/dev/null 2>&1; then

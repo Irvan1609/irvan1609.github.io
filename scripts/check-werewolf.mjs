@@ -19,7 +19,7 @@ for (const token of ['draw_card', 'night_action', 'resolve_night', 'set_discussi
 for (const token of ['Durable Objects', 'WebSocketPair', 'role_draw', 'night_action', 'resolve_night', 'set_discussion', 'send_chat', 'cast_vote', 'resolve_vote', 'finishVote']) {
   assert.ok(worker.includes(token), 'Missing server game contract ' + token);
 }
-assert.match(html, /Ambil kartu peranmu/);
+assert.match(app, /Ambil kartu rahasia/);
 assert.match(app, /offline/);
 assert.match(app, /online/);
 assert.match(app, /voice \/ video call/);
