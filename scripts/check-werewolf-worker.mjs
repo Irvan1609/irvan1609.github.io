@@ -140,3 +140,59 @@ assert.equal(assetResponse.status, 200);
 assert.match(await assetResponse.text(), /THE VILLAGE/);
 assert.deepEqual(assetRequests, ['/']);
 console.log('Werewolf static preview asset routing check passed.');
+
+
+const soloStorage = new MemoryStorage();
+const soloRoom = new WerewolfRoom({ storage: soloStorage, getWebSockets: () => [] }, {});
+const soloCreated = await payload(await soloRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'B7T123',
+  name: 'Solo',
+  settings: { wolves: 1, seer: false, doctor: false }
+})));
+const soloToken = soloCreated.token;
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'add_bots', count: 4
+}, soloToken)));
+let soloState = await soloRoom.loadRoom();
+assert.equal(soloState.players.length, 5);
+assert.equal(soloState.players.filter(player => player.isBot).length, 4);
+assert.ok(soloState.players.filter(player => player.isBot).every(player => !player.tokenHash));
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, soloToken)));
+soloState = await soloRoom.loadRoom();
+assert.ok(soloState.players.filter(player => player.isBot).every(player => player.hasDrawn));
+assert.equal(soloState.players.find(player => !player.isBot).hasDrawn, false);
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, soloToken)));
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, soloToken)));
+soloState = await soloRoom.loadRoom();
+const soloHuman = soloState.players.find(player => !player.isBot);
+if (soloHuman.role === 'wolf') {
+  const target = soloState.players.find(player => player.alive && player.role !== 'wolf');
+  await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'night_action', targetId: target.id
+  }, soloToken)));
+}
+assert.equal(Object.keys((await soloRoom.loadRoom()).nightActions).length, 1);
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
+soloState = await soloRoom.loadRoom();
+assert.equal(soloState.phase, 'discussion');
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', durationMinutes: 1
+}, soloToken)));
+soloState = await soloRoom.loadRoom();
+assert.ok(soloState.chat.length > 0);
+assert.ok(soloState.chat.every(message => soloState.players.some(player => player.id === message.playerId && player.isBot)));
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_voting', force: true
+}, soloToken)));
+soloState = await soloRoom.loadRoom();
+const soloHost = soloState.players.find(player => player.id === soloState.hostId);
+if (soloHost.alive && soloState.phase === 'voting') {
+  const target = soloState.players.find(player => player.alive && player.id !== soloHost.id);
+  await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'cast_vote', targetId: target.id
+  }, soloToken)));
+  soloState = await soloRoom.loadRoom();
+}
+assert.ok(['result', 'finished'].includes(soloState.phase));
+assert.equal(Object.keys(soloState.votes).length, soloState.players.filter(player => player.alive).length);
+console.log('Werewolf solo bot checks passed: bot lobby fill, automatic role draw, night actions, discussion messages, and voting.');
