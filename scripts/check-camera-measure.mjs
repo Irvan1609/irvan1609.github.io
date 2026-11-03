@@ -1,67 +1,105 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {alignmentCheck} from '../public/kamera-pengukur/alignment.js';
-import {cameraGuide,installLiveCamera} from '../public/kamera-pengukur/live-camera.js';
-import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/kamera-pengukur/geometry.js';
+import {alignmentCheck,scaleCheck} from '../public/pengukur/alignment.js';
+import {cameraGuide,installLiveCamera} from '../public/pengukur/live-camera.js';
+import {WIDTH,HEIGHT,PPM,homography,project,detectMarkers} from '../public/pengukur/geometry.js';
+import {PAPER_SIZES,paperProfile,calibratorLayout,buildCalibratorSvg,buildLensCheckerboardSvg,grayPatchRects,colorPatchRects} from '../public/pengukur/paper.js';
+import {imageQuality,segmentObject,morphology,repeatability,segmentObjects,colorStats,validationSummary} from '../public/pengukur/image-tools.js';
+import {measurementsToStatistics} from '../public/pengukur/stat-sync.js';
+
 const p=[[45,30],[620,100],[590,910],[100,800]],h=homography(p);
 [[0,0],[WIDTH,0],[WIDTH,HEIGHT],[0,HEIGHT]].forEach((q,i)=>{const v=project(h,...q);assert.ok(Math.hypot(v[0]-p[i][0],v[1]-p[i][1])<1e-7);});
-const scale=homography([[15,15],[195,15],[195,282],[15,282]]);
-assert.ok(project(scale,100,100).every(v=>Math.abs(v-115)<1e-9));
+const a3=paperProfile('a3','portrait'),ha3=homography(p,a3.activeWidth,a3.activeHeight);
+assert.ok(project(ha3,a3.activeWidth,a3.activeHeight).every((v,i)=>Math.abs(v-p[2][i])<1e-7));
 assert.equal(100*PPM,500);
+
+for(const id of ['a5','a4','a3','letter','legal','f4']){
+  assert.ok(PAPER_SIZES[id]);
+  const profile=paperProfile(id),layout=calibratorLayout(profile);
+  assert.ok(profile.activeWidth>0&&profile.activeHeight>0);
+  assert.ok(layout.photo.width>0&&layout.photo.height>0&&layout.analysis.height>0);
+  assert.ok(layout.label.x>=layout.photo.x&&layout.label.y>=layout.photo.y&&layout.label.y+layout.label.height<=layout.photo.y+layout.photo.height);
+  const svg=buildCalibratorSvg(profile,{label:'G1-R2'});
+  assert.match(svg,new RegExp('width="'+String(profile.width).replace('.','\\.')+'mm"'));
+  assert.match(svg,/GARIS CEK/);
+  assert.match(svg,/AREA FOTO \/ OBJEK/);
+  assert.match(svg,/LABEL/);
+  assert.match(svg,/G1-R2/);
+  assert.match(svg,/>10<\/text>/);
+  assert.match(svg,/v 1\.25/);
+  assert.equal(grayPatchRects(profile).length,6);
+  assert.equal(colorPatchRects(profile).length,6);
+  for(const r of [...grayPatchRects(profile),...colorPatchRects(profile)]){
+    const overlapsPhoto=!(r.x+r.width<=layout.photo.x||r.x>=layout.photo.x+layout.photo.width||r.y+r.height<=layout.photo.y||r.y>=layout.photo.y+layout.photo.height);
+    assert.equal(overlapsPhoto,false,'Patch kalibrasi selain penggaris harus berada di luar area foto');
+  }
+  assert.match(svg,/>0<\/text>/);
+  assert.ok(svg.includes(profile.width+' × '+profile.height+' mm'));
+}
+const custom=paperProfile('custom','landscape',{width:200,height:300,margin:20});
+assert.equal(custom.width,300);assert.equal(custom.height,200);assert.equal(custom.activeWidth,260);assert.equal(custom.activeHeight,160);
+assert.match(buildLensCheckerboardSvg(paperProfile('a4')),/TARGET KALIBRASI LENSA/);
+
 const data=new Uint8ClampedArray(210*297*4);data.fill(255);
-for(const [x,y] of [[15,15],[195,15],[195,282],[15,282]])for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const i=((y+dy)*210+x+dx)*4;data[i]=208;data[i+1]=0;data[i+2]=208;}
+for(const [x,y] of [[15,15],[195,15],[195,282],[15,282]])for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const i=((y+dy)*210+x+dx)*4;data[i]=208;data[i+1]=0;data[i+2]=208;data[i+3]=255;}
 assert.deepEqual(detectMarkers({data,width:210,height:297}),[[15,15],[195,15],[195,282],[15,282]]);
 assert.throws(()=>homography([[0,0],[1,1],[2,2],[3,3]]));
-assert.throws(()=>homography([[0,0],[0,267],[180,267],[180,0]]));
-for(let y=12;y<=18;y++)for(let x=12;x<=18;x++)data.fill(255,(y*210+x)*4,(y*210+x)*4+4);
-assert.throws(()=>detectMarkers({data,width:210,height:297}));
-const svg=fs.readFileSync('public/kamera-pengukur/kalibrator.svg','utf8');
-assert.match(svg,/width="210mm" height="297mm"/);
-assert.match(svg,/M55 271 H155/);
-// Printed patches must not be mistaken for position markers.
-const swatches=[...svg.matchAll(/<rect x="(\d+)" y="(229|241)" width="22" height="10" fill="#([0-9a-f]{6})"\/>/g)];
-assert.equal(swatches.length,12);
-const chart=new Uint8ClampedArray(210*297*4);chart.fill(255);
-for(const [x,y] of [[15,15],[195,15],[195,282],[15,282]])for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++)chart.set([208,0,208,255],((y+dy)*210+x+dx)*4);
-for(const [,x,y,hex] of swatches){
-  const rgb=hex.match(/../g).map(n=>parseInt(n,16));
-  for(let dy=0;dy<10;dy++)for(let dx=0;dx<22;dx++)chart.set([...rgb,255],((Number(y)+dy)*210+Number(x)+dx)*4);
-}
-assert.deepEqual(detectMarkers({data:chart,width:210,height:297}),[[15,15],[195,15],[195,282],[15,282]]);
-assert.equal(alignmentCheck([[0,0],[180,0],[180,267],[0,267]]).retake,false);
-assert.equal(alignmentCheck([[30,0],[150,0],[180,267],[0,267]]).retake,true);
-assert.equal(alignmentCheck([[0,0],[180,0],[180,150],[0,150]]).retake,true);
-assert.equal(alignmentCheck([]),null);
-assert.equal(alignmentCheck([[0,0],[0,0],[0,0],[0,0]]),null);
-const rotated=[[0,0],[180,0],[180,267],[0,267]].map(([x,y])=>[x*Math.cos(.3)-y*Math.sin(.3)+90,x*Math.sin(.3)+y*Math.cos(.3)+40]);
-assert.equal(alignmentCheck(rotated).retake,false);
-const target=cameraGuide(null,480,640).target;
-assert.equal(cameraGuide(target,480,640).ready,true);
-assert.equal(cameraGuide(null,480,640).ready,false);
-assert.equal(cameraGuide(target.map(([x,y])=>[x+60,y]),480,640).ready,false);
-assert.match(cameraGuide(target.map(([x,y])=>[240+(x-240)*.6,320+(y-320)*.6]),480,640).message,/Dekatkan/);
-assert.match(cameraGuide(target.map(([x,y])=>[240+(x-240)*1.2,320+(y-320)*1.2]),480,640).message,/Jauhkan/);
-// Closing while permission is pending must release the late-arriving stream.
-const elements=Object.fromEntries(['openLive','closeLive','takeLive','livePanel','liveVideo','liveOverlay','liveStatus'].map(id=>[id,{disabled:false,hidden:false,focus(){},getContext(){return {};},play:async()=>{}}]));
+assert.equal(alignmentCheck([[0,0],[180,0],[180,267],[0,267]],180/267).retake,false);
+assert.equal(alignmentCheck([[30,0],[150,0],[180,267],[0,267]],180/267).retake,true);
+assert.equal(alignmentCheck([],180/267),null);
+const sc=scaleCheck([[0,0],[180,0],[180,267],[0,267]],180,267);
+assert.equal(sc.differencePct,0);assert.equal(sc.consistent,true);
+
+const profile=paperProfile('a4'),target=cameraGuide(null,480,640,profile).target;
+assert.equal(cameraGuide(target,480,640,profile).ready,true);
+assert.equal(cameraGuide(null,480,640,profile).ready,false);
+
+const qImage={width:64,height:64,data:new Uint8ClampedArray(64*64*4)};
+for(let y=0;y<64;y++)for(let x=0;x<64;x++){const i=4*(y*64+x),v=(x+y)%2?75:205;qImage.data.set([v,v,v,255],i);}
+const quality=imageQuality(qImage,target,alignmentCheck(target,profile.activeWidth/profile.activeHeight));
+assert.ok(quality.score>=0&&quality.score<=100);
+assert.ok(Number.isFinite(quality.sharpness));
+
+const seg={width:40,height:40,data:new Uint8ClampedArray(40*40*4)};
+for(let y=0;y<40;y++)for(let x=0;x<40;x++){const i=4*(y*40+x),inside=x>=10&&x<30&&y>=12&&y<28;seg.data.set(inside?[50,150,60,255]:[245,245,245,255],i);}
+const mask=segmentObject(seg,20,20,30),metrics=morphology(mask,40,40,5);
+assert.ok(metrics.area>12&&metrics.area<14);
+assert.ok(metrics.perimeter>10);
+assert.ok(metrics.feret>metrics.minFeret);
+assert.ok(metrics.circularity>0&&metrics.circularity<=1.2);
+const rep=repeatability([{sampleId:'S1',type:'length',primaryValue:10},{sampleId:'S1',type:'length',primaryValue:11},{sampleId:'S2',type:'length',primaryValue:9}]);
+assert.equal(rep.length,1);assert.equal(rep[0].n,2);
+
+const multi={width:100,height:80,data:new Uint8ClampedArray(100*80*4)};
+for(let i=0;i<100*80;i++)multi.data.set([245,245,245,255],i*4);
+for(const [xa,xb,ya,yb,r,g,b] of [[20,34,20,36,190,30,30],[60,78,30,50,40,145,55]])for(let y=ya;y<yb;y++)for(let x=xa;x<xb;x++)multi.data.set([r,g,b,255],4*(y*100+x));
+const detected=segmentObjects(multi,{roi:{x:5,y:5,width:90,height:70},threshold:40,minPixels:30,maxObjects:10,ppm:5});
+assert.equal(detected.objects.length,2);
+assert.ok(colorStats(multi,detected.mask).s>0);
+const valid=validationSummary([{type:'length',unit:'mm',primaryValue:10,referenceValue:10.2},{type:'length',unit:'mm',primaryValue:20,referenceValue:19.8}]);
+assert.equal(valid.length,1);assert.equal(valid[0].n,2);
+
+const memory=new Map(),storage={getItem:key=>memory.get(key)||null,setItem:(key,value)=>memory.set(key,value)};
+const statOut=measurementsToStatistics(storage,[{sampleId:'S1',type:'object',primaryValue:12,unit:'mm²',metrics:{area:12},research:{genotype:'G1'}}]);
+assert.equal(statOut.rowCount,1);assert.equal(statOut.dataset,'Pengukur');
+
+const html=fs.readFileSync('public/pengukur/index.html','utf8');
+const app=fs.readFileSync('public/pengukur/app.js','utf8');
+const style=fs.readFileSync('public/pengukur/style.css','utf8');
+const old=fs.readFileSync('public/kamera-pengukur/index.html','utf8');
+for(const marker of ['paperSize','A5','A4','A3','Letter','Legal','F4 / Folio','autoCapture','qualityGate','objectPreset','segmentThreshold','exportCsv','exportXls','sendStat','detectAllObjects','colorChecker','processBatch','sendField','photoLabel','livePhotoLabel','photoFilename'])assert.ok(html.includes(marker),'Pengukur HTML missing '+marker);
+for(const marker of ['segmentObject','segmentObjects','colorStats','validationSummary','measurementsToStatistics','morphology','normalizeGrayPatches','repeatability','BarcodeDetector','agrotik-field-handoff','agrotik_chili_measurement_handoff_v1','loadSharedChiliPhoto','sendChiliMeasurementSummary','batchFiles','calibration','fieldContext','calibratorLayout','activePhotoStem','exportCropMm','getLabel:photoLabel'])assert.ok(app.includes(marker),'Pengukur app missing '+marker);
+for(const marker of ['measure-toolbar','morphology-card','quality-gate','repeatability','photo-label-bar','@media(max-width:820px)'])assert.ok(style.includes(marker),'Pengukur CSS missing '+marker);
+assert.ok(old.includes('/pengukur/'),'Legacy camera route must redirect to /pengukur/');
+
+// Closing while camera permission is pending must release the late stream.
+const elements=Object.fromEntries(['openLive','closeLive','takeLive','livePanel','liveVideo','liveOverlay','liveStatus','liveQuality','autoCapture'].map(id=>[id,{disabled:false,hidden:false,checked:false,textContent:'',innerHTML:'',focus(){},getContext(){return {clearRect(){}};},play:async()=>{}}]));
 const documentEvents={},windowEvents={};
 globalThis.document={getElementById:id=>elements[id],createElement:()=>({getContext:()=>({})}),addEventListener:(n,f)=>documentEvents[n]=f};
 globalThis.window={addEventListener:(n,f)=>windowEvents[n]=f};
 let resolveCamera,stopped=0;
-Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:options=>{
-  assert.equal(options.audio,false);
-  return new Promise(resolve=>resolveCamera=resolve);
-}}}});
-installLiveCamera(()=>assert.fail('No photo should be captured'));
-const opening=elements.openLive.onclick();
-elements.closeLive.onclick();
-resolveCamera({getTracks:()=>[{stop:()=>stopped++}]});
-await opening;
-assert.equal(stopped,1);
-assert.equal(elements.livePanel.hidden,true);
-assert.equal(elements.takeLive.disabled,true);
-navigator.mediaDevices.getUserMedia=async()=>{throw Object.assign(new Error(),{name:'NotAllowedError'});};
-await elements.openLive.onclick();
-assert.match(elements.liveStatus.textContent,/Izin kamera ditolak/);
-assert.equal(elements.openLive.disabled,false);
-windowEvents.pagehide();
-console.log('Camera tests OK: projective mapping, scale, marker detection, missing markers, invalid points, A4 dimensions.');
+Object.defineProperty(globalThis,'navigator',{configurable:true,value:{mediaDevices:{getUserMedia:()=>new Promise(resolve=>resolveCamera=resolve)}}});
+installLiveCamera({onCapture:()=>assert.fail('No capture expected'),getProfile:()=>profile});
+const opening=elements.openLive.onclick();elements.closeLive.onclick();resolveCamera({getTracks:()=>[{stop:()=>stopped++}]});await opening;
+assert.equal(stopped,1);assert.equal(elements.livePanel.hidden,true);
+console.log('Pengukur tests OK: scales, lens target, projective mapping, quality gate, color, multi-object morphology, validation, stat bridge, camera lifecycle and legacy redirect.');

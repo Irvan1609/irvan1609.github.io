@@ -1,8 +1,8 @@
 import {getDecimalSeparator} from './number-format.js';
 import {templateCatalog,getDataTemplate,rowsForEditor,templateHelp} from './template-catalog.js';
-import {installDatasetSidebarEnhancements} from './dataset-sidebar.js';
+import {installDatasetSidebarEnhancements} from './dataset-sidebar.js?v=20260929-cleanmenus7';
 import {installDataEnhancements} from './data-enhancements.js';
-import {validateColumnNames} from './dataset-columns.js';
+import {validateColumnNames,prepareImportedColumnNames} from './dataset-columns.js?v=20261010-import-unique1';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
 function importDataset(detail){
@@ -46,6 +46,7 @@ function installExampleDatasets(){
     $('#copyExampleDataset').onclick=()=>{
       try{
         importDataset({name:template.name,headers:[...template.headers],rows:rows.map(row=>[...row])});
+        section.open=false;
         $('#dataToolModal').classList.remove('open');
       }catch(error){$('#exampleDatasetStatus').textContent=error.message;}
     };
@@ -56,8 +57,12 @@ export function installDataTools(){
   const toolbar=$('.toolbar');
   toolbar.insertAdjacentHTML('beforeend','<button id="importXlsx">Impor Excel</button><button id="dataTemplate">Template data</button><button id="analysisHistory">Riwayat analisis</button>');
   installDataEnhancements();
-  document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head"><strong id="dataToolTitle"></strong><button id="closeDataTool" aria-label="Tutup">✕</button></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
-  $('#closeDataTool').onclick=()=>$('#dataToolModal').classList.remove('open');
+  document.body.insertAdjacentHTML('beforeend',`<input id="xlsxInput" type="file" accept=".xlsx" hidden><div id="dataToolModal" class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dataToolTitle"><div class="modal-head data-tool-head"><button id="closeDataTool" aria-label="Tutup">✕</button><strong id="dataToolTitle"></strong><button id="dataToolResultMore" type="button" aria-label="Aksi hasil" aria-expanded="false" hidden>⋮</button><div id="dataToolResultMenu" class="analysis-dock-menu data-tool-result-menu" hidden><button type="button" data-tool-proxy="excel">Excel (.xlsx)</button><button type="button" data-tool-proxy="formula">Excel formula</button><button type="button" data-tool-proxy="print">PDF / Cetak</button></div></div><div id="dataToolBody" class="modal-body"></div></div></div>`);
+  $('#closeDataTool').onclick=()=>{const modal=$('#dataToolModal');modal.classList.remove('open','analysis-tool-result-mode');$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');if(['parallel-analysis','augmented'].includes(modal.dataset.toolMode))document.body.classList.remove('analysis-mode-active');};
+  $('#dataToolResultMore').onclick=event=>{event.stopPropagation();const menu=$('#dataToolResultMenu'),opening=menu.hidden;if(opening)document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'data-tool-result-menu'}}));menu.hidden=!opening;$('#dataToolResultMore').setAttribute('aria-expanded',String(opening));};
+  $('#dataToolResultMenu').onclick=event=>{const action=event.target.closest('[data-tool-proxy]')?.dataset.toolProxy;if(!action)return;const host=$('#dataToolBody .analysis-tool-result-active');const selectors={excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-generic-print-results], [data-print-results]'};host?.querySelector(selectors[action])?.click();$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');};
+  document.addEventListener('click',event=>{if(!event.target.closest('#dataToolResultMore,#dataToolResultMenu')){$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');}});
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='data-tool-result-menu'){$('#dataToolResultMenu').hidden=true;$('#dataToolResultMore').setAttribute('aria-expanded','false');}});
   installExampleDatasets();
   $('#importXlsx').onclick=()=>$('#xlsxInput').click();
   $('#xlsxInput').onchange=async event=>{
@@ -86,12 +91,13 @@ export function installDataTools(){
         let cols=rows.reduce((m,r)=>Math.max(m,r.findLastIndex(v=>v!=='')+1),0);
         return rows.map(r=>r.slice(0,cols));
       };
-      function preview(){try{const rows=extract();$('#sheetPreview').innerHTML=`<table class="result-table">${rows.slice(0,7).map((r,i)=>`<tr>${r.map(v=>`<${i?'td':'th'}>${esc(v)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table><p>${Math.max(0,rows.length-1)} pengamatan.</p>`;$('#importError').textContent='';}catch(e){$('#importError').textContent=e.message;}}
+      function preview(){try{const rows=extract(),prepared=rows.length?prepareImportedColumnNames(rows[0]):{renamed:[]};$('#sheetPreview').innerHTML=`<table class="result-table">${rows.slice(0,7).map((r,i)=>`<tr>${r.map(v=>`<${i?'td':'th'}>${esc(v)}</${i?'td':'th'}>`).join('')}</tr>`).join('')}</table><p>${Math.max(0,rows.length-1)} pengamatan. ${prepared.renamed.length?`${prepared.renamed.length} judul kolom duplikat/kosong akan diperbaiki otomatis saat impor.`:''}</p>`;$('#importError').textContent='';}catch(e){$('#importError').textContent=e.message;}}
       $('#importSheet').onchange=preview;preview();
       $('#applyXlsx').onclick=()=>{try{
-        const [headers,...rows]=extract(),cleanHeaders=validateColumnNames(headers);
+        const [headers,...rows]=extract(),prepared=prepareImportedColumnNames(headers),cleanHeaders=prepared.headers;
         if(!rows.length)throw Error('Belum ada baris pengamatan.');
         importDataset({name:file.name.replace(/\.xlsx$/i,'')+'-'+sheets[Number($('#importSheet').value)].name,headers:cleanHeaders,rows});
+        if(prepared.renamed.length)document.getElementById('status').textContent=`✓ Excel berhasil diimpor. ${prepared.renamed.length} judul kolom duplikat/kosong diperbaiki otomatis; semua nilai dipertahankan.`;
         $('#dataToolModal').classList.remove('open');
       }catch(e){$('#importError').textContent=e.message;}};
     }catch(e){$('#dataToolBody').innerHTML=`<p role="alert">${esc(e.message)}</p>`;}
@@ -103,6 +109,7 @@ export function installDataTools(){
     $('#createTemplateDataset').onclick=()=>{try{
       const template=getDataTemplate($('#templateDesign').value),rows=rowsForEditor(template,getDecimalSeparator());
       importDataset({name:template.name,headers:template.headers,rows});
+      const examples=$('#exampleDatasets');if(examples)examples.open=false;
       const status=$('#status');if(status)status.textContent=`✓ Dataset ${template.label} dibuat dari template dan siap diedit.`;
       $('#dataToolModal').classList.remove('open');
     }catch(e){$('#templateStatus').textContent=e.message;}};
@@ -116,5 +123,47 @@ export function installDataTools(){
     }catch(e){$('#templateStatus').textContent=e.message;}finally{button.disabled=false;$('#createTemplateDataset').disabled=false;}};
   };
 }
-export function openTool(title,html){$('#dataToolTitle').textContent=title;$('#dataToolBody').innerHTML=html;$('#dataToolModal').classList.add('open');}
+function applyParallelAnalysisLayout(body){
+  body.classList.remove('analysis-tool-parallel-body','analysis-tool-results-only');
+  body.querySelector('.analysis-tool-parallel-grid')?.replaceWith(...body.querySelector('.analysis-tool-parallel-grid')?.children||[]);
+  body.classList.add('analysis-tool-parallel-body');
+  const candidates=[...body.children].filter(el=>el.matches('.form-grid,fieldset,details,#associationFields'));
+  if(candidates.length>=2){
+    const grid=document.createElement('div');grid.className='analysis-tool-parallel-grid';
+    candidates[0].before(grid);grid.append(candidates[0],candidates[1]);
+  }
+  body._analysisResultObserver?.disconnect?.();
+  const resultTargets=[...body.querySelectorAll('[data-all-results],#assocResult,#advancedResult,#nextGenResult,#mixedResult,#siResult,#powerResult')];
+  const sync=()=>{
+    const active=resultTargets.find(target=>target.children.length||String(target.textContent||'').trim());
+    resultTargets.forEach(target=>target.classList.toggle('analysis-tool-result-active',target===active));
+    body.classList.toggle('analysis-tool-results-only',!!active);
+    const modal=$('#dataToolModal'),more=$('#dataToolResultMore');
+    modal?.classList.toggle('analysis-tool-result-mode',!!active);
+    if(more)more.hidden=!active;
+    if(!active){$('#dataToolResultMenu').hidden=true;more?.setAttribute('aria-expanded','false');}
+    if(active&&!active.querySelector('.analysis-export-footer')){
+      active.setAttribute('data-all-results','');
+      const footer=document.createElement('section');footer.className='analysis-export-footer';footer.setAttribute('aria-label','Ekspor hasil');
+      footer.innerHTML='<div class="analysis-export-footer-head"><b>Ekspor hasil</b><span>Hasil analisis</span></div><div class="analysis-export-footer-actions"><button data-result-action="export-all">Excel (.xlsx)</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-generic-print-results>PDF / Cetak</button></div>';
+      active.append(footer);
+      footer.querySelector('[data-generic-print-results]').onclick=()=>{document.body.classList.add('print-analysis-mode');const clean=()=>document.body.classList.remove('print-analysis-mode');window.addEventListener('afterprint',clean,{once:true});window.print();setTimeout(clean,1500);};
+    }
+  };
+  const observer=new MutationObserver(sync);resultTargets.forEach(target=>observer.observe(target,{childList:true,subtree:true,characterData:true}));
+  body._analysisResultObserver=observer;sync();
+}
+export function openTool(title,html,mode=''){
+  document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'data-tool-modal'}}));
+  document.documentElement.classList.remove('mobile-project-open');
+  document.getElementById('projectToggle')?.setAttribute('aria-expanded','false');
+  const modal=$('#dataToolModal'),body=$('#dataToolBody');
+  $('#dataToolTitle').textContent=title;body.innerHTML=html;
+  modal.dataset.toolMode=String(mode||'');
+  const analysisMode=mode==='parallel-analysis'||mode==='augmented';
+  if(analysisMode)document.body.classList.add('analysis-mode-active');
+  if(mode==='parallel-analysis')applyParallelAnalysisLayout(body);
+  else body.classList.remove('analysis-tool-parallel-body');
+  modal.classList.add('open');requestAnimationFrame(()=>{modal.scrollTop=0;body.scrollTop=0;});
+}
 export function downloadBlob(buffer,name){const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}

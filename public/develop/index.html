@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#14253a">
   <title>Develop | Irvan</title>
   <link rel="stylesheet" href="/subweb-header.css">
-  <link rel="stylesheet" href="/account.css?v=20260926-5">
-  <link rel="stylesheet" href="/develop/style.css?v=20260926-3">
+  <link rel="stylesheet" href="/account.css?v=20260928-1">
+  <link rel="stylesheet" href="/develop/style.css?v=20260928-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -35,6 +35,8 @@
         <button data-tab="datasets" type="button">Datasets</button>
         <button data-tab="ai" type="button">Hitung Cabai / AI</button>
         <button data-tab="server" type="button">Server</button>
+        <button data-tab="diagnostic" type="button">Diagnostic</button>
+        <button data-tab="security" type="button">Security</button>
         <button data-tab="audit" type="button">Audit Log</button>
         <button data-tab="backups" type="button">Backups</button>
       </nav>
@@ -95,7 +97,8 @@
 
       <section class="dev-view" data-view="ai">
         <div class="dev-panel">
-          <div class="panel-head"><div><h2>Kontribusi Hitung Cabai / AI</h2><p>Active-learning queue diprioritaskan dari koreksi dan quality score; gambar tidak dibuka otomatis.</p></div></div>
+          <div class="panel-head"><div><h2>Kontribusi Hitung Cabai / AI</h2><p>Active-learning queue diprioritaskan dari koreksi dan quality score; gambar tidak dibuka otomatis.</p></div><div class="inline-actions"><button id="migrateAiImages" type="button">Migrasi foto D1 → R2</button></div></div>
+          <div id="aiStorageState" class="muted"></div>
           <h3>Evaluasi per versi model</h3>
           <div class="table-wrap"><table><thead><tr><th>Model</th><th>N</th><th>Quality rata-rata</th><th>Koreksi</th><th>|Final − Prediksi|</th></tr></thead><tbody id="aiModelBody"></tbody></table></div>
           <h3>Antrean review</h3>
@@ -105,9 +108,53 @@
 
       <section class="dev-view" data-view="server">
         <div class="stats-grid compact" id="usageGrid"></div>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Cloud Budget</h2><p>Mode hemat dan emergency switch tanpa redeploy.</p></div><button id="saveCloudControl" type="button">Simpan</button></div>
+            <div class="form-grid">
+              <label>Mode<select id="cloudBudgetMode"><option value="auto">Auto</option><option value="normal">Normal</option><option value="economy">Hemat</option><option value="emergency">Darurat</option></select></label>
+              <label><input id="featureDatasetSync" type="checkbox"> Dataset sync</label>
+              <label><input id="featureAiUpload" type="checkbox"> Upload AI</label>
+              <label><input id="featureGameCloud" type="checkbox"> Cloud game</label>
+              <label><input id="featurePayments" type="checkbox"> Pembayaran</label>
+            </div>
+            <div id="cloudBudgetState" class="muted"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
+            <pre id="healthJson" class="code-box">—</pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="diagnostic">
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Self-check perangkat</h2><p>Storage, IndexedDB, Service Worker, jaringan, dan Worker API.</p></div><button id="runDiagnostic" type="button">Periksa ulang</button></div>
+            <div id="diagnosticChecks" class="key-values"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Queue inspector</h2><p>Status antrean lokal tanpa membaca isi dataset.</p></div></div>
+            <div id="queueInspector" class="key-values"></div>
+          </article>
+        </div>
         <div class="dev-panel">
-          <div class="panel-head"><div><h2>Health Worker</h2><p>Versi API dan modul yang aktif.</p></div><button id="refreshHealth" type="button">Periksa health</button></div>
-          <pre id="healthJson" class="code-box">—</pre>
+          <div class="panel-head"><div><h2>Recovery</h2><p>Safe Mode dan rollback hanya digunakan saat diperlukan.</p></div><div class="inline-actions"><button id="copyDiagnostic" type="button">Salin laporan</button><button id="toggleSafeMode" type="button">Safe Mode</button><button id="toggleRollback" type="button">Versi sebelumnya</button><a class="button-link" href="/diagnostic/">Buka lengkap</a></div></div>
+          <div id="recoveryState" class="muted"></div>
+        </div>
+      </section>
+
+      <section class="dev-view" data-view="security">
+        <div class="stats-grid compact" id="securityGrid"></div>
+        <div class="overview-grid">
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Kontrol keamanan</h2><p>Status kontrol sesi, CSRF, rate limit, Turnstile, dan backup.</p></div></div>
+            <div id="securityControls" class="key-values"></div>
+          </article>
+          <article class="dev-panel">
+            <div class="panel-head"><div><h2>Peristiwa 24 jam</h2><p>Ringkasan audit server. Event edge yang ditolak tidak ditulis ke D1 agar serangan tidak menghasilkan write amplification.</p></div></div>
+            <div id="securityEvents" class="key-values"></div>
+          </article>
         </div>
       </section>
 
@@ -128,7 +175,7 @@
     </div>
   </main>
 
-  <script type="module" src="/account.js?v=20260926-5"></script>
-  <script type="module" src="/develop/app.js?v=20260926-4"></script>
+  <script type="module" src="/account.js?v=20260928-gamefix6"></script>
+  <script type="module" src="/develop/app.js?v=20260928-1"></script>
 </body>
 </html>

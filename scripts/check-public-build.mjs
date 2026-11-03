@@ -27,7 +27,12 @@ const fallback = new Response('offline');
 vm.runInNewContext(await readFile('dist/sw.js', 'utf8'), {
   self: { location: { origin: 'https://example.com' }, addEventListener(type, fn) { listeners[type] = fn; } },
   URL, Request, Response, Set,
-  caches: { async match(request) { return request === '/offline.html' ? fallback : undefined; } },
+  caches: {
+    async match(request) { return request === '/offline.html' ? fallback : undefined; },
+    async keys(){return [];},
+    async open(){return {async match(){return undefined;},async put(){}};},
+    async delete(){return true;}
+  },
   async fetch() { throw new Error('offline'); },
 });
 for (const [method, url] of [['POST', '/stat/'], ['GET', '/api/private'], ['GET', '/sw.js'], ['GET', 'https://untrusted.example/a.js']]) {

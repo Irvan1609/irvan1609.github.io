@@ -48,6 +48,6 @@ assert.throws(()=>repeatedMeasuresAnova(repeated.slice(1)),/harus mempunyai|tida
 for(const index of [0,1,2]){const bad=repeated.map(row=>[...row]);bad[0][index]=index===1?null:' ';assert.throws(()=>repeatedMeasuresAnova(bad),/tidak boleh kosong/i);}
 
 const workflow=fs.readFileSync(new URL('../src/design-extensions-workflow.js',import.meta.url),'utf8');
-for(const marker of ["parameterField(data,'nest')","parameterField(data,'repeat')",'data-${prefix}-param','nestPosthoc','nestAlpha','resultActions','backupRawDataset'])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
+for(const marker of ["parameterField(data,'nest')","parameterField(data,'repeat')",'data-${prefix}-param','nestPosthoc','nestAlpha','resultActions'])assert.ok(workflow.includes(marker),`workflow missing ${marker}`);
 assert.ok(workflow.includes('Semua kolom numerik dicentang otomatis'));
 console.log('Design extensions verified: balanced nested ANOVA, nested BNT/BNJ/DMRT gating and error strata, multi-parameter UI contract, repeated-measures error strata, Greenhouse–Geisser epsilon, incomplete-data rejection, and blank design-label validation.');

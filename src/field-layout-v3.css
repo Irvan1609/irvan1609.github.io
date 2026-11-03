@@ -1,0 +1,98 @@
+/* Field Workspace v3 — compact override; base v2 CSS stays as fallback. */
+.field-layout-modal{grid-template-rows:auto auto auto auto minmax(0,1fr);background:#f3f6f8}
+.field-layout-head{min-height:44px;padding:5px 7px;gap:6px}
+.field-layout-head-actions{gap:3px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.field-layout-head-actions::-webkit-scrollbar{display:none}
+.field-layout-head-actions button,.field-layout-more>summary{min-height:30px;padding:3px 7px;font-size:9.5px}
+.field-layout-head-actions button[aria-pressed="true"]{background:#edf4f0;border-color:#92aa9f}
+.field-session-strip{display:flex;align-items:center;gap:5px;overflow-x:auto;min-height:29px;padding:3px 7px;border-bottom:1px solid #dbe3e8;background:#f9fbfc;scrollbar-width:none}
+.field-session-strip:empty{display:none}
+.field-session-strip b{font-size:9.5px;white-space:nowrap}.field-session-strip span{font-size:8.5px;color:#697c89;white-space:nowrap}
+.field-session-strip progress{width:90px;height:6px;accent-color:#577b69}
+.field-layout-controls{gap:4px;padding:4px 7px}
+.field-layout-controls label{font-size:8.5px}.field-layout-controls select,.field-layout-controls input{min-height:28px;padding:2px 5px;font-size:9.5px}
+.field-layout-controls select{min-width:92px;max-width:145px}
+.field-layout-controls #fieldSearch{flex:0 0 120px;width:120px}
+.field-layout-controls [hidden]{display:none!important}
+.field-zoom{display:grid;grid-template-columns:27px 43px 27px;align-items:center;min-height:28px;border:1px solid #d1dbe3;border-radius:6px;overflow:hidden;background:#fff}
+.field-zoom button{height:27px;border:0;background:#fff;padding:0}.field-zoom span{text-align:center;font-size:8.5px;color:#607382}
+.field-map-zoom{width:max-content;height:max-content;transform-origin:0 0}
+.field-block-grid{align-items:stretch}
+.field-mainplot-wrap{display:grid;gap:4px}
+.field-mainplot{display:grid;gap:3px;padding:4px;border:1px solid #9fb0bc;border-radius:5px;background:#fafcfd}
+.field-mainplot-head{font-size:8.5px;font-weight:800;color:#536a7a}
+.field-mainplot .field-block-grid{--field-columns:inherit}
+.field-plot.is-filtered{opacity:.08;pointer-events:none}
+.field-plot.is-highlight-dim{opacity:.22}
+.field-plot.is-missing-value{background:repeating-linear-gradient(135deg,#fff,#fff 5px,#eef2f4 5px,#eef2f4 10px)}
+.field-factor-b{position:absolute;left:3px;bottom:3px;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 3px;border:1px dashed #7890a0;border-radius:2px;background:rgba(255,255,255,.92);font-size:6.8px!important;font-weight:800;color:#445b6b!important}
+.field-status-lodged{transform:skewX(-2deg)}
+.field-status-pest,.field-status-disease,.field-status-flooded{box-shadow:inset 0 0 0 1px rgba(115,83,34,.28)}
+.field-object{grid-column:1/-1;display:grid;place-items:center;min-height:23px;padding:2px 5px;border:1px dashed #b8c6cf;border-radius:4px;background:#f7f9fa;color:#6b7e8b;font-size:7.7px;font-weight:800;cursor:pointer}
+.field-object-linear{min-height:18px;border-radius:0;background:repeating-linear-gradient(135deg,#f5f7f9,#f5f7f9 7px,#edf1f4 7px,#edf1f4 14px)}
+.field-object-tree{width:28px;min-width:28px;min-height:28px;border-radius:50%;justify-self:center}
+.field-object-warehouse,.field-object-water{min-height:28px}
+.field-heat-legend{max-width:72%;flex-wrap:wrap}
+.field-legend-sep{font-weight:850}.field-legend-b{display:inline-flex;padding:1px 4px;border:1px dashed #8194a1;border-radius:2px;background:#fff;font-size:7.3px;font-weight:800}
+.field-mini-map{position:sticky;left:calc(100% - 104px);bottom:7px;z-index:18;width:96px;height:66px;margin-top:-72px;border:1px solid #aebdc7;border-radius:5px;background:linear-gradient(135deg,#f6f8f9,#e6ecef);opacity:.92;cursor:crosshair}
+.field-mini-map>div{position:absolute;min-width:12px;min-height:12px;border:1px solid #3d6075;background:rgba(255,255,255,.38)}
+.field-editor-nav{grid-template-columns:1fr 1.55fr 1fr}
+.field-editor-field.active input{min-height:44px;font-size:20px;font-variant-numeric:tabular-nums}
+.field-active-session{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 6px;border:1px solid #dce4e9;border-radius:5px;background:#f8fafb}
+.field-active-session b{font-size:10px}.field-active-session span{font-size:8px;color:#71838f}
+.field-score-buttons{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+.field-score-buttons button{min-height:36px;padding:0;font-size:15px;font-weight:850}
+.field-score-buttons button[aria-pressed="true"],.field-quick-conditions button[aria-pressed="true"]{outline:2px solid #4e6d80;outline-offset:-2px;background:#edf4f7}
+.field-quick-conditions{display:grid;gap:4px}.field-quick-conditions>b{font-size:9px}.field-quick-conditions>div{display:flex;flex-wrap:wrap;gap:3px}
+.field-quick-conditions button{min-height:28px;padding:2px 6px;font-size:8.5px}
+.field-meta-readout{display:flex;flex-wrap:wrap;gap:4px;font-size:7.8px;color:#71818d}
+.field-media-actions,.field-object-tools>div{display:flex;flex-wrap:wrap;gap:3px}
+.field-media-actions button,.field-object-tools button{min-height:28px;padding:2px 6px;font-size:8.5px}
+.field-object-tools{display:grid;gap:4px;padding-top:5px;border-top:1px solid #e1e7eb}.field-object-tools>b{font-size:9px}
+.field-samples,.field-harvest{display:grid;gap:4px;padding-top:5px;border-top:1px solid #e1e7eb}
+.field-samples summary,.field-harvest summary{cursor:pointer;font-size:9px;font-weight:800;color:#586d7c}
+.field-sample-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.field-sample-grid label{display:grid;grid-template-columns:18px 1fr;align-items:center;gap:3px;font-size:8px}
+.field-sample-grid input{width:100%;min-width:0;min-height:31px;padding:3px 5px;border:1px solid #d2dce4;border-radius:5px;font-size:10.5px}
+.field-samples small{font-size:7.7px;color:#748591}
+.field-harvest-list{display:grid;gap:3px}.field-harvest-list>div{display:grid;grid-template-columns:1fr auto 24px;align-items:center;gap:4px;padding:2px 4px;border:1px solid #e3e8eb;border-radius:4px;font-size:8px}
+.field-harvest-list button{min-height:22px;padding:0}.field-harvest>button{min-height:28px;font-size:8.5px}
+.field-photo-timeline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.field-photo-timeline figure{position:relative;margin:0;border:1px solid #e0e6ea;border-radius:4px;overflow:hidden;background:#f8fafb}
+.field-photo-timeline img{display:block;width:100%;height:62px;object-fit:cover}
+.field-photo-timeline figcaption{display:flex;align-items:center;justify-content:space-between;gap:2px;padding:2px 3px;font-size:7px;color:#667987}
+.field-photo-timeline figcaption button{min-width:20px;min-height:20px;padding:0}
+.field-editor-actions{grid-template-columns:1fr auto;align-items:center}.field-autosave-badge{padding:2px 6px;border:1px solid #d8e1e7;border-radius:999px;background:#fff;color:#5c7466;font-size:8px;white-space:nowrap}
+.field-batch-preview{min-height:31px;padding:6px;border:1px solid #dce4e9;border-radius:5px;background:#f8fafb;color:#435a6b;font-size:9px;font-weight:800}
+.field-layout-modal.field-mode{grid-template-rows:auto auto minmax(0,1fr);background:#fff}
+.field-layout-modal.field-mode .field-layout-controls,.field-layout-modal.field-mode .field-layout-stats{display:none}
+.field-layout-modal.field-mode .field-layout-head-actions>:not(#fieldModeToggle):not(#fieldUndo):not(#fieldRedo):not(#closeFieldLayout){display:none}
+.field-layout-modal.field-mode .field-layout-workspace{display:block}
+.field-layout-modal.field-mode .field-map-pane{display:none}
+.field-layout-modal.field-mode .field-plot-editor{position:static;height:100%;max-height:none;border:0;border-radius:0;box-shadow:none;overflow:auto}
+.field-layout-modal.field-mode .field-editor-head{min-height:62px;padding:7px 10px}
+.field-layout-modal.field-mode .field-editor-head strong{font-size:20px}
+.field-layout-modal.field-mode .field-editor-nav{position:sticky;top:62px;z-index:7;grid-template-columns:1fr 1.4fr 1fr;padding:6px 9px;border-bottom:1px solid #e0e6ea;background:#fff}
+.field-layout-modal.field-mode .field-editor-nav button{min-height:46px;font-size:12px}
+.field-layout-modal.field-mode .field-editor-fields{max-width:620px;margin:auto;padding:9px 10px 72px}
+.field-layout-modal.field-mode .field-editor-field{grid-template-columns:1fr}
+.field-layout-modal.field-mode .field-editor-field span{font-size:10px}
+.field-layout-modal.field-mode .field-editor-field input{min-height:56px;font-size:26px;text-align:center;font-weight:750}
+.field-layout-modal.field-mode .field-score-buttons button{min-height:54px;font-size:22px}
+.field-layout-modal.field-mode .field-quick-conditions button{min-height:42px;font-size:10px}
+.field-layout-modal.field-mode .field-editor-meta,.field-layout-modal.field-mode .field-editor-identity,.field-layout-modal.field-mode .field-samples,.field-layout-modal.field-mode .field-harvest,.field-layout-modal.field-mode .field-media-actions,.field-layout-modal.field-mode .field-photo-timeline,.field-layout-modal.field-mode .field-object-tools,.field-layout-modal.field-mode .field-editor-actions{display:none}
+.field-layout-modal.field-mode .field-editor-status{position:sticky;bottom:0;padding:5px 10px;background:#fff;text-align:center;font-size:10px}
+@media(max-width:820px){
+  .field-layout-head-actions button,.field-layout-more>summary{min-height:38px;min-width:38px}
+  .field-layout-controls select,.field-layout-controls input{min-height:38px;font-size:12px}
+  .field-zoom{min-height:38px;grid-template-columns:35px 42px 35px}.field-zoom button{height:37px}
+  .field-photo-timeline{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .field-sample-grid{grid-template-columns:repeat(2,1fr)}
+  .field-mini-map{width:92px;height:63px;left:calc(100% - 98px)}
+  .field-layout-more>div{position:fixed;right:6px;top:50px}
+}
+@media(max-width:430px){
+  .field-layout-modal.field-mode .field-layout-title{display:none}.field-layout-modal.field-mode .field-layout-head{justify-content:flex-end}
+  .field-layout-modal.field-mode .field-editor-field input{font-size:28px}
+}
+@media print{.field-session-strip,.field-mini-map{display:none!important}.field-map-zoom{zoom:1!important}}

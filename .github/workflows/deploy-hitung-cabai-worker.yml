@@ -23,10 +23,21 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Scan repository secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate Worker syntax
         run: node --check cloudflare/hitung-cabai-worker/src/index.js
+
+      - name: Validate security contract
+        run: node scripts/check-security-contract.mjs
+
+      - name: Validate Cloudflare hardening contract
+        run: node scripts/check-cloudflare-hardening.mjs
 
       - name: Resolve D1 database id
         id: d1
@@ -49,10 +60,61 @@ jobs:
           fi
           echo "database_id=$DB_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve optional R2 buckets
+        id: r2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_BUCKET_SECRET: ${{ secrets.CLOUDFLARE_BACKUP_BUCKET }}
+          IMAGE_BUCKET_SECRET: ${{ secrets.CLOUDFLARE_IMAGE_BUCKET }}
+        shell: bash
+        run: |
+          set -u
+          ensure_bucket() {
+            local desired="$1"
+            if npx --yes wrangler@4 r2 bucket info "$desired" --json >/dev/null 2>&1; then
+              printf '%s' "$desired"
+              return 0
+            fi
+            if npx --yes wrangler@4 r2 bucket create "$desired" >/tmp/r2-create.log 2>&1; then
+              printf '%s' "$desired"
+              return 0
+            fi
+            echo "::warning::R2 bucket '$desired' tidak dapat ditemukan/dibuat; Worker akan memakai fallback yang aman." >&2
+            cat /tmp/r2-create.log >&2 || true
+            printf ''
+          }
+          IMAGE_DESIRED="${IMAGE_BUCKET_SECRET:-irvan-contribution-images}"
+          BACKUP_DESIRED="${BACKUP_BUCKET_SECRET:-irvan-backups}"
+          IMAGE_BUCKET="$(ensure_bucket "$IMAGE_DESIRED")"
+          BACKUP_BUCKET="$(ensure_bucket "$BACKUP_DESIRED")"
+          echo "image_bucket=$IMAGE_BUCKET" >> "$GITHUB_OUTPUT"
+          echo "backup_bucket=$BACKUP_BUCKET" >> "$GITHUB_OUTPUT"
+
+      - name: Configure optional R2 lifecycle
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BACKUP_BUCKET: ${{ steps.r2.outputs.backup_bucket }}
+          IMAGE_BUCKET: ${{ steps.r2.outputs.image_bucket }}
+        shell: bash
+        run: |
+          set +e
+          add_rule() {
+            local bucket="$1" id="$2" prefix="$3" extra="$4"
+            [ -z "$bucket" ] && return 0
+            if npx --yes wrangler@4 r2 bucket lifecycle list "$bucket" 2>/dev/null | grep -q "$id"; then return 0; fi
+            npx --yes wrangler@4 r2 bucket lifecycle add "$bucket" "$id" "$prefix" $extra --force || true
+          }
+          add_rule "$BACKUP_BUCKET" "agrotik-daily-30d" "d1-logical/" "--expire-days 30"
+          add_rule "$BACKUP_BUCKET" "agrotik-monthly-365d" "d1-monthly/" "--expire-days 365"
+          add_rule "$IMAGE_BUCKET" "agrotik-images-multipart" "" "--abort-multipart-days 1"
+
       - name: Generate production Wrangler config
         env:
           D1_DATABASE_ID: ${{ steps.d1.outputs.database_id }}
-          BACKUP_BUCKET: ${{ secrets.CLOUDFLARE_BACKUP_BUCKET }}
+          BACKUP_BUCKET: ${{ steps.r2.outputs.backup_bucket }}
+          IMAGE_BUCKET: ${{ steps.r2.outputs.image_bucket }}
         shell: bash
         run: |
           set -euo pipefail
@@ -64,42 +126,45 @@ jobs:
             compatibility_date:'2026-09-25',
             workers_dev:true,
             keep_vars:true,
-            vars:{MIDTRANS_ENV:'sandbox'},
+            vars:{
+              MIDTRANS_ENV:'sandbox',
+              ALLOWED_ORIGINS:'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev',
+              IDEMPOTENCY_RETENTION_DAYS:'14',
+              AUDIT_RETENTION_DAYS:'90',
+              DELETED_DATASET_RETENTION_DAYS:'30',
+              CLOUD_RETRY_SECONDS:'300',
+              D1_STORAGE_SOFT_LIMIT_BYTES:'367001600'
+            },
             d1_databases:[{
               binding:'DB',
               database_name:'hitung-cabai',
               database_id:process.env.D1_DATABASE_ID
             }],
+            ratelimits:[
+              {name:'CONTRIBUTION_RATE_LIMITER',namespace_id:'91609001',simple:{limit:30,period:60}},
+              {name:'DATASET_RATE_LIMITER',namespace_id:'91609002',simple:{limit:180,period:60}}
+            ],
             triggers:{crons:['0 18 * * *']}
           };
           const backup=(process.env.BACKUP_BUCKET||'').trim();
-          if(backup)config.r2_buckets=[{binding:'BACKUPS',bucket_name:backup}];
+          const images=(process.env.IMAGE_BUCKET||'').trim();
+          const r2=[];
+          if(images)r2.push({binding:'IMAGES',bucket_name:images});
+          if(backup)r2.push({binding:'BACKUPS',bucket_name:backup});
+          if(r2.length)config.r2_buckets=r2;
           fs.writeFileSync('hitung-cabai-wrangler.json',JSON.stringify(config,null,2));
           NODE
 
-      - name: Prepare optional Worker secrets file
-        id: worker-secrets
-        env:
-          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -n "${MIDTRANS_SERVER_KEY:-}" ]; then
-            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
-            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
-          else
-            echo "MIDTRANS_SERVER_KEY GitHub tidak ada; mempertahankan secret yang sudah tersimpan di Cloudflare."
-            echo "args=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Validate Midtrans credential when managed by GitHub
+      - name: Validate optional Midtrans credential
+        id: midtrans-check
         env:
           MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "${MIDTRANS_SERVER_KEY:-}" ]; then
-            echo "Validasi Midtrans GitHub dilewati; secret dikelola langsung di Cloudflare."
+            echo "MIDTRANS_SERVER_KEY GitHub tidak ada; secret Cloudflare yang sudah ada akan dipertahankan."
+            echo "use_secret=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           KEY="$(printf '%s' "$MIDTRANS_SERVER_KEY" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -108,27 +173,49 @@ jobs:
             \'*\') KEY="${KEY#\'}"; KEY="${KEY%\'}" ;;
           esac
           BASE="https://api.sandbox.midtrans.com"
-          STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -u "$KEY:" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
+          AUTH="$(printf '%s:' "$KEY" | base64 | tr -d '\\n')"
+          STATUS="$(curl -sS -o /tmp/midtrans-auth.json -w '%{http_code}' -H "Authorization: Basic $AUTH" "$BASE/v2/agrotik-ci-credential-check-does-not-exist/status")"
           if [ "$STATUS" = "401" ]; then
-            echo "::error::MIDTRANS_SERVER_KEY ditolak Midtrans. Copy ulang Server Key yang benar dari environment merchant yang sesuai."
-            exit 1
+            echo "::warning::MIDTRANS_SERVER_KEY GitHub ditolak Midtrans dan tidak akan disinkronkan. Secret Cloudflare yang sudah ada dipertahankan."
+            echo "use_secret=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "Midtrans credential accepted (probe HTTP $STATUS)."
+          echo "use_secret=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare optional Worker secrets file
+        id: worker-secrets
+        env:
+          MIDTRANS_SERVER_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+          USE_MIDTRANS_SECRET: ${{ steps.midtrans-check.outputs.use_secret }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${USE_MIDTRANS_SECRET:-false}" = "true" ]; then
+            node -e "require('fs').writeFileSync('/tmp/worker-secrets.json', JSON.stringify({MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY}))"
+            echo "args= --secrets-file /tmp/worker-secrets.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "Secret Midtrans dari GitHub tidak digunakan pada deploy ini."
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
           command: deploy --config ./hitung-cabai-wrangler.json${{ steps.worker-secrets.outputs.args }}
 
       - name: Verify production health
         shell: bash
         run: |
           set -euo pipefail
+          EXPECTED_API_VERSION="$(grep -o "apiVersion:'[^']*'" cloudflare/hitung-cabai-worker/src/index.js | head -n1 | cut -d"'" -f2)"
+          test -n "$EXPECTED_API_VERSION"
           for i in {1..12}; do
-            BODY="$(curl -fsS --max-time 15 https://hitung-cabai-api.andyirvan1609.workers.dev/v1/health || true)"
-            if printf '%s' "$BODY" | jq -e '.ok == true and .service == "hitung-cabai-api"' >/dev/null 2>&1; then
+            BODY="$(curl -fsS -H 'Cache-Control: no-cache' --max-time 15 https://hitung-cabai-api.andyirvan1609.workers.dev/v1/health || true)"
+            if printf '%s' "$BODY" | jq -e --arg expected "$EXPECTED_API_VERSION" '.ok == true and .service == "hitung-cabai-api" and .cloudMode == "local-first" and .quotaGuard == true and .idempotentSync == true and .apiVersion == $expected' >/dev/null 2>&1; then
               echo "$BODY" | jq .
               exit 0
             fi

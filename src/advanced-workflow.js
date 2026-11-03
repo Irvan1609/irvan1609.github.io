@@ -3,7 +3,6 @@ import {parseNumber,formatNumber as fmt} from './number-format.js';
 import {descriptiveStatistics,polynomialRegression,pca,combinedAnova,geneticParameters} from './advanced-engine.js';
 import {esc} from './scientific-report.js';
 import {resultActions} from './result-export.js';
-import {backupRawDataset} from './drive-backup.js';
 const $=s=>document.querySelector(s);
 const sig=t=>t.f===null?'':t.f>t.f01?'**':t.f>t.f05?'*':'tn';
 const cell=v=>typeof v==='number'&&Number.isFinite(v)?`<td data-number="${v}">${fmt(v,5)}</td>`:`<td>${v===null||v===undefined?'—':v}</td>`;
@@ -53,7 +52,7 @@ export function openAdvanced(kind){
   if(kind==='pca'){title='PCA';form=`<p>Pilih minimal dua variabel numerik. Kolom numerik dicentang otomatis; identitas perlakuan/ulangan tidak dipilih.</p><fieldset><legend>Variabel PCA</legend>${checks}</fieldset>`;}
   if(kind==='combined'){title='ANOVA Gabungan';form=`<p>Format saat ini: RAK seimbang di ≥2 lokasi dengan kelompok yang sama pada setiap lokasi.</p><div class="form-grid"><label>Lokasi<select id="advLocation"><option value="">Pilih lokasi</option>${opts}</select></label><label>Perlakuan / Genotipe<select id="advTreatment"><option value="">Pilih perlakuan</option>${opts}</select></label><label>Kelompok<select id="advBlock"><option value="">Pilih kelompok</option>${opts}</select></label><label>Parameter Y<select id="advY"><option value="">Pilih Y</option>${opts}</select></label></div>`;}
   if(kind==='genetic'){title='Parameter Genetik';form=`<p>Estimasi ragam genotipe, lingkungan, fenotipe, H², KKG, KKP, dan kemajuan genetik dari RAK seimbang.</p><div class="form-grid"><label>Genotipe<select id="advTreatment"><option value="">Pilih genotipe</option>${opts}</select></label><label>Kelompok / Ulangan<select id="advBlock"><option value="">Pilih kelompok</option>${opts}</select></label><label>Parameter Y<select id="advY"><option value="">Pilih Y</option>${opts}</select></label></div>`;}
-  openTool(title,`${form}<button id="runAdvanced" class="primary">Jalankan analisis</button><p id="advancedError" role="alert"></p><div id="advancedResult"></div>`);
+  openTool(title,`${form}<button id="runAdvanced" class="primary">Jalankan analisis</button><p id="advancedError" role="alert"></p><div id="advancedResult"></div>`,'parallel-analysis');
   if(['descriptive','pca'].includes(kind))document.querySelectorAll('[data-advanced-col]').forEach(input=>{const i=Number(input.value);input.checked=numeric(data,i)&&!/^(ulangan|kelompok|blok|block|rep|id|kode|perlakuan|treatment|genotip|genotype)$/i.test(data.headers[i]);});
   if(kind==='regression'){
     const y=autoNumeric(data,[/produksi/i,/produktivitas/i,/hasil/i,/yield/i]);if(y>=0)$('#advY').value=String(y);const x=autoNumeric(data,[/dosis/i,/dose/i,/nitrogen/i,/^n$/i],[y]);if(x>=0)$('#advX').value=String(x);
@@ -71,6 +70,6 @@ export function openAdvanced(kind){
     if(kind==='regression'){const x=Number($('#advX').value),y=Number($('#advY').value);if(!Number.isInteger(x)||!Number.isInteger(y)||x===y)throw Error('Pilih X dan Y yang berbeda.');html=renderRegression(polynomialRegression(numericRows(data,[x,y]),Number($('#advDegree').value)),data.headers[x],data.headers[y]);}
     if(kind==='combined'){const l=Number($('#advLocation').value),t=Number($('#advTreatment').value),b=Number($('#advBlock').value),y=Number($('#advY').value);if(new Set([l,t,b,y]).size!==4||[l,t,b,y].some(i=>!Number.isInteger(i)))throw Error('Pilih empat kolom yang berbeda.');const rows=data.rows.filter(r=>!r.every(v=>String(v??'').trim()==='')).map((r,i)=>{const value=parseNumber(r[y]);if(!Number.isFinite(value))throw Error(`Baris ${i+1}: parameter Y harus angka.`);return [String(r[l]).trim(),String(r[t]).trim(),String(r[b]).trim(),value];});html=renderCombined(combinedAnova(rows),data.headers[y]);}
     if(kind==='genetic'){const t=Number($('#advTreatment').value),b=Number($('#advBlock').value),y=Number($('#advY').value);if(new Set([t,b,y]).size!==3||[t,b,y].some(i=>!Number.isInteger(i)))throw Error('Pilih Genotipe, Kelompok, dan Y yang berbeda.');const rows=data.rows.filter(r=>!r.every(v=>String(v??'').trim()==='')).map((r,i)=>{const value=parseNumber(r[y]);if(!Number.isFinite(value))throw Error(`Baris ${i+1}: parameter Y harus angka.`);return [String(r[t]).trim(),String(r[b]).trim(),value];});html=renderGenetic(geneticParameters(rows),data.headers[y]);}
-    $('#advancedResult').innerHTML=html;$('#advancedError').textContent='';void backupRawDataset(data);
+    $('#advancedResult').innerHTML=html;$('#advancedError').textContent='';
   }catch(e){$('#advancedResult').innerHTML='';$('#advancedError').textContent=e.message;}};
 }

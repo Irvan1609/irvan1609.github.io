@@ -1,6 +1,10 @@
+import './resilience.js';
 import {ACCOUNT_CONFIG} from './account-config.js';
 
-const TOKEN_KEY='irvan_account_session_v1';
+const TOKEN_KEY='irvan_account_session_v1'; // legacy localStorage key; migrated on load
+const SESSION_FALLBACK_KEY='irvan_account_session_fallback_v2';
+const CSRF_KEY='irvan_account_csrf_v2';
+const FALLBACK_EXPIRES_KEY='irvan_account_fallback_expires_v2';
 const USER_KEY='irvan_account_user_v1';
 const LOGIN_STATE_KEY='irvan_account_login_state_v1';
 const AUTH_READY_CACHE_KEY='irvan_account_auth_ready_v1';
@@ -9,20 +13,44 @@ const AUTH_READY_CACHE_MS=15*60*1000;
 const endpoint=String(ACCOUNT_CONFIG.endpoint||'').replace(/\/$/,'');
 let currentUser=null;
 let token='';
+let csrfToken='';
 let mount=null;
 let menu=null;
 let authReady=false;
 let authChecked=false;
+let readyPromise=Promise.resolve();
+let cloudState={worker:false,effectiveMode:'unknown',features:{},storage:{},updatedAt:null};
+let cloudCheckedAt=0;
+const CLOUD_STATUS_CACHE_MS=15*60*1000;
 
 function safeJson(value,fallback=null){try{return JSON.parse(value);}catch{return fallback;}}
 function loadStored(){
-  token=localStorage.getItem(TOKEN_KEY)||'';
+  const legacy=localStorage.getItem(TOKEN_KEY)||'';
+  token=sessionStorage.getItem(SESSION_FALLBACK_KEY)||legacy;
+  csrfToken=sessionStorage.getItem(CSRF_KEY)||'';
+  const fallbackExpires=Date.parse(sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'');
+  if(token&&Number.isFinite(fallbackExpires)&&fallbackExpires<=Date.now()){
+    token='';csrfToken='';
+    sessionStorage.removeItem(SESSION_FALLBACK_KEY);
+    sessionStorage.removeItem(CSRF_KEY);
+    sessionStorage.removeItem(FALLBACK_EXPIRES_KEY);
+  }
   currentUser=safeJson(localStorage.getItem(USER_KEY),null);
+  if(legacy){
+    try{sessionStorage.setItem(SESSION_FALLBACK_KEY,legacy);}catch{}
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
-function saveSession(nextToken,user){
+function saveSession(nextToken,user,nextCsrf='',fallbackExpiresAt=''){
   token=nextToken||'';
+  csrfToken=nextCsrf||'';
   currentUser=user||null;
-  if(token)localStorage.setItem(TOKEN_KEY,token);else localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  try{
+    if(token)sessionStorage.setItem(SESSION_FALLBACK_KEY,token);else sessionStorage.removeItem(SESSION_FALLBACK_KEY);
+    if(csrfToken)sessionStorage.setItem(CSRF_KEY,csrfToken);else sessionStorage.removeItem(CSRF_KEY);
+    if(token&&fallbackExpiresAt)sessionStorage.setItem(FALLBACK_EXPIRES_KEY,fallbackExpiresAt);else sessionStorage.removeItem(FALLBACK_EXPIRES_KEY);
+  }catch{}
   if(currentUser)localStorage.setItem(USER_KEY,JSON.stringify(currentUser));else localStorage.removeItem(USER_KEY);
 }
 function randomState(){
@@ -45,9 +73,11 @@ function returnUrl(){
 }
 function authFetch(path,options={}){
   const headers=new Headers(options.headers||{});
+  const method=String(options.method||'GET').toUpperCase();
   if(token)headers.set('Authorization',`Bearer ${token}`);
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  return fetch(endpoint+path,{...options,headers});
+  if(!['GET','HEAD','OPTIONS'].includes(method)&&csrfToken)headers.set('X-Agrotik-CSRF',csrfToken);
+  if(options.body&&!headers.has('Content-Type')&&!(options.body instanceof FormData))headers.set('Content-Type','application/json');
+  return fetch(endpoint+path,{...options,headers,credentials:'include'});
 }
 function status(message,type='info'){
   let box=document.querySelector('.account-status');
@@ -86,13 +116,56 @@ function accessClass(user){
 function dispatch(){
   window.IrvanAccount={
     get user(){return currentUser;},
-    get authenticated(){return Boolean(token&&currentUser);},
+    get authenticated(){return Boolean(currentUser);},
     getToken:()=>token,
+    getCsrfToken:()=>csrfToken,
+    request:authFetch,
     refresh:refreshSession,
+    ready:()=>readyPromise,
     login:startLogin,
     logout
   };
-  document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(token&&currentUser),user:currentUser}}));
+  document.dispatchEvent(new CustomEvent('accountchange',{detail:{authenticated:Boolean(currentUser),user:currentUser}}));
+}
+function lastDatasetSync(){
+  try{
+    let latest='';
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i)||'';
+      if(!key.startsWith('statistical_web_cloud_sync_v1:'))continue;
+      const value=safeJson(localStorage.getItem(key),null),at=value?.lastSyncAt||'';
+      if(at&&(!latest||at>latest))latest=at;
+    }
+    return latest;
+  }catch{return '';}
+}
+function cloudIndicator(){
+  const wrap=document.createElement('div');wrap.className='account-cloud';
+  const button=document.createElement('button');button.type='button';button.className='account-cloud-button';button.textContent='☁';button.setAttribute('aria-label','Status cloud');
+  const panel=document.createElement('div');panel.className='account-cloud-panel';panel.hidden=true;
+  const refresh=()=>{
+    const sync=lastDatasetSync(),features=cloudState.features||{},storage=cloudState.storage||{};
+    panel.innerHTML='<b>Status Cloud</b><span>Lokal ✓</span><span>Worker '+(cloudState.worker?'✓':'—')+'</span><span>Mode '+escapeHtml(cloudState.effectiveMode||'—')+'</span><span>D1 '+(features.datasetSync?'✓':'jeda')+'</span><span>R2 '+(storage.imagesR2?'✓':'—')+'</span><span>Sync '+(sync?new Date(sync).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}):'—')+'</span><button type="button" class="account-cloud-command">Cari alat / perintah</button>';
+    button.dataset.state=!cloudState.worker?'offline':cloudState.effectiveMode==='emergency'?'emergency':cloudState.effectiveMode==='economy'?'economy':'online';
+    button.title=!cloudState.worker?'Cloud tidak tersedia':('Cloud '+cloudState.effectiveMode);
+    panel.querySelector('.account-cloud-command')?.addEventListener('click',()=>{panel.hidden=true;window.AgrotikResilience?.openPalette?.();});
+  };
+  refresh();
+  button.onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden&&Date.now()-cloudCheckedAt>CLOUD_STATUS_CACHE_MS)void refreshCloudStatus();};
+  wrap.append(button,panel);return wrap;
+}
+function updateCloudIndicator(){
+  const current=mount?.querySelector('.account-cloud');if(!current)return;
+  const fresh=cloudIndicator();current.replaceWith(fresh);
+}
+async function refreshCloudStatus({force=false}={}){
+  if(!endpoint||(!force&&Date.now()-cloudCheckedAt<CLOUD_STATUS_CACHE_MS))return cloudState;
+  try{
+    const response=await fetch(endpoint+'/v1/cloud/status',{headers:{Accept:'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    cloudState={worker:response.ok,effectiveMode:data.effectiveMode||'unknown',features:data.features||{},storage:data.storage||{},updatedAt:data.updatedAt||null};
+  }catch{cloudState={worker:false,effectiveMode:'offline',features:{},storage:{},updatedAt:null};}
+  cloudCheckedAt=Date.now();updateCloudIndicator();return cloudState;
 }
 function closeMenu(){
   if(menu)menu.hidden=true;
@@ -101,14 +174,14 @@ function closeMenu(){
 function render(){
   if(!mount)return;
   mount.replaceChildren();
-  if(!token||!currentUser){
+  if(!currentUser){
     const button=document.createElement('button');
     button.type='button';button.className='account-login';
     button.innerHTML='<span class="account-google-mark" aria-hidden="true">G</span><span>Masuk dengan Google</span>';
     button.disabled=!authReady;
     button.title=authChecked&&!authReady?'Login Google belum diaktifkan di server.':'';
     button.onclick=startLogin;
-    mount.append(button);
+    mount.append(cloudIndicator(),button);
     closeMenu();dispatch();return;
   }
 
@@ -125,11 +198,11 @@ function render(){
   trigger.onclick=()=>{
     const opening=menu.hidden;menu.hidden=!opening;trigger.setAttribute('aria-expanded',String(opening));
   };
-  menu.querySelector('[data-account-profile]').onclick=()=>{location.assign('/account/');};
+  menu.querySelector('[data-account-profile]')?.addEventListener('click',()=>{location.assign('/account/');});
   menu.querySelector('[data-account-membership]')?.addEventListener('click',()=>{location.assign('/membership/');});
   menu.querySelector('[data-account-develop]')?.addEventListener('click',()=>{location.assign('/develop/');});
-  menu.querySelector('[data-account-logout]').onclick=logout;
-  mount.append(trigger,menu);
+  menu.querySelector('[data-account-logout]')?.addEventListener('click',logout);
+  mount.append(cloudIndicator(),trigger,menu);
   dispatch();
 }
 function ensureMount(){
@@ -193,11 +266,24 @@ async function exchangeCallback(){
     const response=await fetch(endpoint+'/v1/auth/exchange',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code,state:returnedState})
+      body:JSON.stringify({code,state:returnedState}),
+      credentials:'include'
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok||!data.token||!data.user)throw Error(data.error||'Login tidak dapat diselesaikan.');
-    saveSession(data.token,data.user);
+
+    let cookieSession=null;
+    try{
+      const probe=await fetch(endpoint+'/v1/auth/session',{headers:{Accept:'application/json'},credentials:'include',cache:'no-store'});
+      if(probe.ok)cookieSession=await probe.json();
+    }catch{}
+    if(cookieSession?.authenticated&&cookieSession.user){
+      saveSession('',cookieSession.user,cookieSession.csrfToken||data.csrfToken||'');
+    }else{
+      // Compatibility fallback for browsers that block cross-site cookies.
+      // Token is scoped to this tab/session and is never persisted in localStorage.
+      saveSession(data.token,data.user,data.csrfToken||'',data.fallbackExpiresAt||'');
+    }
     sessionStorage.removeItem(LOGIN_STATE_KEY);
     render();
     status(`Berhasil masuk sebagai ${data.user.name||data.user.email}.`,'success');
@@ -208,27 +294,25 @@ async function exchangeCallback(){
   return true;
 }
 async function refreshSession(){
-  if(!token){render();return null;}
   try{
-    const response=await authFetch('/v1/auth/session');
+    const response=await authFetch('/v1/auth/session',{cache:'no-store'});
     if(!response.ok)throw Error('Sesi berakhir');
     const data=await response.json();
     if(!data.authenticated||!data.user)throw Error('Sesi berakhir');
-    currentUser=data.user;
-    localStorage.setItem(USER_KEY,JSON.stringify(currentUser));
+    const cookieActive=data.authSource==='cookie';
+    const nextToken=cookieActive?'':(data.token||token);
+    const fallbackExpiresAt=cookieActive?'':(data.fallbackExpiresAt||sessionStorage.getItem(FALLBACK_EXPIRES_KEY)||'');
+    saveSession(nextToken,data.user,data.csrfToken||csrfToken,fallbackExpiresAt);
     render();
     return currentUser;
   }catch{
-    saveSession('',null);render();return null;
+    saveSession('',null,'');render();return null;
   }
 }
 async function logout(){
   closeMenu();
-  const oldToken=token;
-  saveSession('',null);render();
-  try{
-    if(oldToken)await fetch(endpoint+'/v1/auth/logout',{method:'POST',headers:{Authorization:`Bearer ${oldToken}`}});
-  }catch{}
+  try{await authFetch('/v1/auth/logout',{method:'POST',body:'{}'});}catch{}
+  saveSession('',null,'');render();
   status('Anda sudah keluar.','success');
 }
 async function checkAuthReady(){
@@ -250,14 +334,17 @@ async function init(){
   if(!ACCOUNT_CONFIG.enabled||!endpoint)return;
   ensureMount();loadStored();render();
   const handled=await exchangeCallback();
-  if(token){
+  if(!handled)await refreshSession();
+  if(currentUser){
     authReady=true;authChecked=true;
-    if(!handled)await refreshSession();
   }else{
     await checkAuthReady();
   }
+  void refreshCloudStatus({force:true});
+  window.addEventListener('online',()=>void refreshCloudStatus({force:true}));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshCloudStatus();});
   document.addEventListener('click',event=>{if(!event.target.closest('.account-widget'))closeMenu();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }
 
-init();
+readyPromise=init();

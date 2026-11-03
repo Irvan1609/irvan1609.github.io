@@ -1,22 +1,39 @@
 const MAX_IMAGE_BYTES=850000;
+const MAX_CONTRIBUTION_REQUEST_BYTES=1_500_000;
 const MAX_BOXES=1500;
 const MAX_DATASET_BYTES=2_000_000;
+const MAX_DATASET_REQUEST_BYTES=4_500_000;
 const MAX_DATASETS_PER_USER=120;
+const MAX_GAME_SAVE_BYTES=180_000;
+const MAX_GAME_SAVE_REQUEST_BYTES=220_000;
 const SESSION_DAYS=30;
+const SESSION_ROTATE_HOURS=24;
+const BEARER_FALLBACK_HOURS=8;
+const SESSION_COOKIE='__Host-agrotik_session';
+const CSRF_HEADER='X-Agrotik-CSRF';
 const STATE_MINUTES=10;
 const EXCHANGE_MINUTES=5;
 const SESSION_TOUCH_MINUTES=15;
 const CLEANUP_INTERVAL_MS=6*60*60*1000;
+const DEFAULT_IDEMPOTENCY_RETENTION_DAYS=14;
+const DEFAULT_AUDIT_RETENTION_DAYS=90;
+const DEFAULT_DELETED_DATASET_RETENTION_DAYS=30;
+const DEFAULT_CLOUD_RETRY_SECONDS=300;
 const ADMIN_EMAIL_DEFAULT='andyirvan1609@gmail.com';
 let AUTH_SCHEMA_READY=false;
 let DATASET_SCHEMA_READY=false;
 let MEMBERSHIP_SCHEMA_READY=false;
 let OPERATIONS_SCHEMA_READY=false;
 let CONTRIBUTION_SCHEMA_READY=false;
+let GAME_SCHEMA_READY=false;
 let LAST_CLEANUP_AT=0;
+let CLOUD_CONTROL_CACHE=null;
+let CLOUD_CONTROL_CACHE_AT=0;
+const CLOUD_CONTROL_CACHE_MS=60_000;
+const CLOUD_DEFAULT_FEATURES=Object.freeze({datasetSync:true,aiUpload:true,gameCloud:true,payments:true});
 
 function allowedOrigins(env){
-  return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io').split(',').map(v=>v.trim()).filter(Boolean));
+  return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev').split(',').map(v=>v.trim()).filter(Boolean));
 }
 function corsHeaders(request,env){
   const origin=request.headers.get('Origin')||'';
@@ -24,7 +41,8 @@ function corsHeaders(request,env){
   return {
     'Access-Control-Allow-Origin':allowed.has(origin)?origin:[...allowed][0]||'https://irvan1609.github.io',
     'Access-Control-Allow-Methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit',
+    'Access-Control-Allow-Headers':'Content-Type,Authorization,CF-Turnstile-Token,X-Contribution-Edit,X-Agrotik-CSRF',
+    'Access-Control-Allow-Credentials':'true',
     'Access-Control-Max-Age':'86400',
     'Vary':'Origin'
   };
@@ -34,6 +52,35 @@ function json(request,env,payload,status=200,extraHeaders={}){
 }
 function redirect(location,status=302){
   return new Response(null,{status,headers:{Location:location,'Cache-Control':'no-store'}});
+}
+function requestTooLarge(request,maxBytes){
+  const raw=request.headers.get('Content-Length');
+  if(!raw)return false;
+  const bytes=Number(raw);
+  return Number.isFinite(bytes)&&bytes>maxBytes;
+}
+async function rateLimitAllowed(env,binding,key){
+  const limiter=env?.[binding];
+  if(!limiter?.limit)return true;
+  try{
+    const result=await limiter.limit({key:String(key||'anonymous').slice(0,192)});
+    return result?.success!==false;
+  }catch(error){
+    console.warn('Rate limiter unavailable:',binding,error?.message||error);
+    return true;
+  }
+}
+function anonymousRateKey(request){
+  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
+  const ua=(request.headers.get('User-Agent')||'').slice(0,96);
+  return ip+'|'+ua;
+}
+async function datasetMutationGuard(request,env,user){
+  if(requestTooLarge(request,MAX_DATASET_REQUEST_BYTES))return json(request,env,{error:'Permintaan dataset terlalu besar.'},413);
+  if(!(await rateLimitAllowed(env,'DATASET_RATE_LIMITER','dataset:'+user.id))){
+    return json(request,env,{error:'Terlalu banyak perubahan dataset. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
+  return null;
 }
 function validBoxes(value){
   if(!Array.isArray(value)||value.length>MAX_BOXES)return false;
@@ -79,10 +126,71 @@ async function sha256(value){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(value)));
   return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
+async function sha256Bytes(value){
+  const buffer=value instanceof ArrayBuffer?value:value?.buffer;
+  const digest=await crypto.subtle.digest('SHA-256',buffer);
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 function bearerToken(request){
   const header=request.headers.get('Authorization')||'';
   const match=header.match(/^Bearer\s+(.+)$/i);
   return match?match[1].trim():'';
+}
+function cookieValue(request,name){
+  const cookie=request.headers.get('Cookie')||'';
+  for(const part of cookie.split(';')){
+    const i=part.indexOf('=');
+    if(i<0)continue;
+    if(part.slice(0,i).trim()===name)return decodeURIComponent(part.slice(i+1).trim());
+  }
+  return '';
+}
+function sessionCredential(request){
+  const cookie=cookieValue(request,SESSION_COOKIE);
+  if(cookie)return {token:cookie,source:'cookie'};
+  const bearer=bearerToken(request);
+  return bearer?{token:bearer,source:'bearer'}:{token:'',source:'none'};
+}
+function sessionToken(request){return sessionCredential(request).token;}
+function sessionCookie(token,maxAge=SESSION_DAYS*86400){
+  const value=encodeURIComponent(String(token||''));
+  return `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${Math.max(0,Math.floor(maxAge))}; HttpOnly; Secure; SameSite=None; Partitioned`;
+}
+function clearSessionCookie(){return sessionCookie('',0);}
+async function csrfTokenFor(token){return sha256('agrotik-csrf:'+String(token||''));}
+function constantTimeEqual(a,b){
+  const x=String(a||''),y=String(b||'');
+  if(x.length!==y.length)return false;
+  let diff=0;for(let i=0;i<x.length;i++)diff|=x.charCodeAt(i)^y.charCodeAt(i);
+  return diff===0;
+}
+function csrfProtectedPath(pathname){
+  if(pathname==='/v1/membership/webhook'||pathname==='/v1/auth/exchange')return false;
+  return pathname==='/v1/auth/logout'||pathname.startsWith('/v1/account/')||pathname.startsWith('/v1/datasets')||
+    pathname.startsWith('/v1/membership/')||pathname.startsWith('/v1/develop/')||pathname.startsWith('/v1/game/');
+}
+async function csrfGuard(request,env,url){
+  if(['GET','HEAD','OPTIONS'].includes(request.method)||!csrfProtectedPath(url.pathname))return null;
+  const credential=sessionCredential(request);
+  if(credential.source!=='cookie')return null;
+  const origin=request.headers.get('Origin')||'';
+  if(!origin||!allowedOrigins(env).has(origin))return json(request,env,{error:'csrf_origin',message:'Origin permintaan tidak diizinkan.'},403);
+  const supplied=request.headers.get(CSRF_HEADER)||'';
+  const expected=await csrfTokenFor(credential.token);
+  if(!constantTimeEqual(supplied,expected))return json(request,env,{error:'csrf_invalid',message:'Verifikasi keamanan sesi gagal.'},403);
+  return null;
+}
+function sessionDeviceLabel(userAgent){
+  const ua=String(userAgent||'');
+  const browser=/Edg\//.test(ua)?'Edge':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'Browser';
+  const os=/Android/i.test(ua)?'Android':/iPhone|iPad/i.test(ua)?'iOS/iPadOS':/Windows/i.test(ua)?'Windows':/Mac OS X/i.test(ua)?'macOS':/Linux/i.test(ua)?'Linux':'Perangkat';
+  return browser+' · '+os;
+}
+async function sessionClientMeta(request){
+  const userAgent=(request.headers.get('User-Agent')||'').slice(0,300);
+  const ip=request.headers.get('CF-Connecting-IP')||'';
+  const ipHash=ip?await sha256('agrotik-ip:'+ip):'';
+  return {userAgent,ipHash};
 }
 function safeReturnTo(value,env){
   const fallback=[...allowedOrigins(env)][0]||'https://irvan1609.github.io';
@@ -115,6 +223,31 @@ async function cleanupAuth(env,{force=false}={}){
     env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(now),
     env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(now)
   ]).catch(()=>{});
+}
+function positiveInt(value,fallback,min=1,max=3650){
+  const parsed=Math.floor(Number(value));
+  return Number.isFinite(parsed)&&parsed>=min&&parsed<=max?parsed:fallback;
+}
+function retentionPolicy(env){
+  return {
+    idempotencyDays:positiveInt(env.IDEMPOTENCY_RETENTION_DAYS,DEFAULT_IDEMPOTENCY_RETENTION_DAYS),
+    auditDays:positiveInt(env.AUDIT_RETENTION_DAYS,DEFAULT_AUDIT_RETENTION_DAYS),
+    deletedDatasetDays:positiveInt(env.DELETED_DATASET_RETENTION_DAYS,DEFAULT_DELETED_DATASET_RETENTION_DAYS),
+    retrySeconds:positiveInt(env.CLOUD_RETRY_SECONDS,DEFAULT_CLOUD_RETRY_SECONDS,30,3600)
+  };
+}
+async function cleanupCloudData(env){
+  await ensureAuthSchema(env);await ensureDatasetSchema(env);await ensureOperationsSchema(env);
+  const policy=retentionPolicy(env),now=Date.now();
+  const isoDaysAgo=days=>new Date(now-days*86400000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM idempotent_operations WHERE created_at < ?').bind(isoDaysAgo(policy.idempotencyDays)),
+    env.DB.prepare('DELETE FROM audit_logs WHERE created_at < ?').bind(isoDaysAgo(policy.auditDays)),
+    env.DB.prepare('DELETE FROM user_datasets WHERE deleted_at IS NOT NULL AND deleted_at < ?').bind(isoDaysAgo(policy.deletedDatasetDays))
+  ]);
 }
 async function ensureAuthSchema(env){
   if(AUTH_SCHEMA_READY)return;
@@ -167,11 +300,14 @@ async function ensureAuthSchema(env){
       expires_at TEXT NOT NULL,
       last_seen_at TEXT NOT NULL,
       revoked_at TEXT,
+      user_agent TEXT NOT NULL DEFAULT '',
+      ip_hash TEXT NOT NULL DEFAULT '',
       FOREIGN KEY(user_id) REFERENCES users(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at)')
   ]);
   const info=await env.DB.prepare('PRAGMA table_info(users)').all();
   const columns=new Set((info.results||[]).map(row=>row.name));
@@ -182,11 +318,81 @@ async function ensureAuthSchema(env){
   if(!columns.has('access_updated_at'))await env.DB.prepare("ALTER TABLE users ADD COLUMN access_updated_at TEXT").run();
   if(!columns.has('membership_plan_id'))await env.DB.prepare("ALTER TABLE users ADD COLUMN membership_plan_id TEXT").run();
   if(!columns.has('account_status'))await env.DB.prepare("ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'").run();
+  const sessionInfo=await env.DB.prepare('PRAGMA table_info(sessions)').all();
+  const sessionColumns=new Set((sessionInfo.results||[]).map(row=>row.name));
+  if(!sessionColumns.has('user_agent'))await env.DB.prepare("ALTER TABLE sessions ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''").run();
+  if(!sessionColumns.has('ip_hash'))await env.DB.prepare("ALTER TABLE sessions ADD COLUMN ip_hash TEXT NOT NULL DEFAULT ''").run();
   for(const email of adminEmails(env)){
     await env.DB.prepare(`UPDATE users SET role='admin',membership_status='active',membership_expires_at=NULL,membership_source='admin',membership_plan_id='admin',access_updated_at=COALESCE(access_updated_at,?) WHERE lower(email)=? AND email_verified=1`)
       .bind(new Date().toISOString(),email).run();
   }
   AUTH_SCHEMA_READY=true;
+}
+
+async function ensureGameSchema(env){
+  if(GAME_SCHEMA_READY)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_profiles (
+      user_id TEXT PRIMARY KEY,
+      score INTEGER NOT NULL DEFAULT 0,
+      score_version INTEGER NOT NULL DEFAULT 2,
+      best_yield REAL NOT NULL DEFAULT 0,
+      season INTEGER NOT NULL DEFAULT 1,
+      level INTEGER NOT NULL DEFAULT 1,
+      legacy INTEGER NOT NULL DEFAULT 0,
+      location TEXT NOT NULL DEFAULT 'zero',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_profiles_score ON game_profiles(score DESC,updated_at ASC)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_saves (
+      user_id TEXT PRIMARY KEY,
+      revision INTEGER NOT NULL DEFAULT 1,
+      save_version INTEGER NOT NULL DEFAULT 3,
+      payload_json TEXT NOT NULL,
+      device_label TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_saves_updated ON game_saves(updated_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_friends (
+      user_id TEXT NOT NULL,
+      friend_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY(user_id,friend_id),
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(friend_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_friends_friend ON game_friends(friend_id,status,updated_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_raids (
+      id TEXT PRIMARY KEY,
+      attacker_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      claimed_at TEXT,
+      FOREIGN KEY(attacker_id) REFERENCES users(id),
+      FOREIGN KEY(target_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_target ON game_raids(target_id,claimed_at,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_raids_pair ON game_raids(attacker_id,target_id,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS game_aids (
+      id TEXT PRIMARY KEY,
+      helper_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      claimed_at TEXT,
+      FOREIGN KEY(helper_id) REFERENCES users(id),
+      FOREIGN KEY(target_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_target ON game_aids(target_id,claimed_at,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_game_aids_pair ON game_aids(helper_id,target_id,created_at)')
+  ]);
+  const profileInfo=await env.DB.prepare('PRAGMA table_info(game_profiles)').all();
+  const profileColumns=new Set((profileInfo.results||[]).map(row=>row.name));
+  if(!profileColumns.has('score_version'))await env.DB.prepare('ALTER TABLE game_profiles ADD COLUMN score_version INTEGER NOT NULL DEFAULT 1').run();
+  GAME_SCHEMA_READY=true;
 }
 
 async function ensureMembershipSchema(env){
@@ -222,7 +428,8 @@ async function ensureMembershipSchema(env){
       FOREIGN KEY(plan_id) REFERENCES membership_plans(id)
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user ON membership_payments(user_id,created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_status ON membership_payments(status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_membership_payments_user_status_created ON membership_payments(user_id,status,created_at)')
   ]);
   const paymentInfo=await env.DB.prepare('PRAGMA table_info(membership_payments)').all();
   const paymentColumns=new Set((paymentInfo.results||[]).map(row=>row.name));
@@ -255,6 +462,7 @@ async function ensureOperationsSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action,created_at)'),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS backup_runs (
       id TEXT PRIMARY KEY,
       object_key TEXT,
@@ -271,9 +479,117 @@ async function ensureOperationsSchema(env){
       created_at TEXT NOT NULL,
       PRIMARY KEY(operation_id,scope)
     )`),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_created ON idempotent_operations(created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_idempotent_operations_scope_created ON idempotent_operations(scope,created_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS cloud_controls (
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      mode TEXT NOT NULL DEFAULT 'auto',
+      effective_mode TEXT NOT NULL DEFAULT 'normal',
+      features_json TEXT NOT NULL DEFAULT '{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}',
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      updated_by TEXT
+    )`)
   ]);
+  await env.DB.prepare(`INSERT OR IGNORE INTO cloud_controls (id,mode,effective_mode,features_json,note,updated_at)
+    VALUES (1,'auto','normal','{"datasetSync":true,"aiUpload":true,"gameCloud":true,"payments":true}','','1970-01-01T00:00:00.000Z')`).run();
+  const backupInfo=await env.DB.prepare('PRAGMA table_info(backup_runs)').all(),backupColumns=new Set((backupInfo.results||[]).map(row=>row.name));
+  if(!backupColumns.has('checksum_sha256'))await env.DB.prepare("ALTER TABLE backup_runs ADD COLUMN checksum_sha256 TEXT NOT NULL DEFAULT ''").run();
+  if(!backupColumns.has('verified'))await env.DB.prepare('ALTER TABLE backup_runs ADD COLUMN verified INTEGER NOT NULL DEFAULT 0').run();
   OPERATIONS_SCHEMA_READY=true;
+}
+function parseCloudFeatures(value){
+  try{
+    const parsed=JSON.parse(value||'{}'),out={...CLOUD_DEFAULT_FEATURES};
+    for(const key of Object.keys(out))if(typeof parsed?.[key]==='boolean')out[key]=parsed[key];
+    return out;
+  }catch{return {...CLOUD_DEFAULT_FEATURES};}
+}
+function normalizeCloudControl(row){
+  const mode=['auto','normal','economy','emergency'].includes(row?.mode)?row.mode:'auto';
+  const effectiveMode=['normal','economy','emergency'].includes(row?.effective_mode)?row.effective_mode:'normal';
+  return {mode,effectiveMode,features:parseCloudFeatures(row?.features_json),note:String(row?.note||''),updatedAt:row?.updated_at||null};
+}
+async function getCloudControl(env,{fresh=false}={}){
+  const now=Date.now();
+  if(!fresh&&CLOUD_CONTROL_CACHE&&now-CLOUD_CONTROL_CACHE_AT<CLOUD_CONTROL_CACHE_MS)return CLOUD_CONTROL_CACHE;
+  await ensureOperationsSchema(env);
+  const row=await env.DB.prepare('SELECT mode,effective_mode,features_json,note,updated_at FROM cloud_controls WHERE id=1').first();
+  CLOUD_CONTROL_CACHE=normalizeCloudControl(row);CLOUD_CONTROL_CACHE_AT=now;
+  return CLOUD_CONTROL_CACHE;
+}
+function effectiveFeature(control,key){
+  if(!control?.features?.[key])return false;
+  const mode=control.effectiveMode||'normal';
+  if(mode==='emergency'&&['datasetSync','aiUpload','gameCloud'].includes(key))return false;
+  if(mode==='economy'&&['aiUpload','gameCloud'].includes(key))return false;
+  return true;
+}
+function cloudFeatureResponse(request,env,key,control,{localSafe=true}={}){
+  const retry=retentionPolicy(env).retrySeconds;
+  const labels={datasetSync:'Sinkronisasi dataset',aiUpload:'Kontribusi AI',gameCloud:'Cloud game',payments:'Pembayaran'};
+  return json(request,env,{error:'cloud_feature_paused',feature:key,mode:control?.effectiveMode||'unknown',
+    message:(labels[key]||'Fitur cloud')+' sedang dijeda untuk menghemat kuota Cloudflare.',localSafe,retryAfterSeconds:retry},503,{'Retry-After':String(retry)});
+}
+async function cloudFeatureGuard(request,env,key,options={}){
+  try{
+    const control=await getCloudControl(env);
+    return effectiveFeature(control,key)?null:cloudFeatureResponse(request,env,key,control,options);
+  }catch(error){
+    console.warn('Cloud control unavailable; continuing to route fallback',error?.message||error);
+    return null;
+  }
+}
+async function cloudStorageEstimate(env){
+  await ensureDatasetSchema(env);await ensureContributionSchema(env);
+  const [datasets,images]=await Promise.all([
+    env.DB.prepare(`SELECT COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes FROM user_datasets WHERE deleted_at IS NULL`).first(),
+    env.DB.prepare(`SELECT COALESCE(SUM(length(image)),0) AS d1_bytes FROM contributions`).first()
+  ]);
+  const datasetBytes=Number(datasets?.bytes||0),d1ImageBytes=Number(images?.d1_bytes||0);
+  const appD1Bytes=datasetBytes+d1ImageBytes;
+  const softLimit=positiveInt(env.D1_STORAGE_SOFT_LIMIT_BYTES,350*1024*1024,10*1024*1024,500*1024*1024);
+  return {datasetBytes,d1ImageBytes,appD1Bytes,softLimitBytes:softLimit,pressure:softLimit?appD1Bytes/softLimit:0};
+}
+async function refreshAutoBudgetMode(env){
+  const control=await getCloudControl(env,{fresh:true});
+  if(control.mode!=='auto')return control;
+  const storage=await cloudStorageEstimate(env);
+  const next=storage.pressure>=.90?'emergency':storage.pressure>=.70?'economy':'normal';
+  if(next!==control.effectiveMode){
+    const now=new Date().toISOString();
+    await env.DB.prepare('UPDATE cloud_controls SET effective_mode=?,updated_at=? WHERE id=1').bind(next,now).run();
+    CLOUD_CONTROL_CACHE=null;CLOUD_CONTROL_CACHE_AT=0;
+    return getCloudControl(env,{fresh:true});
+  }
+  return {...control,storage};
+}
+async function handleCloudStatus(request,env){
+  const control=await getCloudControl(env);
+  return json(request,env,{ok:true,mode:control.mode,effectiveMode:control.effectiveMode,
+    features:Object.fromEntries(Object.keys(CLOUD_DEFAULT_FEATURES).map(key=>[key,effectiveFeature(control,key)])),
+    storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},updatedAt:control.updatedAt},
+    200,{'Cache-Control':'public, max-age=60, stale-while-revalidate=300'});
+}
+async function handleDevelopCloudControl(request,env){
+  const access=await requireAdminUser(request,env),admin=access.user;
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(request.method==='GET'){
+    const control=await getCloudControl(env,{fresh:true}),storage=await cloudStorageEstimate(env);
+    return json(request,env,{...control,storage,featuresEffective:Object.fromEntries(Object.keys(CLOUD_DEFAULT_FEATURES).map(key=>[key,effectiveFeature(control,key)]))});
+  }
+  const body=await request.json().catch(()=>({})),current=await getCloudControl(env,{fresh:true});
+  const mode=['auto','normal','economy','emergency'].includes(body?.mode)?body.mode:current.mode;
+  const features={...current.features};
+  for(const key of Object.keys(features))if(typeof body?.features?.[key]==='boolean')features[key]=body.features[key];
+  const effectiveMode=mode==='auto'?current.effectiveMode:mode;
+  const note=String(body?.note??current.note??'').slice(0,500),now=new Date().toISOString();
+  await env.DB.prepare('UPDATE cloud_controls SET mode=?,effective_mode=?,features_json=?,note=?,updated_at=?,updated_by=? WHERE id=1')
+    .bind(mode,effectiveMode,JSON.stringify(features),note,now,admin.id).run();
+  CLOUD_CONTROL_CACHE=null;CLOUD_CONTROL_CACHE_AT=0;
+  const updated=mode==='auto'?await refreshAutoBudgetMode(env):await getCloudControl(env,{fresh:true});
+  await audit(env,admin,'cloud.control_updated','cloud','control',{mode:updated.mode,effectiveMode:updated.effectiveMode,features:updated.features});
+  return json(request,env,{ok:true,...updated});
 }
 function validOperationId(value){return /^[0-9a-f-]{36}$/i.test(String(value||''));}
 async function replayOperation(env,scope,operationId){
@@ -393,6 +709,7 @@ async function ensureDatasetSchema(env){
     )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_updated ON user_datasets(user_id,updated_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted ON user_datasets(user_id,deleted_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_datasets_user_deleted_updated ON user_datasets(user_id,deleted_at,updated_at)'),
     env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_user_datasets_active_name ON user_datasets(user_id,name) WHERE deleted_at IS NULL')
   ]);
   DATASET_SCHEMA_READY=true;
@@ -561,6 +878,8 @@ async function handleDatasetPut(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -574,7 +893,7 @@ async function handleDatasetPut(request,env,id){
   let metaJson;
   try{metaJson=parseDatasetMeta(body?.meta);}catch(error){return json(request,env,{error:error.message},413);}
   const now=new Date().toISOString();
-  const existing=await env.DB.prepare('SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? LIMIT 1').bind(id).first();
+  const existing=await env.DB.prepare('SELECT id,user_id,revision,content,meta_json FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
   const incomingBytes=new TextEncoder().encode(content+metaJson).byteLength;
   const existingBytes=existing?new TextEncoder().encode(String(existing.content||'')+String(existing.meta_json||'')).byteLength:0;
   const quotaCheck=await enforceDatasetQuota(env,user,{incomingBytes,existingBytes,isNew:!existing});
@@ -586,7 +905,6 @@ async function handleDatasetPut(request,env,id){
   },413);
 
   if(existing){
-    if(existing.user_id!==user.id)return json(request,env,{error:'Dataset tidak ditemukan.'},404);
     if(expectedRevision===null||Number(existing.revision)!==expectedRevision){
       const current=await env.DB.prepare('SELECT id,name,content,meta_json,revision,created_at,updated_at,deleted_at FROM user_datasets WHERE id=? AND user_id=? LIMIT 1').bind(id,user.id).first();
       return json(request,env,{error:'revision_conflict',current:current?datasetPayload(current):null},409);
@@ -615,6 +933,8 @@ async function handleDatasetPatch(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
   const body=await request.json().catch(()=>null),expectedRevision=Number(body?.expectedRevision),operationId=String(body?.operationId||''),operations=body?.operations;
@@ -642,6 +962,8 @@ async function handleDatasetDelete(request,env,id){
   const access=await requireSyncUser(request,env),user=access.user;
   if(access.error==='unauthenticated')return json(request,env,{error:'Sesi tidak valid.'},401);
   if(access.error==='membership_required')return json(request,env,{error:'membership_required',message:'Sinkronisasi cloud tersedia untuk admin dan membership aktif.'},403);
+  const mutationGuard=await datasetMutationGuard(request,env,user);
+  if(mutationGuard)return mutationGuard;
   if(!validDatasetId(id))return json(request,env,{error:'ID dataset tidak valid.'},400);
   await ensureDatasetSchema(env);
 
@@ -689,15 +1011,27 @@ function publicUser(row){
     lastLoginAt:row.last_login_at
   };
 }
-async function userFromSession(request,env){
-  const token=bearerToken(request);
+async function userFromSession(request,env,credential=sessionCredential(request)){
+  const token=credential.token;
   if(!token)return null;
   const hash=await sha256(token),nowMs=Date.now(),now=new Date(nowMs).toISOString();
-  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.created_at,u.last_login_at,s.id AS session_id,s.last_seen_at
+  const row=await env.DB.prepare(`SELECT u.id,u.email,u.email_verified,u.name,u.picture_url,u.role,u.membership_status,u.membership_expires_at,u.membership_source,u.membership_plan_id,u.account_status,u.access_updated_at,u.created_at,u.last_login_at,s.id AS session_id,s.created_at AS session_created_at,s.expires_at AS session_expires_at,s.last_seen_at,s.user_agent
     FROM sessions s JOIN users u ON u.id=s.user_id
     WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>? LIMIT 1`).bind(hash,now).first();
   if(row&&row.account_status!=='active')return null;
+  if(row&&credential.source==='bearer'){
+    const created=Date.parse(row.session_created_at||'');
+    if(!Number.isFinite(created)||nowMs-created>BEARER_FALLBACK_HOURS*3600000){
+      await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run().catch(()=>{});
+      return null;
+    }
+  }
+  if(row&&row.access_updated_at&&Date.parse(row.access_updated_at)>Date.parse(row.session_created_at||'')){
+    await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND revoked_at IS NULL').bind(now,row.session_id).run();
+    return null;
+  }
   if(row){
+    row.session_auth_source=credential.source;
     const lastSeen=Date.parse(row.last_seen_at||'');
     if(!Number.isFinite(lastSeen)||nowMs-lastSeen>=SESSION_TOUCH_MINUTES*60000){
       env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE id=?').bind(now,row.session_id).run().catch(()=>{});
@@ -705,6 +1039,15 @@ async function userFromSession(request,env){
     }
   }
   return row||null;
+}
+async function rotateSessionIfNeeded(request,env,row,credential){
+  const created=Date.parse(row?.session_created_at||'');
+  if(!row||!Number.isFinite(created)||Date.now()-created<SESSION_ROTATE_HOURS*3600000)return null;
+  const token=randomToken(32),hash=await sha256(token),now=new Date().toISOString(),expiresAt=isoAfter({days:SESSION_DAYS});
+  const meta=await sessionClientMeta(request);
+  await env.DB.prepare('UPDATE sessions SET token_hash=?,created_at=?,expires_at=?,last_seen_at=?,user_agent=?,ip_hash=? WHERE id=? AND revoked_at IS NULL')
+    .bind(hash,now,expiresAt,now,meta.userAgent,meta.ipHash,row.session_id).run();
+  return {token,csrfToken:await csrfTokenFor(token),expiresAt,source:credential.source};
 }
 async function handleGoogleStart(request,env,url){
   const returnTo=safeReturnTo(url.searchParams.get('return_to'),env);
@@ -796,29 +1139,44 @@ async function handleAuthExchange(request,env){
   await env.DB.prepare('UPDATE auth_exchange_codes SET used_at=? WHERE code_hash=? AND used_at IS NULL').bind(now,codeHash).run();
 
   const sessionToken=randomToken(32),tokenHash=await sha256(sessionToken),sessionId=crypto.randomUUID(),expiresAt=isoAfter({days:SESSION_DAYS});
+  const sessionMeta=await sessionClientMeta(request);
   await env.DB.prepare(`INSERT INTO sessions
-    (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at) VALUES (?,?,?,?,?,?,NULL)`)
-    .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now).run();
+    (id,user_id,token_hash,created_at,expires_at,last_seen_at,revoked_at,user_agent,ip_hash) VALUES (?,?,?,?,?,?,NULL,?,?)`)
+    .bind(sessionId,row.user_id,tokenHash,now,expiresAt,now,sessionMeta.userAgent,sessionMeta.ipHash).run();
 
   const user=await env.DB.prepare('SELECT id,email,email_verified,name,picture_url,role,membership_status,membership_expires_at,membership_source,membership_plan_id,account_status,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(row.user_id).first();
   if(user?.account_status&&user.account_status!=='active'){
     await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=?').bind(new Date().toISOString(),sessionId).run();
     return json(request,env,{error:'account_suspended',message:'Akun ini sedang ditangguhkan.'},403);
   }
-  return json(request,env,{ok:true,token:sessionToken,expiresAt,user:publicUser(user)});
+  const csrfToken=await csrfTokenFor(sessionToken);
+  const fallbackExpiresAt=new Date(Date.now()+BEARER_FALLBACK_HOURS*3600000).toISOString();
+  await audit(env,user,'auth.login','session',sessionId,{device:sessionDeviceLabel(sessionMeta.userAgent),ipHashPrefix:sessionMeta.ipHash.slice(0,12)});
+  return json(request,env,{ok:true,token:sessionToken,csrfToken,expiresAt,fallbackExpiresAt,user:publicUser(user)},200,{'Set-Cookie':sessionCookie(sessionToken)});
 }
 async function handleAuthSession(request,env){
-  const row=await userFromSession(request,env);
-  if(!row)return json(request,env,{authenticated:false},401);
-  return json(request,env,{authenticated:true,user:publicUser(row)});
+  const credential=sessionCredential(request);
+  const row=await userFromSession(request,env,credential);
+  if(!row)return json(request,env,{authenticated:false},401,credential.source==='cookie'?{'Set-Cookie':clearSessionCookie()}:{});
+  const rotated=await rotateSessionIfNeeded(request,env,row,credential);
+  if(rotated){
+    const payload={authenticated:true,authSource:rotated.source,user:publicUser(row),csrfToken:rotated.csrfToken,session:{createdAt:new Date().toISOString(),expiresAt:rotated.expiresAt,device:sessionDeviceLabel(row.user_agent)}};
+    if(rotated.source==='bearer'){
+      payload.token=rotated.token;
+      payload.fallbackExpiresAt=new Date(Date.now()+BEARER_FALLBACK_HOURS*3600000).toISOString();
+    }
+    return json(request,env,payload,200,{'Set-Cookie':sessionCookie(rotated.token)});
+  }
+  return json(request,env,{authenticated:true,authSource:credential.source,user:publicUser(row),csrfToken:await csrfTokenFor(credential.token),session:{createdAt:row.session_created_at,expiresAt:row.session_expires_at,device:sessionDeviceLabel(row.user_agent)}});
 }
 async function handleAuthLogout(request,env){
-  const token=bearerToken(request);
-  if(token){
-    const hash=await sha256(token);
+  const credential=sessionCredential(request),row=await userFromSession(request,env,credential);
+  if(credential.token){
+    const hash=await sha256(credential.token);
     await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE token_hash=? AND revoked_at IS NULL').bind(new Date().toISOString(),hash).run();
+    if(row)await audit(env,row,'auth.logout','session',row.session_id,{source:credential.source});
   }
-  return json(request,env,{ok:true});
+  return json(request,env,{ok:true},200,{'Set-Cookie':clearSessionCookie()});
 }
 async function handleAuthProfile(request,env){
   const row=await userFromSession(request,env);
@@ -993,29 +1351,33 @@ async function handleAccountMembershipCancel(request,env){
 async function handleAccountSessions(request,env){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request));
-  const result=await env.DB.prepare(`SELECT id,token_hash,created_at,expires_at,last_seen_at,revoked_at FROM sessions
+  const currentHash=await sha256(sessionToken(request));
+  const result=await env.DB.prepare(`SELECT id,token_hash,created_at,expires_at,last_seen_at,revoked_at,user_agent FROM sessions
     WHERE user_id=? ORDER BY last_seen_at DESC LIMIT 50`).bind(user.id).all();
   return json(request,env,{items:(result.results||[]).map(row=>({
-    id:row.id,current:row.token_hash===currentHash,createdAt:row.created_at,expiresAt:row.expires_at,lastSeenAt:row.last_seen_at,revoked:Boolean(row.revoked_at)
+    id:row.id,current:row.token_hash===currentHash,createdAt:row.created_at,expiresAt:row.expires_at,lastSeenAt:row.last_seen_at,
+    revoked:Boolean(row.revoked_at),device:sessionDeviceLabel(row.user_agent)
   }))});
 }
 async function handleAccountRevokeSession(request,env,sessionId){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request));
+  const currentHash=await sha256(sessionToken(request));
   const target=await env.DB.prepare('SELECT id,token_hash FROM sessions WHERE id=? AND user_id=? LIMIT 1').bind(sessionId,user.id).first();
   if(!target)return json(request,env,{error:'Sesi tidak ditemukan.'},404);
   if(target.token_hash===currentHash)return json(request,env,{error:'current_session',message:'Gunakan tombol Keluar untuk sesi perangkat ini.'},409);
   await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE id=? AND user_id=?').bind(new Date().toISOString(),sessionId,user.id).run();
+  await audit(env,user,'auth.session_revoked','session',sessionId,{});
   return json(request,env,{ok:true});
 }
 async function handleAccountRevokeOthers(request,env){
   const user=await requireUser(request,env);
   if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
-  const currentHash=await sha256(bearerToken(request)),now=new Date().toISOString();
+  const currentHash=await sha256(sessionToken(request)),now=new Date().toISOString();
   const result=await env.DB.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND token_hash!=? AND revoked_at IS NULL').bind(now,user.id,currentHash).run();
-  return json(request,env,{ok:true,revoked:Number(result?.meta?.changes||0)});
+  const revoked=Number(result?.meta?.changes||0);
+  await audit(env,user,'auth.sessions_revoked_others','user',user.id,{count:revoked});
+  return json(request,env,{ok:true,revoked});
 }
 async function handleAccountPayments(request,env){
   const user=await requireUser(request,env);
@@ -1113,10 +1475,60 @@ async function handleDevelopAllDatasets(request,env,url){
 async function handleDevelopContributions(request,env,url){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureContributionSchema(env);
   const limit=Math.min(500,Math.max(1,Number(url.searchParams.get('limit'))||100));
-  const result=await env.DB.prepare(`SELECT id,sample,width,height,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at
+  const result=await env.DB.prepare(`SELECT id,sample,width,height,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_size_bytes,created_at
     FROM contributions ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
-  return json(request,env,{items:result.results||[]});
+  return json(request,env,{items:result.results||[],imagesR2:Boolean(env.IMAGES)});
+}
+function contributionImageExtension(mimeType){
+  return mimeType==='image/png'?'png':mimeType==='image/jpeg'?'jpg':'webp';
+}
+function contributionImageKey(row){
+  const created=String(row.created_at||new Date().toISOString());
+  return `contributions/${created.slice(0,7).replace('-','/')}/${row.id}.${contributionImageExtension(row.mime_type)}`;
+}
+async function migrateLegacyContributionImages(env,actor=null,limit=25){
+  await ensureContributionSchema(env);
+  if(!env.IMAGES)return {ok:false,error:'r2_not_configured',migrated:0,remaining:null};
+  const batch=Math.min(50,Math.max(1,Number(limit)||25));
+  const rows=await env.DB.prepare(`SELECT id,image,image_hash,mime_type,created_at
+    FROM contributions
+    WHERE length(image)>0 AND (storage_backend!='r2' OR image_object_key IS NULL)
+    ORDER BY created_at ASC LIMIT ?`).bind(batch).all();
+  let migrated=0,bytes=0;
+  for(const row of rows.results||[]){
+    const imageBytes=row.image?new Uint8Array(row.image):null;
+    if(!imageBytes?.byteLength)continue;
+    const imageHash=row.image_hash||await sha256Bytes(imageBytes);
+    const duplicate=await env.DB.prepare('SELECT id,image_object_key FROM contributions WHERE image_hash=? AND id!=? AND image_object_key IS NOT NULL ORDER BY created_at ASC LIMIT 1').bind(imageHash,row.id).first();
+    const key=duplicate?.image_object_key||contributionImageKey(row),isReference=Boolean(duplicate?.image_object_key);
+    try{
+      if(!isReference)await env.IMAGES.put(key,imageBytes,{httpMetadata:{contentType:row.mime_type||'application/octet-stream'},customMetadata:{contributionId:row.id,createdAt:row.created_at||'',imageHash}});
+      try{
+        await env.DB.prepare(`UPDATE contributions SET image=?,image_object_key=?,image_hash=?,image_ref_id=?,image_size_bytes=?,storage_backend=?,updated_at=COALESCE(updated_at,?) WHERE id=?`)
+          .bind(new Uint8Array(0),key,imageHash,isReference?duplicate.id:null,imageBytes.byteLength,isReference?'r2-ref':'r2',new Date().toISOString(),row.id).run();
+      }catch(error){
+        if(!isReference)await env.IMAGES.delete(key).catch(()=>{});
+        throw error;
+      }
+      migrated++;bytes+=isReference?0:imageBytes.byteLength;
+    }catch(error){
+      console.warn('Legacy contribution image migration failed',row.id,error?.message||error);
+      break;
+    }
+  }
+  const remaining=await env.DB.prepare(`SELECT COUNT(*) AS n FROM contributions WHERE length(image)>0 AND (storage_backend!='r2' OR image_object_key IS NULL)`).first();
+  if(actor&&migrated)await audit(env,actor,'contribution.images_migrated','contribution','batch',{migrated,bytes,remaining:Number(remaining?.n||0)});
+  return {ok:true,migrated,bytes,remaining:Number(remaining?.n||0)};
+}
+async function handleDevelopContributionImageMigration(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  if(!env.IMAGES)return json(request,env,{error:'r2_not_configured',message:'R2 IMAGES belum terikat ke Worker.'},409);
+  const body=await request.json().catch(()=>({}));
+  const result=await migrateLegacyContributionImages(env,access.user,body?.limit||25);
+  return json(request,env,result);
 }
 async function handleDevelopAudit(request,env,url){
   const access=await requireAdminUser(request,env);
@@ -1131,18 +1543,63 @@ function safeJsonText(value){try{return JSON.parse(value||'{}');}catch{return {}
 async function handleDevelopUsage(request,env){
   const access=await requireAdminUser(request,env);
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
-  await ensureDatasetSchema(env);
+  await ensureDatasetSchema(env);await ensureContributionSchema(env);
   const [datasets,sessions,users,contrib]=await Promise.all([
     env.DB.prepare(`SELECT COUNT(*) AS datasets,COALESCE(SUM(length(CAST(content AS BLOB))+length(CAST(meta_json AS BLOB))),0) AS bytes,COALESCE(SUM(revision),0) AS revisions FROM user_datasets WHERE deleted_at IS NULL`).first(),
     env.DB.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active FROM sessions`).bind(new Date().toISOString()).first(),
     env.DB.prepare('SELECT COUNT(*) AS n FROM users').first(),
-    env.DB.prepare('SELECT COUNT(*) AS n,COALESCE(SUM(length(image)),0) AS bytes FROM contributions').first()
+    env.DB.prepare(`SELECT COUNT(*) AS n,
+      COALESCE(SUM(CASE WHEN image_ref_id IS NULL AND storage_backend='r2' THEN image_size_bytes ELSE length(image) END),0) AS bytes,
+      COALESCE(SUM(length(image)),0) AS d1_bytes,
+      COALESCE(SUM(CASE WHEN image_ref_id IS NULL AND storage_backend='r2' THEN image_size_bytes ELSE 0 END),0) AS r2_bytes,
+      COALESCE(SUM(CASE WHEN image_ref_id IS NOT NULL THEN 1 ELSE 0 END),0) AS deduplicated
+      FROM contributions`).first()
   ]);
   return json(request,env,{estimated:{
     users:Number(users?.n||0),datasets:Number(datasets?.datasets||0),datasetBytes:Number(datasets?.bytes||0),datasetRevisionWrites:Number(datasets?.revisions||0),
-    sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),contributionImageBytes:Number(contrib?.bytes||0)
-  },note:'Ini estimasi penggunaan aplikasi dari D1, bukan meter resmi kuota akun Cloudflare.'});
+    sessions:Number(sessions?.total||0),activeSessions:Number(sessions?.active||0),contributions:Number(contrib?.n||0),
+    contributionImageBytes:Number(contrib?.bytes||0),contributionD1ImageBytes:Number(contrib?.d1_bytes||0),contributionR2ImageBytes:Number(contrib?.r2_bytes||0),
+    deduplicatedImages:Number(contrib?.deduplicated||0)
+  },storage:{imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),
+  softBudget:await cloudStorageEstimate(env),
+  platformReference:{asOf:'2026-09-26',workersFreeRequestsPerDay:100000,d1FreeRowsReadPerDay:5000000,d1FreeRowsWrittenPerDay:100000,d1FreeDatabaseBytes:500000000,d1FreeAccountBytes:5000000000},
+  note:'Angka aplikasi adalah estimasi internal. Pemakaian rows read/write dan Worker requests harian yang resmi tetap dibaca dari Cloudflare dashboard/Analytics.'});
 }
+async function handleDevelopSecurity(request,env){
+  const access=await requireAdminUser(request,env);
+  if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
+  await ensureOperationsSchema(env);
+  const now=new Date(),nowIso=now.toISOString(),dayAgo=new Date(now.getTime()-86400000).toISOString(),weekAgo=new Date(now.getTime()-7*86400000).toISOString();
+  const [sessions,users,auditRows,lastBackup]=await Promise.all([
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN revoked_at IS NOT NULL THEN 1 ELSE 0 END) AS revoked,
+      SUM(CASE WHEN revoked_at IS NULL AND expires_at>? AND expires_at<=? THEN 1 ELSE 0 END) AS expiring_24h
+      FROM sessions`).bind(nowIso,nowIso,new Date(now.getTime()+86400000).toISOString()).first(),
+    env.DB.prepare(`SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN account_status!='active' THEN 1 ELSE 0 END) AS suspended,
+      SUM(CASE WHEN last_login_at>=? THEN 1 ELSE 0 END) AS logged_in_7d
+      FROM users`).bind(weekAgo).first(),
+    env.DB.prepare(`SELECT action,COUNT(*) AS n FROM audit_logs WHERE created_at>=? GROUP BY action ORDER BY n DESC LIMIT 30`).bind(dayAgo).all(),
+    env.DB.prepare(`SELECT status,size_bytes,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 1`).first()
+  ]);
+  const events=Object.fromEntries((auditRows.results||[]).map(row=>[row.action,Number(row.n||0)]));
+  return json(request,env,{
+    generatedAt:nowIso,
+    sessions:{total:Number(sessions?.total||0),active:Number(sessions?.active||0),revoked:Number(sessions?.revoked||0),expiring24h:Number(sessions?.expiring_24h||0)},
+    users:{total:Number(users?.total||0),suspended:Number(users?.suspended||0),loggedIn7d:Number(users?.logged_in_7d||0)},
+    events24h:events,
+    controls:{
+      httpOnlyCookie:true,partitionedCookie:true,csrf:true,sessionRotationHours:SESSION_ROTATE_HOURS,bearerFallbackHours:BEARER_FALLBACK_HOURS,turnstile:Boolean(env.TURNSTILE_SECRET),
+      contributionRateLimit:Boolean(env.CONTRIBUTION_RATE_LIMITER),datasetRateLimit:Boolean(env.DATASET_RATE_LIMITER),
+      r2Backups:Boolean(env.BACKUPS),r2ContributionImages:Boolean(env.IMAGES),scheduledRetention:true,idempotentSync:true,edgeAbuseEventsPersisted:false
+    },
+    lastBackup:lastBackup?{status:lastBackup.status,sizeBytes:Number(lastBackup.size_bytes||0),createdAt:lastBackup.created_at}:null
+  });
+}
+
 async function handleDevelopSupportView(request,env,userId){
   const access=await requireAdminUser(request,env),admin=access.user;
   if(access.error)return json(request,env,{error:access.error},access.error==='unauthenticated'?401:403);
@@ -1181,19 +1638,32 @@ async function buildBackupPayload(env){
     env.DB.prepare('SELECT * FROM membership_plans').all(),
     env.DB.prepare('SELECT * FROM membership_payments').all(),
     env.DB.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 5000').all(),
-    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at FROM contributions ORDER BY created_at`).all()
+    env.DB.prepare(`SELECT id,sample,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,storage_backend,image_object_key,image_size_bytes,created_at FROM contributions ORDER BY created_at`).all()
   ]);
   return {version:1,exportedAt:new Date().toISOString(),users:users.results||[],datasets:datasets.results||[],membershipPlans:plans.results||[],membershipPayments:payments.results||[],auditLogs:auditRows.results||[],contributionMetadata:contributionMeta.results||[],note:'Blob gambar kontribusi AI tidak disertakan dalam logical backup akun.'};
 }
-async function createBackupSnapshot(env,actor=null,note='manual'){
+function validateBackupPayload(payload){
+  if(!payload||payload.version!==1||!payload.exportedAt)throw Error('Payload backup tidak valid.');
+  for(const key of ['users','datasets','membershipPlans','membershipPayments','auditLogs','contributionMetadata']){
+    if(!Array.isArray(payload[key]))throw Error('Bagian backup '+key+' tidak valid.');
+  }
+  return true;
+}
+async function createBackupSnapshot(env,actor=null,note='manual',prefix='d1-logical'){
   await ensureOperationsSchema(env);
   if(!env.BACKUPS)throw Error('R2 binding BACKUPS belum dikonfigurasi.');
-  const payload=await buildBackupPayload(env),text=JSON.stringify(payload),id=crypto.randomUUID(),key='d1-logical/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
-  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100)}});
-  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,note,created_at) VALUES (?,?,?,?,?,?)')
-    .bind(id,key,'success',new TextEncoder().encode(text).byteLength,String(note).slice(0,200),payload.exportedAt).run();
-  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:new TextEncoder().encode(text).byteLength});
-  return {id,key,sizeBytes:new TextEncoder().encode(text).byteLength,createdAt:payload.exportedAt};
+  const payload=await buildBackupPayload(env);validateBackupPayload(payload);
+  const text=JSON.stringify(payload),bytes=new TextEncoder().encode(text),checksum=await sha256Bytes(bytes),id=crypto.randomUUID(),key=prefix+'/'+new Date().toISOString().slice(0,10)+'/'+id+'.json';
+  await env.BACKUPS.put(key,text,{httpMetadata:{contentType:'application/json'},customMetadata:{createdAt:payload.exportedAt,note:String(note).slice(0,100),checksum}});
+  const verifyObject=await env.BACKUPS.get(key);
+  if(!verifyObject)throw Error('Objek backup tidak dapat dibaca kembali dari R2.');
+  const verifyText=await verifyObject.text(),verifyChecksum=await sha256Bytes(new TextEncoder().encode(verifyText));
+  if(verifyChecksum!==checksum)throw Error('Checksum backup R2 tidak cocok.');
+  validateBackupPayload(JSON.parse(verifyText));
+  await env.DB.prepare('INSERT INTO backup_runs (id,object_key,status,size_bytes,checksum_sha256,verified,note,created_at) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(id,key,'success',bytes.byteLength,checksum,1,String(note).slice(0,200),payload.exportedAt).run();
+  if(actor)await audit(env,actor,'backup.created','backup',id,{key,sizeBytes:bytes.byteLength,verified:true,checksum});
+  return {id,key,sizeBytes:bytes.byteLength,checksum,verified:true,createdAt:payload.exportedAt};
 }
 async function handleDevelopBackups(request,env){
   const access=await requireAdminUser(request,env),admin=access.user;
@@ -1203,7 +1673,7 @@ async function handleDevelopBackups(request,env){
     try{return json(request,env,{ok:true,backup:await createBackupSnapshot(env,admin,'manual')},201);}
     catch(error){return json(request,env,{error:'backup_unavailable',message:error.message},503);}
   }
-  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
+  const result=await env.DB.prepare('SELECT id,object_key,status,size_bytes,checksum_sha256,verified,note,created_at FROM backup_runs ORDER BY created_at DESC LIMIT 100').all();
   return json(request,env,{items:result.results||[],r2Configured:Boolean(env.BACKUPS)});
 }
 async function handleDevelopBackupDownload(request,env,backupId){
@@ -1323,6 +1793,11 @@ async function ensureContributionSchema(env){
     id TEXT PRIMARY KEY,
     sample TEXT NOT NULL,
     image BLOB NOT NULL,
+    image_object_key TEXT,
+    image_hash TEXT,
+    image_ref_id TEXT,
+    image_size_bytes INTEGER NOT NULL DEFAULT 0,
+    storage_backend TEXT NOT NULL DEFAULT 'd1',
     mime_type TEXT NOT NULL,
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
@@ -1342,9 +1817,17 @@ async function ensureContributionSchema(env){
   const info=await env.DB.prepare('PRAGMA table_info(contributions)').all(),columns=new Set((info.results||[]).map(row=>row.name));
   if(!columns.has('edit_token_hash'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN edit_token_hash TEXT').run();
   if(!columns.has('updated_at'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN updated_at TEXT').run();
+  if(!columns.has('image_object_key'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_object_key TEXT').run();
+  if(!columns.has('image_hash'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_hash TEXT').run();
+  if(!columns.has('image_ref_id'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_ref_id TEXT').run();
+  if(!columns.has('image_size_bytes'))await env.DB.prepare('ALTER TABLE contributions ADD COLUMN image_size_bytes INTEGER NOT NULL DEFAULT 0').run();
+  if(!columns.has('storage_backend'))await env.DB.prepare("ALTER TABLE contributions ADD COLUMN storage_backend TEXT NOT NULL DEFAULT 'd1'").run();
   await env.DB.batch([
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_created_at ON contributions(created_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_status_created ON contributions(status,created_at)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_model_status ON contributions(model_version,status)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_contributions_image_hash ON contributions(image_hash)')
   ]);
   CONTRIBUTION_SCHEMA_READY=true;
 }
@@ -1358,6 +1841,10 @@ function parseJsonField(form,name,fallback=[]){
 }
 
 async function handleContribution(request,env){
+  if(requestTooLarge(request,MAX_CONTRIBUTION_REQUEST_BYTES))return json(request,env,{error:'Permintaan unggahan terlalu besar.'},413);
+  if(!(await rateLimitAllowed(env,'CONTRIBUTION_RATE_LIMITER',anonymousRateKey(request)))){
+    return json(request,env,{error:'Terlalu banyak unggahan. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
   if(!(await verifyTurnstile(request,env)))return json(request,env,{error:'Verifikasi anti-bot tidak valid.'},403);
   await ensureContributionSchema(env);
   const form=await request.formData(),image=form.get('image'),operationId=String(form.get('operation_id')||'');
@@ -1379,15 +1866,38 @@ async function handleContribution(request,env){
   const method=String(form.get('prediction_method')||'unknown').slice(0,40);
   const modelVersion=String(form.get('model_version')||'unknown').slice(0,80);
   const id=crypto.randomUUID(),createdAt=new Date().toISOString(),score=qualityScore(predictedCount,finalCount,correctionCount),editToken=randomToken(24),editTokenHash=await sha256(editToken);
-  const bytes=await image.arrayBuffer();
+  const bytes=await image.arrayBuffer(),imageSizeBytes=bytes.byteLength,imageHash=await sha256Bytes(bytes);
+  const duplicate=await env.DB.prepare(`SELECT id,image_object_key,storage_backend,mime_type,image_size_bytes,length(image) AS image_bytes
+    FROM contributions WHERE image_hash=? ORDER BY created_at ASC LIMIT 1`).bind(imageHash).first();
+  const extension=image.type==='image/png'?'png':image.type==='image/jpeg'?'jpg':'webp';
+  let imageObjectKey=null,imageRefId=null,storageBackend='d1',storedImage=bytes,deduplicated=false;
+  if(duplicate&&duplicate.image_object_key&&env.IMAGES){
+    imageObjectKey=duplicate.image_object_key;imageRefId=duplicate.id;storageBackend='r2-ref';storedImage=new Uint8Array(0);deduplicated=true;
+  }else if(duplicate&&Number(duplicate.image_bytes||0)>0){
+    imageRefId=duplicate.id;storageBackend='d1-ref';storedImage=new Uint8Array(0);deduplicated=true;
+  }else if(env.IMAGES){
+    imageObjectKey=`contributions/${createdAt.slice(0,7).replace('-','/')}/${imageHash.slice(0,16)}-${id}.${extension}`;
+    try{
+      await env.IMAGES.put(imageObjectKey,bytes,{httpMetadata:{contentType:image.type},customMetadata:{contributionId:id,createdAt,imageHash}});
+      storageBackend='r2';storedImage=new Uint8Array(0);
+    }catch(error){
+      imageObjectKey=null;
+      console.warn('R2 image write failed; falling back to D1',error?.message||error);
+    }
+  }
 
-  await env.DB.prepare(`INSERT INTO contributions
-    (id,sample,image,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .bind(id,sample,bytes,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
-    .run();
+  try{
+    await env.DB.prepare(`INSERT INTO contributions
+      (id,sample,image,image_object_key,image_hash,image_ref_id,image_size_bytes,storage_backend,mime_type,width,height,boxes_json,predicted_boxes_json,predicted_count,final_count,prediction_method,model_version,correction_count,quality_score,status,created_at,edit_token_hash,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id,sample,storedImage,imageObjectKey,imageHash,imageRefId,imageSizeBytes,storageBackend,image.type,width,height,JSON.stringify(boxes),JSON.stringify(predictedBoxes),predictedCount,finalCount,method,modelVersion,correctionCount,score,'candidate',createdAt,editTokenHash,createdAt)
+      .run();
+  }catch(error){
+    if(storageBackend==='r2'&&imageObjectKey)await env.IMAGES.delete(imageObjectKey).catch(()=>{});
+    throw error;
+  }
 
-  const payload={ok:true,id,editToken,qualityScore:score,finalCount};
+  const payload={ok:true,id,editToken,qualityScore:score,finalCount,storageBackend,deduplicated};
   await rememberOperation(env,'contribution:create',operationId,payload);
   return json(request,env,payload);
 }
@@ -1425,23 +1935,397 @@ async function handleManifest(request,env,url){
 }
 async function handleImage(request,env,id){
   if(!authAdmin(request,env))return json(request,env,{error:'Tidak diizinkan.'},401);
-  const row=await env.DB.prepare('SELECT image,mime_type FROM contributions WHERE id=?').bind(id).first();
-  if(!row?.image)return json(request,env,{error:'Foto tidak ditemukan.'},404);
-  return new Response(new Uint8Array(row.image),{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+  await ensureContributionSchema(env);
+  let row=await env.DB.prepare('SELECT image,image_object_key,image_ref_id,image_size_bytes,storage_backend,mime_type FROM contributions WHERE id=?').bind(id).first();
+  if(!row)return json(request,env,{error:'Foto tidak ditemukan.'},404);
+  for(let depth=0;depth<3;depth++){
+    if(row.image_object_key&&env.IMAGES){
+      const object=await env.IMAGES.get(row.image_object_key);
+      if(object)return new Response(object.body,{headers:{'Content-Type':object.httpMetadata?.contentType||row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+    }
+    const legacyBytes=row.image?new Uint8Array(row.image):null;
+    if(legacyBytes?.byteLength)return new Response(legacyBytes,{headers:{'Content-Type':row.mime_type||'application/octet-stream','Cache-Control':'private, max-age=3600'}});
+    if(!row.image_ref_id)break;
+    row=await env.DB.prepare('SELECT image,image_object_key,image_ref_id,image_size_bytes,storage_backend,mime_type FROM contributions WHERE id=?').bind(row.image_ref_id).first();
+    if(!row)break;
+  }
+  if(row?.image_object_key&&!env.IMAGES)return json(request,env,{error:'image_storage_unavailable',message:'Bucket R2 gambar belum terikat ke Worker.'},503,{'Retry-After':String(retentionPolicy(env).retrySeconds)});
+  return json(request,env,{error:'Foto tidak ditemukan.'},404);
+}
+
+
+function gamePlayer(row){
+  if(!row)return null;
+  return {
+    id:row.user_id||row.id,
+    name:row.name||'Pemain',
+    picture:row.picture_url||'',
+    score:Number(row.score)||0,
+    bestYield:Number(row.best_yield)||0,
+    season:Number(row.season)||1,
+    level:Number(row.level)||1,
+    legacy:Number(row.legacy)||0,
+    location:row.location||'zero',
+    updatedAt:row.updated_at||null
+  };
+}
+async function gameMutationGuard(request,env,user,scope='write'){
+  if(!(await rateLimitAllowed(env,'DATASET_RATE_LIMITER','game:'+scope+':'+user.id))){
+    return json(request,env,{error:'Terlalu banyak aksi game. Coba lagi sesaat lagi.'},429,{'Retry-After':'60'});
+  }
+  return null;
+}
+function parseGameProfile(body){
+  const bestYield=Number(body?.bestYield),season=Math.round(Number(body?.season)),level=Math.round(Number(body?.level)),legacy=Math.round(Number(body?.legacy)),xp=Math.round(Number(body?.xp)),rivalWins=Math.round(Number(body?.rivalWins)),achievements=Math.round(Number(body?.achievements)),totalYield=Number(body?.totalYield),location=String(body?.location||'zero').slice(0,32);
+  if(!Number.isFinite(bestYield)||bestYield<0||bestYield>1500)return null;
+  if(!Number.isInteger(season)||season<1||season>500)return null;
+  if(!Number.isInteger(level)||level<1||level>500)return null;
+  if(!Number.isInteger(legacy)||legacy<0||legacy>50)return null;
+  if(!Number.isInteger(xp)||xp<0||xp>5000000)return null;
+  if(!Number.isInteger(rivalWins)||rivalWins<0||rivalWins>season)return null;
+  if(!Number.isInteger(achievements)||achievements<0||achievements>64)return null;
+  if(!Number.isFinite(totalYield)||totalYield<0||totalYield>season*1500+1500)return null;
+  if(!/^[a-z0-9_-]{1,32}$/i.test(location))return null;
+  const score=Math.min(50000000,Math.round(bestYield*120+totalYield*5+level*80+legacy*1500+rivalWins*300+achievements*120+Math.min(xp,1000000)*0.25));
+  return {score,bestYield,season,level,legacy,location};
+}
+async function handleGameProfilePut(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'profile');if(guard)return guard;
+  await ensureGameSchema(env);
+  const profile=parseGameProfile(await request.json().catch(()=>null));
+  if(!profile)return json(request,env,{error:'Profil game tidak valid.'},400);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO game_profiles (user_id,score,score_version,best_yield,season,level,legacy,location,updated_at)
+    VALUES (?,?,2,?,?,?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      score=excluded.score,
+      score_version=2,
+      best_yield=MAX(game_profiles.best_yield,excluded.best_yield),
+      season=excluded.season,
+      level=excluded.level,
+      legacy=MAX(game_profiles.legacy,excluded.legacy),
+      location=excluded.location,
+      updated_at=excluded.updated_at`)
+    .bind(user.id,profile.score,profile.bestYield,profile.season,profile.level,profile.legacy,profile.location,now).run();
+  const row=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url FROM game_profiles gp JOIN users u ON u.id=gp.user_id WHERE gp.user_id=? LIMIT 1`).bind(user.id).first();
+  return json(request,env,{ok:true,profile:gamePlayer(row)});
+}
+
+function parseGameSavePayload(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const version=Math.round(Number(value.version)||0),season=Math.round(Number(value.season)||0),day=Math.round(Number(value.day)||0);
+  if(version<3||version>20||season<1||season>500||day<1||day>200)return null;
+  if(!Array.isArray(value.field)||value.field.length<1||value.field.length>48)return null;
+  if(!Array.isArray(value.vault)||value.vault.length<1||value.vault.length>300)return null;
+  const text=JSON.stringify(value);
+  if(new TextEncoder().encode(text).byteLength>MAX_GAME_SAVE_BYTES)return null;
+  return {save:value,text,version};
+}
+function gameSaveResponse(row){
+  if(!row)return {save:null,revision:0,updatedAt:null,deviceLabel:''};
+  let save=null;try{save=JSON.parse(row.payload_json);}catch{}
+  return {save,revision:Number(row.revision)||0,updatedAt:row.updated_at||null,deviceLabel:row.device_label||''};
+}
+async function handleGameSaveGet(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT revision,save_version,payload_json,device_label,updated_at FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  return json(request,env,gameSaveResponse(row),200,{'Cache-Control':'no-store'});
+}
+async function gameSaveConflict(request,env,user){
+  const row=await env.DB.prepare('SELECT revision,save_version,payload_json,device_label,updated_at FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  return json(request,env,{error:'save_conflict',message:'Save cloud berubah di perangkat lain.',...gameSaveResponse(row)},409,{'Cache-Control':'no-store'});
+}
+async function handleGameSavePut(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(requestTooLarge(request,MAX_GAME_SAVE_REQUEST_BYTES))return json(request,env,{error:'Save game terlalu besar.'},413);
+  const guard=await gameMutationGuard(request,env,user,'save');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null),parsed=parseGameSavePayload(body?.save),baseRevision=Math.round(Number(body?.baseRevision)||0);
+  if(!parsed||baseRevision<0||baseRevision>100000000)return json(request,env,{error:'Save game tidak valid.'},400);
+  const now=new Date().toISOString(),deviceLabel=sessionDeviceLabel(request.headers.get('User-Agent'));
+  const current=await env.DB.prepare('SELECT revision FROM game_saves WHERE user_id=? LIMIT 1').bind(user.id).first();
+  if(current){
+    const currentRevision=Number(current.revision)||0;
+    if(baseRevision!==currentRevision)return gameSaveConflict(request,env,user);
+    const nextRevision=currentRevision+1;
+    const result=await env.DB.prepare(`UPDATE game_saves SET revision=?,save_version=?,payload_json=?,device_label=?,updated_at=?
+      WHERE user_id=? AND revision=?`).bind(nextRevision,parsed.version,parsed.text,deviceLabel,now,user.id,currentRevision).run();
+    if(Number(result?.meta?.changes||0)<1)return gameSaveConflict(request,env,user);
+    return json(request,env,{ok:true,revision:nextRevision,updatedAt:now,deviceLabel});
+  }
+  if(baseRevision!==0)return gameSaveConflict(request,env,user);
+  const result=await env.DB.prepare(`INSERT OR IGNORE INTO game_saves
+    (user_id,revision,save_version,payload_json,device_label,updated_at) VALUES (?,1,?,?,?,?)`)
+    .bind(user.id,parsed.version,parsed.text,deviceLabel,now).run();
+  if(Number(result?.meta?.changes||0)<1)return gameSaveConflict(request,env,user);
+  return json(request,env,{ok:true,revision:1,updatedAt:now,deviceLabel});
+}
+
+async function handleGameLeaderboard(request,env,url){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const limit=Math.max(5,Math.min(50,Number(url.searchParams.get('limit'))||20));
+  const result=await env.DB.prepare(`SELECT gp.*,u.name,u.picture_url
+    FROM game_profiles gp JOIN users u ON u.id=gp.user_id
+    WHERE u.account_status='active' AND gp.score_version=2
+    ORDER BY gp.score DESC,gp.best_yield DESC,gp.updated_at ASC LIMIT ?`).bind(limit).all();
+  const own=await env.DB.prepare('SELECT score FROM game_profiles WHERE user_id=? AND score_version=2 LIMIT 1').bind(user.id).first();
+  let rank=null;
+  if(own){
+    const higher=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_profiles WHERE score_version=2 AND score>?').bind(Number(own.score)||0).first();
+    rank=(Number(higher?.total)||0)+1;
+  }
+  return json(request,env,{items:(result.results||[]).map(gamePlayer),myRank:rank});
+}
+async function handleGamePlayerSearch(request,env,url){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const query=String(url.searchParams.get('q')||'').trim().slice(0,80);
+  if(query.length<2)return json(request,env,{items:[]});
+  const result=await env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,
+      COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,COALESCE(gp.season,1) AS season,
+      COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+    FROM users u LEFT JOIN game_profiles gp ON gp.user_id=u.id
+    WHERE u.account_status='active' AND u.id!=? AND instr(lower(u.name),lower(?))>0
+    ORDER BY COALESCE(gp.score,0) DESC,u.name ASC LIMIT 12`).bind(user.id,query).all();
+  return json(request,env,{items:(result.results||[]).map(gamePlayer)});
+}
+async function handleGameFriends(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const [friends,incoming,outgoing]=await env.DB.batch([
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.friend_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.user_id=? AND gf.status='accepted' AND u.account_status='active' ORDER BY COALESCE(gp.score,0) DESC,u.name ASC`).bind(user.id),
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.user_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.friend_id=? AND gf.status='pending' AND u.account_status='active' ORDER BY gf.created_at ASC`).bind(user.id),
+    env.DB.prepare(`SELECT u.id AS user_id,u.name,u.picture_url,COALESCE(gp.score,0) AS score,COALESCE(gp.best_yield,0) AS best_yield,
+      COALESCE(gp.season,1) AS season,COALESCE(gp.level,1) AS level,COALESCE(gp.legacy,0) AS legacy,COALESCE(gp.location,'zero') AS location,gp.updated_at
+      FROM game_friends gf JOIN users u ON u.id=gf.friend_id LEFT JOIN game_profiles gp ON gp.user_id=u.id
+      WHERE gf.user_id=? AND gf.status='pending' AND u.account_status='active' ORDER BY gf.created_at ASC`).bind(user.id)
+  ]);
+  return json(request,env,{
+    friends:(friends.results||[]).map(gamePlayer),
+    incoming:(incoming.results||[]).map(gamePlayer),
+    outgoing:(outgoing.results||[]).map(gamePlayer)
+  });
+}
+async function handleGameFriendRequest(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null),targetId=String(body?.targetUserId||'');
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const target=await env.DB.prepare("SELECT id FROM users WHERE id=? AND account_status='active' LIMIT 1").bind(targetId).first();
+  if(!target)return json(request,env,{error:'Pemain tidak ditemukan.'},404);
+  const current=await env.DB.prepare('SELECT status FROM game_friends WHERE user_id=? AND friend_id=? LIMIT 1').bind(user.id,targetId).first();
+  if(current?.status==='accepted')return json(request,env,{error:'Sudah berteman.'},409);
+  const reverse=await env.DB.prepare('SELECT status FROM game_friends WHERE user_id=? AND friend_id=? LIMIT 1').bind(targetId,user.id).first();
+  if(reverse?.status==='pending')return json(request,env,{error:'Permintaan dari pemain ini sudah menunggu Anda.'},409);
+  const now=new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO game_friends (user_id,friend_id,status,created_at,updated_at) VALUES (?,?,'pending',?,?)
+    ON CONFLICT(user_id,friend_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at`).bind(user.id,targetId,now,now).run();
+  return json(request,env,{ok:true});
+}
+async function handleGameFriendAccept(request,env,requesterId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(requesterId)||requesterId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  const pending=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='pending' LIMIT 1").bind(requesterId,user.id).first();
+  if(!pending)return json(request,env,{error:'Permintaan teman tidak ditemukan.'},404);
+  const now=new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE game_friends SET status='accepted',updated_at=? WHERE user_id=? AND friend_id=?").bind(now,requesterId,user.id),
+    env.DB.prepare(`INSERT INTO game_friends (user_id,friend_id,status,created_at,updated_at) VALUES (?,?,'accepted',?,?)
+      ON CONFLICT(user_id,friend_id) DO UPDATE SET status='accepted',updated_at=excluded.updated_at`).bind(user.id,requesterId,now,now)
+  ]);
+  return json(request,env,{ok:true});
+}
+async function handleGameFriendRemove(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Pemain tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'friend');if(guard)return guard;
+  await ensureGameSchema(env);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM game_friends WHERE user_id=? AND friend_id=?').bind(user.id,targetId),
+    env.DB.prepare('DELETE FROM game_friends WHERE user_id=? AND friend_id=?').bind(targetId,user.id)
+  ]);
+  return json(request,env,{ok:true});
+}
+async function handleGameRaid(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Target tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'raid');if(guard)return guard;
+  await ensureGameSchema(env);
+  const friendship=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='accepted' LIMIT 1").bind(user.id,targetId).first();
+  if(!friendship)return json(request,env,{error:'Raid hanya dapat dilakukan ke teman.'},403);
+  const last=await env.DB.prepare('SELECT created_at FROM game_raids WHERE attacker_id=? AND target_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id,targetId).first();
+  const shield=await env.DB.prepare('SELECT created_at FROM game_raids WHERE target_id=? ORDER BY created_at DESC LIMIT 1').bind(targetId).first();
+  const shieldMs=2*60*60*1000,shieldAt=Date.parse(shield?.created_at||'');
+  if(Number.isFinite(shieldAt)&&Date.now()-shieldAt<shieldMs){
+    const retry=Math.max(60,Math.ceil((shieldMs-(Date.now()-shieldAt))/1000));
+    return json(request,env,{error:'Target sedang terlindungi setelah raid sebelumnya.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
+  const cooldownMs=12*60*60*1000,lastMs=Date.parse(last?.created_at||'');
+  if(Number.isFinite(lastMs)&&Date.now()-lastMs<cooldownMs){
+    const retry=Math.max(60,Math.ceil((cooldownMs-(Date.now()-lastMs))/1000));
+    return json(request,env,{error:'Raid masih cooldown.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
+  const pending=await env.DB.prepare('SELECT COUNT(*) AS total FROM game_raids WHERE target_id=? AND claimed_at IS NULL').bind(targetId).first();
+  if((Number(pending?.total)||0)>=3)return json(request,env,{error:'Target sudah memiliki terlalu banyak raid yang belum diproses.'},409);
+  const id=crypto.randomUUID(),now=new Date().toISOString();
+  await env.DB.prepare('INSERT INTO game_raids (id,attacker_id,target_id,created_at,claimed_at) VALUES (?,?,?,?,NULL)').bind(id,user.id,targetId,now).run();
+  await audit(env,user,'game.raid','user',targetId,{raidId:id});
+  return json(request,env,{ok:true,raid:{id,createdAt:now,cooldownHours:12}});
+}
+async function handleGameRaidInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const result=await env.DB.prepare(`SELECT r.id,r.created_at,u.id AS attacker_id,u.name AS attacker_name,u.picture_url AS attacker_picture
+    FROM game_raids r JOIN users u ON u.id=r.attacker_id
+    WHERE r.target_id=? AND r.claimed_at IS NULL ORDER BY r.created_at ASC LIMIT 10`).bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,createdAt:row.created_at,attacker:{id:row.attacker_id,name:row.attacker_name||'Teman',picture:row.attacker_picture||''}
+  }))});
+}
+async function handleGameRaidClaim(request,env,raidId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(raidId))return json(request,env,{error:'Raid tidak valid.'},400);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT id FROM game_raids WHERE id=? AND target_id=? AND claimed_at IS NULL LIMIT 1').bind(raidId,user.id).first();
+  if(!row)return json(request,env,{error:'Raid tidak ditemukan.'},404);
+  await env.DB.prepare('UPDATE game_raids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),raidId,user.id).run();
+  return json(request,env,{ok:true});
+}
+async function handleGameAid(request,env,targetId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(targetId)||targetId===user.id)return json(request,env,{error:'Target tidak valid.'},400);
+  const guard=await gameMutationGuard(request,env,user,'aid');if(guard)return guard;
+  await ensureGameSchema(env);
+  const friendship=await env.DB.prepare("SELECT status FROM game_friends WHERE user_id=? AND friend_id=? AND status='accepted' LIMIT 1").bind(user.id,targetId).first();
+  if(!friendship)return json(request,env,{error:'Bantuan hanya dapat dikirim ke teman.'},403);
+  const last=await env.DB.prepare('SELECT created_at FROM game_aids WHERE helper_id=? AND target_id=? ORDER BY created_at DESC LIMIT 1').bind(user.id,targetId).first();
+  const cooldownMs=6*60*60*1000,lastMs=Date.parse(last?.created_at||'');
+  if(Number.isFinite(lastMs)&&Date.now()-lastMs<cooldownMs){
+    const retry=Math.max(60,Math.ceil((cooldownMs-(Date.now()-lastMs))/1000));
+    return json(request,env,{error:'Bantuan masih cooldown.',retryAfterSec:retry},429,{'Retry-After':String(retry)});
+  }
+  const id=crypto.randomUUID(),now=new Date().toISOString();
+  await env.DB.prepare('INSERT INTO game_aids (id,helper_id,target_id,created_at,claimed_at) VALUES (?,?,?,?,NULL)').bind(id,user.id,targetId,now).run();
+  await audit(env,user,'game.aid','user',targetId,{aidId:id});
+  return json(request,env,{ok:true,aid:{id,createdAt:now,cooldownHours:6}});
+}
+async function handleGameAidInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const result=await env.DB.prepare(`SELECT a.id,a.created_at,u.id AS helper_id,u.name AS helper_name,u.picture_url AS helper_picture
+    FROM game_aids a JOIN users u ON u.id=a.helper_id
+    WHERE a.target_id=? AND a.claimed_at IS NULL ORDER BY a.created_at ASC LIMIT 10`).bind(user.id).all();
+  return json(request,env,{items:(result.results||[]).map(row=>({
+    id:row.id,createdAt:row.created_at,helper:{id:row.helper_id,name:row.helper_name||'Teman',picture:row.helper_picture||''}
+  }))});
+}
+async function handleGameAidClaim(request,env,aidId){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  if(!validDatasetId(aidId))return json(request,env,{error:'Bantuan tidak valid.'},400);
+  await ensureGameSchema(env);
+  const row=await env.DB.prepare('SELECT id FROM game_aids WHERE id=? AND target_id=? AND claimed_at IS NULL LIMIT 1').bind(aidId,user.id).first();
+  if(!row)return json(request,env,{error:'Bantuan tidak ditemukan.'},404);
+  await env.DB.prepare('UPDATE game_aids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(new Date().toISOString(),aidId,user.id).run();
+  return json(request,env,{ok:true});
+}
+async function handleGameInbox(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  await ensureGameSchema(env);
+  const [raids,aids,friends]=await env.DB.batch([
+    env.DB.prepare(`SELECT r.id,r.created_at,u.id AS attacker_id,u.name AS attacker_name,u.picture_url AS attacker_picture
+      FROM game_raids r JOIN users u ON u.id=r.attacker_id
+      WHERE r.target_id=? AND r.claimed_at IS NULL ORDER BY r.created_at ASC LIMIT 10`).bind(user.id),
+    env.DB.prepare(`SELECT a.id,a.created_at,u.id AS helper_id,u.name AS helper_name,u.picture_url AS helper_picture
+      FROM game_aids a JOIN users u ON u.id=a.helper_id
+      WHERE a.target_id=? AND a.claimed_at IS NULL ORDER BY a.created_at ASC LIMIT 10`).bind(user.id),
+    env.DB.prepare("SELECT COUNT(*) AS total FROM game_friends WHERE friend_id=? AND status='pending'").bind(user.id)
+  ]);
+  return json(request,env,{
+    raids:(raids.results||[]).map(row=>({id:row.id,createdAt:row.created_at,attacker:{id:row.attacker_id,name:row.attacker_name||'Teman',picture:row.attacker_picture||''}})),
+    aids:(aids.results||[]).map(row=>({id:row.id,createdAt:row.created_at,helper:{id:row.helper_id,name:row.helper_name||'Teman',picture:row.helper_picture||''}})),
+    friendRequests:Number(friends.results?.[0]?.total||0)
+  });
+}
+async function handleGameInboxClaim(request,env){
+  const user=await requireUser(request,env);
+  if(!user)return json(request,env,{error:'Sesi tidak valid.'},401);
+  const guard=await gameMutationGuard(request,env,user,'inbox');if(guard)return guard;
+  await ensureGameSchema(env);
+  const body=await request.json().catch(()=>null);
+  const raidIds=Array.isArray(body?.raidIds)?body.raidIds.filter(validDatasetId).slice(0,10):[];
+  const aidIds=Array.isArray(body?.aidIds)?body.aidIds.filter(validDatasetId).slice(0,10):[];
+  const now=new Date().toISOString(),statements=[];
+  for(const id of raidIds)statements.push(env.DB.prepare('UPDATE game_raids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(now,id,user.id));
+  for(const id of aidIds)statements.push(env.DB.prepare('UPDATE game_aids SET claimed_at=? WHERE id=? AND target_id=? AND claimed_at IS NULL').bind(now,id,user.id));
+  if(statements.length)await env.DB.batch(statements);
+  return json(request,env,{ok:true,raids:raidIds.length,aids:aidIds.length});
 }
 
 export default {
   async scheduled(event,env,ctx){
-    if(!env.BACKUPS)return;
-    ctx.waitUntil(createBackupSnapshot(env,null,'scheduled').catch(error=>console.error('scheduled backup failed',error)));
+    ctx.waitUntil((async()=>{
+      await cleanupCloudData(env);
+      await refreshAutoBudgetMode(env).catch(error=>console.warn('budget refresh failed',error?.message||error));
+      if(env.IMAGES)await migrateLegacyContributionImages(env,null,25);
+      if(env.BACKUPS){
+        await createBackupSnapshot(env,null,'scheduled','d1-logical');
+        const now=new Date();
+        if(now.getUTCDate()===1)await createBackupSnapshot(env,null,'monthly','d1-monthly');
+      }
+    })().catch(error=>console.error('scheduled maintenance failed',error)));
   },
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(request,env)});
     const url=new URL(request.url);
     try{
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')await cleanupAuth(env);
-      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{ok:true,service:'hitung-cabai-api',authConfigured:authConfigured(env),datasetSync:true,membershipAccess:true,developConsole:true,accountCenter:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),apiVersion:'2026-09-26.11'});
-      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/'))await ensureAuthSchema(env);
+      if(request.method==='GET'&&url.pathname==='/v1/health')return json(request,env,{
+        ok:true,service:'hitung-cabai-api',cloudMode:'local-first',authConfigured:authConfigured(env),datasetSync:true,idempotentSync:true,quotaGuard:true,
+        membershipAccess:true,developConsole:true,accountCenter:true,gameSocial:true,membershipPayments:midtransMembershipConfigured(env),midtransEnvironment:midtransEnvironment(env),
+        storage:{d1:Boolean(env.DB),imagesR2:Boolean(env.IMAGES),backupsR2:Boolean(env.BACKUPS)},retention:retentionPolicy(env),apiVersion:'2026-09-26.17'
+      },200,{'Cache-Control':'no-store'});
+      if(request.method==='GET'&&url.pathname==='/v1/cloud/status')return await handleCloudStatus(request,env);
+      if(url.pathname.startsWith('/v1/datasets')){
+        const guard=await cloudFeatureGuard(request,env,'datasetSync');if(guard)return guard;
+      }
+      if(url.pathname.startsWith('/v1/game/')){
+        const guard=await cloudFeatureGuard(request,env,'gameCloud');if(guard)return guard;
+      }
+      if(url.pathname.startsWith('/v1/contributions')){
+        const guard=await cloudFeatureGuard(request,env,'aiUpload');if(guard)return guard;
+      }
+      if(url.pathname.startsWith('/v1/auth/')||url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/develop/')||url.pathname.startsWith('/v1/account/')||url.pathname.startsWith('/v1/membership/')||url.pathname.startsWith('/v1/game/'))await ensureAuthSchema(env);
+      if(url.pathname.startsWith('/v1/game/'))await ensureGameSchema(env);
+      const csrfFailure=await csrfGuard(request,env,url);
+      if(csrfFailure)return csrfFailure;
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/start')return await handleGoogleStart(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/auth/google/callback')return await handleGoogleCallback(request,env,url);
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
@@ -1449,7 +2333,10 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/auth/profile')return await handleAuthProfile(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/membership/plans')return await handleMembershipPlans(request,env);
-      if(request.method==='POST'&&url.pathname==='/v1/membership/payments')return await handleMembershipCreatePayment(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/membership/payments'){
+        const guard=await cloudFeatureGuard(request,env,'payments',{localSafe:false});if(guard)return guard;
+        return await handleMembershipCreatePayment(request,env);
+      }
       const membershipPaymentQrMatch=url.pathname.match(/^\/v1\/membership\/payments\/(member-[0-9]+-[a-f0-9]{24})\/qr$/i);
       if(request.method==='GET'&&membershipPaymentQrMatch)return await handleMembershipQrImage(request,env,membershipPaymentQrMatch[1]);
       const membershipPaymentMatch=url.pathname.match(/^\/v1\/membership\/payments\/(member-[0-9]+-[a-f0-9]{24})$/i);
@@ -1463,6 +2350,29 @@ export default {
       if(request.method==='DELETE'&&accountSessionMatch)return await handleAccountRevokeSession(request,env,accountSessionMatch[1]);
       if(request.method==='GET'&&url.pathname==='/v1/account/payments')return await handleAccountPayments(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/account/export')return await handleAccountExport(request,env);
+      if(request.method==='PUT'&&url.pathname==='/v1/game/profile')return await handleGameProfilePut(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/save')return await handleGameSaveGet(request,env);
+      if(request.method==='PUT'&&url.pathname==='/v1/game/save')return await handleGameSavePut(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/leaderboard')return await handleGameLeaderboard(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/game/players')return await handleGamePlayerSearch(request,env,url);
+      if(request.method==='GET'&&url.pathname==='/v1/game/friends')return await handleGameFriends(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/game/friends')return await handleGameFriendRequest(request,env);
+      const gameFriendAccept=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})\/accept$/i);
+      if(request.method==='POST'&&gameFriendAccept)return await handleGameFriendAccept(request,env,gameFriendAccept[1]);
+      const gameFriendMatch=url.pathname.match(/^\/v1\/game\/friends\/([0-9a-f-]{36})$/i);
+      if(request.method==='DELETE'&&gameFriendMatch)return await handleGameFriendRemove(request,env,gameFriendMatch[1]);
+      if(request.method==='GET'&&url.pathname==='/v1/game/inbox')return await handleGameInbox(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/game/inbox/claim')return await handleGameInboxClaim(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/raids/inbox')return await handleGameRaidInbox(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/game/aids/inbox')return await handleGameAidInbox(request,env);
+      const gameRaidClaim=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})\/claim$/i);
+      if(request.method==='POST'&&gameRaidClaim)return await handleGameRaidClaim(request,env,gameRaidClaim[1]);
+      const gameAidClaim=url.pathname.match(/^\/v1\/game\/aids\/([0-9a-f-]{36})\/claim$/i);
+      if(request.method==='POST'&&gameAidClaim)return await handleGameAidClaim(request,env,gameAidClaim[1]);
+      const gameRaidTarget=url.pathname.match(/^\/v1\/game\/raids\/([0-9a-f-]{36})$/i);
+      if(request.method==='POST'&&gameRaidTarget)return await handleGameRaid(request,env,gameRaidTarget[1]);
+      const gameAidTarget=url.pathname.match(/^\/v1\/game\/aids\/([0-9a-f-]{36})$/i);
+      if(request.method==='POST'&&gameAidTarget)return await handleGameAid(request,env,gameAidTarget[1]);
       if(request.method==='GET'&&url.pathname==='/v1/develop/overview')return await handleDevelopOverview(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/users')return await handleDevelopUsers(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/midtrans-diagnostic')return await handleDevelopMidtransDiagnostic(request,env);
@@ -1472,8 +2382,11 @@ export default {
       if(request.method==='GET'&&url.pathname==='/v1/develop/payments')return await handleDevelopPayments(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/datasets')return await handleDevelopAllDatasets(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/contributions')return await handleDevelopContributions(request,env,url);
+      if(request.method==='POST'&&url.pathname==='/v1/develop/contributions/migrate-images')return await handleDevelopContributionImageMigration(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/audit')return await handleDevelopAudit(request,env,url);
       if(request.method==='GET'&&url.pathname==='/v1/develop/usage')return await handleDevelopUsage(request,env);
+      if(request.method==='GET'&&url.pathname==='/v1/develop/security')return await handleDevelopSecurity(request,env);
+      if((request.method==='GET'||request.method==='PUT')&&url.pathname==='/v1/develop/cloud-control')return await handleDevelopCloudControl(request,env);
       if((request.method==='GET'||request.method==='POST')&&url.pathname==='/v1/develop/backups')return await handleDevelopBackups(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/develop/backups/export')return await handleDevelopBackupExport(request,env);
       const developBackupMatch=url.pathname.match(/^\/v1\/develop\/backups\/([0-9a-f-]{36})\/download$/i);
@@ -1506,6 +2419,10 @@ export default {
       if(url.pathname.startsWith('/v1/membership/')){
         const message=String(error?.message||'Layanan membership sedang bermasalah.').slice(0,300);
         return json(request,env,{error:'membership_upstream_error',message},502);
+      }
+      const retrySeconds=retentionPolicy(env).retrySeconds;
+      if(url.pathname.startsWith('/v1/datasets')||url.pathname.startsWith('/v1/contributions')||url.pathname.startsWith('/v1/game/')){
+        return json(request,env,{error:'cloud_temporarily_unavailable',message:'Cloud sedang tidak tersedia. Data lokal tetap aman dan sinkronisasi dapat dicoba kembali.',localSafe:true,retryAfterSeconds:retrySeconds},503,{'Retry-After':String(retrySeconds)});
       }
       return json(request,env,{error:'Server tidak dapat memproses permintaan.'},500);
     }

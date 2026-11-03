@@ -1,0 +1,1 @@
+const target='/pengukur/'+location.search+location.hash;document.getElementById('go').href=target;location.replace(target);

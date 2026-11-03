@@ -2,23 +2,111 @@ export function installNavigation(){
   const nav=document.querySelector('.nav');
   const sheet=document.querySelector('.sheet-header');
   if(!nav||!sheet)return;
+  const analysisButton=document.getElementById('openAnalysis');
+  const searchButton=document.getElementById('globalSearchButton');
+  const projectToggle=document.getElementById('projectToggle');
+  const settingsToggle=document.getElementById('appSettingsToggle');
 
-  const clear=document.getElementById('clearData');
-  if(clear){
-    clear.innerHTML='<svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 12H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg>';
-    clear.setAttribute('aria-label','Kosongkan dataset');clear.title='Kosongkan dataset';clear.classList.add('icon-only');sheet.append(clear);
+  const appHeader=nav.closest('.app-header');
+  function positionFloatingMenu(anchor,panel){
+    if(!anchor||!panel||!appHeader)return;
+    const headerRect=appHeader.getBoundingClientRect(),anchorRect=anchor.getBoundingClientRect();
+    const scale=headerRect.width&&appHeader.offsetWidth?headerRect.width/appHeader.offsetWidth:1;
+    const headerWidth=appHeader.offsetWidth||headerRect.width/Math.max(scale,.01);
+    const requested=globalThis.matchMedia?.('(max-width:720px)')?.matches?210:196;
+    const width=Math.max(164,Math.min(requested,headerWidth-10));
+    const center=((anchorRect.left+anchorRect.right)/2-headerRect.left)/Math.max(scale,.01);
+    const left=Math.max(6,Math.min(headerWidth-width-6,center-width/2));
+    panel.style.setProperty('--floating-menu-left',left+'px');
+    panel.style.setProperty('--floating-menu-width',width+'px');
+    panel.dataset.anchorId=anchor.id||'';
   }
+
+  function enforceMobileBottomNav(){
+    const mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+    if(!appHeader||!nav)return;
+    const important='important';
+    if(mobile){
+      // The mobile dock is a separate fixed layer. Do not depend on the large
+      // number of legacy .app-header/.nav CSS overrides in style.css.
+      appHeader.style.setProperty('display','none',important);
+      nav.style.setProperty('display','none',important);
+      const dock=document.getElementById('mobileBottomDock');
+      if(dock)dock.style.setProperty('display','grid',important);
+    }else{
+      appHeader.style.removeProperty('display');
+      nav.style.removeProperty('display');
+      const dock=document.getElementById('mobileBottomDock');
+      if(dock)dock.style.setProperty('display','none',important);
+    }
+  }
+
+  function installDedicatedMobileDock(){
+    let dock=document.getElementById('mobileBottomDock');
+    if(!dock){
+      dock=document.createElement('nav');
+      dock.id='mobileBottomDock';
+      dock.setAttribute('aria-label','Navigasi mobile');
+      document.body.append(dock);
+    }
+    dock.replaceChildren();
+    const items=[
+      ['back','‹','Kembali',()=>mobileBackButton?.click()],
+      ['file','File','File',()=>document.getElementById('fileMenuButton')?.click()],
+      ['analysis','Analisis','Analisis',()=>analysisButton?.click()],
+      ['dataset','Dataset','Dataset',()=>projectToggle?.click()],
+      ['data','Data','Data',()=>document.getElementById('dataMenuButton')?.click()],
+      ['help','Bantuan','Bantuan',()=>document.getElementById('helpMenuButton')?.click()],
+      ['search','Cari','Cari',()=>searchButton?.click()],
+      ['settings','Pengaturan','Pengaturan',()=>settingsToggle?.click()]
+    ];
+    for(const [key,label,title,action] of items){
+      const button=document.createElement('button');
+      button.type='button';button.dataset.mobileDockAction=key;
+      button.textContent=label;button.title=title;button.setAttribute('aria-label',title);
+      button.addEventListener('click',event=>{event.stopPropagation();action();});
+      dock.append(button);
+    }
+    Object.assign(dock.style,{position:'fixed',left:'3px',right:'3px',bottom:'max(2px, env(safe-area-inset-bottom))',height:'40px',minHeight:'40px',zIndex:'3000',gridTemplateColumns:'repeat(8,minmax(0,1fr))',gap:'1px',padding:'1px',boxSizing:'border-box',margin:'0',borderRadius:'8px',background:'var(--surface,#fff)',border:'1px solid var(--border,#cfd8df)',boxShadow:'0 2px 10px rgba(0,0,0,.16)'});
+    dock.style.setProperty('display','none','important');
+    for(const button of dock.children){
+      Object.assign(button.style,{minWidth:'0',minHeight:'36px',height:'36px',padding:'0 2px',margin:'0',borderRadius:'5px',fontSize:'11px',lineHeight:'1',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',boxSizing:'border-box'});
+    }
+    const syncDock=()=>{
+      const mobile=globalThis.matchMedia?.('(max-width:720px)')?.matches;
+      const results=[...document.querySelectorAll('.analysis-result')].some(el=>{const s=getComputedStyle(el);return !el.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&el.getBoundingClientRect().height>0;});
+      dock.style.setProperty('display',mobile&&!results?'grid':'none','important');
+      document.documentElement.style.setProperty('--mobile-dock-space',mobile&&!results?'44px':'0px');
+      const main=document.querySelector('.main');
+      if(main)main.style.setProperty('padding-bottom',mobile&&!results?'44px':'0px','important');
+    };
+    new MutationObserver(syncDock).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden']});
+    globalThis.addEventListener('resize',syncDock,{passive:true});
+    syncDock();
+  }
+
   const toolbar=document.querySelector('.toolbar');
   if(toolbar)toolbar.hidden=true;
 
+  const primaryNav=document.createElement('div');
+  primaryNav.className='nav-primary';
+  primaryNav.setAttribute('aria-label','Tab utama');
+  const utilityNav=document.createElement('div');
+  utilityNav.className='nav-utilities';
+  utilityNav.setAttribute('aria-label','Pencarian dan pengaturan');
+  nav.replaceChildren(primaryNav,utilityNav);
+
+  const menuButtons=new Map();
   for(const [id,title,ids] of [
     ['fileMenu','File',['pasteBtn','importBtn','importXlsx','newTxt']],
-    ['dataMenu','Data',['undoData','redoData','duplicateDataset','validateDataset','transformData','outlierData','fieldbookTool']],
-    ['helpMenu','Bantuan',['dataTemplate','analysisHistory','configureDriveBackup']]
+    ['dataMenu','Data',['undoData','redoData','freezeColumns','validateDataset','transformData','outlierData','fieldbookTool','clearData']],
+    ['helpMenu','Bantuan',['dataTemplate','analysisHistory']]
   ]){
     const button=document.createElement('button');
     button.id=id+'Button';
+    button.type='button';
     button.textContent=title;
+    button.className='nav-tab';
     button.setAttribute('aria-expanded','false');
     button.setAttribute('aria-controls',id);
 
@@ -29,45 +117,142 @@ export function installNavigation(){
     panel.setAttribute('role','group');
     panel.setAttribute('aria-label',title);
     ids.forEach(name=>{const command=document.getElementById(name);if(command)panel.append(command);});
-    nav.append(button);
     nav.after(panel);
+    menuButtons.set(id,button);
 
-    button.onclick=()=>{
-      const opening=panel.hidden;
-      closeMenus();
-      panel.hidden=!opening;
-      button.setAttribute('aria-expanded',String(opening));
-    };
+    button.onclick=()=>openCommandMenu(id,button);
     panel.addEventListener('click',event=>{if(event.target.closest('button'))closeMenus();});
   }
+
+  if(menuButtons.get('fileMenu'))primaryNav.append(menuButtons.get('fileMenu'));
+  if(menuButtons.get('dataMenu'))primaryNav.append(menuButtons.get('dataMenu'));
+
+  const fieldTab=document.createElement('button');
+  fieldTab.id='fieldLayoutTab';
+  fieldTab.type='button';
+  fieldTab.className='nav-tab';
+  fieldTab.textContent='Denah';
+  fieldTab.title='Denah lahan';
+  fieldTab.setAttribute('aria-label','Buka Denah Lahan');
+  primaryNav.append(fieldTab);
+
+  if(analysisButton){
+    analysisButton.classList.remove('primary');
+    analysisButton.classList.add('nav-tab');
+    primaryNav.append(analysisButton);
+  }
+  if(menuButtons.get('helpMenu'))primaryNav.append(menuButtons.get('helpMenu'));
+
+  if(projectToggle)utilityNav.append(projectToggle);
+  if(searchButton)utilityNav.append(searchButton);
+  if(settingsToggle)utilityNav.append(settingsToggle);
+  const mobileBackButton=document.createElement('button');
+  mobileBackButton.id='mobileBackButton';
+  mobileBackButton.type='button';
+  mobileBackButton.className='header-icon-button';
+  mobileBackButton.textContent='‹';
+  mobileBackButton.title='Kembali';
+  mobileBackButton.setAttribute('aria-label','Kembali');
+  primaryNav.prepend(mobileBackButton);
+
 
   const mobileMoreButton=document.createElement('button');
   mobileMoreButton.id='mobileMoreButton';
   mobileMoreButton.type='button';
-  mobileMoreButton.textContent='Menu';
+  mobileMoreButton.className='header-icon-button';
+  mobileMoreButton.textContent='⋯';
+  mobileMoreButton.title='Menu';
+  mobileMoreButton.setAttribute('aria-label','Menu');
   mobileMoreButton.setAttribute('aria-expanded','false');
-  mobileMoreButton.setAttribute('aria-controls','mobileMorePanel');
   const mobileMorePanel=document.createElement('div');
   mobileMorePanel.id='mobileMorePanel';
   mobileMorePanel.className='mobile-more-panel';
   mobileMorePanel.hidden=true;
-  mobileMorePanel.innerHTML='<button type="button" data-open-command="fileMenu">File</button><button type="button" data-open-command="dataMenu">Data</button><button type="button" data-open-command="helpMenu">Bantuan</button>';
-  nav.append(mobileMoreButton);nav.after(mobileMorePanel);
-  mobileMoreButton.onclick=()=>{
-    const opening=mobileMorePanel.hidden;
+  mobileMorePanel.setAttribute('role','menu');
+  mobileMorePanel.innerHTML='<button type="button" data-mobile-menu="search">Cari</button><button type="button" data-mobile-menu="settings">Pengaturan</button><button type="button" data-mobile-menu="fileMenu">File</button><button type="button" data-mobile-menu="dataMenu">Data</button><button type="button" data-mobile-menu="fieldLayout">Denah</button><button type="button" data-mobile-menu="helpMenu">Bantuan</button><button type="button" data-mobile-menu="uiAudit">Audit UI</button>';
+  utilityNav.append(mobileMoreButton);
+  appHeader?.append(mobileMorePanel);
+  installDedicatedMobileDock();
+  enforceMobileBottomNav();
+
+  function openCommandMenu(id,anchor=document.getElementById(id+'Button')){
+    const panel=document.getElementById(id),button=document.getElementById(id+'Button');
+    if(!panel)return;
+    const opening=panel.hidden;
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:id}}));
     closeMenus();
-    mobileMorePanel.hidden=!opening;
-    mobileMoreButton.setAttribute('aria-expanded',String(opening));
+    if(!opening)return;
+    positionFloatingMenu(anchor||button,panel);
+    panel.hidden=false;
+    button?.setAttribute('aria-expanded','true');
+  }
+  function closeMobileMore(){
+    mobileMorePanel.hidden=true;
+    mobileMoreButton.setAttribute('aria-expanded','false');
+  }
+  mobileMoreButton.onclick=event=>{
+    event.stopPropagation();
+    const opening=mobileMorePanel.hidden;
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'mobile-more'}}));
+    closeMenus();closeMobileMore();
+    if(opening){
+      positionFloatingMenu(mobileMoreButton,mobileMorePanel);
+      mobileMorePanel.hidden=false;
+      mobileMoreButton.setAttribute('aria-expanded','true');
+    }
   };
   mobileMorePanel.addEventListener('click',event=>{
-    const target=event.target.closest('[data-open-command]');if(!target)return;
-    const button=document.getElementById(target.dataset.openCommand+'Button');
-    mobileMorePanel.hidden=true;mobileMoreButton.setAttribute('aria-expanded','false');
-    button?.click();
+    const action=event.target.closest('[data-mobile-menu]')?.dataset.mobileMenu;
+    if(!action)return;
+    event.stopPropagation();closeMobileMore();
+    if(action==='search'){searchButton?.click();return;}
+    if(action==='settings'){
+      document.dispatchEvent(new CustomEvent('stat-open-settings'));
+      return;
+    }
+    if(action==='fieldLayout'){fieldTab?.click();return;} if(action==='uiAudit'){window.AgrotikUIAudit?.open?.();return;} openCommandMenu(action,mobileMoreButton);
   });
 
+  function syncFieldTab(){
+    const active=document.body.classList.contains('field-layout-open');
+    fieldTab.classList.toggle('active',active);
+    if(active)fieldTab.setAttribute('aria-current','page');
+    else fieldTab.removeAttribute('aria-current');
+  }
+  syncFieldTab();
+  new MutationObserver(syncFieldTab).observe(document.body,{attributes:true,attributeFilter:['class']});
 
-  const searchButton=document.getElementById('globalSearchButton');
+  fieldTab.onclick=async()=>{
+    closeMenus();
+    fieldTab.disabled=true;
+    try{
+      const {openFieldLayout}=await import('./field-layout.js');
+      openFieldLayout();
+    }catch(error){
+      console.error('Denah lahan gagal dimuat',error);
+      const status=document.getElementById('status');
+      if(status)status.textContent='Denah lahan belum dapat dibuka. Muat ulang halaman lalu coba lagi.';
+    }finally{fieldTab.disabled=false;}
+  };
+
+
+  mobileBackButton.onclick=()=>{
+    const searchOpen=searchModal?.classList.contains('open');
+    const settingsPanel=document.getElementById('appSettingsPanel');
+    const analysisMenu=document.getElementById('analysisMenu');
+    const openCommand=[...document.querySelectorAll('.nav-command-panel')].find(panel=>!panel.hidden);
+    if(searchOpen){closeGlobalSearch();return;}
+    if(settingsPanel&&!settingsPanel.hidden){document.getElementById('closeAppSettings')?.click();return;}
+    if(document.documentElement.classList.contains('mobile-project-open')){projectToggle?.click();return;}
+    if(analysisMenu&&!analysisMenu.hidden){analysisMenu.hidden=true;analysisButton?.setAttribute('aria-expanded','false');return;}
+    if(openCommand){closeMenus();return;}
+    const openModal=document.querySelector('.modal-backdrop.open');
+    if(openModal){openModal.querySelector('[aria-label="Tutup"],#closeDataTool,#closeGlobalSearch')?.click();return;}
+    if(document.body.classList.contains('field-layout-open')){globalThis.AgrotikFieldLayout?.close?.();return;}
+    if(history.length>1)history.back();
+    else location.href='/';
+  };
+
   const searchModal=document.getElementById('globalSearchModal');
   const searchInput=document.getElementById('globalSearch');
   const searchResults=document.getElementById('globalSearchResults');
@@ -105,17 +290,17 @@ export function installNavigation(){
       newTxt:'baru dataset data baru',
       addRow:'tambah baris row',
       addCol:'tambah kolom column',
-      compactEditor:'ringkas compact tampilan',
+      freezeColumns:'freeze bekukan kolom sticky column',
       undoData:'undo urungkan',
       redoData:'redo ulangi',
       duplicateDataset:'duplikat salin dataset copy',
       validateDataset:'validasi cek data kesalahan',
       transformData:'transformasi log sqrt akar',
       outlierData:'outlier pencilan',
-      fieldbookTool:'fieldbook buku lapang',
+      fieldbookTool:'fieldbook buku lapang randomisasi rancangan',
+      fieldLayoutTab:'denah lahan plot petak lapangan field map pengamatan input data',
       dataTemplate:'template contoh data',
       analysisHistory:'riwayat analisis history',
-      configureDriveBackup:'backup drive cadangan',
       clearData:'hapus kosongkan semua data',
       renameDataset:'ubah nama rename dataset',
       viewRawDataset:'data mentah raw csv',
@@ -192,6 +377,8 @@ export function installNavigation(){
 
   function openGlobalSearch(){
     if(!searchModal||!searchInput)return;
+    if(searchModal.classList.contains('open')){closeGlobalSearch();return;}
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'search'}}));
     closeMenus();
     searchModal.classList.add('open');
     searchInput.value='';
@@ -225,14 +412,18 @@ export function installNavigation(){
   });
   searchModal?.addEventListener('click',event=>{if(event.target===searchModal)closeGlobalSearch();});
 
+  function closeLoosePopovers(){
+    const columnMenu=document.getElementById('columnContextMenu');if(columnMenu)columnMenu.hidden=true;
+    document.querySelectorAll('.result-card-more[open],.result-os-menu[open],.result-more-actions[open],.subweb-tools[open]').forEach(details=>{details.open=false;});
+  }
   function closeMenus(){
+    closeLoosePopovers();
+    if(typeof closeMobileMore==='function')closeMobileMore();
     for(const id of ['fileMenu','dataMenu','helpMenu']){
       const panel=document.getElementById(id),button=document.getElementById(id+'Button');
       if(panel)panel.hidden=true;
       if(button)button.setAttribute('aria-expanded','false');
     }
-    if(mobileMorePanel)mobileMorePanel.hidden=true;
-    if(mobileMoreButton)mobileMoreButton.setAttribute('aria-expanded','false');
     const analysisMenu=document.getElementById('analysisMenu'),openAnalysis=document.getElementById('openAnalysis');
     if(analysisMenu)analysisMenu.hidden=true;
     if(openAnalysis)openAnalysis.setAttribute('aria-expanded','false');
@@ -241,6 +432,28 @@ export function installNavigation(){
   document.addEventListener('click',event=>{
     if(!event.target.closest('.nav,.nav-command-panel,.mobile-more-panel,#backScience,[data-back-design],#appSettingsToggle,#appSettingsPanel'))closeMenus();
   });
+  window.addEventListener('resize',()=>{
+    for(const id of ['fileMenu','dataMenu','helpMenu']){
+      const panel=document.getElementById(id);
+      if(!panel?.hidden){
+        const anchor=document.getElementById(panel.dataset.anchorId)||document.getElementById(id+'Button');
+        positionFloatingMenu(anchor,panel);
+      }
+    }
+    if(!mobileMorePanel.hidden)positionFloatingMenu(mobileMoreButton,mobileMorePanel);
+  });
+  document.addEventListener('stat-close-floating',event=>{
+    closeLoosePopovers();
+    const except=event.detail?.except||'';
+    if(!['fileMenu','dataMenu','helpMenu','mobile-more'].includes(except))closeMenus();
+    if(except!=='search')closeGlobalSearch();
+    if(!['dataset-panel','dataset-menu'].includes(except)){
+      document.documentElement.classList.remove('mobile-project-open');
+      projectToggle?.setAttribute('aria-expanded','false');
+    }
+  });
+  projectToggle?.addEventListener('click',()=>document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'dataset-panel'}})),{capture:true});
+
   document.addEventListener('close-navigation',closeMenus);
   document.addEventListener('keydown',event=>{
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();openGlobalSearch();return;}

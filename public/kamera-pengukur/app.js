@@ -21,3 +21,31 @@ result.onclick=e=>{if(!cleanResult)return;if(measurement.length===2)measurement=
 function download(blob,name){if(!blob)return tell('Unduhan gagal dibuat.');const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 $('download').onclick=()=>{if(!cleanResult)return;const c=document.createElement('canvas');c.width=result.width;c.height=result.height;c.getContext('2d').putImageData(cleanResult,0,0);c.toBlob(b=>download(b,filename+'-5px-per-mm.png'));};
 $('metadata').onclick=()=>{if(calibration)download(new Blob([JSON.stringify(calibration,null,2)],{type:'application/json'}),filename+'-kalibrasi.json');};
+
+
+/* Field Workspace handoff: loaded only when Kamera Pengukur is opened from a plot. */
+const FIELD_HANDOFF_KEY='agrotik_field_handoff_v1';
+const fieldParams=new URLSearchParams(location.search);
+const fieldContext=fieldParams.get('agrotik')==='field'?{
+  dataset:fieldParams.get('dataset')||'',plot_uid:fieldParams.get('plot_uid')||'',plot_label:fieldParams.get('plot_label')||'',
+  parameter:fieldParams.get('parameter')||'',session_id:fieldParams.get('session_id')||''
+}:null;
+if(fieldContext){
+  const returnButton=document.createElement('button');
+  returnButton.type='button';returnButton.hidden=true;returnButton.id='returnFieldMeasurement';returnButton.textContent='Kirim hasil ke plot';
+  $('distance')?.insertAdjacentElement('afterend',returnButton);
+  result.addEventListener('click',()=>{
+    const match=String($('distance')?.textContent||'').match(/Jarak lurus:\s*([0-9.]+)\s*mm/i);
+    if(!match)returnButton.hidden=true;
+    else{returnButton.hidden=false;returnButton.dataset.value=match[1];}
+  });
+  returnButton.onclick=()=>{
+    const value=returnButton.dataset.value;if(!value)return;
+    const detail={type:'agrotik-field-handoff',kind:'measurement',dataset:fieldContext.dataset,plot_uid:fieldContext.plot_uid,
+      plot_label:fieldContext.plot_label,parameter:fieldContext.parameter,session_id:fieldContext.session_id,value,unit:'mm',at:new Date().toISOString()};
+    try{localStorage.setItem(FIELD_HANDOFF_KEY,JSON.stringify(detail));}catch{}
+    try{window.opener?.postMessage({type:'agrotik-field-handoff',detail},location.origin);window.opener?.focus?.();}catch{}
+    tell('Hasil '+value+' mm dikirim ke plot '+(fieldContext.plot_label||'aktif')+'.');
+  };
+  if(fieldContext.plot_label)tell('Mode plot '+fieldContext.plot_label+' · lakukan pengukuran, lalu kirim hasil ke Denah Lahan.');
+}

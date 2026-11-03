@@ -27,7 +27,7 @@ if(!/apiVersion:'2026-09-26\.\d+'/.test(worker))fail('Worker API version marker 
 
 for(const marker of ['features:{','datasetSync:syncAccess','analysisIncluded:analysisIncluded','develop:row.role'])if(!worker.includes(marker))fail('Public entitlements missing '+marker);
 if(!account.includes("currentUser.features?.develop")||!account.includes("location.assign('/develop/')"))fail('Admin account menu missing Develop Console');
-if(!sync.includes('SYNC_DEBOUNCE_MS=1600')||sync.includes('setInterval(')||!sync.includes("currentUser.features?.datasetSync"))fail('Optimized membership-only sync missing');
+if(!sync.includes('SYNC_DEBOUNCE_MIN_MS=2500')||!sync.includes('adaptiveSyncDelay')||sync.includes('setInterval(')||!sync.includes("currentUser.features?.datasetSync"))fail('Optimized adaptive membership-only sync missing');
 if(!payment.includes('includedAnalysisAccess')||!payment.includes("Membership · Analisis bebas")||!payment.includes("Admin · Analisis bebas"))fail('Payment bypass missing');
 if(!developHtml.includes('noindex,nofollow,noarchive')||!develop.includes('/v1/develop/overview')||!develop.includes('/access'))fail('Develop console contract incomplete');
 

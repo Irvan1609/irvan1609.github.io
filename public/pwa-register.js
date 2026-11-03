@@ -1,4 +1,4 @@
-const SW_URL='/sw.js';
+const SW_URL='/sw.js?v=20261010-adminroutes2';
 let deferredInstall=null;
 
 function installStyles(){
@@ -40,7 +40,7 @@ updateNetworkBadge();
 if('serviceWorker'in navigator){
   window.addEventListener('load',async()=>{
     try{
-      await navigator.serviceWorker.register(SW_URL,{scope:'/',updateViaCache:'imports'});
+      await navigator.serviceWorker.register(SW_URL,{scope:'/',updateViaCache:'none'});
     }catch(error){console.warn('PWA registration skipped',error);}
   });
 }

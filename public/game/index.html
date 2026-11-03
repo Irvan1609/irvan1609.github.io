@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10271f">
+  <meta name="field-zero-theme-bootstrap" content="agrotik_field_zero_v1 · prefers-color-scheme: light">
+  <script src="/game/theme-init.js?v=20261003-theme2"></script>
+  <meta name="application-name" content="Agrotik">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/agrotik.svg" type="image/svg+xml">
+  <meta name="description" content="Field Zero — akademi riset, rancangan percobaan, genetika, pemuliaan tanaman, dan usaha tani.">
+  <title>Field Zero · Agrotik Game</title>
+  <link rel="stylesheet" href="/subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20260928-1">
+  <link rel="stylesheet" href="/game/style.css?v=20261003-fullscreen1">
+  <link rel="stylesheet" href="/game/theme.css?v=20261002-mobile-final1">
+  <link rel="stylesheet" href="/game/comfort.css?v=20261003-fullscreen2">
+  <link rel="stylesheet" href="/game/farm.css?v=20261002-mobile-final1">
+  <link rel="stylesheet" href="/admin-subweb-gate.css?v=20261010-adminroutes2">
+</head>
+<body class="admin-subweb-locked calm-ui">
+  <header class="subweb-header">
+    <div class="subweb-header-inner">
+      <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Field Zero</span></a>
+      <nav class="subweb-nav" aria-label="Navigasi situs">
+        <a class="subweb-home-link" href="/">Beranda</a>
+        <details class="subweb-tools">
+          <summary>Subweb <span aria-hidden="true">⌄</span></summary>
+          <div class="subweb-tools-menu">
+            <a href="/game/" aria-current="page">Field Zero</a>
+            <a href="/stat/">Statistical Web</a>
+            <a href="/hitung-cabai/">Hitung Cabai</a>
+            <a href="/pengukur/">Pengukur</a>
+            <a href="/mendeley/">Referensi Mendeley</a>
+            <a href="/print-skripsi/">Print Skripsi</a>
+          </div>
+        </details>
+      </nav>
+    </div>
+  </header>
+
+  <main class="game-shell">
+
+    <aside id="floatingGameActions" class="floating-game-actions" aria-label="Aksi melayang">
+      <div id="floatingGameMenu" class="floating-game-menu" hidden>
+        <button type="button" data-float-action="plant" title="Tanam"><span>🌱</span><b>Tanam</b></button>
+        <button type="button" data-float-action="water" title="Air"><span>💧</span><b>Air</b></button>
+        <button type="button" data-float-action="fertilize" title="Pupuk"><span>🧪</span><b>Pupuk</b></button>
+        <button type="button" data-float-action="scout" title="Periksa"><span>◎</span><b>Periksa</b></button>
+        <button type="button" data-float-action="harvest" title="Panen"><span>🧺</span><b>Panen</b></button>
+        <button type="button" data-float-action="smart" title="Aksi petak"><span>⚡</span><b>Aksi</b></button>
+        <button type="button" data-float-action="next" title="Hari berikutnya"><span>＋</span><b>Hari</b></button>
+        <button type="button" data-float-action="lab" title="Lab"><span>🔬</span><b>Lab</b></button>
+        <button type="button" data-float-action="research" title="Rancob & Breeding"><span>📐</span><b>Rancob</b></button><button type="button" data-float-action="map" title="Peta"><span>🗺</span><b>Peta</b></button><button type="button" data-float-action="social" title="Sosial"><span>👥</span><b>Sosial</b></button>
+      </div>
+      <button id="floatingGameButton" class="floating-game-button" type="button" aria-expanded="false" aria-controls="floatingGameMenu" aria-label="Buka aksi cepat" title="Aksi cepat">＋</button>
+    </aside>
+    <section class="game-head">
+      <div>
+        <span class="kicker">AKADEMI RISET · PEMULIAAN</span>
+        <h1>Field Zero</h1>
+        <p>Rp · 📐 · 🧬 · 📊</p>
+      </div>
+      <div class="head-actions">
+        <button id="cloudSync" class="icon-button cloud-sync" type="button" data-sync-status="local" title="Progres lokal · masuk untuk sinkron antar perangkat" aria-label="Progres lokal · masuk untuk sinkron antar perangkat">☁</button>
+        <button id="gameHelp" class="icon-button" type="button" title="Bantuan" aria-label="Bantuan">?</button>
+        <button id="soundToggle" class="icon-button" type="button" aria-pressed="false" title="Musik & suara">♫</button>
+        <button id="newRun" class="icon-button" type="button" title="Mulai ulang">↺</button>
+      </div>
+    </section>
+
+    <nav class="game-quick-nav" aria-label="Menu game">
+      <button id="quickField" type="button" title="Lahan" aria-label="Lahan">🌱</button>
+      <button id="quickLab" type="button" title="Lab" aria-label="Lab">🔬</button>
+      <button id="quickMap" type="button" title="Peta" aria-label="Peta">🗺</button>
+      <button id="quickExperiment" type="button" title="Rancob & Breeding Cup" aria-label="Rancob & Breeding Cup">📐</button>
+      <button id="quickSocial" type="button" title="Sosial" aria-label="Sosial">👥<i id="socialBadge" hidden></i></button>
+      <button id="quickMore" type="button" title="Lainnya" aria-label="Lainnya">•••</button>
+    </nav>
+
+    <section class="hud hud-focus" aria-label="Status permainan">
+      <div class="hud-secondary"><small>Musim</small><b id="seasonValue">1</b></div>
+      <div class="hud-primary"><small>Hari</small><b id="dayValue">H1/120</b></div>
+      <div class="hud-primary"><small>Kas</small><b id="coinValue">Rp150 rb</b></div>
+      <div class="hud-primary"><small>Upah</small><b id="focusValue">Rp80 rb/HOK</b></div>
+      <div class="today hud-weather"><small>Cuaca</small><b id="weatherText">Cerah</b><span id="weatherEffect">—</span><span id="forecastText">—</span></div>
+      <div class="hud-secondary"><small>Riset</small><b id="rpValue">0</b></div>
+      <div class="hud-secondary"><small>Level</small><b id="levelValue">1</b></div>
+      <div class="market-cell hud-secondary"><small>Jagung</small><b id="marketValue">Rp5.500/kg</b></div>
+      <div class="xp-cell hud-secondary"><small>XP</small><span class="xp-track"><i id="xpBar"></i></span><b id="xpValue">0/100</b></div>
+    </section>
+
+    <section class="season-bar season-summary" aria-label="Target musim">
+      <div class="season-climate"><span id="seasonIcon">☀</span><div><small>Musim</small><b id="seasonName">Normal</b><span id="seasonDesc"></span></div></div>
+      <div class="mission"><small>Target</small><b id="missionText">—</b><span id="missionProgress">0/0</span></div>
+    </section>
+    <button id="playHint" class="play-hint" type="button"><span id="playHintIcon">→</span><b id="playHintText">Pilih Tanam lalu petak kosong</b></button>
+    <div id="gameWorkflow" class="game-workflow" aria-label="Alur permainan" hidden>
+      <span data-flow-step="plant">Tanam</span>
+      <span data-flow-step="care">Rawat</span>
+      <span data-flow-step="harvest">Panen</span>
+      <span data-flow-step="analysis">Analisis</span>
+      <span data-flow-step="selection">Seleksi</span>
+    </div>
+
+    <section class="meta-strip panel" aria-label="Status run" hidden>
+      <div><button id="openWorldMap" type="button"><b id="locationName">Field Zero</b></button></div>
+      <div><button id="openChallenges" type="button"><b id="runModeName">Standar</b><span id="runModeHint"></span></button></div>
+      <div><button id="openRival" type="button"><b id="rivalName">Dr. Nara</b><span id="rivalScore">—</span></button></div>
+      <div><button id="openRecords" type="button"><b id="ghostScore">—</b></button></div>
+      <div><button id="openPrestige" type="button"><b id="legacyValue">0</b></button></div>
+    </section>
+
+    <div class="game-layout">
+      <section class="field-panel panel">
+        <div class="panel-head">
+          <div><small>FIELD ZERO</small><h2>Lahan</h2></div>
+          <div class="field-legend"><span><i class="dot ready"></i>Panen</span><span><i class="dot sick"></i>Masalah</span></div>
+        </div>
+        <div class="field-context">
+          <button id="selectedSeedQuick" type="button" title="Pilih benih"><span>🌱</span><b id="selectedSeedName">—</b></button>
+          <span id="activeToolStatus">Ketuk alat → petak</span>
+        </div>
+        <div id="toolDock" class="field-tool-dock" aria-label="Alat lapangan">
+          <button type="button" draggable="true" data-field-tool="plant" title="Tanam" aria-label="Tanam"><span class="tool-icon">🌱</span></button>
+          <button type="button" draggable="true" data-field-tool="water" title="Air" aria-label="Air"><span class="tool-icon">💧</span></button>
+          <button type="button" draggable="true" data-field-tool="fertilize" title="Pupuk" aria-label="Pupuk"><span class="tool-icon">NPK</span></button>
+          <button type="button" draggable="true" data-field-tool="scout" title="Periksa" aria-label="Periksa"><span class="tool-icon">◎</span></button>
+          <button id="harvestBasket" type="button" draggable="true" data-field-tool="harvest" title="Panen" aria-label="Panen"><span class="tool-icon">🧺</span></button>
+          <button id="experimentTool" type="button" draggable="true" data-field-tool="treatment" title="Perlakuan" aria-label="Perlakuan" hidden><span class="tool-icon">🧪</span></button>
+        </div>
+        <div class="mobile-command-row" aria-label="Aksi cepat">
+          <button id="smartAction" type="button">◎ <span>Aksi petak</span></button>
+          <button id="attentionToggle" type="button" aria-pressed="false" title="Rawat petak bermasalah">🌿 <span>Rawat</span><b id="attentionCount">0</b></button>
+        </div>
+        <div id="fieldGrid" class="field-grid" aria-label="Petak lahan Field Zero"></div>
+        <div id="advanceNotice" class="advance-notice" role="status" hidden></div>
+        <div class="time-panel" aria-label="Kalender lapang">
+          <div class="time-main"><small id="phenologyStatus">H1 · Belum ditanam</small><b id="criticalTask">Tanam petak sebelum mempercepat waktu</b></div>
+          <span id="timeStop">Auto-stop aktif</span>
+        </div>
+        <div class="day-actions" aria-label="Kontrol waktu">
+          <button id="nextDay" class="primary" type="button">+1 Hari</button>
+          <button id="skip3Days" type="button">+3 Hari</button>
+          <button id="nextCritical" type="button">⏩ Ke kejadian</button>
+          <button id="finishSeason" type="button" hidden>Akhiri musim</button>
+        </div>
+        <nav class="field-primary-actions" aria-label="Aksi utama" hidden>
+          <button type="button" data-main-action="lab">🔬 <span>Lab</span></button>
+          <button type="button" data-main-action="research">📐 <span>Penelitian</span></button>
+          <button type="button" data-main-action="analysis">📊 <span>Analisis</span></button>
+        </nav>
+      </section>
+
+      <aside class="inspector panel">
+        <div class="panel-head"><div><small>PETAK TERPILIH</small><h2 id="plotTitle">Pilih petak</h2></div><div class="inspector-head-actions"><button id="prevPlot" type="button" aria-label="Petak sebelumnya">←</button><button id="nextIssuePlot" type="button" aria-label="Petak bermasalah berikutnya">⚠</button><button id="nextPlot" type="button" aria-label="Petak berikutnya">→</button><span id="plotStage" class="stage-badge">—</span><button id="closeInspectorSheet" type="button" aria-label="Tutup detail petak">×</button></div></div>
+        <div id="inspectorBody" class="inspector-body">
+          <div class="empty-inspector">Pilih petak.</div>
+        </div>
+      </aside>
+    </div>
+
+    <details id="labHub" class="panel compact-panel lab-hub">
+      <summary><span><b>🔬 Lab</b></span><span>⌄</span></summary>
+      <div class="meta-grid">
+      <section class="panel meta-panel vault-panel">
+        <div class="panel-head"><div><small>BENIH</small><h2>Koleksi Benih</h2></div><span id="vaultCount" class="count-badge">0</span></div>
+        <div id="vaultList" class="seed-list"></div>
+      </section>
+      <section class="panel meta-panel selection-panel">
+        <div class="panel-head"><div><small>SELEKSI</small><h2>🧬 Kandidat</h2></div><span id="selectionCount" class="count-badge">0</span></div>
+        <button id="openSelection" class="selection-open" type="button">🧬 Seleksi generasi berikutnya</button>
+      </section>
+      <section class="panel meta-panel academy-panel">
+        <div class="panel-head"><div><small>LEARNING</small><h2>🎓 Akademi Pemuliaan</h2></div><span id="academyStatus" class="count-badge">0/9</span></div>
+        <button id="openAcademy" class="selection-open" type="button">📐 📊 🧬 × · Buka kurikulum</button>
+      </section>
+      <section class="panel meta-panel lab-panel">
+        <div class="panel-head"><div><small>BREEDING</small><h2>Persilangan</h2></div><span class="cost-badge">12 RP</span></div>
+        <div class="cross-form">
+          <label>Skema<select id="crossMode"><option value="f1">A × B → F1</option><option value="self">Self A → segregasi</option><option value="backcross">A × B → backcross</option></select></label>
+          <label>A<select id="parentA"></select></label>
+          <span class="cross-x">×</span>
+          <label>B<select id="parentB"></select></label>
+          <button id="crossSeeds" class="primary" type="button">Jalankan</button>
+        </div>
+        <div id="crossPreview" class="cross-preview">Pilih 2 benih.</div>
+      </section>
+      <section class="panel meta-panel" data-unlock-level="2">
+        <div class="panel-head"><div><small>RISET</small><h2>Teknologi</h2></div><span id="techCount" class="count-badge">0</span></div>
+        <div id="techTree" class="tech-tree"></div>
+      </section>
+      <section class="panel meta-panel" data-unlock-level="2">
+        <div class="panel-head"><div><small>FIELD OPERATIONS</small><h2>Ekspedisi</h2></div><span id="expeditionStatus" class="count-badge">Siap</span></div>
+        <div id="expeditionPanel"></div>
+      </section>
+      <section class="panel meta-panel" data-unlock-level="3">
+        <div class="panel-head"><div><small>GENETIC PUZZLE</small><h2>Genome Lab</h2></div><span id="genomeStatus" class="count-badge">Terkunci</span></div>
+        <div id="genomeLab"></div>
+      </section>
+      <section class="panel meta-panel" data-unlock-level="2">
+        <div class="panel-head"><div><small>LINEAGE</small><h2>Silsilah</h2></div><button id="openEvolution" class="mini-button" type="button">Buka</button></div>
+        <div id="evolutionPreview" class="evolution-preview"></div>
+      </section>
+      </div>
+    </details>
+
+    <section class="lower-grid">
+      <details class="panel compact-panel">
+        <summary><span><small>RIWAYAT</small><b>Log musim</b></span><span>⌄</span></summary>
+        <div id="gameLog" class="game-log"></div>
+      </details>
+      <details class="panel compact-panel">
+        <summary><span><small>KOLEKSI</small><b>Discovery & Achievement</b></span><span id="discoveryCount">0</span></summary>
+        <div id="discoveries" class="discoveries"></div>
+      </details>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="undoToast" class="undo-toast" hidden><span id="undoText">Aksi diterapkan</span><button id="undoAction" type="button">Urungkan</button></div>
+
+  <div id="eventModal" class="event-backdrop" hidden>
+    <section class="event-card" role="dialog" aria-modal="true" aria-labelledby="eventTitle">
+      <span id="eventKicker" class="event-kicker">FIELD EVENT</span>
+      <h2 id="eventTitle">Kejadian</h2>
+      <p id="eventText"></p>
+      <div id="eventChoices" class="event-choices"></div>
+    </section>
+  </div>
+
+  <div id="metaModal" class="event-backdrop" hidden>
+    <section class="event-card meta-modal-card" role="dialog" aria-modal="true" aria-labelledby="metaModalTitle">
+      <div class="modal-head"><div><span id="metaModalKicker" class="event-kicker">FIELD ZERO</span><h2 id="metaModalTitle">Panel</h2></div><button id="closeMetaModal" class="icon-button" type="button" aria-label="Tutup">×</button></div>
+      <div id="metaModalBody" class="meta-modal-body"></div>
+    </section>
+  </div>
+
+  <div id="socialModal" class="event-backdrop" hidden>
+    <section class="event-card social-card" role="dialog" aria-modal="true" aria-labelledby="socialTitle">
+      <div class="modal-head">
+        <div><span class="event-kicker">FIELD ZERO ONLINE</span><h2 id="socialTitle">Sosial</h2></div>
+        <button id="closeSocial" class="icon-button" type="button" aria-label="Tutup">×</button>
+      </div>
+      <div id="socialGate" class="social-gate">
+        <b>Masuk untuk bermain bersama.</b>
+        <button id="socialLogin" class="primary" type="button">Masuk Google</button>
+      </div>
+      <div id="socialApp" hidden>
+        <nav class="social-tabs" aria-label="Menu sosial">
+          <button type="button" data-social-tab="rank" aria-pressed="true" title="Peringkat" aria-label="Peringkat">🏆</button>
+          <button type="button" data-social-tab="friends" aria-pressed="false" title="Teman" aria-label="Teman">👥</button>
+          <button type="button" data-social-tab="search" aria-pressed="false" title="Cari pemain" aria-label="Cari pemain">＋</button>
+        </nav>
+        <div id="socialContent" class="social-content"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="syncConflictModal" class="event-backdrop" hidden>
+    <section class="event-card sync-conflict-card" role="dialog" aria-modal="true" aria-labelledby="syncConflictTitle">
+      <span class="event-kicker">CLOUD SAVE</span>
+      <h2 id="syncConflictTitle">Pilih progres</h2>
+      <p>Perangkat ini dan cloud sama-sama memiliki perubahan. Pilih progres yang ingin diteruskan.</p>
+      <div id="syncConflictBody" class="sync-conflict-body"></div>
+      <div class="sync-conflict-actions">
+        <button id="syncUseCloud" class="primary" type="button">Gunakan cloud</button>
+        <button id="syncKeepLocal" type="button">Gunakan perangkat ini</button>
+        <button id="syncConflictLater" type="button">Nanti</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="recapModal" class="event-backdrop" hidden>
+    <section class="event-card recap-card" role="dialog" aria-modal="true" aria-labelledby="recapTitle">
+      <span class="event-kicker">SEASON REPORT</span>
+      <h2 id="recapTitle">Musim selesai</h2>
+      <div id="recapStats" class="recap-stats"></div>
+      <div id="bestCandidate" class="best-candidate"></div>
+      <div class="event-choices">
+        <button id="saveBestSeed" type="button" hidden>Simpan benih terbaik</button>
+        <button id="nextSeason" class="primary" type="button">Musim berikutnya →</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/game/mobile-boot.js?v=20261003-mobileboot1"></script>
+
+  <script type="module" src="/account.js?v=20261010-adminroutes2"></script>
+  <script type="module" src="/game/app.js?v=20261010-adminroutes2"></script>
+  <script type="module" src="/game/social.js?v=20261010-adminroutes2"></script>
+  <script type="module" src="/game/sync.js?v=20261010-adminroutes2"></script>
+  <script src="/pwa-register.js?v=20261002-mobile-final1"></script>
+<main id="adminSubwebGate" aria-labelledby="adminSubwebTitle">
+  <span class="admin-gate-tag">Khusus Admin</span>
+  <h1 id="adminSubwebTitle">Subweb ini hanya dapat digunakan oleh admin.</h1>
+  <p data-admin-gate-message role="status">Memeriksa sesi admin dengan server…</p>
+  <div class="admin-gate-actions"><button type="button" data-admin-gate-login disabled>Masuk dengan Google</button><a href="/">Kembali ke beranda</a></div>
+</main>
+</body>
+</html>

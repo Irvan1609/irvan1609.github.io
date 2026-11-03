@@ -48,9 +48,9 @@
       ]
     },
     {
-      "name": "Kamera Pengukur",
+      "name": "Pengukur",
       "short_name": "Ukur",
-      "url": "/kamera-pengukur/",
+      "url": "/pengukur/",
       "icons": [
         {
           "src": "/icons/agrotik.svg",

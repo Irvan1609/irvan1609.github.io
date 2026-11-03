@@ -14,11 +14,16 @@ for(const marker of [
   "THIRD_PARTY_CACHE='agrotik-third-party-'",
   "'/offline.html'","'/manifest.webmanifest'","'/icons/agrotik.svg'",
   "request.method!=='GET'","request.mode==='navigate'",
-  "cdn.jsdelivr.net","cdnjs.cloudflare.com"
+  "cdn.jsdelivr.net","cdnjs.cloudflare.com",
+  "CONTROL_CACHE='agrotik-control'","ROLLBACK_PREVIOUS","previousMatch"
 ]) if(!sw.includes(marker))fail('service worker missing '+marker);
 
-for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS","'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'"]){
+for(const forbidden of ["warmChiliOffline","ORT_ASSETS","OFFLINE_LIBS"]){
   if(sw.includes(forbidden))fail('service worker must not eagerly preload '+forbidden);
+}
+const coreBlock=sw.match(/const CORE_URLS=\[[\s\S]*?\];/)?.[0]||'';
+for(const forbidden of ["'/stat/'","'/hitung-cabai/'","'/kamera-pengukur/'","'/pengukur/'"]){
+  if(coreBlock.includes(forbidden))fail('service worker must not eagerly preload '+forbidden);
 }
 
 if(sw.includes("method==='POST'")||sw.includes('method==="POST"'))fail('service worker must not cache POST requests');
@@ -30,10 +35,11 @@ if(manifest.name!=='Agrotik · Alat Riset Agronomi')fail('manifest name incorrec
 if(manifest.display!=='standalone'||manifest.scope!=='/'||manifest.start_url!=='/')fail('manifest app shell settings incorrect');
 if(!Array.isArray(manifest.icons)||!manifest.icons.some(icon=>icon.src==='/icons/agrotik.svg'))fail('manifest icon missing');
 if(!Array.isArray(manifest.shortcuts)||manifest.shortcuts.length<3)fail('manifest shortcuts incomplete');
-if(!offline.includes('/stat/')||!offline.includes('/hitung-cabai/')||!offline.includes('/kamera-pengukur/'))fail('offline fallback links incomplete');
+if(!offline.includes('/stat/')||!offline.includes('/hitung-cabai/')||!offline.includes('/pengukur/'))fail('offline fallback links incomplete');
 if(!icon.includes('<svg')||!icon.includes('#0d6648'))fail('Agrotik SVG icon invalid');
 
-for(const path of ['index.html','stat/index.html','public/hitung-cabai/index.html','public/kamera-pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
+// The public landing page is static; offline/PWA entry points are the applications.
+for(const path of ['stat/index.html','public/hitung-cabai/index.html','public/pengukur/index.html','mendeley/index.html','print-skripsi/index.html']){
   const html=fs.readFileSync(path,'utf8');
   if(!html.includes('rel="manifest" href="/manifest.webmanifest"'))fail(path+' missing manifest link');
   if(!html.includes('src="/pwa-register.js"'))fail(path+' missing PWA registration');

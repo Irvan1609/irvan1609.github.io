@@ -5,7 +5,6 @@ const $=selector=>document.querySelector(selector);
 let users=[],plans=[],datasets=[],loaded=new Set(),healthCache=null;
 
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
 function bytes(value){const n=Number(value)||0;if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(n>=104857600?0:1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
 function dt(value){if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleString('id-ID'):'—';}
@@ -14,10 +13,9 @@ function initials(user){return String(user.name||user.email||'?').split(/\s+/).s
 function userAvatar(user){return user.picture?'<img src="'+esc(user.picture)+'" alt="" referrerpolicy="no-referrer">':'<span class="user-fallback">'+esc(initials(user))+'</span>';}
 function accessBadge(user){if(user.role==='admin')return '<span class="badge admin">Admin</span>';if(user.membership?.active)return '<span class="badge member">Membership</span>';return '<span class="badge free">Gratis</span>';}
 async function api(path,options={}){
-  const headers=new Headers(options.headers||{});
-  headers.set('Authorization','Bearer '+token());
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers,cache:'no-store'});
+  const request=window.IrvanAccount?.request;
+  if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(Error(data.message||data.error||('HTTP '+response.status)),{status:response.status,data});
   return data;
@@ -37,7 +35,9 @@ async function loadHealth(){
   $('#healthJson').textContent=JSON.stringify(data,null,2);
   $('#overviewHealth').innerHTML=[
     ['Service',data.service||'—'],['API',data.apiVersion||'—'],['Auth',data.authConfigured?'Aktif':'Nonaktif'],
-    ['Dataset Sync',data.datasetSync?'Aktif':'Nonaktif'],['Membership',data.membershipAccess?'Aktif':'Nonaktif'],
+    ['Dataset Sync',data.datasetSync?'Aktif':'Nonaktif'],['Mode cloud',data.cloudMode||'—'],
+    ['Quota guard',data.quotaGuard?'Aktif':'Nonaktif'],['R2 foto',data.storage?.imagesR2?'Aktif':'Fallback D1'],
+    ['R2 backup',data.storage?.backupsR2?'Aktif':'Belum'],['Membership',data.membershipAccess?'Aktif':'Nonaktif'],
     ['Develop',data.developConsole?'Aktif':'Nonaktif'],['QRIS membership',data.membershipPayments?'Terkonfigurasi':'Belum']
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
   return data;
@@ -58,7 +58,8 @@ async function loadOverview(){
   $('#statsGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+Number(item[1]||0).toLocaleString('id-ID')+'</b></article>').join('');
   $('#overviewUsage').innerHTML=[
     ['Ukuran dataset',bytes(usage.datasetBytes)],['Revisi dataset',Number(usage.datasetRevisionWrites||0).toLocaleString('id-ID')],
-    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto kontribusi',bytes(usage.contributionImageBytes)],
+    ['Sesi aktif',Number(usage.activeSessions||0).toLocaleString('id-ID')],['Foto total',bytes(usage.contributionImageBytes)],
+    ['Foto di D1',bytes(usage.contributionD1ImageBytes)],['Foto di R2',bytes(usage.contributionR2ImageBytes)],
     ['Midtrans env',midtrans.environment||'—'],['Midtrans key',midtrans.keyType||'—'],
     ['Midtrans auth',midtrans.verified?'Terverifikasi':(midtrans.message||'Belum terverifikasi')]
   ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
@@ -164,14 +165,92 @@ function modelEvaluation(items){
 }
 async function loadAI(){
   const data=await api('/v1/develop/contributions?limit=500'),items=data.items||[],models=modelEvaluation(items);
+  const legacy=items.filter(item=>item.storage_backend!=='r2').length,r2=items.filter(item=>item.storage_backend==='r2').length;
+  $('#aiStorageState').textContent=data.imagesR2?`R2 aktif · ${r2} foto pada antrean di R2 · ${legacy} masih perlu dimigrasikan.`:'R2 IMAGES belum aktif · foto baru tetap memakai fallback D1.';
+  $('#migrateAiImages').disabled=!data.imagesR2||legacy===0;
   $('#aiModelBody').innerHTML=models.length?models.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+row.n+'</td><td>'+row.quality.toFixed(3)+'</td><td>'+row.corrections+'</td><td>'+row.delta.toFixed(2)+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada evaluasi model.</td></tr>';
   const queue=[...items].sort((a,b)=>aiReviewPriority(a).rank-aiReviewPriority(b).rank||Number(a.quality_score||0)-Number(b.quality_score||0)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   $('#aiBody').innerHTML=queue.length?queue.map(item=>{const priority=aiReviewPriority(item);return '<tr><td><b>'+priority.label+'</b></td><td>'+esc(item.sample)+'</td><td>'+Number(item.final_count||0)+'</td><td>'+Number(item.predicted_count||0)+'</td><td>'+Number(item.correction_count||0)+'</td><td>'+Number(item.quality_score||0).toFixed(3)+'</td><td>'+esc(item.model_version||item.prediction_method||'—')+'</td><td>'+esc(item.status||'—')+'</td><td>'+esc(dt(item.created_at))+'</td></tr>';}).join(''):'<tr><td colspan="9">Belum ada kontribusi AI.</td></tr>';
 }
+async function loadCloudControl(){
+  const data=await api('/v1/develop/cloud-control');
+  $('#cloudBudgetMode').value=data.mode||'auto';
+  $('#featureDatasetSync').checked=Boolean(data.features?.datasetSync);
+  $('#featureAiUpload').checked=Boolean(data.features?.aiUpload);
+  $('#featureGameCloud').checked=Boolean(data.features?.gameCloud);
+  $('#featurePayments').checked=Boolean(data.features?.payments);
+  const p=Math.max(0,Number(data.storage?.pressure||0)*100);
+  $('#cloudBudgetState').textContent='Efektif: '+(data.effectiveMode||'normal')+' · data aplikasi D1 '+bytes(data.storage?.appD1Bytes||0)+' / soft budget '+bytes(data.storage?.softLimitBytes||0)+' ('+p.toFixed(1)+'%)';
+  return data;
+}
+async function saveCloudControl(){
+  const button=$('#saveCloudControl');button.disabled=true;
+  try{
+    const data=await api('/v1/develop/cloud-control',{method:'PUT',body:JSON.stringify({
+      mode:$('#cloudBudgetMode').value,
+      features:{
+        datasetSync:$('#featureDatasetSync').checked,
+        aiUpload:$('#featureAiUpload').checked,
+        gameCloud:$('#featureGameCloud').checked,
+        payments:$('#featurePayments').checked
+      }
+    })});
+    loaded.delete('server');await loadServer();
+    return data;
+  }catch(error){alert(error.message);}finally{button.disabled=false;}
+}
 async function loadServer(){
-  const result=await Promise.all([api('/v1/develop/usage'),loadHealth()]),u=result[0].estimated||{};
-  const cards=[['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],['Foto bytes',bytes(u.contributionImageBytes)],['Users',u.users]];
+  const result=await Promise.all([api('/v1/develop/usage'),loadHealth(),loadCloudControl()]),usage=result[0],u=usage.estimated||{},budget=usage.softBudget||{},ref=usage.platformReference||{};
+  const cards=[
+    ['Dataset D1',u.datasets],['Dataset bytes',bytes(u.datasetBytes)],['Revisi dataset',u.datasetRevisionWrites],
+    ['Sessions',u.sessions],['Sesi aktif',u.activeSessions],['Kontribusi',u.contributions],
+    ['Foto D1',bytes(u.contributionD1ImageBytes)],['Foto R2',bytes(u.contributionR2ImageBytes)],
+    ['Foto duplikat hemat',u.deduplicatedImages||0],['Soft budget',Math.round(Number(budget.pressure||0)*100)+'%'],
+    ['Ref Worker/hari',Number(ref.workersFreeRequestsPerDay||0).toLocaleString('id-ID')],
+    ['Ref D1 read/hari',Number(ref.d1FreeRowsReadPerDay||0).toLocaleString('id-ID')],
+    ['Ref D1 write/hari',Number(ref.d1FreeRowsWrittenPerDay||0).toLocaleString('id-ID')],
+    ['Users',u.users]
+  ];
   $('#usageGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1]??0)+'</b></article>').join('');
+}
+function labelMobileTables(){
+  document.querySelectorAll('.table-wrap table').forEach(table=>{
+    const labels=[...table.querySelectorAll('thead th')].map(th=>th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach(row=>[...row.children].forEach((cell,index)=>{if(cell.tagName==='TD')cell.dataset.label=labels[index]||'';}));
+  });
+}
+async function loadDiagnostic(){
+  const api=window.AgrotikResilience;if(!api){$('#diagnosticChecks').innerHTML='<div class="muted">Modul diagnostic belum siap.</div>';return;}
+  const d=await api.runDiagnostics({includeNetwork:true});
+  $('#diagnosticChecks').innerHTML=d.checks.map(c=>'<div class="kv"><span>'+esc(c.label)+'</span><b class="'+(c.ok?'positive':'negative')+'">'+esc(c.detail)+'</b></div>').join('');
+  const stat=d.queue?.stat||{},game=d.queue?.game||{};
+  $('#queueInspector').innerHTML=[
+    ['Stat',stat.status||'tidak ada'],['Dataset tertunda',stat.pendingDatasets||0],['Operasi tertunda',stat.pendingOperations||0],
+    ['Circuit pause',stat.circuitMs?Math.ceil(stat.circuitMs/1000)+' dtk':'Tidak'],['Field Zero',game.status||'tidak ada'],['Konflik Field Zero',game.conflict?'Ada':'Tidak']
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+  $('#toggleSafeMode').textContent=d.safeMode?'Keluar Safe Mode':'Aktifkan Safe Mode';
+  $('#toggleRollback').textContent=d.rollback?.enabled?'Kembali ke terbaru':'Versi sebelumnya';$('#toggleRollback').disabled=!d.rollback?.available&&!d.rollback?.enabled;
+  $('#recoveryState').textContent='Storage '+Math.round(Number(d.storage?.ratio||0)*100)+'% · '+(d.storage?.persisted?'persisten':'best effort')+' · rollback cache '+(d.rollback?.available?'tersedia':'belum tersedia')+'.';
+}
+async function loadSecurity(){
+  const data=await api('/v1/develop/security');
+  const cards=[
+    ['Sesi aktif',data.sessions?.active||0],['Sesi dicabut',data.sessions?.revoked||0],
+    ['Kedaluwarsa <24 jam',data.sessions?.expiring24h||0],['Akun ditangguhkan',data.users?.suspended||0],
+    ['Login 7 hari',data.users?.loggedIn7d||0],['Backup terakhir',data.lastBackup?.createdAt?dateOnly(data.lastBackup.createdAt):'Belum']
+  ];
+  $('#securityGrid').innerHTML=cards.map(item=>'<article><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></article>').join('');
+  const controls=data.controls||{};
+  $('#securityControls').innerHTML=[
+    ['Cookie HttpOnly',controls.httpOnlyCookie?'Aktif':'Tidak'],['Cookie Partitioned',controls.partitionedCookie?'Aktif':'Tidak'],
+    ['CSRF',controls.csrf?'Aktif':'Tidak'],['Fallback bearer',String(controls.bearerFallbackHours||0)+' jam'],
+    ['Rotasi sesi',String(controls.sessionRotationHours||0)+' jam'],['Turnstile',controls.turnstile?'Aktif':'Belum'],
+    ['Rate limit kontribusi',controls.contributionRateLimit?'Aktif':'Belum'],['Rate limit dataset',controls.datasetRateLimit?'Aktif':'Belum'],
+    ['R2 foto kontribusi',controls.r2ContributionImages?'Aktif':'Fallback D1'],['R2 backup',controls.r2Backups?'Aktif':'Belum'],
+    ['Retention terjadwal',controls.scheduledRetention?'Aktif':'Belum'],['Idempotent sync',controls.idempotentSync?'Aktif':'Belum']
+  ].map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join('');
+  const events=Object.entries(data.events24h||{}).sort((a,b)=>b[1]-a[1]);
+  $('#securityEvents').innerHTML=events.length?events.map(item=>'<div class="kv"><span>'+esc(item[0])+'</span><b>'+esc(item[1])+'</b></div>').join(''):'<div class="muted">Belum ada peristiwa audit dalam 24 jam.</div>';
 }
 async function loadAudit(){
   const data=await api('/v1/develop/audit?limit=500'),items=data.items||[];
@@ -181,11 +260,12 @@ async function loadBackups(){
   const data=await api('/v1/develop/backups'),items=data.items||[];
   $('#backupState').textContent=data.r2Configured?'R2 BACKUPS aktif. Snapshot manual dan terjadwal dapat disimpan.':'R2 BACKUPS belum dikonfigurasi. Ekspor logis manual tetap tersedia.';
   $('#createSnapshot').disabled=!data.r2Configured;
-  $('#backupsBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(item.object_key||'—')+'</td><td>'+(data.r2Configured?'<button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada snapshot R2.</td></tr>';
+  $('#backupsBody').innerHTML=items.length?items.map(item=>'<tr><td>'+esc(dt(item.created_at))+'</td><td>'+esc(item.status)+(item.verified?' ✓':'')+'</td><td>'+esc(bytes(item.size_bytes))+'</td><td>'+esc(item.object_key||'—')+(item.checksum_sha256?'<small title="'+esc(item.checksum_sha256)+'"> · SHA-256</small>':'')+'</td><td>'+(data.r2Configured?'<button class="backup-download" type="button" data-backup="'+esc(item.id)+'">Unduh</button>':'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada snapshot R2.</td></tr>';
   $('#backupsBody').querySelectorAll('[data-backup]').forEach(button=>button.onclick=()=>downloadBackup('/v1/develop/backups/'+encodeURIComponent(button.dataset.backup)+'/download','irvan-backup-'+button.dataset.backup+'.json'));
 }
 async function downloadBackup(path,fileName){
-  const response=await fetch(endpoint+path,{headers:{Authorization:'Bearer '+token()},cache:'no-store'});
+  const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{cache:'no-store'});
   if(!response.ok){const data=await response.json().catch(()=>({}));throw Error(data.message||data.error||'Backup gagal diunduh.');}
   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
@@ -199,9 +279,11 @@ async function loadTab(name,force=false){
     if(name==='datasets')await loadDatasets();
     if(name==='ai')await loadAI();
     if(name==='server')await loadServer();
+    if(name==='diagnostic')await loadDiagnostic();
+    if(name==='security')await loadSecurity();
     if(name==='audit')await loadAudit();
     if(name==='backups')await loadBackups();
-    loaded.add(name);
+    loaded.add(name);labelMobileTables();
   }catch(error){console.error(error);alert(error.message||'Data develop tidak dapat dimuat.');}
 }
 async function init(){
@@ -213,8 +295,21 @@ async function init(){
 document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>activateTab(button.dataset.tab));
 $('#refreshDevelop').onclick=async()=>{loaded.clear();await loadTab(document.querySelector('[data-tab].active')?.dataset.tab||'overview',true);};
 $('#refreshHealth').onclick=loadHealth;
+$('#saveCloudControl').onclick=saveCloudControl;
+$('#runDiagnostic').onclick=()=>loadDiagnostic();
+$('#copyDiagnostic').onclick=()=>window.AgrotikResilience?.copyErrorReport?.();
+$('#toggleSafeMode').onclick=()=>window.AgrotikResilience?.toggleSafeMode?.();
+$('#toggleRollback').onclick=async()=>{const state=await window.AgrotikResilience?.rollbackStatus?.();window.AgrotikResilience?.setRollback?.(!state?.enabled);};
 $('#userSearch').oninput=renderUsers;
 $('#datasetSearch').oninput=renderDatasets;
+$('#migrateAiImages').onclick=async()=>{
+  const b=$('#migrateAiImages');b.disabled=true;
+  try{
+    const result=await api('/v1/develop/contributions/migrate-images',{method:'POST',body:JSON.stringify({limit:25})});
+    alert(`Migrasi selesai: ${result.migrated||0} foto · tersisa ${result.remaining??0}.`);
+    loaded.delete('ai');loaded.delete('overview');loaded.delete('server');await loadAI();
+  }catch(error){alert(error.message);}finally{b.disabled=false;}
+};
 $('#createSnapshot').onclick=async()=>{const b=$('#createSnapshot');b.disabled=true;try{await api('/v1/develop/backups',{method:'POST',body:'{}'});await loadBackups();}catch(error){alert(error.message);}finally{b.disabled=false;}};
 $('#exportBackup').onclick=async()=>{const b=$('#exportBackup');b.disabled=true;try{await downloadBackup('/v1/develop/backups/export','irvan-logical-backup.json');}catch(error){alert(error.message);}finally{b.disabled=false;}};
 document.addEventListener('accountchange',()=>setTimeout(init,0));

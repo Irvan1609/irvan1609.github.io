@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+<title id="title">Field Zero research farm landscape</title>
+<desc id="desc">A lightweight illustrated agricultural landscape with mountains, village, research buildings, irrigation canal and experimental field.</desc>
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8fd1f1"/><stop offset="1" stop-color="#dff1e6"/></linearGradient>
+  <linearGradient id="hill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5d8c65"/><stop offset="1" stop-color="#315b46"/></linearGradient>
+  <linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#86a95b"/><stop offset="1" stop-color="#496b35"/></linearGradient>
+  <linearGradient id="water" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#63bad4"/><stop offset="1" stop-color="#2a7f9d"/></linearGradient>
+</defs>
+<rect width="1600" height="1120" fill="url(#sky)"/>
+<circle cx="1320" cy="132" r="78" fill="#f6d979" opacity=".9"/>
+<path d="M0 330 170 170l115 96 125-158 148 151 120-107 155 124 143-180 190 195 148-130 286 178v147H0Z" fill="#7895a0" opacity=".55"/>
+<path d="M0 390 170 238l136 118 153-144 146 130 144-105 163 136 195-155 132 132 138-100 213 142v104H0Z" fill="url(#hill)"/>
+<path d="M0 450c180-73 335-50 510-10s322 36 495-8 348-58 595 13v190H0Z" fill="#9eb86e"/>
+<path d="M0 536c200-78 390-34 576 2 180 35 357 31 511-8 176-45 340-50 513 4v165H0Z" fill="#b5c982"/>
+<g opacity=".9">
+  <rect x="1035" y="370" width="80" height="48" rx="4" fill="#f2e5c7"/><path d="m1018 374 58-38 58 38Z" fill="#a9513d"/>
+  <rect x="1150" y="384" width="98" height="56" rx="4" fill="#efe5ce"/><path d="m1134 388 65-42 65 42Z" fill="#a94c38"/>
+  <rect x="1285" y="362" width="82" height="52" rx="4" fill="#f2e7ce"/><path d="m1268 366 58-39 58 39Z" fill="#9b4635"/>
+  <rect x="1406" y="391" width="92" height="58" rx="4" fill="#eee0c7"/><path d="m1390 395 62-43 62 43Z" fill="#aa553d"/>
+</g>
+<path d="M0 642c239-73 435-61 617-12 164 44 341 47 528 12 142-26 292-22 455 12v466H0Z" fill="url(#field)"/>
+<path d="M1262 517c110 62 141 137 101 226-52 116-19 207 237 295v82h-183c-164-83-220-166-167-278 40-86 21-155-72-214Z" fill="url(#water)" opacity=".95"/>
+<path d="M1292 535c82 60 102 120 70 195-41 98-16 177 163 259" fill="none" stroke="#b7e8ed" stroke-width="11" opacity=".55"/>
+<g>
+  <rect x="180" y="468" width="250" height="112" rx="14" fill="#d8d4b7" stroke="#68472d" stroke-width="9"/>
+  <path d="M155 478h300l-48-75H203Z" fill="#7d5231" stroke="#5c3a26" stroke-width="8"/>
+  <rect x="230" y="510" width="55" height="70" fill="#446c4c"/><rect x="326" y="500" width="64" height="42" fill="#9bc7b1"/>
+</g>
+<g>
+  <rect x="560" y="438" width="330" height="150" rx="14" fill="#b98453" stroke="#65452f" stroke-width="10"/>
+  <path d="M525 455h400l-65-104H590Z" fill="#a64d32" stroke="#6f3427" stroke-width="10"/>
+  <rect x="628" y="494" width="82" height="94" fill="#5d4534"/><rect x="744" y="482" width="92" height="60" fill="#dfd9b8"/>
+  <rect x="886" y="520" width="93" height="52" rx="14" fill="#d56b34"/><circle cx="905" cy="580" r="24" fill="#343b38"/><circle cx="964" cy="580" r="24" fill="#343b38"/>
+</g>
+<g>
+  <rect x="1125" y="474" width="245" height="125" rx="18" fill="#c7d2c7" stroke="#597064" stroke-width="10"/>
+  <ellipse cx="1247" cy="501" rx="112" ry="48" fill="#5eb6d2"/>
+  <ellipse cx="1247" cy="493" rx="86" ry="30" fill="#a9e2e9" opacity=".65"/>
+</g>
+<g opacity=".55">
+  <path d="M60 710h1040" stroke="#d4b47c" stroke-width="42" stroke-linecap="round"/>
+  <path d="M92 870h1030" stroke="#d4b47c" stroke-width="38" stroke-linecap="round"/>
+  <path d="M92 1025h1015" stroke="#d4b47c" stroke-width="38" stroke-linecap="round"/>
+  <path d="M310 678v396M582 675v405M854 676v402" stroke="#d1ad73" stroke-width="24" stroke-linecap="round"/>
+</g>
+</svg>

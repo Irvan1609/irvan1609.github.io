@@ -93,7 +93,7 @@ function exportBab4Doc(scope){
     }
   }
   if(!parts.length)throw Error('Tabel BAB IV belum tersedia.');
-  const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:10pt;color:#000}h2{font-size:11pt;margin:18pt 0 6pt}h3{font-size:10pt;margin:10pt 0 4pt}table{width:100%;border-collapse:collapse;margin:4pt 0 8pt}th,td{padding:4pt 5pt;border-left:0;border-right:0}thead th{border-top:1.5pt solid #000;border-bottom:1pt solid #000}tbody tr:last-child td{border-bottom:1.5pt solid #000}.table-caption{font-weight:700;margin:4pt 0}.analysis-note{font-size:9pt;margin:3pt 0}.publication-table-tools{display:none}sup{vertical-align:super;font-size:75%}</style></head><body>${parts.join('\n')}</body></html>`;
+  const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:10pt;color:#000}h2{font-size:11pt;margin:18pt 0 6pt}h3{font-size:10pt;margin:10pt 0 4pt}table{width:100%;border-collapse:collapse;margin:4pt 0 8pt}th,td{padding:4pt 5pt;border-left:0;border-right:0}thead th{border-top:1.5pt solid #000;border-bottom:1pt solid #000}tbody tr:last-child td{border-bottom:1.5pt solid #000}.table-caption{font-weight:700;margin:4pt 0}.analysis-note{font-size:9pt;margin:3pt 0}.publication-table-tools{display:none}sup{vertical-align:super;font-size:75%}</style></head><body>${parts.join('\n')}<p style="margin-top:18pt;padding-top:4pt;border-top:1px solid #bbb;font-size:8pt;text-align:right;color:#555">Agrotik · v0.1.0 · https://irvan1609.github.io</p></body></html>`;
   const blob=new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=safeFilename(scope.dataset.datasetName||'hasil')+' - BAB IV.doc';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
@@ -108,7 +108,8 @@ async function exportScope(scope, filename, formulas=false) {
 }
 
 export function resultActions(filename='hasil-analisis') {
-  return `<div class="result-actions"><button type="button" data-result-action="copy">⧉ Salin ke Excel</button><button type="button" data-result-action="export" data-result-filename="${escAttr(filename)}">⇩ Ekspor Excel (.xlsx)</button><button type="button" data-result-action="export-formula" data-result-filename="${escAttr(filename)}">ƒx Ekspor Excel (formula)</button><span class="export-status" role="status" aria-live="polite"></span></div>`;
+  const safe=escAttr(filename);
+  return `<div class="result-actions result-card-actions"><details class="result-card-more"><summary aria-label="Aksi tabel">⋮</summary><div class="result-card-more-menu"><button type="button" class="result-card-copy" data-result-action="copy">Salin tabel</button><button type="button" class="result-card-export result-card-mobile-export" data-result-action="export" data-result-filename="${safe}">Excel</button><button type="button" data-result-action="export-formula" data-result-filename="${safe}">Excel formula</button></div></details><span class="export-status" role="status" aria-live="polite"></span></div>`;
 }
 
 function decorateCollapsibleResults(root=document){

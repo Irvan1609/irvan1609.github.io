@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import {validateColumnNames} from '../src/dataset-columns.js';
 import {recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters} from '../src/agronomic-data-dictionary.js';
 import {templateCatalog,getDataTemplate,rowsForEditor} from '../src/template-catalog.js';
+import {createUid} from '../src/core/ids.js';
 import ExcelJS from 'exceljs';
 
 // Execute the real editor event listener, not a duplicate of the import logic.
@@ -14,7 +15,7 @@ const document={addEventListener:target.addEventListener.bind(target),querySelec
   if(!elements.has(selector))elements.set(selector,{addEventListener(){},classList:{},textContent:''});
   return elements.get(selector);
 }};
-const context=vm.createContext({document,validateColumnNames,recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters,formatNumber:String,console:{error(){}},localStorage:{
+const context=vm.createContext({document,createUid,validateColumnNames,recognizedAgronomicHeaders,saveUserParameterAlias,suggestAgronomicParameters,formatNumber:String,console:{error(){}},localStorage:{
   getItem:key=>storage.get(key)??null,
   setItem(key,value){if(key===failKey){failKey=null;throw Error('Kuota penyimpanan penuh.');}storage.set(key,value);},
   removeItem:key=>storage.delete(key)
@@ -44,7 +45,9 @@ assert.match(csvText,/^Perlakuan,Y\nM0,15\.89\nM1,20\.97$/);
 assert.equal(csvText.includes('\t'),false);
 assert.equal(send({name:'Meta',headers,rows,plant:'Jagung',treatment:'Dosis N'}).name,'Meta.csv');
 const metaState=JSON.parse(snapshot());
-assert.deepEqual(metaState.meta['Meta.csv'],{plant:'Jagung',treatment:'Dosis N'});
+assert.equal(metaState.meta['Meta.csv'].plant,'Jagung');
+assert.equal(metaState.meta['Meta.csv'].treatment,'Dosis N');
+assert.match(String(metaState.meta['Meta.csv'].dataset_uid||''),/^dataset_/);
 const valid=snapshot(),persisted=JSON.stringify([...storage]);
 for(const detail of [
   {headers:['A'],rows:[]},{headers:['A'],rows:[[1,2]]},

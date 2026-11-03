@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {parseParameters,parseObservationNumber,observationKey,observationQueue,observationSummary,rawObservationTable,recapObservationTable,tableCsv,applyObservationChange,travelObservationHistory} from '../src/observation-engine.js';
 
 const parameters=parseParameters('bb | Bobot buah | g\npb | Panjang buah | cm\ntb | Tebal buah | mm\nlb | Lebar buah | mm');
@@ -37,4 +38,14 @@ const harvest=parseParameters('bb-p1 | Panen satu | g\nbb-p2 | Panen dua | g');
 const harvestPlan={...plan,parameters:harvest,units:[{...plan.units[0],count:1}],orderMode:'manual',manualOrder:'bb-p2-1, bb-p1-1'};
 assert.deepEqual(observationQueue(harvestPlan).map(q=>q.parameterId),[harvest[1].id,harvest[0].id]);
 assert.match(tableCsv({headers:['Kode'],rows:[['=1+1']]}),/'=1\+1/);
+const observationUi=readFileSync(new URL('../src/observation-workflow.js',import.meta.url),'utf8');
+const datasetBridge=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+for(const id of ['obsDataset','obsSourceDataset','obsOpenDataset','obsImportUnits','obsMapApply','datasetNavTab']){
+  assert.match(observationUi,new RegExp(id),'Observation UI must provide dataset access: '+id);
+}
+assert.match(observationUi,/readDataset\?\.\(requested\)/,'Unit mapping must read the selected dataset, not just the active one');
+assert.match(observationUi,/sourceDataset:plan\.sourceDataset/,'Existing observation sessions must retain their dataset choice');
+assert.match(observationUi,/if\(starterOnly\)draft\.units=\[\]/,'Dataset import must replace the untouched demo unit');
+for(const api of ['listDatasets','readDataset','activateDataset'])assert.match(datasetBridge,new RegExp('\\b'+api+':async|\\b'+api+':\\('),'Dataset bridge must expose '+api);
+console.log('Observation dataset picker contract OK: source selection, persistence, mapping, and editor navigation.');
 console.log('Observation checks passed: mixed order, unequal samples, stable identities, harvest codes, missing/zero values, recap, undo/redo, and CSV safety.');

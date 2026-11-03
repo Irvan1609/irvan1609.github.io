@@ -6,11 +6,13 @@ import {finalizeAgronomyFactorial} from './agronomy-factorial.js';
 import {renderReport,esc,designNames,installChartDownload} from './scientific-report.js';
 import {renderAnalysisSummary} from './report-insights.js';
 import {inspectDataQuality,renderDataQuality} from './data-quality.js';
-import {backupRawDataset,installDriveBackup} from './drive-backup.js';
 import {transformationOptions,transformObservations} from './data-transform.js';
 import {treatmentMetadataKey,readTreatmentMetadata,saveTreatmentMetadata} from './treatment-metadata.js';
 import {readCategoryMetadata,categoryLevelDescription} from './category-metadata.js';
 import {auditReports,renderAudit} from './analysis-audit.js';
+import {requireValidCoreReport,attachSupplementWarning} from './analysis-integrity.js';
+import {enhanceResultOS} from './result-os.js';
+import {saveLocalAnalysis,listLocalAnalyses,getLocalAnalysis} from './local-dataset-store.js';
 const $=s=>document.querySelector(s),HISTORY='statistical_web_analysis_history_v1',CONFIG='statistical_web_analysis_config_v1',RESULT_ORDER='statistical_web_result_order_v1';
 const PRESETS={
   'ral-bnt05':{design:'ral',posthoc:'bnt',alpha:.05},
@@ -92,6 +94,7 @@ function persistResultOrder(container,datasetName){
 function installResultControls(container,reports,datasetName){
   const sections=()=>[...container.querySelectorAll('.analysis-result')],summary=container.querySelector('.analysis-summary');
   const filterButtons=[...container.querySelectorAll('[data-result-filter]')],focus=container.querySelector('[data-result-focus]');
+  const viewSelect=container.querySelector('[data-simple-result-view-select]'),modeSelect=container.querySelector('[data-result-mode-select]');
   const compare=container.querySelector('[data-compare-mode]'),thesis=container.querySelector('[data-thesis-table-mode]'),publication=container.querySelector('[data-publication-mode]'),presentation=container.querySelector('[data-presentation-mode]');
   const prev=container.querySelector('[data-result-prev]'),next=container.querySelector('[data-result-next]'),page=container.querySelector('[data-result-page]');
   let filter='all';
@@ -102,6 +105,12 @@ function installResultControls(container,reports,datasetName){
     for(const className of ['compare-parameters-mode','thesis-table-mode','publication-table-mode','presentation-results-mode'])container.classList.toggle(className,className===classForMode(mode));
     for(const [button,name] of [[compare,'compare'],[thesis,'thesis'],[publication,'publication'],[presentation,'presentation']])if(button)button.setAttribute('aria-pressed',String(mode===name));
   };
+  const setView=view=>{
+    for(const name of ['summary','full'])container.classList.toggle('result-view-'+name,name===view);
+    if(viewSelect)viewSelect.value=view;
+    container.scrollTop=0;
+  };
+  if(viewSelect)viewSelect.onchange=()=>setView(viewSelect.value);
   const apply=()=>{
     const list=matching(),wanted=activeFocus(),summaryOnly=container.classList.contains('compare-parameters-mode');
     if(summaryOnly){
@@ -132,6 +141,7 @@ function installResultControls(container,reports,datasetName){
     setMode(active?'':mode);if(focus&&!active&&mode!=='presentation')focus.value='';apply();
   };};
   modeButton(compare,'compare');modeButton(thesis,'thesis');modeButton(publication,'publication');modeButton(presentation,'presentation');
+  if(modeSelect)modeSelect.onchange=()=>{setMode(modeSelect.value);if(focus&&modeSelect.value&&modeSelect.value!=='presentation')focus.value='';apply();};
   container.querySelectorAll('[data-summary-parameter]').forEach(button=>button.onclick=()=>{
     if(focus)focus.value=button.dataset.summaryParameter;
     setMode('');apply();
@@ -146,10 +156,7 @@ function installResultControls(container,reports,datasetName){
   };
   if(prev)prev.onclick=()=>step(-1);if(next)next.onclick=()=>step(1);
 
-  if(phoneGuardMode()&&sections().length){
-    container.classList.add('phone-parameter-mode');
-    const first=matching()[0];if(focus&&first)focus.value=first.dataset.parameter;
-  }else{
+  {
     let dragged=null;
     for(const section of sections()){
       const heading=section.querySelector(':scope > h3');if(!heading)continue;
@@ -185,7 +192,7 @@ function restoreAnalysisConfig(design){
   $('#scienceAlpha').value=String(saved.alpha===.01?.01:.05);
   $('#scienceAssumptions').checked=!!saved.assumptions;
   $('#scienceContrastMode').value=['none','custom','polynomial'].includes(saved.contrastMode)?saved.contrastMode:'none';
-  document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=(saved.parameters||[]).includes(data.headers[Number(input.value)]));
+  document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=isNumericColumn(Number(input.value)));
   document.querySelectorAll('[data-transform-param]').forEach(select=>{const name=data.headers[Number(select.dataset.transformParam)],value=saved.transforms?.[name];if(value&&[...select.options].some(option=>option.value===value))select.value=value;});
   return true;
 }
@@ -201,19 +208,22 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   const fingerprint=meta.fingerprint||reports[0]?.datasetFingerprint||'',resultVersion=meta.resultVersion||reports[0]?.resultVersion||'';
   let stale=false;
   try{const current=readDataset();stale=!!fingerprint&&current?.name===datasetName&&datasetFingerprint(current)!==fingerprint;}catch{}
-  container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|presentation-results-mode|phone-parameter-mode)\b/g,'').trim();
-  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div><div class="analysis-result-toolbar"><div class="result-significance-filter" role="group" aria-label="Filter signifikansi"><button type="button" data-result-filter="all" aria-pressed="true">Semua</button><button type="button" data-result-filter="ss" aria-pressed="false">**</button><button type="button" data-result-filter="s" aria-pressed="false">*</button><button type="button" data-result-filter="tn" aria-pressed="false">tn</button></div><select data-result-focus aria-label="Fokus parameter"><option value="">Semua parameter</option>${focusOptions}</select><button type="button" data-compare-mode aria-pressed="false">Bandingkan</button><button type="button" data-thesis-table-mode aria-pressed="false">Skripsi</button><button type="button" data-publication-mode aria-pressed="false">Publikasi</button><button type="button" data-presentation-mode aria-pressed="false">Presentasi</button>${resultVersion?`<span class="analysis-version-badge">V${resultVersion}</span>`:''}<div class="mobile-result-nav"><button type="button" data-result-prev aria-label="Parameter sebelumnya">‹</button><span data-result-page></span><button type="button" data-result-next aria-label="Parameter berikutnya">›</button></div></div><div class="result-actions master-result-actions"><button data-result-action="export-bab4">BAB IV</button><button data-result-action="export-all">Ekspor .xlsx</button><button type="button" data-print-results>Cetak / PDF</button><button type="button" data-thesis-check>Periksa</button><details class="result-more-actions"><summary>Lainnya</summary><button data-result-action="export-all-formula">Ekspor formula</button></details><span role="status" class="export-status"></span></div><div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}`;
+  container.className=container.className.replace(/\b(?:compare-parameters-mode|thesis-table-mode|publication-table-mode|presentation-results-mode|phone-parameter-mode|result-view-summary|result-view-anova|result-view-diagnostic|result-view-full)\b/g,'').trim();
+  container.classList.add('result-view-full','result-all-parameters');
+  container.innerHTML=`<div class="analysis-stale-banner" data-stale-banner ${stale?'':'hidden'}><span>Data berubah · hasil perlu dihitung ulang</span><button type="button" data-rerun-stale>Hitung ulang</button></div>${resultVersion?`<div class="analysis-result-version">Versi ${resultVersion}</div>`:''}<div data-thesis-audit-host></div>${renderAnalysisSummary(ordered)}${ordered.map(renderReport).join('')}<section class="analysis-export-footer" aria-label="Ekspor hasil"><div class="analysis-export-footer-head"><b>Ekspor hasil</b><span>Semua parameter</span></div><div class="analysis-export-footer-actions"><button type="button" data-os-copy-word>Salin ke Word</button><button type="button" data-os-share>Salin ringkasan</button><button data-result-action="export-bab4">BAB IV (.doc)</button><button data-result-action="export-all">Excel (.xlsx)</button><button data-result-action="export-all-formula">Excel formula</button><button type="button" data-print-results>PDF / Cetak</button><button type="button" data-thesis-check>Periksa hasil</button><button type="button" data-os-history>Versi hasil</button></div></section>`;
   container.dataset.datasetName=datasetName;container.dataset.analysisFingerprint=fingerprint;container.dataset.resultVersion=String(resultVersion||'');
   markResultsStale(container,stale);
   container.querySelectorAll('[data-export-scope]').forEach(scope=>scope.dataset.datasetName=datasetName);
   installResultControls(container,ordered,datasetName);
+  container.querySelectorAll('.analysis-result details:not(.result-card-more)').forEach(details=>details.open=true);
+  enhanceResultOS(container,ordered,{datasetName,resultVersion,stale});
+  container.querySelectorAll('.analysis-result details:not(.result-card-more)').forEach(details=>details.open=true);
   const rerun=container.querySelector('[data-rerun-stale]');if(rerun)rerun.onclick=async()=>{rerun.disabled=true;await quickRunLastScientific();};
-  const printButton=container.querySelector('[data-print-results]');
-  if(printButton)printButton.onclick=()=>{
+  container.querySelectorAll('[data-print-results]').forEach(printButton=>printButton.onclick=()=>{
     document.body.classList.add('print-analysis-mode');
     const clean=()=>document.body.classList.remove('print-analysis-mode');
     window.addEventListener('afterprint',clean,{once:true});window.print();setTimeout(clean,1500);
-  };
+  });
   const auditButton=container.querySelector('[data-thesis-check]'),host=container.querySelector('[data-thesis-audit-host]');
   if(auditButton&&host)auditButton.onclick=()=>{
     const audit=auditReports(ordered);
@@ -223,6 +233,17 @@ function showResults(reports,container,datasetName=reports[0]?.datasetName||'has
   };
 }
 function getHistory(){try{const items=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(items)?items.filter(x=>x.version===1&&Array.isArray(x.reports)):[];}catch{return [];}}
+async function hydrateAnalysisHistoryFromIndexedDB(){
+  if(!data?.dataset_uid)return;
+  try{
+    const entries=await listLocalAnalyses(data.dataset_uid,100);
+    if(!entries.length)return;
+    const legacy=getHistory();
+    const byId=new Map([...legacy,...entries].map(entry=>[entry.id||entry.analysis_uid,entry]));
+    const merged=[...byId.values()].sort((a,b)=>String(b.date||b.updatedAt||'').localeCompare(String(a.date||a.updatedAt||''))).slice(0,20);
+    localStorage.setItem(HISTORY,JSON.stringify(merged));
+  }catch(error){console.warn('Riwayat analisis IndexedDB tidak dapat dipulihkan',error);}
+}
 function saveHistory(reports,options){
   const existing=getHistory(),same=existing.filter(item=>item.dataset===data.name),previous=same[0],fingerprint=datasetFingerprint(data),signature=configSignature(options);
   const resultVersion=Math.max(same.length,...same.map(item=>Number(item.resultVersion)||0))+1,changes=[];
@@ -231,8 +252,10 @@ function saveHistory(reports,options){
     if(previous.optionsSignature&&previous.optionsSignature!==signature)changes.push('pengaturan');
   }
   for(const report of reports){report.datasetFingerprint=fingerprint;report.resultVersion=resultVersion;}
-  const entry={id:crypto.randomUUID(),version:1,resultVersion,date:new Date().toISOString(),dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
-  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));return entry;}catch{return null;}
+  const entry={id:crypto.randomUUID(),analysis_uid:'analysis_'+(globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(16).slice(2)),version:1,resultVersion,date:new Date().toISOString(),dataset_uid:data.dataset_uid||'',dataset:data.name,design:currentDesign,options,optionsSignature:signature,datasetFingerprint:fingerprint,changes,separator:getDecimalSeparator(),reports};
+  try{localStorage.setItem(HISTORY,JSON.stringify([entry,...existing].slice(0,20)));}catch{return null;}
+  void saveLocalAnalysis(entry).catch(error=>console.warn('Riwayat analisis IndexedDB tidak tersimpan',error));
+  return entry;
 }
 function compareHistoryEntries(a,b){
   const names=[...new Set([...(a.reports||[]).map(report=>report.name),...(b.reports||[]).map(report=>report.name)])];
@@ -317,16 +340,22 @@ function roleIndices(){return new Set([$('#scienceA').value,$('#scienceB').value
 function updateScienceParameterCount(){
   const target=$('#scienceParameterCount');if(!target)return;
   const inputs=[...document.querySelectorAll('#scienceParameters input')],available=inputs.filter(input=>!input.disabled),selected=available.filter(input=>input.checked);
-  target.textContent=selected.length?`${selected.length}/${available.length}`:'0 dipilih';
+  target.textContent=selected.length?`${selected.length} aktif`:'0 aktif';
   target.dataset.empty=selected.length?'false':'true';
 }
 function syncParameterRoleExclusions(initial=false){
   const roles=roleIndices();
   document.querySelectorAll('#scienceParameters input').forEach(input=>{
-    const index=Number(input.value),isRole=roles.has(index);
+    const index=Number(input.value),isRole=roles.has(index),wasRole=input.dataset.wasRole==='true';
     input.disabled=isRole;
-    if(isRole)input.checked=false;
-    else if(initial)input.checked=isNumericColumn(index);
+    input.closest('.science-param-check')?.toggleAttribute('hidden',isRole);
+    if(isRole){
+      input.checked=false;
+      input.dataset.wasRole='true';
+    }else{
+      if(initial||(wasRole&&input.dataset.userTouched!=='true'))input.checked=isNumericColumn(index);
+      input.dataset.wasRole='false';
+    }
     const transform=document.querySelector(`[data-transform-param="${index}"]`);
     if(transform)transform.disabled=isRole||!input.checked;
   });
@@ -395,6 +424,10 @@ function renderStructure(check,o){
 }
 function validate(){
   const o=options(),check=validateData(data,o,parseNumber),quality=inspectDataQuality(data,o,parseNumber);let contrastInfo='';
+  const roleIndex=data.headers.findIndex(header=>String(header).toLocaleLowerCase('id-ID')==='peranstatistik');
+  if(roleIndex>=0&&data.rows.some(row=>/subsample/i.test(String(row[roleIndex]||'')))){
+    check.warnings.unshift({message:'Dataset ini memuat tanaman subsampel. Tanaman dalam petak yang sama bukan ulangan independen; gunakan dataset tingkat unit percobaan untuk ANOVA RAL/RAK.'});
+  }
   if(phoneGuardMode()&&!o.parameters.length&&!check.issues.some(issue=>/parameter/i.test(issue.message)))check.issues.unshift({message:'Pilih minimal satu parameter.'});
   if(!check.issues.length){
     o.parameters.forEach((column,index)=>{
@@ -417,6 +450,7 @@ function validate(){
   $('#scienceValidation').querySelectorAll('[data-focus-error-row]').forEach(button=>button.onclick=()=>{
     const row=Number(button.dataset.focusErrorRow),column=Number(button.dataset.focusErrorCol);
     $('#scientificModal').classList.remove('open');
+    document.body.classList.remove('analysis-mode-active');
     globalThis.StatisticalWebData?.focusCell?.(row,column);
   });
   document.querySelectorAll('.data-grid td.data-invalid').forEach(td=>td.classList.remove('data-invalid'));
@@ -434,32 +468,85 @@ function validate(){
       runButton.textContent='Jalankan analisis';
     }
   }
+  if(check.issues.length)setRunState('problem',`${check.issues.length} masalah`,check.issues[0]?.message||'Periksa struktur data dan pilihan kolom.');
+  else setRunState('ready','Siap','Data dan pilihan siap dianalisis.');
   return {o,check,quality};
+}
+function setRunState(state,text='',detail=''){
+  const target=$('#scienceRunStatus');if(!target)return;
+  target.dataset.state=state||'idle';target.textContent=text;target.title=detail||text;
+}
+function safeFinalizeReport(report){
+  try{finalizeAgronomyFactorial(report);return true;}
+  catch(error){
+    console.error('Penyempurnaan laporan gagal',error);
+    attachSupplementWarning(report,`Penyempurnaan tampilan agronomi gagal: ${error.message}. ANOVA inti tetap tersedia.`);
+    return false;
+  }
+}
+function attachOptionalDiagnostics(report,observations,engineOptions,index,name){
+  if(!engineOptions.assumptions)return;
+  try{
+    const diagnostic=analyzeParameter(observations,{...engineOptions,posthoc:'none',contrastMode:'none',assumptions:true},index,name);
+    report.assumptions=diagnostic.assumptions||[];
+    report.diagnostics=diagnostic.diagnostics||null;
+    report.wholeResiduals=diagnostic.wholeResiduals||report.wholeResiduals||[];
+    const note=(diagnostic.notes||[]).find(item=>/Pemeriksaan asumsi/i.test(item));
+    if(note&&!report.notes.includes(note))report.notes.push(note);
+  }catch(error){
+    console.error('Diagnostik residual gagal',error);
+    attachSupplementWarning(report,`Diagnostik residual tidak dapat dihitung: ${error.message}. Hasil ANOVA inti tetap tersedia.`);
+  }
+}
+function renderCoreFallback(reports,container,message=''){
+  if(!container)return;
+  const sections=(reports||[]).map(report=>{
+    const rows=(report.terms||[]).map(term=>`<tr><td>${esc(term.label)}</td><td>${Number.isFinite(Number(term.df))?term.df:'—'}</td><td>${Number.isFinite(Number(term.ss))?Number(term.ss).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td><td>${Number.isFinite(Number(term.ms))?Number(term.ms).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td><td>${Number.isFinite(Number(term.f))?Number(term.f).toLocaleString('id-ID',{maximumFractionDigits:4}):'—'}</td><td>${Number.isFinite(Number(term.p))?Number(term.p).toLocaleString('id-ID',{maximumFractionDigits:6}):'—'}</td></tr>`).join('');
+    return `<section class="analysis-result analysis-core-fallback"><h3>${esc(report.name||'Parameter')}</h3><div class="table-scroll"><table class="result-table"><thead><tr><th>Sumber</th><th>db</th><th>JK</th><th>KT</th><th>F</th><th>p</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  }).join('');
+  container.innerHTML=`<div class="analysis-recovery-note"><b>Hasil inti tersedia.</b>${message?` <span>${esc(message)}</span>`:''}</div>${sections}`;
+}
+function safeShowResults(reports,container,datasetName,meta){
+  try{showResults(reports,container,datasetName,meta);return true;}
+  catch(error){
+    console.error('Lapisan hasil gagal dimuat',error);
+    renderCoreFallback(reports,container,`Tampilan tambahan gagal dimuat: ${error.message}`);
+    return false;
+  }
 }
 async function analyze(){
   const runRevision=revision;
-  $('#scienceResults').innerHTML='';const {o,check}=validate();if(check.issues.length)return;
+  $('#scienceResults').innerHTML='';
+  const {o,check}=validate();
+  if(check.issues.length){setRunState('problem',`${check.issues.length} masalah`,check.issues[0]?.message||'Periksa data.');return;}
+  const button=$('#runScience');
   try{
-    globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');
+    try{globalThis.StatisticalWebData?.snapshotActiveDataset?.('sebelum analisis');}catch(error){console.warn('Snapshot dataset dilewati',error);}
     if(o.contrastMode==='polynomial')o.levels=[...document.querySelectorAll('[data-level]')].map(el=>parseNumber(el.value));
-    const metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);saveAnalysisConfig();
-    const button=$('#runScience');button.disabled=true;button.textContent='Menghitung…';
+    let metadata={factorLabels:{a:'',b:''},levels:{a:{},b:{}}};
+    try{metadata=collectTreatmentMetadata();saveTreatmentMetadata(metadataStoreKey(),metadata);}catch(error){console.warn('Metadata perlakuan tidak dapat disimpan',error);}
+    try{saveAnalysisConfig();}catch(error){console.warn('Konfigurasi analisis tidak dapat disimpan',error);}
+    button.disabled=true;button.textContent='Menghitung…';setRunState('running','Menghitung…','ANOVA inti sedang dihitung.');
     const reports=[];
     for(let i=0;i<o.parameters.length;i++){
       await new Promise(resolve=>setTimeout(resolve,0));
       if(runRevision!==revision)return;
       const engineOptions=o.contrastMode==='custom'?{...o,contrastMode:'none'}:o;
+      const coreOptions={...engineOptions,assumptions:false};
       const column=o.parameters[i],transformType=o.transforms?.[column]||'none';
       const transformed=transformObservations(check.observations,i,transformType);
       let beforeTransform=null,beforeTransformError='';
       if(transformType!=='none'){
         try{
-          const before=analyzeParameter(check.observations,{...engineOptions,posthoc:'none',assumptions:false,contrastMode:'none'},i,data.headers[column]);
-          before.factorLabels=metadata.factorLabels;before.treatmentMeta=metadata;finalizeAgronomyFactorial(before);
+          const before=analyzeParameter(check.observations,{...coreOptions,posthoc:'none',contrastMode:'none'},i,data.headers[column]);
+          requireValidCoreReport(before);
+          before.factorLabels=metadata.factorLabels;before.treatmentMeta=metadata;safeFinalizeReport(before);
           beforeTransform={terms:before.terms,cv:before.cv,cvWhole:before.cvWhole,grand:before.grand};
         }catch(error){beforeTransformError=error.message;}
       }
-      const report=analyzeParameter(transformed.observations,engineOptions,i,data.headers[column]);
+      const report=analyzeParameter(transformed.observations,coreOptions,i,data.headers[column]);
+      report.integrity=requireValidCoreReport(report);
+      attachOptionalDiagnostics(report,transformed.observations,engineOptions,i,data.headers[column]);
       report.transform=transformed.meta;
       report.originalObservations=transformType==='none'?null:check.observations.map(obs=>({a:obs.a,b:obs.b,rep:obs.rep,y:obs.values[i]}));
       report.beforeTransform=beforeTransform;report.beforeTransformError=beforeTransformError;
@@ -478,34 +565,46 @@ async function analyze(){
       report.datasetMeta={plant:data.plant||'',treatment:data.treatment||''};
       report.factorLabels={a:metadata.factorLabels.a||data.headers[o.a]||'Perlakuan',b:o.b===null?null:(metadata.factorLabels.b||data.headers[o.b]||'Faktor B')};
       report.treatmentMeta=metadata;
-      finalizeAgronomyFactorial(report);
+      safeFinalizeReport(report);
       reports.push(report);
     }
-    const saved=saveHistory(reports,o),meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
-    showResults(reports,$('#scienceResults'),data.name,meta);
+
+    let saved=null;
+    try{saved=saveHistory(reports,o);}catch(error){console.warn('Riwayat analisis tidak tersimpan',error);attachSupplementWarning(reports[0],`Riwayat tidak tersimpan: ${error.message}`);}
+    const meta={fingerprint:saved?.datasetFingerprint||datasetFingerprint(data),resultVersion:saved?.resultVersion||''};
+    const mainRendered=safeShowResults(reports,$('#scienceResults'),data.name,meta);
     const dock=$('#analysisDockResults');
     if(dock){
-      showResults(reports,dock,data.name,meta);
+      const dockRendered=safeShowResults(reports,dock,data.name,meta);
       $('#analysisResultDock').hidden=false;
       $('#analysisResultDock').dataset.open='true';
+      document.body.classList.add('analysis-results-open');
+      globalThis.StatisticalWebWorkflow?.setActive?.('results');
       $('#analysisDockTitle').textContent=`${data.name} · ${designNames[currentDesign]||currentDesign}`;
       $('#scientificModal').classList.remove('open');
+      if(!dockRendered&&!mainRendered)console.warn('Hasil ditampilkan dalam mode pemulihan inti.');
     }
-    $('#scienceRunStatus').textContent=saved?'Selesai · tersimpan':'Selesai · belum tersimpan';
+    setRunState('done','Selesai',saved?'Hasil selesai dan tersimpan di riwayat.':'Hasil selesai; riwayat tidak tersimpan.');
     const activeSource=globalThis.StatisticalWebData?.readActiveDataset?.();
     document.dispatchEvent(new CustomEvent('agrotik-analysis-complete',{detail:{
       dataset:data.name,fileName:activeSource?.fileName||data.name,design:currentDesign,
       designLabel:designNames[currentDesign]||currentDesign,options:JSON.parse(JSON.stringify(o)),
-      summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null}))
+      summary:reports.map(report=>({name:report.name||'',p:report.anova?.p??null,cv:report.cv??null,r2:report.r2??null,integrity:report.integrity?.ok!==false}))
     }}));
-    void backupRawDataset({name:data.name,headers:[...data.headers],rows:data.rows.map(row=>[...row])});
-  }catch(error){$('#scienceValidation').innerHTML=`<div class="error-box" role="alert">${esc(error.message)}</div>`;}
-  finally{
-    if(phoneGuardMode()&&$('#scientificModal').classList.contains('open'))validate();
-    else{$('#runScience').disabled=false;$('#runScience').setAttribute('aria-disabled','false');$('#runScience').textContent='Jalankan analisis';}
+  }catch(error){
+    console.error('Analisis gagal',error);
+    $('#scienceValidation').innerHTML=`<div class="error-box" role="alert"><b>Analisis belum dapat dijalankan.</b><p>${esc(error.message)}</p></div>`;
+    setRunState('error','Gagal',error.message);
+  }finally{
+    const status=$('#scienceRunStatus'),finalState=status?.dataset.state||'idle',finalText=status?.textContent||'',finalTitle=status?.title||'';
+    if(phoneGuardMode()&&$('#scientificModal').classList.contains('open')){
+      validate();
+      if(['done','error'].includes(finalState))setRunState(finalState,finalText,finalTitle);
+    }else{button.disabled=false;button.setAttribute('aria-disabled','false');button.textContent='Jalankan analisis';}
   }
 }
 export function openScientific(design){
+  document.body.classList.add('analysis-mode-active');
   revision++;
   data=readDataset();currentDesign=design;
   $('#scienceTitle').textContent=designNames[design]||'Analisis data';
@@ -528,19 +627,15 @@ export function openScientific(design){
   $('#scienceRepLabel').textContent=grouped?'Kelompok':'Ulangan';
   $('#scienceRepHelp').textContent=grouped?'Blok ANOVA.':'ID pengamatan.';
   const transformOptions=transformationOptions().map(item=>`<option value="${item.value}">${esc(item.label)}</option>`).join('');
-  $('#scienceParameters').innerHTML=data.headers.map((h,i)=>`<div class="parameter-row"><label class="ral-check"><input type="checkbox" value="${i}"><span>${esc(h)}</span></label><select data-transform-param="${i}" aria-label="Transformasi ${esc(h)}" disabled>${transformOptions}</select></div>`).join('');
+  const numericColumns=data.headers.map((h,i)=>({h,i})).filter(item=>isNumericColumn(item.i));
+  $('#scienceParameters').innerHTML=numericColumns.map(({h,i})=>`<label class="science-param-check"><input type="checkbox" value="${i}" checked><span>${esc(h)}</span></label>`).join('');
+  $('#scienceTransforms').innerHTML=numericColumns.map(({h,i})=>`<label><span>${esc(h)}</span><select data-transform-param="${i}" aria-label="Transformasi ${esc(h)}" disabled>${transformOptions}</select></label>`).join('');
   $('#scienceAssumptions').checked=false;
   $('#sciencePosthoc').value='none';$('#scienceAlpha').value='0.05';
   $('#scienceContrastMode').value='none';$('#scienceContrastMode').disabled=multi;$('#scienceContrastHelp').textContent=multi?'Kontras/polinomial tersedia pada rancangan satu faktor RAL/RAK.':'';
-  const restored=restoreAnalysisConfig(design);
-  syncParameterRoleExclusions(!restored);
-  if(!restored){
-    const selected=selectedColumnIndexes().filter(index=>isNumericColumn(index)&&!roleIndices().has(index));
-    if(selected.length){
-      document.querySelectorAll('#scienceParameters input').forEach(input=>input.checked=selected.includes(Number(input.value)));
-      syncParameterRoleExclusions(false);
-    }
-  }else syncParameterRoleExclusions(false);
+  restoreAnalysisConfig(design);
+  document.querySelectorAll('#scienceParameters input').forEach(input=>{input.checked=isNumericColumn(Number(input.value));delete input.dataset.userTouched;});
+  syncParameterRoleExclusions(true);
   $('#sciencePreset').value='';
   if(pendingPreset&&PRESETS[pendingPreset]?.design===design){
     const value=pendingPreset;pendingPreset='';applyAnalysisPreset(value);
@@ -550,6 +645,7 @@ export function openScientific(design){
   if(runButton&&phoneGuardMode()){runButton.disabled=true;runButton.textContent='Lengkapi pilihan';runButton.setAttribute('aria-disabled','true');}
   else if(runButton){runButton.disabled=false;runButton.textContent='Jalankan analisis';runButton.setAttribute('aria-disabled','false');}
   $('#scientificModal').classList.add('open');
+  globalThis.StatisticalWebWorkflow?.setActive?.('setup');
   validate();
 }
 export function openScientificRecipe(recipe){
@@ -582,12 +678,71 @@ export function openScientificRecipe(recipe){
 }
 
 export function installScientificWorkflow(){
-  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><div><span class="analysis-dock-kicker">HASIL</span><strong id="analysisDockTitle">Hasil</strong></div><button id="closeAnalysisDock" type="button" aria-label="Tutup hasil">✕</button></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside><div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle"><div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span><select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Preset</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div><div class="modal-body analysis-workspace-body"><div class="science-layout"><main id="scienceFields" class="science-config"><section class="science-card"><div class="science-card-head"><span class="science-step">1</span><b>Rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section><section class="science-card"><div class="science-card-head"><span class="science-step">2</span><b>Parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 dipilih</span></div><div id="scienceParameters" class="ral-list parameter-list science-parameter-list"></div></section><section class="science-card"><div class="science-card-head"><span class="science-step">3</span><b>Uji</b></div><div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label></div><label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Pusat diagnostik residual</b><small>Normalitas, homogenitas, residual, leverage, dan Cook's distance bila tersedia.</small></span></label></section><section class="science-card science-card-advanced"><details><summary><span><b>Kontras / polinomial</b></span><span class="science-details-chevron" aria-hidden="true">⌄</span></summary><div class="science-advanced-body"><div class="science-contrast-box"><label>Jenis<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div></div></details></section></main><aside class="science-review-panel"><div class="science-review-head"><b>Pemeriksaan</b></div><div id="scienceStructure"></div><div id="scienceQuality"></div><button id="validateScience" class="science-validate-button">Periksa</button><div id="scienceValidation"></div></aside></div><div id="scienceResults" data-all-results></div></div><div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Jalankan</button></div></div></div></div>`);
-  const close=()=>$('#scientificModal').classList.remove('open');$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
-  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';};
-  $('#validateScience').onclick=validate;$('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
-  $('#scienceFields').onchange=event=>{$('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';$('#scienceRunStatus').textContent='';if(['scienceA','scienceB','scienceRep'].includes(event.target.id)){syncParameterRoleExclusions(false);}if(event.target.matches('#scienceParameters input'))syncParameterRoleExclusions(false);if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();saveAnalysisConfig();validate();};
-  $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';$('#scienceRunStatus').textContent='';if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
+  void hydrateAnalysisHistoryFromIndexedDB();
+  document.body.insertAdjacentHTML('beforeend',`<aside id="analysisResultDock" class="analysis-result-dock" hidden><div class="analysis-dock-head"><button id="closeAnalysisDock" class="analysis-dock-close" type="button" aria-label="Tutup hasil">✕</button><div class="analysis-dock-title"><span class="analysis-dock-kicker">HASIL ANALISIS</span><strong id="analysisDockTitle">Hasil</strong></div><button id="analysisDockMore" class="analysis-dock-more" type="button" aria-label="Aksi hasil" aria-expanded="false">⋮</button><div id="analysisDockMenu" class="analysis-dock-menu" hidden><button type="button" data-dock-proxy="copy-word">Salin ke Word</button><button type="button" data-dock-proxy="share">Salin ringkasan</button><button type="button" data-dock-proxy="bab4">BAB IV (.doc)</button><button type="button" data-dock-proxy="excel">Excel (.xlsx)</button><button type="button" data-dock-proxy="formula">Excel formula</button><button type="button" data-dock-proxy="print">PDF / Cetak</button><button type="button" data-dock-proxy="check">Periksa hasil</button><button type="button" data-dock-proxy="history">Versi hasil</button><button id="analysisDockAnalysis" type="button">Analisis lain</button><button id="analysisDockData" type="button" hidden>Kembali ke data</button></div></div><div id="analysisDockResults" class="analysis-dock-body" data-all-results></div></aside>
+  <div id="scientificModal" class="modal-backdrop analysis-workspace-backdrop science-simple-mode"><div class="modal analysis-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="scienceTitle">
+    <div class="modal-head analysis-workspace-head"><div class="science-title-stack"><strong id="scienceTitle">Analisis data</strong><div class="science-context"><span id="scienceDesignBadge" class="science-design-badge">Rancangan</span><span id="scienceDatasetName">Dataset</span><span id="scienceDatasetSize">—</span></div></div><button id="closeScience" class="science-close" aria-label="Tutup">✕</button></div>
+    <div class="modal-body analysis-workspace-body"><main id="scienceFields" class="science-simple-shell">
+      <div class="science-primary-grid science-parallel-grid">
+        <div class="science-parallel-pane science-parallel-left">
+          <section class="science-card"><div class="science-card-head"><b>Rancangan</b></div><div class="form-grid science-role-grid"><label><span id="scienceALabel">Perlakuan</span><select id="scienceA"></select></label><label id="scienceBField"><span id="scienceBLabel">Faktor B</span><select id="scienceB"></select></label><label><span id="scienceRepLabel">Ulangan</span><select id="scienceRep"></select></label></div><p id="scienceRepHelp" class="form-help science-inline-help"></p></section>
+          <div class="science-preflight-inline"><div id="scienceStructure"></div><div id="scienceQuality"></div><div id="scienceValidation"></div></div>
+        </div>
+        <div class="science-parallel-pane science-parallel-right">
+          <section class="science-card science-simple-parameter-card"><div class="science-card-head"><b>Parameter</b><span id="scienceParameterCount" class="science-card-status" data-empty="true">0 aktif</span></div><div class="science-param-auto-note">Parameter numerik dipilih otomatis</div><div id="scienceParameters" class="science-parameter-check-grid"></div></section>
+          <details id="scienceAdvancedOptions" class="science-card science-advanced-options"><summary><b>Pengaturan</b><span>Uji lanjut · α · diagnostik · kontras</span></summary><div class="science-advanced-body">
+            <div class="form-grid science-option-grid"><label>Uji lanjut<select id="sciencePosthoc"><option value="none">Tidak pakai</option><option value="bnt">BNT (LSD)</option><option value="bnj">BNJ (Tukey)</option><option value="dmrt">DMRT (Duncan)</option></select></label><label>α<select id="scienceAlpha"><option value="0.05">0.05</option><option value="0.01">0.01</option></select></label><label>Preset<select id="sciencePreset" class="science-preset-select" aria-label="Preset analisis"><option value="">Tidak pakai</option><option value="ral-bnt05">RAL · BNT 5%</option><option value="rak-bnj05">RAK · BNJ 5%</option><option value="split-bnt05">RPT · BNT 5%</option></select></label></div>
+            <label class="science-switch-row"><input type="checkbox" id="scienceAssumptions"><span><b>Diagnostik residual</b><small>Normalitas, homogenitas, leverage, dan Cook's distance.</small></span></label>
+            <details class="science-transform-details"><summary>Transformasi parameter</summary><div id="scienceTransforms" class="science-transform-grid"></div></details>
+            <div class="science-contrast-box"><label>Kontras / polinomial<select id="scienceContrastMode"><option value="none">Tidak pakai</option><option value="custom">Kontras terencana</option><option value="polynomial">Polinomial ortogonal</option></select></label><p id="scienceContrastHelp" class="form-help"></p><div id="scienceContrastFields"></div></div>
+          </div></details>
+        </div>
+      </div>
+    </main><div id="scienceResults" data-all-results></div></div>
+    <div class="modal-foot analysis-workspace-foot"><button id="backScience" class="science-back-button">← Analisis lain</button><span id="scienceRunStatus" role="status" class="science-run-status"></span><div class="science-foot-actions"><button id="closeScience2">Tutup</button><button id="runScience" class="primary science-run-button">Analisis</button></div></div>
+  </div></div>`);
+  const close=()=>{$('#scientificModal').classList.remove('open');document.body.classList.remove('analysis-mode-active');};$('#closeScience').onclick=close;$('#closeScience2').onclick=close;$('#backScience').onclick=()=>{close();$('#openAnalysis').click();$('#openAnalysis').focus();};
+  $('#closeAnalysisDock').onclick=()=>{const dock=$('#analysisResultDock');dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');globalThis.StatisticalWebWorkflow?.setActive?.('data');};
+  $('#analysisDockData').onclick=()=>globalThis.StatisticalWebWorkflow?.openData?.();
+  $('#analysisDockAnalysis').onclick=()=>{$('#analysisDockMenu').hidden=true;globalThis.StatisticalWebWorkflow?.openAnalysis?.();};
+  $('#analysisDockMore').onclick=event=>{
+    event.stopPropagation();
+    const menu=$('#analysisDockMenu'),host=$('#analysisDockResults'),opening=menu.hidden;
+    if(opening)document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'analysis-result-menu'}}));
+    const selectors={copyWord:'[data-os-copy-word]',share:'[data-os-share]',bab4:'[data-result-action="export-bab4"]',excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-print-results], [data-generic-print-results]',check:'[data-thesis-check]',history:'[data-os-history]'};
+    menu.querySelectorAll('[data-dock-proxy]').forEach(button=>{
+      const action=button.dataset.dockProxy,key=action==='copy-word'?'copyWord':action;
+      button.hidden=!host?.querySelector(selectors[key]||'[data-never-match]');
+    });
+    menu.hidden=!opening;$('#analysisDockMore').setAttribute('aria-expanded',String(opening));
+  };
+  $('#analysisDockMenu').onclick=event=>{
+    const action=event.target.closest('[data-dock-proxy]')?.dataset.dockProxy;if(!action)return;
+    const host=$('#analysisDockResults');
+    const selectors={copyWord:'[data-os-copy-word]',share:'[data-os-share]',bab4:'[data-result-action="export-bab4"]',excel:'[data-result-action="export-all"]',formula:'[data-result-action="export-all-formula"]',print:'[data-print-results], [data-generic-print-results]',check:'[data-thesis-check]',history:'[data-os-history]'};
+    const key=action==='copy-word'?'copyWord':action;
+    host?.querySelector(selectors[key]||'')?.click();
+    $('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');
+  };
+  document.addEventListener('click',event=>{if(!event.target.closest('#analysisDockMore,#analysisDockMenu')){$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');}});
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='analysis-result-menu'){$('#analysisDockMenu').hidden=true;$('#analysisDockMore').setAttribute('aria-expanded','false');}});
+  $('#runScience').onclick=analyze;$('#sciencePreset').onchange=event=>applyAnalysisPreset(event.target.value);
+  $('#scientificModal').addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!event.repeat){event.preventDefault();if(!$('#runScience').disabled)$('#runScience').click();}
+  });
+  $('#scienceFields').onchange=event=>{
+    $('#scienceResults').innerHTML='';$('#scienceValidation').innerHTML='';setRunState('idle','','');
+    if(['scienceA','scienceB','scienceRep'].includes(event.target.id))syncParameterRoleExclusions(false);
+    if(event.target.matches('#scienceParameters input')){
+      event.target.dataset.userTouched='true';
+      const transform=document.querySelector(`[data-transform-param="${event.target.value}"]`);
+      if(transform)transform.disabled=!event.target.checked;
+      updateScienceParameterCount();
+    }
+    if(['scienceA','scienceContrastMode'].includes(event.target.id))contrastFields();
+    saveAnalysisConfig();validate();
+  };
+  $('#scienceFields').addEventListener('input',event=>{revision++;$('#scienceResults').innerHTML='';setRunState('idle','','');if(event.target.matches('textarea,[data-level]'))$('#scienceValidation').innerHTML='';});
   $('#analysisHistory').onclick=history;
   document.addEventListener('stat-dataset-changed',()=>{
     let current;try{current=readDataset();}catch{return;}
@@ -597,7 +752,6 @@ export function installScientificWorkflow(){
       markResultsStale(container,!!container.dataset.analysisFingerprint&&container.dataset.analysisFingerprint!==fingerprint);
     });
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'){close();$('#dataToolModal').classList.remove('open');}});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const dock=$('#analysisResultDock');if(dock&&!dock.hidden){dock.hidden=true;dock.dataset.open='false';document.body.classList.remove('analysis-results-open','analysis-mode-active');return;}close();$('#dataToolModal').classList.remove('open');}});
   installChartDownload();
-  installDriveBackup();
 }

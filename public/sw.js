@@ -1,8 +1,10 @@
-const VERSION='20260926-public-build-1';
+const VERSION='20261010-adminroutes2';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
+const CONTROL_CACHE='agrotik-control';
 const CACHE_PREFIX='agrotik-';
+let rollbackEnabled=null;
 
 const CORE_URLS=[
   '/',
@@ -70,21 +72,58 @@ async function matchIgnoreSearch(request){
   url.search='';
   return caches.match(url.href,{ignoreSearch:true});
 }
+async function rollbackMode(){
+  if(rollbackEnabled!==null)return rollbackEnabled;
+  try{
+    const cache=await caches.open(CONTROL_CACHE),response=await cache.match('/__agrotik_rollback__');
+    const data=response?await response.json():null;rollbackEnabled=Boolean(data?.enabled);return rollbackEnabled;
+  }catch{rollbackEnabled=false;return false;}
+}
+async function previousCaches(){
+  const names=await caches.keys();
+  const runtime=names.filter(name=>name.startsWith('agrotik-runtime-')&&name!==RUNTIME_CACHE).sort().at(-1);
+  const core=names.filter(name=>name.startsWith('agrotik-core-')&&name!==CORE_CACHE).sort().at(-1);
+  return {runtime,core};
+}
+async function previousMatch(request){
+  const {runtime,core}=await previousCaches();
+  for(const name of [runtime,core]){
+    if(!name)continue;
+    const cache=await caches.open(name),exact=await cache.match(request);
+    if(exact)return exact;
+    const url=new URL(request.url);url.search='';
+    const clean=await cache.match(url.href);if(clean)return clean;
+  }
+  return null;
+}
 async function navigationResponse(request){
+  if(await rollbackMode()){
+    const previous=await previousMatch(request);
+    if(previous)return previous;
+  }
+  const url=new URL(request.url),networkFirstRoute=true;
   const cached=await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
+  if(networkFirstRoute)return await refresh||cached||await caches.match('/offline.html')||await caches.match('/');
   if(cached){void refresh;return cached;}
   return await refresh||await caches.match('/offline.html')||await caches.match('/');
 }
 async function staticResponse(request){
-  const cached=await matchIgnoreSearch(request);
+  if(await rollbackMode()){
+    const previous=await previousMatch(request);
+    if(previous)return previous;
+  }
+  const url=new URL(request.url),versioned=url.searchParams.has('v');
+  const cached=versioned?await caches.match(request):await matchIgnoreSearch(request);
   const refresh=fetch(request).then(async response=>{
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
+  const criticalFresh=(url.pathname.startsWith('/game/')&&url.pathname.endsWith('.js'))||['/account.js','/resilience.js','/pwa-register.js'].includes(url.pathname);
+  if(criticalFresh)return await refresh||cached||new Response('',{status:504,statusText:'Offline'});
   if(cached){void refresh;return cached;}
   return await refresh||new Response('',{status:504,statusText:'Offline'});
 }
@@ -109,9 +148,17 @@ self.addEventListener('install',event=>{
 
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
-    const names=await caches.keys();
-    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&![CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE].includes(name)).map(name=>caches.delete(name)));
+    const names=await caches.keys(),keep=new Set([CORE_CACHE,RUNTIME_CACHE,THIRD_PARTY_CACHE,CONTROL_CACHE]);
+    for(const prefix of ['agrotik-core-','agrotik-runtime-','agrotik-third-party-']){
+      const previous=names.filter(name=>name.startsWith(prefix)&&!keep.has(name)).sort().at(-1);
+      if(previous)keep.add(previous);
+    }
+    await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&!keep.has(name)).map(name=>caches.delete(name)));
     await self.clients.claim();
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    await Promise.allSettled(windows.filter(client=>{
+      try{return new URL(client.url).pathname.startsWith('/game/');}catch{return false;}
+    }).map(client=>client.navigate(client.url)));
   })());
 });
 
@@ -135,6 +182,14 @@ self.addEventListener('fetch',event=>{
 self.addEventListener('message',event=>{
   const data=event.data||{};
   if(data.type==='SKIP_WAITING'){void self.skipWaiting();return;}
+  if(data.type==='ROLLBACK_PREVIOUS'){
+    rollbackEnabled=Boolean(data.enabled);
+    event.waitUntil((async()=>{
+      const cache=await caches.open(CONTROL_CACHE);
+      await cache.put('/__agrotik_rollback__',new Response(JSON.stringify({enabled:rollbackEnabled,updatedAt:Date.now()}),{headers:{'Content-Type':'application/json'}}));
+    })());
+    return;
+  }
   if(data.type==='WARM_ROUTE'){
     event.waitUntil(warmResource(data.url||'/'));
     return;

@@ -38,15 +38,13 @@ function playSuccessSound(){
   }catch{}
 }
 function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function token(){return window.IrvanAccount?.getToken?.()||'';}
 function money(value){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(value)||0);}
 function bytes(value){const n=Number(value)||0;if(n<1048576)return (n/1024).toFixed(0)+' KB';if(n<1073741824)return (n/1048576).toFixed(n>=104857600?0:1)+' MB';return (n/1073741824).toFixed(1)+' GB';}
 function dateText(value){if(!value)return 'tanpa batas';const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleDateString('id-ID'):'—';}
 async function api(path,options={}){
-  const headers=new Headers(options.headers||{});
-  if(token())headers.set('Authorization','Bearer '+token());
-  if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');
-  const response=await fetch(endpoint+path,{...options,headers,cache:'no-store'});
+  const request=window.IrvanAccount?.request;
+  if(!request)throw Error('Sesi akun belum siap.');
+  const response=await request(path,{...options,cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Object.assign(Error(data.message||data.error||('HTTP '+response.status)),{status:response.status,data});
   return data;
@@ -81,10 +79,8 @@ async function showQrImage(orderId,fallbackUrl=''){
   image.hidden=true;
   if(qrisObjectUrl){URL.revokeObjectURL(qrisObjectUrl);qrisObjectUrl='';}
   try{
-    const response=await fetch(endpoint+'/v1/membership/payments/'+encodeURIComponent(orderId)+'/qr',{
-      headers:{Authorization:'Bearer '+token()},
-      cache:'no-store'
-    });
+    const request=window.IrvanAccount?.request;if(!request)throw Error('Sesi akun belum siap.');
+    const response=await request('/v1/membership/payments/'+encodeURIComponent(orderId)+'/qr',{cache:'no-store'});
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       throw Error(data.message||data.error||('HTTP '+response.status));

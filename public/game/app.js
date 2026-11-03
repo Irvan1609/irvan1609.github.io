@@ -1,0 +1,2791 @@
+await (await import('../admin-subweb-access.js')).requireAdminSubweb();
+import {startMusic,stopMusic,setMusicTrack,setMusicVolume,musicTracks,isMusicPlaying} from './music.js';
+import {createBreedingCup} from './competition.js';
+import {COSTS,FERTILIZERS,createFarmInputModel} from './farm-inputs.js?v=20261002-mobile-final1';
+import {speciesProfile,recommendedParameters,makeSubsamples,sampleMeasurements,aggregateSamples,plotCarryover,evidenceLabel,normalizeGenome,crossGenome,selfGenome,geneticEffects,analyzeExperiment,auditDesign,conceptForDesign,genomeStats,makeProgeny,geneticsPreview,lociInfo} from './academy.js';
+const STORAGE='agrotik_field_zero_v1';
+const THEME_STORAGE='agrotik_field_zero_theme_v2';
+// Theme preference contract: theme:'system' remains the default fallback.
+function readThemePreference(){try{const value=localStorage.getItem(THEME_STORAGE);return ['system','light','dark'].includes(value)?value:null;}catch{return null;}}
+function persistThemePreference(theme){if(!['system','light','dark'].includes(theme))return;try{localStorage.setItem(THEME_STORAGE,theme);}catch{}}
+
+const RECOVERY_STORAGE='agrotik_field_zero_recovery_v1';
+const RECOVERY_LIMIT=3;
+const PLOT_COUNT=24,BLOCK_COUNT=3,PLOTS_PER_BLOCK=8,MAX_DAY=120,CROSS_COST=12;
+const GAME_SAVE_VERSION=9,LEGACY_SEASON_TURNS=12;
+const PLOT_AREA_M2=25,LEGACY_COIN_RP=5000,ACADEMY_MODEL_VERSION='fz-academy-3';
+const PRICE_REFERENCE={cornHpp:5500,cornSulsel:6677,urea:1800,npk:1840,organic:640};
+const PLANT_COST=COSTS.plant,COMMERCIAL_SEED_PACK_COST=18000,COMMERCIAL_SEED_PACK_SIZE=8;
+const PLOT_USES={commercial:{icon:'Rp',name:'Produksi'},research:{icon:'📐',name:'Penelitian'},breeding:{icon:'🧬',name:'Pemuliaan'}};
+const SPECIES={
+maize:{id:'maize',name:'Jagung',latin:'Zea mays',icon:'🌽',maturityDays:110,marketBase:5500,growthRate:1,waterUse:1,nUse:1,yieldScale:1,unlockSeason:1,desc:'Menyerbuk silang; cocok untuk hibrida, ASI, dan G×E.'},
+chili:{id:'chili',name:'Cabai rawit',latin:'Capsicum frutescens',icon:'🌶',maturityDays:145,marketBase:36000,growthRate:.92,waterUse:1.04,nUse:.94,yieldScale:.56,unlockSeason:1,desc:'Hortikultura bernilai tinggi; sensitif air dan penyakit.'},
+rice:{id:'rice',name:'Padi',latin:'Oryza sativa',icon:'🌾',maturityDays:120,marketBase:6500,growthRate:.96,waterUse:.84,nUse:1.04,yieldScale:.86,unlockSeason:3,desc:'Tanaman sawah; fokus anakan, malai, air, dan N.'},
+soybean:{id:'soybean',name:'Kedelai',latin:'Glycine max',icon:'🫘',maturityDays:95,marketBase:10500,growthRate:1.05,waterUse:.94,nUse:.8,yieldScale:.72,unlockSeason:3,desc:'Legum menyerbuk sendiri; cocok untuk seleksi galur.'}
+};
+function seasonLengthFor(speciesId='maize',challengeId='standard'){
+const maturity=Number((SPECIES[speciesId]||SPECIES.maize).maturityDays)||110;
+const legacyTurns=Number(CHALLENGES?.[challengeId]?.maxDay||LEGACY_SEASON_TURNS);
+const factor=clamp(legacyTurns/LEGACY_SEASON_TURNS,.55,1.1);
+return Math.max(60,Math.round((maturity+10)*factor));
+}
+function nitrogenTimingEfficiency(crop){
+const species=SPECIES[crop?.species]||SPECIES.maize,maturity=Math.max(1,Number(species.maturityDays)||110),ratio=clamp((Number(crop?.age)||0)/maturity,0,1.25);
+const centers=crop?.species==='chili'?[.16,.42]:crop?.species==='rice'?[.14,.38]:crop?.species==='soybean'?[.12,.32]:[.12,.34];
+const distance=Math.min(...centers.map(center=>Math.abs(ratio-center)));
+return clamp(1-Math.max(0,distance-.065)*1.55,.55,1);
+}
+function makePlotRegistry(){
+return Array.from({length:PLOT_COUNT},(_,index)=>{
+const block=Math.floor(index/PLOTS_PER_BLOCK)+1,slot=index%PLOTS_PER_BLOCK+1;
+const blockEffect=(block-2)*.035,fertility=Number((.94+blockEffect+((index*37)%9)/100).toFixed(2)),moisture=Number((.95-blockEffect+((index*19)%7)/100).toFixed(2));
+const pH=Number((5.35+((index*23)%15)/10).toFixed(2)),organicMatter=Number((1.35+((index*29)%13)/10).toFixed(2)),drainage=Number((.82+((index*17)%7)/20).toFixed(2)),compaction=Number((.12+((index*11)%8)/25).toFixed(2));
+return {uid:`FZ-K${block}-P${String(slot).padStart(2,'0')}`,block,slot,areaM2:PLOT_AREA_M2,fertility,moisture,pH,organicMatter,drainage,compaction,history:[]};
+});
+}
+function plotMeta(index){return state.plotRegistry?.[index]||makePlotRegistry()[index];}
+function plotUse(index){return state.plotUse?.[index]||'commercial';}
+function setPlotUse(index,use){
+if(!PLOT_USES[use]||experimentUnit(index))return false;
+if(use==='research'){toast('📐 Buat rancangan dulu');return false;}
+state.plotUse[index]=use;save();renderField();renderInspector();return true;
+}
+
+const $=selector=>document.querySelector(selector);
+const clamp=(value,min=0,max=100)=>Math.max(min,Math.min(max,value));
+const round=(value,digits=1)=>Number(value.toFixed(digits));
+const pick=list=>list[Math.floor(Math.random()*list.length)];
+const chance=p=>Math.random()<p;
+const uid=prefix=>prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
+const shuffle=list=>[...list].sort(()=>Math.random()-.5);
+const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const {laborRate,laborCost,cropRatio,irrigationPlan,irrigationActionCost,nutrientDeficits,fertilizerActionCost,recommendedFertilizer,initialNutrients,chargeFarmCost}=createFarmInputModel({
+getState:()=>state,getChallenge:()=>activeChallenge(),getSpecies:id=>SPECIES[id]||SPECIES.maize,getPlotMeta:plotMeta,actionCost,hasTech,clamp,round,plotArea:PLOT_AREA_M2
+});
+
+const TRAITS={
+early:{name:'Cepat Berbunga',icon:'⚡',rarity:'common',desc:'Lebih cepat matang, tetapi potensi hasil sedikit turun.',growth:1.15,yield:.95},
+deep:{name:'Akar Dalam',icon:'↧',rarity:'common',desc:'Lebih tahan kekeringan, tetapi kebutuhan awal N sedikit lebih tinggi.',droughtRes:.42,nLoss:1.06},
+nue:{name:'Efisien N',icon:'N',rarity:'common',desc:'Lebih efisien pada N rendah, dengan plafon hasil sedikit lebih rendah.',nLoss:.72,lowNYield:1.12,yield:.97},
+rust:{name:'Tahan Karat',icon:'◈',rarity:'common',desc:'Tekanan penyakit lebih rendah.',diseaseRes:.52,yield:.97},
+giant:{name:'Tongkol Besar',icon:'▰',rarity:'common',desc:'Hasil tinggi, lebih lambat dan boros air.',yield:1.18,growth:.92,waterLoss:1.12},
+prolific:{name:'Prolifik',icon:'✦',rarity:'common',desc:'Hasil naik, kebutuhan N meningkat.',yield:1.11,nLoss:1.12},
+saver:{name:'Hemat Air',icon:'◇',rarity:'common',desc:'Hemat air, pertumbuhan sedikit lebih lambat.',waterLoss:.72,growth:.97},
+plastic:{name:'Plastis',icon:'≈',rarity:'common',desc:'Penalti stres lebih kecil.',stressRes:.34,yield:.99},
+heat:{name:'Tahan Panas',icon:'☀',rarity:'rare',desc:'Lebih tahan panas.',heatRes:.7,yield:.98},
+vigor:{name:'Vigor Tinggi',icon:'↑',rarity:'rare',desc:'Tumbuh cepat, lebih boros air.',growth:1.1,healthGuard:.23,waterLoss:1.08},
+myco:{name:'Mikoriza+',icon:'⌁',rarity:'rare',desc:'Akses air dan N membaik.',waterLoss:.86,nLoss:.8,yield:1.05},
+sentinel:{name:'Sentinel',icon:'◎',rarity:'rare',desc:'Scouting memberi riset ekstra dan deteksi penyakit lebih baik.',scoutRp:2,diseaseRes:.2,yield:.98},
+zero:{name:'Resonansi Zero',icon:'ψ',rarity:'legendary',desc:'Trait misterius: sangat adaptif tetapi tidak selalu stabil.',yield:1.18,stressRes:.45,diseaseRes:.28,growth:1.05}
+};
+const MUTATION_POOL=['heat','vigor','myco','sentinel'];
+const STARTER_SEEDS=[
+{id:'seed-aruna',name:'Aruna 01',species:'maize',generation:0,traits:['early','nue'],baseYield:14.5,vigor:1.02,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-savana',name:'Savana D',species:'maize',generation:0,traits:['deep','saver'],baseYield:14,vigor:1,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-rinjani',name:'Rinjani R',species:'maize',generation:0,traits:['rust','plastic'],baseYield:13.5,vigor:1.03,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-bima',name:'Bima Dent',species:'maize',generation:0,traits:['giant','prolific'],baseYield:17,vigor:.94,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-lontara-c1',name:'Lontara C1',species:'chili',generation:0,traits:['early','plastic'],baseYield:8.8,vigor:1.02,source:'Starter simulasi',stock:24,viability:95,ageSeasons:0},
+{id:'seed-bantaeng-c2',name:'Bantaeng C2',species:'chili',generation:0,traits:['rust','saver'],baseYield:8.2,vigor:1.04,source:'Starter simulasi',stock:24,viability:95,ageSeasons:0},
+{id:'seed-sawah-r1',name:'Sawah R1',species:'rice',generation:0,traits:['nue','plastic'],baseYield:14.8,vigor:1,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-gowa-r2',name:'Gowa R2',species:'rice',generation:0,traits:['early','rust'],baseYield:14.1,vigor:1.03,source:'Starter simulasi',stock:24,viability:96,ageSeasons:0},
+{id:'seed-bone-s1',name:'Bone S1',species:'soybean',generation:0,traits:['deep','nue'],baseYield:8.1,vigor:1.02,source:'Starter simulasi',stock:24,viability:95,ageSeasons:0},
+{id:'seed-maros-s2',name:'Maros S2',species:'soybean',generation:0,traits:['early','plastic'],baseYield:7.7,vigor:1.05,source:'Starter simulasi',stock:24,viability:95,ageSeasons:0}
+];
+const ENVIRONMENTS=[
+{id:'transition',name:'Peralihan Sulsel',icon:'◐',desc:'Hujan tidak menentu; keputusan air dan penyakit sama-sama penting.',waterLoss:-1,disease:.035,nLoss:1,yield:1},
+{id:'drought',name:'Kemarau Sulsel',icon:'☀',desc:'Hari tanpa hujan memanjang; evaporasi dan stres panas meningkat.',waterLoss:-8,disease:-.01,nLoss:1,yield:.95},
+{id:'wet',name:'Musim Hujan',icon:'☂',desc:'Air cukup, tetapi kelembapan, penyakit, dan kehilangan N meningkat.',waterLoss:6,disease:.085,nLoss:2,yield:1.01},
+{id:'rust',name:'Tekanan Karat',icon:'◉',desc:'Kelembapan dan inokulum meningkatkan risiko karat daun.',waterLoss:1,disease:.14,nLoss:1,yield:.97},
+{id:'poorN',name:'Lahan N Rendah',icon:'N',desc:'Pasokan N cepat menjadi pembatas; efisiensi N dan timing pupuk penting.',waterLoss:-1,disease:.02,nLoss:5,yield:.93},
+{id:'anomaly',name:'Anomali Zero',icon:'ψ',desc:'Lingkungan eksperimen tidak stabil; mutasi langka lebih sering muncul.',waterLoss:-2,disease:.06,nLoss:2,yield:1.05}
+];
+const WEATHER={
+clear:{name:'Cerah',icon:'☀',water:-9,disease:0,heat:0,effect:'Evapotranspirasi meningkat'},
+hot:{name:'Panas terik',icon:'♨',water:-17,disease:0,heat:1,effect:'Air turun cepat · stres panas'},
+rain:{name:'Hujan sedang',icon:'☂',water:22,disease:.035,heat:0,effect:'Air naik · daun lebih lembap'},
+storm:{name:'Hujan lebat',icon:'☈',water:34,disease:.06,heat:0,effect:'Risiko genangan, rebah, dan N tercuci'},
+humid:{name:'Lembap berawan',icon:'≋',water:6,disease:.09,heat:0,effect:'Tekanan penyakit meningkat'},
+breeze:{name:'Cerah berangin',icon:'↝',water:-12,disease:-.01,heat:0,effect:'Pengeringan tanah lebih cepat'},
+cool:{name:'Sejuk',icon:'◌',water:-3,disease:.015,heat:0,effect:'Pertumbuhan stabil'}
+};
+const WEATHER_METRICS={clear:{temp:31,rh:62,radiation:22,wind:8},hot:{temp:36,rh:48,radiation:25,wind:10},rain:{temp:27,rh:88,radiation:10,wind:7},storm:{temp:26,rh:94,radiation:6,wind:18},humid:{temp:28,rh:91,radiation:9,wind:4},breeze:{temp:30,rh:58,radiation:21,wind:17},cool:{temp:25,rh:76,radiation:15,wind:6}};
+const ACHIEVEMENTS={
+first:{name:'Panen Pertama',desc:'Panen tanaman pertama.'},
+twenty:{name:'20+',desc:'Hasil satu petak mencapai 20.'},
+breeder:{name:'Breeder',desc:'Membuat satu hasil persilangan.'},
+anomaly:{name:'Anomali',desc:'Menemukan trait mutasi.'},
+perfect:{name:'Petak Prima',desc:'Panen dengan kesehatan ≥95.'},
+survivor:{name:'Survivor',desc:'Selesaikan musim bertekanan tinggi.'},
+zero:{name:'Field Zero',desc:'Temukan Resonansi Zero.'}
+};
+const LORE=[
+'Catatan 03: sensor tanah menangkap pola listrik yang tidak mengikuti kelembapan.',
+'Catatan 11: beberapa akar tumbuh mengarah ke pusat lahan, bukan mengikuti gradien air.',
+'Catatan 17: benih dari petak 07 menunjukkan respons yang tidak muncul pada induknya.',
+'Catatan 24: “Zero” mungkin bukan nama lokasi. Mungkin nama perlakuan yang dihapus dari arsip.'
+];
+const LOCATIONS={
+zero:{name:'Kebun Percobaan Sulsel',icon:'ψ',desc:'Lahan awal 600 m²: 3 kelompok × 8 petak @25 m².',unlock:0,yield:1,disease:0,waterLoss:0,nLoss:0},
+lowland:{name:'Dataran Rendah Sulsel',icon:'▱',desc:'Lebih panas; potensi hasil tinggi jika air dan penyakit terkendali.',unlock:2,yield:1.04,disease:.015,waterLoss:-3,nLoss:0},
+dryland:{name:'Tegalan Bone',icon:'△',desc:'Lahan kering: cadangan air terbatas dan respons terhadap akar dalam lebih kuat.',unlock:3,yield:1.02,disease:-.02,waterLoss:-8,nLoss:1,rp:1.2},
+paddy:{name:'Sawah Drainase Gowa',icon:'≋',desc:'Air relatif tersedia; genangan, kelembapan, dan kehilangan N menjadi risiko.',unlock:4,yield:1.06,disease:.055,waterLoss:6,nLoss:2},
+highland:{name:'Dataran Menengah Gowa',icon:'▲',desc:'Suhu lebih sejuk; pertumbuhan sedikit lambat dan kualitas benih lebih stabil.',unlock:5,yield:1.05,disease:.025,waterLoss:1,nLoss:0,quality:1.06}
+};
+const TECH={
+sensor:{name:'Sensor Tanah',icon:'◉',cost:10,requires:[],desc:'Inspector menampilkan risiko stres lebih jelas.',effect:'sensor'},
+irrigation:{name:'Irigasi Presisi',icon:'💧',cost:16,requires:['sensor'],desc:'Irigasi mencapai target air dengan biaya pompa lebih rendah.',effect:'irrigation'},
+precisionN:{name:'Pemupukan Presisi',icon:'NPK',cost:18,requires:['sensor'],desc:'Efisiensi dosis pupuk meningkat berdasarkan status hara.',effect:'precisionN'},
+drone:{name:'Drone Scout',icon:'◇',cost:20,requires:['sensor'],desc:'Scout menghasilkan +2 RP dan peluang membuka mutasi meningkat.',effect:'drone'},
+expedition:{name:'Field Expedition',icon:'↗',cost:22,requires:['sensor'],desc:'Membuka ekspedisi ke lokasi liar.',effect:'expedition'},
+genome:{name:'Genome Lab',icon:'⌬',cost:24,requires:['drone'],desc:'Membuka puzzle genom untuk menemukan trait laten.',effect:'genome'},
+cold:{name:'Cold Storage',icon:'❄',cost:26,requires:['precisionN'],desc:'Kandidat terbaik musim otomatis tersimpan jika vault belum memilikinya.',effect:'cold'},
+breeding:{name:'Marker Breeding',icon:'×',cost:30,requires:['genome'],desc:'Persilangan lebih sering mewarisi trait langka.',effect:'breeding'}
+};
+const EXPEDITIONS={
+river:{name:'Riparian Strip',icon:'≋',days:7,cost:25000,desc:'Ekspedisi 7 hari untuk mencari mikroba dan galur toleran genangan.',traits:['myco','rust'],rewardRp:[4,8]},
+ridge:{name:'Dry Ridge',icon:'△',days:10,cost:30000,desc:'Ekspedisi 10 hari untuk mencari akar dalam dan toleransi panas.',traits:['deep','heat'],rewardRp:[6,10]},
+oldlab:{name:'Stasiun Lama',icon:'⌂',days:14,cost:50000,desc:'Ekspedisi 14 hari ke lokasi eksperimen lama dengan peluang artefak langka.',traits:['sentinel','vigor','zero'],rewardRp:[8,14]},
+high:{name:'Highland Pocket',icon:'▲',days:10,cost:35000,desc:'Ekspedisi 10 hari mencari material adaptif dari suhu rendah.',traits:['plastic','vigor'],rewardRp:[6,11]}
+};
+const CHALLENGES={
+standard:{name:'Standar',desc:'24 petak · kontrak musim makin berat.',plots:24,maxDay:12,yield:1,reward:1,pressure:0},
+nofert:{name:'Tanpa Pupuk',desc:'24 petak tanpa intervensi pemupukan.',plots:24,maxDay:12,yield:1.08,reward:1.45,noFertilizer:true,pressure:.08},
+six:{name:'6 Petak',desc:'Hanya enam petak; setiap kegagalan sangat berarti.',plots:6,maxDay:12,yield:1.05,reward:1.55,pressure:.08},
+sprint:{name:'Sprint Fenologi',desc:'Musim dipadatkan; sedikit waktu memulihkan kesalahan.',plots:24,maxDay:8,yield:1.12,reward:1.6,pressure:.12},
+mono:{name:'Satu Varietas',desc:'Satu varietas menghadapi seluruh heterogenitas lahan.',plots:24,maxDay:12,yield:1.06,reward:1.5,mono:true,pressure:.1},
+ironman:{name:'Iron Field',desc:'Tekanan tinggi · upah pekerja +25% · tanpa Undo.',plots:24,maxDay:11,yield:1,reward:1.9,pressure:.24,laborMultiplier:1.25,noUndo:true},
+crisis:{name:'Musim Krisis',desc:'Cuaca berantai dan penyakit menyebar lebih agresif.',plots:24,maxDay:12,yield:1.04,reward:1.8,pressure:.3,streakBoost:1.45,spreadBoost:1.5},
+trial24:{name:'Breeding Cup · 24 Petak',desc:'Seleksi buta dengan tepat 24 petak.',plots:24,maxDay:12,yield:1,reward:1.3,competition:true,pressure:.1}
+};
+const BOSSES=[
+{id:'megaDrought',name:'Boss: Kemarau Ekstrem',icon:'☀',desc:'Hari panas berulang dan jeda hujan panjang menekan tanaman.',waterLoss:-13,disease:-.02,nLoss:1,yield:1.12},
+{id:'rustWave',name:'Boss: Gelombang Karat',icon:'◉',desc:'Tekanan penyakit ekstrem dan berulang.',waterLoss:0,disease:.22,nLoss:0,yield:1.2},
+{id:'flood',name:'Boss: Flood Pulse',icon:'☂',desc:'Genangan, kelembapan, dan kehilangan N serempak.',waterLoss:12,disease:.13,nLoss:5,yield:1.22}
+];
+const RIVALS=[
+{id:'nara',name:'Dr. Nara',style:'Stabilitas',metric:'stability',base:72,growth:3.4,desc:'Menjaga hasil sehat dan presisi percobaan.'},
+{id:'bima',name:'Bima Lab',style:'Efisiensi',metric:'profit',base:76,growth:4.2,desc:'Mengejar hasil dan margin dengan input efisien.'},
+{id:'sora',name:'Sora Seed Co.',style:'Pemuliaan',metric:'breeding',base:74,growth:4.6,desc:'Mengejar kandidat terseleksi dan bukti galur.'}
+];
+const GENOME_SIG={
+heat:['A','T','T','G'],vigor:['G','C','A','G'],myco:['C','G','G','T'],sentinel:['T','A','C','C'],zero:['ψ','A','ψ','G']
+};
+const META_ACHIEVEMENTS={
+explorer:{name:'Explorer',desc:'Selesaikan ekspedisi pertama.'},
+technologist:{name:'Technologist',desc:'Buka empat teknologi.'},
+boss:{name:'Boss Breaker',desc:'Menang pada Boss Season.'},
+rival:{name:'Peer Review',desc:'Kalahkan rival satu musim.'},
+legacy:{name:'New Game+',desc:'Lakukan prestige pertama.'},
+genome:{name:'Genome Reader',desc:'Selesaikan puzzle Genome Lab.'},
+daily:{name:'Daily Trial',desc:'Selesaikan Daily Seed.'},
+weekly:{name:'Weekly Trial',desc:'Selesaikan Weekly Seed dengan kondisi standar bersama.'}
+};
+Object.assign(ACHIEVEMENTS,META_ACHIEVEMENTS);
+
+
+function levelFromXp(xp){return 1+Math.floor(Math.max(0,xp)/120);}
+function traitMeta(id){return TRAITS[id]||{name:id,icon:'?',rarity:'common',desc:'Trait tidak dikenal.'};}
+function traitValue(traits,key,base=1){
+return traits.reduce((value,id)=>{
+const modifier=traitMeta(id)[key];
+return Number.isFinite(modifier)?value*modifier:value;
+},base);
+}
+function traitSum(traits,key){
+return traits.reduce((sum,id)=>sum+(Number(traitMeta(id)[key])||0),0);
+}
+function unique(list){return [...new Set(list)];}
+function formatRupiah(value,compact=false){
+const amount=Math.max(0,Math.round(Number(value)||0));
+if(compact){
+if(amount>=1000000)return 'Rp'+(amount/1000000).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt';
+if(amount>=1000)return 'Rp'+Math.round(amount/1000).toLocaleString('id-ID')+' rb';
+}
+return 'Rp'+amount.toLocaleString('id-ID');
+}
+function actionCost(kind){
+const base=Number(COSTS[kind]??(kind==='plant'?PLANT_COST:0)),season=Math.max(1,Number(state?.season)||1),env=state?.env?.id||'transition',challenge=activeChallenge?.()||CHALLENGES.standard;
+let multiplier=1+Math.min(.2,(season-1)*.018)+Math.min(.12,Number(challenge.pressure||0)*.35);
+if((kind==='water'||kind==='waterPrecision')&&env==='drought')multiplier+=.22;
+if((kind==='fertilize'||kind==='fertilizePrecision')&&['wet','poorN'].includes(env))multiplier+=.12;
+if(kind==='spray'&&['wet','rust'].includes(env))multiplier+=.18;
+const shock=(seededUnit(hashString('input:'+season+':'+env+':'+kind))-.5)*.12;
+return Math.max(500,Math.round(base*(multiplier+shock)/500)*500);
+}
+function agroMonthForSeason(season){return ((Math.max(1,Number(season)||1)+9)%12)+1;}
+function monthName(month){return ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][month]||'';}
+function rollMarketPrice(season,envId='transition',location='zero',speciesId='maize'){
+const profile=SPECIES[speciesId]||SPECIES.maize,seed=hashString('market:'+season+':'+envId+':'+location+':'+speciesId);
+if(speciesId==='maize'){const noise=Math.round(seededUnit(seed)*18)*50,climate=envId==='drought'?250:envId==='wet'?-150:0,loc=location==='dryland'?100:location==='paddy'?-50:0;return clamp(5350+noise+climate+loc,5200,6750);}
+const variation=.9+seededUnit(seed)*.2,climate=envId==='drought'?.04:envId==='wet'?-.03:0,loc=location==='highland'?.03:0;return Math.max(500,Math.round(profile.marketBase*(variation+climate+loc)/100)*100);
+}
+function plotIssue(crop){
+if(!crop)return '';
+if(crop.health<=0)return 'mati';
+if(crop.growth>=100)return 'panen';
+if(crop.disease>=35)return 'penyakit';
+if(irrigationPlan(crop,state.field.indexOf(crop)).needed)return 'air';
+if(recommendedFertilizer(crop))return 'fertilizer';
+if(crop.health<65)return 'stres';
+return '';
+}
+function attentionIndexes(){return state.field.map((crop,index)=>({index,issue:plotIssue(crop)})).filter(item=>item.issue&&item.index<fieldLimit());}
+function forecastWeather(day){
+if(state.daily){const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+day);return pool[Math.floor(seededUnit(seed)*pool.length)];}
+return deterministicWeather(state.env,day);
+}
+function weatherRiskPreview(){
+const rows=[];
+for(let offset=1;offset<=3&&state.day+offset<=state.maxDay;offset++){
+const day=state.day+offset,id=forecastWeather(day),weather=WEATHER[id]||WEATHER.clear,confidence=55+Math.floor(simUnit('forecast-confidence',state.season,day,id)*31);
+rows.push('H+'+offset+' '+weather.icon+' '+confidence+'%');
+}
+return rows.length?'Prakiraan: '+rows.join(' · '):'Akhir kalender musim';
+}
+function cropPhenology(crop){
+if(!crop)return 'Kosong';
+const species=SPECIES[crop.species]||SPECIES.maize,maturity=Math.max(1,Number(species.maturityDays)||110),ratio=(Number(crop.age)||0)/maturity;
+if(crop.health<=0)return 'Mati';
+if(crop.growth>=100||ratio>=1)return 'Siap panen';
+if(ratio<.08)return 'Emergensi';
+if(ratio<.35)return 'Vegetatif';
+if(ratio<.48)return 'Pra-reproduktif';
+if(ratio<.63)return crop.species==='maize'?'Anthesis–silking':crop.species==='chili'?'Pembungaan–fruit set':crop.species==='rice'?'Pembungaan':'Pembungaan–polong';
+if(ratio<.86)return crop.species==='chili'?'Pembesaran buah':'Pengisian';
+return 'Pematangan';
+}
+function dominantPhenology(){
+const crops=state.field.slice(0,fieldLimit()).filter(crop=>crop&&crop.health>0);
+if(!crops.length)return 'Belum ditanam';
+const ordered=[...crops].sort((a,b)=>(Number(a.age)||0)-(Number(b.age)||0));return cropPhenology(ordered[Math.floor(ordered.length/2)]);
+}
+function criticalTasks(){
+const tasks=[],crops=state.field.slice(0,fieldLimit()).filter(crop=>crop&&crop.health>0),exp=state.experiment;
+if(!crops.length)tasks.push('Tanam petak sebelum mempercepat waktu');
+if(exp&&exp.kind!=='genotype'&&exp.kind!=='competition'){
+const unapplied=exp.units.filter(unit=>state.field[unit.plot]&&!unit.applied).length;if(unapplied)tasks.push(unapplied+' perlakuan belum diterapkan');
+if(exp.measureEvery&&state.day<state.maxDay){const until=exp.measureEvery-(state.day%exp.measureEvery||exp.measureEvery);if(until<=2)tasks.push('Pengamatan terjadwal ≤2 hari');}
+}
+const attention=attentionIndexes();if(attention.length)tasks.push(attention.length+' petak perlu perhatian');
+let fertilizer=0,repro=0,harvest=0;
+for(const crop of crops){
+const ratio=cropRatio(crop),index=state.field.indexOf(crop),plan=irrigationPlan(crop,index);
+if(recommendedFertilizer(crop))fertilizer++;
+if(ratio>=.46&&ratio<=.66&&(crop.water<plan.trigger||crop.n<42||crop.p<35||crop.k<40))repro++;
+if(ratio>=.94||crop.growth>=95)harvest++;
+}
+if(fertilizer)tasks.push('Kebutuhan pupuk: '+fertilizer+' petak');
+if(repro)tasks.push('Fase reproduktif kritis: '+repro+' petak');
+if(harvest)tasks.push('Menjelang panen: '+harvest+' petak');
+return unique(tasks);
+}
+function criticalStopReason(){
+if(state.pendingEvent)return 'Kejadian lapang membutuhkan keputusan';
+const severe=state.field.slice(0,fieldLimit()).find((crop,index)=>crop&&crop.health>0&&(crop.growth>=100||crop.water<20||crop.n<18||crop.p<18||crop.k<18||crop.disease>=45||irrigationPlan(crop,index).needed&&cropRatio(crop)>=.46&&cropRatio(crop)<=.66));
+if(severe)return cropPhenology(severe)==='Siap panen'?'Panen siap':'Petak memasuki kondisi kritis';
+for(const crop of state.field.slice(0,fieldLimit())){
+if(!crop||crop.health<=0)continue;
+const maturity=Math.max(1,Number((SPECIES[crop.species]||SPECIES.maize).maturityDays)||110),age=Math.round(Number(crop.age)||0),marks=[.08,.30,.48,.58,.78,.95].map(p=>Math.max(1,Math.round(maturity*p)));
+if(marks.includes(age))return 'Fase fenologi penting · '+cropPhenology(crop);
+}
+const exp=state.experiment;if(exp&&exp.kind!=='genotype'&&exp.kind!=='competition'&&exp.measureEvery&&state.day%exp.measureEvery===0)return 'Jadwal pengamatan percobaan';
+if(state.day<state.maxDay){const next=forecastWeather(state.day+1);if(['storm','hot'].includes(next))return 'Prakiraan cuaca ekstrem besok';}
+return '';
+}
+
+
+function newEnvironment(season){
+if(season>0&&season%5===0){
+const boss=structuredClone(BOSSES[(Math.floor(season/5)-1)%BOSSES.length]);boss.boss=true;boss.month=agroMonthForSeason(season);return boss;
+}
+const month=agroMonthForSeason(season);
+let ids=month>=11||month<=3?['wet','wet','rust','transition']:month<=5?['transition','transition','wet','poorN']:['drought','drought','poorN','transition'];
+if(season>=4)ids=[...ids,'anomaly'];
+const env=structuredClone(ENVIRONMENTS.find(item=>item.id===pick(ids))||ENVIRONMENTS[0]);env.month=month;return env;
+}
+function weatherPool(envId){
+const map={
+transition:['clear','rain','breeze','humid','clear','cool'],
+drought:['clear','hot','hot','breeze','clear','rain'],
+wet:['rain','rain','humid','storm','cool','clear'],
+rust:['humid','rain','humid','clear','cool','rain'],
+poorN:['clear','breeze','rain','clear','hot','cool'],
+anomaly:['hot','storm','humid','clear','breeze','rain']
+};
+return map[envId]||map.transition;
+}
+function rollWeather(env){return pick(weatherPool(env.id));}
+function challengeForMission(id='standard'){return CHALLENGES[id]||CHALLENGES.standard;}
+function objectiveValue(objective){
+if(objective.type==='yield')return state.seasonStats.yield;
+if(objective.type==='harvest')return state.seasonStats.harvests;
+if(objective.type==='healthy')return state.seasonStats.healthy;
+if(objective.type==='margin')return (state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+if(objective.type==='research')return state.rp-(state.seasonStartRp||0);
+return 0;
+}
+function missionFor(season,challengeId='standard'){
+const ch=challengeForMission(challengeId),plots=ch.plots||PLOT_COUNT,tier=Math.min(8,Math.floor((Math.max(1,season)-1)/2));
+const yieldPerPlot=8.2+tier*.55+(ch.pressure||0)*3.2;
+const primary={type:'yield',target:Math.round(plots*yieldPerPlot),text:'Hasil',unit:'kg'};
+const secondary=season%2
+?{type:'healthy',target:Math.max(2,Math.ceil(plots*(.35+Math.min(.18,tier*.025)))),text:'Panen sehat ≥80',unit:'petak'}
+:{type:'harvest',target:Math.max(3,Math.ceil(plots*(.62+Math.min(.16,tier*.02)))),text:'Petak dipanen',unit:'petak'};
+const objectives=[primary,secondary];
+if(season>=3&&plots>=12)objectives.push(season%3===0
+?{type:'margin',target:25000+tier*8000,text:'Margin',unit:'Rp'}
+:{type:'research',target:4+Math.ceil(tier/2),text:'Riset baru',unit:'RP'});
+return {type:'contract',text:'Kontrak musim',unit:'target',objectives};
+}
+function missionObjectives(){return state.mission?.type==='contract'?(state.mission.objectives||[]):[state.mission];}
+function missionValue(){
+const objectives=missionObjectives();
+if(state.mission?.type==='contract')return objectives.filter(item=>objectiveValue(item)>=item.target).length;
+return objectiveValue(objectives[0]);
+}
+function missionDone(){const objectives=missionObjectives();return objectives.length>0&&objectives.every(item=>objectiveValue(item)>=item.target);}
+function missionRatio(){
+const objectives=missionObjectives();if(!objectives.length)return 0;
+return objectives.reduce((sum,item)=>sum+Math.min(1,Math.max(0,objectiveValue(item))/Math.max(1,item.target)),0)/objectives.length;
+}
+function missionDisplay(){
+const objectives=missionObjectives();
+if(!objectives.length)return {title:'Tidak ada target',progress:'—'};
+const active=objectives.find(item=>objectiveValue(item)<item.target)||objectives[objectives.length-1];
+const value=objectiveValue(active),targetLabel=active.type==='margin'?formatRupiah(active.target):active.target+' '+active.unit;
+const valueLabel=active.type==='margin'?formatRupiah(value):round(value,1)+' '+active.unit;
+const done=objectives.filter(item=>objectiveValue(item)>=item.target).length;
+return {title:(value>=active.target?'✓ ':'')+active.text+' · '+targetLabel,progress:valueLabel+(objectives.length>1?' · '+done+'/'+objectives.length:'')};
+}
+function pressureLevel(){
+const carry=state?.fieldPressure||{},ch=activeChallenge?.()||CHALLENGES.standard;
+const season=Math.max(1,Number(state?.season)||1),progression=Math.min(.38,(season-1)*.035);
+const carryover=Math.min(.28,(Number(carry.pathogen)||0)*.004+(Number(carry.fatigue)||0)*.003);
+return round(1+progression+carryover+Number(ch.pressure||0),2);
+}
+function weatherMemoryUpdate(weatherId){
+const m=state.weatherMemory||{hot:0,wet:0,dry:0};
+m.hot=weatherId==='hot'?m.hot+1:0;
+m.wet=['rain','storm','humid'].includes(weatherId)?m.wet+1:0;
+m.dry=['hot','clear','breeze'].includes(weatherId)?m.dry+1:0;
+state.weatherMemory=m;return m;
+}
+function pressureLabel(){
+const p=pressureLevel(),m=state.weatherMemory||{};
+const streak=m.hot>=2?' · Gelombang panas ×'+m.hot:m.wet>=2?' · Basah ×'+m.wet:m.dry>=3?' · Kering ×'+m.dry:'';
+return 'Tekanan '+p.toFixed(2)+'×'+streak;
+}
+function freshState(){
+const env=newEnvironment(1),comfort={thumb:'right',density:'auto',theme:readThemePreference()||'system',battery:false,haptic:'light',colorSafe:false,musicVolume:.65,uiVolume:.75,attention:false,lastView:'field',lastSeenAt:Date.now()};
+return {
+version:GAME_SAVE_VERSION,season:1,day:1,maxDay:seasonLengthFor('maize','standard'),coins:250000,rp:0,xp:0,level:1,sound:true,musicTrack:'morning',marketPrice:rollMarketPrice(1,env.id,'zero','maize'),comfort,species:'maize',simulationSeed:hashString('academy:'+Date.now()),seasonStartRp:0,fieldPressure:{pathogen:0,fatigue:0},weatherMemory:{hot:0,wet:0,dry:0},
+field:Array.from({length:PLOT_COUNT},()=>null),plotRegistry:makePlotRegistry(),plotUse:Array.from({length:PLOT_COUNT},()=> 'commercial'),vault:structuredClone(STARTER_SEEDS),selectedPlot:0,selectedSeedId:'seed-aruna',academy:{xp:0,completed:[],answers:{}},
+discoveredTraits:unique(STARTER_SEEDS.flatMap(seed=>seed.traits)),achievements:[],lore:[],
+env,weather:rollWeather(env),mission:missionFor(1,'standard'),
+seasonStats:{yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0},seasonBest:null,pendingEvent:null,
+log:[{day:1,text:'Musim 1: pilih benih, tanam, rawat, lalu panen. Penelitian dan pemuliaan terbuka setelah alur dasar dikuasai.'}],history:[],
+location:'zero',unlockedLocations:['zero'],tech:[],expedition:null,expeditionHistory:[],genomePuzzle:null,
+challenge:'standard',monoSeedId:null,daily:null,legacy:0,legacyScore:0,records:{},lineage:[],eventFlags:{},
+rival:RIVALS[0].id,rivalTarget:0,rivalWins:0,irrigationUses:0,collection:{environments:[],bosses:[],locations:['zero']},experiment:null,experimentHistory:[],competition:null,selectionPool:[],selectionMode:'index',
+notebook:[],decisionHistory:[],onboarding:{complete:false},advanceGuard:null,weekly:null
+};
+}
+function load(){
+try{
+const raw=JSON.parse(localStorage.getItem(STORAGE)||'null');
+if(!raw)return freshState();
+const base=freshState(),hadMusicPreference=Object.prototype.hasOwnProperty.call(raw,'musicTrack'),merged={...base,...raw,version:GAME_SAVE_VERSION};
+if(!hadMusicPreference){merged.musicTrack='morning';merged.sound=true;}
+if((Number(raw.version)||2)<3&&Number(raw.coins)<10000)merged.coins=Math.round((Number(raw.coins)||78)*LEGACY_COIN_RP);
+merged.comfort={...base.comfort,...(raw.comfort||{}),theme:readThemePreference()||raw.comfort?.theme||base.comfort.theme,lastSeenAt:Number(raw.comfort?.lastSeenAt||raw.lastSeenAt||Date.now())};
+merged.species=SPECIES[raw.species]?raw.species:'maize';
+merged.marketPrice=Number(raw.marketPrice)||rollMarketPrice(merged.season,merged.env?.id,merged.location,merged.species);
+merged.level=levelFromXp(merged.xp||0);
+if(!Array.isArray(merged.field))merged.field=Array.from({length:PLOT_COUNT},()=>null);else if(merged.field.length<PLOT_COUNT)merged.field=[...merged.field,...Array.from({length:PLOT_COUNT-merged.field.length},()=>null)];else if(merged.field.length>PLOT_COUNT)merged.field=merged.field.slice(0,PLOT_COUNT);
+const registryDefaults=makePlotRegistry();
+merged.plotRegistry=(Array.isArray(raw.plotRegistry)&&raw.plotRegistry.length===PLOT_COUNT?raw.plotRegistry:registryDefaults).map((meta,index)=>({...registryDefaults[index],...(meta||{}),history:Array.isArray(meta?.history)?meta.history:[]}));
+merged.plotUse=Array.isArray(raw.plotUse)&&raw.plotUse.length===PLOT_COUNT?raw.plotUse.map(use=>PLOT_USES[use]?use:'commercial'):Array.from({length:PLOT_COUNT},()=> 'commercial');
+merged.simulationSeed=Number(raw.simulationSeed)||hashString('academy:'+String(raw.season||1));
+if(!Array.isArray(merged.vault)||!merged.vault.length)merged.vault=structuredClone(STARTER_SEEDS);
+for(const starter of STARTER_SEEDS)if(!merged.vault.some(seed=>seed.id===starter.id))merged.vault.push(structuredClone(starter));
+merged.vault=merged.vault.map(seed=>({...seed,species:seed.species||'maize',stock:Math.max(0,Number.isFinite(Number(seed.stock))?Math.round(Number(seed.stock)):(seed.parents?.length?6:24)),viability:clamp(Number(seed.viability)||96,0,100),ageSeasons:Math.max(0,Math.round(Number(seed.ageSeasons)||0)),genome:normalizeGenome(seed.genome,seed.id,merged.simulationSeed)}));
+merged.field=merged.field.map((crop,index)=>{
+if(!crop)return null;
+const seed={...(crop.seed||{}),genome:normalizeGenome(crop.seed?.genome,crop.seed?.id||('plot-'+index),merged.simulationSeed)};
+const uidValue=crop.uid||('legacy-plant-'+index);
+const baseN=initialNutrients(index,merged.plotRegistry?.[index]);
+return {...crop,uid:uidValue,seed,n:clamp(Number.isFinite(Number(crop.n))?Number(crop.n):baseN.n,0,110),p:clamp(Number.isFinite(Number(crop.p))?Number(crop.p):baseN.p,0,110),k:clamp(Number.isFinite(Number(crop.k))?Number(crop.k):baseN.k,0,110),samples:Array.isArray(crop.samples)&&crop.samples.length?crop.samples:makeSubsamples({plotUid:merged.plotRegistry?.[index]?.uid||('P'+index),plantUid:uidValue,species:crop.species||merged.species,simulationSeed:merged.simulationSeed})};
+});
+merged.tech=Array.isArray(merged.tech)?merged.tech:[];
+merged.unlockedLocations=Array.isArray(merged.unlockedLocations)?merged.unlockedLocations:['zero'];
+merged.lineage=Array.isArray(merged.lineage)?merged.lineage:[];
+merged.records=merged.records&&typeof merged.records==='object'?merged.records:{};
+merged.eventFlags=merged.eventFlags&&typeof merged.eventFlags==='object'?merged.eventFlags:{};
+merged.collection={...base.collection,...(merged.collection||{})};
+merged.fieldPressure={...base.fieldPressure,...(raw.fieldPressure||{})};
+merged.weatherMemory={...base.weatherMemory,...(raw.weatherMemory||{})};
+merged.seasonStartRp=Number.isFinite(Number(raw.seasonStartRp))?Number(raw.seasonStartRp):Number(merged.rp||0);
+merged.selectionPool=(Array.isArray(raw.selectionPool)?raw.selectionPool:[]).map(item=>({...item,seed:item?.seed?{...item.seed,stock:Math.max(0,Number(item.seed.stock)||6),viability:clamp(Number(item.seed.viability)||97,0,100),ageSeasons:Math.max(0,Number(item.seed.ageSeasons)||0),genome:normalizeGenome(item.seed.genome,item.seed.id||item.id,merged.simulationSeed)}:item.seed}));
+merged.academy={...base.academy,...(raw.academy||{}),completed:Array.isArray(raw.academy?.completed)?raw.academy.completed:[],answers:raw.academy?.answers&&typeof raw.academy.answers==='object'?raw.academy.answers:{}};
+merged.experimentHistory=Array.isArray(raw.experimentHistory)?raw.experimentHistory:[];
+if(merged.experiment&&Number(merged.experiment.measureEvery)>0&&Number(merged.experiment.measureEvery)<=4)merged.experiment.measureEvery=Math.max(7,Math.min(28,Math.round(Number(merged.experiment.measureEvery))*7));
+merged.notebook=Array.isArray(raw.notebook)?raw.notebook:[];
+merged.decisionHistory=Array.isArray(raw.decisionHistory)?raw.decisionHistory:[];
+merged.onboarding={...base.onboarding,...(raw.onboarding||{})};
+merged.advanceGuard=raw.advanceGuard&&typeof raw.advanceGuard==='object'?raw.advanceGuard:null;
+merged.weekly=raw.weekly&&typeof raw.weekly==='object'?raw.weekly:null;
+merged.seasonStats={...base.seasonStats,...(merged.seasonStats||{})};
+merged.challenge=CHALLENGES[merged.challenge]?merged.challenge:'standard';
+merged.location=LOCATIONS[merged.location]?merged.location:'zero';
+const legacyMax=Math.max(2,Number(raw.maxDay)||LEGACY_SEASON_TURNS),calendarMax=seasonLengthFor(merged.species,merged.challenge);
+if((Number(raw.version)||2)<GAME_SAVE_VERSION&&legacyMax<=40){
+const progress=clamp((Math.max(1,Number(raw.day)||1)-1)/(legacyMax-1),0,1);
+merged.day=Math.max(1,Math.round(1+progress*(calendarMax-1)));
+const maturity=Number((SPECIES[merged.species]||SPECIES.maize).maturityDays)||110;
+merged.field=merged.field.map(crop=>crop?{...crop,age:Math.max(Number(crop.age)||0,Math.round(clamp(Number(crop.growth)||0,0,100)/100*maturity))}:crop);
+}
+merged.maxDay=calendarMax;merged.day=clamp(Math.round(Number(merged.day)||1),1,merged.maxDay);
+return merged;
+}catch{return freshState();}
+}
+let state=load(),resumeGapMs=Math.max(0,Date.now()-(Number(state.comfort?.lastSeenAt)||Date.now())),toastTimer=0,audioContext=null,activeFieldTool='',harvestCombo=0,undoState=null,undoTimer=0,notificationQueue=[],interactionBusy=false,replantCache=null,lastProgressFingerprint='',lastTimeStopReason='';
+const breedingCup=createBreedingCup({getState:()=>state,esc,uid,randomize:randomizedExperimentUnits,save,render,openModal:openMetaModal,toast,addLog,setTool:value=>{activeFieldTool=value;},sendToStat:sendExperimentToStat,openExperiment,seasonDays:challengeId=>seasonLengthFor(state.species,challengeId||state.challenge)});
+
+function cloudProgressState(source=state){
+const copy=structuredClone(source);
+delete copy.comfort;delete copy.sound;delete copy.musicTrack;delete copy.selectedPlot;
+return copy;
+}
+function progressFingerprint(value=cloudProgressState()){
+const raw=typeof value==='string'?value:JSON.stringify(value);
+return raw.length.toString(36)+'-'+hashString(raw).toString(36);
+}
+function exportCloudSave(){return cloudProgressState();}
+function importCloudSave(remote){
+if(!remote||typeof remote!=='object'||Array.isArray(remote))return false;
+const localPrefs={
+comfort:structuredClone(state.comfort||freshState().comfort),
+sound:state.sound,
+musicTrack:state.musicTrack,
+selectedPlot:state.selectedPlot
+};
+try{
+checkpoint('Sebelum menerapkan cloud save');
+localStorage.setItem(STORAGE,JSON.stringify({...structuredClone(remote),...localPrefs}));
+state=load();
+clearUndo();replantCache=null;activeFieldTool='';
+lastProgressFingerprint=progressFingerprint();
+applyComfortSettings();render();updateCrossPreview();notifyGameProfile(true);
+document.dispatchEvent(new CustomEvent('fieldzero-cloud-applied',{detail:{fingerprint:lastProgressFingerprint}}));
+return true;
+}catch{return false;}
+}
+function gameProgressSummary(value=state){
+const field=Array.isArray(value?.field)?value.field:[],history=Array.isArray(value?.history)?value.history:[],vault=Array.isArray(value?.vault)?value.vault:[];
+return {
+season:Math.max(1,Number(value?.season)||1),day:Math.max(1,Number(value?.day)||1),level:Math.max(1,Number(value?.level)||1),
+coins:Math.max(0,Number(value?.coins)||0),rp:Math.max(0,Number(value?.rp)||0),xp:Math.max(0,Number(value?.xp)||0),
+planted:field.filter(Boolean).length,history:history.length,vault:vault.length,legacy:Math.max(0,Number(value?.legacy)||0)
+};
+}
+function isFreshProgress(value=state){
+const p=gameProgressSummary(value);
+return p.season===1&&p.day===1&&p.level===1&&p.xp===0&&p.rp===0&&p.legacy===0&&p.planted===0&&p.history===0&&p.vault<=STARTER_SEEDS.length;
+}
+function recoveryEntries(){
+try{
+const raw=JSON.parse(localStorage.getItem(RECOVERY_STORAGE)||'[]');
+return Array.isArray(raw)?raw.filter(item=>item&&item.state&&typeof item.state==='object').slice(0,RECOVERY_LIMIT):[];
+}catch{return [];}
+}
+function checkpoint(label='Checkpoint'){
+try{
+const snapshot={id:uid('restore'),at:Date.now(),label:String(label).slice(0,60),season:state.season,day:state.day,state:structuredClone(state)};
+const entries=[snapshot,...recoveryEntries()].slice(0,RECOVERY_LIMIT);
+localStorage.setItem(RECOVERY_STORAGE,JSON.stringify(entries));
+return snapshot.id;
+}catch{return '';}
+}
+function restoreCheckpoint(id){
+const entry=recoveryEntries().find(item=>item.id===id);if(!entry)return false;
+const localPrefs={comfort:structuredClone(state.comfort||{}),sound:state.sound,musicTrack:state.musicTrack,selectedPlot:state.selectedPlot};
+try{
+localStorage.setItem(STORAGE,JSON.stringify({...structuredClone(entry.state),...localPrefs}));state=load();clearUndo();replantCache=null;activeFieldTool='';
+lastProgressFingerprint=progressFingerprint();applyComfortSettings();render();updateCrossPreview();closeMetaModal();toast('Save dipulihkan · '+entry.label);return true;
+}catch{return false;}
+}
+function openRecoveryCenter(){
+const entries=recoveryEntries();
+openMetaModal('PEMULIHAN','Save lokal sebelumnya',entries.length?`<div class="recovery-list">${entries.map(item=>`<article><div><b>${esc(item.label)}</b><small>Musim ${item.season} · Hari ${item.day} · ${new Date(item.at).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'})}</small></div><button type="button" data-restore="${item.id}">Pulihkan</button></article>`).join('')}</div><p class="meta-note">Maksimal tiga checkpoint lokal. Cloud save tetap terpisah.</p>`:'<div class="meta-empty">Belum ada checkpoint pemulihan.</div>');
+$('#metaModalBody').querySelectorAll('[data-restore]').forEach(button=>button.onclick=()=>{if(confirm('Pulihkan checkpoint ini? Progres setelah checkpoint akan diganti.'))restoreCheckpoint(button.dataset.restore);});
+}
+function noteBreeder(type,text,data={}){
+state.notebook=[{id:uid('note'),season:state.season,day:state.day,type,text:String(text).slice(0,180),data},...(state.notebook||[])].slice(0,80);
+}
+function recordDecision(type,decision,consequence=''){
+state.decisionHistory=[{id:uid('decision'),season:state.season,day:state.day,type,decision:String(decision).slice(0,140),consequence:String(consequence).slice(0,180)},...(state.decisionHistory||[])].slice(0,80);
+}
+function selectPlotOffset(delta=1){
+const limit=fieldLimit();if(!limit)return;
+state.selectedPlot=(state.selectedPlot+delta+limit)%limit;renderField();renderInspector();renderComfortControls();openInspectorSheet();
+}
+function selectNextIssue(){
+const issues=attentionIndexes();if(!issues.length){toast('Tidak ada petak bermasalah');return;}
+const pos=issues.findIndex(item=>item.index===state.selectedPlot),next=issues[(pos+1+issues.length)%issues.length];
+state.selectedPlot=next.index;renderField();renderInspector();renderComfortControls();openInspectorSheet();
+}
+function blockingAdvanceIssues(){
+const issues=[];
+if(state.pendingEvent)issues.push('kejadian lapang belum diputuskan');
+const exp=state.experiment;
+if(exp&&exp.kind!=='genotype'){
+const unapplied=exp.units.filter(unit=>state.field[unit.plot]&&!unit.applied).length;
+if(unapplied)issues.push(unapplied+' perlakuan belum diterapkan');
+}
+return issues;
+}
+function renderAdvanceNotice(){
+const box=$('#advanceNotice');if(!box)return;
+const issues=blockingAdvanceIssues();
+box.hidden=!issues.length;
+box.textContent=issues.length?'Selesaikan dulu: '+issues.join(' · '):'';
+$('#nextDay')?.toggleAttribute('data-blocked',issues.length>0);
+}
+function openBreederNotebook(){
+const notes=state.notebook||[];
+openMetaModal('NOTEBOOK PEMULIA','Catatan otomatis lapang',notes.length?`<div class="breeder-notebook">${notes.map(note=>`<article><small>M${note.season} · H${note.day} · ${esc(note.type)}</small><b>${esc(note.text)}</b></article>`).join('')}</div>`:'<div class="meta-empty">Belum ada catatan pemulia.</div>');
+}
+function openExperimentHistory(){
+const rows=state.experimentHistory||[];
+openMetaModal('ARSIP RISET','Percobaan sebelumnya',rows.length?`<div class="experiment-history-list">${rows.map(item=>`<article><header><b>${esc(item.name)}</b><span>M${item.season}</span></header><div><span>${esc(String(item.design||'').toUpperCase())}</span><span>Mutu ${Math.round(Number(item.quality)||0)}%</span><span>${item.completed||0}/${item.total||0} unit</span></div>${item.summary?.length?`<small>${esc(item.summary.join(' · '))}</small>`:''}</article>`).join('')}</div>`:'<div class="meta-empty">Belum ada percobaan yang diarsipkan.</div>');
+}
+function generationSummary(){
+const groups={};
+for(const item of state.selectionPool||[]){
+const label=item.seed?.generationLabel||('G'+Number(item.seed?.generation||0));
+(groups[label]??=[]).push(item);
+}
+return Object.entries(groups).map(([label,items])=>{
+const mean=items.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/Math.max(1,items.length);
+const selected=items.filter(item=>item.selected),selectedMean=selected.length?selected.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/selected.length:null;
+const hom=items.reduce((sum,item)=>sum+Number(item.seed?.homozygosity??genomeStats(item.seed?.genome).homozygosity??0),0)/Math.max(1,items.length);
+return {label,n:items.length,mean,selected:selected.length,selectedMean,hom};
+}).sort((a,b)=>Number(String(a.label).replace(/\D/g,''))-Number(String(b.label).replace(/\D/g,'')));
+}
+function openGenerationCompare(){
+const rows=generationSummary();
+openMetaModal('GENERASI','Perubahan antar generasi',rows.length?`<div class="generation-compare">${rows.map(row=>`<article><b>${esc(row.label)}</b><span>n=${row.n}</span><div><small>Rerata hasil</small><strong>${row.mean.toFixed(1)} kg</strong></div><div><small>Terpilih</small><strong>${row.selected}${row.selectedMean===null?'':' · '+row.selectedMean.toFixed(1)+' kg'}</strong></div><div><small>Homozigositas</small><strong>${Math.round(row.hom*100)}%</strong></div></article>`).join('')}</div>`:'<div class="meta-empty">Panen dan seleksi beberapa generasi untuk membuat perbandingan.</div>');
+}
+function seasonDecisionReview(researchQuality=null){
+const out=[],margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+if(state.seasonStats.cost>0)out.push('Input '+formatRupiah(state.seasonStats.cost)+' → margin '+formatRupiah(margin));
+if(researchQuality!==null)out.push('Rancangan & pengamatan → mutu data '+researchQuality+'%');
+const selected=selectionCandidates(state.season).filter(item=>item.selected).length,candidates=selectionCandidates(state.season).length;
+if(candidates)out.push('Seleksi '+selected+'/'+candidates+' kandidat → benih generasi berikutnya');
+if(state.fieldPressure.pathogen>20||state.fieldPressure.fatigue>20)out.push('Tekanan musim → carry-over patogen '+state.fieldPressure.pathogen.toFixed(1)+' / stres '+state.fieldPressure.fatigue.toFixed(1));
+if(!out.length)out.push('Keputusan musim tercatat; lanjutkan untuk membandingkan konsekuensinya.');
+return out.slice(0,4);
+}
+
+function setupFloatingGameActions(){
+ const root=$('#floatingGameActions'),button=$('#floatingGameButton'),menu=$('#floatingGameMenu');
+ if(!root||!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false');};
+ button.onclick=()=>{const open=menu.hidden;menu.hidden=!open;button.setAttribute('aria-expanded',String(open));};
+ menu.addEventListener('click',event=>{
+   const item=event.target.closest('[data-float-action]');if(!item)return;
+   const action=item.dataset.floatAction;
+   if(action==='plant'||action==='water'||action==='fertilize'||action==='scout'||action==='harvest')setFieldTool(action);
+   else if(action==='smart'){runSmartAction();openInspectorSheet();}
+   else if(action==='next')$('#nextDay')?.click();
+   else if(action==='lab')openSeedVault();
+   else if(action==='research')openExperiment();
+   else if(action==='map')$('#quickMap')?.click();
+   else if(action==='social')$('#quickSocial')?.click();
+   close();
+ });
+ document.addEventListener('pointerdown',event=>{if(!root.contains(event.target))close();});
+}
+
+function save(){
+try{
+localStorage.setItem(STORAGE,JSON.stringify(state));
+const theme=state?.comfort?.theme;
+if(theme==='light'||theme==='dark'){document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}
+}catch{}
+const fingerprint=progressFingerprint();
+if(lastProgressFingerprint&&fingerprint!==lastProgressFingerprint){
+document.dispatchEvent(new CustomEvent('fieldzero-save-change',{detail:{fingerprint}}));
+}
+lastProgressFingerprint=fingerprint;
+}
+function haptic(ms=8){
+if(state.comfort?.haptic==='off')return;
+const amount=state.comfort?.haptic==='normal'?Math.max(12,ms):Math.min(8,ms);
+try{navigator.vibrate?.(amount);}catch{}
+}
+function beep(freq=420,duration=.045){
+if(!state.sound||state.comfort?.battery)return;
+try{
+audioContext??=new (window.AudioContext||window.webkitAudioContext)();
+const osc=audioContext.createOscillator(),gain=audioContext.createGain(),volume=Math.max(0,Math.min(1,Number(state.comfort?.uiVolume??.75)));
+osc.frequency.value=freq;gain.gain.value=.025*volume;osc.connect(gain);gain.connect(audioContext.destination);osc.start();
+gain.gain.exponentialRampToValueAtTime(.0001,audioContext.currentTime+duration);osc.stop(audioContext.currentTime+duration);
+}catch{}
+}
+function showToast(message){
+const el=$('#toast');if(!el)return;el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1800);
+}
+function toast(message){
+if(interactionBusy){notificationQueue.push(String(message));return;}
+showToast(message);
+}
+function flushNotifications(){
+if(interactionBusy||!notificationQueue.length)return;
+const items=notificationQueue.splice(0,3),suffix=notificationQueue.length?' +'+notificationQueue.length:'';
+showToast(items.join(' · ')+suffix);
+}
+function clearUndo(){
+undoState=null;clearTimeout(undoTimer);undoTimer=0;
+const box=$('#undoToast');if(box)box.hidden=true;
+}
+function offerUndo(snapshot,label,replay=null){
+if(activeChallenge().noUndo){clearUndo();toast('Iron Field · keputusan tidak dapat diurungkan');return;}
+clearUndo();undoState={snapshot,label,replay,expires:Date.now()+6000};
+const box=$('#undoToast'),text=$('#undoText');if(!box||!text)return;
+text.textContent=label+' diterapkan';box.hidden=false;
+undoTimer=setTimeout(clearUndo,6000);
+}
+function undoLastAction(){
+if(!undoState||Date.now()>undoState.expires)return clearUndo();
+const replay=undoState.replay;state=structuredClone(undoState.snapshot);if(replay)replantCache={...replay,expires:Date.now()+12000};
+clearUndo();applyComfortSettings();render();toast('Aksi diurungkan');
+}
+function preferredTheme(){
+const mode=state.comfort?.theme||'system';
+if(mode==='light'||mode==='dark')return mode;
+return window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark';
+}
+function applyTheme(){
+const theme=preferredTheme();
+document.body.classList.toggle('theme-light',theme==='light');
+document.body.classList.toggle('theme-dark',theme==='dark');
+document.documentElement.dataset.theme=theme;
+document.documentElement.style.colorScheme=theme;
+document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='light'?'#f3f7f4':'#10271f');
+}
+function applyComfortSettings(){
+const c=state.comfort||{};
+document.body.classList.toggle('thumb-left',c.thumb==='left');
+document.body.classList.toggle('density-auto',c.density==='auto');
+document.body.classList.toggle('density-compact',c.density==='compact');
+document.body.classList.toggle('density-large',c.density==='large');
+document.body.classList.toggle('battery-saver',!!c.battery);
+document.body.classList.toggle('color-safe',!!c.colorSafe);
+applyTheme();
+setMusicVolume(c.battery?0:Number(c.musicVolume??.65)*.16);
+if(c.battery&&isMusicPlaying())stopMusic();
+}
+function updateComfort(patch){
+state.comfort={...state.comfort,...patch};applyComfortSettings();save();renderHud();
+}
+const systemThemeQuery=window.matchMedia?.('(prefers-color-scheme: light)');
+systemThemeQuery?.addEventListener?.('change',()=>{if((state.comfort?.theme||'system')==='system')applyTheme();});
+function addLog(text,day=state.day){
+state.log.unshift({day,text});state.log=state.log.slice(0,28);
+}
+function awardAchievement(id){
+if(state.achievements.includes(id)||!ACHIEVEMENTS[id])return;
+state.achievements.push(id);state.xp+=25;state.level=levelFromXp(state.xp);toast('Achievement: '+ACHIEVEMENTS[id].name);beep(720,.09);
+}
+function discoverTrait(id){
+if(!id||state.discoveredTraits.includes(id))return;
+state.discoveredTraits.push(id);state.rp+=3;toast('Trait ditemukan: '+traitMeta(id).name);
+if(id==='zero')awardAchievement('zero');else awardAchievement('anomaly');
+}
+function gameProfile(){
+const history=state.history||[],historyYield=history.reduce((sum,item)=>sum+(Number(item.yield)||0),0);
+const currentIncluded=history.some(item=>Number(item.season)===Number(state.season));
+const currentYield=currentIncluded?0:(Number(state.seasonStats?.yield)||0);
+const bestYield=Math.max(Number(state.seasonStats?.yield)||0,...history.map(item=>Number(item.yield)||0));
+return {bestYield:round(bestYield,1),season:state.season,level:state.level,legacy:state.legacy||0,location:state.location,xp:state.xp||0,rivalWins:state.rivalWins||0,achievements:state.achievements?.length||0,totalYield:round(historyYield+currentYield,1)};
+}
+function notifyGameProfile(force=false){
+document.dispatchEvent(new CustomEvent('fieldzero-profile',{detail:{...gameProfile(),_forceSync:force}}));
+}
+function applyRemoteBurn(raid){
+const living=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);
+if(!living.length)return false;
+const seed=hashString(raid?.id||String(Date.now())),target=living[Math.floor(seededUnit(seed)*living.length)];
+target.crop.health=Math.max(25,target.crop.health-12);
+target.crop.water=clamp(target.crop.water-10);
+target.crop.stress=clamp(target.crop.stress+10,0,120);
+target.crop.burned=2;
+addLog('🔥 '+String(raid?.attacker?.name||'Teman').slice(0,40)+' membakar ringan P'+String(target.index+1).padStart(2,'0')+'.');
+toast('🔥 P'+String(target.index+1).padStart(2,'0')+' diserang teman');
+beep(220,.09);render();return true;
+}
+function applyWaterAid(aid){
+const living=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);
+if(!living.length)return false;
+const seed=hashString(aid?.id||String(Date.now())),target=living[Math.floor(seededUnit(seed)*living.length)];
+target.crop.water=clamp(target.crop.water+24);
+target.crop.health=clamp(target.crop.health+4);
+target.crop.stress=Math.max(0,target.crop.stress-5);
+addLog('💧 '+String(aid?.helper?.name||'Teman').slice(0,40)+' membantu P'+String(target.index+1).padStart(2,'0')+'.');
+toast('💧 Bantuan teman masuk ke P'+String(target.index+1).padStart(2,'0'));
+beep(520,.07);render();return true;
+}
+
+const STAT_IMPORT_KEY='agrotik_stat_import_queue_v1';
+function experimentUnit(index){return state.experiment?.units?.find(unit=>unit.plot===index)||null;}
+function experimentTreatment(unit){return unit&&state.experiment?.treatments?.find(item=>item.id===unit.treatmentId)||null;}
+function experimentSeedForPlot(index){
+if(state.experiment?.kind!=='genotype')return null;
+const treatment=experimentTreatment(experimentUnit(index));return treatment?.seedId?state.vault.find(seed=>seed.id===treatment.seedId)||null:null;
+}
+function experimentBadge(index){
+const unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!unit||!treatment)return '';
+const repLabel=['rak','frak','split'].includes(state.experiment.design)?'K':'U';
+return `<span class="experiment-badge ${unit.applied?'applied':''}" title="${esc(treatment.name)} · ${repLabel}${unit.rep}">${esc(treatment.code)}·${repLabel}${unit.rep}${unit.applied?'✓':''}</span>`;
+}
+function seededShuffle(list,seed){
+const out=[...list];let x=Number(seed)||1;
+for(let i=out.length-1;i>0;i--){x=hashString(x+':'+i);const j=Math.floor(seededUnit(x)*(i+1));[out[i],out[j]]=[out[j],out[i]];}
+return out;
+}
+function randomizedExperimentUnits(design,treatments,reps,seed=state.simulationSeed){
+const units=[],blocked=['rak','frak'].includes(design);
+if(design==='aug'){
+const checks=treatments.filter(t=>t.isCheck),entries=seededShuffle(treatments.filter(t=>!t.isCheck),hashString(seed+':aug:entries')),entrySlots=[];
+for(let block=0;block<BLOCK_COUNT;block++){
+const slots=seededShuffle(Array.from({length:PLOTS_PER_BLOCK},(_,i)=>block*PLOTS_PER_BLOCK+i),hashString(seed+':aug:slot:'+block));
+const checkOrder=seededShuffle(checks,hashString(seed+':aug:check:'+block));
+checkOrder.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,role:'check',applied:false,observations:{},timeline:[],missingStatus:''}));
+entrySlots.push(...slots.slice(checks.length));
+}
+const shuffledSlots=seededShuffle(entrySlots,hashString(seed+':aug:entry-slots'));
+entries.forEach((treatment,i)=>{const plot=shuffledSlots[i];if(plot===undefined)return;units.push({plot,treatmentId:treatment.id,rep:1,block:plotMeta(plot).block,role:'entry',applied:false,observations:{},timeline:[],missingStatus:''});});
+}
+else if(design==='split'){const factorAIds=unique(treatments.map(t=>t.factorA?.id).filter(Boolean));for(let block=0;block<BLOCK_COUNT;block++){const aOrder=seededShuffle(factorAIds,hashString(seed+':split:a:'+block));let cursor=0;for(const aId of aOrder){const combos=seededShuffle(treatments.filter(t=>t.factorA?.id===aId),hashString(seed+':split:b:'+block+':'+aId)),slots=Array.from({length:combos.length},(_,i)=>block*PLOTS_PER_BLOCK+cursor+i);cursor+=combos.length;combos.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,mainPlot:aId,applied:false,observations:{},timeline:[],missingStatus:''}));}}}
+else if(blocked){for(let block=0;block<BLOCK_COUNT;block++){const slots=seededShuffle(Array.from({length:PLOTS_PER_BLOCK},(_,i)=>block*PLOTS_PER_BLOCK+i),hashString(seed+':slot:'+block)).slice(0,treatments.length),order=seededShuffle(treatments,hashString(seed+':trt:'+block));order.forEach((treatment,i)=>units.push({plot:slots[i],treatmentId:treatment.id,rep:block+1,block:block+1,applied:false,observations:{},timeline:[],missingStatus:''}));}}
+else{const pool=[];for(const treatment of treatments)for(let i=0;i<reps;i++)pool.push(treatment);const order=seededShuffle(pool,hashString(seed+':ral:trt')),slots=seededShuffle(Array.from({length:PLOT_COUNT},(_,i)=>i),hashString(seed+':ral:slot')).slice(0,order.length),counts={};order.forEach((treatment,i)=>{counts[treatment.id]=(counts[treatment.id]||0)+1;units.push({plot:slots[i],treatmentId:treatment.id,rep:counts[treatment.id],block:plotMeta(slots[i]).block,applied:false,observations:{},timeline:[],missingStatus:''});});}
+return units.sort((x,y)=>x.plot-y.plot);
+}
+function augmentedTreatments(entryCount,checkCount){
+const vault=speciesVault(),checks=vault.slice(0,checkCount),entries=vault.slice(checkCount,checkCount+entryCount);
+return [
+...checks.map((seed,index)=>({id:'C'+(index+1),code:'C'+(index+1),name:seed.name,seedId:seed.id,isCheck:true,effects:{}})),
+...entries.map((seed,index)=>({id:'E'+(index+1),code:'E'+(index+1),name:seed.name,seedId:seed.id,isCheck:false,effects:{}}))
+];
+}
+function experimentTreatments(kind,count,custom=''){
+if(kind==='genotype')return speciesVault().slice(0,count).map((seed,index)=>({id:'G'+(index+1),code:'G'+(index+1),name:seed.name,seedId:seed.id,effects:{}}));
+if(kind==='nitrogen'){const levels=[0,50,100,150,200,250];return levels.slice(0,count).map((dose,index)=>({id:'N'+index,code:'N'+dose,name:'N '+dose+' kg/ha',dose,effects:{yield:dose===0?.9:dose>=250?.98:1,nLoss:dose>=200?1.04:.98}}));}
+if(kind==='phosphorus'){const levels=[0,25,50,75];return levels.slice(0,count).map((dose,index)=>({id:'P'+index,code:'P'+dose,name:'P₂O₅ '+dose+' kg/ha',effects:{growth:dose===0?.96:dose===50?1.03:1,yield:dose===0?.95:dose===50?1.04:1}}));}
+if(kind==='potassium'){const levels=[0,40,80,120];return levels.slice(0,count).map((dose,index)=>({id:'K'+index,code:'K'+dose,name:'K₂O '+dose+' kg/ha',effects:{waterLoss:dose===0?1.06:dose>=80?.96:1,yield:dose===80?1.04:1}}));}
+if(kind==='water'){const levels=[50,75,100,125];return levels.slice(0,count).map(level=>({id:'W'+level,code:'W'+level,name:'Air '+level+'%',effects:{waterDaily:(level-100)/8,waterLoss:level<100?1.08:level>100?.94:1,yield:level===100?1.03:level===75?1:.96}}));}
+if(kind==='spacing'){const levels=[['J1','50×20 cm',.95,1.08],['J2','70×20 cm',1.02,1],['J3','70×25 cm',1.04,.96],['J4','75×25 cm',1,.94]];return levels.slice(0,count).map(([code,name,yieldFx,waterLoss])=>({id:code,code,name,effects:{yield:yieldFx,waterLoss}}));}
+if(kind==='population'){const levels=[['D1','Populasi rendah',.94,.93],['D2','Populasi sedang',1.03,1],['D3','Populasi tinggi',1.06,1.08],['D4','Populasi sangat tinggi',.98,1.15]];return levels.slice(0,count).map(([code,name,yieldFx,waterLoss])=>({id:code,code,name,effects:{yield:yieldFx,waterLoss,nLoss:waterLoss}}));}
+if(kind==='mulch'){const levels=[['M0','Tanpa mulsa',1,1,1],['M1','Mulsa organik',.88,.96,1.02],['M2','Mulsa plastik',.78,1.04,1.04],['M3','Plastik + organik',.72,1.02,1.06]];return levels.slice(0,count).map(([code,name,waterLoss,diseaseRisk,yieldFx])=>({id:code,code,name,effects:{waterLoss,diseaseRisk,yield:yieldFx}}));}
+if(kind==='soil'){const levels=[['S0','Kontrol',1,1],['S1','Kompos',.94,1.04],['S2','Pengapuran',.98,1.02],['S3','Kompos + kapur',.91,1.06]];return levels.slice(0,count).map(([code,name,nLoss,yieldFx])=>({id:code,code,name,effects:{nLoss,yield:yieldFx,growth:yieldFx}}));}
+if(kind==='drainage'){const levels=[['R0','Drainase terbatas',1.1,1.08,.94],['R1','Drainase standar',1,1,1],['R2','Drainase baik',.94,.9,1.03]];return levels.slice(0,count).map(([code,name,waterLoss,diseaseRisk,yieldFx])=>({id:code,code,name,effects:{waterLoss,diseaseRisk,yield:yieldFx}}));}
+if(kind==='shade'){const levels=[['L0','Tanpa naungan',1,1],['L1','Naungan ringan',.97,1.01],['L2','Naungan sedang',.92,.96]];return levels.slice(0,count).map(([code,name,growth,yieldFx])=>({id:code,code,name,effects:{growth,yield:yieldFx,waterLoss:growth<1?.94:1}}));}
+if(kind==='weed'){const levels=[['G0','Tanpa penyiangan',1.12,.91],['G1','Penyiangan 1×',1.04,.98],['G2','Penyiangan berbasis ambang',.98,1.02]];return levels.slice(0,count).map(([code,name,nLoss,yieldFx])=>({id:code,code,name,effects:{nLoss,waterLoss:nLoss,yield:yieldFx}}));}
+if(kind==='timing'){const levels=[['T1','Sekali awal',1.04,.97],['T2','Dibagi 2 kali',.97,1.03],['T3','Dibagi menurut fase',.93,1.05]];return levels.slice(0,count).map(([code,name,nLoss,yieldFx])=>({id:code,code,name,effects:{nLoss,yield:yieldFx}}));}
+if(kind==='disease'||kind==='ipm'){const levels=[['H0','Kontrol',1,1],['H1','Sanitasi',.8,.99],['H2','Biokontrol',.68,.98],['H3','Ambang pengendalian',.58,.97]];return levels.slice(0,count).map(([code,name,diseaseRisk,yieldFx])=>({id:code,code,name,effects:{diseaseRisk,yield:yieldFx}}));}
+const names=String(custom||'').split(',').map(x=>x.trim()).filter(Boolean);return Array.from({length:count},(_,index)=>({id:'X'+(index+1),code:'X'+(index+1),name:names[index]||('Perlakuan '+(index+1)),effects:{}}));
+}
+function combineEffects(a={},b={}){const out={...a};for(const [key,value] of Object.entries(b)){if(key==='waterDaily')out[key]=(Number(out[key])||0)+(Number(value)||0);else if(Number.isFinite(Number(value)))out[key]=(Number(out[key])||1)*Number(value);}return out;}
+function factorialTreatments(kindA,countA,customA,kindB,countB,customB){const A=experimentTreatments(kindA,countA,customA),B=experimentTreatments(kindB,countB,customB);return A.flatMap(a=>B.map(b=>({id:a.id+'__'+b.id,code:a.code+'×'+b.code,name:a.name+' × '+b.name,seedId:a.seedId||b.seedId||'',factorA:{id:a.id,code:a.code,name:a.name},factorB:{id:b.id,code:b.code,name:b.name},effects:combineEffects(a.effects,b.effects)})));}
+function advancedDesignUnlocked(){return state.season>=3||state.experimentHistory.length>=1||state.level>=3||state.academy?.completed?.includes('design-randomization')||state.eventFlags.academySkipIntro;}
+
+function applyTreatmentModel(crop,treatment){
+if(!crop||!treatment)return;
+crop.experimentEffects={...(treatment.effects||{})};
+if(Number.isFinite(Number(treatment.dose))){
+const bonus=Math.min(50,Math.round(Number(treatment.dose)/5));crop.n=clamp(crop.n+bonus);
+if(Number(treatment.dose)>=250){crop.stress=clamp(crop.stress+5,0,120);}
+}
+}
+function createExperiment({name,question,design,kind,count,reps,custom,kindB='water',countB=2,customB='',checkCount=2,parameters,frequency=2}){
+const factorial=['fral','frak','split'].includes(design),augmented=design==='aug';
+if(factorial&&!advancedDesignUnlocked())throw Error('Selesaikan satu percobaan dasar atau capai Level 3 untuk membuka faktorial/RPT.');
+if(augmented&&state.season<2&&state.level<2)throw Error('Augmented design terbuka mulai musim 2.');
+if(augmented)kind='genotype';
+if(['rak','frak','split','aug'].includes(design))reps=BLOCK_COUNT;
+checkCount=Math.max(1,Math.min(3,Number(checkCount)||2));
+const treatments=augmented?augmentedTreatments(count,checkCount):(factorial?factorialTreatments(kind,count,custom,kindB,countB,customB):experimentTreatments(kind,count,custom));
+const total=augmented?Number(count)+checkCount*BLOCK_COUNT:treatments.length*reps;
+if(state.field.some(Boolean))throw Error('Kosongkan lahan sebelum membuat rancangan baru.');
+if(augmented){
+if(count<2)throw Error('Gunakan minimal 2 galur baru.');
+if(speciesVault().length<count+checkCount)throw Error('Koleksi Benih belum cukup: butuh '+checkCount+' check + '+count+' galur baru.');
+if(total>fieldLimit())throw Error('Augmented membutuhkan '+total+' petak; kapasitas aktif '+fieldLimit()+'.');
+}else{
+if(treatments.length<2||reps<2||total>fieldLimit())throw Error('Gunakan ≥2 unit perlakuan, ≥2 ulangan, dan total ≤ petak aktif.');
+if(kind==='genotype'&&speciesVault().length<count)throw Error('Benih spesies aktif di Koleksi Benih belum cukup.');
+}
+if(['rak','frak','split'].includes(design)&&treatments.length>PLOTS_PER_BLOCK)throw Error('Rancangan berkelompok maksimal 8 kombinasi per kelompok pada lahan 3×8.');
+if(factorial&&kindB==='genotype'&&speciesVault().length<countB)throw Error('Benih spesies aktif untuk Faktor B belum cukup.');
+if(factorial&&kind==='genotype'&&kindB==='genotype')throw Error('Gunakan genotipe hanya pada salah satu faktor agar identitas tanaman tetap jelas.');
+const params=unique(String(parameters||recommendedParameters(state.species).slice(0,10).join(',')).split(',').map(x=>x.trim()).filter(Boolean)).slice(0,12),seed=hashString(state.simulationSeed+':'+state.season+':'+String(name||'rancob'));
+checkpoint('Sebelum membuat '+String(design).toUpperCase());
+state.plotUse=state.plotUse.map(()=> 'commercial');
+state.experiment={
+id:uid('exp'),name:String(name||'Rancob Field Zero').trim().slice(0,50)||'Rancob Field Zero',
+question:String(question||'Apakah perlakuan memengaruhi respons tanaman?').trim().slice(0,180),
+design,kind,kindB:factorial?kindB:'',factorial,augmented,checkCount:augmented?checkCount:0,treatments,reps,
+controlId:augmented?(treatments.find(t=>t.isCheck)?.id||''):(kind==='genotype'?'':(treatments[0]?.id||'')),
+factorA:factorial?{kind,levels:count,label:'Faktor A'}:null,factorB:factorial?{kind:kindB,levels:countB,label:'Faktor B'}:null,
+parameters:params.length?params:['Hasil'],measureEvery:Math.max(7,Math.min(28,Number(frequency)||14)),measurementUnitCost:250,observationCost:0,
+seed,randomization:1,units:randomizedExperimentUnits(design,treatments,reps,seed),createdAt:new Date().toISOString(),modelVersion:ACADEMY_MODEL_VERSION,researchRewarded:false,reviewed:false
+};
+state.experiment.units.forEach(unit=>{state.plotUse[unit.plot]='research';});
+academyMark('design-randomization',{note:'Menerapkan randomisasi, replikasi, dan struktur rancangan'});
+if(augmented)academyMark('design-augmented',{note:'Menggunakan check berulang untuk skrining galur baru'});
+state.selectedPlot=state.experiment.units[0]?.plot||0;activeFieldTool='';
+const desc=augmented?(count+' galur baru + '+checkCount+' check × 3 kelompok'):(treatments.length+' '+(factorial?'kombinasi':'perlakuan')+' × '+reps);
+addLog('📐 '+design.toUpperCase()+' · '+desc+'.');
+noteBreeder('rancangan',String(design).toUpperCase()+' · '+desc,{experimentId:state.experiment.id});
+recordDecision('design','Memilih '+String(design).toUpperCase(),desc);
+render();openExperiment();
+}
+function applyExperimentTreatment(index){
+const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return false;
+if(exp.kind==='genotype'&&!exp.factorial){toast('🌱 = '+treatment.code);return false;}
+if(unit.applied){toast('🧪✓');return false;}
+unit.applied=true;
+const crop=state.field[index];if(crop)applyTreatmentModel(crop,treatment);
+addLog(plotMeta(index).uid+': 🧪 '+treatment.name+'.');beep(500,.05);render();toast('🧪 '+plotMeta(index).uid+' · '+treatment.code);return true;
+}
+function applyPendingExperimentEffect(index,crop){
+const exp=state.experiment,unit=experimentUnit(index),treatment=experimentTreatment(unit);if(!exp||!unit||!treatment)return;
+if(exp.kind==='genotype'&&!exp.factorial){unit.applied=true;crop.experimentEffects={};return;}
+if(unit.applied)applyTreatmentModel(crop,treatment);
+}
+function biologicalDay(){const species=SPECIES[state.species]||SPECIES.maize;return Math.max(1,Math.min(species.maturityDays,Math.round(state.day)));}
+function parameterValue(parameter,values){
+const key=String(parameter).toLocaleLowerCase('id-ID').replace(/[^a-z0-9]/g,'');
+if(key==='tt'||key.includes('tinggitanaman')||key==='plantheight')return values.tt;
+if(key==='db'||key.includes('diameterbatang')||key==='stemdiameter')return values.db;
+if(key==='jd'||key.includes('jumlahdaun')||key==='leafnumber')return values.jd;
+if(key.includes('hasil')||key==='yield')return values.hasil;
+if(key.includes('kesehatan')||key==='health')return values.kesehatan;
+if(key.includes('stres')||key==='stress')return values.stres;
+if(key.includes('penyakit')||key==='disease')return values.penyakit;
+if(key==='air'||key.includes('water'))return values.air;
+if(key.includes('nitrogen')||key==='n')return values.nitrogen;
+if(key==='ua'||key.includes('anthesis'))return values.anthesis;
+if(key==='us'||key.includes('silking'))return values.silking;
+if(key==='asi'||key.includes('anthesissilking'))return values.asi;
+if(key==='pt'||key.includes('panjangtongkol'))return values.pt;
+if(key==='dt'||key.includes('diametertongkol'))return values.dt;
+if(key==='jb'||key.includes('jumlahbiji'))return values.jb;
+if(key==='bb'||key.includes('bobotbiji')||key.includes('bobotbuah'))return values.bb;
+if(key==='ka'||key.includes('kadarair'))return values.ka;
+if(key==='ub'||key.includes('umurberbunga'))return values.ub;
+if(key==='jbu'||key.includes('jumlahbuah'))return values.jbu;
+if(key==='pb'||key.includes('panjangbuah'))return values.pb;
+if(key==='dbu'||key.includes('diameterbuah'))return values.dbu;if(key==='ja'||key.includes('jumlahanakan'))return values.ja;if(key==='jap'||key.includes('anakanproduktif'))return values.jap;if(key==='pm'||key.includes('panjangmalai'))return values.pm;if(key==='gi'||key.includes('gabahisi'))return values.gi;if(key==='gh'||key.includes('gabahhampa'))return values.gh;if(key==='jc'||key.includes('jumlahcabang'))return values.jc;if(key==='pi'||key.includes('polongisi'))return values.pi;if(key==='ph'||key.includes('polonghampa'))return values.ph;
+return '';
+}
+function simulatedObservationValues(index,crop,yieldValue=''){
+const growth=clamp(crop.growth,0,110),bio=biologicalDay(),species=crop.species||state.species;
+if(species==='maize'){
+if(growth>=52&&!crop.anthesisBioDay)crop.anthesisBioDay=bio;
+if(growth>=58&&!crop.silkingBioDay)crop.silkingBioDay=bio;
+}
+if(!Array.isArray(crop.samples)||!crop.samples.length)crop.samples=makeSubsamples({plotUid:plotMeta(index).uid,plantUid:crop.uid,species,simulationSeed:state.simulationSeed});
+const sampleRows=crop.samples.filter(sample=>sample.alive!==false).map(sample=>({id:sample.id,values:sampleMeasurements({species,crop,sample,bioDay:bio,yieldValue})}));
+const agg=parameter=>aggregateSamples(sampleRows,parameter);
+return {
+tt:agg('TT'),db:agg('DB'),jd:agg('JD'),hasil:yieldValue,
+kesehatan:round(crop.health,1),stres:round(crop.stress,1),penyakit:round(crop.disease,1),air:round(crop.water,1),nitrogen:round(crop.n,1),
+anthesis:agg('UA'),silking:agg('US'),asi:agg('ASI'),pt:agg('PT'),dt:agg('DT'),jb:agg('JB'),bb:agg('BB'),ka:agg('KA'),
+ub:agg('UB'),jbu:agg('JBu'),pb:agg('PB'),dbu:agg('DBu'),ja:agg('JA'),jap:agg('JAP'),pm:agg('PM'),gi:agg('GI'),gh:agg('GH'),jc:agg('JC'),pi:agg('PI'),ph:agg('PH'),__samples:sampleRows
+};
+}
+function recordDailyExperimentObservation(index,crop,{yieldValue='',force=false}={}){
+const exp=state.experiment,unit=experimentUnit(index);if(!exp||!unit||!crop)return;
+unit.timeline=Array.isArray(unit.timeline)?unit.timeline:[];
+if(!force&&unit.timeline.some(row=>row.day===state.day))return;
+if(crop.health<=0){unit.missingStatus='TANAMAN MATI';unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:{},status:'missing-dead'});return;}
+const values=simulatedObservationValues(index,crop,yieldValue),measured={};
+for(const parameter of exp.parameters){
+const value=parameterValue(parameter,values);
+if(value!==''&&value!==undefined){measured[parameter]=value;if(!String(parameter).toLowerCase().includes('hasil')||yieldValue!=='')unit.observations[parameter]=value;}
+}
+unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:measured,samples:values.__samples||[],status:'observed'});
+}
+function runScheduledExperimentObservation(){
+const exp=state.experiment;if(!exp||state.day<=1||state.day%exp.measureEvery!==0)return;
+const units=exp.units.filter(unit=>state.field[unit.plot]),measureParams=exp.parameters.filter(parameter=>!String(parameter).toLocaleLowerCase('id-ID').includes('hasil'));
+if(!units.length||!measureParams.length)return;
+const cost=units.length*measureParams.length*(exp.measurementUnitCost||250);
+if(state.coins<cost){
+for(const unit of units){
+unit.missingStatus='ANGGARAN PENGAMATAN';
+unit.timeline.push({day:state.day,biologicalDay:biologicalDay(),values:{},status:'missing-budget'});
+}
+addLog('📋 Pengamatan H'+state.day+' terlewat: anggaran kurang '+formatRupiah(cost)+'.');return;
+}
+state.coins-=cost;state.seasonStats.cost=(state.seasonStats.cost||0)+cost;exp.observationCost=(exp.observationCost||0)+cost;
+units.forEach(unit=>recordDailyExperimentObservation(unit.plot,state.field[unit.plot]));
+addLog('📋 Pengamatan H'+state.day+' · '+units.length+' petak · '+formatRupiah(cost)+'.');
+}
+function recordExperimentObservation(index,crop,yieldValue){
+const unit=experimentUnit(index);if(!unit)return;
+recordDailyExperimentObservation(index,crop,{yieldValue,force:true});
+const values=simulatedObservationValues(index,crop,yieldValue);
+for(const parameter of state.experiment.parameters){const value=parameterValue(parameter,values);if(value!==''&&value!==undefined)unit.observations[parameter]=value;}
+unit.missingStatus='';
+}
+function experimentDataset(){
+const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,blocked=['rak','frak','split','aug'].includes(exp.design),repHeader=blocked?'Kelompok':'Ulangan',factorial=!!exp.factorial,headers=[...(factorial?['Faktor A','Faktor B',repHeader]:['Perlakuan',repHeader]),'ExperimentID','Musim','PlotUID','PlantUID','Petak','Aktivitas','TingkatData','Spesies','Varietas/Galur','Generasi',...exp.parameters,'StatusData','CatatanStatistik','ModelSimulasi'];
+const rows=exp.units.map(unit=>{const treatment=experimentTreatment(unit),crop=state.field[unit.plot],material=unit.material||{},seed=crop?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),missing=exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()==='')?'BELUM LENGKAP':'LENGKAP',designCells=factorial?[treatment?.factorA?.name||'',treatment?.factorB?.name||'',String(unit.rep)]:[treatment?.name||treatment?.code||'',String(unit.rep)];return [...designCells,exp.id,String(state.season),plotMeta(unit.plot).uid,crop?.uid||material.plantUid||'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),...exp.parameters.map(parameter=>String(unit.observations?.[parameter]??'')),missing,'ANOVA memakai unit percobaan; tanaman sampel adalah subsampel',ACADEMY_MODEL_VERSION];});
+return {name:'SIMULASI · '+exp.name,headers,rows,plant:species.name+' ('+species.latin+') · DATA SIMULASI GAME',treatment:'DATA SIMULASI GAME · '+exp.design.toUpperCase()+' · '+exp.treatments.length+' '+(factorial?'kombinasi':'perlakuan')+' · '+exp.reps+' '+(blocked?'kelompok':'ulangan')+' · Pertanyaan: '+(exp.question||'—'),design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
+}
+function experimentRawDataset(){
+const exp=state.experiment;if(!exp)return null;const species=SPECIES[state.species]||SPECIES.maize,repHeader=['rak','frak','split','aug'].includes(exp.design)?'Kelompok':'Ulangan',headers=['ExperimentID','Musim',repHeader,'PlotUID','PlantUID','SamplePlantUID','Petak','Aktivitas','TingkatData','PeranStatistik','Spesies','Varietas/Galur','Generasi','Perlakuan','FaktorA','FaktorB','HariGame','HSTSimulasi','Parameter','Nilai','StatusData','ModelSimulasi'],rows=[];
+for(const unit of exp.units){const treatment=experimentTreatment(unit),material=unit.material||{},seed=state.field[unit.plot]?.seed||(material.seedId?state.vault.find(item=>item.id===material.seedId):null)||(treatment?.seedId?state.vault.find(item=>item.id===treatment.seedId):null),plantUid=material.plantUid||state.field[unit.plot]?.uid||'',fa=treatment?.factorA?.name||'',fb=treatment?.factorB?.name||'';for(const entry of unit.timeline||[]){for(const [parameter,value] of Object.entries(entry.values||{}))rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,'',String(unit.plot+1),plotUse(unit.plot),'unit_percobaan','ULANGAN/UNIT ANALISIS',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value??''),entry.status||'observed',ACADEMY_MODEL_VERSION]);for(const sample of entry.samples||[])for(const [parameter,value] of Object.entries(sample.values||{})){if(value===''||value===undefined)continue;rows.push([exp.id,String(state.season),String(unit.rep),plotMeta(unit.plot).uid,plantUid,sample.id,String(unit.plot+1),plotUse(unit.plot),'tanaman_individu','SUBSAMPEL · BUKAN ULANGAN',species.name,seed?.name||material.seedName||'',String(seed?.generation??material.generation??''),treatment?.name||treatment?.code||'',fa,fb,String(entry.day),String(entry.biologicalDay),parameter,String(value),entry.status||'observed',ACADEMY_MODEL_VERSION]);}}}
+return {name:'SIMULASI · '+exp.name+' · data mentah',headers,rows,plant:species.name+' ('+species.latin+') · DATA SIMULASI GAME',treatment:'DATA MENTAH + SUBSAMPEL · DATA SIMULASI GAME',design:exp.design,simulation:true,dataLabel:'DATA SIMULASI GAME'};
+}
+function fieldHeterogeneity(){
+const plots=(state.plotRegistry||[]).slice(0,fieldLimit());if(!plots.length)return 0;
+const spread=key=>{const vals=plots.map(p=>Number(p[key])||0),mean=vals.reduce((a,b)=>a+b,0)/vals.length;if(!mean)return 0;const sd=Math.sqrt(vals.reduce((sum,v)=>sum+(v-mean)**2,0)/vals.length);return sd/Math.abs(mean);};
+return clamp((spread('fertility')*3+spread('moisture')*3+spread('pH'))/7,0,1);
+}
+function designPrecisionScore(exp=state.experiment){
+if(!exp)return 0;
+const hetero=fieldHeterogeneity(),counts=Object.values(exp.units.reduce((acc,unit)=>(acc[unit.treatmentId]=(acc[unit.treatmentId]||0)+1,acc),{}));
+const complete=exp.units.filter(unit=>exp.parameters.some(parameter=>String(unit.observations?.[parameter]??'').trim()!=='')).length/Math.max(1,exp.units.length);
+let structural=.78;
+if(exp.design==='rak')structural=.82+hetero*.16;
+if(exp.design==='ral')structural=.9-hetero*.38;
+if(exp.design==='frak')structural=.84+hetero*.12;
+if(exp.design==='fral')structural=.88-hetero*.28;
+if(exp.design==='split')structural=.82+hetero*.08;
+if(exp.design==='aug'){
+const checks=exp.treatments.filter(t=>t.isCheck),coverage=checks.length?checks.every(t=>exp.units.filter(u=>u.treatmentId===t.id).length===BLOCK_COUNT):false;
+structural=coverage?.9:.62;
+}
+const balance=exp.design==='aug'?1:(counts.length&&Math.max(...counts)===Math.min(...counts)?1:.72);
+return Math.round(clamp((structural*.68+balance*.17+(.55+.45*complete)*.15)*100,35,99));
+}
+function experimentQualityScore(){
+const exp=state.experiment;if(!exp)return 0;
+const complete=exp.units.filter(unit=>exp.parameters.every(parameter=>String(unit.observations?.[parameter]??'').trim()!=='')).length/Math.max(1,exp.units.length);
+const applied=exp.kind==='genotype'&&!exp.factorial?1:exp.units.filter(unit=>unit.applied).length/Math.max(1,exp.units.length);
+const precision=designPrecisionScore(exp)/100;
+return Math.round((complete*.5+applied*.2+precision*.3)*100);
+}
+function sendExperimentToStat(){
+const summary=experimentDataset(),raw=experimentRawDataset();if(!summary||!raw)return;
+const score=experimentQualityScore(),statDesign=summary.design==='aug'?'augmented':summary.design;
+if(!state.experiment.researchRewarded&&score>=60){const grant=Math.max(2,Math.round(score/15));state.rp+=grant;state.experiment.researchRewarded=true;addLog('📐 Mutu protokol '+score+'% · hibah +'+grant+' RP.');}
+try{
+localStorage.setItem(STAT_IMPORT_KEY,JSON.stringify({version:2,source:'field-zero',design:statDesign,createdAt:new Date().toISOString(),datasets:[raw,summary]}));
+save();location.href='/stat/?from=field-zero&design='+encodeURIComponent(statDesign);
+}catch{toast('Gagal menyiapkan dataset');}
+}
+function academyAnswer(key,correct,onCorrect){
+state.academy??={xp:0,completed:[],answers:{}};
+if(correct){state.academy.answers[key]=true;onCorrect?.();beep(720,.06);toast('🎓 Tepat');}
+else{beep(240,.06);toast('Belum tepat · periksa kembali prinsipnya');}
+save();
+}
+function openDesignCase(){
+openMetaModal('KASUS PROFESOR','Pilih rancangan yang tepat',`<section class="professor-case"><small>SKENARIO LAPANG</small><b>Kesuburan tanah berubah dari Kelompok I → III, tetapi di dalam setiap kelompok relatif lebih seragam.</b><p>Anda ingin membandingkan empat galur jagung. Rancangan mana yang lebih tepat?</p><div class="professor-case-actions"><button data-design-case="ral">RAL · acak seluruh petak</button><button data-design-case="rak">RAK · acak di dalam kelompok</button></div></section>`);
+$('#metaModalBody').querySelectorAll('[data-design-case]').forEach(button=>button.onclick=()=>{
+const correct=button.dataset.designCase==='rak';
+academyAnswer('design-case',correct,()=>academyMark('design-choice',{note:'Memilih RAK pada lahan bergradien'}));
+if(correct){
+openMetaModal('KASUS PROFESOR','✓ RAK tepat',`<div class="professor-feedback correct"><b>Local control bekerja.</b><p>Kelompok menampung variasi lingkungan besar sehingga perbandingan galur tidak tercampur dengan gradien lahan. Randomisasi tetap dilakukan di dalam setiap kelompok.</p><button data-back-experiment class="primary">Buat percobaan</button></div>`);
+$('#metaModalBody').querySelector('[data-back-experiment]').onclick=openExperiment;
+}
+});
+}
+function openExperimentAudit(){
+const exp=state.experiment;if(!exp)return;
+if(exp.design==='aug'){
+const checks=exp.treatments.filter(t=>t.isCheck),entries=exp.treatments.filter(t=>!t.isCheck),coverage=checks.every(t=>exp.units.filter(u=>u.treatmentId===t.id).length===BLOCK_COUNT);
+openMetaModal('AUDIT AUGMENTED','Check & galur baru',`<div class="design-audit-list"><div class="${coverage?'ok':'error'}"><b>${coverage?'✓':'×'}</b><span>${coverage?'Setiap check muncul pada ketiga kelompok.':'Check belum lengkap di setiap kelompok.'}</span></div><div class="${entries.length?'ok':'error'}"><b>${entries.length?'✓':'×'}</b><span>${entries.length} galur baru tanpa ulangan penuh.</span></div><div class="info"><b>i</b><span>Check berulang dipakai untuk mengestimasi efek kelompok; galur baru tetap merupakan skrining awal.</span></div></div>`);
+return;
+}
+const findings=auditDesign(exp,state.plotRegistry),concept=conceptForDesign(exp.design),key='audit:'+exp.id;
+openMetaModal('PROFESOR RANCOB','Audit '+exp.design.toUpperCase(),`<section class="design-concept"><b>${esc(concept.title)}</b><p>${esc(concept.text)}</p></section><div class="design-audit-list">${findings.map(item=>`<div class="${item.level}"><b>${item.level==='ok'?'✓':item.level==='error'?'×':item.level==='info'?'i':'!'}</b><span>${esc(item.text)}</span></div>`).join('')}</div><section class="academy-question"><b>Tujuan utama pengelompokan pada RAK adalah...</b><div><button data-audit-answer="wrong1">Membuat rerata perlakuan lebih besar</button><button data-audit-answer="correct">Memisahkan variasi antarkelompok dari galat</button><button data-audit-answer="wrong2">Menghilangkan kebutuhan randomisasi</button></div></section>`);
+$('#metaModalBody').querySelectorAll('[data-audit-answer]').forEach(button=>button.onclick=()=>{
+const correct=button.dataset.auditAnswer==='correct';
+academyAnswer(key,correct,()=>academyMark('design-audit',{note:'Memahami local control dan galat'}));
+if(correct)openExperimentAudit();
+});
+}
+function statisticsResultHtml(result){
+const p=result.p===null?'—':result.p<.001?'<0,001':result.p.toLocaleString('id-ID',{maximumFractionDigits:4});
+return `<div class="stat-kpis"><div><small>F perlakuan</small><b>${Number(result.anova[0].f).toFixed(2)}</b></div><div><small>p-value</small><b>${p}</b></div><div><small>CV</small><b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></div><div><small>BNT 5%</small><b>${result.lsd.toFixed(2)}</b></div>${result.heritability===null?'':`<div><small>H² galur</small><b>${(result.heritability*100).toFixed(0)}%</b></div>`}</div><div class="anova-table-wrap"><table class="anova-table"><thead><tr><th>Sumber</th><th>db</th><th>JK</th><th>KT</th><th>F</th></tr></thead><tbody>${result.anova.map(row=>`<tr><td>${esc(row.source)}</td><td>${row.df}</td><td>${Number(row.ss).toFixed(2)}</td><td>${row.ms===null?'—':Number(row.ms).toFixed(2)}</td><td>${row.f===null?'—':Number(row.f).toFixed(2)}</td></tr>`).join('')}</tbody></table></div><div class="treatment-means">${result.means.map(row=>`<span><b>${esc(row.code)}</b> ${row.mean.toFixed(2)} <small>n=${row.n}</small></span>`).join('')}</div>`;
+}
+function experimentCorrelation(paramA,paramB){
+const exp=state.experiment;if(!exp||!paramA||!paramB||paramA===paramB)return null;
+const pairs=exp.units.map(unit=>{
+const a=Number(String(unit.observations?.[paramA]??'').replace(',','.')),b=Number(String(unit.observations?.[paramB]??'').replace(',','.'));
+    return Number.isFinite(a)&&Number.isFinite(b)?[a,b]:null;
+ }).filter(Boolean);
+ if(pairs.length<4)return null;
+ const xs=pairs.map(p=>p[0]),ys=pairs.map(p=>p[1]),mx=xs.reduce((a,b)=>a+b,0)/xs.length,my=ys.reduce((a,b)=>a+b,0)/ys.length;
+ const num=pairs.reduce((sum,[x,y])=>sum+(x-mx)*(y-my),0),dx=Math.sqrt(pairs.reduce((sum,[x])=>sum+(x-mx)**2,0)),dy=Math.sqrt(pairs.reduce((sum,[,y])=>sum+(y-my)**2,0));
+ if(!dx||!dy)return null;
+ return {r:num/(dx*dy),n:pairs.length,paramA,paramB};
+}
+function correlationTeachingHtml(selected){
+ const exp=state.experiment;if(!exp)return '';
+ const candidates=exp.parameters.filter(p=>p!==selected),found=candidates.map(p=>experimentCorrelation(selected,p)).find(Boolean);
+ if(!found)return '';
+ const strength=Math.abs(found.r)>=.7?'kuat':Math.abs(found.r)>=.4?'sedang':'lemah';
+ return `<section class="stat-correlation"><header><b>↗ Korelasi unit percobaan</b><span>n=${found.n}</span></header><p>${esc(selected)} ↔ ${esc(found.paramB)}: <b>r = ${found.r.toFixed(2)}</b> · asosiasi ${strength}.</p><small>Hitungan menggunakan satu nilai per unit percobaan, bukan memperlakukan subsampel sebagai ulangan tambahan.</small><button type="button" data-correlation-case>Uji interpretasi korelasi</button></section>`;
+}
+function augmentedAnalysis(exp,parameter){
+ const numeric=unit=>{const value=Number(String(unit.observations?.[parameter]??'').replace(',','.'));return Number.isFinite(value)?value:null;};
+ const checks=exp.treatments.filter(t=>t.isCheck),entries=exp.treatments.filter(t=>!t.isCheck);
+ if(!checks.length||!entries.length)return {ok:false,error:'Check atau galur baru belum tersedia.'};
+ const blockMeans={};
+ for(let block=1;block<=BLOCK_COUNT;block++){
+    const vals=exp.units.filter(u=>u.block===block&&checks.some(t=>t.id===u.treatmentId)).map(numeric).filter(v=>v!==null);
+    if(vals.length)blockMeans[block]=vals.reduce((a,b)=>a+b,0)/vals.length;
+ }
+ const checkVals=exp.units.filter(u=>checks.some(t=>t.id===u.treatmentId)).map(numeric).filter(v=>v!==null);
+ if(Object.keys(blockMeans).length<BLOCK_COUNT||checkVals.length<checks.length*2)return {ok:false,error:'Data check belum cukup di setiap kelompok.'};
+ const grand=checkVals.reduce((a,b)=>a+b,0)/checkVals.length;
+ const sd=Math.sqrt(checkVals.reduce((sum,v)=>sum+(v-grand)**2,0)/Math.max(1,checkVals.length-1)),cv=grand?sd/Math.abs(grand)*100:null;
+ const rows=exp.units.filter(u=>u.role==='entry').map(unit=>{
+    const raw=numeric(unit),t=exp.treatments.find(x=>x.id===unit.treatmentId),blockMean=blockMeans[unit.block];
+    if(raw===null||!Number.isFinite(blockMean))return null;
+    return {code:t?.code||'',name:t?.name||'',block:unit.block,raw,adjusted:raw-blockMean+grand};
+ }).filter(Boolean).sort((a,b)=>b.adjusted-a.adjusted);
+ if(!rows.length)return {ok:false,error:'Belum ada data galur baru yang dapat disesuaikan.'};
+ return {ok:true,rows,grand,cv,blockMeans};
+}
+function augmentedAnalysisHtml(result,parameter){
+ return `<div class="stat-kpis"><div><small>Rerata check</small><b>${result.grand.toFixed(2)}</b></div><div><small>CV check</small><b>${result.cv===null?'—':result.cv.toFixed(1)+'%'}</b></div><div><small>Galur dinilai</small><b>${result.rows.length}</b></div></div><div class="augmented-ranking"><header><b>Nilai tersesuaikan · ${esc(parameter)}</b><span>Raw − check blok + check umum</span></header>${result.rows.slice(0,12).map((row,index)=>`<div><strong>#${index+1}</strong><b>${esc(row.code)} · ${esc(row.name)}</b><span>K${row.block} · mentah ${row.raw.toFixed(2)} → <em>${row.adjusted.toFixed(2)}</em></span></div>`).join('')}</div><p class="meta-note">Check berulang memperkirakan perbedaan lingkungan antarkelompok. Galur baru tetap tidak mempunyai galat ulangan sendiri, sehingga keputusan seleksi harus dibaca sebagai skrining awal.</p>`;
+}
+function openStatisticsLab(parameter=null){
+ const exp=state.experiment;if(!exp){location.href='/stat/';return;}
+ const available=exp.parameters.filter(p=>exp.units.filter(u=>Number.isFinite(Number(String(u.observations?.[p]??'').replace(',','.')))).length>=2);
+ const selected=parameter&&exp.parameters.includes(parameter)?parameter:(available.includes('Hasil')?'Hasil':available[0]||exp.parameters[0]);
+ const selector=`<label class="stat-parameter-select">Parameter<select id="academyStatParameter">${exp.parameters.map(p=>`<option value="${esc(p)}" ${p===selected?'selected':''}>${esc(p)}</option>`).join('')}</select></label>`;
+ if(exp.design==='aug'){
+    const aug=augmentedAnalysis(exp,selected);
+    if(!aug.ok){
+      openMetaModal('ANALISIS AUGMENTED','Data belum cukup',selector+`<div class="meta-empty">${esc(aug.error)}</div><div class="analysis-shortcuts"><button type="button" data-back-research>📐 Kembali ke penelitian</button><button type="button" data-exp-stat>↗ Buka /stat</button></div>`);
+      $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+      $('#metaModalBody').querySelector('[data-back-research]')?.addEventListener('click',openExperiment);
+      $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
+      return;
+    }
+    exp.reviewed=true;save();renderWorkflow();academyMark('stats-interpret',{xp:4,rp:0,note:'Membaca adjusted mean augmented design'});
+    openMetaModal('ANALISIS AUGMENTED','📊 '+selected,selector+augmentedAnalysisHtml(aug,selected)+`<div class="analysis-shortcuts"><button type="button" data-exp-stat class="primary">↗ Analisis lengkap /stat</button></div>`);
+    $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+    $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
+    return;
+ }
+ const result=analyzeExperiment(exp,selected);
+ if(!result.ok){
+    openMetaModal('ANALISIS','Data belum cukup',selector+`<div class="meta-empty">${esc(result.error)}</div><div class="analysis-shortcuts"><button type="button" data-back-research>📐 Kembali ke penelitian</button><button type="button" data-open-stat>↗ Buka /stat</button></div>`);
+    $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+    $('#metaModalBody').querySelector('[data-back-research]')?.addEventListener('click',openExperiment);
+    $('#metaModalBody').querySelector('[data-open-stat]')?.addEventListener('click',()=>location.href='/stat/');
+    return;
+ }
+ const conclusion=result.significant?'Ada bukti pengaruh perlakuan: minimal satu rerata berbeda.':'Bukti belum cukup untuk menyatakan perlakuan berbeda.';
+  exp.reviewed=true;save();renderWorkflow();
+  academyMark('stats-h0',{xp:3,rp:0,note:'Membaca ANOVA'});
+  academyMark('stats-interpret',{xp:3,rp:0,note:'Interpretasi hasil'});
+  openMetaModal('ANALISIS','📊 '+selected,selector+statisticsResultHtml(result)+`<section class="stat-interpretation compact-interpretation"><b>Kesimpulan</b><p>${esc(conclusion)}</p></section><div class="analysis-shortcuts"><button type="button" data-posthoc-case>Pelajari uji lanjut</button><button type="button" data-assumption-case>Residual & asumsi</button>${result.heritability===null?'':'<button type="button" data-h2-case>Heritabilitas</button>'}<button type="button" data-exp-stat class="primary">↗ Analisis lengkap /stat</button></div>`);
+  $('#academyStatParameter').onchange=e=>openStatisticsLab(e.target.value);
+  $('#metaModalBody').querySelector('[data-posthoc-case]')?.addEventListener('click',()=>openProfessorCase('posthoc'));
+  $('#metaModalBody').querySelector('[data-assumption-case]')?.addEventListener('click',()=>openProfessorCase('assumption'));
+  $('#metaModalBody').querySelector('[data-h2-case]')?.addEventListener('click',()=>openProfessorCase('heritability'));
+  $('#metaModalBody').querySelector('[data-exp-stat]')?.addEventListener('click',sendExperimentToStat);
+}
+function experimentTableHtml(){
+ const exp=state.experiment;if(!exp)return '';
+ const repLabel=['rak','frak','split','aug'].includes(exp.design)?'K':'U';
+ return `<div class="experiment-table-wrap"><table class="experiment-table"><thead><tr><th>P</th><th>Perlakuan</th><th>${repLabel}</th><th>🧪</th>${exp.parameters.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${exp.units.map(unit=>{
+    const t=experimentTreatment(unit);
+    return `<tr><td>${unit.plot+1}</td><td>${esc(t?.code||'')}<small>${esc(t?.name||'')}</small></td><td>${unit.rep}</td><td>${unit.applied?'✓':'—'}</td>${exp.parameters.map(p=>`<td><input data-exp-plot="${unit.plot}" data-exp-param="${esc(p)}" inputmode="decimal" value="${esc(unit.observations?.[p]??'')}" placeholder="—"></td>`).join('')}</tr>`;
+ }).join('')}</tbody></table></div>`;
+}
+function experimentSummaryHtml(){
+ const exp=state.experiment,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length,precision=designPrecisionScore(exp);
+ const hetero=fieldHeterogeneity(),designNote=exp.design==='ral'&&hetero>.04?'RAL pada lahan heterogen menurunkan presisi':exp.design==='rak'&&hetero>.04?'RAK memisahkan sebagian variasi antarkelompok':exp.design==='aug'?'Check berulang mengoreksi perbedaan kelompok':'Presisi mengikuti randomisasi, replikasi, dan kelengkapan data';
+ return `<div class="experiment-status"><span>📐 ${exp.design.toUpperCase()}</span><span>◎ Presisi ${precision}%</span><span>🧪 ${exp.units.filter(u=>u.applied).length}/${exp.units.length}</span><span>📋 ${filled}/${exp.units.length}</span><span>◷ /${exp.measureEvery||2} hari</span></div><p class="design-precision-note">${esc(designNote)}</p>`;
+}
+let experimentWizardStep=1;
+let experimentDraft=null;
+function freshExperimentDraft(){
+ return {
+    name:'Uji Field Zero',
+    question:'Apakah perlakuan memengaruhi respons tanaman?',
+    design:'rak',kind:'genotype',count:4,reps:3,custom:'',
+    kindB:'water',countB:2,customB:'',checkCount:2,
+    parameters:recommendedParameters(state.species).slice(0,8).join(','),
+    frequency:14
+ };
+}
+function experimentKindOptions(selected='genotype'){
+ const kinds=[
+    ['genotype','🌱 Genetik / galur'],['nitrogen','N Dosis nitrogen'],['phosphorus','P Fosfor'],
+    ['potassium','K Kalium'],['water','💧 Air'],['spacing','▦ Jarak tanam'],['population','◫ Populasi'],
+    ['mulch','▤ Mulsa'],['soil','△ Tanah'],['drainage','≋ Drainase'],['shade','◒ Naungan'],
+    ['weed','♧ Gulma'],['timing','◷ Waktu aplikasi'],['ipm','◈ Hama/penyakit'],['custom','🧪 Perlakuan bebas']
+  ];
+ return kinds.map(([value,label])=>`<option value="${value}" ${value===selected?'selected':''}>${label}</option>`).join('');
+}
+function renderExperimentWizard(step=experimentWizardStep){
+  experimentWizardStep=Math.max(1,Math.min(4,Number(step)||1));
+  experimentDraft??=freshExperimentDraft();
+ const d=experimentDraft,advanced=advancedDesignUnlocked(),augUnlocked=state.season>=2||state.level>=2,factorial=['fral','frak','split'].includes(d.design),augmented=d.design==='aug';
+ const steps=['Tujuan','Rancangan','Perlakuan','Randomisasi'];
+ const head=`<div class="research-steps">${steps.map((label,index)=>`<span class="${index+1===experimentWizardStep?'active':index+1<experimentWizardStep?'done':''}"><b>${index+1}</b>${label}</span>`).join('')}</div>`;
+ let body='';
+ if(experimentWizardStep===1){
+    body=`<form id="experimentForm" class="experiment-wizard"><label>Nama penelitian<input name="name" value="${esc(d.name)}"></label><label>Pertanyaan penelitian<textarea name="question" rows="3">${esc(d.question)}</textarea></label><div class="wizard-actions"><button type="button" data-design-case-open>Contoh RAL/RAK</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+ }else if(experimentWizardStep===2){
+    body=`<form id="experimentForm" class="experiment-wizard"><label>Rancangan<select name="design"><option value="rak" ${d.design==='rak'?'selected':''}>RAK · ada kelompok</option><option value="ral" ${d.design==='ral'?'selected':''}>RAL · homogen</option><option value="aug" ${d.design==='aug'?'selected':''} ${augUnlocked?'':'disabled'}>Augmented · galur baru + check</option><option value="frak" ${d.design==='frak'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAK</option><option value="fral" ${d.design==='fral'?'selected':''} ${advanced?'':'disabled'}>Faktorial RAL</option><option value="split" ${d.design==='split'?'selected':''} ${advanced?'':'disabled'}>RPT / split-plot</option></select></label><label>Ulangan<input name="reps" type="number" min="2" max="6" value="${d.reps}" ${augmented?'disabled':''}><small>${augmented?'Check diulang pada 3 kelompok; galur baru umumnya satu kali.':'RAK/FRAK/RPT memakai 3 kelompok lahan.'}</small></label><p class="wizard-note">${augUnlocked?'Augmented tersedia untuk skrining banyak galur.':'Augmented terbuka mulai musim 2.'} ${advanced?'Faktorial dan RPT tersedia.':'Faktorial/RPT terbuka setelah percobaan dasar atau Level 3.'}</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+ }else if(experimentWizardStep===3){
+    if(augmented){
+      const vaultCount=speciesVault().length,maxChecks=Math.max(1,Math.min(3,vaultCount-2)),safeChecks=Math.min(maxChecks,Math.max(1,Number(d.checkCount)||2));
+      d.checkCount=safeChecks;
+      const fieldCapacity=Math.max(0,fieldLimit()-safeChecks*BLOCK_COUNT),seedCapacity=Math.max(0,vaultCount-safeChecks),maxEntries=Math.min(fieldCapacity,seedCapacity),ready=maxEntries>=2;
+      body=`<form id="experimentForm" class="experiment-wizard"><div class="augmented-intro"><b>Augmented design</b><p>Check diulang pada setiap kelompok untuk mengoreksi gradien lahan. Galur baru mengisi petak tersisa tanpa ulangan penuh.</p></div><label>Jumlah check<input name="checkCount" type="number" min="1" max="${maxChecks}" value="${safeChecks}"></label><label>Galur baru<input name="count" type="number" min="2" max="${Math.max(2,maxEntries)}" value="${Math.max(2,Math.min(Number(d.count)||2,maxEntries||2))}" ${ready?'':'disabled'}><small>${ready?'Kapasitas koleksi + lahan: '+maxEntries+' galur baru.':'Butuh sedikitnya 3–4 benih/galur aktif untuk check dan entri.'}</small></label><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit" ${ready?'':'disabled'}>Lanjut →</button></div></form>`;
+    }else{
+      body=`<form id="experimentForm" class="experiment-wizard" data-factorial="${factorial}"><label>Faktor A<select name="kind">${experimentKindOptions(d.kind)}</select></label><label>Taraf A<input name="count" type="number" min="2" max="8" value="${d.count}"></label><label>Nama taraf A<input name="custom" value="${esc(d.custom)}" placeholder="A0, A1, A2"></label>${factorial?`<div class="wizard-factor-b"><label>Faktor B<select name="kindB">${experimentKindOptions(d.kindB)}</select></label><label>Taraf B<input name="countB" type="number" min="2" max="4" value="${d.countB}"></label><label>Nama taraf B<input name="customB" value="${esc(d.customB)}" placeholder="B0, B1"></label></div>`:''}<div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">Lanjut →</button></div></form>`;
+    }
+ }else{
+    const estimated=augmented?Number(d.count)+Number(d.checkCount||2)*BLOCK_COUNT:(factorial?Number(d.count)*Number(d.countB):Number(d.count))*Number(['rak','frak','split'].includes(d.design)?BLOCK_COUNT:d.reps);
+    body=`<form id="experimentForm" class="experiment-wizard"><div class="research-review"><div><small>Rancangan</small><b>${esc(d.design.toUpperCase())}</b></div><div><small>Unit</small><b>${estimated}/${fieldLimit()}</b></div><div><small>Faktor</small><b>${augmented?'Galur + '+d.checkCount+' check':esc(d.kind)+(factorial?' × '+esc(d.kindB):'')}</b></div></div><label>Frekuensi pengamatan<select name="frequency"><option value="7" ${d.frequency===7?'selected':''}>Setiap 7 hari</option><option value="14" ${d.frequency===14?'selected':''}>Setiap 14 hari</option><option value="21" ${d.frequency===21?'selected':''}>Setiap 21 hari</option><option value="28" ${d.frequency===28?'selected':''}>Setiap 28 hari</option></select></label><label>Parameter<input name="parameters" value="${esc(d.parameters)}"></label><p class="wizard-note">${augmented?'Check akan muncul sekali di setiap kelompok; galur baru diacak ke petak tersisa.':'Randomisasi langsung menandai petak penelitian.'} Tanaman dalam petak tetap subsampel, bukan ulangan.</p><div class="wizard-actions"><button type="button" data-wizard-back>← Kembali</button><button class="primary" type="submit">🎲 Buat & randomisasi</button></div><button class="competition-launch" type="button" data-breeding-cup>🏆 Breeding Cup</button></form>`;
+ }
+  openMetaModal('PENELITIAN',`📐 ${steps[experimentWizardStep-1]}`,head+body);
+ const form=$('#experimentForm');
+  form?.querySelector('[data-design-case-open]')?.addEventListener('click',openDesignCase);
+  form?.querySelector('[data-wizard-back]')?.addEventListener('click',()=>renderExperimentWizard(experimentWizardStep-1));
+  form?.querySelector('[data-breeding-cup]')?.addEventListener('click',breedingCup.open);
+ if(!form)return;
+  form.onsubmit=event=>{
+    event.preventDefault();const fd=new FormData(form);
+    if(experimentWizardStep===1){
+      d.name=String(fd.get('name')||'').trim()||'Uji Field Zero';
+      d.question=String(fd.get('question')||'').trim()||'Apakah perlakuan memengaruhi respons tanaman?';
+      renderExperimentWizard(2);return;
+    }
+    if(experimentWizardStep===2){
+      d.design=String(fd.get('design')||'rak');d.reps=Math.max(2,Math.min(6,Number(fd.get('reps'))||3));
+      if(['rak','frak','split','aug'].includes(d.design))d.reps=BLOCK_COUNT;
+      if(d.design==='aug')d.kind='genotype';
+      renderExperimentWizard(3);return;
+    }
+    if(experimentWizardStep===3){
+      if(d.design==='aug'){
+        const vaultCount=speciesVault().length,maxChecks=Math.max(1,Math.min(3,vaultCount-2));
+        d.checkCount=Math.max(1,Math.min(maxChecks,Number(fd.get('checkCount'))||2));
+        const capacity=Math.min(Math.max(0,fieldLimit()-d.checkCount*BLOCK_COUNT),Math.max(0,vaultCount-d.checkCount));
+        if(capacity<2){toast('Koleksi benih belum cukup untuk augmented design');return;}
+        d.count=Math.max(2,Math.min(capacity,Number(fd.get('count'))||2));d.kind='genotype';
+      }else{
+        d.kind=String(fd.get('kind')||'genotype');d.count=Math.max(2,Math.min(8,Number(fd.get('count'))||4));d.custom=String(fd.get('custom')||'');
+        if(['fral','frak','split'].includes(d.design)){d.kindB=String(fd.get('kindB')||'water');d.countB=Math.max(2,Math.min(4,Number(fd.get('countB'))||2));d.customB=String(fd.get('customB')||'');}
+      }
+      renderExperimentWizard(4);return;
+    }
+    d.frequency=Math.max(1,Math.min(4,Number(fd.get('frequency'))||2));d.parameters=String(fd.get('parameters')||d.parameters);
+    try{
+      createExperiment(d);experimentDraft=null;experimentWizardStep=1;
+    }catch(error){toast(error.message);}
+ };
+}
+function openExperiment(){
+ if(breedingCup.active()){breedingCup.open();return;}
+ if(!state.experiment){renderExperimentWizard(experimentWizardStep);return;}
+ const exp=state.experiment,factorial=!!exp.factorial,filled=exp.units.filter(unit=>exp.parameters.some(p=>String(unit.observations?.[p]??'').trim()!=='')).length;
+  openMetaModal('PENELITIAN AKTIF',exp.name,`<p class="experiment-question">${esc(exp.question||'')}</p>${experimentSummaryHtml()}<div class="experiment-actions focus-experiment-actions"><button data-exp-anova ${factorial?'disabled':''}>📊 Analisis</button><button data-exp-stat class="primary">↗ /stat</button><button data-exp-audit ${factorial?'disabled':''}>✓ Audit</button><button data-exp-randomize>🎲 Acak ulang</button><button data-exp-reset>× Hapus</button></div><details class="experiment-data-details"><summary>Data pengamatan · ${filled}/${exp.units.length} unit</summary>${experimentTableHtml()}</details><p class="meta-note">${exp.kind==='genotype'&&!factorial?'Tanam mengikuti galur hasil randomisasi.':'Terapkan perlakuan sesuai randomisasi.'} ${factorial?'Analisis interaksi dan strata galat dilanjutkan di /stat.':'Analisis ringkas tersedia langsung di game.'}</p>`);
+  $('#metaModalBody').querySelectorAll('[data-exp-plot]').forEach(input=>input.oninput=()=>{const unit=experimentUnit(Number(input.dataset.expPlot));if(unit){unit.observations[input.dataset.expParam]=input.value;save();}});
+  $('#metaModalBody').querySelector('[data-exp-randomize]').onclick=()=>{const hasData=exp.units.some(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!==''));if(hasData&&!confirm('Acak ulang? Data pengamatan yang sudah ada akan dikosongkan.'))return;exp.randomization=(exp.randomization||1)+1;exp.seed=hashString(exp.seed+':'+exp.randomization);state.plotUse=state.plotUse.map(use=>use==='research'?'commercial':use);exp.units=randomizedExperimentUnits(exp.design,exp.treatments,exp.reps,exp.seed);exp.units.forEach(unit=>state.plotUse[unit.plot]='research');render();openExperiment();};
+ const audit=$('#metaModalBody').querySelector('[data-exp-audit]'),anova=$('#metaModalBody').querySelector('[data-exp-anova]');
+ if(audit&&!factorial)audit.onclick=openExperimentAudit;
+ if(anova&&!factorial)anova.onclick=()=>openStatisticsLab();
+  $('#metaModalBody').querySelector('[data-exp-reset]').onclick=()=>{if(confirm('Hapus rancangan aktif?')){checkpoint('Sebelum menghapus '+exp.name);archiveActiveExperiment();state.experiment=null;activeFieldTool='';experimentDraft=null;experimentWizardStep=1;render();closeMetaModal();}};
+  $('#metaModalBody').querySelector('[data-exp-stat]').onclick=sendExperimentToStat;
+}
+
+function hasTech(id){return state.tech.includes(id);}
+function activeChallenge(){return CHALLENGES[state.challenge]||CHALLENGES.standard;}
+function activeLocation(){return LOCATIONS[state.location]||LOCATIONS.zero;}
+function techCount(){return state.tech.length;}
+function fieldLimit(){return Math.min(PLOT_COUNT,activeChallenge().plots||PLOT_COUNT);}
+function dailyKey(){
+ const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return y+'-'+m+'-'+day;
+}
+function hashString(text){
+ let h=2166136261;for(const ch of String(text)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;
+}
+function seededUnit(seed){
+ let x=seed>>>0;x+=0x6D2B79F5;x=Math.imul(x^(x>>>15),x|1);x^=x+Math.imul(x^(x>>>7),x|61);return ((x^(x>>>14))>>>0)/4294967296;
+}
+function simUnit(...parts){return seededUnit(hashString([state.simulationSeed,...parts].join(':')));}
+function simPick(list,...parts){return list[Math.min(list.length-1,Math.floor(simUnit(...parts)*list.length))];}
+function deterministicWeather(env,day){
+ const pool=weatherPool(env.id);return pool[Math.min(pool.length-1,Math.floor(simUnit('weather',state.season,day,env.id)*pool.length))];
+}
+
+function dailyDefinition(){
+ const key=dailyKey(),seed=hashString('FieldZero:'+key),envs=['drought','wet','rust','poorN','anomaly'];
+ const env=ENVIRONMENTS.find(item=>item.id===envs[Math.floor(seededUnit(seed)*envs.length)])||ENVIRONMENTS[0];
+ const target=70+Math.floor(seededUnit(seed+17)*45);
+ return {key,env:structuredClone(env),target,name:'Daily '+key,challenge:['six','nofert','sprint'][Math.floor(seededUnit(seed+91)*3)]};
+}
+function weekKey(){
+ const now=new Date(),day=(now.getDay()+6)%7,monday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-day);
+ return monday.getFullYear()+'-'+String(monday.getMonth()+1).padStart(2,'0')+'-'+String(monday.getDate()).padStart(2,'0');
+}
+function weeklyDefinition(){
+ const key=weekKey(),seed=hashString('FieldZeroWeekly:'+key),envs=['transition','drought','wet','rust','poorN'],challengeIds=['standard','nofert','mono','crisis'];
+ const env=structuredClone(ENVIRONMENTS.find(item=>item.id===envs[Math.floor(seededUnit(seed)*envs.length)])||ENVIRONMENTS[0]);
+  env.month=agroMonthForSeason(state.season);
+ const challenge=challengeIds[Math.floor(seededUnit(seed+43)*challengeIds.length)],target=150+Math.floor(seededUnit(seed+71)*70);
+ return {key,seed,env,challenge,target,budget:150000,name:'Weekly '+key};
+}
+function currentRival(){
+ const found=RIVALS.find(rival=>rival.id===state.rival)||RIVALS[0];return found;
+}
+function playerRivalScore(rival=currentRival()){
+ const harvests=Math.max(1,Number(state.seasonStats.harvests)||0),yieldPerPlot=(Number(state.seasonStats.yield)||0)/Math.max(1,harvests);
+ const healthyRatio=(Number(state.seasonStats.healthy)||0)/harvests,margin=(Number(state.seasonStats.revenue)||0)-(Number(state.seasonStats.cost)||0);
+ const quality=state.experiment?experimentQualityScore():0,candidates=selectionCandidates(state.season),selected=candidates.filter(item=>item.selected).length;
+ if(rival.metric==='stability')return round(yieldPerPlot*4+healthyRatio*28+quality*.28-Math.max(0,Number(state.fieldPressure?.pathogen)||0)*.12,1);
+ if(rival.metric==='profit')return round(yieldPerPlot*4.6+Math.max(-20,margin/10000)+healthyRatio*12,1);
+ const evidence=candidates.length?candidates.reduce((sum,item)=>sum+seedEvidence(item.seed).level,0)/candidates.length:0,candidateDepth=Math.min(4,candidates.length);
+ return round(yieldPerPlot*2.7+selected*8+candidateDepth*4+evidence*5+quality*.18,1);
+}
+function computeRivalTarget(){
+ const rival=currentRival(),loc=activeLocation(),boss=state.env?.boss?1.08:1,pressure=1+Number(activeChallenge().pressure||0)*.35;
+ const noise=.96+seededUnit(hashString('rival:'+state.season+':'+state.location+':'+rival.id))*0.08;
+ const base=(rival.base+rival.growth*Math.max(0,state.season-1))*Math.max(.92,loc.yield)*boss*pressure*noise;
+ const recent=(state.history||[]).slice(0,3).map(item=>Number(item.rivalScore)||0).filter(Boolean);
+ const adaptive=recent.length?(recent.reduce((a,b)=>a+b,0)/recent.length)*(1+Math.min(.08,(state.rivalWins||0)*.01)):0;
+ return round(Math.max(base,adaptive),1);
+}
+function runRecordKey(){
+ const mode=state.weekly?'weekly:'+state.weekly.key:state.daily?'daily:'+state.daily.key:state.challenge;
+ return state.location+'|'+mode;
+}
+function recordBest(){
+ const key=runRecordKey();return Number(state.records[key]||0);
+}
+function updateRecord(value){
+ const key=runRecordKey(),old=Number(state.records[key]||0);
+ if(value>old)state.records[key]=round(value,1);
+}
+function prestigeAvailable(){return state.season>=6&&state.achievements.length>=4;}
+function locationUnlocked(id){return state.unlockedLocations.includes(id);}
+function canUnlockLocation(id){
+ const loc=LOCATIONS[id];return !!loc&&state.level>=loc.unlock&&!locationUnlocked(id);
+}
+function unlockLocation(id){
+ const loc=LOCATIONS[id];if(!canUnlockLocation(id))return;
+ const cost=Math.max(6,loc.unlock*4);if(state.rp<cost){toast('Butuh '+cost+' RP');return;}
+  state.rp-=cost;state.unlockedLocations.push(id);state.collection.locations=unique([...(state.collection.locations||[]),id]);toast(loc.name+' terbuka');beep(650,.08);render();
+}
+function travelLocation(id){
+  clearUndo();if(!locationUnlocked(id)||!LOCATIONS[id])return;
+ if(state.field.some(Boolean)){toast('Kosongkan lahan sebelum pindah lokasi');return;}
+  state.location=id;state.collection.locations=unique([...(state.collection.locations||[]),id]);addLog('Tim pindah ke '+LOCATIONS[id].name+'.');closeMetaModal();render();
+}
+function techReady(id){
+ const tech=TECH[id];return tech&&!hasTech(id)&&tech.requires.every(hasTech)&&state.rp>=tech.cost;
+}
+function unlockTech(id){
+ const tech=TECH[id];if(!tech||hasTech(id))return;
+ if(!tech.requires.every(hasTech)){toast('Prasyarat belum terbuka');return;}
+ if(state.rp<tech.cost){toast('Butuh '+tech.cost+' RP');return;}
+  state.rp-=tech.cost;state.tech.push(id);if(state.tech.length>=4)awardAchievement('technologist');
+  addLog('Riset membuka '+tech.name+'.');toast(tech.name+' terbuka');beep(720,.08);render();
+}
+function challengeCanStart(){return !state.field.some(Boolean)&&state.day===1&&state.seasonStats.harvests===0;}
+function startChallenge(id){
+  clearUndo();const challenge=CHALLENGES[id];if(!challenge||!challengeCanStart()){toast('Challenge hanya dapat diganti pada awal musim kosong');return;}
+  checkpoint('Sebelum challenge '+challenge.name);
+  state.challenge=id;state.daily=null;state.weekly=null;state.maxDay=seasonLengthFor(state.species,id);state.day=Math.min(state.day,state.maxDay);state.monoSeedId=challenge.mono?state.selectedSeedId:null;
+  state.mission=missionFor(state.season,id);state.seasonStartRp=state.rp;closeMetaModal();addLog('Challenge: '+challenge.name+'.');render();
+}
+function startDaily(){
+ if(!challengeCanStart()){toast('Daily Seed hanya dapat dimulai pada awal musim kosong');return;}
+  checkpoint('Sebelum Daily '+dailyKey());
+ const daily=dailyDefinition(),stored=state.records['daily:'+daily.key]||0;
+  state.weekly=null;state.daily={key:daily.key,target:daily.target,previous:stored};state.challenge=daily.challenge;state.maxDay=seasonLengthFor(state.species,daily.challenge);
+  state.env=daily.env;state.weather=rollWeather(state.env);state.mission={type:'yield',target:daily.target,text:'Daily target',unit:'kg'};
+  state.monoSeedId=null;closeMetaModal();addLog('Daily Seed '+daily.key+' dimulai.');render();
+}
+function startWeekly(){
+ if(!challengeCanStart()){toast('Weekly Seed hanya dapat dimulai pada awal musim kosong');return;}
+  checkpoint('Sebelum Weekly '+weekKey());
+ const weekly=weeklyDefinition(),challenge=CHALLENGES[weekly.challenge]||CHALLENGES.standard;
+  state.weekly={key:weekly.key,seed:weekly.seed,target:weekly.target,budget:weekly.budget};state.daily=null;
+  state.simulationSeed=weekly.seed;state.challenge=weekly.challenge;state.location='zero';state.species='maize';state.maxDay=seasonLengthFor('maize',weekly.challenge);
+  state.env=weekly.env;state.weather=deterministicWeather(state.env,1);state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);
+  state.coins=weekly.budget;state.fieldPressure={pathogen:0,fatigue:0};state.weatherMemory={hot:0,wet:0,dry:0};
+  state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotRegistry=makePlotRegistry();state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.pendingEvent=null;
+  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0};state.seasonBest=null;state.selectedPlot=0;state.selectedSeedId='seed-aruna';
+  state.mission={type:'yield',target:weekly.target,text:'Weekly target',unit:'kg'};state.monoSeedId=challenge.mono?state.selectedSeedId:null;state.seasonStartRp=state.rp;
+  closeMetaModal();addLog('Weekly Seed '+weekly.key+' dimulai · kondisi bersama.');noteBreeder('challenge','Weekly '+weekly.key+' · seed '+weekly.seed);render();
+}
+function doPrestige(){
+ if(!prestigeAvailable())return;
+  checkpoint('Sebelum New Game+ '+((state.legacy||0)+1));
+ const carry=[...state.vault].sort((a,b)=>b.baseYield-a.baseYield).slice(0,4),legacy=(state.legacy||0)+1,score=(state.legacyScore||0)+Math.round(state.seasonStats.yield+state.history.reduce((sum,item)=>sum+(item.yield||0),0));
+ const unlocked=[...state.unlockedLocations],discoveries=[...state.discoveredTraits],achievements=[...state.achievements],tech=[...state.tech].slice(0,Math.min(2+legacy,state.tech.length));
+ const next=freshState();next.legacy=legacy;next.legacyScore=score;next.coins=180000+legacy*30000;next.rp=legacy*5;next.vault=uniqueSeeds([...structuredClone(STARTER_SEEDS),...structuredClone(carry)]);next.unlockedLocations=unlocked;next.discoveredTraits=discoveries;next.achievements=achievements;next.tech=tech;next.collection=structuredClone(state.collection);next.lineage=state.lineage.slice(-40);
+  state=next;awardAchievement('legacy');closeMetaModal();$('#recapModal').hidden=true;render();toast('New Game+ '+legacy+' dimulai');
+}
+function uniqueSeeds(seeds){const seen=new Set();return seeds.filter(seed=>{if(seen.has(seed.id))return false;seen.add(seed.id);return true;});}
+function expeditionAvailable(){return hasTech('expedition');}
+function startExpedition(id){
+ const ex=EXPEDITIONS[id];if(!ex||!expeditionAvailable()||state.expedition)return;
+ if(state.coins<ex.cost){toast('Butuh '+formatRupiah(ex.cost));return;}
+  state.coins-=ex.cost;state.seasonStats.cost=(state.seasonStats.cost||0)+ex.cost;state.expedition={id,remaining:ex.days,total:ex.days};addLog('Ekspedisi berangkat ke '+ex.name+' · '+formatRupiah(ex.cost)+'.');render();
+}
+function tickExpedition(){
+ if(!state.expedition)return;
+  state.expedition.remaining--;
+ if(state.expedition.remaining>0)return;
+ const ex=EXPEDITIONS[state.expedition.id],range=ex.rewardRp,reward=range[0]+Math.floor(Math.random()*(range[1]-range[0]+1));
+  state.rp+=reward;let note='Ekspedisi kembali: +'+reward+' RP.';
+ if(chance(.62)){
+    const key='expedition-seed:'+state.season+':'+ex.name+':'+state.expeditionHistory.length,trait=ex.traits[Math.floor(simUnit(key,'trait')*ex.traits.length)],seedId=uid('seed'),seed={id:seedId,name:'Wild-'+Math.floor(100+simUnit(key,'name')*900),generation:0,traits:[trait],baseYield:round(12.5+simUnit(key,'yield')*5.5,1),vigor:round(.96+simUnit(key,'vigor')*.14,2),source:'Ekspedisi '+ex.name,parents:[],stock:8,viability:94,ageSeasons:0,genome:normalizeGenome(null,seedId,state.simulationSeed)};
+    if(trait==='zero'&&state.season<5)seed.traits=['sentinel'];
+    state.vault.push(seed);seed.traits.forEach(discoverTrait);note+=' Benih liar '+seed.name+' ditemukan.';
+ }
+ if(chance(.3)){const fragment=pick(LORE);if(!state.lore.includes(fragment))state.lore.push(fragment);}
+  state.expeditionHistory.unshift({name:ex.name,season:state.season,reward});state.expeditionHistory=state.expeditionHistory.slice(0,8);state.expedition=null;awardAchievement('explorer');addLog(note);toast(note);
+}
+function makeGenomePuzzle(){
+ if(!hasTech('genome'))return null;
+ const seed=selectedSeed(),candidates=shuffle(['heat','vigor','myco','sentinel','zero']).slice(0,3);
+ const answer=pick(candidates),sig=GENOME_SIG[answer];
+ return {id:uid('genome'),seedId:seed.id,answer,candidates,markers:sig.map((base,i)=>chance(.18)&&base!=='ψ'?pick(['A','T','G','C']):base)};
+}
+function startGenomePuzzle(){
+  clearUndo();if(!hasTech('genome')){toast('Buka Genome Lab di Tech Tree');return;}
+ if(state.rp<5){toast('Butuh 5 RP untuk sequencing');return;}
+  state.rp-=5;state.genomePuzzle=makeGenomePuzzle();renderGenomeLab();save();
+}
+function solveGenome(choice){
+  clearUndo();const puzzle=state.genomePuzzle;if(!puzzle)return;
+ if(choice===puzzle.answer){
+    const seed=state.vault.find(item=>item.id===puzzle.seedId),trait=choice;
+    if(seed&&!seed.traits.includes(trait)){seed.traits.push(trait);discoverTrait(trait);}
+    state.rp+=8;state.xp+=35;awardAchievement('genome');toast('Lokus cocok: '+traitMeta(trait).name);
+ }else{toast('Marker tidak cocok. Data tersimpan untuk percobaan berikutnya.');state.rp+=1;}
+  state.genomePuzzle=null;render();beep(choice===puzzle.answer?760:250,.09);
+}
+function lineageNode(seed){
+ return {id:seed.id,name:seed.name,generation:seed.generation||0,generationLabel:seed.generationLabel||'',homozygosity:genomeStats(seed.genome).homozygosity,parents:[...(seed.parents||[])],traits:[...(seed.traits||[])],source:seed.source||''};
+}
+function rememberLineage(seed){
+ const node=lineageNode(seed),i=state.lineage.findIndex(item=>item.id===node.id);if(i>=0)state.lineage[i]=node;else state.lineage.push(node);state.lineage=state.lineage.slice(-100);
+}
+function applyLocationToEnv(env){
+ const loc=activeLocation();env.waterLoss=(env.waterLoss||0)+(loc.waterLoss||0);env.disease=(env.disease||0)+(loc.disease||0);env.nLoss=(env.nLoss||0)+(loc.nLoss||0);env.yield=(env.yield||1)*(loc.yield||1);return env;
+}
+function rivalName(){return currentRival().name;}
+
+function seedSpecies(seed){return SPECIES[seed?.species]?seed.species:'maize';}
+function speciesVault(speciesId=state.species){return state.vault.filter(seed=>seedSpecies(seed)===speciesId);}
+function selectedSeed(){const list=speciesVault();return list.find(seed=>seed.id===state.selectedSeedId)||list[0]||state.vault[0];}
+function speciesUnlocked(id){const profile=SPECIES[id];return !!profile&&(state.season>=Number(profile.unlockSeason||1)||state.experimentHistory.length>=1||state.level>=3||state.academy?.completed?.includes('design-randomization')||state.eventFlags.academySkipIntro);}
+function selectedCrop(){return state.field[state.selectedPlot]||null;}
+function allCropTraits(crop){return unique([...(crop?.seed?.traits||[]),...(crop?.mutation?[crop.mutation]:[])]);}
+function stageOf(crop){
+ if(!crop)return 'Kosong';
+ if(crop.health<=0)return 'Mati';
+ if(crop.growth>=100)return 'Siap panen';
+ if(crop.growth>=78)return 'Pengisian';
+ if(crop.growth>=52)return 'Berbunga';
+ if(crop.growth>=22)return 'Vegetatif';
+ return 'Bibit';
+}
+function cropIcon(crop){if(!crop)return '＋';if(crop.health<=0)return '✕';const profile=SPECIES[crop.species]||SPECIES.maize;if(crop.growth>=100)return profile.icon;if(crop.species==='chili'&&crop.growth>=72)return '🌶';if(crop.species==='rice'&&crop.growth>=52)return '🌾';if(crop.growth>=52)return '🌾';if(crop.growth>=22)return '🌿';return '🌱';}
+function statusClass(crop){
+ if(!crop)return 'empty';
+ if(crop.growth>=100&&crop.health>0)return 'ready';
+ if(crop.disease>=35)return 'sick';
+ if(crop.health<60||crop.water<24||crop.n<22)return 'stressed';
+ return '';
+}
+function toolLabel(tool){
+ return ({plant:'Tanam',water:'Irigasi',fertilize:'Pupuk',scout:'Periksa',harvest:'Panen',treatment:'Perlakuan'})[tool]||'';
+}
+function toolSymbol(tool){
+ return ({plant:'🌱',water:'💧',fertilize:'NPK',scout:'◎',harvest:'🧺',treatment:'🧪'})[tool]||'•';
+}
+function playHint(){
+ if(breedingCup.active())return {icon:'🏆',text:'Breeding Cup · lanjutkan keputusan',action:'cup'};
+ if(state.pendingEvent)return {icon:'⚠',text:'Kejadian lapang · ketuk untuk tinjau',action:'event'};
+ if(activeFieldTool)return {icon:'→',text:toolLabel(activeFieldTool)+' aktif · pilih petak',action:'field'};
+ if(state.experiment&&state.experiment.kind!=='genotype'&&state.experiment.kind!=='competition'){
+    const pending=state.experiment.units.find(unit=>!unit.applied);
+    if(pending)return {icon:'🧪',text:'P'+String(pending.plot+1).padStart(2,'0')+' · '+(experimentTreatment(pending)?.code||''),action:'tool',tool:'treatment'};
+ }
+ const ready=state.field.findIndex(crop=>crop&&crop.health>0&&crop.growth>=100);
+ if(ready>=0)return {icon:'🧺',text:'P'+String(ready+1).padStart(2,'0')+' ✓',action:'tool',tool:'harvest'};
+ const lowWater=state.field.findIndex((crop,index)=>crop&&crop.health>0&&irrigationPlan(crop,index).needed);
+ if(lowWater>=0)return {icon:'💧',text:'P'+String(lowWater+1).padStart(2,'0')+' butuh irigasi',action:'tool',tool:'water'};
+ const lowFertilizer=state.field.findIndex(crop=>crop&&crop.health>0&&!!recommendedFertilizer(crop));
+ if(lowFertilizer>=0&&!activeChallenge().noFertilizer){const id=recommendedFertilizer(state.field[lowFertilizer]);return {icon:'NPK',text:'P'+String(lowFertilizer+1).padStart(2,'0')+' butuh '+FERTILIZERS[id].short,action:'tool',tool:'fertilize'};}
+ const sick=state.field.findIndex(crop=>crop&&crop.health>0&&crop.disease>28);
+ if(sick>=0)return {icon:'◎',text:'Cek P'+String(sick+1).padStart(2,'0'),action:'tool',tool:'scout'};
+ if(!state.field.slice(0,fieldLimit()).some(Boolean))return {icon:'🌱',text:'Tanam di petak kosong',action:'tool',tool:'plant'};
+ if(state.day>=state.maxDay)return {icon:'✓',text:'Musim selesai · lihat hasil',action:'finish'};
+ return {icon:'→',text:'Lanjut +1 hari · H'+(state.day+1),action:'next'};
+}
+function renderPlayControls(){
+ const seed=selectedSeed(),hint=playHint(),expTool=$('#experimentTool');
+ if(expTool)expTool.hidden=!state.experiment||state.experiment.kind==='genotype'||state.experiment.kind==='competition';
+  $('#selectedSeedName').textContent=seed?.name||'Pilih benih';
+  $('#activeToolStatus').textContent=activeFieldTool?toolSymbol(activeFieldTool)+' '+toolLabel(activeFieldTool)+' · klik / sapu petak':'Pilih alat → petak';
+  $('#playHintIcon').textContent=hint.icon;$('#playHintText').textContent=hint.text;
+  $('#playHint').dataset.action=hint.action||'';
+  $('#playHint').dataset.tool=hint.tool||'';
+  $('#playHint').dataset.index=Number.isInteger(hint.index)?String(hint.index):'';
+}
+function runPlayHint(){
+ const hint=playHint();
+ if(hint.action==='tool'){setFieldTool(hint.tool);document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(hint.action==='plot'&&Number.isInteger(hint.index)){state.selectedPlot=hint.index;renderField();renderInspector();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(hint.action==='next'){advanceDay();return;}
+ if(hint.action==='finish'){finishSeason();return;}
+ if(hint.action==='cup'){breedingCup.open();return;}
+ if(hint.action==='event'){renderEvent();return;}
+  document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openSeedVault(){
+ const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>document.querySelector('.vault-panel')?.scrollIntoView({behavior:'smooth',block:'center'}),120);
+}
+function academyMark(id,{xp=10,rp=1,note=''}={}){
+  state.academy??={xp:0,completed:[],answers:{}};
+ if(state.academy.completed.includes(id))return false;
+  state.academy.completed.push(id);state.academy.xp=(Number(state.academy.xp)||0)+xp;state.rp+=rp;
+  addLog('🎓 '+(note||id)+' · +'+rp+' RP');save();return true;
+}
+function academyTrack(){
+ const done=new Set(state.academy?.completed||[]);
+ const modules=[
+    {icon:'📐',name:'Rancangan Percobaan',items:['design-choice','design-randomization','design-audit','design-pseudorep','design-splitplot'],labels:['Pilih RAL vs RAK','Randomisasi & replikasi','Audit rancangan','Hindari pseudoreplikasi','Kenali split-plot']},
+    {icon:'📊',name:'Statistika',items:['stats-h0','stats-interpret','stats-posthoc','stats-correlation','stats-assumption'],labels:['Hipotesis ANOVA','Interpretasi F & p','Keputusan uji lanjut','Korelasi ≠ sebab','Asumsi & residual']},
+    {icon:'🧬',name:'Pemuliaan',items:['selection','stability','breeding-heritability','breeding-ge','breeding-response'],labels:['Seleksi kandidat','Uji kestabilan galur','Interpretasi heritabilitas','Genotipe × lingkungan','Respons seleksi']},
+    {icon:'×',name:'Persilangan',items:['cross-protocol','cross-f1','cross-self','cross-backcross','cross-segregation','cross-inbreeding'],labels:['Protokol silang','F1','Selfing/segregasi','Backcross','Rasio segregasi F2','Fiksasi & inbreeding']}
+  ];
+ return modules.map(module=>({...module,done:module.items.filter(id=>done.has(id)).length}));
+}
+function openAcademy(){
+ const tracks=academyTrack(),done=tracks.reduce((sum,module)=>sum+module.done,0),total=tracks.reduce((sum,module)=>sum+module.items.length,0);
+ const glossary=[
+    ['Randomisasi','Mengacak perlakuan agar bias posisi tidak melekat pada perlakuan.'],
+    ['Replikasi','Mengulang perlakuan pada unit independen untuk mengestimasi galat.'],
+    ['Local control','Mengelompokkan unit serupa; pada RAK variasi kelompok dipisahkan dari galat.'],
+    ['Subsampel','Beberapa tanaman dalam petak membantu mengukur petak, tetapi bukan ulangan independen.'],
+    ['H₀ ANOVA','Rerata semua perlakuan sama. F membandingkan ragam antarperlakuan terhadap ragam galat.'],
+    ['CV','Simpangan baku galat relatif terhadap rerata; membantu membaca presisi percobaan.'],
+    ['Heritabilitas','Proporsi keragaman fenotipik yang dikaitkan dengan perbedaan genetik pada populasi dan lingkungan tertentu.'],
+    ['Heterosis','Keunggulan F1 yang dapat muncul bersama heterozigositas dan tidak otomatis menetap setelah selfing.'],
+    ['Segregasi','Pemisahan alel pada generasi lanjut sehingga F2 lebih beragam dibanding F1.'],
+    ['Backcross','Menyilangkan keturunan kembali ke tetua berulang untuk memulihkan latar genetik sambil mempertahankan alel target.']
+  ];
+  openMetaModal('AKADEMI PEMULIAAN','Belajar lewat keputusan',`<div class="academy-progress"><b>${done}/${total} kompetensi</b><span>${state.academy?.xp||0} XP Akademi</span></div><div class="academy-track-grid">${tracks.map(module=>`<article><header><b>${module.icon} ${esc(module.name)}</b><span>${module.done}/${module.items.length}</span></header>${module.items.map((id,index)=>`<div class="${state.academy?.completed?.includes(id)?'done':''}"><span>${state.academy?.completed?.includes(id)?'✓':'○'}</span>${esc(module.labels[index])}</div>`).join('')}</article>`).join('')}</div><details class="academy-glossary"><summary>Glosarium inti</summary>${glossary.map(([term,text])=>`<p><b>${esc(term)}</b><span>${esc(text)}</span></p>`).join('')}</details><div class="academy-actions"><button type="button" data-professor-casebook class="primary">🧠 Casebook Profesor</button>${state.experiment?'<button type="button" data-professor-live>📊 Kasus dari data aktif</button>':''}</div><p class="meta-note">Akademi tidak memilih strategi untuk Anda. Kompetensi terbuka dari rancangan, data, seleksi, dan persilangan yang benar-benar Anda lakukan.</p>`);
+  $('#metaModalBody').querySelector('[data-professor-casebook]').onclick=openProfessorCasebook;
+  $('#metaModalBody').querySelector('[data-professor-live]')?.addEventListener('click',()=>openStatisticsLab());
+}
+const PROFESSOR_CASES={
+  pseudorep:{
+    icon:'📐',title:'Unit percobaan atau subsampel?',competency:'design-pseudorep',
+    scenario:'Satu petak menerima N 150 kg/ha. Dari petak itu Anda mengukur 5 tanaman. Berapa ulangan independen perlakuan N yang tersedia?',
+    options:[['five','5 ulangan karena ada 5 tanaman'],['one','1 unit percobaan; 5 tanaman adalah subsampel'],['zero','0 karena tanaman harus diukur 10 kali']],
+    answer:'one',explanation:'Perlakuan diberikan pada petak. Lima tanaman di dalam petak membantu mengestimasi nilai petak, tetapi tidak menciptakan lima unit yang menerima perlakuan secara independen.'
+ },
+  splitplot:{
+    icon:'▦',title:'Kapan memakai split-plot?',competency:'design-splitplot',
+    scenario:'Anda menguji 5 dosis N yang sulit diaplikasikan pada petak kecil dan 3 varietas yang mudah diacak di dalam setiap dosis N. Struktur rancangan paling logis?',
+    options:[['factorial','RAL faktorial biasa tanpa pembatasan randomisasi'],['split','Split-plot: N petak utama, varietas anak petak'],['sample','Satu petak besar lalu 15 tanaman sampel']],
+    answer:'split',explanation:'Split-plot sesuai ketika satu faktor membutuhkan unit aplikasi lebih besar. Faktor petak utama dan anak petak memiliki strata galat yang berbeda; itu harus dipertahankan saat ANOVA.'
+ },
+  posthoc:{
+    icon:'📊',title:'ANOVA dan uji lanjut',competency:'stats-posthoc',
+    scenario:'ANOVA perlakuan menghasilkan p = 0,31. Apa tindakan statistik yang paling defensif?',
+    options:[['lsd','Tetap lakukan BNT semua pasangan untuk mencari perbedaan'],['stop','Laporkan bukti efek perlakuan belum cukup; jangan fishing pairwise rutin'],['delete','Hapus rerata terendah lalu ulangi ANOVA']],
+    answer:'stop',explanation:'Uji lanjut bukan alat untuk memaksa perbedaan setelah ANOVA tidak mendukung efek perlakuan. Analisis terencana/kontras khusus adalah kasus berbeda dan harus ditentukan secara ilmiah.'
+ },
+  correlation:{
+    icon:'↗',title:'Korelasi atau sebab?',competency:'stats-correlation',
+    scenario:'Tinggi tanaman berkorelasi r = 0,82 dengan hasil. Kesimpulan yang paling tepat?',
+    options:[['cause','Tanaman tinggi pasti menyebabkan hasil tinggi'],['assoc','Ada asosiasi linear kuat; kausalitas memerlukan desain/mekanisme tambahan'],['perfect','82% variasi hasil pasti disebabkan tinggi tanaman']],
+    answer:'assoc',explanation:'Korelasi tidak menentukan arah sebab-akibat dan dapat dipengaruhi variabel lain. r² juga bukan otomatis proporsi sebab biologis.'
+ },
+  assumption:{
+    icon:'≈',title:'Residual lebih penting dari angka cantik',competency:'stats-assumption',
+    scenario:'ANOVA memberi p < 0,05, tetapi residual membentuk pola kipas yang kuat dan satu petak sangat ekstrem. Apa langkah berikutnya?',
+    options:[['ignore','Abaikan diagnostik karena p sudah signifikan'],['inspect','Periksa heteroskedastisitas, outlier, kesalahan data dan model sebelum menyimpulkan'],['delete','Hapus petak ekstrem otomatis']],
+    answer:'inspect',explanation:'Diagnostik residual menguji apakah model sesuai. Titik ekstrem harus diperiksa secara agronomis dan administratif; tidak boleh otomatis dibuang hanya karena mengganggu signifikansi.'
+ },
+  heritability:{
+    icon:'H²',title:'Apa arti heritabilitas tinggi?',competency:'breeding-heritability',
+    scenario:'Dalam satu uji galur, H² luas untuk hasil = 0,78. Apa arti yang paling tepat?',
+    options:[['guarantee','78% hasil setiap tanaman pasti diwariskan ke keturunannya'],['context','Pada populasi dan lingkungan uji ini, perbedaan genetik menjelaskan bagian besar variasi fenotipik'],['yield','Galur dengan H² tinggi otomatis memiliki hasil tertinggi']],
+    answer:'context',explanation:'Heritabilitas adalah sifat populasi, karakter, rancangan, dan lingkungan pengujian. Nilainya bukan jaminan superioritas genotipe atau probabilitas pewarisan individu.'
+ },
+  ge:{
+    icon:'G×E',title:'Genotipe × lingkungan',competency:'breeding-ge',
+    scenario:'Galur A unggul di Bone tetapi turun tajam di Gowa; Galur B selalu sedikit di bawah A di Bone namun stabil di kedua lokasi. Apa pelajaran utamanya?',
+    options:[['ignore','Ranking satu lokasi cukup untuk semua target'],['ge','Ada indikasi G×E; keputusan tergantung target adaptasi luas atau spesifik'],['average','Gabungkan semua data dan abaikan lokasi']],
+    answer:'ge',explanation:'Perubahan respons atau ranking antar lingkungan merupakan inti G×E. Pemulia perlu mendefinisikan target adaptasi dan menguji lintas lingkungan.'
+ },
+  response:{
+    icon:'ΔG',title:'Respons seleksi',competency:'breeding-response',
+    scenario:'Rerata populasi 14 kg/petak. Tetua terpilih rata-rata 18 kg/petak. Apa yang disebut selisih 4 kg itu?',
+    options:[['h2','Heritabilitas'],['s','Diferensial seleksi (S)'],['cv','Koefisien keragaman']],
+    answer:'s',explanation:'S = rerata individu terpilih − rerata populasi. Respons genetik yang diharapkan bergantung pada heritabilitas dan skema seleksi, misalnya R ≈ h²S pada model sederhana.'
+ },
+  segregation:{
+    icon:'F2',title:'Segregasi Mendel',competency:'cross-segregation',
+    scenario:'Satu lokus Aa pada F1 diselfing dengan dominansi lengkap. Rasio genotipe F2 yang diharapkan?',
+    options:[['121','1 AA : 2 Aa : 1 aa'],['31','3 AA : 1 aa'],['111','1 AA : 1 Aa : 1 aa']],
+    answer:'121',explanation:'Selfing Aa × Aa menghasilkan 1:2:1 secara genotipik. Dengan dominansi lengkap, rasio fenotipik menjadi 3 dominan : 1 resesif.'
+ },
+  inbreeding:{
+    icon:'Fₙ',title:'Selfing dan fiksasi',competency:'cross-inbreeding',
+    scenario:'Jika satu lokus heterozigot pada F1 terus diselfing, apa tren heterozigositasnya?',
+    options:[['rise','Meningkat dua kali setiap generasi'],['half','Secara harapan berkurang setengah tiap generasi selfing'],['same','Tetap 100% sampai F6']],
+    answer:'half',explanation:'Untuk lokus awal heterozigot, heterozigositas yang tersisa kira-kira 1/2 pada F2, 1/4 F3, 1/8 F4, dan seterusnya; homozygositas meningkat.'
+ }
+};
+function openProfessorCasebook(){
+ const done=new Set(state.academy?.completed||[]);
+  openMetaModal('CASEBOOK PROFESOR','Uji cara berpikir',`<div class="professor-casebook">${Object.entries(PROFESSOR_CASES).map(([id,item])=>`<button type="button" data-professor-case="${id}" class="${done.has(item.competency)?'done':''}"><span>${item.icon}</span><b>${esc(item.title)}</b><small>${done.has(item.competency)?'✓ Kompetensi dikuasai':'Selesaikan kasus'}</small></button>`).join('')}</div><p class="meta-note">Kasus menguji keputusan yang sering salah dalam penelitian lapang. Jawaban benar memberi kompetensi sekali saja; tidak mengubah hasil percobaan secara otomatis.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-professor-case]').forEach(button=>button.onclick=()=>openProfessorCase(button.dataset.professorCase));
+}
+function openProfessorCase(id){
+ const item=PROFESSOR_CASES[id];if(!item)return openProfessorCasebook();
+ const key='prof-case:'+id;
+  openMetaModal('KASUS PROFESOR',item.icon+' '+item.title,`<section class="professor-case professor-case-advanced"><small>${state.academy?.completed?.includes(item.competency)?'KOMPETENSI SUDAH DIKUASAI':'PILIH JAWABAN PALING DEFENSIF'}</small><b>${esc(item.scenario)}</b><div class="professor-case-actions">${item.options.map(([value,label])=>`<button type="button" data-prof-case-answer="${value}">${esc(label)}</button>`).join('')}</div><p id="profCaseFeedback"></p></section><div class="academy-actions"><button type="button" data-casebook-back>← Casebook</button></div>`);
+  $('#metaModalBody').querySelector('[data-casebook-back]').onclick=openProfessorCasebook;
+  $('#metaModalBody').querySelectorAll('[data-prof-case-answer]').forEach(button=>button.onclick=()=>{
+    const correct=button.dataset.profCaseAnswer===item.answer;
+    academyAnswer(key,correct,()=>academyMark(item.competency,{xp:12,rp:1,note:item.title}));
+    const feedback=$('#profCaseFeedback');feedback.textContent=(correct?'✓ ':'✗ ')+item.explanation;feedback.className=correct?'correct':'wrong';
+    if(correct)setTimeout(()=>openProfessorCase(id),280);
+ });
+}
+function openCrossProtocol(){
+ const maize=state.species==='maize';
+ const question=maize
+    ?'Pada produksi benih hibrida jagung dengan detasseling, tindakan mana yang mencegah tetua betina melakukan selfing?'
+    :'Pada persilangan cabai terkontrol, tindakan mana yang paling langsung mencegah selfing bunga tetua betina?';
+ const correct=maize?'Detassel tetua betina sebelum pollen shed':'Emaskulasi antera sebelum dehiscence lalu isolasi bunga';
+ const wrongA=maize?'Detassel tetua jantan':'Membuang stigma tetua betina';
+ const wrongB=maize?'Panen tetua betina lebih awal':'Memupuk tanaman setelah anthesis';
+  openMetaModal('PROTOKOL PERSILANGAN',maize?'Jagung · kontrol sumber polen':'Cabai · silang terkontrol',`<section class="professor-case"><small>PERSILANGAN TERKONTROL</small><b>${esc(question)}</b><div class="professor-case-actions"><button data-cross-protocol="wrong">${esc(wrongA)}</button><button data-cross-protocol="correct">${esc(correct)}</button><button data-cross-protocol="wrong2">${esc(wrongB)}</button></div></section>`);
+  $('#metaModalBody').querySelectorAll('[data-cross-protocol]').forEach(button=>button.onclick=()=>{
+    const right=button.dataset.crossProtocol==='correct';
+    academyAnswer('cross-protocol-answer',right,()=>academyMark('cross-protocol',{note:'Protokol persilangan terkontrol'}));
+    if(right){
+      const steps=maize
+        ?['Tetapkan tetua ♀ dan ♂.','Cegah selfing pada ♀ melalui detasseling pada produksi hibrida atau bagging/isolasi pada silang terkontrol.','Kumpulkan polen ♂ pada waktu tepat dan aplikasikan ke silk ♀.','Label kombinasi silang, tanggal, dan identitas tetua.','Evaluasi F1; selfing F1 menghasilkan F2 yang bersegregasi.']
+        :['Tetapkan tetua ♀ dan ♂.','Pilih kuncup ♀ sebelum antera pecah, lakukan emaskulasi, lalu isolasi.','Ambil polen ♂ dan lakukan penyerbukan terkontrol.','Bagging/isolasi kembali dan beri label silang.','Evaluasi F1 lalu generasi segregasi berikutnya.'];
+      openMetaModal('PROTOKOL PERSILANGAN','✓ Sumber polen terkendali',`<ol class="cross-protocol-steps">${steps.map((step,index)=>`<li><b>${index+1}</b><span>${esc(step)}</span></li>`).join('')}</ol><button data-close-protocol class="primary">Kembali ke Lab</button>`);
+      $('#metaModalBody').querySelector('[data-close-protocol]').onclick=()=>{closeMetaModal();document.querySelector('#labHub')?.scrollIntoView({behavior:'smooth',block:'start'});};
+    }
+ });
+}
+function openGameHelp(){
+  openMetaModal('CARA MAIN','Rp → 📐 → 📊 → 🧬 → ×',`<div class="help-steps">
+    <div><b>Rp</b><span>Produksi</span></div>
+    <div><b>📐</b><span>Rancob</span></div>
+    <div><b>📊</b><span>ANOVA</span></div>
+    <div><b>🧬</b><span>Seleksi</span></div>
+    <div><b>×</b><span>Persilangan</span></div>
+  </div><p class="help-note">Mini-lab mengajar konsep dari data game. Untuk analisis lengkap, dataset percobaan tetap dapat dibuka di /stat.</p><button class="primary academy-open-help" type="button" data-open-academy>🎓 Buka Akademi</button>`);
+  $('#metaModalBody').querySelector('[data-open-academy]').onclick=openAcademy;
+}
+
+function seedEvidence(seed){
+ const commercial=!seed?.parents?.length&&Number(seed?.generation||0)===0&&String(seed?.source||'')==='Starter';
+ if(commercial)return {level:4,label:'Deskripsi varietas'};
+ const tests=Number(seed?.evidenceTests||0),generation=Number(seed?.generation||0),stressTests=Number(seed?.stressTests||0),hom=genomeStats(seed?.genome).homozygosity;
+ const stable=tests>=3&&generation>=4&&stressTests>=1&&hom>=.75;
+ const level=stable?4:(tests>=2&&generation>=2&&hom>=.55)?3:tests>=1?2:1;
+ const label=stable?'Relatif stabil':level===3?'Didukung pengujian':level===2?'Indikasi':'Belum diketahui';
+ return {level,label:label+' · Hom '+Math.round(hom*100)+'%'};
+}
+function seedTraitsHtml(seed,extra=[]){
+ const evidence=seedEvidence(seed),ids=unique([...(seed?.traits||[]),...extra]);
+ if(evidence.level<3)return `<span class="trait-evidence level-${evidence.level}">? ${esc(evidence.label)}</span>`;
+ const visible=evidence.level>=4?ids:ids.slice(0,Math.max(1,Math.ceil(ids.length/2)));
+ return visible.map(id=>{const t=traitMeta(id);return `<span class="trait ${t.rarity}">${esc(t.icon)} ${esc(t.name)}</span>`;}).join('')+`<span class="trait-evidence level-${evidence.level}">${esc(evidence.label)}</span>`;
+}
+
+function renderHud(){
+  state.level=levelFromXp(state.xp);
+  $('#seasonValue').textContent=state.season;
+  $('#dayValue').textContent='H'+state.day+'/'+state.maxDay;
+  $('#coinValue').textContent=formatRupiah(state.coins,true);$('#coinValue').title=formatRupiah(state.coins);
+ const cropProfile=SPECIES[state.species]||SPECIES.maize,marketLabel=$('#marketValue')?.previousElementSibling;if(marketLabel?.tagName==='SMALL')marketLabel.textContent=cropProfile.name;
+  $('#marketValue').textContent=formatRupiah(state.marketPrice||cropProfile.marketBase)+'/kg';$('#marketValue').title=state.species==='maize'?'Acuan game: HPP '+formatRupiah(PRICE_REFERENCE.cornHpp)+'/kg · referensi pembelian Sulsel '+formatRupiah(PRICE_REFERENCE.cornSulsel)+'/kg':'Harga simulasi untuk keseimbangan game; bukan kutipan harga pasar harian.';
+  $('#focusValue').textContent=formatRupiah(laborRate(),true)+'/HOK';$('#focusValue').title='Acuan upah pekerja permainan per hari orang kerja';
+  $('#rpValue').textContent=Math.round(state.rp);
+  $('#levelValue').textContent=state.level;
+ const progress=state.xp%120;$('#xpValue').textContent=progress+'/120';$('#xpBar').style.width=(progress/120*100)+'%';
+  $('#soundToggle').setAttribute('aria-pressed',String(state.sound));
+}
+function renderSeason(){
+ const month=state.env?.month||agroMonthForSeason(state.season);
+  $('#seasonIcon').textContent=state.env.icon;$('#seasonName').textContent=monthName(month)+' · '+state.env.name;$('#seasonDesc').textContent=state.env.desc;
+ const weather=WEATHER[state.weather],metric=WEATHER_METRICS[state.weather]||WEATHER_METRICS.clear;$('#weatherText').textContent=weather.icon+' '+weather.name;$('#weatherEffect').textContent=weather.effect+' · '+metric.temp+'°C · RH '+metric.rh+'% · '+metric.wind+' km/j';
+ const missionView=missionDisplay();$('#missionText').textContent=missionView.title;$('#missionProgress').textContent=missionView.progress;
+  $('#forecastText').textContent=weatherRiskPreview()+' · '+pressureLabel();
+ const cupActive=breedingCup.active(),eventPending=!!state.pendingEvent,tasks=criticalTasks(),timeLocked=cupActive||eventPending||state.day>=state.maxDay;
+ const phenology=$('#phenologyStatus'),critical=$('#criticalTask'),stop=$('#timeStop');
+ if(phenology)phenology.textContent='H'+state.day+' · '+dominantPhenology();
+ if(critical)critical.textContent=tasks.length?(tasks.length+' perhatian · '+tasks.slice(0,2).join(' · ')):'Tidak ada keputusan kritis';
+ if(stop)stop.textContent=lastTimeStopReason?'Berhenti: '+lastTimeStopReason:'Auto-stop aktif';
+  $('#finishSeason').hidden=cupActive||eventPending||state.day<state.maxDay;$('#nextDay').hidden=!cupActive&&!eventPending&&state.day>=state.maxDay;
+  $('#nextDay').textContent=cupActive?'🏆 Breeding Cup':eventPending?'⚠ Tinjau kejadian':'Hari berikutnya';
+  $('#nextDay').title=eventPending?'Kejadian lapang menunggu keputusan':'Lanjutkan satu hari · tahan untuk +3 hari';
+  $('#nextCritical').textContent='⏩ Ke keputusan';
+ for(const id of ['skip3Days','nextCritical']){const button=$(id.startsWith('#')?id:'#'+id);if(button){button.hidden=cupActive||eventPending||state.day>=state.maxDay;button.disabled=timeLocked;}}
+}
+function plotUseControlHtml(index){
+ const unit=experimentUnit(index),active=unit?'research':plotUse(index),meta=plotMeta(index),soilKnown=hasTech('sensor')||state.eventFlags.sampledSoil,soil=soilKnown?`<div class="soil-mini"><span>pH ${Number(meta.pH).toFixed(1)}</span><span>BO ${Number(meta.organicMatter).toFixed(1)}%</span><span>Drain ${Number(meta.drainage).toFixed(2)}</span><span>Komp ${Number(meta.compaction).toFixed(2)}</span></div>`:'<div class="soil-mini"><span>Tanah belum diuji</span></div>';return `<div class="plot-academy-context"><span>${esc(meta.uid)} · K${meta.block}</span><div class="plot-use-switch">${Object.entries(PLOT_USES).map(([id,item])=>`<button type="button" data-plot-use="${id}" ${active===id?'aria-pressed="true"':''} ${unit&&id!=='research'?'disabled':''} title="${esc(item.name)}">${item.icon}</button>`).join('')}</div></div>${soil}`;
+}
+function bindPlotUseControls(){
+  $('#inspectorBody')?.querySelectorAll('[data-plot-use]').forEach(button=>button.onclick=()=>setPlotUse(state.selectedPlot,button.dataset.plotUse));
+}
+function renderField(){
+ const limit=fieldLimit(),attention=!!state.comfort?.attention,grid=$('#fieldGrid');
+  grid.classList.toggle('attention-mode',attention);
+ const plotHtml=(crop,index)=>{
+    const cls=statusClass(crop),selected=index===state.selectedPlot?' selected':'',burned=crop?.burned>0?' burned':'',issue=plotIssue(crop),attentionClass=attention?(issue?' attention-hit':' attention-muted'):'',competitionClass=breedingCup.plotClass(index),meta=plotMeta(index),soilClass=(Number(meta.pH)<5.7?' soil-acid':'')+(Number(meta.compaction)>.34?' soil-compact':''),use=PLOT_USES[plotUse(index)]||PLOT_USES.commercial;
+    if(index>=limit)return `<button type="button" class="plot plot-locked${attentionClass}" data-plot="${index}" disabled aria-label="Petak ${index+1}, dikunci challenge"><div class="plot-top"><span>${meta.uid}</span><span>×</span></div><div class="plot-empty-mark">LOCK</div></button>`;
+    if(!crop)return `<button type="button" class="plot empty${selected}${attentionClass}${competitionClass}${soilClass}" data-plot="${index}" aria-label="${meta.uid}, kosong"><div class="plot-top"><span>${meta.uid}</span><span class="plot-use-icon">${use.icon}</span></div><div class="plot-empty-mark">＋</div>${experimentBadge(index)}</button>`;
+    const stage=stageOf(crop),fertilizer=recommendedFertilizer(crop),irrigation=irrigationPlan(crop,index),needWater=irrigation.needed,needFert=!!fertilizer;
+    const issueIcon={panen:'🧺',penyakit:'◈',air:'💧',fertilizer:'NPK',mati:'×',stres:'!'}[issue]||'';
+    const growthClass=crop.health<=0?'stage-dead':crop.growth>=100?'stage-ripe':crop.growth>=78?'stage-fill':crop.growth>=52?'stage-flower':crop.growth>=22?'stage-vegetative':'stage-seedling';
+    const nutrientAvg=clamp((Number(crop.n||0)+Number(crop.p||0)+Number(crop.k||0))/3);
+    const fertilizerText=needFert?(FERTILIZERS[fertilizer]?.short||'Pupuk'):'Pupuk ✓';
+    return `<button type="button" class="plot ${growthClass} ${cls}${burned}${selected}${attentionClass}${soilClass}" data-plot="${index}" ${crop.growth>=100&&crop.health>0?`draggable="true" data-harvest-drag="${index}"`:''} aria-label="${meta.uid}, ${esc(stage)}, air ${Math.round(crop.water)}%, ${esc(fertilizerText)}"><div class="plot-top"><span>${meta.uid}</span><span>${issueIcon||use.icon}</span></div><div class="plot-canopy" aria-hidden="true"></div><div class="plot-crop"><span class="plant-icon">${cropIcon(crop)}</span><div><b>${esc(crop.seed.name)}</b><small>${esc(stage)} · ${Math.round(crop.growth)}%</small></div></div><div class="plot-needs"><span class="${needWater?'need':''}" title="Air relatif; target irigasi ${irrigation.target}%">💧 ${Math.round(crop.water)}%</span><span class="${needFert?'need':''}" title="N ${Math.round(crop.n)} · P ${Math.round(crop.p)} · K ${Math.round(crop.k)}">${esc(fertilizerText)}</span></div><div class="plot-health"><i style="width:${crop.health}%"></i></div><div class="plot-bars"><span class="mini-meter"><i style="width:${crop.water}%"></i></span><span class="mini-meter n"><i style="width:${nutrientAvg}%"></i></span></div>${experimentBadge(index)}${crop.revealed&&crop.mutation?`<span class="trait ${traitMeta(crop.mutation).rarity}" title="Mutasi">${traitMeta(crop.mutation).icon}</span>`:''}</button>`;
+ };
+  grid.innerHTML=Array.from({length:BLOCK_COUNT},(_,block)=>{
+    const from=block*PLOTS_PER_BLOCK,indices=Array.from({length:PLOTS_PER_BLOCK},(_,i)=>from+i),research=indices.filter(i=>plotUse(i)==='research').length,breeding=indices.filter(i=>plotUse(i)==='breeding').length,commercial=PLOTS_PER_BLOCK-research-breeding;
+    return `<section class="field-block" data-block="${block+1}"><header><b>Blok ${['I','II','III'][block]}</b><span>Rp ${commercial} · 📐 ${research} · 🧬 ${breeding}</span></header><div class="field-block-grid">${indices.map(i=>plotHtml(state.field[i],i)).join('')}</div></section>`;
+ }).join('');
+}
+function inspectorQuickAction(crop){
+ if(!crop)return null;
+ if(crop.health<=0)return {tool:'remove',label:'Bersihkan petak',icon:'×'};
+ if(crop.growth>=100)return {tool:'harvest',label:'Panen sekarang',icon:'🧺'};
+ const irrigation=irrigationPlan(crop,state.selectedPlot);if(irrigation.needed)return {tool:'water',label:irrigation.label,icon:'💧'};
+ if(crop.disease>=35)return {tool:'scout',label:'Periksa penyakit',icon:'◎'};
+ const fertilizer=recommendedFertilizer(crop);if(fertilizer)return {tool:'fertilize',fertilizer,label:'Pupuk '+(FERTILIZERS[fertilizer]?.short||''),icon:'NPK'};
+ return null;
+}
+function inspectorIssueText(crop){
+ if(!crop)return 'Petak kosong';
+ if(crop.health<=0)return 'Tanaman mati · bersihkan sebelum tanam ulang';
+ if(crop.growth>=100)return 'Siap panen';
+ const issues=[],irrigation=irrigationPlan(crop,state.selectedPlot),fertilizer=recommendedFertilizer(crop);
+ if(irrigation.needed)issues.push('Air '+Math.round(crop.water)+'% → target '+irrigation.target+'%');
+ if(fertilizer)issues.push('Butuh '+FERTILIZERS[fertilizer].name);
+ if(crop.disease>=25)issues.push('Penyakit '+Math.round(crop.disease)+'%');
+ return issues.length?issues.slice(0,2).join(' · '):'Air dan hara terkendali';
+}
+function renderInspector(){
+ const crop=selectedCrop(),plot=state.selectedPlot+1;
+  $('#plotTitle').textContent='Petak '+String(plot).padStart(2,'0');
+  $('#plotStage').textContent=stageOf(crop);
+ if(!crop){
+    const competitionInspector=breedingCup.inspector(state.selectedPlot);
+    if(competitionInspector){$('#inspectorBody').innerHTML=competitionInspector;$('#openCupFromPlot').onclick=breedingCup.open;return;}
+    const assigned=experimentSeedForPlot(state.selectedPlot),seed=assigned||selectedSeed();
+    const locked=state.selectedPlot>=fieldLimit(),mono=activeChallenge().mono&&state.monoSeedId&&seed.id!==state.monoSeedId,plantInput=actionCost('plant'),plantLabor=laborCost('plant'),plantCost=plantInput+plantLabor;
+    $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>Petak kosong</small><b>${esc(seed.name)} · G${seed.generation}</b><span>🌱 ${seed.stock||0} benih · viabilitas ${Math.round(seed.viability||0)}%</span></div></div><div class="seed-picker compact-seed-picker"><label>Benih<select id="seedSelect" ${assigned?'disabled':''}>${speciesVault().map(item=>`<option value="${esc(item.id)}" ${item.id===seed.id?'selected':''}>${esc(item.name)} · G${item.generation}</option>`).join('')}</select></label><button id="plantSelected" class="primary" type="button" ${state.coins<plantCost||locked||mono||(seed.stock||0)<1||(seed.viability||0)<45?'disabled':''}>${locked?'Petak terkunci':mono?'Satu varietas':`🌱 Tanam · ${formatRupiah(plantCost)}`}</button><small class="labor-breakdown">Input ${formatRupiah(plantInput)} · pekerja ${formatRupiah(plantLabor)}</small></div><details class="plot-details"><summary>Detail petak & benih</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="seed-card-preview"><b>${esc(seed.name)}</b><p>Potensi ${seed.baseYield.toFixed(1)} kg/25 m² · G${seed.generation}</p><div class="trait-row">${seedTraitsHtml(seed)}</div></div></div></details>`;
+    $('#seedSelect').onchange=event=>{state.selectedSeedId=event.target.value;save();renderInspector();renderVault();};
+    $('#plantSelected').onclick=plantSelected;bindPlotUseControls();
+    return;
+ }
+ const knownExtra=crop.revealed&&crop.mutation?[crop.mutation]:[],mutationText=crop.mutation?(crop.revealed?traitMeta(crop.mutation).name:'Belum diketahui'):'Tidak terdeteksi';
+ const irrigation=irrigationActionCost(crop,state.selectedPlot),scoutReward=2+(hasTech('drone')?2:0),scoutCost=laborCost('scout'),quick=inspectorQuickAction(crop),recommended=recommendedFertilizer(crop);
+ const hidden=crop.scouted>=2?` · respons air ${crop.waterSensitivity>1?'tinggi':crop.waterSensitivity<.95?'rendah':'sedang'} · kebutuhan N ${crop.nDemand>1?'tinggi':crop.nDemand<.95?'rendah':'sedang'}`:' · respons belum lengkap';
+ const quickButton=quick?`<button class="plot-quick-action ${quick.tool==='harvest'?'harvest':''}" data-crop-action="${quick.tool}" ${quick.fertilizer?`data-fertilizer="${quick.fertilizer}"`:''}>${quick.icon} ${esc(quick.label)}</button>`:'<span class="plot-ok">✓ Tidak perlu tindakan</span>';
+ const fertilizerButtons=Object.values(FERTILIZERS).map(product=>{const price=fertilizerActionCost(crop,product.id),grams=Math.round(price.doseKg*1000),rec=product.id===recommended;return `<button type="button" class="${rec?'recommended':''}" data-crop-action="fertilize" data-fertilizer="${product.id}" ${activeChallenge().noFertilizer||state.coins<price.total||crop.health<=0?'disabled':''}><b>${esc(product.short)}${rec?' ★':''}</b><small>${grams>=1000?(grams/1000).toFixed(1)+' kg':grams+' g'} · ${formatRupiah(price.total)}</small></button>`;}).join('');
+  $('#inspectorBody').innerHTML=`<div class="plot-quick-card"><div><small>${esc(stageOf(crop))} · Kesehatan ${Math.round(crop.health)}%</small><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><span>${esc(inspectorIssueText(crop))}</span></div>${quickButton}</div><details class="plot-details"><summary>Detail petak</summary><div class="plot-details-body">${plotUseControlHtml(state.selectedPlot)}<div class="crop-stats nutrient-stats"><div class="stat-box"><span>Air</span><b>${Math.round(crop.water)}%</b></div><div class="stat-box"><span>N</span><b>${Math.round(crop.n)}%</b></div><div class="stat-box"><span>P</span><b>${Math.round(crop.p)}%</b></div><div class="stat-box"><span>K</span><b>${Math.round(crop.k)}%</b></div><div class="stat-box"><span>Kesehatan</span><b>${Math.round(crop.health)}%</b></div><div class="stat-box"><span>Penyakit</span><b>${Math.round(crop.disease)}%</b></div></div><div class="field-input-plan"><b>💧 ${esc(irrigation.plan.label)}</b><span>${irrigation.plan.depthMm} mm ≈ ${irrigation.plan.volumeM3} m³/25 m² · target ${irrigation.plan.target}%</span><button data-crop-action="water" ${state.coins<irrigation.total||crop.health<=0?'disabled':''}>Irigasi · ${formatRupiah(irrigation.total)}</button></div><div class="fertilizer-plan"><div><b>Pilih pupuk</b><span>Rekomendasi dari N/P/K, umur dan pH.</span></div><div class="fertilizer-grid">${fertilizerButtons}</div></div><div class="seed-card-preview"><b>${esc(crop.seed.name)} · G${crop.seed.generation}</b><p>Stres ${Math.round(crop.stress)}${hidden} · anomali: ${esc(mutationText)}</p><div class="trait-row">${seedTraitsHtml(crop.seed,knownExtra)}</div></div><div class="action-grid compact-actions"><button class="scout" data-crop-action="scout" ${state.coins<scoutCost||crop.health<=0?'disabled':''}>◎ Periksa · ${formatRupiah(scoutCost)} · +${scoutReward} RP</button>${crop.health<=0?'<button data-crop-action="remove">Bersihkan petak</button>':crop.growth>=100?'<button class="harvest" data-crop-action="harvest">Panen sekarang</button>':''}</div></div></details>`;
+  $('#inspectorBody').querySelectorAll('[data-crop-action]').forEach(button=>button.onclick=()=>cropAction(button.dataset.cropAction,button.dataset.fertilizer||''));bindPlotUseControls();
+}
+function renderVault(){
+ const visible=speciesVault();$('#vaultCount').textContent=visible.length+'/'+state.vault.length;$('#vaultList').innerHTML=visible.map(seed=>`<article class="seed-item ${seed.id===state.selectedSeedId?'active':''}" draggable="true" data-seed-drag="${esc(seed.id)}"><div class="seed-item-head"><b>${esc(seed.name)}</b><small>${seed.generationLabel||('G'+seed.generation)}</small></div><small>${SPECIES[seedSpecies(seed)]?.icon||'🌱'} ${seed.stock||0} · ${Math.round(seed.viability||0)}% · ${seed.baseYield.toFixed(1)}</small><div class="trait-row">${seedTraitsHtml(seed)}</div><div class="seed-card-actions"><button type="button" data-use-seed="${esc(seed.id)}" ${(seed.stock||0)<1?'disabled':''}>${seed.id===state.selectedSeedId?'✓':'🌱'}</button>${!seed.parents?.length?`<button type="button" data-buy-seed="${esc(seed.id)}" title="Beli ${COMMERCIAL_SEED_PACK_SIZE} benih">＋</button>`:''}<button type="button" data-rename-seed="${esc(seed.id)}">✎</button></div></article>`).join('');const opts=visible.map(seed=>`<option value="${esc(seed.id)}">${esc(seed.name)} · ${seed.generationLabel||('G'+seed.generation)}</option>`).join(''),a=$('#parentA'),b=$('#parentB'),av=a.value,bv=b.value;a.innerHTML='<option value="">Pilih</option>'+opts;b.innerHTML='<option value="">Pilih</option>'+opts;if(visible.some(seed=>seed.id===av))a.value=av;if(visible.some(seed=>seed.id===bv))b.value=bv;$('#crossSeeds').disabled=state.rp<crossCost($('#crossMode')?.value||'f1')||!a.value||((($('#crossMode')?.value||'f1')!=='self')&&!b.value)||((($('#crossMode')?.value||'f1')!=='self')&&a.value===b.value);
+}
+function renderLog(){
+  $('#gameLog').innerHTML=state.log.map(row=>`<div class="log-row"><time>H${row.day}</time><span>${esc(row.text)}</span></div>`).join('');
+}
+function renderDiscoveries(){
+ const traitCards=Object.entries(TRAITS).map(([id,t])=>`<div class="discovery ${state.discoveredTraits.includes(id)?'':'locked'}"><b>${state.discoveredTraits.includes(id)?esc(t.icon+' '+t.name):'?'}</b><span>${state.discoveredTraits.includes(id)?esc(t.desc):'Belum ditemukan'}</span></div>`).join('');
+ const achCards=Object.entries(ACHIEVEMENTS).map(([id,a])=>`<div class="discovery ${state.achievements.includes(id)?'':'locked'}"><b>${state.achievements.includes(id)?'◆ '+esc(a.name):'◇ ???'}</b><span>${state.achievements.includes(id)?esc(a.desc):'Achievement terkunci'}</span></div>`).join('');
+ const lore=state.lore.length?`<div class="discovery-grid">${state.lore.map(text=>`<div class="discovery"><b>Fragment</b><span>${esc(text)}</span></div>`).join('')}</div>`:'';
+  $('#discoveries').innerHTML=`<div class="collection-toolbar"><button id="openCollectionBook" type="button">Buka Koleksi</button><span>${state.discoveredTraits.length} trait · ${state.achievements.length} achievement</span></div><div class="discovery-grid">${traitCards+achCards}</div>${lore}`;
+  $('#openCollectionBook').onclick=openCollectionBook;
+  $('#discoveryCount').textContent=(state.discoveredTraits.length+state.achievements.length);
+}
+function renderMetaStrip(){
+ const loc=activeLocation(),challenge=activeChallenge(),rival=currentRival();
+  $('#locationName').textContent=loc.icon+' '+loc.name;
+  $('#runModeName').textContent=state.weekly?'Weekly Seed':state.daily?'Daily Seed':challenge.name;
+  $('#runModeHint').textContent=state.weekly?state.weekly.key:state.daily?state.daily.key:challenge.desc;
+  $('#rivalName').textContent=rival.name;state.rivalTarget=computeRivalTarget();$('#rivalScore').textContent=rival.style+' · '+state.rivalTarget+' poin';
+ const ghost=recordBest();$('#ghostScore').textContent=ghost?ghost.toFixed(1)+' kg':'Belum ada';
+  $('#legacyValue').textContent=state.legacy||0;
+}
+function renderTechTree(){
+  $('#techCount').textContent=state.tech.length+'/'+Object.keys(TECH).length;
+  $('#techTree').innerHTML=Object.entries(TECH).map(([id,tech])=>{
+    const owned=hasTech(id),requiresOk=tech.requires.every(hasTech),ready=techReady(id);
+    return `<button type="button" class="tech-node ${owned?'owned':requiresOk?'available':'locked'}" data-tech="${id}" ${owned||!requiresOk?'disabled':''}><span>${tech.icon}</span><b>${esc(tech.name)}</b><small>${owned?'Aktif':tech.cost+' RP'}</small></button>`;
+ }).join('');
+  $('#techTree').querySelectorAll('[data-tech]').forEach(button=>button.onclick=()=>unlockTech(button.dataset.tech));
+}
+function renderExpedition(){
+ const host=$('#expeditionPanel');
+ if(!expeditionAvailable()){host.innerHTML='<div class="meta-empty">Buka <b>Ekspedisi</b> di Teknologi.</div>';$('#expeditionStatus').textContent='Terkunci';return;}
+ if(state.expedition){
+    const ex=EXPEDITIONS[state.expedition.id],done=state.expedition.total-state.expedition.remaining;
+    $('#expeditionStatus').textContent=state.expedition.remaining+' hari';
+    host.innerHTML=`<div class="expedition-running"><b>${ex.icon} ${esc(ex.name)}</b><span>${esc(ex.desc)}</span><div class="progress-track"><i style="width:${done/state.expedition.total*100}%"></i></div><small>Bergerak setiap Hari berikutnya.</small></div>`;return;
+ }
+  $('#expeditionStatus').textContent='Siap';
+  host.innerHTML=`<div class="expedition-list">${Object.entries(EXPEDITIONS).map(([id,ex])=>`<button type="button" data-expedition="${id}" ${state.coins<ex.cost?'disabled':''}><span>${ex.icon}</span><b>${esc(ex.name)}</b><small>${ex.days} hari · ${formatRupiah(ex.cost)}</small></button>`).join('')}</div>`;
+  host.querySelectorAll('[data-expedition]').forEach(button=>button.onclick=()=>startExpedition(button.dataset.expedition));
+}
+function renderGenomeLab(){
+ const host=$('#genomeLab');
+ if(!hasTech('genome')){host.innerHTML='<div class="meta-empty">Genome Lab tersedia setelah riset <b>Genome Lab</b>.</div>';$('#genomeStatus').textContent='Terkunci';return;}
+  $('#genomeStatus').textContent=state.genomePuzzle?'Sequencing':'Siap';
+ if(!state.genomePuzzle){
+    host.innerHTML=`<div class="genome-start"><span>⌬</span><div><b>Decode ${esc(selectedSeed().name)}</b><small>5 RP · baca marker dan pilih trait laten yang paling cocok.</small></div><button id="startGenome" type="button" ${state.rp<5?'disabled':''}>Scan</button></div>`;
+    $('#startGenome').onclick=startGenomePuzzle;return;
+ }
+ const p=state.genomePuzzle;
+  host.innerHTML=`<div class="genome-puzzle"><div class="genome-markers">${p.markers.map(base=>`<b>${esc(base)}</b>`).join('')}</div><small>Cocokkan marker hasil sequencing dengan pola referensi. Satu marker dapat mengalami noise.</small><div class="genome-choices">${p.candidates.map(id=>`<button type="button" data-genome-choice="${id}"><b>${esc(traitMeta(id).icon+' '+traitMeta(id).name)}</b><small>${esc(GENOME_SIG[id].join(' · '))}</small></button>`).join('')}</div></div>`;
+  host.querySelectorAll('[data-genome-choice]').forEach(button=>button.onclick=()=>solveGenome(button.dataset.genomeChoice));
+}
+function renderEvolution(){
+  STARTER_SEEDS.forEach(rememberLineage);state.vault.forEach(rememberLineage);
+ const recent=[...state.lineage].sort((a,b)=>b.generation-a.generation).slice(0,8);
+  $('#evolutionPreview').innerHTML=recent.map(node=>`<div class="evolution-node"><span>${esc(node.generationLabel||('G'+node.generation))}</span><b>${esc(node.name)}</b><small>${node.parents?.length?node.parents.length+' induk · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small></div>`).join('')||'<div class="meta-empty">Belum ada silsilah.</div>';
+}
+function renderAcademyPanel(){
+ const tracks=academyTrack(),done=tracks.reduce((sum,module)=>sum+module.done,0),total=tracks.reduce((sum,module)=>sum+module.items.length,0),el=$('#academyStatus');
+ if(el)el.textContent=done+'/'+total;
+}
+function renderMeta(){
+  renderMetaStrip();renderTechTree();renderExpedition();renderGenomeLab();renderEvolution();renderAcademyPanel();
+}
+function openMetaModal(kicker,title,html){
+  $('#metaModalKicker').textContent=kicker;$('#metaModalTitle').textContent=title;$('#metaModalBody').innerHTML=html;$('#metaModal').hidden=false;
+}
+function closeMetaModal(){$('#metaModal').hidden=true;}
+function worldMapHtml(){
+ return `<div class="world-map">${Object.entries(LOCATIONS).map(([id,loc])=>{
+    const unlocked=locationUnlocked(id),active=id===state.location,cost=Math.max(6,loc.unlock*4);
+    return `<article class="world-node ${active?'active':''} ${unlocked?'unlocked':'locked'}"><span>${loc.icon}</span><div><b>${esc(loc.name)}</b><small>${esc(loc.desc)}</small></div>${active?'<em>AKTIF</em>':unlocked?`<button data-travel="${id}">Pindah</button>`:`<button data-unlock-location="${id}" ${canUnlockLocation(id)&&state.rp>=cost?'':'disabled'}>Buka · ${cost} RP</button>`}</article>`;
+ }).join('')}</div>`;
+}
+function openWorldMap(){
+  openMetaModal('WORLD MAP','Wilayah penelitian',worldMapHtml());
+  $('#metaModalBody').querySelectorAll('[data-travel]').forEach(button=>button.onclick=()=>travelLocation(button.dataset.travel));
+  $('#metaModalBody').querySelectorAll('[data-unlock-location]').forEach(button=>button.onclick=()=>{unlockLocation(button.dataset.unlockLocation);openWorldMap();});
+}
+function challengeHtml(){
+ const daily=dailyDefinition(),weekly=weeklyDefinition();
+ return `<div class="challenge-grid">${Object.entries(CHALLENGES).filter(([id])=>id!=='trial24').map(([id,ch])=>`<button data-challenge="${id}" class="${state.challenge===id&&!state.daily&&!state.weekly?'active':''}"><b>${esc(ch.name)}</b><span>${esc(ch.desc)}</span><small>Tekanan +${Math.round((ch.pressure||0)*100)}% · Reward ×${ch.reward}</small></button>`).join('')}</div><div class="daily-card weekly-card"><span>WEEKLY SEED</span><b>${weekly.key}</b><p>Seed RNG, lahan, lokasi, cuaca awal, dan modal ${formatRupiah(weekly.budget)} sama untuk semua pemain.</p><button data-weekly-start ${challengeCanStart()?'':'disabled'}>Mulai Weekly</button></div><div class="daily-card"><span>DAILY SEED</span><b>${daily.key}</b><p>Kondisi dan target sama untuk tanggal ini di perangkat mana pun.</p><button data-daily-start ${challengeCanStart()?'':'disabled'}>Mulai Daily</button></div>`;
+}
+function openChallenges(){
+  openMetaModal('RUN MODES','Challenge bersama & pribadi',challengeHtml());
+  $('#metaModalBody').querySelectorAll('[data-challenge]').forEach(button=>button.onclick=()=>startChallenge(button.dataset.challenge));
+  $('#metaModalBody').querySelector('[data-weekly-start]')?.addEventListener('click',startWeekly);
+  $('#metaModalBody').querySelector('[data-daily-start]')?.addEventListener('click',startDaily);
+}
+function openRival(){
+  openMetaModal('RIVAL SCIENTIST','Strategi kompetitor',`<div class="rival-grid">${RIVALS.map(r=>{const active=state.rival===r.id,target=(()=>{const current=state.rival;state.rival=r.id;const v=computeRivalTarget();state.rival=current;return v;})();return `<button data-rival="${r.id}" class="${active?'active':''}"><b>${esc(r.name)}</b><span>${esc(r.style)}</span><small>${esc(r.desc)} · target skor ${target.toFixed(1)}</small></button>`;}).join('')}</div><p class="meta-note">Skor rival berbeda menurut strategi: stabilitas, efisiensi ekonomi, atau kemajuan pemuliaan. Semuanya dihitung deterministik dan offline.</p>`);
+  $('#metaModalBody').querySelectorAll('[data-rival]').forEach(button=>button.onclick=()=>{state.rival=button.dataset.rival;state.rivalTarget=computeRivalTarget();closeMetaModal();render();});
+}
+function openRecords(){
+ const rows=Object.entries(state.records).sort((a,b)=>b[1]-a[1]);
+  openMetaModal('GHOST RECORD','Rekor run pribadi',rows.length?`<div class="record-list">${rows.map(([key,value])=>`<div><b>${esc(key)}</b><span>${Number(value).toFixed(1)} kg</span></div>`).join('')}</div>`:'<div class="meta-empty">Selesaikan musim untuk membuat Ghost Record.</div>');
+}
+function openPrestige(){
+  openMetaModal('NEW GAME+','Legacy Program',`<div class="prestige-card"><span>LEGACY ${state.legacy||0}</span><b>${prestigeAvailable()?'Prestige tersedia':'Belum tersedia'}</b><p>Mulai ulang musim dengan membawa galur terbaik, lokasi yang telah terbuka, koleksi, dan sebagian teknologi. Membutuhkan musim ≥6 dan 4 achievement.</p><div class="prestige-stats"><span>Legacy score <b>${state.legacyScore||0}</b></span><span>Musim <b>${state.season}</b></span><span>Achievement <b>${state.achievements.length}</b></span></div><button data-prestige ${prestigeAvailable()?'':'disabled'}>Mulai New Game+</button></div>`);
+  $('#metaModalBody').querySelector('[data-prestige]')?.addEventListener('click',()=>{if(confirm('Mulai New Game+ dan reset run aktif?'))doPrestige();});
+}
+function openEvolution(){
+ const nodes=[...state.lineage].sort((a,b)=>a.generation-b.generation);
+  openMetaModal('EVOLUTION TREE','Silsilah benih',`<div class="lineage-tree">${nodes.map(node=>`<article><span>${esc(node.generationLabel||('G'+node.generation))}</span><div><b>${esc(node.name)}</b><small>${node.parents?.length?'Induk: '+node.parents.map(id=>state.lineage.find(n=>n.id===id)?.name||id).join(' × ')+' · Hom '+Math.round((node.homozygosity||0)*100)+'%':esc(node.source||'Founder')}</small><div class="trait-row">${node.traits.map(id=>`<span class="trait ${traitMeta(id).rarity}">${esc(traitMeta(id).name)}</span>`).join('')}</div></div></article>`).join('')}</div>`);
+}
+function openCollectionBook(){
+ const envs=unique(state.collection.environments||[]),bosses=unique(state.collection.bosses||[]),locations=unique(state.collection.locations||[]);
+  openMetaModal('COLLECTION BOOK','Field Codex',`<div class="codex-grid"><div><small>Trait</small><b>${state.discoveredTraits.length}/${Object.keys(TRAITS).length}</b></div><div><small>Achievement</small><b>${state.achievements.length}/${Object.keys(ACHIEVEMENTS).length}</b></div><div><small>Lingkungan</small><b>${envs.length}/${ENVIRONMENTS.length}</b></div><div><small>Boss</small><b>${bosses.length}/${BOSSES.length}</b></div><div><small>Lokasi</small><b>${locations.length}/${Object.keys(LOCATIONS).length}</b></div><div><small>Benih</small><b>${state.vault.length}</b></div></div><div class="codex-list">${locations.map(id=>`<span>${LOCATIONS[id]?.icon||'•'} ${esc(LOCATIONS[id]?.name||id)}</span>`).join('')}${envs.map(id=>`<span>${esc(ENVIRONMENTS.find(e=>e.id===id)?.name||id)}</span>`).join('')}${bosses.map(id=>`<span>${esc(BOSSES.find(e=>e.id===id)?.name||id)}</span>`).join('')}</div>`);
+}
+function openSpeciesPicker(){
+ const blocked=state.field.some(Boolean)||!!state.experiment;openMetaModal('TANAMAN','🌱 Spesies & kalender',`<div class="species-picker">${Object.values(SPECIES).map(profile=>{const unlocked=speciesUnlocked(profile.id),active=state.species===profile.id;return `<button type="button" data-species="${profile.id}" aria-pressed="${active}" ${!unlocked?'disabled':''}><span>${profile.icon}</span><b>${esc(profile.name)}</b><small><i>${esc(profile.latin)}</i> · ±${profile.maturityDays} hari${unlocked?'':' · terkunci'}</small></button>`;}).join('')}</div><p class="species-note">${blocked?'Kosongkan lahan dan selesaikan rancangan aktif sebelum mengganti spesies.':'Padi dan kedelai terbuka setelah progres rancob dasar. Harga non-jagung merupakan parameter simulasi.'}</p>`);$('#metaModalBody').querySelectorAll('[data-species]').forEach(button=>button.onclick=()=>{const id=button.dataset.species;if(id===state.species)return;if(blocked){toast('Selesaikan musim/rancangan sebelum ganti tanaman');return;}if(!speciesUnlocked(id))return;state.species=id;state.maxDay=seasonLengthFor(id,state.challenge);state.day=Math.min(state.day,state.maxDay);const seed=speciesVault(id)[0];if(seed)state.selectedSeedId=seed.id;state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,id);save();render();openSpeciesPicker();});
+}
+function openQuickMore(){
+ const firstSeason=state.season===1&&!state.onboarding?.complete;
+ const gameButtons=`
+    <button data-quick-more="collection">◆<span>Koleksi</span></button>
+    <button data-quick-more="species">🌱<span>Tanaman</span></button>
+    <button data-quick-more="economy">Rp<span>Ekonomi</span></button>
+    <button data-quick-more="analysis">📊<span>Analisis</span></button>`;
+ const progressButtons=`
+    <button data-quick-more="notebook">▤<span>Notebook</span></button>
+    <button data-quick-more="record">◷<span>Rekor</span></button>
+    <button data-quick-more="recovery">↶<span>Pemulihan</span></button>
+    <button data-quick-more="legacy">↺<span>Legacy</span></button>
+    <button data-quick-more="map">⌖<span>Lokasi</span></button>
+    <button data-quick-more="social">👥<span>Sosial</span></button>
+    ${firstSeason?'':`<button data-quick-more="research-history">📐<span>Arsip Riset</span></button>
+    <button data-quick-more="generation">🧬<span>Generasi</span></button>
+    <button data-quick-more="run">⚑<span>Challenge</span></button>
+    <button data-quick-more="rival">⚔<span>Rival</span></button>
+    <button data-quick-more="academy">🎓<span>Akademi</span></button>`}`;
+ const settingButtons=`
+    <button data-quick-more="comfort">⚙<span>Kenyamanan</span></button>
+    <button data-quick-more="music">♫<span>Audio</span></button>`;
+  openMetaModal('MENU',firstSeason?'Musim 1 · dasar':'Menu',`<div class="quick-menu-sections">
+    <section><small>Permainan</small><div class="quick-menu-grid">${gameButtons}</div></section>
+    <section><small>Progres</small><div class="quick-menu-grid">${progressButtons}</div></section>
+    <section><small>Pengaturan</small><div class="quick-menu-grid">${settingButtons}</div></section>
+  </div>${firstSeason?'<p class="first-season-note">Fitur lanjutan terbuka setelah musim pertama.</p>':''}`);
+  $('#metaModalBody').querySelectorAll('[data-quick-more]').forEach(button=>button.onclick=()=>{
+    const key=button.dataset.quickMore;
+    if(key==='notebook')openBreederNotebook();
+    if(key==='research-history')openExperimentHistory();
+    if(key==='generation')openGenerationCompare();
+    if(key==='recovery')openRecoveryCenter();
+    if(key==='social'){closeMetaModal();$('#quickSocial')?.click();}
+    if(key==='map')openWorldMap();
+    if(key==='run')openChallenges();
+    if(key==='rival')openRival();
+    if(key==='record')openRecords();
+    if(key==='legacy')openPrestige();
+    if(key==='collection')openCollectionBook();
+    if(key==='academy')openAcademy();
+    if(key==='species')openSpeciesPicker();
+    if(key==='economy')openEconomyInfo();
+    if(key==='analysis')openAnalysisHub();
+    if(key==='comfort')openComfortSettings();
+    if(key==='music')openMusicPicker();
+ });
+}
+function openEconomyInfo(){
+ const margin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+ const cropProfile=SPECIES[state.species]||SPECIES.maize;
+  openMetaModal('EKONOMI LAPANGAN','Rupiah & harga acuan',`<div class="economy-grid">
+    <div><small>Tanaman aktif</small><b>${cropProfile.icon} ${esc(cropProfile.name)}</b><span><i>${esc(cropProfile.latin)}</i> · ${state.species==='maize'?'acuan harga lapang':'harga simulasi'}</span></div>
+    <div><small>Luas petak</small><b>${PLOT_AREA_M2} m²</b><span>24 petak · 3 kelompok · ${PLOT_AREA_M2*PLOT_COUNT} m²</span></div>
+    <div><small>Harga pasar musim</small><b>${formatRupiah(state.marketPrice)}/kg</b><span>Berubah antar musim</span></div>
+    <div><small>HPP jagung acuan</small><b>${formatRupiah(PRICE_REFERENCE.cornHpp)}/kg</b><span>Jagung pipilan kering</span></div>
+    <div><small>Referensi Sulsel</small><b>${formatRupiah(PRICE_REFERENCE.cornSulsel)}/kg</b><span>Pembelian KA 14%</span></div>
+    <div><small>Urea subsidi</small><b>${formatRupiah(PRICE_REFERENCE.urea)}/kg</b><span>Harga acuan input</span></div>
+    <div><small>NPK subsidi</small><b>${formatRupiah(PRICE_REFERENCE.npk)}/kg</b><span>Harga acuan input</span></div>
+    <div><small>Upah pekerja</small><b>${formatRupiah(laborRate())}/HOK</b><span>Tarif simulasi pekerja</span></div>
+    <div><small>Biaya pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b><span>Tanam, rawat & panen</span></div>
+    <div><small>Biaya input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b><span>Air, pupuk & input</span></div>
+    <div><small>Air irigasi</small><b>${round(state.seasonStats.irrigationM3||0,1)} m³</b><span>Akumulasi musim</span></div>
+    <div><small>Pendapatan musim</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b><span>Panen × harga</span></div>
+    <div><small>Biaya musim</small><b>${formatRupiah(state.seasonStats.cost||0)}</b><span>Input & operasi</span></div>
+    <div><small>Margin berjalan</small><b>${formatRupiah(margin)}</b><span>Belum termasuk nilai riset</span></div>
+  </div><p class="help-note">Harga acuan disederhanakan untuk game.</p>`);
+}
+function openComfortSettings(){
+ const c=state.comfort;
+  openMetaModal('KENYAMANAN','Kontrol & tampilan',`<div class="comfort-settings">
+    <label>Tema<select data-comfort="theme"><option value="system" ${c.theme==='system'?'selected':''}>Ikuti sistem</option><option value="dark" ${c.theme==='dark'?'selected':''}>Gelap</option><option value="light" ${c.theme==='light'?'selected':''}>Terang</option></select></label>
+    <label>Mode ibu jari<select data-comfort="thumb"><option value="right" ${c.thumb==='right'?'selected':''}>Tangan kanan</option><option value="left" ${c.thumb==='left'?'selected':''}>Tangan kiri</option></select></label>
+    <label>Kepadatan<select data-comfort="density"><option value="auto" ${c.density==='auto'?'selected':''}>Otomatis</option><option value="compact" ${c.density==='compact'?'selected':''}>Ringkas</option><option value="large" ${c.density==='large'?'selected':''}>Besar</option></select></label>
+    <label>Haptic<select data-comfort="haptic"><option value="off" ${c.haptic==='off'?'selected':''}>Mati</option><option value="light" ${c.haptic==='light'?'selected':''}>Ringan</option><option value="normal" ${c.haptic==='normal'?'selected':''}>Normal</option></select></label>
+    <label class="toggle-row"><input type="checkbox" data-comfort-check="colorSafe" ${c.colorSafe?'checked':''}>Status ramah buta warna</label>
+    <label class="toggle-row"><input type="checkbox" data-comfort-check="battery" ${c.battery?'checked':''}>Hemat baterai</label>
+    <label>Volume musik <input type="range" min="0" max="100" step="5" value="${Math.round((c.musicVolume??.65)*100)}" data-comfort-range="musicVolume"></label>
+    <label>Volume efek UI <input type="range" min="0" max="100" step="5" value="${Math.round((c.uiVolume??.75)*100)}" data-comfort-range="uiVolume"></label>
+  </div>`);
+  $('#metaModalBody').querySelectorAll('[data-comfort]').forEach(el=>el.onchange=()=>{updateComfort({[el.dataset.comfort]:el.value});openComfortSettings();});
+  $('#metaModalBody').querySelectorAll('[data-comfort-check]').forEach(el=>el.onchange=()=>{updateComfort({[el.dataset.comfortCheck]:el.checked});openComfortSettings();});
+  $('#metaModalBody').querySelectorAll('[data-comfort-range]').forEach(el=>el.oninput=()=>updateComfort({[el.dataset.comfortRange]:Number(el.value)/100}));
+}
+function openMusicPicker(){
+ const c=state.comfort;
+  openMetaModal('AUDIO','Musik Field Zero',`<div class="music-picker">${musicTracks().map(track=>`<button type="button" data-music-track="${track.id}" class="${state.musicTrack===track.id?'active':''}"><b>♫ ${esc(track.name)}</b><span>${esc(track.subtitle)}</span></button>`).join('')}</div><div class="audio-mixer"><label>Musik <input type="range" min="0" max="100" value="${Math.round((c.musicVolume??.65)*100)}" data-audio-volume="music"></label><label>Efek <input type="range" min="0" max="100" value="${Math.round((c.uiVolume??.75)*100)}" data-audio-volume="ui"></label></div>`);
+  $('#metaModalBody').querySelectorAll('[data-music-track]').forEach(button=>button.onclick=()=>{
+    state.musicTrack=button.dataset.musicTrack;state.sound=true;save();setMusicTrack(state.musicTrack);setMusicVolume((state.comfort.musicVolume??.65)*.16);startMusic(state.musicTrack);renderHud();openMusicPicker();
+ });
+  $('#metaModalBody').querySelectorAll('[data-audio-volume]').forEach(input=>input.oninput=()=>{
+    const value=Number(input.value)/100;if(input.dataset.audioVolume==='music'){state.comfort.musicVolume=value;setMusicVolume(value*.16);}else state.comfort.uiVolume=value;save();
+ });
+}
+function openInspectorSheet(){document.body.classList.add('inspector-engaged');document.querySelector('.inspector')?.classList.add('sheet-open');}
+function closeInspectorSheet(){document.body.classList.remove('inspector-engaged');document.querySelector('.inspector')?.classList.remove('sheet-open');}
+function smartActionForSelected(){
+ const crop=selectedCrop(),index=state.selectedPlot;
+ if(!crop)return {tool:'plant',label:'🌱 Tanam'};
+ if(crop.health<=0)return {tool:'remove',label:'× Bersihkan'};
+ if(crop.growth>=100)return {tool:'harvest',label:'🧺 Panen'};
+ const irrigation=irrigationPlan(crop,index);if(irrigation.needed)return {tool:'water',label:'💧 Irigasi'};
+ if(crop.disease>=35)return {tool:'scout',label:'◎ Periksa'};
+ const fertilizer=recommendedFertilizer(crop);if(fertilizer)return {tool:'fertilize',fertilizer,label:(FERTILIZERS[fertilizer]?.short||'Pupuk')+' Pupuk'};
+ return {tool:'scout',label:'◎ Periksa'};
+}
+function carePriority(action,crop,index){
+ if(!crop||crop.health<=0)return -1;
+ const ratio=cropRatio(crop),repro=ratio>=.46&&ratio<=.66;
+ if(action==='water'){const plan=irrigationPlan(crop,index);return Math.max(0,plan.trigger-Number(crop.water||0))*2.2+(repro?38:0)+(crop.water<20?50:0);}
+ if(action==='fertilize'){const d=nutrientDeficits(crop);return d.n*1.7+d.p*1.25+d.k*1.35+(repro?12:0)+(recommendedFertilizer(crop)?20:0);}
+ if(action==='scout')return Math.max(0,Number(crop.disease||0)-18)*2.2+(repro?12:0)+Math.max(0,70-crop.health)*.2;
+ return 0;
+}
+function careCandidates(action){
+ return state.field.slice(0,fieldLimit()).map((crop,index)=>({crop,index,score:carePriority(action,crop,index)})).filter(item=>{
+    const crop=item.crop;if(!crop||crop.health<=0||crop.growth>=100)return false;
+    if(action==='water')return irrigationPlan(crop,item.index).needed;
+    if(action==='fertilize')return !activeChallenge().noFertilizer&&!!recommendedFertilizer(crop);
+    if(action==='scout')return crop.disease>=25;
+    return false;
+ }).sort((a,b)=>b.score-a.score||a.index-b.index);
+}
+function careSummary(){
+ const water=careCandidates('water'),fertilize=careCandidates('fertilize'),scout=careCandidates('scout'),ready=state.field.slice(0,fieldLimit()).map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0&&item.crop.growth>=100);
+ return {water,fertilize,scout,ready,total:unique([...water,...fertilize,...scout].map(item=>item.index)).length};
+}
+function applyCareAction(action,index,{quiet=false,fertilizerId=''}={}){
+ const crop=state.field[index];if(!crop||crop.health<=0)return false;
+ const label='P'+String(index+1).padStart(2,'0');
+ if(action==='scout'){
+    const labor=laborCost('scout');if(state.coins<labor)return false;
+    chargeFarmCost(labor,{labor});crop.scouted++;const bonus=traitSum(allCropTraits(crop),'scoutRp')+(hasTech('drone')?2:0);state.rp+=2+bonus;
+    if(crop.mutation&&!crop.revealed&&(hasTech('drone')||chance(.7))){crop.revealed=true;discoverTrait(crop.mutation);addLog(label+': pekerja menemukan '+traitMeta(crop.mutation).name+' · upah '+formatRupiah(labor)+'.');}
+    else addLog(label+': pemeriksaan pekerja · penyakit '+Math.round(crop.disease)+'% · '+formatRupiah(labor)+'.');
+    crop.disease=Math.max(0,crop.disease-(hasTech('drone')?9:5));
+    if(!quiet){beep(540);toast('◎ '+label+' · '+formatRupiah(labor));}
+    return true;
+ }
+ if(action==='water'){
+    const price=irrigationActionCost(crop,index);if(state.coins<price.total)return false;
+    const before=Number(crop.water)||0;crop.water=Math.max(before,price.plan.target);
+    chargeFarmCost(price.total,{labor:price.labor,input:price.pump});state.irrigationUses++;state.seasonStats.irrigationM3=(state.seasonStats.irrigationM3||0)+price.plan.volumeM3;
+    crop.stress=Math.max(0,crop.stress-(hasTech('irrigation')?6:3));
+    addLog(label+': '+price.plan.label+' '+price.plan.depthMm+' mm (±'+price.plan.volumeM3+' m³) · '+formatRupiah(price.total)+'.');
+    if(!quiet){beep(360);toast('💧 '+label+' · '+Math.round(crop.water)+'% · '+formatRupiah(price.total));}
+    return true;
+ }
+ if(action==='fertilize'){
+    if(activeChallenge().noFertilizer)return false;
+    const id=fertilizerId||recommendedFertilizer(crop)||'urea',product=FERTILIZERS[id];if(!product)return false;
+    const price=fertilizerActionCost(crop,id);if(state.coins<price.total)return false;
+    const timing=id==='urea'?nitrogenTimingEfficiency(crop):clamp(1-Math.max(0,cropRatio(crop)-.48)*.65,.68,1);
+    const meta=plotMeta(index),pHFactor=clamp(1-Math.abs((Number(meta.pH)||6.2)-6.2)*.08,.75,1),precision=hasTech('precisionN')?1.08:1;
+    const high=(product.n&&crop.n>82)||(product.p&&crop.p>82)||(product.k&&crop.k>82);
+    crop.n=clamp(crop.n+product.n*timing*pHFactor*precision,0,110);
+    crop.p=clamp(crop.p+product.p*timing*pHFactor,0,110);
+    crop.k=clamp(crop.k+product.k*timing*pHFactor,0,110);
+    if(product.organic){crop.water=clamp(crop.water+4);crop.stress=Math.max(0,crop.stress-2);}
+    chargeFarmCost(price.total,{labor:price.labor,input:price.material});
+    if(high){crop.stress=clamp(crop.stress+5,0,120);crop.health=clamp(crop.health-2);}
+    const doseGram=Math.round(price.doseKg*1000);
+    addLog(label+': '+product.name+' '+doseGram+' g/25 m² · efisiensi '+Math.round(timing*pHFactor*100)+'% · '+formatRupiah(price.total)+'.');
+    recordDecision('pemupukan',product.name+' H'+state.day,'N '+Math.round(crop.n)+' · P '+Math.round(crop.p)+' · K '+Math.round(crop.k));
+    if(!quiet){beep(440);toast(product.short+' '+label+' · '+doseGram+' g · '+formatRupiah(price.total));}
+    return true;
+ }
+ return false;
+}
+function careCenterHtml(){
+ const view=careSummary(),forecast=weatherRiskPreview(),firstWater=view.water[0],firstFert=view.fertilize[0];
+ const waterText=firstWater?(()=>{const c=irrigationActionCost(firstWater.crop,firstWater.index);return '±'+c.plan.depthMm+' mm · '+formatRupiah(c.total)+'/petak';})():'Irigasi sesuai fase';
+ const fertNames=unique(view.fertilize.slice(0,5).map(item=>FERTILIZERS[recommendedFertilizer(item.crop)]?.short).filter(Boolean)).join('/');
+ const card=(action,icon,title,list,note,disabled=false)=>'<button type="button" class="care-choice" data-care-batch="'+action+'" '+(disabled||!list.length?'disabled':'')+'><span>'+icon+'</span><div><b>'+title+'</b><small>'+(list.length?list.length+' petak · '+list.slice(0,3).map(item=>'P'+String(item.index+1).padStart(2,'0')).join(', '):'Tidak ada kebutuhan')+'</small><em>'+note+'</em></div></button>';
+ let body='<section class="care-center"><header><div><small>H'+state.day+' · '+esc(dominantPhenology())+'</small><b>Kas '+formatRupiah(state.coins,true)+' · upah '+formatRupiah(laborRate(),true)+'/HOK</b></div><span>'+(view.total+view.ready.length)+' perlu perhatian</span></header><p>'+esc(forecast)+'</p><div class="care-choices">';
+  body+=card('water','💧','Irigasi',view.water,waterText);
+  body+=card('fertilize','NPK','Pemupukan',view.fertilize,activeChallenge().noFertilizer?'Dilarang challenge':'Rekomendasi '+(fertNames||'N/P/K')+' + upah',activeChallenge().noFertilizer);
+  body+=card('scout','◎','Periksa tanaman',view.scout,'Pekerja lapang · +RP');
+  body+='</div><div class="care-footer">'+(view.ready.length?'<button type="button" data-care-ready>🧺 '+view.ready.length+' siap panen</button>':'')+'<button type="button" data-care-highlight>'+(state.comfort.attention?'Tutup sorotan':'Sorot masalah')+'</button></div><small class="care-rule">Tidak ada energi. Tanpa energi: pekerjaan berjalan selama kas cukup.</small></section>';
+ return {body,view};
+}
+function bindCareCenter(view){
+ const root=$('#metaModalBody');if(!root)return;
+  root.querySelectorAll('[data-care-batch]').forEach(button=>button.onclick=()=>batchCare(button.dataset.careBatch));
+  root.querySelector('[data-care-ready]')?.addEventListener('click',()=>{state.selectedPlot=view.ready[0].index;closeMetaModal();renderField();renderInspector();setFieldTool('harvest');document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});});
+  root.querySelector('[data-care-highlight]')?.addEventListener('click',()=>{toggleAttention();refreshCareCenter();});
+}
+function refreshCareCenter(){
+ const root=$('#metaModalBody');if(!root)return;
+ const view=careCenterHtml();root.innerHTML=view.body;bindCareCenter(view.view);
+}
+function batchCare(action){
+ const names={water:'Irigasi',fertilize:'Pemupukan',scout:'Pemeriksaan'},label=names[action]||'Perawatan',candidates=careCandidates(action);
+ if(!candidates.length){toast('Tidak ada petak yang membutuhkan '+label.toLowerCase());return;}
+  clearUndo();let done=0,spentBefore=state.coins;
+ for(const item of candidates){
+    state.selectedPlot=item.index;
+    if(!applyCareAction(action,item.index,{quiet:true}))break;
+    done++;
+ }
+ if(done){addLog('🌿 '+label+' oleh pekerja · '+done+' petak · biaya '+formatRupiah(Math.max(0,spentBefore-state.coins))+'.');document.dispatchEvent(new Event('fieldzero-field-change'));}
+  render();refreshCareCenter();toast(done?label+' · '+done+' petak':'Kas tidak cukup');
+}
+function openCareCenter(){
+ const view=careCenterHtml();
+  openMetaModal('RAWAT','Prioritaskan pekerjaan lapang',view.body);
+  bindCareCenter(view.view);
+}
+function renderComfortControls(){
+ const issues=attentionIndexes(),care=careSummary(),careCount=care.total+care.ready.length,smart=smartActionForSelected(),button=$('#smartAction'),attention=$('#attentionToggle');
+ if(button){button.innerHTML=smart.label;button.dataset.smartTool=smart.tool;}
+ if(attention){attention.setAttribute('aria-pressed',String(!!state.comfort.attention));attention.title=careCount?careCount+' petak perlu perhatian':'Perawatan terkendali';$('#attentionCount').textContent=careCount;}
+}
+function runSmartAction(){
+ const action=smartActionForSelected();if(action.tool==='plant')plantSelected();else cropAction(action.tool);
+}
+function toggleAttention(){
+ const issues=attentionIndexes();
+  state.comfort.attention=!state.comfort.attention;
+ if(state.comfort.attention&&issues.length)state.selectedPlot=issues[0].index;
+  save();renderField();renderInspector();renderComfortControls();
+}
+function setFieldTool(tool=''){
+  activeFieldTool=activeFieldTool===tool?'':tool;
+  document.querySelectorAll('[data-field-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fieldTool===activeFieldTool)));
+  document.querySelector('#fieldGrid')?.classList.toggle('tool-active',!!activeFieldTool);
+  renderPlayControls();
+}
+function useFieldTool(tool,index,{seedId=''}={}){
+ if(index<0||index>=fieldLimit())return false;
+  state.selectedPlot=index;
+ if(seedId){const seed=state.vault.find(item=>item.id===seedId);if(seed)state.selectedSeedId=seed.id;}
+ if(tool==='plant'){plantSelected();return true;}
+ if(tool==='treatment')return applyExperimentTreatment(index);
+ if(!state.field[index]){haptic(4);renderField();renderInspector();return false;}
+ if(tool==='harvest'){
+    if(state.field[index].growth<100||state.field[index].health<=0){haptic(4);renderField();renderInspector();return false;}
+    harvestPlot(index,1,true);return true;
+ }
+ if(['water','fertilize','scout'].includes(tool)){cropAction(tool);return true;}
+ return false;
+}
+
+
+function workflowStep(){
+ const ready=state.field.some(crop=>crop&&crop.health>0&&crop.growth>=100);
+ const crops=state.field.some(Boolean);
+ const candidates=selectionCandidates(state.season);
+ const exp=state.experiment;
+ const dataCount=exp?exp.units.filter(unit=>Object.values(unit.observations||{}).some(value=>String(value??'').trim()!=='')).length:0;
+ if(ready)return 'harvest';
+ if(crops)return 'care';
+ if(exp&&dataCount>=2&&!exp.reviewed)return 'analysis';
+ if(candidates.length)return 'selection';
+ return 'plant';
+}
+function renderWorkflow(){
+ const active=workflowStep();
+  document.querySelectorAll('[data-flow-step]').forEach(el=>el.classList.toggle('active',el.dataset.flowStep===active));
+}
+function renderProgressiveUI(){
+  document.body.dataset.gameLevel=String(state.level||1);
+ const firstSeason=state.season===1&&!state.onboarding?.complete;
+  document.body.classList.toggle('first-season',firstSeason);
+  document.querySelectorAll('[data-unlock-level]').forEach(el=>{el.hidden=(state.level||1)<Number(el.dataset.unlockLevel||1);});
+  ['#quickExperiment','[data-main-action="research"]','[data-main-action="analysis"]'].forEach(selector=>document.querySelectorAll(selector).forEach(el=>{el.hidden=firstSeason;}));
+  document.querySelectorAll('#labHub .selection-panel,#labHub .academy-panel,#labHub .lab-panel').forEach(el=>{el.hidden=firstSeason;});
+ const summary=$('#labHub>summary span b');if(summary)summary.textContent=firstSeason?'🌱 Benih':'🔬 Lab';
+}
+function openAnalysisHub(){
+ if(state.experiment){openStatisticsLab();return;}
+ if(selectionCandidates(state.season).length){openSelection();return;}
+  location.href='/stat/';
+}
+function render(){
+  renderHud();renderSeason();renderField();renderInspector();renderVault();renderSelectionPreview();renderLog();renderDiscoveries();renderMeta();renderPlayControls();renderComfortControls();renderWorkflow();renderProgressiveUI();renderAdvanceNotice();save();
+}
+
+function plantSelected(){
+ const assignedSeed=experimentSeedForPlot(state.selectedPlot),seed=assignedSeed||selectedSeed(),challenge=activeChallenge(),index=state.selectedPlot;
+ const inputCost=actionCost('plant'),workerCost=laborCost('plant'),plantCost=inputCost+workerCost;
+ if(!seed||seedSpecies(seed)!==state.species||state.field[index]||index>=fieldLimit()||state.coins<plantCost)return;
+ if((seed.stock||0)<1){toast('🌱×');return;}
+ if((seed.viability||0)<45){toast('Benih terlalu tua');return;}
+ if(challenge.mono&&state.monoSeedId&&seed.id!==state.monoSeedId){toast('Challenge hanya mengizinkan satu varietas');return;}
+ const snapshot=structuredClone(state);
+ let crop=null;
+ if(replantCache&&replantCache.expires>Date.now()&&replantCache.index===index&&replantCache.seedId===seed.id){crop=structuredClone(replantCache.crop);replantCache=null;}
+ if(!crop){
+    const mutationChance=Math.min(.18,.045+state.level*.004+(state.env.id==='anomaly'?.05:0)+(hasTech('genome')?.02:0));
+    let mutation=null;
+    if(simUnit('mutation',state.season,index,seed.id)<mutationChance){
+      const pool=MUTATION_POOL.filter(id=>!seed.traits.includes(id));mutation=pool.length?simPick(pool,'mutation-trait',state.season,index,seed.id):null;
+      if((state.env.id==='anomaly'||state.env.boss)&&state.season>=4&&simUnit('zero-mutation',state.season,index,seed.id)<.08)mutation='zero';
+    }
+    const cropUid=uid('plant'),nutrients=initialNutrients(index);
+    crop={
+      uid:cropUid,species:state.species,seed:structuredClone(seed),age:0,growth:3,health:100,water:62,n:nutrients.n,p:nutrients.p,k:nutrients.k,disease:0,stress:0,mutation,revealed:false,scouted:0,
+      waterSensitivity:round(.88+simUnit('water-sensitivity',state.season,index,seed.id)*.26,2),
+      nDemand:round(.88+simUnit('n-demand',state.season,index,seed.id)*.28,2),
+      diseaseSusceptibility:round(.85+simUnit('disease-susceptibility',state.season,index,seed.id)*.32,2),
+      stressLog:{water:0,n:0,p:0,k:0,disease:0,heat:0,burn:0}
+    };
+    crop.samples=makeSubsamples({plotUid:plotMeta(index).uid,plantUid:cropUid,species:state.species,simulationSeed:state.simulationSeed});
+ }else{
+    const nutrients=initialNutrients(index);crop.n=Number.isFinite(Number(crop.n))?crop.n:nutrients.n;crop.p=Number.isFinite(Number(crop.p))?crop.p:nutrients.p;crop.k=Number.isFinite(Number(crop.k))?crop.k:nutrients.k;
+ }
+  rememberLineage(seed);seed.stock=Math.max(0,(seed.stock||0)-1);state.field[index]=crop;applyPendingExperimentEffect(index,state.field[index]);
+ const expUnit=experimentUnit(index);if(expUnit)expUnit.material={plantUid:crop.uid,seedId:seed.id,seedName:seed.name,generation:seed.generation,species:state.species};
+  recordDailyExperimentObservation(index,state.field[index],{force:true});
+  chargeFarmCost(plantCost,{labor:workerCost,input:inputCost});
+  addLog('P'+String(index+1).padStart(2,'0')+': '+seed.name+' ditanam pekerja · '+formatRupiah(plantCost)+'.');
+  offerUndo(snapshot,'Tanam P'+String(index+1).padStart(2,'0'),{index,seedId:seed.id,crop:structuredClone(crop)});
+  beep(410);render();toast('🌱 P'+String(index+1).padStart(2,'0')+' · '+seed.name+' · '+formatRupiah(plantCost));document.dispatchEvent(new Event('fieldzero-field-change'));
+}
+function cropAction(action,fertilizerId=''){
+ const crop=selectedCrop();if(!crop)return;
+ if(action==='harvest'){clearUndo();harvestPlot(state.selectedPlot,1,true);return;}
+ const snapshot=structuredClone(state);
+ if(action==='remove'){
+    const worker=laborCost('scout');if(state.coins<worker){toast('Kas tidak cukup untuk pekerja');return;}
+    chargeFarmCost(worker,{labor:worker});state.field[state.selectedPlot]=null;state.seasonStats.failed++;addLog('P'+(state.selectedPlot+1)+': tanaman mati dibersihkan pekerja · '+formatRupiah(worker)+'.');
+    offerUndo(snapshot,'Bersihkan P'+String(state.selectedPlot+1).padStart(2,'0'));render();return;
+ }
+ if(crop.health<=0)return;
+ const index=state.selectedPlot,applied=applyCareAction(action,index,{fertilizerId});
+ if(!applied){if(action==='fertilize'&&activeChallenge().noFertilizer)toast('Challenge melarang pupuk');else toast('Kas tidak cukup atau tindakan tidak tersedia');return;}
+ if(action==='water')offerUndo(snapshot,'Irigasi P'+String(index+1).padStart(2,'0'));
+ if(action==='fertilize')offerUndo(snapshot,'Pemupukan P'+String(index+1).padStart(2,'0'));
+  render();
+}
+function yieldFor(crop){
+ const traits=allCropTraits(crop),gFx=geneticEffects(crop.seed.genome),healthFactor=clamp(crop.health,0,100)/100;
+ const stressPenalty=1-(clamp(crop.stress,0,120)/180)*(1-traitSum(traits,'stressRes'));
+ const waterBase=clamp(crop.water,0,100)/100,nBase=clamp(crop.n,0,100)/100,pBase=clamp(crop.p,0,100)/100,kBase=clamp(crop.k,0,100)/100;
+ const waterFactor=1-(1-(.72+.28*waterBase))*(crop.waterSensitivity||1),nFactor=1-(1-(.76+.24*nBase))*(crop.nDemand||1),pFactor=.86+.14*pBase,kFactor=.84+.16*kBase;
+ let traitYield=traitValue(traits,'yield',1);
+ if(crop.n<35)traitYield*=traitValue(traits,'lowNYield',1);
+ const noise=.9+simUnit('yield',state.season,crop.uid||crop.seed.id)*.2;
+ const challenge=activeChallenge(),loc=activeLocation(),legacy=1+(state.legacy||0)*.03,species=SPECIES[crop.species]||SPECIES.maize;
+ const maturityBonus=1+Math.min(.08,Math.max(0,(crop.growth-100)/125)),reproductiveFactor=1-Math.min(.28,(Number(crop.reproStress)||0)/100);
+ return Math.max(0,round(crop.seed.baseYield*(species.yieldScale||1)*(gFx.yield||1)*healthFactor*stressPenalty*waterFactor*nFactor*pFactor*kFactor*traitYield*reproductiveFactor*(crop.experimentEffects?.yield||1)*(state.env.yield||1)*(loc.yield||1)*(challenge.yield||1)*legacy*maturityBonus*noise,1));
+}
+function candidateFrom(crop,yieldValue,index=state.selectedPlot){
+ const traits=allCropTraits(crop),gain=yieldValue>crop.seed.baseYield?1.04:1,advance=makeProgeny(crop.seed,null,'self',crop.uid+':G'+((crop.seed.generation||0)+1));
+ return {
+    id:uid('seed'),name:'FZ-'+state.season+'-'+String(index+1).padStart(2,'0'),generation:(crop.seed.generation||0)+1,generationLabel:advance?.generationLabel||'S1',
+    traits:unique(traits).slice(0,4),baseYield:round(crop.seed.baseYield*gain*(.97+seededUnit(hashString(crop.uid+':yield'))*.06)*(activeLocation().quality||1),1),
+    vigor:round(crop.seed.vigor*(.98+seededUnit(hashString(crop.uid+':vigor'))*.05),2),source:'Seleksi musim '+state.season,parents:[crop.seed.id],
+    evidenceTests:Number(crop.seed.evidenceTests||0)+1,
+    stressTests:Number(crop.seed.stressTests||0)+(['drought','rust','wet','poorN'].includes(state.env.id)||state.env.boss?1:0),
+    species:crop.species||state.species,stock:6,viability:97,ageSeasons:0,
+    genome:advance?.genome||selfGenome(crop.seed.genome,crop.uid),homozygosity:advance?.homozygosity??genomeStats(crop.seed.genome).homozygosity
+ };
+}
+function selectionCandidate(index,crop,yieldValue){
+ const seed=candidateFrom(crop,yieldValue,index),exp=experimentUnit(index)?state.experiment:null,accuracy=exp?designPrecisionScore(exp)/100:Math.min(.9,.58+seedEvidence(seed).level*.08);
+ const anthesis=Number(crop.anthesisBioDay)||null,silking=Number(crop.silkingBioDay)||null,asi=anthesis&&silking?round(silking-anthesis,1):null;
+ const entry={
+    id:uid('candidate'),season:state.season,plot:index,plotUid:plotMeta(index).uid,plantUid:crop.uid,yield:yieldValue,
+    health:round(crop.health,1),stress:round(crop.stress,1),disease:round(crop.disease,1),accuracy:round(accuracy,2),anthesis,silking,asi,
+    environment:state.env?.name||'',location:activeLocation().name,seed,selected:false
+ };
+  state.selectionPool=[entry,...state.selectionPool].slice(0,64);return entry;
+}
+function selectionCandidates(season=null){
+ return state.selectionPool.filter(item=>season===null||Number(item.season)===Number(season));
+}
+function renderSelectionPreview(){
+ const count=selectionCandidates(state.season).filter(item=>!item.selected).length,el=$('#selectionCount');if(el)el.textContent=String(count);
+}
+function selectCandidate(id){
+ const item=state.selectionPool.find(candidate=>candidate.id===id);if(!item||item.selected)return;
+  checkpoint('Sebelum seleksi '+item.plotUid);
+  item.selected=true;
+ if(!state.vault.some(seed=>seed.id===item.seed.id))state.vault.push(item.seed);
+  state.selectedSeedId=item.seed.id;rememberLineage(item.seed);item.seed.traits.forEach(discoverTrait);
+  academyMark('selection',{note:'Seleksi kandidat berdasarkan data'});
+ if(seedEvidence(item.seed).level>=4)academyMark('stability',{note:'Galur relatif stabil setelah pengujian'});
+  noteBreeder('seleksi','Memilih '+item.seed.name+' dari '+item.plotUid,{yield:item.yield,health:item.health,stress:item.stress,accuracy:item.accuracy});
+  recordDecision('selection','Memilih '+item.seed.name,'Hasil '+Number(item.yield).toFixed(1)+' kg · akurasi '+Math.round((item.accuracy??1)*100)+'%');
+  save();render();toast('🧬 '+item.seed.name+' disimpan');
+}
+function selectionScore(item,mode=state.selectionMode||'index'){
+ const accuracy=clamp(Number(item.accuracy??.7),.35,1);
+ if(mode==='yield')return (Number(item.yield)||0)*(.65+.35*accuracy);
+ if(mode==='health')return Number(item.health)||0;
+ return (Number(item.yield)||0)*(2.7+1.3*accuracy)+(Number(item.health)||0)*.4-(Number(item.stress)||0)*.3-(Number(item.disease)||0)*.2;
+}
+function selectionDifferential(){
+ const all=selectionCandidates();if(!all.length)return null;
+ const selected=all.filter(item=>item.selected);if(!selected.length)return null;
+ const populationMean=all.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/all.length;
+ const selectedMean=selected.reduce((sum,item)=>sum+(Number(item.yield)||0),0)/selected.length;
+ return {populationMean,selectedMean,s:selectedMean-populationMean,nPopulation:all.length,nSelected:selected.length};
+}
+function selectionLearningHtml(){
+ const d=selectionDifferential();if(!d)return '';
+ return `<section class="selection-differential"><b>ΔG Latihan · Diferensial seleksi</b><div><span>Populasi <strong>${d.populationMean.toFixed(1)} kg</strong></span><span>Terpilih <strong>${d.selectedMean.toFixed(1)} kg</strong></span><span>S <strong>${d.s>=0?'+':''}${d.s.toFixed(1)} kg</strong></span></div><small>S bukan respons genetik aktual. Dalam model sederhana, respons harapan sering ditulis R ≈ h²S.</small><button type="button" data-selection-response>Uji konsep respons seleksi</button></section>`;
+}
+function openSelection(){
+ const mode=state.selectionMode||'index',items=selectionCandidates().slice(0,48).sort((a,b)=>selectionScore(b,mode)-selectionScore(a,mode)).slice(0,30);
+ const controls=`<div class="selection-modes"><button data-selection-mode="yield" aria-pressed="${mode==='yield'}">🧺 Hasil</button><button data-selection-mode="health" aria-pressed="${mode==='health'}">♥ Sehat</button><button data-selection-mode="index" aria-pressed="${mode==='index'}">Σ Indeks</button></div>`;
+  openMetaModal('SELEKSI','🧬 Kandidat generasi berikutnya',selectionLearningHtml()+controls+(items.length?`<div class="selection-list">${items.map((item,rank)=>{
+    const ev=seedEvidence(item.seed),score=selectionScore(item,mode);
+    return `<article class="${item.selected?'selected':''}"><header><b>#${rank+1} · ${esc(item.seed.name)}</b><span>${item.plotUid}</span></header><div class="candidate-metrics"><span>🧺 ${Number(item.yield).toFixed(1)} kg</span><span>♥ ${Math.round(item.health)}%</span><span>◈ ${Math.round(item.disease)}%</span><span>◎ ${Math.round((item.accuracy??.7)*100)}%</span>${item.asi===null?'':`<span>ASI ${Number(item.asi).toFixed(1)} h</span>`}<span>Σ ${score.toFixed(1)}</span></div><small>${esc(ev.label)} · ${esc(item.seed.generationLabel||('G'+item.seed.generation))} · ${esc(item.environment||'lingkungan belum dicatat')}</small><button data-select-candidate="${esc(item.id)}" ${item.selected?'disabled':''}>${item.selected?'✓ Terpilih':'🧬 Pilih'}</button></article>`;
+ }).join('')}</div>`:'<div class="meta-empty">Belum ada kandidat dari petak 🧬 atau uji galur.</div>'));
+  $('#metaModalBody').querySelector('[data-selection-response]')?.addEventListener('click',()=>openProfessorCase('response'));
+  $('#metaModalBody').querySelectorAll('[data-selection-mode]').forEach(button=>button.onclick=()=>{state.selectionMode=button.dataset.selectionMode;save();openSelection();});
+  $('#metaModalBody').querySelectorAll('[data-select-candidate]').forEach(button=>button.onclick=()=>{selectCandidate(button.dataset.selectCandidate);openSelection();});
+}
+function harvestReason(crop){
+ const log={water:0,n:0,p:0,k:0,disease:0,heat:0,burn:0,...(crop?.stressLog||{})};
+ const labels={water:'kekurangan air',n:'kekurangan nitrogen',p:'kekurangan fosfor',k:'kekurangan kalium',disease:'penyakit',heat:'panas',burn:'serangan pemain'};
+ const [key,value]=Object.entries(log).sort((a,b)=>b[1]-a[1])[0]||['',0];
+ if(value>0)return labels[key]||'stres';
+ if(crop.health<85)return 'kesehatan tanaman';
+ return 'kondisi optimal';
+}
+function recordHarvest(index,crop,multiplier=1,announce=true){
+ const use=plotUse(index),y=round(yieldFor(crop)*multiplier,1),price=Number(state.marketPrice)||PRICE_REFERENCE.cornHpp,revenueFactor=use==='commercial'?1:use==='breeding'?.5:.25,revenue=Math.round(y*price*revenueFactor/100)*100,labor=laborCost('harvest');
+  state.seasonStats.yield=round(state.seasonStats.yield+y,1);state.seasonStats.harvests++;state.seasonStats.revenue=(state.seasonStats.revenue||0)+revenue;state.seasonStats.cost=(state.seasonStats.cost||0)+labor;state.seasonStats.laborCost=(state.seasonStats.laborCost||0)+labor;
+ if(crop.health>=80)state.seasonStats.healthy++;state.seasonStats.maxYield=Math.max(state.seasonStats.maxYield,y);
+  harvestCombo++;state.coins=Math.max(0,state.coins+revenue-labor);if(use==='breeding')state.rp+=Math.max(1,Math.floor(y/12));state.xp+=Math.max(5,Math.round(y*1.6));state.level=levelFromXp(state.xp);
+ const expUnit=experimentUnit(index),selectionEligible=use==='breeding'||(state.experiment?.kind==='genotype'&&!!expUnit&&expUnit.role!=='check');
+ if(selectionEligible){
+    const candidate=selectionCandidate(index,crop,y);
+    if(!state.seasonBest||y>state.seasonBest.yield)state.seasonBest={yield:y,seed:candidate.seed,plot:index,plantUid:crop.uid,candidateId:candidate.id};
+ }
+  allCropTraits(crop).forEach(id=>discoverTrait(id));
+ if(crop.mutation)awardAchievement('anomaly');awardAchievement('first');if(y>=20)awardAchievement('twenty');if(crop.health>=95)awardAchievement('perfect');
+ const reason=harvestReason(crop);recordExperimentObservation(index,crop,y);
+ const meta=plotMeta(index),unit=expUnit,treatment=experimentTreatment(unit);
+  meta.history=[...(meta.history||[]),{season:state.season,use,seedId:crop.seed.id,seedName:crop.seed.name,yield:y,treatment:treatment?.name||'',health:round(crop.health,1)}].slice(-8);
+  addLog(meta.uid+': '+(PLOT_USES[use]?.icon||'•')+' panen '+y+' kg · bruto '+formatRupiah(revenue)+' · pekerja '+formatRupiah(labor)+' · '+reason+'.');
+ if(announce)toast('🧺 '+y+' kg · net '+formatRupiah(Math.max(0,revenue-labor))+(harvestCombo>1?' · ×'+harvestCombo:''));
+  state.field[index]=null;beep(650,.08);return y;
+}
+function harvestPlot(index,multiplier=1,announce=true){
+ const crop=state.field[index];if(!crop||crop.growth<100||crop.health<=0)return 0;
+ const y=recordHarvest(index,crop,multiplier,announce);render();return y;
+}
+
+function infectedNeighbors(index,snapshot){
+ if(index<0||!Array.isArray(snapshot))return 0;
+ const block=Math.floor(index/PLOTS_PER_BLOCK),from=block*PLOTS_PER_BLOCK,to=from+PLOTS_PER_BLOCK-1;
+ return [index-1,index+1].filter(i=>i>=from&&i<=to&&Number(snapshot[i]||0)>=38).length;
+}
+function processCrop(crop,weather,index=-1,diseaseSnapshot=[]){
+ if(!crop||crop.health<=0)return;
+  crop.stressLog={water:0,n:0,p:0,k:0,disease:0,heat:0,burn:0,...(crop.stressLog||{})};
+ if(crop.burned>0){crop.stressLog.burn++;crop.burned=Math.max(0,crop.burned-1);}
+ const traits=allCropTraits(crop),loc=activeLocation(),challenge=activeChallenge(),pressure=pressureLevel(),memory=state.weatherMemory||{},streakBoost=Number(challenge.streakBoost||1),gFx=geneticEffects(crop.seed.genome),species=SPECIES[crop.species]||SPECIES.maize,dayScale=clamp(12/Math.max(70,Number(species.maturityDays)||110),.075,.16);
+ const droughtRes=traitSum(traits,'droughtRes'),heatRes=traitSum(traits,'heatRes'),diseaseRes=traitSum(traits,'diseaseRes');
+ const waterLoss=traitValue(traits,'waterLoss',1)*(crop.waterSensitivity||1)*(gFx.waterLoss||1)*(species.waterUse||1),nLoss=traitValue(traits,'nLoss',1)*(crop.nDemand||1)*(species.nUse||1);
+ const meta=index>=0?plotMeta(index):{fertility:1,moisture:1,history:[]},carry=plotCarryover(meta),fx=crop.experimentEffects||{},seasonalWater=(state.env.waterLoss||0)+(loc.waterLoss||0);
+ const heatStreak=memory.hot>=2?-(memory.hot-1)*3.2*streakBoost:0,dryStreak=memory.dry>=3?-(memory.dry-2)*1.8*streakBoost:0;
+ const drainage=Number(carry.drainage||meta.drainage||1),rainRetention=weather.water>0?Math.max(.72,2-drainage):1,rawWater=(weather.water<0?(weather.water+seasonalWater+heatStreak+dryStreak)*waterLoss*(fx.waterLoss||1)*(1-droughtRes):weather.water+seasonalWater)+(fx.waterDaily||0),waterDelta=rawWater*(meta.moisture||1)*rainRetention*dayScale;
+  crop.water=clamp(crop.water+waterDelta);
+ const wetN=memory.wet>=2?(memory.wet-1)*1.4*streakBoost:0;
+  crop.n=clamp(crop.n-(5+(state.env.nLoss||0)+(loc.nLoss||0)+wetN)*nLoss*(fx.nLoss||1)*(2-(carry.fertility||1))*dayScale);
+ const fertilityPressure=(2-(carry.fertility||1));
+  crop.p=clamp((Number(crop.p)||0)-(1.35+(memory.wet>=3?.35:0))*fertilityPressure*dayScale);
+  crop.k=clamp((Number(crop.k)||0)-(1.8+(memory.hot>=2?.45:0))*fertilityPressure*dayScale);
+ const neighborPressure=infectedNeighbors(index,diseaseSnapshot)*.025*Number(challenge.spreadBoost||1),wetDisease=memory.wet>=2?(memory.wet-1)*.018*streakBoost:0;
+ const carryDisease=(Number(state.fieldPressure?.pathogen)||0)*.0018;
+ const diseaseRisk=Math.max(0,(weather.disease||0)+(state.env.disease||0)+(loc.disease||0)+neighborPressure+wetDisease+carryDisease+(carry.diseasePressure||0))*(1-diseaseRes)*(crop.diseaseSusceptibility||1)*(fx.diseaseRisk||1)*(gFx.diseaseRisk||1)*pressure*Math.min(.18,Math.max(.07,dayScale*1.15));
+ if(simUnit('disease',state.season,state.day,index,crop.uid||crop.seed.id)<diseaseRisk)crop.disease=clamp(crop.disease+6+simUnit('disease-load',state.season,state.day,index,crop.uid||crop.seed.id)*9);
+ else crop.disease=Math.max(0,crop.disease-(pressure>1.35?.3:.5));
+ let damage=0,stress=0;
+ if(crop.water<20){damage+=7*(1-droughtRes);stress+=10;crop.stressLog.water+=2;}else if(crop.water<38){stress+=4;crop.stressLog.water++;}
+ if(crop.n<20){damage+=4;stress+=6;crop.stressLog.n+=2;}else if(crop.n<35){stress+=2;crop.stressLog.n++;}
+ if(crop.p<20){damage+=2.5;stress+=4;crop.stressLog.p+=2;}else if(crop.p<35){stress+=1.5;crop.stressLog.p++;}
+ if(crop.k<20){damage+=2.5;stress+=4;crop.stressLog.k+=2;}else if(crop.k<35){stress+=1.5;crop.stressLog.k++;}
+ if(weather.heat){damage+=5*(1-heatRes);stress+=6*(1-heatRes);crop.stressLog.heat++;}
+ if(memory.hot>=3){damage+=2.5*(memory.hot-2)*(1-heatRes)*streakBoost;stress+=3*(memory.hot-2);crop.stressLog.heat++;}
+ if(weather===WEATHER.storm&&crop.growth>55){damage+=2;stress+=2;}
+ if(crop.disease>55){damage+=6;stress+=5;crop.stressLog.disease+=2;}else if(crop.disease>30){damage+=2;stress+=2;crop.stressLog.disease++;}
+  damage*=dayScale;stress*=dayScale;
+ const ageRatio=(Number(crop.age)||0)/Math.max(1,Number(species.maturityDays)||110);if(ageRatio>=.46&&ageRatio<=.63){const reproductiveLoad=(crop.water<50?1.6:0)+(crop.n<38?.7:0)+(crop.p<35?.35:0)+(crop.k<40?.45:0)+(weather.heat?1.4:0)+(crop.disease>35?.8:0);crop.reproStress=clamp((Number(crop.reproStress)||0)+reproductiveLoad*dayScale*3.5,0,100);}
+ const damagePressure=1+(pressure-1)*.55,guard=traitSum(traits,'healthGuard')+Math.min(.18,(state.legacy||0)*.03);
+  crop.health=clamp(crop.health-damage*damagePressure*(1-guard));
+  crop.stress=clamp(crop.stress+stress*(1+(pressure-1)*.35),0,120);
+ const growthTrait=traitValue(traits,'growth',1),healthFactor=.55+.45*crop.health/100,resourceFactor=.62+.18*crop.water/100+.11*crop.n/100+.045*crop.p/100+.045*crop.k/100;
+ const firstHarvestBoost=state.achievements.includes('first')?1:1.3,pHFactor=Math.max(.9,1-Math.abs(Number(carry.pH||6.2)-6.2)*.025),compactionPenalty=1-Math.min(.1,Number(carry.compaction||.2)*.16),siteFactor=(.94+.06*(carry.fertility||1))*pHFactor*compactionPenalty,fatiguePenalty=1-Math.min(.08,(Number(state.fieldPressure?.fatigue)||0)*.0012);
+ const dailyGrowth=(100/Math.max(60,Number(species.maturityDays)||110))*1.08;crop.growth=clamp(crop.growth+dailyGrowth*(species.growthRate||1)*Math.min(1.14,firstHarvestBoost)*crop.seed.vigor*growthTrait*(gFx.growth||1)*healthFactor*resourceFactor*siteFactor*fatiguePenalty*(fx.growth||1),0,110);crop.age++;
+}
+function updateFieldPressure(){
+ const crops=state.field.filter(Boolean),count=Math.max(1,crops.length),avgDisease=crops.reduce((sum,c)=>sum+(Number(c.disease)||0),0)/count,avgStress=crops.reduce((sum,c)=>sum+(Number(c.stress)||0),0)/count;
+ const failed=Number(state.seasonStats.failed||0),previous=state.fieldPressure||{};
+  state.fieldPressure={
+    pathogen:round(clamp((Number(previous.pathogen)||0)*.96+avgDisease*.025+failed*.3,0,75),1),
+    fatigue:round(clamp((Number(previous.fatigue)||0)*.97+Math.max(0,avgStress-18)*.015+Math.max(0,(state.seasonStats.yield||0)/Math.max(1,fieldLimit())-10)*.04,0,70),1)
+ };
+}
+function fieldConditionSnapshot(){
+ const living=state.field.slice(0,fieldLimit()).filter(crop=>crop&&crop.health>0);
+ const avg=key=>living.length?living.reduce((sum,crop)=>sum+(Number(crop[key])||0),0)/living.length:0;
+ return {water:avg('water'),n:avg('n'),p:avg('p'),k:avg('k'),disease:avg('disease'),stress:living.filter(crop=>(Number(crop.stress)||0)>=35).length,coins:Number(state.coins)||0};
+}
+function skipWeatherLabel(counts){
+ return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([id,count])=>(WEATHER[id]?.icon||'·')+count).join(' ');
+}
+function stepOneDay({logWeather=true}={}){
+  state.advanceGuard=null;state.day++;harvestCombo=0;
+ if(state.daily){
+    const pool=weatherPool(state.env.id),seed=hashString(state.daily.key+':'+state.day);state.weather=pool[Math.floor(seededUnit(seed)*pool.length)];
+ }else state.weather=deterministicWeather(state.env,state.day);
+ const w=WEATHER[state.weather];weatherMemoryUpdate(state.weather);
+ const diseaseSnapshot=state.field.map(crop=>Number(crop?.disease)||0);
+  state.field.forEach((crop,index)=>processCrop(crop,w,index,diseaseSnapshot));runScheduledExperimentObservation();tickExpedition();
+ if(logWeather)addLog(w.icon+' '+w.name+'. '+w.effect+'.');
+ const eventChance=state.achievements.includes('first')?(.012+Math.min(.008,Math.max(0,state.season-1)*.001)+(state.env.boss?.006:0)):.006;
+ if(simUnit('event',state.season,state.day)<eventChance)state.pendingEvent=createEvent();
+ return state.weather;
+}
+function advanceDays(amount=1,{untilCritical=false}={}){
+  clearUndo();
+ const blockers=blockingAdvanceIssues();
+ if(blockers.length){renderAdvanceNotice();toast(state.pendingEvent?'Kejadian lapang menunggu ditinjau':'Selesaikan dulu · '+blockers[0]);return;}
+ if(state.day>=state.maxDay){finishSeason();return;}
+ if(untilCritical&&!state.field.slice(0,fieldLimit()).some(Boolean)&&!state.experiment){toast('Tanam dulu sebelum lompat ke keputusan');return;}
+ const startDay=state.day,maxSteps=Math.min(untilCritical?30:Math.max(1,Math.round(Number(amount)||1)),state.maxDay-state.day),before=fieldConditionSnapshot(),weatherCounts={};lastTimeStopReason='';
+ let moved=0;
+ for(let i=0;i<maxSteps;i++){
+    const weatherId=stepOneDay({logWeather:maxSteps===1&&!untilCritical});weatherCounts[weatherId]=(weatherCounts[weatherId]||0)+1;moved++;
+    const reason=criticalStopReason();
+    if(reason){lastTimeStopReason=reason;break;}
+    const nowBlocking=blockingAdvanceIssues();if(nowBlocking.length){lastTimeStopReason=nowBlocking[0];break;}
+ }
+ if(moved>1){
+    const after=fieldConditionSnapshot(),parts=['⏩ H'+startDay+'→H'+state.day,skipWeatherLabel(weatherCounts)];
+    const waterDelta=Math.round(after.water-before.water),diseaseDelta=Math.round(after.disease-before.disease);
+    if(waterDelta)parts.push('air '+(waterDelta>0?'+':'')+waterDelta);
+    if(diseaseDelta)parts.push('penyakit '+(diseaseDelta>0?'+':'')+diseaseDelta);
+    if(after.stress!==before.stress)parts.push('stres '+before.stress+'→'+after.stress+' petak');
+    if(after.coins!==before.coins)parts.push('kas '+formatRupiah(after.coins-before.coins,true));
+    if(lastTimeStopReason)parts.push(lastTimeStopReason);
+    addLog(parts.filter(Boolean).join(' · ')+'.');
+ }
+  render();
+ if(lastTimeStopReason)toast('H'+state.day+' · '+lastTimeStopReason);
+ else if(untilCritical)toast('H'+state.day+' · belum ada keputusan kritis');
+}
+function advanceDay(){advanceDays(1);}
+function createEvent(){
+ const types=['rust','trader','soil','drainage'];
+ if(state.season>=3||state.eventFlags.sampledSoil)types.push('signal');
+ if(state.eventFlags.rustObserved)types.push('pathogen');
+ if(state.eventFlags.traderSkipped)types.push('returnTrader');
+ if(state.eventFlags.zeroTrace)types.push('archive');
+ if(state.env.boss)types.push('bossChoice');
+ return {kind:simPick(types,'event-kind',state.season,state.day),id:uid('event')};
+}
+function eventDefinition(event){
+ const defs={
+    rust:{kicker:'BIOSECURITY ALERT',title:'Front penyakit bergerak',text:'Bercak baru muncul di beberapa petak. Intervensi cepat mahal, tetapi mengurangi tekanan penyakit seluruh lahan.',
+      choices:[['spray','Semprot · '+formatRupiah(actionCost('spray'))],['observe','Amati · +4 riset']]},
+    trader:{kicker:'VISITOR',title:'Pedagang benih keliling',text:'Seorang pedagang menawarkan lot benih tanpa silsilah lengkap. Potensinya tidak pasti.',
+      choices:[['buy','Beli lot · '+formatRupiah(actionCost('trader'))],['pass','Lewati']]},
+    soil:{kicker:'SOIL SIGNAL',title:'Pembacaan tanah tidak normal',text:'Sensor menunjukkan pola ion berulang; sampel tanah dapat diambil.',
+      choices:[['sample','Ambil sampel · '+formatRupiah(laborCost('sample'))],['ignore','Abaikan']]},
+    drainage:{kicker:'WEATHER EVENT',title:'Air tertahan di lahan',text:'Saluran tersumbat setelah hujan; pekerja dapat membukanya.',
+      choices:[['drain','Buka drainase · '+formatRupiah(laborCost('drain'))],['risk','Biarkan']]},
+    signal:{kicker:'FIELD ZERO',title:'Sinyal ungu di petak',text:'Sensor, daun, dan tanah menunjukkan pola anomali yang sama.',
+      choices:[['trace','Lacak sinyal · '+formatRupiah(laborCost('trace'))],['shield','Lindungi tanaman · '+formatRupiah(actionCost('shield'))]]},
+    pathogen:{kicker:'FOLLOW-UP',title:'Sampel patogen kembali',text:'Data observasi karat sebelumnya membuka dua jalur: dokumentasi mendalam atau tindakan cepat.',
+      choices:[['publish','Dokumentasikan · +8 RP'],['control','Kendalikan penyakit']]},
+    returnTrader:{kicker:'RETURN VISITOR',title:'Pedagang kembali dengan lot terseleksi',text:'Lot kedua lebih mahal, tetapi informasi asal dan performanya lebih lengkap.',
+      choices:[['buyBetter','Beli · '+formatRupiah(actionCost('traderSelected'))],['leave','Lewati']]},
+    archive:{kicker:'FIELD ZERO',title:'Arsip lama terbuka',text:'Jejak Zero membuka catatan lama. Pilih membaca arsip atau menstabilkan lahan.',
+      choices:[['readArchive','Baca arsip'],['stabilize','Stabilkan lahan']]},
+    bossChoice:{kicker:'BOSS SEASON',title:'Tekanan utama meningkat',text:'Kondisi ekstrem memuncak; pekerja dapat merespons.',
+      choices:[['defendBoss','Respons kolektif · '+formatRupiah(laborCost('defendBoss'))],['gambleBoss','Ambil risiko · +10 RP']]}
+ };
+ return defs[event.kind]||defs.soil;
+}
+function eventLaborTask(choice){
+ return {sample:'sample',drain:'drain',trace:'trace',defendBoss:'defendBoss'}[choice]||'';
+}
+function canEventChoice(kind,choice){
+ if(choice==='spray')return state.coins>=actionCost('spray');if(choice==='buy')return state.coins>=actionCost('trader');
+ const laborTask=eventLaborTask(choice);if(laborTask)return state.coins>=laborCost(laborTask);
+ if(choice==='shield')return state.coins>=actionCost('shield');
+ if(choice==='buyBetter')return state.coins>=actionCost('traderSelected');
+ return true;
+}
+function renderEvent(){
+ if(!state.pendingEvent)return;
+ const def=eventDefinition(state.pendingEvent);$('#eventKicker').textContent=def.kicker;$('#eventTitle').textContent=def.title;$('#eventText').textContent=def.text;
+  $('#eventChoices').innerHTML=def.choices.map(([id,label])=>`<button type="button" data-event-choice="${id}" ${canEventChoice(state.pendingEvent.kind,id)?'':'disabled'}>${esc(label)}</button>`).join('');
+  $('#eventModal').hidden=false;
+}
+function randomLivingCrop(){const list=state.field.map((crop,index)=>({crop,index})).filter(item=>item.crop&&item.crop.health>0);return list.length?pick(list):null;}
+function traderSeed(){
+ const key='trader:'+state.season+':'+state.vault.length,traitPool=seededShuffle(Object.keys(TRAITS).filter(id=>id!=='zero'),hashString(key)),traits=traitPool.slice(0,2),seedId=uid('seed');
+ return {id:seedId,name:'Lot '+String.fromCharCode(65+Math.floor(simUnit(key,'letter')*26))+Math.floor(10+simUnit(key,'number')*90),generation:0,traits,baseYield:round(13+simUnit(key,'yield')*5,1),vigor:round(.92+simUnit(key,'vigor')*.16,2),source:'Pedagang',parents:[],stock:10,viability:94,ageSeasons:0,genome:normalizeGenome(null,seedId,state.simulationSeed)};
+}
+function applyEventChoice(choice){
+  clearUndo();const event=state.pendingEvent;if(!event||!canEventChoice(event.kind,choice))return;
+ let note='';
+ if(event.kind==='rust'){
+    if(choice==='spray'){const eventCost=actionCost('spray');state.coins-=eventCost;state.seasonStats.cost=(state.seasonStats.cost||0)+eventCost;state.field.forEach(c=>{if(c)c.disease=Math.max(0,c.disease-22);});note='Tekanan penyakit ditekan · '+formatRupiah(actionCost('spray'))+'.';}
+    else{state.rp+=4;state.eventFlags.rustObserved=true;state.field.forEach(c=>{if(c)c.disease=clamp(c.disease+5);});note='Data penyakit dikumpulkan. Follow-up mungkin muncul.';}
+ }
+ if(event.kind==='trader'){
+    if(choice==='buy'){const eventCost=actionCost('trader');state.coins-=eventCost;state.seasonStats.cost=(state.seasonStats.cost||0)+eventCost;const seed=traderSeed();state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);note=seed.name+' masuk Seed Vault.';}
+    else{state.eventFlags.traderSkipped=true;note='Lot benih dilewati. Pedagang mengingat keputusan ini.';}
+ }
+ if(event.kind==='soil'){
+    if(choice==='sample'){
+      const worker=laborCost('sample');chargeFarmCost(worker,{labor:worker});state.rp+=6;const item=randomLivingCrop();
+      if(item&&chance(.38)&&!item.crop.mutation){item.crop.mutation=pick(MUTATION_POOL.filter(id=>!item.crop.seed.traits.includes(id)));item.crop.revealed=true;discoverTrait(item.crop.mutation);}
+      state.eventFlags.sampledSoil=true;note='Sampel menghasilkan +6 riset dan membuka jalur event baru.';
+    }else note='Sinyal tanah tidak ditindaklanjuti.';
+ }
+ if(event.kind==='drainage'){
+    if(choice==='drain'){const worker=laborCost('drain');chargeFarmCost(worker,{labor:worker});state.field.forEach(c=>{if(c){c.water=Math.max(45,c.water-12);c.disease=Math.max(0,c.disease-4);}});note='Drainase pulih · pekerja '+formatRupiah(worker)+'.';}
+    else{state.field.forEach(c=>{if(c&&c.water>75){c.health=clamp(c.health-5);c.stress=clamp(c.stress+6,0,120);}});note='Sebagian petak mengalami stres genangan.';}
+ }
+ if(event.kind==='signal'){
+    if(choice==='trace'){
+      const worker=laborCost('trace');chargeFarmCost(worker,{labor:worker});state.rp+=10;const item=randomLivingCrop();
+      if(item){item.crop.mutation='zero';item.crop.revealed=true;discoverTrait('zero');}
+      state.eventFlags.zeroTrace=true;note=item?'Resonansi Zero ditemukan pada P'+(item.index+1)+'. Jalur arsip terbuka.':'Jejak sinyal dikonversi menjadi +10 riset.';
+    }else{const eventCost=actionCost('shield');state.coins-=eventCost;state.seasonStats.cost=(state.seasonStats.cost||0)+eventCost;state.field.forEach(c=>{if(c)c.health=clamp(c.health+7);});note='Tanaman dilindungi dari anomali.';}
+ }
+ if(event.kind==='pathogen'){
+    if(choice==='publish'){state.rp+=8;state.xp+=18;note='Dataset patogen didokumentasikan: +8 RP.';}
+    else{state.field.forEach(c=>{if(c)c.disease=Math.max(0,c.disease-28);});note='Tekanan penyakit dikendalikan.';}
+    state.eventFlags.rustObserved=false;
+ }
+ if(event.kind==='returnTrader'){
+    if(choice==='buyBetter'){
+      const eventCost=actionCost('traderSelected');state.coins-=eventCost;state.seasonStats.cost=(state.seasonStats.cost||0)+eventCost;const seed=traderSeed();seed.name='Selected-'+seed.name;seed.baseYield=round(seed.baseYield*1.08,1);seed.source='Pedagang terseleksi';state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);note=seed.name+' masuk Seed Vault.';
+    }else note='Pedagang pergi. Jalur dagang berakhir untuk sementara.';
+    state.eventFlags.traderSkipped=false;
+ }
+ if(event.kind==='archive'){
+    if(choice==='readArchive'){
+      const fragment=LORE.find(item=>!state.lore.includes(item))||pick(LORE);if(!state.lore.includes(fragment))state.lore.push(fragment);state.rp+=5;note='Fragmen arsip dibuka: +5 RP.';
+    }else{state.field.forEach(c=>{if(c){c.health=clamp(c.health+10);c.stress=Math.max(0,c.stress-10);}});note='Lahan distabilkan oleh energi anomali.';}
+    state.eventFlags.zeroTrace=false;
+ }
+ if(event.kind==='bossChoice'){
+    if(choice==='defendBoss'){const worker=laborCost('defendBoss');chargeFarmCost(worker,{labor:worker});state.field.forEach(c=>{if(c){c.health=clamp(c.health+8);c.water=clamp(c.water+12);c.disease=Math.max(0,c.disease-10);}});note='Respons pekerja mengurangi tekanan boss · '+formatRupiah(worker)+'.';}
+    else{state.rp+=10;state.field.forEach(c=>{if(c)c.stress=clamp(c.stress+8,0,120);});note='Risiko diambil: +10 RP, stres tanaman meningkat.';}
+ }
+  addLog(note);state.pendingEvent=null;$('#eventModal').hidden=true;beep(580,.06);render();
+}
+
+function finishSeason(){
+ if(state.pendingEvent)return;clearUndo();checkpoint('Sebelum rekap Musim '+state.season);updateFieldPressure();
+ for(let i=0;i<state.field.length;i++){const crop=state.field[i];if(crop&&crop.growth>=100&&crop.health>0)recordHarvest(i,crop,.9,false);}
+ const completed=missionDone(),contractRatio=missionRatio(),challenge=activeChallenge(),rewardScale=challenge.reward||1;
+ const reward=completed
+    ?{coins:Math.round(75000*rewardScale),rp:Math.round(8*rewardScale),xp:Math.round(45*rewardScale)}
+    :{coins:Math.round((8000+26000*contractRatio)*Math.min(1.2,rewardScale)),rp:Math.floor(3*contractRatio),xp:Math.round(6+16*contractRatio)};
+ const rivalTarget=computeRivalTarget(),rivalScore=playerRivalScore(),beatRival=rivalScore>=rivalTarget,bossWon=!!state.env.boss&&completed,researchQuality=state.experiment?experimentQualityScore():null;
+  state.coins+=reward.coins;state.rp+=reward.rp;state.xp+=reward.xp;state.level=levelFromXp(state.xp);
+ if(beatRival){state.rivalWins=(state.rivalWins||0)+1;state.rp+=4;awardAchievement('rival');}
+ if(state.env.boss){state.collection.bosses=unique([...(state.collection.bosses||[]),state.env.id]);if(bossWon){state.rp+=12;state.coins+=50000;awardAchievement('boss');}}
+ else state.collection.environments=unique([...(state.collection.environments||[]),state.env.id]);
+ if(['drought','rust','wet','poorN','anomaly'].includes(state.env.id)||state.env.boss)awardAchievement('survivor');
+ const previousGhost=recordBest();
+ if(state.daily){awardAchievement('daily');state.records['daily:'+state.daily.key]=Math.max(Number(state.records['daily:'+state.daily.key]||0),state.seasonStats.yield);}
+ if(state.weekly){awardAchievement('weekly');state.records['weekly:'+state.weekly.key]=Math.max(Number(state.records['weekly:'+state.weekly.key]||0),rivalScore);}
+  updateRecord(state.seasonStats.yield);
+ const ghostDelta=round(state.seasonStats.yield-previousGhost,1),review=seasonDecisionReview(researchQuality);
+  state.history.unshift({season:state.season,env:state.env.name,location:state.location,challenge:state.challenge,yield:state.seasonStats.yield,revenue:state.seasonStats.revenue||0,cost:state.seasonStats.cost||0,laborCost:state.seasonStats.laborCost||0,inputCost:state.seasonStats.inputCost||0,irrigationM3:round(state.seasonStats.irrigationM3||0,1),marketPrice:state.marketPrice,mission:completed,contractRatio:round(contractRatio,2),rival:rivalTarget,rivalScore,beatRival,rivalMetric:currentRival().metric,boss:!!state.env.boss,quality:researchQuality,review,pressure:structuredClone(state.fieldPressure)});state.history=state.history.slice(0,20);
+  noteBreeder('rekap','Musim '+state.season+' · hasil '+state.seasonStats.yield.toFixed(1)+' kg · skor rival '+rivalScore.toFixed(1),{review});
+ if(hasTech('cold')&&state.seasonBest&&!state.vault.some(item=>item.id===state.seasonBest.seed.id)){
+    const auto=state.seasonBest.seed;state.vault.push(auto);rememberLineage(auto);addLog('Cold Storage otomatis menyimpan '+auto.name+'.');
+ }
+  $('#recapTitle').textContent='Musim '+state.season+' · '+(completed?'Target tercapai':'Target belum tercapai')+(state.env.boss?' · BOSS':'');
+ const seasonMargin=(state.seasonStats.revenue||0)-(state.seasonStats.cost||0);
+  $('#recapStats').innerHTML=`<div><small>Hasil</small><b>${state.seasonStats.yield.toFixed(1)} kg</b></div><div><small>Pendapatan</small><b>${formatRupiah(state.seasonStats.revenue||0)}</b></div><div><small>Biaya</small><b>${formatRupiah(state.seasonStats.cost||0)}</b></div><div><small>Margin</small><b>${formatRupiah(seasonMargin)}</b></div><div><small>Target</small><b>${Math.round(contractRatio*100)}%</b></div><div><small>Mutu riset</small><b>${researchQuality===null?'—':researchQuality+'%'}</b></div><div><small>Pekerja</small><b>${formatRupiah(state.seasonStats.laborCost||0)}</b></div><div><small>Input</small><b>${formatRupiah(state.seasonStats.inputCost||0)}</b></div><div><small>Irigasi</small><b>${round(state.seasonStats.irrigationM3||0,1)} m³</b></div>`;
+ const carryNote=document.createElement('p');carryNote.className='recap-note';carryNote.textContent='Carry-over lahan · patogen '+state.fieldPressure.pathogen.toFixed(1)+' · stres '+state.fieldPressure.fatigue.toFixed(1);$('#recapStats').append(carryNote);
+ const rivalCard=document.createElement('div');rivalCard.innerHTML='<small>Rival · '+esc(currentRival().style)+'</small><b>'+rivalScore.toFixed(1)+' / '+rivalTarget.toFixed(1)+'</b>';$('#recapStats').append(rivalCard);
+ const reviewBox=document.createElement('section');reviewBox.className='decision-review';reviewBox.innerHTML='<b>Keputusan → akibat</b>'+review.map(item=>'<span>'+esc(item)+'</span>').join('');$('#recapStats').append(reviewBox);
+ const best=$('#bestCandidate'),saveButton=$('#saveBestSeed');
+ if(state.seasonBest){
+    const seed=state.seasonBest.seed;rememberLineage(seed);best.innerHTML=`<small>Kandidat terbaik · ${state.seasonBest.yield.toFixed(1)} kg</small><b>${esc(seed.name)}</b><div class="trait-row">${seedTraitsHtml(seed)}</div>`;
+    saveButton.hidden=!selectionCandidates(state.season).length;saveButton.disabled=false;saveButton.textContent='🧬 Seleksi';
+ }else{best.innerHTML='';saveButton.hidden=true;}
+  $('#recapModal').hidden=false;save();notifyGameProfile(true);beep(760,.12);
+}
+function saveBestCandidate(){
+ if(!state.seasonBest)return;const seed=state.seasonBest.seed;if(state.vault.some(item=>item.id===seed.id))return;
+  state.vault.push(seed);state.selectedSeedId=seed.id;seed.traits.forEach(discoverTrait);rememberLineage(seed);$('#saveBestSeed').disabled=true;toast(seed.name+' disimpan ke Seed Vault');renderVault();save();
+}
+function archiveActiveExperiment(){
+ const exp=state.experiment;if(!exp)return;
+ const parameter=exp.parameters.includes('Hasil')?'Hasil':exp.parameters[0],means=exp.treatments.map(t=>{
+    const values=exp.units.filter(u=>u.treatmentId===t.id).map(u=>Number(String(u.observations?.[parameter]??'').replace(',','.'))).filter(Number.isFinite);
+    return values.length?{name:t.name||t.code,mean:values.reduce((a,b)=>a+b,0)/values.length}:null;
+ }).filter(Boolean).sort((a,b)=>b.mean-a.mean).slice(0,3);
+ const quality=experimentQualityScore();
+  state.experimentHistory=[{
+    id:exp.id,name:exp.name,season:state.season,design:exp.design,kind:exp.kind,quality,
+    treatments:exp.treatments.length,reps:exp.reps,completed:exp.units.filter(unit=>exp.parameters.every(p=>String(unit.observations?.[p]??'').trim()!=='')).length,total:exp.units.length,
+    parameters:[...exp.parameters],summary:means.map(row=>row.name+' '+row.mean.toFixed(1)),precision:designPrecisionScore(exp)
+ },...state.experimentHistory.filter(item=>item.id!==exp.id)].slice(0,20);
+  noteBreeder('riset','Mengarsipkan '+exp.name+' · '+exp.design.toUpperCase()+' · mutu '+quality+'%');
+}
+function beginNextSeason(){
+  checkpoint('Akhir Musim '+state.season);
+ const wasDaily=!!state.daily,wasWeekly=!!state.weekly;archiveActiveExperiment();
+  state.season++;if(state.season>=2)state.onboarding={...(state.onboarding||{}),complete:true};
+  state.day=1;state.field=Array.from({length:PLOT_COUNT},()=>null);state.plotUse=Array.from({length:PLOT_COUNT},()=> 'commercial');state.experiment=null;state.irrigationUses=0;const speciesSeed=speciesVault()[0];if(speciesSeed)state.selectedSeedId=speciesSeed.id;
+  state.vault.forEach(seed=>{seed.ageSeasons=(seed.ageSeasons||0)+1;seed.viability=clamp((seed.viability||96)-(hasTech('cold')?1:3),0,100);});
+ if(wasDaily||wasWeekly){state.daily=null;state.weekly=null;state.challenge='standard';state.monoSeedId=null;if(wasWeekly)state.simulationSeed=hashString('academy:'+state.season+':'+Date.now());}
+  state.maxDay=seasonLengthFor(state.species,state.challenge);lastTimeStopReason='';
+  state.env=newEnvironment(state.season);state.weather=rollWeather(state.env);state.weatherMemory={hot:0,wet:0,dry:0};state.marketPrice=rollMarketPrice(state.season,state.env.id,state.location,state.species);state.seasonStartRp=state.rp;state.mission=missionFor(state.season,state.challenge);
+  state.seasonStats={yield:0,harvests:0,healthy:0,maxYield:0,failed:0,revenue:0,cost:0,laborCost:0,inputCost:0,irrigationM3:0};state.seasonBest=null;state.pendingEvent=null;state.selectedPlot=0;state.rivalTarget=computeRivalTarget();
+ if(state.season%3===0){const fragment=LORE[Math.min(LORE.length-1,Math.floor(state.season/3)-1)];if(fragment&&!state.lore.includes(fragment)){state.lore.push(fragment);addLog('Fragment arsip baru ditemukan.');}}
+  addLog('Musim '+state.season+' dimulai: '+state.env.name+(state.env.boss?' [BOSS]':'')+'.',1);noteBreeder('musim','Musim '+state.season+' dimulai · '+state.env.name);$('#recapModal').hidden=true;render();toast(state.season===2?'📐 Penelitian & pemuliaan terbuka':state.env.name+' dimulai');
+}
+
+function crossCost(mode){return mode==='self'?6:mode==='backcross'?10:CROSS_COST;}
+function updateCrossPreview(){
+ const mode=$('#crossMode')?.value||'f1',a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value),cost=crossCost(mode);
+ if($('#parentB'))$('#parentB').disabled=mode==='self';
+ const needsB=mode!=='self',valid=!!a&&(!needsB||!!b)&&(mode==='self'||a.id!==b?.id);
+  $('#crossSeeds').disabled=!valid||state.rp<cost;
+ if(!valid){$('#crossPreview').textContent=mode==='self'?'Pilih satu benih untuk selfing.':'Pilih dua tetua berbeda.';return;}
+ const preview=geneticsPreview(a,b,mode),sa=genomeStats(a.genome),sb=b?genomeStats(b.genome):null;
+ const genotype=hasTech('genome')
+    ?`<div class="genotype-preview">${Object.entries(lociInfo()).map(([locus,meta])=>{const ga=normalizeGenome(a.genome,a.id)[locus].join('/'),gb=b?normalizeGenome(b.genome,b.id)[locus].join('/'):'—';return `<span><b>${locus}</b> ${esc(ga)}${b?' × '+esc(gb):''}<small>${esc(meta.name)}</small></span>`;}).join('')}</div>`
+    :'<small class="genome-locked">⌬ Genotipe lokus disembunyikan sampai Genome Lab terbuka.</small>';
+  $('#crossPreview').innerHTML=`<b>${esc(preview.title)} · ${cost} RP</b><p>${esc(preview.text)}</p><div class="cross-genetic-kpi"><span>A Hom ${Math.round(sa.homozygosity*100)}%</span>${sb?`<span>B Hom ${Math.round(sb.homozygosity*100)}%</span>`:''}</div>${genotype}`;
+}
+function crossSeeds(){
+  clearUndo();
+ const mode=$('#crossMode')?.value||'f1',a=state.vault.find(seed=>seed.id===$('#parentA').value),b=state.vault.find(seed=>seed.id===$('#parentB').value),cost=crossCost(mode);
+ if(!state.academy?.completed?.includes('cross-protocol')){openCrossProtocol();return;}
+ if(!a||seedSpecies(a)!==state.species||(mode!=='self'&&(!b||seedSpecies(b)!==state.species))||(mode!=='self'&&a.id===b.id)||state.rp<cost)return;
+  checkpoint('Sebelum persilangan '+mode.toUpperCase());
+  state.rp-=cost;
+ const crossKey=[state.season,mode,a.id,b?.id||a.id,state.vault.length].join(':'),progeny=makeProgeny(a,b,mode,crossKey);
+ if(!progeny)return;
+ const union=mode==='self'?[...(a.traits||[])]:unique([...(a.traits||[]),...(b?.traits||[])]);
+ let inherited=mode==='self'?unique(union):seededShuffle(union,hashString(crossKey)).filter((_,i)=>simUnit('inherit',crossKey,i)<(hasTech('breeding')?.72:.58)).slice(0,hasTech('breeding')?4:3);
+ if(!inherited.length&&union.length)inherited=[simPick(union,'inherit-fallback',crossKey)];
+ if(simUnit('cross-mutation',crossKey)<(hasTech('breeding')?.12:.06)){
+    const pool=MUTATION_POOL.filter(id=>!inherited.includes(id)),mutation=pool.length?simPick(pool,'cross-mutation-trait',crossKey):null;
+    if(mutation){inherited.push(mutation);discoverTrait(mutation);}
+ }
+ const label=progeny.generationLabel,name=(mode==='f1'?'F1':mode==='self'?progeny.generationLabel:'BC'+progeny.backcrossGeneration)+'-'+Math.floor(100+simUnit('cross-name',crossKey)*900);
+ const child={
+    id:uid('seed'),name,generation:Math.max(Number(a.generation)||0,Number(b?.generation)||0)+1,generationLabel:label,backcrossGeneration:progeny.backcrossGeneration||0,
+    traits:unique(inherited).slice(0,5),baseYield:round(progeny.baseYield,1),vigor:round(progeny.vigor,2),source:mode==='self'?'Self '+a.name:a.name+' × '+b.name,
+    parents:mode==='self'?[a.id]:[a.id,b.id],evidenceTests:0,stressTests:0,species:seedSpecies(a),stock:8,viability:98,ageSeasons:0,
+    genome:progeny.genome,homozygosity:progeny.homozygosity,heterozygosity:progeny.heterozygosity
+ };
+  state.vault.push(child);rememberLineage(a);if(b)rememberLineage(b);rememberLineage(child);state.selectedSeedId=child.id;state.xp+=30;state.level=levelFromXp(state.xp);awardAchievement('breeder');
+ if(mode==='f1')academyMark('cross-f1',{note:'Membuat F1 dan membaca heterozigositas'});
+ if(mode==='self')academyMark('cross-self',{note:'Selfing dan segregasi generasi lanjut'});
+ if(mode==='backcross')academyMark('cross-backcross',{note:'Backcross ke tetua berulang'});
+  addLog('× '+label+' '+child.name+' · Hom '+Math.round(child.homozygosity*100)+'% · Het '+Math.round(child.heterozygosity*100)+'%.');
+  noteBreeder('persilangan',(mode==='self'?a.name:a.name+' × '+b.name)+' → '+child.name+' '+label,{homozygosity:child.homozygosity,heterozygosity:child.heterozygosity});
+  recordDecision('cross',mode==='self'?'Self '+a.name:a.name+' × '+b.name,'Keturunan '+label+' · Hom '+Math.round(child.homozygosity*100)+'%');
+  beep(680,.1);render();toast(child.name+' · '+label+' berhasil dibuat');
+}
+
+function bind(){
+ const field=$('#fieldGrid'),vault=$('#vaultList'),toolDock=$('#toolDock');
+ let mobileFieldGesture=null,suppressFieldClickUntil=0,inspectHoldTimer=0,inspectHoldPointer=0,inspectHoldX=0,inspectHoldY=0;
+ const touchLike=event=>event.pointerType==='touch'||event.pointerType==='pen';
+ const plotFromPoint=(x,y)=>document.elementFromPoint(x,y)?.closest?.('[data-plot]');
+ const gestureAction=index=>{
+    const g=mobileFieldGesture;if(!g||g.seen.has(index)||index<0||index>=fieldLimit())return;
+    g.seen.add(index);
+    if(g.mode==='harvest'){
+      const crop=state.field[index];if(!crop||crop.growth<100||crop.health<=0)return;
+      g.harvested++;g.yield=round(g.yield+recordHarvest(index,crop,1,false),1);
+      field.querySelector(`[data-plot="${index}"]`)?.classList.add('gesture-used');haptic(8);return;
+    }
+    if(g.mode){
+      const before=JSON.stringify(state.field[index]||null),beforeCoins=state.coins;
+      useFieldTool(g.mode,index);
+      if(before!==JSON.stringify(state.field[index]||null)||beforeCoins!==state.coins){g.applied++;haptic(6);}
+    }
+ };
+ const finishGesture=event=>{
+    const g=mobileFieldGesture;if(!g||event.pointerId!==g.pointerId)return;
+    if(g.active){
+      suppressFieldClickUntil=performance.now()+420;
+      if(g.mode==='harvest'&&g.harvested){
+        render();save();toast(`Panen cepat · ${g.harvested} petak · ${g.yield} kg`);
+        document.dispatchEvent(new Event('fieldzero-field-change'));
+      }else if(g.mode!=='harvest'&&g.applied>1)toast(`${toolSymbol(g.mode)} × ${g.applied}`);
+    }
+    field.classList.remove('gesture-active');
+    try{if(field.hasPointerCapture?.(event.pointerId))field.releasePointerCapture(event.pointerId);}catch{}
+    mobileFieldGesture=null;interactionBusy=false;flushNotifications();
+ };
+  field.addEventListener('click',event=>{
+    if(performance.now()<suppressFieldClickUntil)return;
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;
+    const index=Number(plot.dataset.plot);
+    if(activeFieldTool){useFieldTool(activeFieldTool,index);return;}
+    state.selectedPlot=index;beep(330);renderField();renderInspector();renderComfortControls();openInspectorSheet();
+ });
+  field.addEventListener('pointerdown',event=>{
+    if(!touchLike(event)||event.button!==0)return;
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;
+    const index=Number(plot.dataset.plot),crop=state.field[index];
+    clearTimeout(inspectHoldTimer);inspectHoldPointer=event.pointerId;inspectHoldX=event.clientX;inspectHoldY=event.clientY;
+    inspectHoldTimer=setTimeout(()=>{
+      if(inspectHoldPointer!==event.pointerId)return;
+      mobileFieldGesture=null;suppressFieldClickUntil=performance.now()+500;state.selectedPlot=index;
+      renderField();renderInspector();renderComfortControls();openInspectorSheet();haptic(16);
+    },520);
+    const mode=activeFieldTool||(crop&&crop.growth>=100&&crop.health>0?'harvest':'');
+    if(!mode)return;
+    mobileFieldGesture={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,startIndex:index,mode,seen:new Set(),active:false,harvested:0,yield:0,applied:0};
+ },{passive:true});
+  field.addEventListener('pointermove',event=>{
+    if(event.pointerId===inspectHoldPointer&&Math.hypot(event.clientX-inspectHoldX,event.clientY-inspectHoldY)>8){clearTimeout(inspectHoldTimer);inspectHoldPointer=0;}
+    const g=mobileFieldGesture;if(!g||event.pointerId!==g.pointerId)return;
+    const dx=event.clientX-g.startX,dy=event.clientY-g.startY;
+    if(Math.hypot(dx,dy)>8){clearTimeout(inspectHoldTimer);inspectHoldPointer=0;}
+    if(!g.active){
+      if(Math.hypot(dx,dy)<11)return;
+      g.active=true;interactionBusy=true;if(g.mode==='harvest')clearUndo();field.classList.add('gesture-active');
+      try{field.setPointerCapture?.(event.pointerId);}catch{}
+      gestureAction(g.startIndex);
+    }
+    event.preventDefault();
+    const plot=plotFromPoint(event.clientX,event.clientY);if(plot&&!plot.disabled)gestureAction(Number(plot.dataset.plot));
+ },{passive:false});
+  field.addEventListener('pointerup',event=>{clearTimeout(inspectHoldTimer);inspectHoldPointer=0;finishGesture(event);});
+  field.addEventListener('pointercancel',event=>{clearTimeout(inspectHoldTimer);inspectHoldPointer=0;finishGesture(event);});
+  field.addEventListener('dragstart',event=>{
+    const plot=event.target.closest('[data-harvest-drag]');if(!plot)return;
+    event.dataTransfer.setData('fieldzero/harvest-index',plot.dataset.harvestDrag);event.dataTransfer.effectAllowed='move';plot.classList.add('dragging-harvest');
+ });
+  field.addEventListener('dragend',event=>event.target.closest('[data-harvest-drag]')?.classList.remove('dragging-harvest'));
+  field.addEventListener('dragover',event=>{const plot=event.target.closest('[data-plot]');if(plot&&!plot.disabled){event.preventDefault();plot.classList.add('drag-target');}});
+  field.addEventListener('dragleave',event=>event.target.closest('[data-plot]')?.classList.remove('drag-target'));
+  field.addEventListener('drop',event=>{
+    const plot=event.target.closest('[data-plot]');if(!plot||plot.disabled)return;event.preventDefault();plot.classList.remove('drag-target');
+    const index=Number(plot.dataset.plot),seedId=event.dataTransfer?.getData('fieldzero/seed')||'',tool=event.dataTransfer?.getData('fieldzero/tool')||(seedId?'plant':'');
+    if(tool)useFieldTool(tool,index,{seedId});
+ });
+  toolDock.addEventListener('click',event=>{const button=event.target.closest('[data-field-tool]');if(button)setFieldTool(button.dataset.fieldTool);});
+  toolDock.addEventListener('dragstart',event=>{const button=event.target.closest('[data-field-tool]');if(!button)return;event.dataTransfer.setData('fieldzero/tool',button.dataset.fieldTool);event.dataTransfer.effectAllowed='copy';});
+ const basket=$('#harvestBasket');
+  basket.addEventListener('dragover',event=>{if(event.dataTransfer?.types.includes('fieldzero/harvest-index')){event.preventDefault();basket.classList.add('basket-ready');}});
+  basket.addEventListener('dragleave',()=>basket.classList.remove('basket-ready'));
+  basket.addEventListener('drop',event=>{
+    const raw=event.dataTransfer?.getData('fieldzero/harvest-index');if(raw==='')return;
+    event.preventDefault();basket.classList.remove('basket-ready');const index=Number(raw);
+    if(Number.isInteger(index))harvestPlot(index,1,true);
+ });
+  vault.addEventListener('click',event=>{
+    const buy=event.target.closest('[data-buy-seed]');
+    if(buy){
+      const seed=state.vault.find(item=>item.id===buy.dataset.buySeed);if(!seed||state.coins<COMMERCIAL_SEED_PACK_COST)return;
+      state.coins-=COMMERCIAL_SEED_PACK_COST;state.seasonStats.cost=(state.seasonStats.cost||0)+COMMERCIAL_SEED_PACK_COST;seed.stock=(seed.stock||0)+COMMERCIAL_SEED_PACK_SIZE;seed.viability=Math.max(seed.viability||0,95);save();render();toast('🌱 +'+COMMERCIAL_SEED_PACK_SIZE);return;
+    }
+    const rename=event.target.closest('[data-rename-seed]');
+    if(rename){
+      const seed=state.vault.find(item=>item.id===rename.dataset.renameSeed);if(!seed)return;
+      const name=prompt('Nama varietas',seed.name)?.trim().slice(0,28);if(!name)return;
+      seed.name=name;rememberLineage(seed);save();render();toast('Nama varietas disimpan');return;
+    }
+    const button=event.target.closest('[data-use-seed]');if(!button)return;state.selectedSeedId=button.dataset.useSeed;save();renderVault();renderInspector();renderGenomeLab();toast('Benih dipilih');
+ });
+  vault.addEventListener('dragstart',event=>{const card=event.target.closest('[data-seed-drag]');if(!card)return;event.dataTransfer.setData('fieldzero/seed',card.dataset.seedDrag);event.dataTransfer.effectAllowed='copy';});
+ let nextDayHold=0,nextDayHeld=false;
+ const clearNextDayHold=()=>{if(nextDayHold){clearTimeout(nextDayHold);nextDayHold=0;}};
+  $('#nextDay').addEventListener('pointerdown',()=>{if(breedingCup.active()||state.pendingEvent)return;nextDayHeld=false;clearNextDayHold();nextDayHold=setTimeout(()=>{nextDayHeld=true;nextDayHold=0;advanceDays(3);},560);});
+  ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#nextDay').addEventListener(type,clearNextDayHold));
+  $('#nextDay').onclick=()=>{if(nextDayHeld){nextDayHeld=false;return;}breedingCup.active()?breedingCup.open():state.pendingEvent?renderEvent():advanceDays(1);};
+  $('#skip3Days').onclick=()=>advanceDays(3);$('#nextCritical').onclick=()=>advanceDays(30,{untilCritical:true});$('#finishSeason').onclick=finishSeason;
+  setupFloatingGameActions();
+  $('#smartAction').onclick=()=>{runSmartAction();openInspectorSheet();};
+  $('#attentionToggle').onclick=openCareCenter;
+  $('#prevPlot').onclick=()=>selectPlotOffset(-1);
+  $('#nextPlot').onclick=()=>selectPlotOffset(1);
+  $('#nextIssuePlot').onclick=selectNextIssue;
+  $('#closeInspectorSheet').onclick=closeInspectorSheet;
+  $('#undoAction').onclick=undoLastAction;
+  $('#eventChoices').addEventListener('click',event=>{const button=event.target.closest('[data-event-choice]');if(button)applyEventChoice(button.dataset.eventChoice);});
+  $('#eventModal').addEventListener('click',event=>{if(event.target.id==='eventModal')$('#eventModal').hidden=true;});
+  $('#saveBestSeed').onclick=openSelection;$('#nextSeason').onclick=beginNextSeason;
+  $('#parentA').onchange=updateCrossPreview;$('#parentB').onchange=updateCrossPreview;$('#crossMode').onchange=updateCrossPreview;$('#crossSeeds').onclick=crossSeeds;
+  $('#openAcademy').onclick=openAcademy;
+  $('#soundToggle').onclick=async()=>{
+    if(!isMusicPlaying()){state.sound=true;save();renderHud();await startMusic(state.musicTrack||'morning');beep(520,.05);}
+    else{state.sound=false;save();renderHud();stopMusic();}
+ };
+ const resetRun=(confirmed=false)=>{clearUndo();if(!confirmed&&!confirm('Mulai ulang Field Zero? Save permainan saat ini akan diganti.'))return;checkpoint('Sebelum reset run');const localPrefs={comfort:structuredClone(state.comfort||{}),sound:state.sound,musicTrack:state.musicTrack};state=freshState();state.comfort={...state.comfort,...localPrefs.comfort,lastSeenAt:Date.now()};state.sound=localPrefs.sound;state.musicTrack=localPrefs.musicTrack;applyComfortSettings();save();$('#eventModal').hidden=true;$('#recapModal').hidden=true;closeMetaModal();closeInspectorSheet();render();notifyGameProfile();toast('Run baru dimulai');};
+ let resetHold=0,resetHoldDone=false;
+  $('#newRun').addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;resetHoldDone=false;resetHold=setTimeout(()=>{resetHoldDone=true;haptic(20);resetRun(true);},700);});
+  ['pointerup','pointercancel','pointerleave'].forEach(type=>$('#newRun').addEventListener(type,()=>{clearTimeout(resetHold);resetHold=0;}));
+  $('#newRun').onclick=event=>{if(resetHoldDone){event.preventDefault();return;}if(matchMedia('(pointer:coarse)').matches){toast('Tahan ↺ untuk reset');return;}resetRun();};
+  $('#openWorldMap').onclick=openWorldMap;$('#openChallenges').onclick=openChallenges;$('#openRival').onclick=openRival;$('#openRecords').onclick=openRecords;$('#openPrestige').onclick=openPrestige;$('#openEvolution').onclick=openEvolution;$('#openSelection').onclick=openSelection;
+  $('#quickField').onclick=()=>{state.comfort.lastView='field';save();closeInspectorSheet();document.querySelector('.field-panel')?.scrollIntoView({behavior:'smooth',block:'start'});};
+  $('#quickLab').onclick=()=>{state.comfort.lastView='lab';save();closeInspectorSheet();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});};
+  $('#mapNursery')?.addEventListener('click',openSeedVault);
+  $('#mapResearch')?.addEventListener('click',()=>{state.comfort.lastView='lab';save();const hub=$('#labHub');hub.open=true;hub.scrollIntoView({behavior:'smooth',block:'start'});});
+  $('#mapWater')?.addEventListener('click',()=>{setFieldTool('water');toast('💧 Irigasi aktif · pilih petak');});
+  $('#quickMap').onclick=openWorldMap;$('#quickExperiment').onclick=openExperiment;$('#quickMore').onclick=openQuickMore;
+  document.querySelectorAll('[data-main-action]').forEach(button=>button.onclick=()=>{
+    const action=button.dataset.mainAction;
+    if(action==='lab')openSeedVault();
+    if(action==='research')openExperiment();
+    if(action==='analysis')openAnalysisHub();
+ });
+  $('#selectedSeedQuick').onclick=openSeedVault;$('#playHint').onclick=runPlayHint;$('#gameHelp').onclick=openGameHelp;
+  $('#closeMetaModal').onclick=closeMetaModal;$('#metaModal').addEventListener('click',event=>{if(event.target.id==='metaModal')closeMetaModal();});
+  document.addEventListener('keydown',event=>{
+    if(event.key>='1'&&event.key<='9'&&!event.target.matches('input,select,textarea')){const index=Number(event.key)-1;if(index<fieldLimit()){state.selectedPlot=index;renderField();renderInspector();}}
+    if(!event.target.matches('input,select,textarea')&&document.body.classList.contains('inspector-engaged')){
+      if(event.key==='ArrowLeft')selectPlotOffset(-1);
+      if(event.key==='ArrowRight')selectPlotOffset(1);
+    }
+    if(event.key==='Escape'){setFieldTool('');closeMetaModal();closeInspectorSheet();}
+ });
+  document.addEventListener('pointerdown',event=>{if(event.target.closest('#soundToggle'))return;if(state.sound&&!isMusicPlaying())startMusic(state.musicTrack||'morning');},{once:true});
+ const rememberSeen=()=>{state.comfort.lastSeenAt=Date.now();save();};
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')rememberSeen();});
+  window.addEventListener('beforeunload',()=>{rememberSeen();stopMusic();});
+}
+
+window.FieldZeroGame={
+  getProfile:gameProfile,applyBurnRaid:applyRemoteBurn,applyWaterAid,refresh:render,
+  exportSave:exportCloudSave,importSave:importCloudSave,
+  fingerprintSave:progressFingerprint,getSaveSummary:gameProgressSummary,isFreshSave:isFreshProgress,openSpeciesPicker
+};
+applyComfortSettings();bind();render();lastProgressFingerprint=progressFingerprint();updateCrossPreview();notifyGameProfile();document.dispatchEvent(new Event('fieldzero-ready'));
+if(isFreshProgress()){
+ const recoverable=recoveryEntries().find(item=>!isFreshProgress(item.state));
+ if(recoverable)setTimeout(()=>openRecoveryCenter(),280);
+}
+if(resumeGapMs>30*60*1000){
+ const issues=attentionIndexes().length,ready=state.field.filter(crop=>crop&&crop.health>0&&crop.growth>=100).length;
+  setTimeout(()=>toast('Kembali · '+ready+' siap panen · '+issues+' perlu perhatian'),350);
+}
+if(state.comfort.lastView==='lab'&&resumeGapMs<2*60*60*1000){
+  setTimeout(()=>{const hub=$('#labHub');if(hub){hub.open=true;hub.scrollIntoView({block:'start'});}},120);
+}

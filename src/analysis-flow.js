@@ -1,169 +1,172 @@
-const $ = selector => document.querySelector(selector);
-
-const FAVORITES='statistical_web_analysis_favorites_v1';
-const RECENT='statistical_web_analysis_recent_v1';
-const USAGE='statistical_web_analysis_usage_v1';
-const CONFIG='statistical_web_analysis_config_v1';
+const $=selector=>document.querySelector(selector);
 
 let scientificReady=false;
 async function scientificModule(){
-  const mod=await import('./scientific-workflow.js');
-  if(!scientificReady&&!document.getElementById('scientificModal')){
-    mod.installScientificWorkflow();
-    scientificReady=true;
-  }
+  const mod=await import('./scientific-workflow.js?v=20260929-cleanmenus7');
+  if(!scientificReady&&!document.getElementById('scientificModal')){mod.installScientificWorkflow();scientificReady=true;}
   return mod;
 }
 async function openScientificLazy(design){const mod=await scientificModule();mod.openScientific(design);}
 const lazyOpeners={
-  designExt:async value=>(await import('./design-extensions-workflow.js')).openDesignExtension(value),
-  nonparametric:async ()=>(await import('./nonparametric-workflow.js')).openNonparametric(),
-  power:async ()=>(await import('./power-workflow.js')).openPowerAnalysis(),
-  stabilityIndices:async ()=>(await import('./stability-indices-workflow.js')).openStabilityIndices(),
-  association:async value=>(await import('./association-workflow.js')).openAssociation(value),
-  advanced:async value=>(await import('./advanced-workflow.js')).openAdvanced(value),
-  nextgen:async value=>(await import('./nextgen-workflow.js')).openNextGen(value),
-  mixed:async ()=>(await import('./mixed-workflow.js')).openMixedModel()
+  designExt:async value=>(await import('./design-extensions-workflow.js?v=20260928-parallel1')).openDesignExtension(value),
+  augmented:async ()=>(await import('./augmented-design-workflow.js?v=20260928-resultfocus2')).openAugmentedDesign(),
+  nonparametric:async ()=>(await import('./nonparametric-workflow.js?v=20260928-parallel1')).openNonparametric(),
+  power:async ()=>(await import('./power-workflow.js?v=20260928-parallel1')).openPowerAnalysis(),
+  stabilityIndices:async ()=>(await import('./stability-indices-workflow.js?v=20260928-parallel1')).openStabilityIndices(),
+  association:async value=>(await import('./association-workflow.js?v=20260928-parallel1')).openAssociation(value),
+  advanced:async value=>(await import('./advanced-workflow.js?v=20260928-parallel1')).openAdvanced(value),
+  nextgen:async value=>(await import('./nextgen-workflow.js?v=20260928-parallel1')).openNextGen(value),
+  mixed:async ()=>(await import('./mixed-workflow.js?v=20260928-parallel1')).openMixedModel()
 };
 
-function phoneGuardMode(){
-  return globalThis.matchMedia?.('(max-width: 720px) and (pointer: coarse)')?.matches
-    || globalThis.matchMedia?.('(max-width: 720px)')?.matches
-    || false;
-}
-
 const analysisGroups=[
-  {title:'Rancangan Percobaan',description:'ANOVA dan rancangan penelitian pertanian',items:[
-    ['design','ral','RAL','Satu faktor, acak lengkap'],
-    ['design','rak','RAK','Satu faktor dengan kelompok'],
-    ['design','fral','Faktorial RAL','Dua faktor, acak lengkap'],
-    ['design','frak','Faktorial RAK','Dua faktor dengan kelompok'],
-    ['design','split','RPT / Split-plot','Petak utama dan anak petak'],
-    ['designExt','nested','Rancangan Tersarang','B tersarang dalam A'],
-    ['designExt','repeated','Repeated Measures','Pengamatan berkala / waktu'],
-    ['nonparametric','nonparametric','Nonparametrik','Kruskal–Wallis / Friedman']
+  {title:'Rancangan Percobaan',items:[
+    ['design','ral','RAL','RAL'],
+    ['design','rak','RAK','RAK'],
+    ['design','fral','Faktorial RAL','2F'],
+    ['design','frak','Faktorial RAK','2F'],
+    ['design','split','Split Plot','RPT'],
+    ['augmented','augmented','Augmented Design','AD'],
+    ['designExt','nested','Rancangan Tersarang','N'],
+    ['designExt','repeated','Repeated Measures','RM'],
+    ['nonparametric','nonparametric','Nonparametrik','NP']
   ]},
-  {title:'Hubungan & Regresi',description:'Hubungan antarvariabel dan respons dosis',items:[
-    ['association','correlation','Korelasi','Pearson / Spearman'],
-    ['association','path','Sidik lintas','Satu Y, beberapa X'],
-    ['nextgen','regression','Regresi','Linear, kuadratik, kubik'],
-    ['advanced','descriptive','Statistik Deskriptif','Mean, SD, SE, CV, skewness']
+  {title:'Hubungan & Regresi',items:[
+    ['association','correlation','Korelasi','r'],
+    ['association','path','Sidik lintas','β'],
+    ['nextgen','regression','Regresi','R²'],
+    ['advanced','descriptive','Statistik Deskriptif','Σ']
   ]},
-  {title:'Multivariat',description:'Eksplorasi banyak peubah sekaligus',items:[
-    ['nextgen','pca','PCA + Biplot','Scree plot, loading, PC1–PC2']
+  {title:'Multivariat',items:[
+    ['nextgen','pca','PCA + Biplot','PCA']
   ]},
-  {title:'Genetik & Multilokasi',description:'Genotipe, lokasi, stabilitas dan mixed model',items:[
-    ['nextgen','combined','ANOVA Gabungan','Seimbang / GLM tidak seimbang'],
-    ['mixed','mixed','Mixed Model REML','Kelompok(Lokasi) efek acak'],
-    ['advanced','genetic','Parameter Genetik','H², KKG, KKP, kemajuan genetik'],
-    ['nextgen','stability','AMMI / GGE Biplot','Stabilitas genotipe multilokasi'],
-    ['stabilityIndices','stability','Indeks Stabilitas','ASV, YSI, Wricke, Finlay–Wilkinson']
+  {title:'Genetik & Multilokasi',items:[
+    ['nextgen','combined','ANOVA Gabungan','G×E'],
+    ['mixed','mixed','Mixed Model REML','REML'],
+    ['advanced','genetic','Parameter Genetik','H²'],
+    ['nextgen','stability','AMMI / GGE Biplot','GGE'],
+    ['stabilityIndices','stability','Indeks Stabilitas','SI']
   ]},
-  {title:'Perencanaan',description:'Membantu merancang percobaan sebelum pengambilan data',items:[
-    ['power','power','Power & Jumlah Ulangan','Perencanaan ANOVA satu faktor']
+  {title:'Perencanaan',items:[
+    ['power','power','Power & Jumlah Ulangan','n']
   ]}
 ];
+const items=analysisGroups.flatMap(group=>group.items);
+const keyOf=([type,value])=>type+':'+value;
+const byKey=new Map(items.map(item=>[keyOf(item),item]));
 
-function itemKey([type,value]){return type+':'+value;}
-const flatItems=analysisGroups.flatMap((group,groupIndex)=>group.items.map(item=>({item,groupIndex,key:itemKey(item)})));
-function descriptor(key){return flatItems.find(entry=>entry.key===key);}
-function readArray(key){try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[];}catch{return [];}}
-function readObject(key){try{const value=JSON.parse(localStorage.getItem(key)||'{}');return value&&typeof value==='object'?value:{};}catch{return {};}}
-function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{}}
-function favorites(){return readArray(FAVORITES).filter(key=>descriptor(key));}
-function recent(){return readArray(RECENT).filter(key=>descriptor(key)).slice(0,3);}
-function usage(){return readObject(USAGE);}
-function activeDatasetName(){try{return globalThis.StatisticalWebData?.readActiveDataset?.()?.name||'dataset';}catch{return 'dataset';}}
-function hasSavedScientificConfigLocal(){
-  const saved=readObject(CONFIG)[activeDatasetName()];
-  return !!saved&&['ral','rak','fral','frak','split'].includes(saved.design)&&saved.contrastMode!=='custom';
-}
-function rememberUse(key){
-  const counts=usage();counts[key]=(Number(counts[key])||0)+1;write(USAGE,counts);
-  write(RECENT,[key,...recent().filter(value=>value!==key)].slice(0,3));
-}
-function toggleFavorite(key){
-  const list=favorites(),next=list.includes(key)?list.filter(value=>value!==key):[...list,key];
-  write(FAVORITES,next);return next.includes(key);
-}
-function groupUseScore(groupIndex){
-  const counts=usage(),fav=new Set(favorites());
-  return flatItems.filter(entry=>entry.groupIndex===groupIndex).reduce((sum,entry)=>sum+(Number(counts[entry.key])||0)+(fav.has(entry.key)?20:0),0);
-}
-
-function analysisMark(type,value){
-  const marks={ral:'RAL',rak:'RAK',fral:'2F',frak:'2F',split:'RPT',nested:'N',repeated:'RM',nonparametric:'NP',correlation:'r',path:'β',regression:'R²',descriptive:'Σ',pca:'PCA',combined:'G×E',mixed:'REML',genetic:'H²',stability:'GGE',power:'n'};
-  return marks[value]||marks[type]||'A';
-}
 function analysisButton(item){
-  const [type,value,label]=item,key=itemKey(item);
-  const attr={design:'data-design',designExt:'data-design-ext',nonparametric:'data-nonparametric',association:'data-association',advanced:'data-advanced',nextgen:'data-nextgen',mixed:'data-mixed',stabilityIndices:'data-stability-indices',power:'data-power'}[type];
-  const valueAttr=['nonparametric','mixed','stabilityIndices','power'].includes(type)?'':`="${value}"`;
-  const pinned=favorites().includes(key);
-  return `<div class="analysis-menu-item-wrap" data-analysis-key="${key}"><button type="button" class="analysis-menu-item" ${attr}${valueAttr} data-analysis-key="${key}" aria-pressed="false"><span class="analysis-item-mark" aria-hidden="true">${analysisMark(type,value)}</span><span class="analysis-item-copy"><b>${label}</b></span><span class="analysis-item-arrow" aria-hidden="true">›</span></button><button type="button" class="analysis-favorite" data-favorite-key="${key}" aria-pressed="${pinned}" aria-label="${pinned?'Lepas dari favorit':'Tambah ke favorit'}" title="${pinned?'Lepas favorit':'Favorit'}">${pinned?'★':'☆'}</button></div>`;
+  const [type,value,label,mark]=item;
+  return `<button type="button" class="analysis-compact-item" data-analysis-open="${keyOf(item)}"><span>${mark}</span><b>${label}</b></button>`;
 }
-function quickChip(key){
-  const found=descriptor(key);if(!found)return '';
-  const [type,value,label]=found.item;
-  return `<button type="button" class="analysis-quick-chip" data-quick-analysis-key="${key}"><span>${analysisMark(type,value)}</span><b>${label}</b></button>`;
+function smartAnalysis(){
+  const data=globalThis.StatisticalWebData?.readActiveDataset?.();
+  if(!data?.headers?.length||!data?.rows?.length)return null;
+  const values=index=>data.rows.map(row=>String(row?.[index]??'').trim()).filter(Boolean);
+  const normalized=index=>values(index).map(value=>value.replace(',','.'));
+  const numeric=index=>{const list=normalized(index);return list.length>0&&list.every(value=>Number.isFinite(Number(value)));};
+  const uniqueCount=index=>new Set(values(index)).size;
+  const header=index=>String(data.headers[index]||'').trim();
+  const structuralName=value=>/(^|\b)(id|petak|plot|unit|kode|no|nomor|baris|row|sampel|sample)(\b|$)/i.test(String(value||''));
+  const strongFactorName=value=>/(^|\b)(perlakuan|treatment|geno|genotip|genotype|varietas|variety|galur|entry|aksesi|faktor\s*a|factor\s*a|faktor\s*b|factor\s*b|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i.test(String(value||''));
+  const viableFactor=index=>{
+    const n=values(index).length,u=uniqueCount(index);
+    if(n<2||u<2||u>=n)return false;
+    if(!numeric(index))return u<=50;
+    return strongFactorName(header(index))&&u<=12&&n/u>=2;
+  };
+  const findNamed=(regex,exclude=new Set())=>data.headers.findIndex((name,index)=>!exclude.has(index)&&regex.test(String(name||''))&&values(index).length);
+  const environment=findNamed(/(^|\b)(lingkungan|environment|lokasi|location|site|musim|season)(\b|$)/i);
+  const genotype=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
+  const rep=findNamed(/(^|\b)(ulangan|rep|replicate|replication|kelompok|blok|block)(\b|$)/i);
+  const candidateParams=()=>data.headers.map((_,index)=>index).filter(index=>numeric(index)&&!structuralName(header(index)));
+  if(environment>=0&&genotype>=0&&environment!==genotype){
+    const roles=new Set([environment,genotype,rep].filter(index=>index>=0));
+    const parameterCount=candidateParams().filter(index=>!roles.has(index)).length;
+    return {key:'nextgen:combined',label:'ANOVA Gabungan G×E',parameterCount,detail:`${header(environment)} × ${header(genotype)}${rep>=0?` · ${header(rep)}`:''}`};
+  }
+  if(genotype>=0&&rep>=0){
+    const genoValues=values(genotype),blockValues=values(rep),blocks=[...new Set(blockValues)];
+    const counts=new Map(genoValues.map(value=>[value,0]));
+    data.rows.forEach(row=>{const value=String(row?.[genotype]??'').trim();if(value)counts.set(value,(counts.get(value)||0)+1);});
+    const checks=[...counts].filter(([,count])=>count===blocks.length).map(([value])=>value);
+    const tests=[...counts].filter(([,count])=>count===1).map(([value])=>value);
+    const irregular=[...counts].filter(([,count])=>count!==1&&count!==blocks.length);
+    const completeChecks=checks.every(check=>blocks.every(block=>data.rows.some(row=>String(row?.[genotype]??'').trim()===check&&String(row?.[rep]??'').trim()===block)));
+    if(blocks.length>=2&&checks.length>=2&&tests.length>=1&&!irregular.length&&completeChecks){
+      const roles=new Set([genotype,rep]);
+      const helper=/^(line|check|line\s*(?:vs\.?|versus)\s*check|line_vs_check)$/i;
+      const parameterCount=candidateParams().filter(index=>!roles.has(index)&&!helper.test(header(index))).length;
+      return {key:'augmented:augmented',label:'Augmented Design',parameterCount,detail:`${blocks.length} blok · ${checks.length} check · ${tests.length} entry uji`};
+    }
+  }
+
+  let factorA=findNamed(/(^|\b)(perlakuan|treatment|faktor\s*a|factor\s*a|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i);
+  if(factorA<0){
+    const namedGenetic=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi)(\b|$)/i);
+    if(namedGenetic>=0)factorA=namedGenetic;
+  }
+  if(factorA<0){
+    factorA=data.headers.findIndex((name,index)=>viableFactor(index)&&!numeric(index)&&!structuralName(name)&&index!==rep);
+  }
+
+  const excluded=new Set([factorA,rep].filter(index=>index>=0));
+  let factorB=findNamed(/(^|\b)(faktor\s*b|factor\s*b|anak\s*petak|sub\s*plot|subplot)(\b|$)/i,excluded);
+  if(factorB<0&&factorA>=0){
+    factorB=findNamed(/(^|\b)(geno|genotip|genotype|varietas|variety|galur|entry|aksesi|dosis|dose|nitrogen|pupuk|fertilizer|irigasi|jarak\s*tanam)(\b|$)|^n$/i,excluded);
+    if(factorB>=0&&!viableFactor(factorB))factorB=-1;
+  }
+  if(factorA>=0&&!viableFactor(factorA))factorA=-1;
+  if(factorB===factorA)factorB=-1;
+
+  const roles=new Set([factorA,factorB,rep].filter(index=>index>=0));
+  const parameterCount=candidateParams().filter(index=>!roles.has(index)&&!(strongFactorName(header(index))&&viableFactor(index))).length;
+  if(factorA<0)return {key:'advanced:descriptive',label:'Statistik Deskriptif',parameterCount,detail:`${parameterCount} parameter numerik`};
+
+  const splitHint=data.headers.some(name=>/(petak\s*utama|main\s*plot|anak\s*petak|sub\s*plot|subplot)/i.test(String(name||'')));
+  const key=factorB>=0?(splitHint&&rep>=0?'design:split':rep>=0?'design:frak':'design:fral'):(rep>=0?'design:rak':'design:ral');
+  const label=byKey.get(key)?.[2]||'Analisis';
+  const detail=[rep>=0?header(rep):'',factorB>=0?`${header(factorA)} × ${header(factorB)}`:header(factorA),parameterCount?`${parameterCount} parameter`:''].filter(Boolean).join(' · ');
+  return {key,label,parameterCount,detail};
 }
-function quickMarkup(){
-  const fav=favorites(),last=recent();
-  return `<div class="analysis-quick-row"><button type="button" class="analysis-auto-button" data-auto-detect>Otomatis</button><button type="button" class="analysis-quick-run" data-quick-run ${hasSavedScientificConfigLocal()?'':'disabled'}>Quick Run</button></div><div class="analysis-quick-lists"><div data-analysis-favorites ${fav.length?'':'hidden'}><small>Favorit</small><div>${fav.map(quickChip).join('')}</div></div><div data-analysis-recent ${last.length?'':'hidden'}><small>Terakhir</small><div>${last.map(quickChip).join('')}</div></div></div>`;
+function refreshSmartSuggestion(){
+  const host=$('#analysisSmartSuggestion');if(!host)return;
+  if(window.matchMedia?.('(max-width:720px)').matches){
+    host.hidden=true;host.innerHTML='';return;
+  }
+  const smart=smartAnalysis();
+  if(!smart){host.hidden=true;host.innerHTML='';return;}
+  host.hidden=false;
+  host.innerHTML=`<span><b>Saran: ${smart.label}</b><small>${smart.detail||`${smart.parameterCount} parameter`} · periksa sebelum menjalankan</small></span><button type="button" data-analysis-smart-key="${smart.key}">Gunakan</button>`;
 }
 function panelMarkup(){
-  const total=analysisGroups.reduce((sum,group)=>sum+group.items.length,0);
-  return `<div class="analysis-menu-head"><div><b>Pilih analisis</b></div><span class="analysis-method-count">${total}</span></div><div id="analysisQuickArea" class="analysis-quick-area">${quickMarkup()}</div><div class="analysis-menu-groups">${analysisGroups.map((group,index)=>`<section class="analysis-menu-group" data-analysis-group data-group-index="${index}"><button type="button" class="analysis-group-toggle" aria-expanded="${index===0?'true':'false'}"><span><b>${group.title}</b></span><span class="analysis-group-meta"><small>${group.items.length}</small><span class="analysis-group-chevron" aria-hidden="true">⌄</span></span></button><div class="analysis-group-items" ${index===0?'':'hidden'}>${group.items.map(analysisButton).join('')}</div></section>`).join('')}</div><div class="analysis-menu-foot"><span id="analysisSelectedLabel">Pilih satu metode</span><button id="confirmAnalysis" type="button" class="primary" disabled>Lanjut</button></div>`;
+  return `<div id="analysisLoadError" class="analysis-load-error" role="alert" hidden></div><div id="analysisSmartSuggestion" class="analysis-smart-suggestion" hidden></div><div class="analysis-group-board">
+      ${analysisGroups.map(group=>`<section class="analysis-compact-group"><div class="analysis-compact-group-title">${group.title}</div><div class="analysis-compact-items">${group.items.map(analysisButton).join('')}</div></section>`).join('')}
+    </div>`;
 }
 
-export function installAnalysisFlow() {
-  const nav=$('.nav'),open=$('#openAnalysis');
-  if(!nav||!open)return;
+export function installAnalysisFlow(){
+  const nav=$('.nav'),open=$('#openAnalysis');if(!nav||!open)return;
+  const panel=document.createElement('div');panel.id='analysisMenu';panel.className='nav-command-panel analysis-command-panel';panel.hidden=true;
+  panel.setAttribute('role','region');panel.setAttribute('aria-label','Analisis');panel.innerHTML=panelMarkup();nav.parentElement.append(panel);
+  open.textContent='Analisis';open.setAttribute('aria-controls','analysisMenu');open.setAttribute('aria-expanded','false');
 
-  const panel=document.createElement('div');
-  panel.id='analysisMenu';panel.className='nav-command-panel analysis-command-panel';panel.hidden=true;
-  panel.setAttribute('role','region');panel.setAttribute('aria-label','Analisis');panel.innerHTML=panelMarkup();
-  nav.parentElement.append(panel);
-
-  open.textContent='Pilih analisis';open.setAttribute('aria-controls','analysisMenu');open.setAttribute('aria-expanded','false');
-
-  const confirm=()=>panel.querySelector('#confirmAnalysis'),selectedLabel=()=>panel.querySelector('#analysisSelectedLabel');
-  let selectedButton=null;
-  function refreshQuick(){
-    const target=panel.querySelector('#analysisQuickArea');if(target)target.innerHTML=quickMarkup();
-    const fav=new Set(favorites());
-    panel.querySelectorAll('[data-favorite-key]').forEach(button=>{
-      const pinned=fav.has(button.dataset.favoriteKey);
-      button.textContent=pinned?'★':'☆';button.setAttribute('aria-pressed',String(pinned));button.setAttribute('aria-label',pinned?'Lepas dari favorit':'Tambah ke favorit');
-    });
-  }
-  function applyGroupCollapse(){
-    panel.querySelectorAll('[data-analysis-group]').forEach((group,index)=>{
-      const body=group.querySelector('.analysis-group-items'),toggle=group.querySelector('.analysis-group-toggle'),openGroup=index===0||groupUseScore(index)>0;
-      if(body)body.hidden=!openGroup;toggle?.setAttribute('aria-expanded',String(openGroup));
-    });
-  }
   function closeMenu(){panel.hidden=true;open.setAttribute('aria-expanded','false');}
-  function resetSelection(){
-    selectedButton=null;
-    panel.querySelectorAll('.analysis-menu-item').forEach(button=>{button.classList.remove('selected');button.setAttribute('aria-pressed','false');});
-    if(confirm())confirm().disabled=true;if(selectedLabel())selectedLabel().textContent='Pilih satu metode';
-  }
   function openMenu(){
-    document.dispatchEvent(new Event('close-navigation'));refreshQuick();applyGroupCollapse();if(phoneGuardMode())resetSelection();
-    panel.hidden=false;open.setAttribute('aria-expanded','true');requestAnimationFrame(()=>panel.querySelector('[data-auto-detect],.analysis-menu-item')?.focus());
+    document.dispatchEvent(new CustomEvent('stat-close-floating',{detail:{except:'analysisMenu'}}));
+    document.dispatchEvent(new Event('close-navigation'));
+    const loadError=$('#analysisLoadError');if(loadError){loadError.hidden=true;loadError.textContent='';}
+    refreshSmartSuggestion();
+    panel.hidden=false;open.setAttribute('aria-expanded','true');
+    requestAnimationFrame(()=>panel.querySelector('[data-analysis-smart-key],.analysis-compact-item')?.focus());
   }
-  function choose(button){
-    selectedButton=button;
-    panel.querySelectorAll('.analysis-menu-item').forEach(item=>{const active=item===button;item.classList.toggle('selected',active);item.setAttribute('aria-pressed',String(active));});
-    if(confirm())confirm().disabled=false;if(selectedLabel())selectedLabel().textContent=button.querySelector('b')?.textContent||'Metode dipilih';
-  }
-  async function openDescriptor(found,sourceButton=null){
-    if(!found)return;
-    const [type,value,label]=found.item;rememberUse(found.key);closeMenu();
-    if(sourceButton)sourceButton.disabled=true;
+  async function openDescriptor(item,sourceButton=null){
+    if(!item)return;
+    const [type,value,label]=item;closeMenu();if(sourceButton)sourceButton.disabled=true;
+    document.body.classList.add('analysis-mode-active');
     try{
       if(type==='design')await openScientificLazy(value);
+      else if(type==='augmented')await lazyOpeners.augmented();
       else if(type==='designExt')await lazyOpeners.designExt(value);
       else if(type==='nonparametric')await lazyOpeners.nonparametric();
       else if(type==='power')await lazyOpeners.power();
@@ -173,48 +176,32 @@ export function installAnalysisFlow() {
       else if(type==='nextgen')await lazyOpeners.nextgen(value);
       else if(type==='mixed')await lazyOpeners.mixed();
     }catch(error){
-      console.error('Analisis gagal dimuat',error);alert('Modul '+label+' belum dapat dimuat. Coba lagi.');
-    }finally{if(sourceButton)sourceButton.disabled=false;resetSelection();}
+      console.error('Analisis gagal dimuat',error);
+      document.body.classList.remove('analysis-mode-active');
+      panel.hidden=false;open.setAttribute('aria-expanded','true');
+      const loadError=$('#analysisLoadError');if(loadError){loadError.hidden=false;loadError.textContent=`${label} belum dapat dimuat. Coba lagi atau muat ulang halaman.`;}
+    }finally{if(sourceButton)sourceButton.disabled=false;}
   }
-  const openButton=button=>openDescriptor(descriptor(button?.dataset.analysisKey),button);
 
   open.addEventListener('click',()=>panel.hidden?openMenu():closeMenu());
   panel.addEventListener('click',async event=>{
-    const favoriteButton=event.target.closest('[data-favorite-key]');
-    if(favoriteButton){event.preventDefault();event.stopPropagation();toggleFavorite(favoriteButton.dataset.favoriteKey);refreshQuick();applyGroupCollapse();return;}
-    const quick=event.target.closest('[data-quick-analysis-key]');
-    if(quick){await openDescriptor(descriptor(quick.dataset.quickAnalysisKey),quick);return;}
-    const auto=event.target.closest('[data-auto-detect]');
-    if(auto){
-      auto.disabled=true;
-      try{
-        const mod=await scientificModule(),suggestion=mod.detectScientificDesign();
-        if(!suggestion){auto.textContent='Tidak terdeteksi';setTimeout(()=>{auto.textContent='Otomatis';auto.disabled=false;},1300);return;}
-        rememberUse('design:'+suggestion.design);closeMenu();mod.openScientific(suggestion.design);
-      }catch(error){console.error(error);auto.disabled=false;}
-      return;
-    }
-    const quickRun=event.target.closest('[data-quick-run]');
-    if(quickRun){
-      quickRun.disabled=true;
-      try{const mod=await scientificModule(),ok=await mod.quickRunLastScientific();if(!ok){quickRun.textContent='Belum ada';setTimeout(()=>{quickRun.textContent='Quick Run';quickRun.disabled=!hasSavedScientificConfigLocal();},1300);}}catch(error){console.error(error);quickRun.disabled=false;}
-      closeMenu();return;
-    }
-    const toggle=event.target.closest('.analysis-group-toggle');
-    if(toggle){const body=toggle.nextElementSibling,opening=body?.hidden!==false;if(body)body.hidden=!opening;toggle.setAttribute('aria-expanded',String(opening));return;}
-    const button=event.target.closest('.analysis-menu-item');
-    if(button){if(phoneGuardMode())choose(button);else await openButton(button);}
+    const smart=event.target.closest('[data-analysis-smart-key]');
+    if(smart){await openDescriptor(byKey.get(smart.dataset.analysisSmartKey),smart);return;}
+    const button=event.target.closest('[data-analysis-open]');
+    if(button)await openDescriptor(byKey.get(button.dataset.analysisOpen),button);
   });
-  confirm()?.addEventListener('click',()=>openButton(selectedButton));
   document.addEventListener('agrotik-open-analysis',event=>{
-    const key=String(event.detail?.key||'');if(!key)return;
-    const found=descriptor(key)||flatItems.find(entry=>entry.item[1]===key);
-    if(found)void openDescriptor(found);
+    const key=String(event.detail?.key||'');
+    const item=byKey.get(key)||items.find(entry=>entry[1]===key);
+    if(item)void openDescriptor(item);
   });
   document.addEventListener('agrotik-run-recipe',async event=>{
     const recipe=event.detail?.recipe;if(!recipe)return;
-    try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){console.error('Recipe analisis gagal dimuat',error);}
+    document.body.classList.add('analysis-mode-active');
+    try{const mod=await scientificModule();mod.openScientificRecipe(recipe);}catch(error){document.body.classList.remove('analysis-mode-active');console.error(error);}
   });
+  document.addEventListener('stat-dataset-changed',refreshSmartSuggestion);
+  document.addEventListener('stat-close-floating',event=>{if(event.detail?.except!=='analysisMenu')closeMenu();});
   document.addEventListener('close-navigation',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMenu();});
 }

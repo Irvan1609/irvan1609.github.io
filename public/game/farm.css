@@ -1,0 +1,32 @@
+/* FIELD ZERO FARM INPUTS 2026-09-28 */
+.plot-needs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;margin:4px 0 2px;min-width:0}
+.plot-needs span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--muted);font-size:9px;font-weight:750;line-height:1.1}
+.plot-needs span.need{border-color:var(--gold);color:var(--ink);font-weight:850}
+.nutrient-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.field-input-plan,.fertilizer-plan{display:grid;gap:5px;padding:7px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2)}
+.field-input-plan>b,.fertilizer-plan>div>b{font-size:10px}
+.field-input-plan>span,.fertilizer-plan>div>span,.labor-breakdown{color:var(--muted);font-size:8.5px;line-height:1.3}
+.field-input-plan button{min-height:40px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font-size:9px;font-weight:800}
+.fertilizer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.fertilizer-grid button{min-width:0;min-height:44px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);text-align:left}
+.fertilizer-grid button b{font-size:9.5px}.fertilizer-grid button small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}
+.fertilizer-grid button.recommended{border-color:var(--green);background:var(--panel-3)}
+.compact-actions{grid-template-columns:1fr!important}.labor-breakdown{display:block;margin-top:3px}
+html[data-theme="light"] body.theme-light .plot-needs span,
+html[data-theme="light"] body.theme-light .field-input-plan,
+html[data-theme="light"] body.theme-light .fertilizer-plan,
+html[data-theme="light"] body.theme-light .fertilizer-grid button{background:#fff!important;border-color:#c7d6cc!important;color:#183126!important}
+html[data-theme="light"] body.theme-light .plot-needs span.need,
+html[data-theme="light"] body.theme-light .fertilizer-grid button.recommended{background:#eef6f0!important;border-color:#79a98a!important;color:#245c3d!important}
+html[data-theme="light"] body.theme-light :is(.field-input-plan>span,.fertilizer-plan>div>span,.labor-breakdown,.fertilizer-grid button small){color:#61756a!important}
+@media(max-width:620px){
+  .plot-needs{gap:2px;margin:3px 0 1px}.plot-needs span{padding:3px;font-size:8.5px}
+  .nutrient-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .field-input-plan,.fertilizer-plan{padding:6px}
+  .fertilizer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fertilizer-grid button{min-height:46px;padding:5px}
+}
+@media(max-width:360px){
+  .plot-needs{grid-template-columns:1fr}.plot-needs span{padding:2px 3px;font-size:8px}
+  .fertilizer-grid{grid-template-columns:1fr 1fr}
+}
