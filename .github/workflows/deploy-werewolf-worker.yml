@@ -49,8 +49,13 @@ jobs:
             workers_dev: true,
             vars: {
               ALLOWED_ORIGINS: production
-                ? 'https://irvan1609.github.io,http://localhost:5173,http://127.0.0.1:5173'
-                : 'https://irvan1609.github.io,https://development.agrotik.pages.dev,https://development.agrotik-irvan1609.pages.dev,http://localhost:5173,http://127.0.0.1:5173'
+                ? 'https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
+                : 'https://irvan1609.github.io,https://werewolf-room-api-dev.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
+            },
+            assets: {
+              directory: 'public/werewolf',
+              binding: 'ASSETS',
+              run_worker_first: true
             },
             durable_objects: {
               bindings: [{ name: 'ROOMS', class_name: 'WerewolfRoom' }]
@@ -82,12 +87,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://${WORKER_NAME}.andyirvan1609.workers.dev/health"
+          BASE="https://${WORKER_NAME}.andyirvan1609.workers.dev"
+          URL="$BASE/health"
           for attempt in {1..12}; do
             BODY="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)"
             if printf '%s' "$BODY" | jq -e '.ok == true and .service == "werewolf-room-api" and .realtime == true and .storage == "durable-objects"' >/dev/null 2>&1; then
               echo "$BODY" | jq .
               echo "Worker healthy: $URL"
+              if [ "$WORKER_NAME" = "werewolf-room-api-dev" ]; then
+                PAGE="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/" || true)"
+                ART="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/assets/illustrations/hero-night.svg" || true)"
+                if ! printf '%s' "$PAGE" | grep -q 'THE VILLAGE' || ! printf '%s' "$ART" | grep -q '<svg'; then
+                  echo "::error::Worker staging hidup, tetapi halaman game atau ilustrasinya tidak dapat disajikan."
+                  exit 1
+                fi
+                echo "Werewolf preview ready: $BASE/"
+              fi
               exit 0
             fi
             sleep 5
