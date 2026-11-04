@@ -119,6 +119,7 @@ assert.match(app, /player_kicked/);
 assert.match(app, /function kickPlayer/);
 assert.match(app, /kick-player-button/);
 assert.match(worker, /type === 'kick_player'/);
+assert.match(worker, /if \(!isHost && !isModerator\)/);
 assert.match(worker, /closeKickedPlayerSockets/);
 assert.match(worker, /self\?\.id === room\.hostId/);
 assert.match(css, /\.kick-player-button/);
