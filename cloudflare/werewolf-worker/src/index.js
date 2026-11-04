@@ -1,6 +1,5 @@
 const ROOM_TTL_MS = 12 * 60 * 60 * 1000;
-const MIN_PLAYERS = 5;
-const MAX_PLAYERS = 20;
+const MAX_BOT_BATCH = 500;
 const MAX_CHAT_MESSAGES = 100;
 const BOT_NAMES = ['Aruna', 'Bima', 'Citra', 'Damar', 'Elang', 'Farah', 'Genta', 'Hana', 'Indra', 'Jihan', 'Kirana', 'Laras', 'Mahesa', 'Nadia', 'Raka', 'Salsa', 'Tara', 'Umar', 'Vina'];
 const BOT_PERSONALITIES = ['calm', 'analytical', 'assertive', 'cautious'];
@@ -96,14 +95,14 @@ function normalizeSettings(input = {}) {
   if (roleCounts) {
     for (const key of ROLE_COUNT_KEYS) {
       const count = Number(input.roleCounts[key] ?? 0);
-      if (!Number.isInteger(count) || count < 0 || count > 20) {
-        throw new HttpError(400, 'Jumlah role ' + key + ' harus berupa bilangan bulat 0–20.');
+      if (!Number.isSafeInteger(count) || count < 0) {
+        throw new HttpError(400, 'Jumlah role ' + key + ' harus berupa bilangan bulat non-negatif.');
       }
       roleCounts[key] = count;
     }
   }
   const wolves = Number(input.wolves ?? 1);
-  if (!Number.isInteger(wolves) || wolves < 1 || wolves > 4) throw new HttpError(400, 'Jumlah Werewolf harus 1–4.');
+  if (!Number.isSafeInteger(wolves) || wolves < 1) throw new HttpError(400, 'Jumlah Werewolf harus berupa bilangan bulat positif.');
   const extraRoles = {};
   for (const key of EXTRA_ROLE_KEYS) extraRoles[key] = input.extraRoles?.[key] === true;
   const abilities = {};
@@ -111,38 +110,65 @@ function normalizeSettings(input = {}) {
   return { wolves, seer: input.seer !== false, doctor: input.doctor !== false, extraRoles, roleCounts, abilities };
 }
 
-function roleDeck(settings, playerCount) {
-  if (settings.roleCounts) {
-    const counts = settings.roleCounts;
-    const total = ROLE_COUNT_KEYS.reduce((sum, key) => sum + counts[key], 0);
-    if (total !== playerCount) {
-      throw new HttpError(409, 'Jumlah role (' + total + ') harus sama dengan jumlah pemain (' + playerCount + '). Sesuaikan komposisi role di lobby.');
-    }
-    if (counts.wolf + counts.alpha_wolf < 1) {
-      throw new HttpError(409, 'Komposisi harus memiliki minimal satu Werewolf atau Alpha Wolf.');
-    }
-    const villageCount = ROLE_COUNT_KEYS.filter(key => VILLAGE_ROLES.has(key))
-      .reduce((sum, key) => sum + counts[key], 0);
-    if (villageCount < 1) throw new HttpError(409, 'Komposisi harus memiliki minimal satu anggota kubu Desa.');
-    const roles = [];
-    for (const key of ROLE_COUNT_KEYS) {
-      const role = key;
-      for (let i = 0; i < counts[key]; i += 1) roles.push(role);
-    }
-    return shuffle(roles);
-  }
-  const roles = Array(settings.wolves).fill('wolf');
-  if (settings.extraRoles?.alphaWolf) roles[0] = 'alpha_wolf';
-  if (settings.seer) roles.push('seer');
-  if (settings.doctor) roles.push('doctor');
+function recommendedRoleCounts(playerCount, settings = {}) {
+  const counts = Object.fromEntries(ROLE_COUNT_KEYS.map(key => [key, 0]));
+  if (!Number.isSafeInteger(playerCount) || playerCount < 2) return counts;
+
+  const requestedWolves = Number(settings.wolves ?? 1);
+  const wolfCount = Math.min(
+    playerCount - 1,
+    Math.max(1, Math.floor(playerCount / 4), Number.isSafeInteger(requestedWolves) ? requestedWolves : 1)
+  );
   const extras = settings.extraRoles || {};
-  const map = {
-    bodyguard: 'bodyguard', witch: 'witch', hunter: 'hunter', cupid: 'cupid',
-    guardianAngel: 'guardian_angel', detective: 'detective', mayor: 'mayor', jester: 'jester'
-  };
-  for (const [key, role] of Object.entries(map)) if (extras[key]) roles.push(role);
-  if (roles.length >= playerCount) throw new HttpError(409, 'Terlalu banyak role khusus. Sisakan minimal satu Warga Desa.');
-  while (roles.length < playerCount) roles.push('villager');
+  counts.wolf = wolfCount;
+  if (extras.alphaWolf) {
+    counts.wolf -= 1;
+    counts.alpha_wolf = 1;
+  }
+
+  let remaining = playerCount - wolfCount;
+  const optionalRoles = [
+    ['seer', settings.seer !== false],
+    ['doctor', settings.doctor !== false],
+    ['bodyguard', extras.bodyguard === true],
+    ['witch', extras.witch === true],
+    ['hunter', extras.hunter === true],
+    ['cupid', extras.cupid === true],
+    ['guardian_angel', extras.guardianAngel === true],
+    ['detective', extras.detective === true],
+    ['mayor', extras.mayor === true],
+    ['jester', extras.jester === true]
+  ];
+  for (const [role, enabled] of optionalRoles) {
+    if (enabled && remaining > 1) {
+      counts[role] += 1;
+      remaining -= 1;
+    }
+  }
+  counts.villager = remaining;
+  return counts;
+}
+
+function roleDeck(settings, playerCount) {
+  if (!Number.isSafeInteger(playerCount) || playerCount < 2) {
+    throw new HttpError(409, 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain.');
+  }
+  const counts = settings.roleCounts || recommendedRoleCounts(playerCount, settings);
+  const total = ROLE_COUNT_KEYS.reduce((sum, key) => sum + counts[key], 0);
+  if (!Number.isSafeInteger(total)) throw new HttpError(400, 'Total jumlah role terlalu besar.');
+  if (total !== playerCount) {
+    throw new HttpError(409, 'Jumlah role (' + total + ') harus sama dengan jumlah pemain (' + playerCount + '). Sesuaikan komposisi role di lobby.');
+  }
+  if (counts.wolf + counts.alpha_wolf < 1) {
+    throw new HttpError(409, 'Komposisi harus memiliki minimal satu Werewolf atau Alpha Wolf.');
+  }
+  const villageCount = ROLE_COUNT_KEYS.filter(key => VILLAGE_ROLES.has(key))
+    .reduce((sum, key) => sum + counts[key], 0);
+  if (villageCount < 1) throw new HttpError(409, 'Komposisi harus memiliki minimal satu anggota kubu Desa.');
+  const roles = [];
+  for (const key of ROLE_COUNT_KEYS) {
+    for (let i = 0; i < counts[key]; i += 1) roles.push(key);
+  }
   return shuffle(roles);
 }
 
@@ -749,7 +775,7 @@ export class WerewolfRoom {
         const room = await this.loadRoom();
         if (!room || room.expiresAt <= Date.now()) throw new HttpError(404, 'Room tidak ditemukan atau sudah kedaluwarsa.');
         if (room.phase !== 'lobby') throw new HttpError(409, 'Permainan sudah dimulai. Room tidak menerima pemain baru.');
-        if (room.players.length >= MAX_PLAYERS) throw new HttpError(409, 'Room sudah penuh.');
+        // No application-level room-size cap; platform storage and connection quotas still apply.
         const body = await readJson(request);
         const name = validName(body.name);
         if (room.players.some(player => player.name.toLowerCase() === name.toLowerCase())) {
@@ -929,11 +955,8 @@ export class WerewolfRoom {
       requireModerator();
       requirePhase('lobby');
       const count = Number(body.count ?? 5);
-      if (!Number.isInteger(count) || count < 1 || count > MAX_PLAYERS) {
-        throw new HttpError(400, 'Jumlah bot harus 1–20.');
-      }
-      if (room.players.length + count > MAX_PLAYERS) {
-        throw new HttpError(409, 'Jumlah pemain maksimal 20, tidak termasuk moderator.');
+      if (!Number.isSafeInteger(count) || count < 1 || count > MAX_BOT_BATCH) {
+        throw new HttpError(400, 'Jumlah bot per penambahan harus 1–' + MAX_BOT_BATCH + '. Tambahkan bot dalam beberapa tahap.');
       }
       for (let index = 0; index < count; index += 1) room.players.push(this.makeBot(room));
       return;
@@ -942,8 +965,8 @@ export class WerewolfRoom {
     if (type === 'start_game') {
       requireModerator();
       requirePhase('lobby');
-      if (room.players.length < MIN_PLAYERS) {
-        throw new HttpError(409, 'Minimal 5 pemain harus bergabung, tidak termasuk moderator.');
+      if (room.players.length < 2) {
+        throw new HttpError(409, 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain. Moderator tidak dihitung.');
       }
       const deck = roleDeck(room.settings, room.players.length);
       room.players.forEach((item, index) => {

@@ -251,6 +251,45 @@ function addText(parent, tag, className, text) {
   return item;
 }
 
+function recommendedRoleCounts(playerCount, settings = {}) {
+  const counts = Object.fromEntries(Object.keys(ROLE_COUNT_DEFAULTS).map(key => [key, 0]));
+  if (!Number.isSafeInteger(playerCount) || playerCount < 2) return counts;
+
+  const requestedWolves = Number(settings.wolves ?? 1);
+  const wolfCount = Math.min(
+    playerCount - 1,
+    Math.max(1, Math.floor(playerCount / 4), Number.isSafeInteger(requestedWolves) ? requestedWolves : 1)
+  );
+  const extras = settings.extraRoles || {};
+  counts.wolf = wolfCount;
+  if (extras.alphaWolf) {
+    counts.wolf -= 1;
+    counts.alpha_wolf = 1;
+  }
+
+  let remaining = playerCount - wolfCount;
+  const optionalRoles = [
+    ['seer', settings.seer !== false],
+    ['doctor', settings.doctor !== false],
+    ['bodyguard', extras.bodyguard === true],
+    ['witch', extras.witch === true],
+    ['hunter', extras.hunter === true],
+    ['cupid', extras.cupid === true],
+    ['guardian_angel', extras.guardianAngel === true],
+    ['detective', extras.detective === true],
+    ['mayor', extras.mayor === true],
+    ['jester', extras.jester === true]
+  ];
+  for (const [role, enabled] of optionalRoles) {
+    if (enabled && remaining > 1) {
+      counts[role] += 1;
+      remaining -= 1;
+    }
+  }
+  counts.villager = remaining;
+  return counts;
+}
+
 function roleSettingsForUI(settings = {}) {
   if (settings.roleCounts) {
     return {
@@ -258,26 +297,11 @@ function roleSettingsForUI(settings = {}) {
       abilities: { ...ABILITY_DEFAULTS, ...(settings.abilities || {}) }
     };
   }
-  const extras = settings.extraRoles || {};
-  const roleCounts = {
-    ...ROLE_COUNT_DEFAULTS,
-    wolf: Math.max(0, Number(settings.wolves || 1) - (extras.alphaWolf ? 1 : 0)),
-    alpha_wolf: extras.alphaWolf ? 1 : 0,
-    seer: settings.seer === false ? 0 : 1,
-    doctor: settings.doctor === false ? 0 : 1,
-    bodyguard: extras.bodyguard ? 1 : 0,
-    witch: extras.witch ? 1 : 0,
-    hunter: extras.hunter ? 1 : 0,
-    cupid: extras.cupid ? 1 : 0,
-    guardian_angel: extras.guardianAngel ? 1 : 0,
-    detective: extras.detective ? 1 : 0,
-    mayor: extras.mayor ? 1 : 0,
-    jester: extras.jester ? 1 : 0
+  const playerCount = roomState?.players?.length || 0;
+  return {
+    roleCounts: recommendedRoleCounts(playerCount, settings),
+    abilities: { ...ABILITY_DEFAULTS }
   };
-  const assigned = Object.entries(roleCounts).filter(([key]) => key !== 'villager')
-    .reduce((sum, [, value]) => sum + value, 0);
-  roleCounts.villager = Math.max(0, (roomState?.players?.length || 5) - assigned);
-  return { roleCounts, abilities: { ...ABILITY_DEFAULTS } };
 }
 
 function roleConfigTotals(roleCounts = {}) {
@@ -324,7 +348,6 @@ function renderRoleConfigEditor(container, settings) {
       const input = node('input', 'role-count-input');
       input.type = 'number';
       input.min = '0';
-      input.max = '20';
       input.step = '1';
       input.inputMode = 'numeric';
       input.value = String(config.roleCounts[key] ?? 0);
@@ -363,8 +386,8 @@ function readRoleSettings(container) {
   const abilities = {};
   for (const input of container.querySelectorAll('[data-role-count]')) {
     const count = Number(input.value);
-    if (!Number.isInteger(count) || count < 0 || count > 20) {
-      throw new Error('Jumlah setiap role harus berupa bilangan bulat antara 0 dan 20.');
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error('Jumlah setiap role harus berupa bilangan bulat non-negatif.');
     }
     roleCounts[input.dataset.roleCount] = count;
   }
@@ -529,7 +552,7 @@ function renderPlayerPhase(parent) {
 
 function renderModeratorLobby(parent) {
   phaseHeader(parent, 'PANEL MODERATOR', 'Atur role setelah pemain bergabung', 'Tentukan role dan jumlahnya di sini. Pengaturan ini dapat diubah selama room masih berada di lobby.');
-  addText(parent, 'div', 'notice', 'Pemain bergabung: ' + roomState.players.length + ' / 20. Minimal 5 pemain. Jumlah role harus sama dengan jumlah pemain; moderator tidak dihitung.');
+  addText(parent, 'div', 'notice', 'Pemain bergabung: ' + roomState.players.length + '. Minimal 2 pemain; tidak ada batas jumlah pemain tetap dari aplikasi. Jumlah role harus sama dengan jumlah pemain; moderator tidak dihitung.');
   const settings = roomState.room.settings || {};
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
@@ -557,31 +580,40 @@ function renderModeratorLobby(parent) {
     balanceGrid.append(item);
   }
   balance.append(balanceGrid);
-  if (roomState.players.length < 5) addText(balance, 'p', 'hint', 'Tambahkan pemain hingga minimal 5 orang.');
+  if (roomState.players.length < 2) addText(balance, 'p', 'hint', 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain.');
   else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + roomState.players.length + ' pemain. Sesuaikan angka role lalu simpan.');
   else if (totals.wolves < 1 || totals.village < 1) addText(balance, 'p', 'notice warning', 'Harus ada minimal satu anggota kubu Werewolf dan satu anggota kubu Desa.');
   else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain.');
   parent.append(balance);
 
-  const maxBots = Math.min(20, 20 - roomState.players.length);
+  const maxBotsPerBatch = 500;
   const botBox = node('div', 'bot-setup');
   addText(botBox, 'h3', '', 'Mode latihan vs bot');
-  addText(botBox, 'p', 'hint', 'Bot otomatis membuka kartu, melakukan aksi malam, dan memberikan suara. Lima bot dapat digunakan untuk latihan dengan satu moderator.');
+  addText(botBox, 'p', 'hint', 'Bot otomatis membuka kartu, melakukan aksi malam, dan memberikan suara. Jumlah total pemain room tidak dibatasi angka tetap; bot dapat ditambahkan bertahap.');
   const botLabel = node('label', 'bot-count-label');
   botLabel.append(node('span', '', 'Jumlah bot tambahan'));
-  const botCount = node('select');
+  const botCount = node('input');
   botCount.id = 'botCount';
-  const choices = [1, 2, 3, 4, 5, 8, 10, 15, 20].filter(value => value <= maxBots);
-  if (maxBots > 0 && !choices.length) choices.push(maxBots);
-  for (const value of choices) botCount.append(new Option(value + ' bot', String(value)));
-  botCount.value = String(choices.includes(5) ? 5 : (choices[0] || 0));
+  botCount.type = 'number';
+  botCount.min = '1';
+  botCount.max = String(maxBotsPerBatch);
+  botCount.step = '1';
+  botCount.inputMode = 'numeric';
+  botCount.value = '5';
   botLabel.append(botCount);
   botBox.append(botLabel);
-  botBox.append(button('Tambahkan bot otomatis', 'secondary wide', () => sendAction('add_bots', { count: Number(botCount.value) }), maxBots < 1));
-  if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
+  botBox.append(button('Tambahkan bot otomatis', 'secondary wide', () => {
+    const count = Number(botCount.value);
+    if (!Number.isSafeInteger(count) || count < 1 || count > maxBotsPerBatch) {
+      showMessage('Jumlah bot per penambahan harus 1–' + maxBotsPerBatch + '.', true);
+      return;
+    }
+    sendAction('add_bots', { count });
+  }));
+  addText(botBox, 'p', 'hint', 'Maksimal 500 bot dalam satu penambahan. Untuk jumlah lebih besar, lakukan beberapa kali.');
   parent.append(botBox);
 
-  const canStart = roomState.players.length >= 5 && exact && totals.wolves >= 1 && totals.village >= 1;
+  const canStart = roomState.players.length >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
   parent.append(button('Mulai Permainan & Bagikan Kartu', 'primary wide', () => sendAction('start_game'), !canStart));
   addText(parent, 'p', 'hint', 'Kartu dibagikan secara privat. Setiap pemain membukanya sendiri pada perangkat masing-masing.');
 }
