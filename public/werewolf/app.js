@@ -662,9 +662,10 @@ function renderRoom() {
   $('phaseTracker').classList.toggle('hidden', !moderator);
   const resetButton = $('resetRoom');
   if (resetButton) {
-    resetButton.classList.toggle('hidden', !moderator || room.phase === 'lobby');
+    resetButton.classList.toggle('hidden', !moderator);
+    resetButton.classList.toggle('restart-button', moderator);
     resetButton.textContent = 'Restart Permainan';
-    resetButton.title = 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu';
+    resetButton.title = 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu tanpa mengeluarkan pemain';
   }
   const leaveButton = $('leaveRoom');
   if (leaveButton) {
@@ -1560,7 +1561,11 @@ $('copyInvite').addEventListener('click', async () => {
 });
 
 $('resetRoom').addEventListener('click', () => {
-  if (!roomState?.self?.isModerator || roomState.room.phase === 'lobby') return;
+  if (!roomState?.self?.isModerator) return;
+  if (roomState.room.phase === 'lobby') {
+    showMessage('Room sudah berada di lobby. Mulai permainan terlebih dahulu untuk menggunakan restart.');
+    return;
+  }
   if (confirm('Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu? Kode room, nama, dan koneksi pemain tetap dipertahankan.')) sendAction('reset_to_lobby');
 });
 
