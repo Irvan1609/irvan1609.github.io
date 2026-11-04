@@ -1338,6 +1338,7 @@ export class WerewolfRoom {
     if (type === 'next_round') {
       requireModerator();
       requirePhase('result');
+      // No fixed night-round cap: the game ends only when a win condition is reached.
       room.round += 1;
       room.phase = 'night';
       room.nightActions = {};
