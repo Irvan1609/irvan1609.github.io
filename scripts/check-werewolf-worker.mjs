@@ -453,3 +453,81 @@ assert.equal(assetResponse.status, 200);
 assert.match(await assetResponse.text(), /THE VILLAGE/);
 assert.deepEqual(assetRequests, ['/']);
 console.log('Werewolf static preview asset routing check passed.');
+
+
+// Flexible player-count coverage: two-player minimum and automatically scaled roles.
+const smallRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const smallCreated = await payload(await smallRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SM2PLR', name: 'Small Moderator'
+})), 201);
+await payload(await smallRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Solo Player' })), 201);
+await payload(await smallRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, smallCreated.token)), 409);
+await payload(await smallRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Second Player' })), 201);
+await payload(await smallRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, smallCreated.token)));
+let smallState = await smallRoom.loadRoom();
+assert.equal(smallState.players.length, 2);
+assert.equal(smallState.phase, 'role_draw');
+assert.equal(smallState.players.filter(player => player.role === 'wolf').length, 1);
+assert.equal(smallState.players.filter(player => player.role === 'villager').length, 1);
+assert.equal(smallState.players.filter(player => ['seer', 'doctor'].includes(player.role)).length, 0);
+console.log('Werewolf flexible-count check passed: two players can start with one Werewolf and one Villager.');
+
+// Default composition scales with a larger human roster without a hard-coded room cap.
+const scaledRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const scaledCreated = await payload(await scaledRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SC25PL', name: 'Scaled Moderator'
+})), 201);
+for (let index = 1; index <= 25; index += 1) {
+  await payload(await scaledRoom.fetch(makeRequest('/internal/join', 'POST', {
+    name: 'Player ' + String(index).padStart(2, '0')
+  })), 201);
+}
+await payload(await scaledRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, scaledCreated.token)));
+const scaledState = await scaledRoom.loadRoom();
+assert.equal(scaledState.players.length, 25);
+assert.equal(scaledState.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 6);
+assert.equal(scaledState.players.filter(player => player.role === 'seer').length, 1);
+assert.equal(scaledState.players.filter(player => player.role === 'doctor').length, 1);
+assert.equal(scaledState.players.filter(player => player.role === 'villager').length, 17);
+console.log('Werewolf role-scaling check passed: 25 players receive a proportionate default role deck.');
+
+// No fixed room total: join 25 humans, add 25 bots, then use a role count above twenty.
+const largeRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const largeCreated = await payload(await largeRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'LG52PL', name: 'Large Moderator'
+})), 201);
+for (let index = 1; index <= 25; index += 1) {
+  await payload(await largeRoom.fetch(makeRequest('/internal/join', 'POST', {
+    name: 'Guest ' + String(index).padStart(2, '0')
+  })), 201);
+}
+await payload(await largeRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'add_bots', count: 25
+}, largeCreated.token)));
+let largeState = await largeRoom.loadRoom();
+assert.equal(largeState.players.length, 50);
+assert.equal(largeState.players.filter(player => player.isBot).length, 25);
+const largeRoleCounts = {
+  wolf: 12, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
+  witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
+  mayor: 0, jester: 0, villager: 36
+};
+await payload(await largeRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings',
+  settings: { roleCounts: largeRoleCounts }
+}, largeCreated.token)));
+await payload(await largeRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, largeCreated.token)));
+largeState = await largeRoom.loadRoom();
+assert.equal(largeState.players.length, 50);
+assert.equal(largeState.players.filter(player => player.role === 'villager').length, 36);
+assert.equal(largeState.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 12);
+assert.ok(largeState.players.every(player => player.hasDrawn === Boolean(player.isBot)));
+console.log('Werewolf large-room check passed: 50 players, 25 bots, and role counts above twenty are supported.');
