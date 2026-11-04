@@ -119,3 +119,25 @@ assert.match(app, /updatePhaseTracker/);
 assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: separate moderator dashboard, minimal player actions, manual phase control, responsive UI, and private role assets.');
+
+
+assert.match(app, /function renderPlayerRoleReminder/);
+assert.match(app, /role-flip-card/);
+assert.match(app, /aria-pressed/);
+assert.match(app, /function renderWolfTeamPanel/);
+assert.match(app, /roomState\.wolfTeam/);
+assert.match(app, /Voting bersifat rahasia/);
+assert.match(app, /function renderModeratorEventReport/);
+assert.match(app, /KARTU MODERATOR/);
+assert.match(app, /moderator: \['Moderator'/);
+assert.match(app, /roleCounts\.moderator/);
+assert.match(css, /\.role-flip-card/);
+assert.match(css, /\.role-flip-card\.is-flipped/);
+assert.match(css, /\.wolf-team-panel/);
+assert.match(css, /\.moderator-event-report/);
+assert.match(html, /20261104-private-cards-moderator-report1/);
+assert.match(sw, /20261104-werewolf-private-cards-moderator-report1/);
+assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
+assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
+
+console.log('Werewolf private-card, moderator-report, role privacy, and wolf-team UI checks passed.');

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-labelledby="title desc">
+<title id="title">Moderator</title>
+<desc id="desc">Kartu moderator dengan lambang mahkota, bulan, dan buku kendali permainan.</desc>
+<defs>
+  <radialGradient id="glow"><stop offset="0" stop-color="#d9b777" stop-opacity=".48"/><stop offset="1" stop-color="#172338" stop-opacity="0"/></radialGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6e3b6"/><stop offset=".5" stop-color="#c49b5b"/><stop offset="1" stop-color="#8b6738"/></linearGradient>
+</defs>
+<rect x="5" y="5" width="310" height="210" rx="24" fill="#111d2d" stroke="#b8955d" stroke-opacity=".65" stroke-width="2"/>
+<circle cx="160" cy="91" r="78" fill="url(#glow)"/>
+<path d="M108 117h104l-10 34h-84z" fill="#1b2a3d" stroke="url(#gold)" stroke-width="3" stroke-linejoin="round"/>
+<path d="M112 115l-13-46 35 24 26-48 26 48 35-24-13 46z" fill="url(#gold)" stroke="#f4e0b3" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="99" cy="67" r="5" fill="#f7e9c9"/><circle cx="160" cy="44" r="5" fill="#f7e9c9"/><circle cx="221" cy="67" r="5" fill="#f7e9c9"/>
+<path d="M124 130h72M130 140h60" stroke="#d9c18f" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+<path d="M18 21h284M18 199h284" stroke="#b8955d" stroke-opacity=".35"/>
+<text x="160" y="185" fill="#f2d49a" font-family="Georgia,serif" font-size="16" font-weight="700" letter-spacing="4" text-anchor="middle">MODERATOR</text>
+</svg>
