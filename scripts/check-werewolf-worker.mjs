@@ -30,12 +30,16 @@ const room = new WerewolfRoom({ storage, getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
 });
 const created = await payload(await room.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WALF23', name: 'Moderator',
-  settings: { wolves: 1, seer: true, doctor: true }
+  code: 'WALF23', name: 'Moderator'
 })), 201);
 assert.ok(created.moderatorId);
 let saved = await room.loadRoom();
 assert.equal(saved.players.length, 0);
+assert.equal(saved.phase, 'lobby');
+assert.equal(saved.settings.roleCounts, null);
+assert.equal(saved.settings.wolves, 1);
+assert.equal(saved.settings.seer, true);
+assert.equal(saved.settings.doctor, true);
 assert.equal(saved.hostId, created.moderatorId);
 assert.ok(saved.moderator.tokenHash);
 
@@ -153,6 +157,32 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: '
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'discussion');
 assert.equal(saved.discussionEndsAt, null);
+assert.equal(saved.discussionMode, null);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'offline'
+}, playerTokens[0])), 403);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', callUrl: 'http://meet.google.com/test-room'
+}, moderatorToken)), 400);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'offline'
+}, moderatorToken)));
+let offlineDiscussion = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
+))).state;
+assert.equal(offlineDiscussion.room.discussionMode, 'offline');
+assert.equal(offlineDiscussion.room.callUrl, '');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', callUrl: 'https://meet.google.com/test-room'
+}, moderatorToken)));
+const onlineDiscussion = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
+))).state;
+assert.equal(onlineDiscussion.room.discussionMode, 'online');
+assert.equal(onlineDiscussion.room.callUrl, 'https://meet.google.com/test-room');
+saved = await room.loadRoom();
+assert.equal(saved.discussionEndsAt, null);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
 saved = await room.loadRoom();
@@ -201,7 +231,46 @@ soloState = await soloRoom.loadRoom();
 assert.equal(Object.keys(soloState.nightActions).length, 5);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
 assert.equal((await soloRoom.loadRoom()).phase, 'morning');
+soloState = await soloRoom.loadRoom();
+soloState.phase = 'morning';
+soloState.winner = null;
+soloState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+  player.alive = true;
+  player.suspicionTargetId = null;
+});
+soloState.seerResults = {
+  [soloState.players[1].id]: {
+    round: 1,
+    playerName: soloState.players[0].name,
+    result: 'wolf'
+  }
+};
+soloState.lastResult = {
+  kind: 'night',
+  message: 'Malam berlalu tanpa korban.',
+  eliminatedId: null,
+  at: Date.now(),
+  round: 1
+};
+await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
+soloState = await soloRoom.loadRoom();
+assert.equal(soloState.phase, 'discussion');
+assert.equal(soloState.discussionMode, null);
+assert.equal(soloState.chat.length, 3);
+assert.ok(soloState.chat.every(message =>
+  soloState.players.some(player => player.id === message.playerId && player.isBot)
+));
+assert.ok(soloState.chat[0].text.includes(soloState.players[0].name));
+const soloModeratorView = (await payload(await soloRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, soloToken)
+))).state;
+assert.equal(soloModeratorView.chat.length, 3);
+assert.ok(soloModeratorView.chat.every(message => message.isBot));
+const soloPlayerView = soloRoom.snapshot(soloState, soloState.players[0].id, 'player');
+assert.deepEqual(soloPlayerView.chat, []);
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'set_discussion', mode: 'offline' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'voting');

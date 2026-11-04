@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261104-role-config1">
+  <link rel="stylesheet" href="./style.css?v=20261104-room-lobby1">
 </head>
 <body>
   <header class="subweb-header">
@@ -20,59 +20,40 @@
 
   <main class="app">
     <section class="hero">
-      <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER & SOLO VS BOT</div>
+      <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER</div>
       <h1>THE VILLAGE<br><em>AFTER DARK</em></h1>
-      <p>Di siang hari, semua tampak biasa. Saat malam tiba, tidak semua orang bisa dipercaya.</p>
-      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Moderator control</span><span>✦ Kartu rahasia</span><span>✦ Voting manual</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
+      <p>Buat room, bagikan kode, dan mulai permainan bersama teman.</p>
     </section>
 
     <section id="entryPanel" class="panel entry-panel">
       <div class="section-heading">
-        <div><small>MULAI BERMAIN</small><h2>Buat atau gabung room</h2></div>
+        <div><small>MASUK KE PERMAINAN</small><h2>Pilih cara masuk</h2></div>
         <span class="status-pill" id="apiStatus">Menghubungkan layanan</span>
       </div>
       <div class="entry-grid">
-        <form id="createForm" class="entry-card">
-          <div class="card-kicker">MODERATOR ROOM</div>
-          <h3>Buat room baru</h3>
-          <label>Nama moderator
-            <input id="createName" maxlength="20" placeholder="Masukkan nama moderator" required>
-          </label>
-          <div id="createRoleConfig" aria-label="Konfigurasi role dan kemampuan"></div>
-          <label class="check-row solo-mode-row"><input id="soloMode" type="checkbox" checked><span><b>Mode latihan · 5 bot</b><small>Moderator dapat berlatih mengelola permainan dengan lima bot tanpa harus menjadi pemain.</small></span></label>
-          <button class="primary wide" id="createButton" type="submit">Buat room</button>
-          <p class="hint">Moderator mengelola permainan dan tidak dihitung sebagai pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
-        </form>
-
         <form id="joinForm" class="entry-card join-card">
-          <div class="card-kicker">JOIN ROOM</div>
-          <h3>Gabung permainan</h3>
+          <div class="card-kicker">PEMAIN</div>
+          <h3>Gabung Room</h3>
           <label>Nama pemain
             <input id="joinName" maxlength="20" placeholder="Masukkan nama kamu" required>
           </label>
           <label>Kode room
             <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
           </label>
-          <button class="secondary wide" id="joinButton" type="submit">Gabung room</button>
-          <p class="hint">Minta kode room dari moderator. Setiap pemain menggunakan satu perangkat agar kartu dan aksinya tetap rahasia.</p>
+          <button class="secondary wide" id="joinButton" type="submit">Gabung Room</button>
+          <p class="hint">Masukkan kode room yang dibagikan host.</p>
+        </form>
+
+        <form id="createForm" class="entry-card create-card">
+          <div class="card-kicker">MODERATOR ROOM</div>
+          <h3>Buat Room</h3>
+          <label>Nama moderator
+            <input id="createName" maxlength="20" placeholder="Masukkan nama moderator" required>
+          </label>
+          <button class="primary wide" id="createButton" type="submit">Buat Room</button>
+          <p class="hint">Kamu menjadi moderator. Pengaturan role tersedia setelah room dibuat.</p>
         </form>
       </div>
-      <details class="how-to-play">
-        <summary>Aturan singkat & cara bermain</summary>
-        <div class="rules-grid">
-          <article><b>Werewolf & Alpha Wolf</b><p>Memilih target serangan setiap malam. Suara Alpha Wolf bernilai dua. Kubu Werewolf menang saat jumlahnya menyamai atau melebihi kubu Desa.</p></article>
-          <article><b>Seer & Detective</b><p>Seer memeriksa apakah target Werewolf. Detective mengetahui kubu target: Desa, Werewolf, atau Netral.</p></article>
-          <article><b>Doctor & Bodyguard</b><p>Doctor membatalkan satu serangan. Bodyguard mengorbankan dirinya jika target yang dijaga diserang.</p></article>
-          <article><b>Witch</b><p>Memiliki satu ramuan penyembuh otomatis untuk korban serangan dan satu ramuan racun untuk membunuh target. Masing-masing hanya sekali.</p></article>
-          <article><b>Hunter</b><p>Setelah tereliminasi, Hunter dapat menembak satu pemain yang masih hidup.</p></article>
-          <article><b>Cupid</b><p>Pada malam pertama menghubungkan dua pemain. Jika salah satunya tereliminasi, pasangannya ikut tereliminasi. Jika mereka menjadi dua pemain terakhir, pasangan menang.</p></article>
-          <article><b>Guardian Angel</b><p>Memilih target perlindungan setiap malam dan mendapat kemenangan tambahan jika target terakhir tetap hidup saat permainan berakhir.</p></article>
-          <article><b>Mayor</b><p>Suara Mayor memiliki bobot dua dalam penghitungan voting.</p></article>
-          <article><b>Jester</b><p>Menang sendiri jika tereliminasi melalui voting. Tidak menang jika tersingkir pada malam hari.</p></article>
-          <article><b>Warga Desa</b><p>Tidak memiliki aksi malam. Gunakan diskusi dan voting untuk menemukan kubu Werewolf.</p></article>
-        </div>
-        <p class="hint">Alur permainan: moderator membagikan kartu, mengendalikan malam dan pagi, membuka diskusi, memulai voting, lalu mengumumkan hasil. Tidak ada timer otomatis.</p>
-      </details>
       <p id="entryMessage" class="message-line" role="status" aria-live="polite"></p>
     </section>
 
@@ -101,6 +82,6 @@
     <footer>Werewolf · Moderator mengendalikan pembagian kartu, malam, pagi, diskusi, dan voting. Tidak ada pergantian fase otomatis.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261104-role-config1"></script>
+  <script type="module" src="./app.js?v=20261104-room-lobby1"></script>
 </body>
 </html>
