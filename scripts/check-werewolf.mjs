@@ -20,7 +20,8 @@ for (const id of [
 
 for (const token of [
   'add_bots', 'draw_card', 'night_action', 'night_pass', 'resolve_night',
-  'start_discussion', 'start_voting', 'cast_vote', 'resolve_vote', 'next_round'
+  'start_discussion', 'start_voting', 'cast_vote', 'resolve_vote', 'next_round',
+  'hunter_shot', 'EXTRA_ROLE_OPTIONS', 'witch_heal', 'witch_poison', 'cupid_link', 'detective_inspect'
 ]) assert.ok(app.includes(token), 'Missing client action ' + token);
 
 for (const token of [
@@ -47,7 +48,10 @@ assert.doesNotMatch(app, /setInterval\(\(\) => updateDiscussionClock/);
 
 for (const file of [
   'hero-night.svg', 'card-back.svg', 'role-wolf.svg',
-  'role-seer.svg', 'role-doctor.svg', 'role-villager.svg'
+  'role-seer.svg', 'role-doctor.svg', 'role-villager.svg',
+  'role-alpha_wolf.svg', 'role-bodyguard.svg', 'role-witch.svg',
+  'role-hunter.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
+  'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
 }
@@ -55,6 +59,9 @@ for (const file of [
 assert.match(html, /THE VILLAGE/);
 assert.match(html, /MODERATOR ROOM/);
 assert.match(html, /data-step="morning"/);
+assert.match(html, /role-alphaWolf/);
+assert.match(html, /role-jester/);
+assert.match(html, /Memiliki dua bobot suara/);
 assert.match(html, /id="playersSection"/);
 assert.match(css, /prefers-reduced-motion/);
 assert.match(css, /@media\(max-width:760px\)/);
