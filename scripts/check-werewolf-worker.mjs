@@ -279,6 +279,130 @@ await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { typ
 soloState = await soloRoom.loadRoom();
 assert.ok(['result', 'finished'].includes(soloState.phase));
 
+const witchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
+  ALLOWED_ORIGINS: 'https://irvan1609.github.io'
+});
+const witchCreated = await payload(await witchRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'W7TCH2', name: 'Witch Moderator'
+})), 201);
+const witchTokens = [];
+const witchNames = ['Mira', 'Nino', 'Omar', 'Pia', 'Rafi'];
+for (const name of witchNames) {
+  const joined = await payload(await witchRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  witchTokens.push(joined.token);
+}
+const witchSettings = {
+  roleCounts: {
+    wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0,
+    witch: 1, hunter: 0, cupid: 1, guardian_angel: 0, detective: 0,
+    mayor: 0, jester: 0, villager: 2
+  },
+  abilities: {
+    alphaDoubleVote: true, seerInspection: true, doctorProtection: true,
+    bodyguardSacrifice: true, witchHeal: true, witchPoison: true,
+    hunterShot: true, cupidBond: true, guardianProtection: true,
+    guardianBonus: true, detectiveInspection: true, mayorDoubleVote: true,
+    jesterSoloWin: true
+  }
+};
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: witchSettings
+}, witchCreated.token)));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, witchCreated.token)));
+let witchState = await witchRoom.loadRoom();
+const witchRoles = ['wolf', 'witch', 'cupid', 'villager', 'villager'];
+witchState.players.forEach((player, index) => {
+  player.role = witchRoles[index];
+  player.hasDrawn = true;
+});
+witchState.witchPotions = {
+  [witchState.players[1].id]: { heal: true, poison: true }
+};
+await witchRoom.saveRoom(witchState);
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, witchCreated.token)));
+const witchBeforeWolf = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[1])
+))).state;
+assert.equal(witchBeforeWolf.self.witchAttack.ready, false);
+const ordinaryPlayerBeforeWolf = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[3])
+))).state;
+assert.equal(ordinaryPlayerBeforeWolf.self.witchAttack, null);
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', mode: 'heal'
+}, witchTokens[1])), 409);
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: witchState.players[3].id
+}, witchTokens[0])));
+const witchAfterWolf = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[1])
+))).state;
+assert.equal(witchAfterWolf.self.witchAttack.ready, true);
+assert.equal(witchAfterWolf.self.witchAttack.targetName, witchNames[3]);
+const ordinaryPlayerAfterWolf = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[3])
+))).state;
+assert.equal(ordinaryPlayerAfterWolf.self.witchAttack, null);
+assert.deepEqual(ordinaryPlayerAfterWolf.self.loverNames, []);
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: witchState.players[3].id, partnerId: witchState.players[4].id
+}, witchTokens[2])));
+const cupidModeratorView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchCreated.token)
+))).state;
+assert.equal(cupidModeratorView.players[2].nightActionPartner, witchNames[4]);
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', mode: 'heal'
+}, witchTokens[1])));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, witchTokens[3])));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, witchTokens[4])));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, witchCreated.token)));
+witchState = await witchRoom.loadRoom();
+assert.equal(witchState.phase, 'morning');
+assert.equal(witchState.players[3].alive, true);
+assert.equal(witchState.witchPotions[witchState.players[1].id].heal, false);
+const cupidView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[2])
+))).state;
+assert.deepEqual(cupidView.self.loverNames, [witchNames[3], witchNames[4]]);
+assert.equal(cupidView.self.cupidUsed, true);
+const linkedPlayerView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[3])
+))).state;
+assert.deepEqual(linkedPlayerView.self.loverNames, [witchNames[3], witchNames[4]]);
+const wolfPlayerView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[0])
+))).state;
+assert.deepEqual(wolfPlayerView.self.loverNames, []);
+assert.equal(wolfPlayerView.self.cupidUsed, false);
+assert.deepEqual(wolfPlayerView.room.lovers, []);
+const moderatorLoversView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchCreated.token)
+))).state;
+assert.deepEqual(moderatorLoversView.room.lovers, [witchNames[3], witchNames[4]]);
+console.log('Werewolf Witch/Cupid checks passed: Witch-only attack clue, guarded healing, private Cupid pair disclosure, and moderator visibility.');
+
+const botWitchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const botWitchCreated = await payload(await botWitchRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'B8TCH3', name: 'Bot Moderator'
+})), 201);
+await payload(await botWitchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'add_bots', count: 5 }, botWitchCreated.token)));
+await payload(await botWitchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, botWitchCreated.token)));
+let botWitchState = await botWitchRoom.loadRoom();
+const botRoles = ['wolf', 'witch', 'villager', 'villager', 'villager'];
+botWitchState.players.forEach((player, index) => {
+  player.role = botRoles[index];
+  player.hasDrawn = true;
+});
+botWitchState.witchPotions = {
+  [botWitchState.players[1].id]: { heal: true, poison: true }
+};
+await botWitchRoom.saveRoom(botWitchState);
+await payload(await botWitchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, botWitchCreated.token)));
+botWitchState = await botWitchRoom.loadRoom();
+assert.equal(botWitchState.nightActions[botWitchState.players[1].id].type, 'witch_heal');
+console.log('Werewolf bot Witch check passed: bot waits for wolf votes and heals the actual target.');
+
 const disabledRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
 });
