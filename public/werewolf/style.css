@@ -241,3 +241,12 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .villager-math-question{margin:10px 0;padding:17px;border:1px solid #8a7047;border-radius:12px;background:linear-gradient(145deg,#2a291f,#111a29);color:#f0d6a6;text-align:center;font:700 30px var(--serif);letter-spacing:.06em}
 @media(max-width:620px){.role-count-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.moderator-mode-row{grid-template-columns:1fr}.waiting-room-list{grid-template-columns:1fr 1fr}}
 @media(max-width:370px){.role-count-grid,.waiting-room-list{grid-template-columns:1fr}}
+
+
+/* Room restart and one-click role reset controls */
+.room-top-actions{flex-wrap:wrap;gap:7px}
+.room-top-actions #resetRoom{background:#263243;border:1px solid #6b593c;color:#f0d6a6}
+.role-config-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #2f4158}
+.role-config-actions .hint{margin:0;max-width:380px}
+.role-zero-button{min-height:34px;padding:7px 11px;background:#26374d;border:1px solid #6b593c;color:#f0d6a6;font-size:10px;white-space:nowrap}
+@media(max-width:620px){.role-config-actions{align-items:stretch;flex-direction:column}.role-zero-button{width:100%}.role-config-actions .hint{max-width:none}}
