@@ -544,9 +544,6 @@ assert.deepEqual(privateVillagerWolfView.wolfChat, []);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
 }, cupidNightTokens[2])));
-await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
-}, cupidNightTokens[2])));
 await submitVillagerMath(cupidNightRoom, cupidNightTokens[3]);
 await submitVillagerMath(cupidNightRoom, cupidNightTokens[4]);
 
