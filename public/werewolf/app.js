@@ -701,7 +701,7 @@ function renderPlayerNight(parent) {
   }
   const roleAbility = {
     seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
-    cupid: 'cupidBond', guardian_angel: 'guardianProtection', detective: 'detectiveInspection'
+    cupid: 'cupidBond', detective: 'detectiveInspection'
   };
   if (['villager', 'hunter', 'mayor', 'jester'].includes(self.role)
     || (roleAbility[self.role] && !abilityOn(roleAbility[self.role]))
@@ -730,7 +730,7 @@ function renderPlayerNight(parent) {
     const grid = node('div', 'action-grid');
     for (const target of targets) grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
     parent.append(grid);
-    if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target tetap: ' + self.guardianTargetName);
+    if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target pilihan terakhir: ' + self.guardianTargetName);
   } else if (self.role === 'witch') {
     const potions = self.witchPotions || { heal: false, poison: false };
     addText(parent, 'h3', '', 'Pilih ramuan');
