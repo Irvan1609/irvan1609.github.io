@@ -170,7 +170,7 @@ assert.match(app, /Voting bersifat rahasia/);
 assert.match(app, /function renderModeratorEventReport/);
 assert.match(app, /ROLE MODERATOR · PENGATUR JALANNYA PERMAINAN/);
 assert.match(app, /moderator: \['Moderator'/);
-assert.match(app, /roleCounts\.moderator/);
+assert.match(app, /roleCounts\?\.moderator/);
 assert.match(css, /\.role-flip-card/);
 assert.match(css, /\.role-flip-card\.is-flipped/);
 assert.match(css, /\.wolf-team-panel/);
