@@ -228,6 +228,7 @@ assert.equal(Object.keys(soloState.nightActions).length, 5);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
 assert.equal((await soloRoom.loadRoom()).phase, 'morning');
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'set_discussion', mode: 'offline' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'voting');
