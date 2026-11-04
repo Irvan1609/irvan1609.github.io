@@ -122,6 +122,12 @@ assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role conf
 assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
 assert.match(app, /roomState\.players\.length >= 2 && exact/, 'Starting requires at least two players and an exact role count.');
 assert.match(app, /recommendedRoleCounts/);
+assert.match(app, /\['witch', 7\]/);
+assert.match(app, /\['detective', 11\]/);
+assert.match(app, /\['mayor', 13\]/);
+assert.match(app, /\['guardian_angel', 14\]/);
+assert.match(app, /\['jester', 17\]/);
+assert.match(app, /4–25 pemain/);
 assert.match(app, /Maksimal 500 bot dalam satu penambahan/);
 assert.match(worker, /MAX_BOT_BATCH = 500/);
 assert.match(worker, /Minimal 2 pemain diperlukan/);
