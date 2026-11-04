@@ -589,6 +589,21 @@ export class WerewolfRoom {
     }
   }
 
+  async disbandRoom(message = 'Room dibubarkan oleh host.') {
+    const sockets = this.state.getWebSockets ? this.state.getWebSockets() : [];
+    for (const socket of sockets) {
+      try {
+        socket.send(JSON.stringify({ type: 'room_disbanded', message }));
+      } catch { /* A disconnected participant no longer needs a notification. */ }
+    }
+    for (const socket of sockets) {
+      try { socket.close(4001, 'Room dibubarkan oleh host'); } catch {}
+    }
+    if (this.state.storage.deleteAlarm) await this.state.storage.deleteAlarm();
+    if (this.state.storage.deleteAll) await this.state.storage.deleteAll();
+    else if (this.state.storage.delete) await this.state.storage.delete('room');
+  }
+
 
   async makePlayer(name) {
     const token = randomToken(32);
@@ -918,6 +933,14 @@ export class WerewolfRoom {
         const player = await this.authenticate(request, room);
         if (!player) throw new HttpError(401, 'Sesi tidak valid.');
         const body = await readJson(request, 4096);
+        if (body.type === 'disband_room') {
+          if (player.id !== room.hostId || (!player.isModerator && player.id !== room.moderator?.id)) {
+            throw new HttpError(403, 'Hanya host yang dapat membubarkan room.');
+          }
+          const message = 'Room dibubarkan oleh host. Kamu telah dikeluarkan dari room.';
+          await this.disbandRoom(message);
+          return json({ disbanded: true, message });
+        }
         await this.applyAction(room, player, body);
         room.expiresAt = Date.now() + ROOM_TTL_MS;
         await this.saveRoom(room);
