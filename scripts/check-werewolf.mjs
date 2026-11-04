@@ -64,7 +64,7 @@ assert.match(html, /createRoleConfig/);
 assert.match(app, /ROLE_CONFIG_GROUPS/);
 assert.match(app, /ABILITY_OPTIONS/);
 assert.match(app, /update_settings/);
-assert.match(html, /Memiliki dua bobot suara/);
+assert.match(app, /Memiliki dua bobot suara/);
 assert.match(html, /id="playersSection"/);
 assert.match(css, /prefers-reduced-motion/);
 assert.match(css, /role-count-grid/);
