@@ -505,9 +505,45 @@ await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST',
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[3].id
 }, cupidNightTokens[0])));
+const liveWolfSelection = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.deepEqual(liveWolfSelection.wolfTeam, ['Wolf One', 'Wolf Two']);
+assert.deepEqual(liveWolfSelection.wolfSelections, [
+  { playerId: cupidNightState.players[0].id, name: 'Wolf One', hasChosen: true, targetName: 'Village One', isSelf: false },
+  { playerId: cupidNightState.players[1].id, name: 'Wolf Two', hasChosen: false, targetName: null, isSelf: true }
+]);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[3].id
 }, cupidNightTokens[1])));
+const allWolfSelections = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
+))).state;
+assert.deepEqual(allWolfSelections.wolfSelections, [
+  { playerId: cupidNightState.players[0].id, name: 'Wolf One', hasChosen: true, targetName: 'Village One', isSelf: true },
+  { playerId: cupidNightState.players[1].id, name: 'Wolf Two', hasChosen: true, targetName: 'Village One', isSelf: false }
+]);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Serang Village One bersama-sama.'
+}, cupidNightTokens[0])));
+const wolfChatForTeammate = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.equal(wolfChatForTeammate.wolfChat.length, 1);
+assert.equal(wolfChatForTeammate.wolfChat[0].name, 'Wolf One');
+assert.equal(wolfChatForTeammate.wolfChat[0].text, 'Serang Village One bersama-sama.');
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Saya bukan Werewolf.'
+}, cupidNightTokens[3])), 403);
+const privateVillagerWolfView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[3])
+))).state;
+assert.deepEqual(privateVillagerWolfView.wolfTeam, []);
+assert.deepEqual(privateVillagerWolfView.wolfSelections, []);
+assert.deepEqual(privateVillagerWolfView.wolfChat, []);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
+}, cupidNightTokens[2])));
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
 }, cupidNightTokens[2])));
@@ -518,6 +554,8 @@ const wolfNightPrivateView = (await payload(await cupidNightRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
 ))).state;
 assert.deepEqual(wolfNightPrivateView.wolfTeam, cupidNightNames.slice(0, 2));
+assert.equal(wolfNightPrivateView.wolfSelections.length, 2);
+assert.equal(wolfNightPrivateView.wolfChat.length, 1);
 assert.deepEqual(wolfNightPrivateView.players, []);
 assert.equal(wolfNightPrivateView.room.lastResult, null);
 assert.deepEqual(wolfNightPrivateView.room.lovers, []);
@@ -532,6 +570,20 @@ await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST',
   type: 'resolve_night'
 }, cupidNightCreated.token)));
 cupidNightState = await cupidNightRoom.loadRoom();
+assert.equal(cupidNightState.phase, 'morning');
+assert.deepEqual(cupidNightState.wolfChat, []);
+const wolfMorningPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.deepEqual(wolfMorningPrivateView.wolfTeam, []);
+assert.deepEqual(wolfMorningPrivateView.wolfSelections, []);
+assert.deepEqual(wolfMorningPrivateView.wolfChat, []);
+assert.equal(wolfMorningPrivateView.room.phase, 'morning');
+const moderatorMorningPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightCreated.token)
+))).state;
+assert.deepEqual(moderatorMorningPrivateView.wolfTeam, []);
+assert.deepEqual(moderatorMorningPrivateView.wolfChat, []);
 assert.equal(cupidNightState.players[0].alive, false);
 assert.equal(cupidNightState.players[3].alive, false);
 assert.equal(cupidNightState.lastResult.eliminations.find(item => item.id === cupidNightState.players[3].id).cause, 'werewolf_attack');
