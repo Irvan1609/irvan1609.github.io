@@ -632,3 +632,14 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **URL preview aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Opsi **Mode latihan solo · 4 bot** sudah aktif dan dicentang secara default pada form pembuatan room.
 - **Batas verifikasi:** uji otomatis lulus, tetapi sesi bermain manual melalui browser belum dilakukan. Bot menggunakan logika otomatis berbasis aturan/acak, bukan LLM percakapan.
 - **Produksi:** perubahan tetap pada branch development; website produksi tidak berubah dan jangan merge ke master tanpa persetujuan pengguna.
+
+
+### 2026-11-04 — Polishing solo Werewolf experience
+
+- **Default game balance:** default composition changed to 1 Werewolf + Seer + Doctor; with one host and four bots this leaves two Villagers. Lobby displays a role composition preview and prevents starting if fewer than five players or no Villager remains.
+- **Bot discussion:** three living bots can contribute contextual comments; a bot Seer can share its actual inspection result. Bots keep a suspicion target and use it during voting; Seer evidence takes priority.
+- **Solo flow:** after the night resolves, a room with one human and bots automatically enters online discussion for 90 seconds. The human can skip the discussion immediately and proceed to voting.
+- **Interactive replies:** when the solo player sends a chat message, one living bot replies with a context-aware scripted response. Bot messages are marked with a BOT badge.
+- **Rules and UX:** added a collapsible role guide, a six-step phase tracker, a role-balance preview, mobile refinements, and Doctor self-protection support.
+- **Transparency:** bots remain rule-based NPCs, not LLM agents. Their chat replies use templates and simple keyword/context checks.
+- **Verification:** expanded Worker integration test for deterministic special-role actions, automatic solo discussion, Seer clue disclosure, bot chat reply, and automatic voting. Deployment and CI checks are pending for the current branch commit.
