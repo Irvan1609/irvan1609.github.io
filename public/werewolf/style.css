@@ -82,3 +82,25 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .target-select{margin:7px 0}
 .role-balance-grid{grid-template-columns:repeat(auto-fit,minmax(86px,1fr))}
 .role-art{width:170px;height:150px}
+
+/* Role composition and ability controls */
+.role-config-editor{display:grid;gap:12px;margin:14px 0}
+.role-config-team,.ability-config{padding:12px;border:1px solid #34475e;border-radius:13px;background:linear-gradient(145deg,#18263a,#101a29)}
+.role-config-team .role-section-label,.ability-config .role-section-label{margin:0 0 10px;padding:0 0 8px}
+.role-count-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.role-count-field{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid #304158;border-radius:9px;background:#0d1725;color:#dce4ee;font-size:11px;font-weight:700}
+.role-count-input{width:58px;min-width:58px;min-height:35px;padding:5px 7px;text-align:center;font-weight:800}
+.ability-toggle-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.ability-toggle{display:flex;align-items:flex-start;gap:8px;padding:8px;border:1px solid #304158;border-radius:9px;background:#0d1725;color:#cbd5e2;font-size:10px;line-height:1.45}
+.ability-toggle input{width:16px;height:16px;min-height:0;flex:0 0 16px;margin:0;accent-color:var(--gold)}
+.role-config-summary{margin-top:2px}
+.role-team-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.role-team-summary-item{display:grid;gap:3px;justify-items:center;padding:9px 4px;border:1px solid #394c62;border-radius:9px;background:#0c1726}
+.role-team-summary-item b{font:700 20px var(--serif);color:var(--gold2)}
+.role-team-summary-item span{font-size:9px;color:#aebbc9;text-align:center}
+.role-config-lobby{margin-top:12px}
+@media(max-width:620px){
+  .role-count-grid,.ability-toggle-grid{grid-template-columns:1fr}
+  .role-count-field{font-size:12px}
+  .role-team-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
