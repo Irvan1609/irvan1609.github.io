@@ -330,6 +330,7 @@ export class WerewolfRoom {
         votesSubmitted,
         lastResult: isModerator ? room.lastResult : null,
         winner: isModerator ? room.winner : null,
+        additionalWinners: isModerator ? (room.additionalWinners || []) : [],
         gameOver: room.phase === 'finished'
       },
       players,
@@ -531,7 +532,11 @@ export class WerewolfRoom {
       } else if (bot.role === 'guardian_angel') {
         type = 'guardian_protect';
         const fixed = room.guardianTargets?.[bot.id];
-        selected = fixed ? alive.find(player => player.id === fixed) : alive.find(player => player.id !== bot.id);
+        selected = fixed ? alive.find(player => player.id === fixed) : null;
+        if (!selected) {
+          const candidates = alive.filter(player => player.id !== bot.id);
+          selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+        }
         if (selected) room.guardianTargets[bot.id] = selected.id;
       } else if (bot.role === 'witch') {
         const potions = room.witchPotions?.[bot.id] || { heal: true, poison: true };
@@ -863,8 +868,10 @@ export class WerewolfRoom {
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
-      const selected = target(body.targetId);
-      if (!selected) throw new HttpError(400, 'Target tidak ditemukan atau sudah tereliminasi.');
+      const selected = player.role === 'witch' && body.mode === 'heal' ? null : target(body.targetId);
+      if (!selected && !(player.role === 'witch' && body.mode === 'heal')) {
+        throw new HttpError(400, 'Target tidak ditemukan atau sudah tereliminasi.');
+      }
       if (isWolf(player.role)) {
         if (isWolf(selected.role) || selected.id === player.id) {
           throw new HttpError(400, 'Werewolf tidak dapat memilih anggota kawanan sendiri.');
@@ -879,8 +886,6 @@ export class WerewolfRoom {
         if (selected.id === player.id) throw new HttpError(400, 'Bodyguard harus melindungi pemain lain.');
         room.nightActions[player.id] = { type: 'bodyguard_protect', targetId: selected.id };
       } else if (player.role === 'guardian_angel') {
-        const fixed = room.guardianTargets?.[player.id];
-        if (fixed && fixed !== selected.id) throw new HttpError(400, 'Guardian Angel harus tetap melindungi target pilihannya.');
         if (selected.id === player.id) throw new HttpError(400, 'Guardian Angel harus memilih pemain lain.');
         room.guardianTargets[player.id] = selected.id;
         room.nightActions[player.id] = { type: 'guardian_protect', targetId: selected.id };
@@ -1039,6 +1044,7 @@ export class WerewolfRoom {
       player.hunterUsed = true;
       const eliminated = this.eliminatePlayer(room, selected.id, 'hunter');
       this.checkWinner(room);
+      if (room.winner) room.phase = 'finished';
       room.lastResult = {
         kind: 'hunter',
         message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
