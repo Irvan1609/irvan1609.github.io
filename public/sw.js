@@ -19,7 +19,16 @@ const CORE_URLS=[
   '/werewolf/assets/illustrations/role-wolf.svg',
   '/werewolf/assets/illustrations/role-seer.svg',
   '/werewolf/assets/illustrations/role-doctor.svg',
-  '/werewolf/assets/illustrations/role-villager.svg'
+  '/werewolf/assets/illustrations/role-villager.svg',
+  '/werewolf/assets/illustrations/role-alpha_wolf.svg',
+  '/werewolf/assets/illustrations/role-bodyguard.svg',
+  '/werewolf/assets/illustrations/role-witch.svg',
+  '/werewolf/assets/illustrations/role-hunter.svg',
+  '/werewolf/assets/illustrations/role-cupid.svg',
+  '/werewolf/assets/illustrations/role-guardian_angel.svg',
+  '/werewolf/assets/illustrations/role-detective.svg',
+  '/werewolf/assets/illustrations/role-mayor.svg',
+  '/werewolf/assets/illustrations/role-jester.svg'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
