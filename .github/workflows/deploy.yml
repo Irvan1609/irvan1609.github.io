@@ -15,6 +15,7 @@ on:
       - "vite.config.*"
       - "scripts/public-build.mjs"
       - "scripts/check-ui-contract.mjs"
+      - "scripts/check-werewolf.mjs"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
