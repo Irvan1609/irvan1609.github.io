@@ -284,3 +284,8 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .text-button.restart-button{background:#d6ae70;border:1px solid #f0d6a6;color:#171b22;font-weight:900;opacity:1}
 .text-button.restart-button:hover:not(:disabled){background:#f0d6a6;color:#171b22}
 @media(max-width:620px){.room-top-actions{justify-content:flex-start}.room-top-actions .status-pill{margin-right:auto}.room-top-actions .text-button{min-height:38px;padding:8px 11px}}
+
+/* Always show the restart control; disable it for non-host players. */
+.room-top-actions #resetRoom.restart-button{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:8px 12px;background:linear-gradient(135deg,#f0d6a6,#d6ae70);border:1px solid #f7e4bd;border-radius:9px;color:#171b22;font-size:11px;font-weight:900;white-space:nowrap;opacity:1}
+.room-top-actions #resetRoom:disabled{opacity:.48;cursor:not-allowed;filter:saturate(.45)}
+@media(max-width:620px){.room-top-actions #resetRoom{min-height:40px;padding:9px 12px}}

@@ -391,7 +391,8 @@ function roleLabel(role) {
 }
 
 function isHost() {
-  return Boolean(roomState?.self?.isModerator);
+  // Fall back to the locally saved host session while the first snapshot is applied.
+  return Boolean(roomState?.self?.isModerator || session?.isModerator);
 }
 
 function systemModeratorEnabled(state = roomState) {
@@ -662,10 +663,15 @@ function renderRoom() {
   $('phaseTracker').classList.toggle('hidden', !moderator);
   const resetButton = $('resetRoom');
   if (resetButton) {
-    resetButton.classList.toggle('hidden', !moderator);
+    // Keep the control visible at all times; only the host can activate it.
+    resetButton.classList.remove('hidden');
     resetButton.classList.toggle('restart-button', moderator);
+    resetButton.disabled = !moderator;
+    resetButton.setAttribute('aria-disabled', String(!moderator));
     resetButton.textContent = 'Restart Permainan';
-    resetButton.title = 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu tanpa mengeluarkan pemain';
+    resetButton.title = moderator
+      ? 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu tanpa mengeluarkan pemain'
+      : 'Hanya host yang dapat memulai ulang permainan';
   }
   const leaveButton = $('leaveRoom');
   if (leaveButton) {
@@ -1561,7 +1567,10 @@ $('copyInvite').addEventListener('click', async () => {
 });
 
 $('resetRoom').addEventListener('click', () => {
-  if (!roomState?.self?.isModerator) return;
+  if (!isHost()) {
+    showMessage('Hanya host yang dapat memulai ulang permainan.', true);
+    return;
+  }
   if (roomState.room.phase === 'lobby') {
     showMessage('Room sudah berada di lobby. Mulai permainan terlebih dahulu untuk menggunakan restart.');
     return;
@@ -1570,7 +1579,7 @@ $('resetRoom').addEventListener('click', () => {
 });
 
 $('leaveRoom').addEventListener('click', () => {
-  if (roomState?.self?.isModerator) {
+  if (isHost()) {
     const code = roomState.room.code;
     if (confirm('Bubarkan room ' + code + '? Semua pemain akan dikeluarkan, koneksi ditutup, dan data room dihapus. Tindakan ini tidak dapat dibatalkan.')) {
       disbandCurrentRoom();
