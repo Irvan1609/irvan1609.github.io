@@ -161,6 +161,13 @@ assert.equal(morningPlayer.room.lastResult, null);
 assert.equal(morningPlayer.players.length, 0);
 assert.equal(morningPlayer.self.status, 'survived');
 assert.ok(morningPlayer.targets.every(target => target.name && target.id));
+const seerMorning = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
+))).state;
+assert.equal(seerMorning.self.seerResult.playerName, 'Alya');
+assert.equal(seerMorning.self.seerResult.result, 'wolf');
+assert.equal(seerMorning.self.seerResult.round, 1);
+assert.ok(seerMorning.room.revision > 0);
 
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, moderatorToken)));
 saved = await room.loadRoom();
@@ -723,3 +730,114 @@ assert.equal(largeState.players.filter(player => player.role === 'villager').len
 assert.equal(largeState.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 12);
 assert.ok(largeState.players.every(player => player.hasDrawn === Boolean(player.isBot)));
 console.log('Werewolf large-room check passed: 50 players, 25 bots, and role counts above twenty are supported.');
+
+
+// Split wolf votes must still produce one attack; the first submitted vote breaks an exact tie.
+const tieRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const tieCreated = await payload(await tieRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'TYE234', name: 'Tie Moderator',
+  settings: { roleCounts: {
+    wolf: 2, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+    hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+    jester: 0, villager: 3, moderator: 0
+  } }
+})), 201);
+const tieTokens = [];
+for (const name of ['Wolf One', 'Wolf Two', 'Town One', 'Town Two', 'Town Three']) {
+  tieTokens.push((await payload(await tieRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, tieCreated.token)));
+let tieState = await tieRoom.loadRoom();
+tieState.players.forEach((player, index) => {
+  player.role = index < 2 ? 'wolf' : 'villager';
+  player.hasDrawn = true;
+});
+await tieRoom.saveRoom(tieState);
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, tieCreated.token)));
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: tieState.players[2].id
+}, tieTokens[0])));
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: tieState.players[3].id
+}, tieTokens[1])));
+for (let index = 2; index < 5; index += 1) {
+  await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, tieTokens[index])));
+}
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, tieCreated.token)));
+tieState = await tieRoom.loadRoom();
+assert.equal(tieState.phase, 'morning');
+assert.equal([tieState.players[2], tieState.players[3]].filter(player => !player.alive).length, 1);
+assert.match(tieState.lastResult.message, /tereliminasi pada malam hari/);
+assert.ok(tieState.lastResult.events.some(event => /terbagi sama kuat/.test(event)));
+console.log('Werewolf split-vote regression passed: a tied wolf vote still selects one victim.');
+
+// Lobby departures remove the player; a name can then be reused.
+const leaveRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const leaveCreated = await payload(await leaveRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'LEA234', name: 'Leave Moderator'
+})), 201);
+const leaver = await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Rejoin Me' })), 201);
+await payload(await leaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, leaver.token)));
+assert.equal((await leaveRoom.loadRoom()).players.length, 0);
+await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Rejoin Me' })), 201);
+assert.equal((await leaveRoom.loadRoom()).players.length, 1);
+await payload(await leaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, leaveCreated.token)), 403);
+console.log('Werewolf leave-room regression passed: lobby departures remove the player and release the name.');
+
+// A departure during card reveal cannot block the host from starting the night.
+const activeLeaveRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const activeLeaveCreated = await payload(await activeLeaveRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'ZUT234', name: 'Active Leave Moderator'
+})), 201);
+const activeLeaveTokens = [];
+for (const name of ['Wolf A', 'Seer A', 'Doctor A', 'Leaving Player', 'Villager A']) {
+  activeLeaveTokens.push((await payload(await activeLeaveRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await activeLeaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, activeLeaveCreated.token)));
+let activeLeaveState = await activeLeaveRoom.loadRoom();
+activeLeaveState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+});
+await activeLeaveRoom.saveRoom(activeLeaveState);
+await payload(await activeLeaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, activeLeaveTokens[3])));
+activeLeaveState = await activeLeaveRoom.loadRoom();
+assert.equal(activeLeaveState.players[3].alive, false);
+assert.equal(activeLeaveState.players[3].hasDrawn, true);
+await payload(await activeLeaveRoom.fetch(makeRequest('/internal/state', 'GET', undefined, activeLeaveTokens[3])), 401);
+for (const index of [0, 1, 2, 4]) {
+  await payload(await activeLeaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, activeLeaveTokens[index])));
+}
+await payload(await activeLeaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, activeLeaveCreated.token)));
+assert.equal((await activeLeaveRoom.loadRoom()).phase, 'night');
+console.log('Werewolf active-leave regression passed: a departed player cannot block role reveal or night start.');
+
+// Simultaneous night actions must not overwrite each other.
+const concurrentRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const concurrentCreated = await payload(await concurrentRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'RACE24', name: 'Concurrency Moderator'
+})), 201);
+const concurrentTokens = [];
+for (const name of ['Race Wolf', 'Race Seer', 'Race Doctor', 'Race Town A', 'Race Town B']) {
+  concurrentTokens.push((await payload(await concurrentRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, concurrentCreated.token)));
+let concurrentState = await concurrentRoom.loadRoom();
+concurrentState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+  player.hasDrawn = true;
+});
+await concurrentRoom.saveRoom(concurrentState);
+await payload(await concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, concurrentCreated.token)));
+concurrentState = await concurrentRoom.loadRoom();
+const concurrentResponses = await Promise.all([
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[4].id }, concurrentTokens[0])),
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[0].id }, concurrentTokens[1])),
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[4].id }, concurrentTokens[2])),
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, concurrentTokens[3])),
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, concurrentTokens[4]))
+]);
+for (const response of concurrentResponses) await payload(response);
+concurrentState = await concurrentRoom.loadRoom();
+assert.equal(Object.keys(concurrentState.nightActions).length, 5);
+console.log('Werewolf concurrent-action regression passed: simultaneous actions are retained without lost updates.');
+
