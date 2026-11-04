@@ -198,7 +198,11 @@ function stopRealtime() {
   socket = null;
 }
 
-function clearInvalidSession(activeSession) {
+function clearInvalidSession(
+  activeSession,
+  message = 'Sesi tidak valid atau room sudah kedaluwarsa. Silakan bergabung kembali.',
+  isError = true
+) {
   if (session !== activeSession) return;
   stopRealtime();
   localStorage.removeItem(SESSION_PREFIX + activeSession.code);
@@ -206,12 +210,14 @@ function clearInvalidSession(activeSession) {
   session = null;
   roomState = null;
   lastNarrationKey = '';
+  roleDraft = null;
+  wolfChatDraft = '';
   $('roomPanel').classList.add('hidden');
   $('entryPanel').classList.remove('hidden');
   const url = new URL(location.href);
   url.searchParams.delete('room');
   history.replaceState({}, '', url);
-  showMessage('Sesi tidak valid atau room sudah kedaluwarsa. Silakan bergabung kembali.', true);
+  showMessage(message, isError);
 }
 
 async function enterRoom(nextSession) {
@@ -293,6 +299,10 @@ async function connectRealtime() {
       if (event.data === 'pong') return;
       try {
         const message = JSON.parse(event.data);
+        if (message.type === 'room_disbanded') {
+          clearInvalidSession(activeSession, message.message || 'Host membubarkan room. Kamu telah dikeluarkan dari room.', false);
+          return;
+        }
         if (message.type === 'state') applyState(message.state, activeSession);
         if (message.type === 'error') showMessage(message.error, true);
       } catch {}
@@ -655,6 +665,12 @@ function renderRoom() {
     resetButton.classList.toggle('hidden', !moderator || room.phase === 'lobby');
     resetButton.textContent = 'Restart Permainan';
     resetButton.title = 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu';
+  }
+  const leaveButton = $('leaveRoom');
+  if (leaveButton) {
+    leaveButton.textContent = moderator ? 'Bubarkan Room' : 'Keluar';
+    leaveButton.title = moderator ? 'Bubarkan room dan keluarkan semua pemain' : 'Keluar dari room';
+    leaveButton.classList.toggle('disband-button', moderator);
   }
   $('playersSection').classList.toggle('hidden', !moderator);
   $('roomIdentity').classList.toggle('hidden', !moderator);
@@ -1430,12 +1446,8 @@ function renderPlayerVoteResult(parent) {
 
 
 async function leaveCurrentRoom() {
-  if (!session) return;
+  if (!session || roomState?.self?.isModerator) return;
   const activeSession = session;
-  if (roomState?.self?.isModerator) {
-    showMessage('Moderator tidak dapat keluar sebagai pemain. Tutup tab jika ingin berhenti memantau room.', true);
-    return;
-  }
   try {
     await request('/rooms/' + activeSession.code + '/action', {
       method: 'POST', body: { type: 'leave_room' }, session: activeSession
@@ -1456,6 +1468,26 @@ async function leaveCurrentRoom() {
   } catch (error) {
     if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
     else if (session === activeSession) showMessage(error.message, true);
+  }
+}
+
+async function disbandCurrentRoom() {
+  const activeSession = session;
+  if (!activeSession || !roomState?.self?.isModerator) return;
+  try {
+    const result = await request('/rooms/' + activeSession.code + '/action', {
+      method: 'POST', body: { type: 'disband_room' }, session: activeSession
+    });
+    if (session !== activeSession) return;
+    clearInvalidSession(
+      activeSession,
+      result.message || 'Room berhasil dibubarkan. Semua pemain telah dikeluarkan.',
+      false
+    );
+  } catch (error) {
+    if (session !== activeSession) return;
+    if (error.status === 401 || error.status === 404) clearInvalidSession(activeSession);
+    else showMessage(error.message, true);
   }
 }
 
@@ -1534,7 +1566,10 @@ $('resetRoom').addEventListener('click', () => {
 
 $('leaveRoom').addEventListener('click', () => {
   if (roomState?.self?.isModerator) {
-    showMessage('Moderator tidak dapat keluar sebagai pemain. Tutup tab jika ingin berhenti memantau room.', true);
+    const code = roomState.room.code;
+    if (confirm('Bubarkan room ' + code + '? Semua pemain akan dikeluarkan, koneksi ditutup, dan data room dihapus. Tindakan ini tidak dapat dibatalkan.')) {
+      disbandCurrentRoom();
+    }
     return;
   }
   if (confirm('Keluar dari room? Di lobby namamu akan dihapus. Jika permainan sudah dimulai, karaktermu akan tereliminasi.')) leaveCurrentRoom();
