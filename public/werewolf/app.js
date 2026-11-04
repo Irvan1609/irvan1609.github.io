@@ -304,7 +304,7 @@ async function connectRealtime() {
           return;
         }
         if (message.type === 'player_kicked') {
-          clearInvalidSession(activeSession, message.message || 'Host mengeluarkanmu dari room. Sesi ini sudah tidak berlaku.', false);
+          clearInvalidSession(activeSession, message.message || 'Kamu dikeluarkan dari room oleh host atau moderator. Sesi ini sudah tidak berlaku.', false);
           return;
         }
         if (message.type === 'state') applyState(message.state, activeSession);
@@ -649,7 +649,7 @@ function renderPlayers() {
     } else details.push(player.connected ? 'Online' : 'Menunggu');
 
     chip.append(identity, node('span', 'player-meta', details.join(' · ')));
-    if (host && !player.isHost && player.id !== roomState.self?.id) {
+    if ((host || moderator) && !player.isHost && player.id !== roomState.self?.id) {
       const kickButton = button('Kick', 'kick-player-button', () => kickPlayer(player));
       kickButton.title = 'Keluarkan ' + player.name + ' dari room';
       kickButton.setAttribute('aria-label', 'Keluarkan ' + player.name + ' dari room');
@@ -660,7 +660,7 @@ function renderPlayers() {
 }
 
 async function kickPlayer(player) {
-  if (!isHost() || !player?.id || player.isHost || player.id === roomState?.self?.id) return;
+  if ((!isHost() && !isRoomModerator()) || !player?.id || player.isHost || player.id === roomState?.self?.id) return;
   const name = String(player.name || 'Pemain');
   if (!confirm('Keluarkan ' + name + ' dari room? Pemain akan terputus dan sesi lamanya tidak dapat digunakan lagi.')) return;
   if (await sendAction('kick_player', { playerId: player.id })) {
