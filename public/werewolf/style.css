@@ -36,3 +36,44 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .solo-mode-row{margin:12px 0 16px;border-color:#665537;background:#171f2b}
 .solo-mode-row b{color:var(--gold2)}
 @media(max-width:620px){.bot-count-label select{max-width:none}.bot-setup{padding:12px}}
+
+/* Gameplay clarity and solo-mode polish */
+.how-to-play{margin:18px 0 4px;border:1px solid #34465c;border-radius:13px;background:#101b2b;overflow:hidden}
+.how-to-play summary{cursor:pointer;padding:14px 16px;color:var(--gold2);font:600 15px var(--serif);list-style:none}
+.how-to-play summary::-webkit-details-marker{display:none}
+.how-to-play summary:after{content:"＋";float:right;color:var(--gold);font:700 16px system-ui}
+.how-to-play[open] summary:after{content:"−"}
+.rules-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 13px 10px}
+.rules-grid article{padding:12px;border:1px solid #2d4057;border-radius:10px;background:#17263a}
+.rules-grid b{color:#f0d6a6;font-size:12px}
+.rules-grid p{margin:5px 0 0;color:#aebdd0;font-size:10px;line-height:1.6}
+.how-to-play>.hint{padding:0 14px 12px;margin:0}
+.role-balance{margin:15px 0;padding:15px;border:1px solid #45546a;border-radius:13px;background:linear-gradient(145deg,#1c2c40dd,#111b2bdd)}
+.role-balance-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+.role-balance-item{display:grid;gap:4px;justify-items:center;padding:10px 5px;border:1px solid #35485f;border-radius:10px;background:#0e1928}
+.role-balance-item b{font:700 23px var(--serif);color:var(--gold2)}
+.role-balance-item span{font-size:9px;color:#c3cedb;text-align:center}
+.role-balance>.hint,.role-balance>.notice{margin-bottom:0}
+.phase-tracker{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:0 0 18px;padding:0;list-style:none}
+.phase-tracker li{position:relative;min-width:0;padding:9px 3px 8px;border:1px solid #34465c;border-radius:8px;background:#101a29;color:#8292a7;text-align:center;font-size:9px;font-weight:800;letter-spacing:.02em}
+.phase-tracker li:before{content:"";display:block;width:6px;height:6px;margin:0 auto 5px;border-radius:50%;background:#5d6b7d}
+.phase-tracker li.active{border-color:#b8955d;background:linear-gradient(145deg,#3a3022,#1a2637);color:#f0d6a6;box-shadow:0 0 18px #d6ae7018}
+.phase-tracker li.active:before{background:#f0d6a6;box-shadow:0 0 10px #f0d6a6}
+.phase-tracker li.done{border-color:#496b5a;color:#a8d9bd}
+.phase-tracker li.done:before{background:#79cba4}
+.chat-bot-badge{display:inline-flex;margin-left:6px;padding:2px 5px;border:1px solid #78623d;border-radius:5px;color:#f0d6a6;font-size:8px;font-weight:800;letter-spacing:.1em;vertical-align:middle}
+.chat-message:has(.chat-bot-badge){padding:8px 10px;border:1px solid #4c402e;border-radius:9px;background:#1b2028}
+.chat-message:has(.chat-bot-badge) p{color:#e8ddc9}
+@media(max-width:620px){
+  .rules-grid{grid-template-columns:1fr 1fr}
+  .phase-tracker{gap:3px}
+  .phase-tracker li{font-size:8px;padding:8px 2px}
+  .role-balance{padding:11px}
+  .role-balance-grid{gap:5px}
+  .role-balance-item{padding:8px 3px}
+  .role-balance-item b{font-size:20px}
+}
+@media(max-width:370px){
+  .rules-grid{grid-template-columns:1fr}
+  .phase-tracker li{font-size:7px;letter-spacing:0}
+}
