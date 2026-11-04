@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261104-2">
+  <link rel="stylesheet" href="./style.css?v=20261104-3">
 </head>
 <body>
   <header class="subweb-header">
@@ -40,7 +40,7 @@
           </label>
           <div class="form-row">
             <label>Jumlah Werewolf
-              <select id="wolfCount"><option value="1">1 Werewolf</option><option value="2" selected>2 Werewolf</option><option value="3">3 Werewolf</option><option value="4">4 Werewolf</option></select>
+              <select id="wolfCount"><option value="1" selected>1 Werewolf</option><option value="2">2 Werewolf</option><option value="3">3 Werewolf</option><option value="4">4 Werewolf</option></select>
             </label>
           </div>
           <div class="role-options">
@@ -65,6 +65,16 @@
           <p class="hint">Minta kode room dari host. Satu pemain menggunakan satu perangkat agar kartu dan aksinya tetap rahasia.</p>
         </form>
       </div>
+      <details class="how-to-play">
+        <summary>Aturan singkat & cara bermain</summary>
+        <div class="rules-grid">
+          <article><b>Werewolf</b><p>Memilih satu pemain untuk diserang setiap malam. Menang jika jumlah Werewolf menyamai atau melebihi warga yang tersisa.</p></article>
+          <article><b>Seer</b><p>Memeriksa satu pemain setiap malam. Hasilnya hanya diketahui Seer.</p></article>
+          <article><b>Doctor</b><p>Melindungi satu pemain setiap malam, termasuk dirinya sendiri.</p></article>
+          <article><b>Warga Desa</b><p>Menggunakan diskusi dan voting untuk menemukan serta mengeliminasi Werewolf.</p></article>
+        </div>
+        <p class="hint">Alur permainan: ambil kartu → malam → diskusi → voting → hasil ronde. Peran tetap rahasia sampai pemain tereliminasi atau permainan selesai.</p>
+      </details>
       <p id="entryMessage" class="message-line" role="status" aria-live="polite"></p>
     </section>
 
@@ -76,6 +86,9 @@
         </div>
         <p id="roomMessage" class="message-line" role="status" aria-live="polite"></p>
         <div class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
+        <ol id="phaseTracker" class="phase-tracker" aria-label="Tahapan permainan">
+          <li data-step="lobby">Lobby</li><li data-step="role_draw">Kartu</li><li data-step="night">Malam</li><li data-step="discussion">Diskusi</li><li data-step="voting">Voting</li><li data-step="result">Hasil</li>
+        </ol>
         <div class="players-section">
           <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Peran pemain lain tetap rahasia.</span></div>
           <div id="playersList" class="players-list"></div>
@@ -90,6 +103,6 @@
     <footer>Werewolf · Semua kartu, aksi, dan voting dikelola melalui room. Diskusi dapat dilakukan tatap muka atau online.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261104-2"></script>
+  <script type="module" src="./app.js?v=20261104-3"></script>
 </body>
 </html>
