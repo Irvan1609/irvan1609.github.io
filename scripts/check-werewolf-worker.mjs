@@ -628,7 +628,9 @@ assert.equal(privateVoteView.self.role, 'wolf');
 assert.deepEqual(privateVoteView.players, []);
 assert.equal(privateVoteView.room.lastResult, null);
 assert.deepEqual(privateVoteView.room.lovers, []);
-assert.deepEqual(privateVoteView.wolfTeam, [witchNames[0]]);
+assert.deepEqual(privateVoteView.wolfTeam, []);
+assert.deepEqual(privateVoteView.wolfSelections, []);
+assert.deepEqual(privateVoteView.wolfChat, []);
 assert.ok(privateVoteView.targets.every(target => Object.keys(target).sort().join(',') === 'id,name'));
 const voteTargets = [3, 3, 3, 4, 3];
 for (let index = 0; index < voteTargets.length; index += 1) {
