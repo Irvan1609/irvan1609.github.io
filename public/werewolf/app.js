@@ -7,7 +7,7 @@ const PLAYER_NAME_KEY = 'werewolf.lastPlayerName';
 const ROLE_INFO = {
   wolf: ['Werewolf', 'Serang satu pemain setiap malam bersama kawanan.'],
   alpha_wolf: ['Alpha Wolf', 'Pemimpin kawanan. Suara serangan malam bernilai dua.'],
-  villager: ['Warga Desa', 'Tidak memiliki kemampuan khusus, tetapi mengerjakan tantangan penjumlahan rahasia setiap malam.']
+  villager: ['Warga Desa', 'Tidak memiliki kemampuan khusus, tetapi mengerjakan tantangan penjumlahan rahasia setiap malam.'],
   seer: ['Seer', 'Periksa satu pemain setiap malam untuk mengetahui apakah ia Werewolf.'],
   doctor: ['Doctor', 'Lindungi satu pemain dari serangan setiap malam.'],
   bodyguard: ['Bodyguard', 'Jaga satu pemain setiap malam. Jika target diserang, kamu yang menerima serangan.'],
@@ -18,7 +18,7 @@ const ROLE_INFO = {
   detective: ['Detective', 'Periksa satu pemain setiap malam untuk mengetahui kubunya: Desa, Werewolf, atau Netral.'],
   mayor: ['Mayor', 'Suara voting bernilai dua. Tidak memiliki aksi malam.'],
   jester: ['Jester', 'Menang sendiri jika berhasil dieliminasi melalui voting. Tidak memiliki aksi malam.'],
-  moderator: ['Moderator Sistem', 'Sistem membacakan narasi, memulai malam setelah kartu dibuka, menyelesaikan aksi malam, dan menghitung voting otomatis. Host tetap mengatur diskusi offline.']
+  moderator: ['Moderator', 'Mengatur alur permainan melalui host, sistem otomatis, atau mode acak sesuai pengaturan room.']
 };
 const EXTRA_ROLE_OPTIONS = [
   ['alphaWolf', 'Alpha Wolf', 'Role Werewolf khusus; kemampuan suara serangan ganda dapat diatur moderator.'],
@@ -44,27 +44,11 @@ const ROLE_CONFIG_GROUPS = [
     ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
   ]}
 ];
-const ABILITY_OPTIONS = [
-  ['alphaDoubleVote', 'Alpha Wolf: suara serangan dua kali lipat'],
-  ['seerInspection', 'Seer: pemeriksaan identitas'],
-  ['doctorProtection', 'Doctor: perlindungan malam'],
-  ['bodyguardSacrifice', 'Bodyguard: mengorbankan diri untuk target'],
-  ['witchHeal', 'Witch: ramuan penyembuh'],
-  ['witchPoison', 'Witch: ramuan racun'],
-  ['hunterShot', 'Hunter: tembakan setelah tereliminasi'],
-  ['cupidBond', 'Cupid: menghubungkan dua pemain'],
-  ['guardianProtection', 'Guardian Angel: perlindungan target'],
-  ['guardianBonus', 'Guardian Angel: kemenangan tambahan'],
-  ['detectiveInspection', 'Detective: pemeriksaan kubu'],
-  ['mayorDoubleVote', 'Mayor: bobot suara dua kali lipat'],
-  ['jesterSoloWin', 'Jester: kemenangan solo melalui voting']
-];
 const ROLE_COUNT_DEFAULTS = {
   wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
   hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0, jester: 0, villager: 2,
   moderator: 0
 };
-const ABILITY_DEFAULTS = Object.fromEntries(ABILITY_OPTIONS.map(([key]) => [key, true]));
 let session = null;
 let roomState = null;
 let socket = null;
@@ -833,6 +817,7 @@ function renderModeratorLobby(parent) {
     ? 'Moderator sistem aktif. Narasi, malam, dan voting diproses otomatis setelah semua aksi selesai.'
     : mode === 'random' ? 'Mode acak aktif. Host atau sistem akan dipilih saat permainan dimulai.'
       : 'Moderator host aktif. Host mengatur perpindahan fase secara manual.');
+  addText(parent, 'p', 'hint', 'Komposisi awal dibuat otomatis dan memakai kombinasi role yang bervariasi. Jika host mengubah jumlah role, pilihan tersebut disimpan; jumlah Warga Desa otomatis menyeimbangkan sisa pemain.');
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
@@ -1061,7 +1046,7 @@ function renderPlayerNight(parent) {
     return;
   }
   addText(parent, 'p', 'hint', systemModeratorEnabled()
-    ? 'Fase malam tidak memakai hitung mundur. Sistem akan mengumumkan pagi setelah seluruh aksi peran aktif selesai.'
+    ? 'Fase malam tidak memakai hitung mundur. Sistem mengumumkan pagi setelah seluruh pemain menyelesaikan aksi malam.'
     : 'Fase malam tidak memakai hitung mundur. Selesaikan aksi dan tunggu moderator melanjutkan ke pagi.');
   if (!self.role) {
     addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Hubungi moderator.');
