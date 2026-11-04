@@ -251,7 +251,8 @@ export class WerewolfRoom {
     }
     const player = room.players.find(item => item.tokenHash === tokenHash);
     if (!player) return null;
-    return { ...player, isModerator: Boolean(player.id === room.hostId && !room.moderator) };
+    if (!room.moderator && player.id === room.hostId) player.isModerator = true;
+    return player;
   }
 
   snapshot(room, actorId, actorType = 'player') {
