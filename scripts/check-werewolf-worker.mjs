@@ -718,7 +718,7 @@ const auto50Room = new WerewolfRoom({ storage: new MemoryStorage(), getWebSocket
 const auto50Created = await payload(await auto50Room.fetch(makeRequest('/internal/create', 'POST', {
   code: 'AUTF55', name: 'Auto Fifty Host'
 })), 201);
-for (let index = 1; index < 50; index += 1) {
+for (let index = 1; index <= 50; index += 1) {
   await payload(await auto50Room.fetch(makeRequest('/internal/join', 'POST', {
     name: 'Auto ' + String(index).padStart(2, '0')
   })), 201);
