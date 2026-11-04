@@ -1092,7 +1092,9 @@ assert.equal(replayHostView.self.role, null);
 if (replayState.activeModeratorId === replayState.hostId) {
   assert.equal(replayHostView.players.length, 5);
 } else {
-  assert.equal(replayHostView.players.length, 0, 'Host receives a private player view when another participant is moderator.');
+  assert.equal(replayHostView.players.length, 5, 'Host receives a role-safe player roster when another participant is moderator.');
+  assert.ok(replayHostView.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'role')),
+    'The host roster must not reveal other players’ roles when the host is not moderator.');
   assert.ok(replayState.players.some(player => player.id === replayState.hostId), 'Host must remain an active player when another participant becomes moderator.');
 }
 replayState.phase = 'finished';
@@ -1165,3 +1167,148 @@ assert.equal(partialWolfState.phase, 'morning');
 assert.equal(partialWolfState.players[2].alive, false, 'A submitted wolf vote must execute even when another wolf has not voted.');
 assert.ok(partialWolfState.lastResult.events.some(event => event.includes('Werewolf menyerang Partial Village')));
 console.log('Werewolf forced-morning regression passed: submitted pack votes still execute when missing players are skipped.');
+
+
+// Host-only kick must remove the selected player, invalidate their token, and close their sockets.
+const kickSockets = [];
+const kickRoom = new WerewolfRoom({
+  storage: new MemoryStorage(),
+  getWebSockets: () => kickSockets.filter(socket => !socket.closed)
+}, {});
+const kickCreated = await payload(await kickRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'KCKR23', name: 'Kick Host'
+})), 201);
+const kickPlayerOne = await payload(await kickRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Kick Player One'
+})), 201);
+const kickPlayerTwo = await payload(await kickRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Kick Player Two'
+})), 201);
+const kickedPlayerId = (await kickRoom.loadRoom()).players.find(player => player.name === 'Kick Player One').id;
+const fakeKickSocket = actorId => ({
+  sent: [],
+  closed: null,
+  deserializeAttachment() { return { actorId, actorType: 'player' }; },
+  send(message) { this.sent.push(JSON.parse(message)); },
+  close(code, reason) { this.closed = { code, reason }; }
+});
+const kickedSocket = fakeKickSocket(kickedPlayerId);
+const remainingSocket = fakeKickSocket(kickPlayerTwo.playerId);
+kickSockets.push(kickedSocket, remainingSocket);
+await payload(await kickRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'kick_player', playerId: kickedPlayerId
+}, kickPlayerTwo.token)), 403);
+await payload(await kickRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'kick_player', playerId: kickCreated.moderatorId
+}, kickCreated.token)), 403);
+await payload(await kickRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'kick_player', playerId: kickedPlayerId
+}, kickCreated.token)));
+let kickState = await kickRoom.loadRoom();
+assert.equal(kickState.players.length, 2);
+assert.ok(!kickState.players.some(player => player.id === kickedPlayerId));
+assert.equal(kickedSocket.sent[0]?.type, 'player_kicked');
+assert.equal(kickedSocket.closed.code, 4002);
+assert.equal(kickedSocket.closed.reason, 'Dikeluarkan host');
+assert.equal(remainingSocket.sent.at(-1)?.type, 'state');
+await payload(await kickRoom.fetch(makeRequest('/internal/state', 'GET', undefined, kickPlayerOne.token)), 401);
+console.log('Werewolf kick regression passed: only the host can kick, the host cannot kick itself, the removed session is invalidated, and the player socket closes.');
+
+// The host can kick while playing as a normal player; the host roster must not reveal roles.
+const activeKickRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const activeKickCreated = await payload(await activeKickRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'HSTK24', name: 'System Host', settings: { moderatorMode: 'system' }
+})), 201);
+const activeKickJoined = [];
+for (const name of ['Wolf One', 'Wolf Two', 'Seer One', 'Doctor One', 'Village One']) {
+  activeKickJoined.push(await payload(await activeKickRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+}
+let activeKickState = await activeKickRoom.loadRoom();
+activeKickState.phase = 'voting';
+activeKickState.round = 1;
+activeKickState.activeModeratorMode = 'system';
+activeKickState.activeModeratorId = null;
+activeKickState.activeModeratorRosterIndex = null;
+activeKickState.moderator = activeKickState.hostAccount;
+const roleByName = {
+  'System Host': 'villager',
+  'Wolf One': 'wolf',
+  'Wolf Two': 'wolf',
+  'Seer One': 'seer',
+  'Doctor One': 'doctor',
+  'Village One': 'villager'
+};
+for (const player of activeKickState.players) {
+  player.role = roleByName[player.name];
+  player.alive = true;
+  player.hasDrawn = true;
+}
+const activeVictim = activeKickState.players.find(player => player.name === 'Village One');
+const activeHost = activeKickState.players.find(player => player.isHost);
+const activeWolfOne = activeKickState.players.find(player => player.name === 'Wolf One');
+const activeWolfTwo = activeKickState.players.find(player => player.name === 'Wolf Two');
+const activeSeer = activeKickState.players.find(player => player.name === 'Seer One');
+const activeDoctor = activeKickState.players.find(player => player.name === 'Doctor One');
+activeKickState.votes = {
+  [activeWolfOne.id]: activeVictim.id,
+  [activeVictim.id]: activeHost.id,
+  [activeSeer.id]: activeDoctor.id
+};
+activeKickState.nightActions = {
+  [activeWolfOne.id]: { type: 'wolf_vote', targetId: activeVictim.id },
+  [activeWolfTwo.id]: { type: 'wolf_vote', targetId: activeDoctor.id },
+  [activeSeer.id]: { type: 'seer_inspect', targetId: activeVictim.id },
+  [activeDoctor.id]: { type: 'doctor_protect', targetId: activeHost.id },
+  [activeVictim.id]: { type: 'pass' }
+};
+activeKickState.seerResults = {
+  [activeSeer.id]: { round: 1, playerName: activeVictim.name, result: 'not_wolf' },
+  [activeVictim.id]: { round: 1, playerName: activeDoctor.name, result: 'not_wolf' }
+};
+activeKickState.villagerPrompts = {
+  [activeVictim.id]: { id: 'kick-prompt', question: 'Question', options: ['A', 'B'], answer: 'A' }
+};
+activeKickState.witchPotions = { [activeVictim.id]: { heal: true, poison: true } };
+activeKickState.guardianTargets = {
+  [activeDoctor.id]: activeVictim.id,
+  [activeVictim.id]: activeHost.id
+};
+activeKickState.bodyguardTargets = {
+  [activeDoctor.id]: activeVictim.id,
+  [activeVictim.id]: activeHost.id
+};
+activeKickState.lovers = [activeVictim.id, activeHost.id];
+activeKickState.additionalWinners = [activeVictim.id, activeDoctor.id];
+activeKickState.chat = [{ id: 'kick-chat', playerId: activeVictim.id, name: activeVictim.name, text: 'Hello', at: Date.now() }];
+activeKickState.wolfChat = [{ id: 'kick-wolf-chat', playerId: activeVictim.id, name: activeVictim.name, text: 'Hello', at: Date.now() }];
+await activeKickRoom.saveRoom(activeKickState);
+const hostPlayerView = (await payload(await activeKickRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, activeKickCreated.token)
+))).state;
+assert.equal(hostPlayerView.self.isHost, true);
+assert.equal(hostPlayerView.self.isModerator, false);
+assert.equal(hostPlayerView.players.length, 6);
+assert.ok(hostPlayerView.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'role')));
+await payload(await activeKickRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'kick_player', playerId: activeVictim.id
+}, activeKickCreated.token)));
+activeKickState = await activeKickRoom.loadRoom();
+assert.equal(activeKickState.phase, 'voting');
+assert.equal(activeKickState.winner, null);
+assert.equal(activeKickState.players.length, 5);
+assert.deepEqual(activeKickState.votes, { [activeSeer.id]: activeDoctor.id });
+assert.deepEqual(activeKickState.nightActions, {
+  [activeWolfTwo.id]: { type: 'wolf_vote', targetId: activeDoctor.id },
+  [activeDoctor.id]: { type: 'doctor_protect', targetId: activeHost.id }
+});
+assert.deepEqual(activeKickState.seerResults, {});
+assert.deepEqual(activeKickState.villagerPrompts, {});
+assert.deepEqual(activeKickState.witchPotions, {});
+assert.deepEqual(activeKickState.guardianTargets, {});
+assert.deepEqual(activeKickState.bodyguardTargets, {});
+assert.equal(activeKickState.lovers, null);
+assert.deepEqual(activeKickState.additionalWinners, [activeDoctor.id]);
+assert.deepEqual(activeKickState.chat, []);
+assert.deepEqual(activeKickState.wolfChat, []);
+await payload(await activeKickRoom.fetch(makeRequest('/internal/state', 'GET', undefined, activeKickJoined[4].token)), 401);
+console.log('Werewolf active-game kick regression passed: host can kick outside moderator mode, private roles stay hidden, and stale action/vote references are cleared.');
