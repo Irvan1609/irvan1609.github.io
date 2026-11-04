@@ -37,7 +37,7 @@ for (const text of [
 
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerPhase/);
-assert.match(app, /roomState\.self\.isModerator/);
+assert.match(app, /roomState\?\.self\?\.isModerator/);
 assert.match(app, /roomState\.targets/);
 assert.match(app, /phasePanel\.dataset\.phase/);
 assert.match(app, /assets\/illustrations\/role-/);
