@@ -377,7 +377,8 @@ function applyState(nextState, expectedSession = session) {
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
   const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round, nextState.room.lastResult?.at || ''].join(':');
-  if (previous && nextState.self?.isModerator && systemModeratorEnabled(nextState) && narrationKey !== lastNarrationKey) {
+  if (previous && (nextState.self?.isModerator || nextState.self?.isHost)
+    && systemModeratorEnabled(nextState) && narrationKey !== lastNarrationKey) {
     const narration = systemNarrationText(nextState.room);
     if (narration) speakSystemNarration(narration);
   }
@@ -391,8 +392,18 @@ function roleLabel(role) {
 }
 
 function isHost() {
-  // Fall back to the locally saved host session while the first snapshot is applied.
-  return Boolean(roomState?.self?.isModerator || session?.isModerator);
+  // Host permissions remain separate from the temporary moderator assignment.
+  return Boolean(roomState?.self?.isHost || session?.isHost || session?.isModerator);
+}
+
+function isRoomModerator() {
+  if (typeof roomState?.self?.isModerator === 'boolean') return roomState.self.isModerator;
+  return Boolean(roomState?.room?.phase === 'lobby' && isHost());
+}
+
+function rolePlayerCount(mode = roleSettingsForUI(roomState?.room?.settings || {}).moderatorMode) {
+  const registered = roomState?.players?.length || 0;
+  return Math.max(0, registered - (mode === 'system' ? 0 : 1));
 }
 
 function systemModeratorEnabled(state = roomState) {
@@ -468,7 +479,7 @@ function roleSettingsForUI(settings = {}) {
   return {
     roleCounts: settings.roleCounts
       ? { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts }
-      : recommendedRoleCounts(roomState?.players?.length || 0),
+      : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode
   };
 }
@@ -509,14 +520,15 @@ function captureRoleDraft(container, event) {
     roleCounts[input.dataset.roleCount] = Math.max(0, Number(input.value) || 0);
   }
   const changedKey = event?.target?.dataset?.roleCount;
-  if (changedKey && changedKey !== 'villager') {
+  const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
+  const modeChanged = Boolean(event?.target?.hasAttribute?.('data-moderator-mode'));
+  if ((changedKey && changedKey !== 'villager') || modeChanged) {
     const total = roleConfigTotals(roleCounts).total;
-    const delta = (roomState?.players?.length || 0) - total;
+    const delta = rolePlayerCount(moderatorMode) - total;
     roleCounts.villager = Math.max(0, (roleCounts.villager || 0) + delta);
     const villagerInput = container.querySelector('[data-role-count="villager"]');
     if (villagerInput) villagerInput.value = String(roleCounts.villager);
   }
-  const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
   roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode };
   updateRoleConfigSummary(container);
 }
@@ -556,7 +568,7 @@ function renderRoleConfigEditor(container, settings) {
   moderatorField.append(moderatorSelect);
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
-  addText(moderatorSection, 'p', 'hint', 'Host: perpindahan fase dikendalikan host. Sistem: fase otomatis setelah semua aksi selesai. Acak: sistem memilih salah satu mode setiap permainan.');
+  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam dan voting berjalan otomatis, sedangkan host melanjutkan fase siang. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
   const roleActions = node('div', 'role-config-actions');
   const clearRolesButton = button('Jadikan Semua Role 0', 'secondary role-zero-button', () => clearAllRoleCounts(container));
   clearRolesButton.dataset.clearAllRoles = 'true';
@@ -646,7 +658,8 @@ function updatePhaseTracker(phase) {
 function renderRoom() {
   if (!roomState) return;
   const room = roomState.room;
-  const moderator = isHost();
+  const moderator = isRoomModerator();
+  const host = isHost();
   const labels = {
     lobby: 'Lobby · Menunggu pemain',
     role_draw: 'Pembagian kartu',
@@ -665,19 +678,22 @@ function renderRoom() {
   if (resetButton) {
     // Keep the control visible at all times; only the host can activate it.
     resetButton.classList.remove('hidden');
-    resetButton.classList.toggle('restart-button', moderator);
-    resetButton.disabled = !moderator;
-    resetButton.setAttribute('aria-disabled', String(!moderator));
+    resetButton.classList.toggle('restart-button', host);
+    resetButton.disabled = !host;
+    resetButton.setAttribute('aria-disabled', String(!host));
     resetButton.textContent = 'Restart Permainan';
-    resetButton.title = moderator
+    resetButton.title = host
       ? 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu tanpa mengeluarkan pemain'
       : 'Hanya host yang dapat memulai ulang permainan';
   }
   const leaveButton = $('leaveRoom');
   if (leaveButton) {
-    leaveButton.textContent = moderator ? 'Bubarkan Room' : 'Keluar';
-    leaveButton.title = moderator ? 'Bubarkan room dan keluarkan semua pemain' : 'Keluar dari room';
-    leaveButton.classList.toggle('disband-button', moderator);
+    leaveButton.textContent = host ? 'Bubarkan Room' : moderator ? 'Moderator Aktif' : 'Keluar';
+    leaveButton.title = host
+      ? 'Bubarkan room dan keluarkan semua pemain'
+      : moderator ? 'Moderator tidak dapat keluar selama permainan berlangsung' : 'Keluar dari room';
+    leaveButton.disabled = moderator && !host;
+    leaveButton.classList.toggle('disband-button', host);
   }
   $('playersSection').classList.toggle('hidden', !moderator);
   $('roomIdentity').classList.toggle('hidden', !moderator);
@@ -937,17 +953,33 @@ function renderPlayerPhase(parent) {
       break;
     default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
   }
+  if (systemModeratorEnabled()) {
+    renderSystemNarrator(parent);
+    if (isHost()) renderSystemHostControls(parent);
+  }
+}
+
+function renderSystemHostControls(parent) {
+  const phase = roomState.room.phase;
+  if (phase === 'morning') {
+    parent.append(button('Lanjut ke Diskusi', 'primary wide', () => sendAction('start_discussion')));
+  } else if (phase === 'discussion') {
+    parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
+  } else if (phase === 'result') {
+    parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
+  }
 }
 
 function renderModeratorLobby(parent) {
   phaseHeader(parent, 'PANEL MODERATOR', 'Atur role setelah pemain bergabung', 'Tentukan role dan jumlahnya di sini. Pengaturan ini dapat diubah selama room masih berada di lobby.');
-  addText(parent, 'div', 'notice', 'Pemain bergabung: ' + roomState.players.length + '. Minimal 2 pemain; tidak ada batas jumlah pemain tetap dari aplikasi. Jumlah role harus sama dengan jumlah pemain; moderator tidak dihitung.');
   const settings = roomState.room.settings || {};
   const mode = roleSettingsForUI(settings).moderatorMode;
+  const roleSlots = rolePlayerCount(mode);
+  addText(parent, 'div', 'notice', 'Pemain terdaftar: ' + roomState.players.length + '. Pemain yang menerima role: ' + roleSlots + '. Moderator sementara tidak dihitung sebagai pemain aktif.');
   addText(parent, 'div', mode === 'system' ? 'notice success' : 'notice', mode === 'system'
-    ? 'Moderator sistem aktif. Narasi, malam, dan voting diproses otomatis setelah semua aksi selesai.'
-    : mode === 'random' ? 'Mode acak aktif. Host atau sistem akan dipilih saat permainan dimulai.'
-      : 'Moderator host aktif. Host mengatur perpindahan fase secara manual.');
+    ? 'Moderator sistem aktif. Host tetap bermain; malam dan voting otomatis, sedangkan host melanjutkan fase siang.'
+    : mode === 'random' ? 'Mode acak aktif. Satu pemain manusia akan dipilih sebagai moderator dan sementara dikeluarkan dari daftar pemain aktif.'
+      : 'Moderator host aktif. Host akan dikeluarkan sementara dari daftar pemain aktif saat permainan dimulai.');
   addText(parent, 'p', 'hint', 'Untuk 4–25 pemain, sistem menyusun komposisi role bertahap pada setiap jumlah pemain. Warga Desa dijaga sekitar 20%; role khusus dan netral dibuka bergantian, lalu beberapa role dapat berulang. Pengaturan manual host tetap menjadi prioritas.');
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
@@ -965,7 +997,8 @@ function renderModeratorLobby(parent) {
 
   const config = roleSettingsForUI(settings);
   const totals = roleConfigTotals(config.roleCounts);
-  const exact = totals.total === roomState.players.length;
+  const activePlayerCount = rolePlayerCount(config.moderatorMode);
+  const exact = totals.total === activePlayerCount;
   const balance = node('div', 'role-balance');
   addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
   const balanceGrid = node('div', 'role-balance-grid');
@@ -978,10 +1011,10 @@ function renderModeratorLobby(parent) {
     balanceGrid.append(item);
   }
   balance.append(balanceGrid);
-  if (roomState.players.length < 2) addText(balance, 'p', 'hint', 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain.');
-  else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + roomState.players.length + ' pemain. Sesuaikan angka role lalu simpan.');
+  if (activePlayerCount < 2) addText(balance, 'p', 'hint', 'Minimal 2 pemain aktif diperlukan setelah moderator dipilih.');
+  else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + activePlayerCount + ' pemain aktif. Sesuaikan angka role lalu simpan.');
   else if (totals.wolves < 1 || totals.village < 1) addText(balance, 'p', 'notice warning', 'Harus ada minimal satu anggota kubu Werewolf dan satu anggota kubu Desa.');
-  else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain.');
+  else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain aktif.');
   parent.append(balance);
 
   const maxBotsPerBatch = 500;
@@ -1011,7 +1044,7 @@ function renderModeratorLobby(parent) {
   addText(botBox, 'p', 'hint', 'Maksimal 500 bot dalam satu penambahan. Untuk jumlah lebih besar, lakukan beberapa kali.');
   parent.append(botBox);
 
-  const canStart = roomState.players.length >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
+  const canStart = activePlayerCount >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
   parent.append(button('Mulai Permainan & Bagikan Kartu', 'primary wide', async () => {
     try {
       const saved = await sendAction('update_settings', { settings: readRoleSettings(configEditor) });
@@ -1453,7 +1486,7 @@ function renderPlayerVoteResult(parent) {
 
 
 async function leaveCurrentRoom() {
-  if (!session || roomState?.self?.isModerator) return;
+  if (!session || isRoomModerator() || isHost()) return;
   const activeSession = session;
   try {
     await request('/rooms/' + activeSession.code + '/action', {
@@ -1480,7 +1513,7 @@ async function leaveCurrentRoom() {
 
 async function disbandCurrentRoom() {
   const activeSession = session;
-  if (!activeSession || !roomState?.self?.isModerator) return;
+  if (!activeSession || !isHost()) return;
   try {
     const result = await request('/rooms/' + activeSession.code + '/action', {
       method: 'POST', body: { type: 'disband_room' }, session: activeSession
@@ -1518,7 +1551,8 @@ $('createForm').addEventListener('submit', async event => {
       token: result.token,
       playerId: result.moderatorId,
       name: $('createName').value.trim(),
-      isModerator: true
+      isModerator: true,
+      isHost: true
     });
     showMessage('Room berhasil dibuat. Bagikan kode room kepada pemain.');
   } catch (error) {
@@ -1584,6 +1618,10 @@ $('leaveRoom').addEventListener('click', () => {
     if (confirm('Bubarkan room ' + code + '? Semua pemain akan dikeluarkan, koneksi ditutup, dan data room dihapus. Tindakan ini tidak dapat dibatalkan.')) {
       disbandCurrentRoom();
     }
+    return;
+  }
+  if (isRoomModerator()) {
+    showMessage('Kamu sedang bertugas sebagai moderator dan tidak dapat keluar dari room.');
     return;
   }
   if (confirm('Keluar dari room? Di lobby namamu akan dihapus. Jika permainan sudah dimulai, karaktermu akan tereliminasi.')) leaveCurrentRoom();
