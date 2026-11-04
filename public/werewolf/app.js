@@ -104,7 +104,8 @@ function withGameAudio(play) {
   const context = gameAudioContext;
   if (!context) return;
   const run = () => {
-    if (gameAudioContext === context && context.state === 'running') play(context);
+    if (gameAudioContext !== context || context.state !== 'running') return;
+    try { play(context); } catch {}
   };
   if (context.state === 'suspended') context.resume().then(run).catch(() => {});
   else run();
@@ -447,7 +448,7 @@ function renderRoleConfigEditor(container, settings) {
   renderRoleCard(moderatorPreview, 'moderator', 'KARTU HOST · MODERATOR');
   moderatorSection.append(moderatorPreview);
   const moderatorCount = node('label', 'role-count-field moderator-count');
-  addText(moderatorCount, 'span', '', 'Jumlah kartu moderator');
+  addText(moderatorCount, 'span', '', 'Mode moderator (0 atau 1)');
   const moderatorInput = node('input', 'role-count-input');
   moderatorInput.type = 'number';
   moderatorInput.min = '0';
