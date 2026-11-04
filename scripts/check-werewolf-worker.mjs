@@ -716,7 +716,7 @@ console.log('Werewolf role-scaling check passed: 25 players receive a proportion
 // A large automatic room adds more special roles rather than filling the remainder with Villagers.
 const auto50Room = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const auto50Created = await payload(await auto50Room.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'AUTO50', name: 'Auto Fifty Host'
+  code: 'AUTF55', name: 'Auto Fifty Host'
 })), 201);
 for (let index = 1; index < 50; index += 1) {
   await payload(await auto50Room.fetch(makeRequest('/internal/join', 'POST', {
