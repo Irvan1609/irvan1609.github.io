@@ -139,30 +139,44 @@ function normalizeSettings(input = {}) {
 function recommendedRoleCounts(playerCount) {
   const counts = Object.fromEntries(ROLE_COUNT_KEYS.map(key => [key, 0]));
   if (!Number.isSafeInteger(playerCount) || playerCount < 2) return counts;
+
   const wolfCount = Math.min(playerCount - 1, Math.max(1, Math.floor(playerCount / 4)));
   if (playerCount >= 12 && wolfCount >= 3) {
     counts.alpha_wolf = 1;
     counts.wolf = wolfCount - 1;
   } else counts.wolf = wolfCount;
-  let remaining = playerCount - wolfCount;
+
+  const nonWolfPlayers = playerCount - wolfCount;
+  const villagerCount = Math.min(
+    Math.max(1, nonWolfPlayers - 1),
+    Math.max(2, Math.floor(playerCount * 0.2))
+  );
+  const specialSlots = nonWolfPlayers - villagerCount;
   const roleSchedule = [
-    ['seer', 3], ['doctor', 4], ['bodyguard', 7], ['witch', 9],
-    ['hunter', 11], ['cupid', 13], ['detective', 15], ['mayor', 17],
-    ['guardian_angel', 19], ['jester', 21]
+    ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 8],
+    ['hunter', 9], ['cupid', 10], ['detective', 12], ['mayor', 14],
+    ['guardian_angel', 16], ['jester', 18]
   ];
+  let assignedSpecials = 0;
   for (const [role, minimumPlayers] of roleSchedule) {
-    if (playerCount >= minimumPlayers && remaining > 1) {
+    if (playerCount >= minimumPlayers && assignedSpecials < specialSlots) {
       counts[role] += 1;
-      remaining -= 1;
+      assignedSpecials += 1;
     }
   }
-  const scalableRoles = ['seer', 'doctor', 'bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel'];
-  const extraSpecialSlots = Math.floor(Math.max(0, playerCount - 25) / 3);
-  for (let index = 0; index < extraSpecialSlots && remaining > 1; index += 1) {
-    counts[scalableRoles[index % scalableRoles.length]] += 1;
-    remaining -= 1;
+
+  // Fill the remaining special slots with repeatable roles. Cupid and Jester
+  // stay unique because Cupid's bond is room-wide and Jester is a solo-win role.
+  const scalableRoles = ['bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel', 'seer', 'doctor'];
+  let extraRoleIndex = 0;
+  while (assignedSpecials < specialSlots) {
+    const role = scalableRoles[extraRoleIndex % scalableRoles.length];
+    counts[role] += 1;
+    assignedSpecials += 1;
+    extraRoleIndex += 1;
   }
-  counts.villager = remaining;
+
+  counts.villager = villagerCount;
   return counts;
 }
 
