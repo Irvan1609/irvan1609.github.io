@@ -323,8 +323,11 @@ async function connectRealtime() {
   } catch (error) {
     if (session === activeSession && generation === realtimeGeneration) {
       setConnection(false);
-      if (error.status === 401 || error.status === 404) refreshState().catch(() => {});
-      else scheduleReconnect(generation);
+      if (error.status === 401 || error.status === 404) {
+        refreshState().catch(() => {}).finally(() => {
+          if (session === activeSession && generation === realtimeGeneration) scheduleReconnect(generation);
+        });
+      } else scheduleReconnect(generation);
     }
   } finally {
     if (connectingGeneration === generation) connectingGeneration = null;
