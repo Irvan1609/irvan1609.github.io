@@ -295,7 +295,7 @@ assert.ok(['result', 'finished'].includes(soloState.phase));
 const systemStorage = new MemoryStorage();
 const systemRoom = new WerewolfRoom({ storage: systemStorage, getWebSockets: () => [] }, {});
 const systemCreated = await payload(await systemRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'SYS1MD', name: 'System Moderator',
+  code: 'SYS2MD', name: 'System Moderator',
   settings: {
     roleCounts: {
       wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
