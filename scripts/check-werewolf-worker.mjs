@@ -1023,7 +1023,7 @@ console.log('Werewolf persistent-room regression passed: reset returns the same 
 // even if one pack member has not completed an action.
 const partialWolfRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const partialWolfCreated = await payload(await partialWolfRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WLFPT1', name: 'Partial Wolf Host'
+  code: 'WLFPT2', name: 'Partial Wolf Host'
 })), 201);
 const partialWolfTokens = [];
 for (const name of ['Partial Wolf One', 'Partial Wolf Two', 'Partial Village']) {
