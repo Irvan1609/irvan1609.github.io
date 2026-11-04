@@ -713,6 +713,26 @@ for (const role of ['bodyguard', 'witch', 'hunter', 'cupid', 'detective', 'mayor
 }
 console.log('Werewolf role-scaling check passed: 25 players receive a proportionate default role deck.');
 
+// A large automatic room adds more special roles rather than filling the remainder with Villagers.
+const auto50Room = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const auto50Created = await payload(await auto50Room.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'AUTO50', name: 'Auto Fifty Host'
+})), 201);
+for (let index = 1; index < 50; index += 1) {
+  await payload(await auto50Room.fetch(makeRequest('/internal/join', 'POST', {
+    name: 'Auto ' + String(index).padStart(2, '0')
+  })), 201);
+}
+await payload(await auto50Room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, auto50Created.token)));
+const auto50State = await auto50Room.loadRoom();
+assert.equal(auto50State.players.length, 50);
+assert.equal(auto50State.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 12);
+assert.equal(auto50State.players.filter(player => player.role === 'villager').length, 20);
+for (const role of ['seer', 'doctor', 'bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel']) {
+  assert.equal(auto50State.players.filter(player => player.role === role).length, 2, `Large automatic deck should include two ${role} roles.`);
+}
+console.log('Werewolf large automatic role-scaling check passed: 50 players receive a broader special-role mix and only 20 Villagers.');
+
 // No fixed room total: join 25 humans, add 25 bots, then use a role count above twenty.
 const largeRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const largeCreated = await payload(await largeRoom.fetch(makeRequest('/internal/create', 'POST', {
