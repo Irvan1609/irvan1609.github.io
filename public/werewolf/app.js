@@ -414,10 +414,12 @@ function recommendedRoleCounts(playerCount) {
     Math.max(2, Math.floor(playerCount * 0.2))
   );
   const specialSlots = nonWolfPlayers - villagerCount;
+  // Unlock a different special role as the room grows from 4 to 17 players.
+  // This gives every room size in the 4–25 range a deliberate role mix.
   const roleSchedule = [
-    ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 8],
-    ['hunter', 9], ['cupid', 10], ['detective', 12], ['mayor', 14],
-    ['guardian_angel', 16], ['jester', 18]
+    ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 7],
+    ['hunter', 9], ['cupid', 10], ['detective', 11], ['mayor', 13],
+    ['guardian_angel', 14], ['jester', 17]
   ];
   let assignedSpecials = 0;
   for (const [role, minimumPlayers] of roleSchedule) {
@@ -837,7 +839,7 @@ function renderModeratorLobby(parent) {
     ? 'Moderator sistem aktif. Narasi, malam, dan voting diproses otomatis setelah semua aksi selesai.'
     : mode === 'random' ? 'Mode acak aktif. Host atau sistem akan dipilih saat permainan dimulai.'
       : 'Moderator host aktif. Host mengatur perpindahan fase secara manual.');
-  addText(parent, 'p', 'hint', 'Komposisi otomatis membatasi Warga Desa sekitar 20% dari jumlah pemain. Slot lainnya diisi kombinasi role khusus dan netral; beberapa role dapat muncul lebih dari sekali. Pengaturan host tetap menjadi prioritas.');
+  addText(parent, 'p', 'hint', 'Untuk 4–25 pemain, sistem menyusun komposisi role bertahap pada setiap jumlah pemain. Warga Desa dijaga sekitar 20%; role khusus dan netral dibuka bergantian, lalu beberapa role dapat berulang. Pengaturan manual host tetap menjadi prioritas.');
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
