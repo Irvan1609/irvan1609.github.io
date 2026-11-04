@@ -1212,7 +1212,7 @@ assert.equal(kickedSocket.closed.code, 4002);
 assert.equal(kickedSocket.closed.reason, 'Dikeluarkan host');
 assert.equal(remainingSocket.sent.at(-1)?.type, 'state');
 await payload(await kickRoom.fetch(makeRequest('/internal/state', 'GET', undefined, kickPlayerOne.token)), 401);
-console.log('Werewolf kick regression passed: only the host can kick, the host cannot kick itself, the removed session is invalidated, and the player socket closes.');
+console.log('Werewolf kick regression passed: only the host or active moderator can kick, the host cannot kick itself, the removed session is invalidated, and the player socket closes.');
 
 // The host can kick while playing as a normal player; the host roster must not reveal roles.
 const activeKickRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
@@ -1317,7 +1317,7 @@ console.log('Werewolf active-game kick regression passed: host can kick outside 
 // An active non-host moderator can also kick players, while the host remains in the roster.
 const moderatorKickRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const moderatorKickCreated = await payload(await moderatorKickRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'MODK24', name: 'Moderator Kick Host'
+  code: 'MDK724', name: 'Moderator Kick Host'
 })), 201);
 const moderatorKickPlayers = [];
 for (const name of ['Mod One', 'Wolf One', 'Wolf Two', 'Village One']) {
