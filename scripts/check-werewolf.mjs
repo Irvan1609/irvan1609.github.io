@@ -21,7 +21,7 @@ for (const id of [
 for (const token of [
   'add_bots', 'draw_card', 'night_action', 'night_pass', 'resolve_night',
   'start_discussion', 'start_voting', 'cast_vote', 'resolve_vote', 'next_round',
-  'hunter_shot', 'EXTRA_ROLE_OPTIONS', 'witch_heal', 'witch_poison', 'cupid_link', 'detective_inspect'
+  'hunter_shot', 'EXTRA_ROLE_OPTIONS', "mode: 'heal'", "mode: 'poison'", 'partnerId', 'cupidBond'
 ]) assert.ok(app.includes(token), 'Missing client action ' + token);
 
 for (const token of [
