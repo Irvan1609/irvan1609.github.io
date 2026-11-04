@@ -214,3 +214,30 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .system-narrator-panel button {
   margin-top: 14px;
 }
+
+
+/* Compact role controls, persistent waiting room, and Villager night challenge. */
+.role-config-editor{gap:7px;margin:10px 0}
+.role-config-team{min-width:0;padding:9px}
+.role-config-team .role-section-label{margin:0 0 7px;padding:0 0 6px}
+.role-count-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.role-count-field{min-width:0;gap:5px;padding:6px 7px;font-size:10px}
+.role-count-field span{min-width:0;overflow-wrap:anywhere}
+.role-count-input{width:46px;min-width:46px;min-height:31px;padding:4px}
+.role-team-summary-item{padding:7px 3px}
+.moderator-mode-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,.8fr);align-items:center;gap:10px}
+.moderator-role-chip{display:grid;gap:3px;padding:10px;border:1px solid #806b47;border-radius:9px;background:#151d29}
+.moderator-role-chip b{color:#f0d6a6;font:700 16px var(--serif);letter-spacing:.08em}
+.moderator-role-chip span{color:#aebbc9;font-size:10px}
+.moderator-mode-field{display:grid;gap:5px;color:#dce4ee;font-size:10px;font-weight:800}
+.moderator-mode-select{width:100%;min-height:36px}
+.moderator-role-config>.hint{margin:7px 0 0;font-size:10px}
+.waiting-room-roster{margin:14px 0;padding:13px;border:1px solid #45546a;border-radius:12px;background:linear-gradient(145deg,#1c2c40dd,#111b2bdd)}
+.waiting-room-count{margin-bottom:9px;color:#f0d6a6;font-size:12px;font-weight:800}
+.waiting-room-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.waiting-room-player{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid #35485f;border-radius:8px;background:#0e1928;font-size:10px}
+.waiting-room-player b{min-width:0;overflow-wrap:anywhere;color:#e0e6ef}
+.waiting-room-player .online{color:#86d6a7}.waiting-room-player .offline{color:#a3adbb}
+.villager-math-question{margin:10px 0;padding:17px;border:1px solid #8a7047;border-radius:12px;background:linear-gradient(145deg,#2a291f,#111a29);color:#f0d6a6;text-align:center;font:700 30px var(--serif);letter-spacing:.06em}
+@media(max-width:620px){.role-count-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.moderator-mode-row{grid-template-columns:1fr}.waiting-room-list{grid-template-columns:1fr 1fr}}
+@media(max-width:370px){.role-count-grid,.waiting-room-list{grid-template-columns:1fr}}
