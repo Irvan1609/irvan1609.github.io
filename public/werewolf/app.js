@@ -213,6 +213,18 @@ function renderPlayers() {
   }
 }
 
+function updatePhaseTracker(phase) {
+  const tracker = $('phaseTracker');
+  if (!tracker) return;
+  const steps = ['lobby', 'role_draw', 'night', 'discussion', 'voting', 'result'];
+  const activeIndex = phase === 'finished' ? steps.length - 1 : Math.max(0, steps.indexOf(phase));
+  for (const item of tracker.querySelectorAll('[data-step]')) {
+    const index = steps.indexOf(item.dataset.step);
+    item.classList.toggle('active', index === activeIndex);
+    item.classList.toggle('done', phase === 'finished' || index < activeIndex);
+  }
+}
+
 function renderRoom() {
   if (!roomState) return;
   clearInterval(clockTimer);
@@ -229,6 +241,7 @@ function renderRoom() {
   $('phaseLabel').textContent = labels[room.phase] || room.phase;
   $('roundLabel').textContent = room.round ? 'Ronde ' + room.round : 'Lobby';
   $('roomCodeLabel').textContent = room.code;
+  updatePhaseTracker(room.phase);
   renderPlayers();
   const activeElement = document.activeElement;
   const activeId = activeElement && activeElement.id ? activeElement.id : '';
@@ -272,16 +285,38 @@ function phaseHeader(parent, kicker, title, description) {
 function renderLobby(parent) {
   phaseHeader(parent, 'LOBBY ROOM', 'Menunggu pemain bergabung', 'Bagikan kode room kepada teman. Setiap pemain sebaiknya menggunakan HP sendiri agar kartu dan aksinya tidak terlihat orang lain.');
   addText(parent, 'div', 'notice', 'Permainan dimulai setelah minimal 5 pemain masuk. Maksimal 20 pemain.');
+  const settings = roomState.room.settings || {};
+  const roleCounts = [
+    ['Werewolf', Number(settings.wolves || 1)],
+    ['Seer', settings.seer ? 1 : 0],
+    ['Doctor', settings.doctor ? 1 : 0]
+  ];
+  const specialRoles = roleCounts.reduce((sum, item) => sum + item[1], 0);
+  const villagers = roomState.players.length - specialRoles;
+  const balance = node('div', 'role-balance');
+  addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI PERAN');
+  const balanceGrid = node('div', 'role-balance-grid');
+  for (const [label, count] of [...roleCounts, ['Warga Desa', Math.max(0, villagers)]]) {
+    const item = node('div', 'role-balance-item');
+    addText(item, 'b', '', String(count));
+    addText(item, 'span', '', label);
+    balanceGrid.append(item);
+  }
+  balance.append(balanceGrid);
+  if (roomState.players.length < 5) addText(balance, 'p', 'hint', 'Tambahkan pemain hingga minimal 5 orang untuk memulai.');
+  else if (villagers < 1) addText(balance, 'p', 'notice warning', 'Peran khusus terlalu banyak. Kurangi Werewolf atau nonaktifkan Seer/Doctor agar tersisa minimal satu Warga Desa.');
+  else addText(balance, 'p', 'hint', villagers + ' Warga Desa akan melengkapi komposisi permainan.');
+  parent.append(balance);
   if (isHost()) {
     const maxBots = Math.min(19, 20 - roomState.players.length);
     const botBox = node('div', 'bot-setup');
     addText(botBox, 'h3', '', 'Mode latihan vs bot');
-    addText(botBox, 'p', 'hint', 'Bot otomatis mengambil kartu, menjalankan aksi malam, memberi komentar singkat saat diskusi online, dan melakukan voting. Tambahkan 4 bot untuk bermain sendiri.');
+    addText(botBox, 'p', 'hint', 'Bot mengambil kartu, menjalankan aksi malam, berdiskusi, membalas chat saat mode solo, dan melakukan voting otomatis. Empat bot cocok untuk satu pemain.');
     const botLabel = node('label', 'bot-count-label');
     botLabel.append(node('span', '', 'Jumlah bot tambahan'));
     const botCount = node('select');
     botCount.id = 'botCount';
-    const choices = [4, 7, 9, 14, 19].filter(value => value <= maxBots);
+    const choices = [1, 2, 3, 4, 5, 8, 10, 15, 19].filter(value => value <= maxBots);
     if (maxBots > 0 && !choices.length) choices.push(maxBots);
     for (const value of choices) botCount.append(new Option(value + ' bot', String(value)));
     botCount.value = String(choices.includes(4) ? 4 : (choices[0] || 0));
@@ -291,7 +326,8 @@ function renderLobby(parent) {
     if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
     parent.append(botBox);
 
-    const start = button('Mulai permainan & acak kartu', 'primary wide', () => sendAction('start_game'), roomState.players.length < 5);
+    const canStart = roomState.players.length >= 5 && villagers >= 1;
+    const start = button('Mulai permainan & acak kartu', 'primary wide', () => sendAction('start_game'), !canStart);
     parent.append(start);
   } else {
     addText(parent, 'div', 'notice warning', 'Tunggu host memulai permainan. Pengaturan peran ditentukan oleh host.');
@@ -356,8 +392,10 @@ function renderNight(parent) {
       const title = self.role === 'wolf' ? 'Pilih target serangan' : self.role === 'seer' ? 'Pilih pemain untuk diperiksa' : 'Pilih pemain untuk dilindungi';
       addText(parent, 'h3', '', title);
       const grid = node('div', 'action-grid');
-      const targets = roomState.players.filter(player => player.alive && player.id !== self.id
+      const targets = roomState.players.filter(player => player.alive
+        && (self.role === 'doctor' || player.id !== self.id)
         && (self.role !== 'wolf' || !player.isWolf));
+      if (self.role === 'doctor') addText(parent, 'p', 'hint', 'Doctor juga dapat melindungi dirinya sendiri.');
       for (const target of targets) {
         grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
       }
@@ -428,7 +466,10 @@ function renderDiscussion(parent) {
   }
 
   const botCount = roomState.players.filter(player => player.isBot).length;
-  if (botCount) addText(parent, 'div', 'notice', botCount + ' bot aktif. Bot akan mengikuti voting otomatis; mode online menampilkan komentar diskusi singkat dari bot.');
+  const soloBotMode = botCount > 0 && roomState.players.filter(player => !player.isBot).length === 1;
+  if (botCount) addText(parent, 'div', soloBotMode ? 'notice success' : 'notice', soloBotMode
+    ? 'Mode solo aktif: bot sudah mengirim pendapat, akan membalas chat, dan memilih secara otomatis. Baca diskusi lalu lanjutkan ke voting kapan saja.'
+    : botCount + ' bot aktif. Bot mengikuti aksi malam dan voting otomatis; komentar bot muncul saat diskusi online.');
   if (roomState.self.role === 'seer' && roomState.self.seerResult) {
     const privateResult = roomState.self.seerResult.result === 'wolf' ? 'terindikasi Werewolf' : 'bukan Werewolf';
     addText(parent, 'div', 'notice success', 'Hasil pemeriksaan rahasia: ' + roomState.self.seerResult.playerName + ' ' + privateResult + '.');
@@ -473,10 +514,13 @@ function updateDiscussionClock(timer, startButton, endAt) {
 function renderChat(parent) {
   const box = node('div', 'chat-box');
   const list = node('div', 'chat-list');
+  list.setAttribute('aria-live', 'polite');
   for (const message of roomState.chat || []) {
     const item = node('div', 'chat-message');
     const heading = node('div');
     heading.append(node('b', '', message.name));
+    const speaker = roomState.players.find(player => player.id === message.playerId);
+    if (speaker?.isBot) heading.append(node('span', 'chat-bot-badge', 'BOT'));
     const time = node('time', '', new Date(message.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
     heading.append(time);
     item.append(heading, node('p', '', message.text));
@@ -488,7 +532,8 @@ function renderChat(parent) {
   const input = node('input');
   input.id = 'chatInput';
   input.maxLength = 500;
-  input.placeholder = 'Tulis pesan diskusi...';
+  const soloBotMode = roomState.players.some(player => player.isBot) && roomState.players.filter(player => !player.isBot).length === 1;
+  input.placeholder = soloBotMode ? 'Tulis pendapat atau tanyakan sesuatu kepada bot...' : 'Tulis pesan diskusi...';
   input.autocomplete = 'off';
   input.required = true;
   const submit = node('button', 'primary', 'Kirim');
