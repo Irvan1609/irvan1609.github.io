@@ -63,6 +63,7 @@ let pollingSession = null;
 let gameAudioContext = null;
 let lastNarrationKey = '';
 let roleDraft = null;
+let wolfChatDraft = '';
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -361,6 +362,7 @@ function applyState(nextState, expectedSession = session) {
     previous.room.phase !== nextState.room.phase || previous.room.round !== nextState.room.round
   );
   if (sameRoom && previous.room.phase !== 'lobby' && nextState.room.phase === 'lobby') roleDraft = null;
+  if (!sameRoom || (phaseChanged && nextState.room.phase !== 'night')) wolfChatDraft = '';
   if (roleDraft && roleDraft.code !== nextState.room.code) roleDraft = null;
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
@@ -745,13 +747,76 @@ function renderPlayerRoleReminder(parent) {
   addText(parent, 'p', 'hint role-flip-hint', 'Tekan kartu untuk melihat role. Tekan sekali lagi untuk menutupnya.');
 }
 
-function renderWolfTeamPanel(parent) {
-  if (!['wolf', 'alpha_wolf'].includes(roomState.self?.role) || !roomState.self.alive) return;
-  const names = roomState.wolfTeam || [];
-  if (!names.length) return;
-  const panel = node('div', 'wolf-team-panel');
-  addText(panel, 'div', 'eyebrow-small', 'KAWANAN WEREWOLF');
-  addText(panel, 'p', '', 'Anggota kawanan: ' + names.join(', ') + '. Kamu tidak dapat menyerang sesama Werewolf.');
+function renderWolfNightRoom(parent) {
+  const self = roomState.self;
+  if (!['wolf', 'alpha_wolf'].includes(self?.role) || !self.alive || roomState.room.phase !== 'night') return;
+  const panel = node('section', 'wolf-night-room');
+  addText(panel, 'div', 'eyebrow-small', 'RUANG RAHASIA KAWANAN');
+  addText(panel, 'h3', '', 'Koordinasi Werewolf');
+  addText(panel, 'p', 'hint', 'Ruang ini hanya terlihat oleh Werewolf selama malam. Pilihan serangan setiap anggota diperbarui secara realtime. Semua aksi diproses ketika moderator melanjutkan ke pagi.');
+
+  const team = node('div', 'wolf-team-members');
+  for (const name of roomState.wolfTeam || []) addText(team, 'span', 'wolf-team-member', name);
+  panel.append(team);
+
+  const board = node('section', 'wolf-selection-board');
+  addText(board, 'div', 'eyebrow-small', 'PILIHAN SERANGAN KAWANAN');
+  for (const selection of roomState.wolfSelections || []) {
+    const row = node('div', 'wolf-selection-row');
+    const identity = node('b', '', selection.name + (selection.isSelf ? ' · Kamu' : ''));
+    const choice = node('span', selection.hasChosen ? 'wolf-choice-made' : 'wolf-choice-pending',
+      selection.hasChosen ? 'Memilih: ' + selection.targetName : 'Belum memilih');
+    row.append(identity, choice);
+    board.append(row);
+  }
+  if (!(roomState.wolfSelections || []).length) addText(board, 'p', 'hint', 'Belum ada data pilihan kawanan.');
+  panel.append(board);
+
+  const chat = node('section', 'wolf-private-chat');
+  addText(chat, 'div', 'eyebrow-small', 'CHAT PRIVAT WEREWOLF');
+  const messages = node('div', 'wolf-chat-messages');
+  messages.setAttribute('role', 'log');
+  messages.setAttribute('aria-live', 'polite');
+  const chatItems = Array.isArray(roomState.wolfChat) ? roomState.wolfChat : [];
+  if (!chatItems.length) addText(messages, 'p', 'wolf-chat-empty', 'Belum ada pesan. Koordinasikan pilihan di sini.');
+  for (const message of chatItems) {
+    const item = node('article', 'wolf-chat-message');
+    const header = node('div', 'wolf-chat-message-header');
+    addText(header, 'b', '', message.name || 'Werewolf');
+    if (Number.isFinite(Number(message.at))) {
+      addText(header, 'time', '', new Date(Number(message.at)).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    }
+    addText(item, 'p', '', message.text || '');
+    item.prepend(header);
+    messages.append(item);
+  }
+  chat.append(messages);
+
+  const form = node('form', 'wolf-chat-form');
+  const input = node('input', 'wolf-chat-input');
+  input.type = 'text';
+  input.maxLength = 280;
+  input.autocomplete = 'off';
+  input.placeholder = 'Pesan untuk kawanan...';
+  input.setAttribute('aria-label', 'Pesan chat Werewolf');
+  input.value = wolfChatDraft;
+  input.addEventListener('input', () => { wolfChatDraft = input.value; });
+  const submit = node('button', 'secondary', 'Kirim');
+  submit.type = 'submit';
+  form.append(input, submit);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const text = wolfChatDraft.trim();
+    if (!text) return;
+    wolfChatDraft = '';
+    const sent = await sendAction('wolf_chat', { text });
+    if (!sent) {
+      wolfChatDraft = text;
+      renderRoom();
+    }
+  });
+  chat.append(form);
+  panel.append(chat);
   parent.append(panel);
 }
 
@@ -817,7 +882,6 @@ function renderPlayerPhase(parent) {
     addText(parent, 'div', 'notice success', message);
   }
   if (!['lobby', 'role_draw'].includes(roomState.room.phase)) renderPlayerRoleReminder(parent);
-  renderWolfTeamPanel(parent);
   switch (roomState.room.phase) {
     case 'lobby': {
       phaseHeader(parent, 'RUANG TUNGGU', 'Menunggu permainan dimulai', 'Kamu sudah berada di room yang sama dengan pemain lainnya. Host akan memulai permainan setelah semua siap.');
@@ -945,7 +1009,7 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Tidak ada hitung mundur malam. Target dan hasil setiap aksi hanya terlihat oleh moderator.');
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Tidak ada hitung mundur. Semua aksi diproses saat moderator melanjutkan ke pagi; pilihan dan chat Werewolf hanya terlihat oleh kawanan.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi malam.');
   const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
@@ -1090,6 +1154,24 @@ function renderPlayerNight(parent) {
     : 'Fase malam tidak memakai hitung mundur. Selesaikan aksi dan tunggu moderator melanjutkan ke pagi.');
   if (!self.role) {
     addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Hubungi moderator.');
+    return;
+  }
+  if (['wolf', 'alpha_wolf'].includes(self.role)) {
+    renderWolfNightRoom(parent);
+    if (self.hasActed) {
+      addText(parent, 'div', 'notice success', 'Pilihan seranganmu sudah dikirim. Kamu masih dapat berkoordinasi melalui chat kawanan sampai moderator melanjutkan ke pagi.');
+      return;
+    }
+    addText(parent, 'h3', '', 'Pilih target serangan');
+    addText(parent, 'p', 'hint', 'Pilih satu target. Kawanan dapat melihat pilihan ini secara realtime dan mendiskusikannya di chat privat.');
+    const teamNames = new Set(roomState.wolfTeam || []);
+    const wolfTargets = (roomState.targets || []).filter(target => target.id !== self.id && !teamNames.has(target.name));
+    const wolfGrid = node('div', 'action-grid');
+    for (const target of wolfTargets) {
+      wolfGrid.append(button('Serang · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+    }
+    if (!wolfTargets.length) addText(parent, 'div', 'notice warning', 'Tidak ada target serangan yang tersedia.');
+    else parent.append(wolfGrid);
     return;
   }
   if (self.hasActed) {
