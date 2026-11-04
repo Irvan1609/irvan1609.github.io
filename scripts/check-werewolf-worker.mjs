@@ -153,6 +153,31 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: '
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'discussion');
 assert.equal(saved.discussionEndsAt, null);
+assert.equal(saved.discussionMode, null);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'offline'
+}, playerTokens[0])), 403);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', callUrl: 'http://meet.google.com/test-room'
+}, moderatorToken)), 400);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'offline'
+}, moderatorToken)));
+let offlineDiscussion = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
+))).state;
+assert.equal(offlineDiscussion.room.discussionMode, 'offline');
+assert.equal(offlineDiscussion.room.callUrl, '');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', callUrl: 'https://meet.google.com/test-room'
+}, moderatorToken)));
+const onlineDiscussion = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
+))).state;
+assert.equal(onlineDiscussion.room.discussionMode, 'online');
+assert.equal(onlineDiscussion.room.callUrl, 'https://meet.google.com/test-room');
+assert.equal(onlineDiscussion.room.discussionEndsAt, null);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
 saved = await room.loadRoom();
