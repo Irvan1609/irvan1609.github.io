@@ -181,6 +181,8 @@ assert.match(app, /role-flip-card/);
 assert.match(app, /aria-pressed/);
 assert.match(app, /function renderWolfNightRoom/);
 assert.match(app, /wolf_chat/);
+assert.match(app, /wolfChatInput/);
+assert.match(app, /messages\.scrollTop = messages\.scrollHeight/);
 assert.match(app, /wolfSelections/);
 assert.match(app, /Pilihan seranganmu sudah dikirim/);
 assert.doesNotMatch(app, /renderWolfTeamPanel\(parent\)/);
