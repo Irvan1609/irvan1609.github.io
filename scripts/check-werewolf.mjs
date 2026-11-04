@@ -45,13 +45,14 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261105-werewolf-host-disband3/);
-assert.match(html, /app\.js\?v=20261105-werewolf-host-disband3/);
-assert.match(app, /session\?\.isModerator/);
-assert.match(app, /resetButton\.disabled = !moderator/);
+assert.match(html, /20261105-werewolf-host-player1/);
+assert.match(html, /app\.js\?v=20261105-werewolf-host-player1/);
+assert.match(app, /function isRoomModerator/);
+assert.match(app, /session\?\.isHost/);
+assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /app\.js\?v=20261105-werewolf-host-disband3/);
+assert.match(html, /app\.js\?v=20261105-werewolf-host-player1/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -88,6 +89,17 @@ assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
 assert.match(worker, /type === 'reset_to_lobby'/);
 assert.match(worker, /activeModeratorMode/);
+
+assert.match(worker, /activeModeratorId/);
+assert.match(worker, /activeModeratorRosterIndex/);
+assert.match(worker, /hostAccount/);
+assert.match(worker, /selectedModerator = candidates\[randomInt\(candidates\.length\)\]/);
+assert.match(worker, /room\.players = activePlayers/);
+assert.match(app, /function rolePlayerCount/);
+assert.match(app, /function renderSystemHostControls/);
+assert.match(app, /Pemain yang menerima role/);
+assert.match(html, /Nama host/);
+
 assert.match(worker, /moderatorMode/);
 assert.match(worker, /villagerPrompts/);
 assert.match(worker, /villager_math/);
@@ -133,7 +145,7 @@ for (const file of [
 }
 
 assert.match(html, /THE VILLAGE/);
-assert.match(html, /MODERATOR ROOM/);
+assert.match(html, /HOST ROOM/);
 assert.match(html, /data-step="morning"/);
 const joinFormPosition = html.indexOf('<form id="joinForm"');
 const createFormPosition = html.indexOf('<form id="createForm"');
@@ -142,7 +154,7 @@ assert.doesNotMatch(html, /createRoleConfig|soloMode|how-to-play/, 'Landing must
 assert.doesNotMatch(app, /createRoleConfig|soloMode/, 'Role and bot configuration must not be read from the landing form.');
 assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role configuration must remain in the moderator lobby.');
 assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
-assert.match(app, /roomState\.players\.length >= 2 && exact/, 'Starting requires at least two players and an exact role count.');
+assert.match(app, /activePlayerCount >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
 assert.match(app, /recommendedRoleCounts/);
 assert.match(app, /\['witch', 7\]/);
 assert.match(app, /\['detective', 11\]/);
@@ -173,7 +185,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261105-werewolf-host-disband3/);
+assert.match(sw, /20261105-werewolf-host-player1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
@@ -213,8 +225,8 @@ assert.match(css, /\.wolf-selection-board/);
 assert.match(css, /\.wolf-private-chat/);
 assert.match(css, /\.wolf-chat-form/);
 assert.match(css, /\.moderator-event-report/);
-assert.match(html, /20261105-werewolf-host-disband3/);
-assert.match(sw, /20261105-werewolf-host-disband3/);
+assert.match(html, /20261105-werewolf-host-player1/);
+assert.match(sw, /20261105-werewolf-host-player1/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
