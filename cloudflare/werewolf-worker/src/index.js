@@ -459,19 +459,9 @@ export class WerewolfRoom {
     if (!token) return null;
     const tokenHash = await digest(token);
     const player = room.players.find(item => item.tokenHash === tokenHash);
-    if (player) {
-      return {
-        ...player,
-        isModerator: this.isCurrentModerator(room, player.id),
-        isHost: player.id === room.hostId
-      };
-    }
+    if (player) return player;
     if (room.moderator?.tokenHash === tokenHash && this.isCurrentModerator(room, room.moderator.id)) {
-      return {
-        ...room.moderator,
-        isModerator: true,
-        isHost: room.moderator.id === room.hostId
-      };
+      return room.moderator;
     }
     return null;
   }
@@ -976,7 +966,7 @@ export class WerewolfRoom {
         const ticketHash = await digest(ticket);
         await this.state.storage.put('ticket:' + ticketHash, {
           actorId: player.id,
-          actorType: player.isModerator ? 'moderator' : 'player',
+          actorType: this.isCurrentModerator(room, player.id) ? 'moderator' : 'player',
           expiresAt: Date.now() + 30000
         });
         return json({ ticket, expiresIn: 30 });
@@ -1178,8 +1168,7 @@ export class WerewolfRoom {
   async applyAction(room, player, body) {
     const type = String(body.type || '');
     const now = Date.now();
-    const isModerator = Boolean(player.isModerator || player === room.moderator
-      || (room.phase === 'lobby' && player.id === room.hostId));
+    const isModerator = Boolean(player === room.moderator || this.isCurrentModerator(room, player.id));
     const isHost = player.id === room.hostId;
     const canModerate = isModerator || (isHost && this.isSystemModerator(room));
     const requireModerator = () => {
