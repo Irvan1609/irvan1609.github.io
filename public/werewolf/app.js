@@ -199,9 +199,11 @@ function stopRealtime() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (pollTimer) clearInterval(pollTimer);
   if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (clockTimer) clearInterval(clockTimer);
   reconnectTimer = null;
   pollTimer = null;
   heartbeatTimer = null;
+  clockTimer = null;
   if (socket) {
     socket.onclose = null;
     try { socket.close(); } catch {}
@@ -209,9 +211,27 @@ function stopRealtime() {
   socket = null;
 }
 
+function clearInvalidSession(activeSession) {
+  if (session !== activeSession) return;
+  stopRealtime();
+  localStorage.removeItem(SESSION_PREFIX + activeSession.code);
+  if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
+  session = null;
+  roomState = null;
+  lastNarrationKey = '';
+  $('roomPanel').classList.add('hidden');
+  $('entryPanel').classList.remove('hidden');
+  const url = new URL(location.href);
+  url.searchParams.delete('room');
+  history.replaceState({}, '', url);
+  showMessage('Sesi tidak valid atau room sudah kedaluwarsa. Silakan bergabung kembali.', true);
+}
+
 async function enterRoom(nextSession) {
   stopRealtime();
   session = nextSession;
+  roomState = null;
+  lastNarrationKey = '';
   saveSession();
   $('entryPanel').classList.add('hidden');
   $('roomPanel').classList.remove('hidden');
@@ -225,13 +245,7 @@ async function enterRoom(nextSession) {
   } catch (error) {
     if (session !== nextSession) return false;
     if (error.status === 401 || error.status === 404) {
-      localStorage.removeItem(SESSION_PREFIX + nextSession.code);
-      if (localStorage.getItem('werewolf.lastRoom') === nextSession.code) localStorage.removeItem('werewolf.lastRoom');
-      session = null;
-      roomState = null;
-      $('roomPanel').classList.add('hidden');
-      $('entryPanel').classList.remove('hidden');
-      showMessage('Sesi tidak valid atau room sudah kedaluwarsa. Silakan bergabung kembali.', true);
+      clearInvalidSession(nextSession);
       return false;
     }
     showMessage('Koneksi belum stabil. Sesi tetap disimpan dan sistem akan mencoba menyambungkan ulang: ' + error.message, true);
@@ -252,6 +266,9 @@ async function refreshState() {
   try {
     const result = await request('/rooms/' + activeSession.code + '/state', { session: activeSession });
     if (session === activeSession) applyState(result.state, activeSession);
+  } catch (error) {
+    if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
+    throw error;
   } finally {
     if (pollingSession === activeSession) pollingSession = null;
   }
@@ -303,10 +320,11 @@ async function connectRealtime() {
       }
     };
     nextSocket.onerror = () => { try { nextSocket.close(); } catch {} };
-  } catch {
+  } catch (error) {
     if (session === activeSession && generation === realtimeGeneration) {
       setConnection(false);
-      scheduleReconnect(generation);
+      if (error.status === 401 || error.status === 404) refreshState().catch(() => {});
+      else scheduleReconnect(generation);
     }
   } finally {
     if (connectingGeneration === generation) connectingGeneration = null;
@@ -1279,7 +1297,8 @@ async function leaveCurrentRoom() {
     history.replaceState({}, '', url);
     showMessage('Kamu sudah keluar dari room. Jika permainan sedang berlangsung, karaktermu dihitung tereliminasi.');
   } catch (error) {
-    if (session === activeSession) showMessage(error.message, true);
+    if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
+    else if (session === activeSession) showMessage(error.message, true);
   }
 }
 
