@@ -31,6 +31,8 @@ sebelumnya.
 - **Status verifikasi akhir:** workflow Deploy Vite to GitHub Pages run 41786751407 pada commit 1a1125a36c0be0564a334f3d19374d04b08a8d5e sukses. Step Verify application, pemeriksaan berkas Werewolf di dist, upload artifact, Deploy to GitHub Pages, dan Verify Werewolf page is publicly served semuanya sukses. Security Guard run 41786789234 pada commit dokumentasi 17d17bfbb858507f397657ba38b756e09fbc6f22 juga sukses. URL production dinyatakan ter-deploy berdasarkan pemeriksaan live URL di workflow; uji manual permainan multiplayer masih belum dilakukan.
 - **Pembaruan 4 November 2026 — Werewolf:** pengguna meminta agar game dapat dilihat dan dimainkan melalui web. Branch `master` adalah produksi; jangan merge PR #152 hanya untuk memperoleh URL preview. Deployment Cloudflare Pages preview dicoba, tetapi token `CLOUDFLARE_API_TOKEN` yang tersedia ditolak endpoint Pages dengan error autentikasi 10000 (token dapat men-deploy Worker, tetapi tidak memiliki akses Pages). Jalur preview dialihkan ke Worker development `werewolf-room-api-dev.andyirvan1609.workers.dev`, yang menyajikan frontend game dan API realtime dari origin yang sama. Worker produksi tetap terpisah.
 - **URL preview aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Workflow Deploy Werewolf Room API pada commit `1983c8e1a68f9390705db18c4aa45e7fdb2a787a` berhasil; health check API, halaman HTML, stylesheet header, bundle app, dan ilustrasi SVG lulus.
+- **Status development terbaru, 4 November 2026:** commit `47e466ceb9fe3cef9bd258c685114f7af470f15a` menghubungkan simulasi komentar bot ke fase diskusi pada dashboard moderator. Maksimal tiga bot hidup menyampaikan komentar kontekstual; hasil Seer/Detective dipakai sebagai petunjuk; target kecurigaan digunakan kembali saat voting. Snapshot hanya mengirim komentar bot kepada moderator, sedangkan snapshot pemain tetap menerima `chat: []`. Tidak ada timer atau kolom chat pemain.
+- **Verifikasi terbaru:** `Validate Statistical Web` run `41794605101` dan `Deploy Werewolf Room API` run `41794605304` sama-sama sukses pada commit tersebut. Preview Worker telah diperbarui. Branch `master` tetap pada `d40ef711337f49407ee5dee0772ef9ff75d886fa`; produksi dan subweb lain tidak diubah. Uji permainan manual lintas perangkat masih belum dilakukan.
 - Arahan terbaru fitur Pengamatan (10 Oktober 2026): sampel anak langsung unit percobaan (tanaman/buah), jumlah dapat berbeda antarunit; urutan campuran BB semua sampel lalu PB/TB/LB per sampel diulang pada unit berikutnya; panen berbeda menjadi parameter tersendiri (bb-p1, bb-p2). Rekap rerata/jumlah per unit disetujui.
 
 ## 1. Profil dan cara bekerja
@@ -628,8 +630,8 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 ### 2026-11-04 — Mode latihan Werewolf vs bot
 
 - **Arahan pengguna:** sediakan bot agar pengguna dapat menguji permainan sendiri.
-- **Implementasi pada branch development:** mode latihan solo membuat room dengan 1 host manusia + 4 bot otomatis (opsi default dapat dimatikan untuk multiplayer biasa). Lobby juga menyediakan kontrol untuk menambah bot 1–19 sesuai kapasitas room.
-- **Perilaku bot:** bot memiliki identitas roster dan peran yang diacak server; kartu bot otomatis dianggap diambil; Werewolf bot melakukan serangan, Seer memeriksa pemain, Doctor melindungi pemain; bot menulis komentar diskusi singkat saat mode online; bot melakukan voting otomatis. Host dapat melewati timer diskusi untuk mempercepat uji coba.
+- **Implementasi pada branch development:** mode latihan solo membuat room dengan 1 moderator manusia + 5 bot otomatis secara default (opsi dapat dimatikan untuk multiplayer biasa). Lobby juga menyediakan kontrol untuk menambah bot sesuai kapasitas room.
+- **Perilaku bot:** bot memiliki identitas roster dan peran yang diacak server; kartu bot otomatis dianggap diambil; bot menjalankan aksi malam dan voting otomatis. Saat moderator membuka fase diskusi, maksimal tiga bot hidup menghasilkan komentar kontekstual yang hanya terlihat pada panel moderator. Tidak ada timer otomatis; moderator memajukan fase secara manual.
 - **Keamanan:** bot tidak memiliki token login dan aksi NPC dijalankan di Durable Object/server, bukan dari browser. Snapshot hanya menandai status bot; peran tetap dirahasiakan sesuai aturan game.
 - **Transparansi:** bot menggunakan logika otomatis berbasis aturan/acak dan petunjuk Seer, bukan model AI percakapan. Komentar diskusi merupakan teks skrip.
 - **Verifikasi:** integrasi test satu host + empat bot lulus; termasuk pengambilan kartu, aksi malam untuk peran khusus, komentar diskusi, dan voting. `Validate Statistical Web`, `Security Guard`, serta deployment `Deploy Werewolf Room API` lulus pada commit `4d2d6e468ff9c6a60bb3fd0ae2f2381a97c3f6f8`. Health check Worker dan pemeriksaan halaman preview yang memastikan kontrol solo bot, stylesheet, app.js, serta ilustrasi SVG tersedia juga lulus.
@@ -641,9 +643,9 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 ### 2026-11-04 — Polishing solo Werewolf experience
 
 - **Default game balance:** default composition changed to 1 Werewolf + Seer + Doctor; with one host and four bots this leaves two Villagers. Lobby displays a role composition preview and prevents starting if fewer than five players or no Villager remains.
-- **Bot discussion:** three living bots can contribute contextual comments; a bot Seer can share its actual inspection result. Bots keep a suspicion target and use it during voting; Seer evidence takes priority.
-- **Solo flow:** after the night resolves, a room with one human and bots automatically enters online discussion for 90 seconds. The human can skip the discussion immediately and proceed to voting.
-- **Interactive replies:** when the solo player sends a chat message, one living bot replies with a context-aware scripted response. Bot messages are marked with a BOT badge.
+- **Bot discussion:** maksimal tiga bot hidup menghasilkan komentar kontekstual saat moderator membuka fase diskusi. Seer dan Detective dapat menyampaikan hasil pemeriksaan aktual; target kecurigaan bot digunakan kembali saat voting. Komentar hanya ditampilkan pada dashboard moderator.
+- **Alur diskusi:** setelah malam selesai, moderator menekan Lanjut ke Diskusi lalu memilih mode offline atau online (tautan HTTPS untuk mode online). Tidak ada hitung mundur; voting dimulai hanya setelah moderator menekan Lanjut.
+- **Batas interaksi:** tidak ada kolom chat pemain. Komentar bot bersifat read-only pada panel moderator; pemain tetap hanya melihat status fase dan tombol aksi yang relevan.
 - **Rules and UX:** added a collapsible role guide, a six-step phase tracker, a role-balance preview, mobile refinements, and Doctor self-protection support.
 - **Transparency:** bots remain rule-based NPCs, not LLM agents. Their chat replies use templates and simple keyword/context checks.
 - **Verification:** expanded Worker integration test for deterministic special-role actions, automatic solo discussion, Seer clue disclosure, bot chat reply, and automatic voting. Deployment and CI checks are pending for the current branch commit.
@@ -674,3 +676,16 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - Security Guard run 41786789234 pada commit dokumentasi 17d17bfbb858507f397657ba38b756e09fbc6f22 juga sukses.
 - URL: https://irvan1609.github.io/werewolf/.
 - Batas: belum dilakukan uji manual dari browser/perangkat pengguna; validasi URL live oleh GitHub Actions lulus.
+
+
+### 2026-11-04 — Integrasi komentar bot pada dashboard moderator
+
+- **Tujuan:** meningkatkan mode latihan solo tanpa mengubah arsitektur moderator-sentris. Moderator tetap mengendalikan perpindahan fase; pemain tidak mendapat panel chat atau informasi rahasia tambahan.
+- **Perubahan:** ketika moderator membuka fase diskusi, Worker memanggil `seedBotDiscussion` dan menyiapkan maksimal tiga komentar dari bot yang masih hidup. Bot Seer/Detective dapat menggunakan hasil pemeriksaan aktual; hasil kubu Werewolf juga mencakup Alpha Wolf. Target kecurigaan bot dipakai kembali oleh logika voting.
+- **Privasi:** Worker hanya mengirim komentar bot pada snapshot moderator. Snapshot pemain selalu mengembalikan daftar chat kosong; komentar tidak pernah menampilkan role atau target aksi kepada pemain. Tidak menambahkan chat input dan tidak menambahkan timer.
+- **UI:** dashboard moderator menampilkan log komentar bot read-only dengan badge BOT dan keterangan bahwa komentar menggunakan logika berbasis aturan, bukan AI generatif. Tampilan responsif; versi aset HTML dan cache service worker diperbarui.
+- **File:** `cloudflare/werewolf-worker/src/index.js`, `public/werewolf/app.js`, `public/werewolf/style.css`, `public/werewolf/index.html`, `public/sw.js`, `scripts/check-werewolf.mjs`, dan `scripts/check-werewolf-worker.mjs`.
+- **Pengujian:** tes integrasi memastikan tiga komentar dibuat saat fase diskusi, petunjuk Seer dipakai, moderator menerima komentar, dan snapshot pemain tidak menerima komentar. `Validate Statistical Web` run `41794605101` lulus; `Deploy Werewolf Room API` run `41794605304` lulus termasuk health check dan pemeriksaan halaman preview.
+- **Commit implementasi:** `47e466ceb9fe3cef9bd258c685114f7af470f15a` pada branch `development`. URL preview: `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
+- **Batas verifikasi:** belum dilakukan sesi permainan manual melalui beberapa perangkat/browser. Branch `master` tetap tidak berubah; jangan promosikan ke produksi tanpa persetujuan pengguna.
+- **Langkah berikutnya:** uji alur room secara manual dengan beberapa perangkat, lalu lanjutkan penambahan role dan penyempurnaan strategi bot berdasarkan hasil uji.
