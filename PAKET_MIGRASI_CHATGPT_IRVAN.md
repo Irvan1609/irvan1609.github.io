@@ -25,6 +25,9 @@ sebelumnya.
 - Baca bagian ini dan catatan perubahan (bagian 16), lalu seluruh konteks yang relevan sebelum melanjutkan. Pernyataan historis pada bagian 1–15 tetap perlu diverifikasi terhadap keadaan terkini.
 - Dokumen ini adalah memori kerja yang dipelihara oleh asisten, bukan sinkronisasi otomatis percakapan lintas akun. Instruksi eksplisit terbaru pengguna tetap menjadi acuan.
 - Status aplikasi, bug, dan deployment dalam dokumen impor belum diaudit ulang dalam tugas dokumentasi ini.
+- **Koreksi status Werewolf, 4 November 2026:** merge PR #152 ke master memang terjadi, tetapi GitHub Pages tidak ter-deploy. Workflow Deploy Vite to GitHub Pages pada commit 3811b9d6eec8dc838cf67b19da3319790f7b207d gagal pada npm run verify, tepatnya assertion lama di scripts/check-werewolf.mjs yang mencari self.role === 'seer' setelah renderer UI berubah menggunakan daftar role. Job deploy dilewati; 404 adalah konsekuensi artefak Pages tidak terbit, bukan bukti folder sumber Werewolf hilang.
+- **Perbaikan lanjutan:** assertion disesuaikan dengan pola renderer aktual; path filter workflow Pages diperluas agar perubahan scripts/check-werewolf.mjs juga memicu deployment. Commit: b6d3512007bf6dca81344cfc3668095c50d231fc (tes) dan b6d20c05ffe8df3877f22948b00da3b67190731b (workflow).
+- **Status verifikasi:** perbaikan sudah tersimpan di master; hasil workflow untuk commit perbaikan masih harus diperiksa. Jangan menyatakan URL production pulih sebelum workflow build/deploy sukses dan URL /werewolf/ merespons halaman game.
 - **Pembaruan 4 November 2026 — Werewolf:** pengguna meminta agar game dapat dilihat dan dimainkan melalui web. Branch `master` adalah produksi; jangan merge PR #152 hanya untuk memperoleh URL preview. Deployment Cloudflare Pages preview dicoba, tetapi token `CLOUDFLARE_API_TOKEN` yang tersedia ditolak endpoint Pages dengan error autentikasi 10000 (token dapat men-deploy Worker, tetapi tidak memiliki akses Pages). Jalur preview dialihkan ke Worker development `werewolf-room-api-dev.andyirvan1609.workers.dev`, yang menyajikan frontend game dan API realtime dari origin yang sama. Worker produksi tetap terpisah.
 - **URL preview aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Workflow Deploy Werewolf Room API pada commit `1983c8e1a68f9390705db18c4aa45e7fdb2a787a` berhasil; health check API, halaman HTML, stylesheet header, bundle app, dan ilustrasi SVG lulus.
 - Arahan terbaru fitur Pengamatan (10 Oktober 2026): sampel anak langsung unit percobaan (tanaman/buah), jumlah dapat berbeda antarunit; urutan campuran BB semua sampel lalu PB/TB/LB per sampel diulang pada unit berikutnya; panen berbeda menjadi parameter tersendiri (bb-p1, bb-p2). Rekap rerata/jumlah per unit disetujui.
@@ -643,3 +646,13 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Rules and UX:** added a collapsible role guide, a six-step phase tracker, a role-balance preview, mobile refinements, and Doctor self-protection support.
 - **Transparency:** bots remain rule-based NPCs, not LLM agents. Their chat replies use templates and simple keyword/context checks.
 - **Verification:** expanded Worker integration test for deterministic special-role actions, automatic solo discussion, Seer clue disclosure, bot chat reply, and automatic voting. Deployment and CI checks are pending for the current branch commit.
+
+
+### 2026-11-04 — Perbaikan 404 Werewolf GitHub Pages
+
+- **Tujuan pengguna:** memulihkan halaman Werewolf production yang tetap menampilkan GitHub Pages 404.
+- **Diagnosis terverifikasi:** workflow run 41785508309 untuk Deploy Vite to GitHub Pages gagal di step Verify application; log menunjukkan AssertionError karena tes mengharapkan self.role === 'seer' yang sudah tidak sesuai dengan renderer terbaru. Step artefak, upload Pages, dan deploy tidak dijalankan. Workflow Security Guard run 41785508272 gagal pada tes yang sama.
+- **Perubahan:** scripts/check-werewolf.mjs mengganti assertion lama dengan assertion pola daftar role yang dipakai renderer; .github/workflows/deploy.yml menambahkan scripts/check-werewolf.mjs pada path filter agar perubahan tes memicu build/deploy Pages.
+- **Commit:** tes b6d3512007bf6dca81344cfc3668095c50d231fc; workflow b6d20c05ffe8df3877f22948b00da3b67190731b.
+- **Batas verifikasi:** belum ada hasil CI pascaperbaikan saat catatan ini ditulis. Build, upload artifact, deployment Pages, dan akses URL live harus dicek setelah workflow berjalan.
+- **Langkah berikutnya:** periksa run terbaru untuk commit workflow; jika gagal, baca log step pertama yang gagal dan perbaiki akar masalahnya. Jangan menyatakan 404 selesai sebelum https://irvan1609.github.io/werewolf/ mengembalikan halaman game.
