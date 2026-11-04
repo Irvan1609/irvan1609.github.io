@@ -1,4 +1,4 @@
-const VERSION='20261104-werewolf-unlimited-night-rounds1';
+const VERSION='20261104-werewolf-system-moderator-sounds1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;

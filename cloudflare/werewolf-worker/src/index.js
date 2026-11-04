@@ -76,7 +76,7 @@ const ROLE_COUNT_KEYS = [
 ];
 const DEFAULT_ROLE_COUNTS = {
   wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
-  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0, jester: 0, villager: 2
+  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0, jester: 0, villager: 2, moderator: 0
 };
 const ABILITY_KEYS = [
   'alphaDoubleVote', 'seerInspection', 'doctorProtection', 'bodyguardSacrifice',
@@ -100,6 +100,11 @@ function normalizeSettings(input = {}) {
       }
       roleCounts[key] = count;
     }
+    const moderatorCount = Number(input.roleCounts.moderator ?? 0);
+    if (!Number.isSafeInteger(moderatorCount) || (moderatorCount !== 0 && moderatorCount !== 1)) {
+      throw new HttpError(400, 'Mode moderator hanya dapat diatur menjadi 0 atau 1.');
+    }
+    roleCounts.moderator = moderatorCount;
   }
   const wolves = Number(input.wolves ?? 1);
   if (!Number.isSafeInteger(wolves) || wolves < 1) throw new HttpError(400, 'Jumlah Werewolf harus berupa bilangan bulat positif.');
@@ -199,17 +204,6 @@ function wolfAttackSummary(room) {
   };
 }
 
-function cleanCallUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (raw.length > 500) throw new HttpError(400, 'Tautan diskusi terlalu panjang.');
-  let url;
-  try { url = new URL(raw); } catch { throw new HttpError(400, 'Tautan diskusi tidak valid.'); }
-  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
-    throw new HttpError(400, 'Tautan diskusi harus menggunakan HTTPS.');
-  }
-  return url.href;
-}
 
 async function readJson(request, maxBytes = 8192) {
   const length = Number(request.headers.get('Content-Length') || 0);
@@ -437,7 +431,7 @@ export class WerewolfRoom {
         hostId: room.hostId,
         settings: room.settings,
         discussionMode: room.phase === 'discussion' ? room.discussionMode || null : null,
-        callUrl: room.phase === 'discussion' && room.discussionMode === 'online' ? room.callUrl || '' : '',
+        callUrl: '',
         nightActionsRequired: alive.length,
         nightActionsSubmitted,
         votesRequired: alive.length,
@@ -941,6 +935,46 @@ export class WerewolfRoom {
     room.phase = room.winner ? 'finished' : 'result';
   }
 
+
+  isSystemModerator(room) {
+    return Number(room.settings?.roleCounts?.moderator ?? 0) === 1;
+  }
+
+  prepareSystemNight(room) {
+    if (!this.isSystemModerator(room)) return;
+    const roleAbilities = {
+      seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
+      cupid: 'cupidBond', detective: 'detectiveInspection'
+    };
+    for (const player of room.players.filter(item => item.alive && !item.isBot)) {
+      if (room.nightActions[player.id]) continue;
+      const potions = room.witchPotions?.[player.id] || { heal: true, poison: true };
+      const canPass = ['villager', 'hunter', 'mayor', 'jester'].includes(player.role)
+        || (roleAbilities[player.role] && !abilityEnabled(room, roleAbilities[player.role]))
+        || (player.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))
+        || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed || !abilityEnabled(room, 'cupidBond')))
+        || (player.role === 'witch' && !potions.heal && !potions.poison);
+      if (canPass) room.nightActions[player.id] = { type: 'pass' };
+    }
+  }
+
+  async resolveSystemNightIfReady(room, now) {
+    if (!this.isSystemModerator(room) || room.phase !== 'night') return;
+    this.prepareSystemNight(room);
+    const alive = room.players.filter(item => item.alive);
+    if (alive.every(item => Boolean(room.nightActions?.[item.id]))) {
+      await this.applyAction(room, room.moderator, { type: 'resolve_night' });
+    }
+  }
+
+  resolveSystemVoteIfReady(room, now) {
+    if (!this.isSystemModerator(room) || room.phase !== 'voting') return;
+    const alive = room.players.filter(item => item.alive);
+    if (alive.every(item => Object.prototype.hasOwnProperty.call(room.votes || {}, item.id))) {
+      this.finishVote(room, now);
+    }
+  }
+
   async applyAction(room, player, body) {
     const type = String(body.type || '');
     const now = Date.now();
@@ -1008,6 +1042,9 @@ export class WerewolfRoom {
       room.chat = [];
       room.lastResult = null;
       room.winner = null;
+      if (this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
+        await this.applyAction(room, room.moderator, { type: 'start_night' });
+      }
       return;
     }
 
@@ -1016,6 +1053,9 @@ export class WerewolfRoom {
       requirePhase('role_draw');
       if (player.hasDrawn) throw new HttpError(409, 'Kartu sudah dibuka.');
       player.hasDrawn = true;
+      if (this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
+        await this.applyAction(room, room.moderator, { type: 'start_night' });
+      }
       return;
     }
 
@@ -1030,6 +1070,7 @@ export class WerewolfRoom {
       room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
       this.runBotNightActions(room);
+      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -1087,6 +1128,7 @@ export class WerewolfRoom {
         throw new HttpError(403, 'Peran ini tidak memiliki aksi malam.');
       }
       this.runBotNightActions(room);
+      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -1107,6 +1149,7 @@ export class WerewolfRoom {
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
       room.nightActions[player.id] = { type: 'pass' };
       this.runBotNightActions(room);
+      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -1253,7 +1296,7 @@ export class WerewolfRoom {
         return;
       }
       room.phase = 'discussion';
-      room.discussionMode = null;
+      room.discussionMode = 'offline';
       room.discussionEndsAt = null;
       room.callUrl = '';
       room.chat = [];
@@ -1264,25 +1307,26 @@ export class WerewolfRoom {
     if (type === 'set_discussion') {
       requireModerator();
       requirePhase('discussion');
-      const mode = String(body.mode || '');
-      if (!['offline', 'online'].includes(mode)) throw new HttpError(400, 'Pilih mode diskusi offline atau online.');
-      const callUrl = mode === 'online' ? cleanCallUrl(body.callUrl) : '';
-      if (mode === 'online' && !callUrl) throw new HttpError(400, 'Tautan diskusi online wajib diisi.');
-      room.discussionMode = mode;
-      room.callUrl = callUrl;
+      if (String(body.mode || 'offline') !== 'offline') {
+        throw new HttpError(400, 'Diskusi hanya tersedia secara offline.');
+      }
+      room.discussionMode = 'offline';
+      room.callUrl = '';
       room.discussionEndsAt = null;
       return;
     }
 
+
     if (type === 'start_voting') {
       requireModerator();
       requirePhase('discussion');
-      if (!['offline', 'online'].includes(room.discussionMode)) {
-        throw new HttpError(409, 'Moderator harus menentukan mode diskusi sebelum membuka voting.');
-      }
+      room.discussionMode = 'offline';
+      room.callUrl = '';
+      room.discussionEndsAt = null;
       room.phase = 'voting';
       room.votes = {};
       this.runBotVotes(room, now);
+      this.resolveSystemVoteIfReady(room, now);
       return;
     }
 
@@ -1320,6 +1364,7 @@ export class WerewolfRoom {
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih pemain lain yang masih hidup.');
       room.votes[player.id] = selected.id;
+      this.resolveSystemVoteIfReady(room, now);
       return;
     }
 
@@ -1350,6 +1395,7 @@ export class WerewolfRoom {
       room.chat = [];
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
       this.runBotNightActions(room);
+      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 

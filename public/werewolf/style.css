@@ -193,3 +193,24 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
   .moderator-elimination-row span{text-align:left}
 }
 @media(prefers-reduced-motion:reduce){.role-flip-inner{transition:none}}
+
+
+.system-narrator-panel {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(214, 177, 111, .42);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(47, 39, 28, .92), rgba(18, 25, 39, .96));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+}
+.system-narrator-panel h3 {
+  margin: 7px 0 8px;
+}
+.system-narrator-panel p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--muted, #bdc6d4);
+}
+.system-narrator-panel button {
+  margin-top: 14px;
+}
