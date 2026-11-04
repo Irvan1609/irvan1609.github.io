@@ -152,10 +152,12 @@ function recommendedRoleCounts(playerCount) {
     Math.max(2, Math.floor(playerCount * 0.2))
   );
   const specialSlots = nonWolfPlayers - villagerCount;
+  // Unlock a different special role as the room grows from 4 to 17 players.
+  // This gives every room size in the 4–25 range a deliberate role mix.
   const roleSchedule = [
-    ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 8],
-    ['hunter', 9], ['cupid', 10], ['detective', 12], ['mayor', 14],
-    ['guardian_angel', 16], ['jester', 18]
+    ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 7],
+    ['hunter', 9], ['cupid', 10], ['detective', 11], ['mayor', 13],
+    ['guardian_angel', 14], ['jester', 17]
   ];
   let assignedSpecials = 0;
   for (const [role, minimumPlayers] of roleSchedule) {
@@ -1612,3 +1614,6 @@ export class WerewolfRoom {
     if (this.state.storage.deleteAll) await this.state.storage.deleteAll();
   }
 }
+
+
+export { recommendedRoleCounts };
