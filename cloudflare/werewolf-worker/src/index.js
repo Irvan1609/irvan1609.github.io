@@ -620,6 +620,7 @@ export class WerewolfRoom {
         }
       }
       if (selected || type === 'witch_heal') room.nightActions[bot.id] = { type, ...(selected ? { targetId: selected.id } : {}) };
+      else room.nightActions[bot.id] = { type: 'pass' };
     }
   }
 
