@@ -55,6 +55,35 @@ assert.equal(moderatorBeforeStart.self.isModerator, true);
 assert.equal(moderatorBeforeStart.players.length, 5);
 assert.equal(moderatorBeforeStart.players.some(player => player.role), false);
 
+const roleSettings = {
+  roleCounts: {
+    wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
+    witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
+    mayor: 0, jester: 0, villager: 2
+  },
+  abilities: {
+    alphaDoubleVote: true, seerInspection: true, doctorProtection: true,
+    bodyguardSacrifice: true, witchHeal: true, witchPoison: true,
+    hunterShot: true, cupidBond: true, guardianProtection: true,
+    guardianBonus: true, detectiveInspection: true, mayorDoubleVote: false,
+    jesterSoloWin: true
+  }
+};
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: roleSettings
+}, playerTokens[0])), 403);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: { ...roleSettings, roleCounts: { ...roleSettings.roleCounts, villager: 1 } }
+}, moderatorToken)));
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, moderatorToken)), 409);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: roleSettings
+}, moderatorToken)));
+saved = await room.loadRoom();
+assert.equal(saved.settings.roleCounts.wolf, 1);
+assert.equal(saved.settings.roleCounts.villager, 2);
+assert.equal(saved.settings.abilities.mayorDoubleVote, false);
+
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, moderatorToken)));
 saved = await room.loadRoom();
