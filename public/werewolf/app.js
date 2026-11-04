@@ -185,7 +185,7 @@ function roleLabel(role) {
 }
 
 function isHost() {
-  return Boolean(roomState && session && roomState.room.hostId === roomState.self?.id);
+  return Boolean(roomState?.self?.isModerator);
 }
 
 function addText(parent, tag, className, text) {
@@ -198,17 +198,24 @@ function renderPlayers() {
   const list = $('playersList');
   list.replaceChildren();
   const players = roomState.players || [];
-  $('playerCount').textContent = players.length + ' / 20 pemain';
+  $('playerCount').textContent = players.length + ' pemain';
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
     const avatar = node('span', 'player-avatar', (player.name || '?').slice(0, 1).toUpperCase());
     const name = node('span', 'player-name', player.name);
-    if (player.isHost) name.append(node('span', 'host-mark', ' HOST'));
     if (player.isBot) name.append(node('span', 'bot-mark', ' BOT'));
-    const status = node('span', 'player-meta', !player.alive
-      ? 'Tereliminasi' + (player.role ? ' · ' + roleLabel(player.role) : '')
-      : player.isBot ? 'Bot otomatis' : (player.connected ? 'Online' : 'Terputus') + (player.hasDrawn ? ' · Kartu diambil' : ''));
-    chip.append(avatar, name, status);
+    const details = [];
+    if (player.role) details.push(roleLabel(player.role));
+    if (!player.alive) details.push('Tereliminasi');
+    else if (roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
+    else if (roomState.room.phase === 'night') {
+      details.push(player.hasActed
+        ? 'Aksi selesai' + (player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
+        : 'Menunggu aksi');
+    } else if (roomState.room.phase === 'voting') {
+      details.push(player.hasVoted ? 'Memilih ' + (player.voteTarget || 'pemain') : 'Belum voting');
+    } else if (player.connected) details.push('Online');
+    chip.append(avatar, name, node('span', 'player-meta', details.join(' · ') || (player.connected ? 'Online' : 'Menunggu')));
     list.append(chip);
   }
 }
@@ -216,8 +223,8 @@ function renderPlayers() {
 function updatePhaseTracker(phase) {
   const tracker = $('phaseTracker');
   if (!tracker) return;
-  const steps = ['lobby', 'role_draw', 'night', 'discussion', 'voting', 'result'];
-  const activeIndex = phase === 'finished' ? steps.length - 1 : Math.max(0, steps.indexOf(phase));
+  const steps = ['lobby', 'role_draw', 'night', 'morning', 'discussion', 'voting', 'result'];
+  const activeIndex = phase === 'finished' ? steps.length : Math.max(0, steps.indexOf(phase));
   for (const item of tracker.querySelectorAll('[data-step]')) {
     const index = steps.indexOf(item.dataset.step);
     item.classList.toggle('active', index === activeIndex);
@@ -227,22 +234,31 @@ function updatePhaseTracker(phase) {
 
 function renderRoom() {
   if (!roomState) return;
-  clearInterval(clockTimer);
   const room = roomState.room;
+  const moderator = isHost();
   const labels = {
     lobby: 'Lobby · Menunggu pemain',
     role_draw: 'Pembagian kartu',
-    night: 'Malam · Aksi rahasia',
+    night: 'Malam ' + room.round,
+    morning: 'Pagi · Pengumuman moderator',
     discussion: 'Diskusi',
     voting: 'Voting',
-    result: 'Hasil ronde',
+    result: 'Hasil voting',
     finished: 'Permainan selesai'
   };
-  $('phaseLabel').textContent = labels[room.phase] || room.phase;
-  $('roundLabel').textContent = room.round ? 'Ronde ' + room.round : 'Lobby';
+  $('phaseLabel').textContent = moderator ? (labels[room.phase] || room.phase) : '';
+  $('roundLabel').textContent = moderator ? (room.round ? 'Ronde ' + room.round : 'Lobby') : '';
   $('roomCodeLabel').textContent = room.code;
-  updatePhaseTracker(room.phase);
-  renderPlayers();
+  $('phaseTracker').classList.toggle('hidden', !moderator);
+  $('playersSection').classList.toggle('hidden', !moderator);
+  $('roomIdentity').classList.toggle('hidden', !moderator);
+  $('roomMeta').classList.toggle('hidden', !moderator);
+  if (moderator) {
+    updatePhaseTracker(room.phase);
+    renderPlayers();
+  } else {
+    $('playersList').replaceChildren();
+  }
   const activeElement = document.activeElement;
   const activeId = activeElement && activeElement.id ? activeElement.id : '';
   const activeValue = activeElement && 'value' in activeElement ? activeElement.value : undefined;
@@ -250,16 +266,8 @@ function renderRoom() {
   if (phasePanel) phasePanel.dataset.phase = room.phase;
   const content = $('phaseContent');
   content.replaceChildren();
-  switch (room.phase) {
-    case 'lobby': renderLobby(content); break;
-    case 'role_draw': renderRoleDraw(content); break;
-    case 'night': renderNight(content); break;
-    case 'discussion': renderDiscussion(content); break;
-    case 'voting': renderVoting(content); break;
-    case 'result': renderResult(content); break;
-    case 'finished': renderFinished(content); break;
-    default: addText(content, 'p', 'notice', 'Status permainan tidak dikenali.');
-  }
+  if (moderator) renderModeratorPhase(content);
+  else renderPlayerPhase(content);
   if (activeId) {
     const replacement = document.getElementById(activeId);
     if (replacement && activeValue !== undefined) {
@@ -282,9 +290,60 @@ function phaseHeader(parent, kicker, title, description) {
   parent.append(head);
 }
 
-function renderLobby(parent) {
-  phaseHeader(parent, 'LOBBY ROOM', 'Menunggu pemain bergabung', 'Bagikan kode room kepada teman. Setiap pemain sebaiknya menggunakan HP sendiri agar kartu dan aksinya tidak terlihat orang lain.');
-  addText(parent, 'div', 'notice', 'Permainan dimulai setelah minimal 5 pemain masuk. Maksimal 20 pemain.');
+function renderRoleCard(parent, role) {
+  const info = ROLE_INFO[role] || ['Peran', ''];
+  const card = node('div', 'role-card');
+  card.dataset.role = role;
+  const art = node('div', 'role-art');
+  const image = node('img');
+  image.src = './assets/illustrations/role-' + (ROLE_INFO[role] ? role : 'villager') + '.svg';
+  image.alt = 'Ilustrasi peran ' + info[0];
+  image.loading = 'eager';
+  art.append(image);
+  card.append(art);
+  addText(card, 'div', 'eyebrow-small', 'KARTU RAHASIA KAMU');
+  addText(card, 'div', 'role-name', info[0]);
+  addText(card, 'p', '', info[1]);
+  parent.append(card);
+}
+
+function renderModeratorPhase(parent) {
+  switch (roomState.room.phase) {
+    case 'lobby': renderModeratorLobby(parent); break;
+    case 'role_draw': renderModeratorRoleDraw(parent); break;
+    case 'night': renderModeratorNight(parent); break;
+    case 'morning': renderModeratorMorning(parent); break;
+    case 'discussion': renderModeratorDiscussion(parent); break;
+    case 'voting': renderModeratorVoting(parent); break;
+    case 'result': renderModeratorResult(parent); break;
+    case 'finished': renderModeratorFinished(parent); break;
+    default: addText(parent, 'p', 'notice', 'Status permainan tidak dikenali.');
+  }
+}
+
+function renderPlayerPhase(parent) {
+  switch (roomState.room.phase) {
+    case 'lobby':
+      addText(parent, 'div', 'notice', 'Menunggu moderator memulai permainan.');
+      break;
+    case 'role_draw': renderPlayerRoleDraw(parent); break;
+    case 'night': renderPlayerNight(parent); break;
+    case 'morning': renderPlayerMorning(parent); break;
+    case 'discussion':
+      addText(parent, 'div', 'notice', 'Diskusi sedang berlangsung. Tunggu moderator membuka voting.');
+      break;
+    case 'voting': renderPlayerVoting(parent); break;
+    case 'result': renderPlayerVoteResult(parent); break;
+    case 'finished':
+      addText(parent, 'div', 'notice success', 'Permainan selesai. Tunggu pengumuman moderator.');
+      break;
+    default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
+  }
+}
+
+function renderModeratorLobby(parent) {
+  phaseHeader(parent, 'PANEL MODERATOR', 'Atur permainan', 'Moderator mengendalikan seluruh tahapan. Pemain bergabung melalui kode room dan tidak menjadi moderator.');
+  addText(parent, 'div', 'notice', 'Minimal 5 pemain, maksimal 20 pemain. Moderator tidak dihitung sebagai pemain.');
   const settings = roomState.room.settings || {};
   const roleCounts = [
     ['Werewolf', Number(settings.wolves || 1)],
@@ -303,56 +362,112 @@ function renderLobby(parent) {
     balanceGrid.append(item);
   }
   balance.append(balanceGrid);
-  if (roomState.players.length < 5) addText(balance, 'p', 'hint', 'Tambahkan pemain hingga minimal 5 orang untuk memulai.');
-  else if (villagers < 1) addText(balance, 'p', 'notice warning', 'Peran khusus terlalu banyak. Kurangi Werewolf atau nonaktifkan Seer/Doctor agar tersisa minimal satu Warga Desa.');
+  if (roomState.players.length < 5) addText(balance, 'p', 'hint', 'Tambahkan pemain hingga minimal 5 orang.');
+  else if (villagers < 1) addText(balance, 'p', 'notice warning', 'Peran khusus terlalu banyak. Sisakan minimal satu Warga Desa.');
   else addText(balance, 'p', 'hint', villagers + ' Warga Desa akan melengkapi komposisi permainan.');
   parent.append(balance);
-  if (isHost()) {
-    const maxBots = Math.min(19, 20 - roomState.players.length);
-    const botBox = node('div', 'bot-setup');
-    addText(botBox, 'h3', '', 'Mode latihan vs bot');
-    addText(botBox, 'p', 'hint', 'Bot mengambil kartu, menjalankan aksi malam, berdiskusi, membalas chat saat mode solo, dan melakukan voting otomatis. Empat bot cocok untuk satu pemain.');
-    const botLabel = node('label', 'bot-count-label');
-    botLabel.append(node('span', '', 'Jumlah bot tambahan'));
-    const botCount = node('select');
-    botCount.id = 'botCount';
-    const choices = [1, 2, 3, 4, 5, 8, 10, 15, 19].filter(value => value <= maxBots);
-    if (maxBots > 0 && !choices.length) choices.push(maxBots);
-    for (const value of choices) botCount.append(new Option(value + ' bot', String(value)));
-    botCount.value = String(choices.includes(4) ? 4 : (choices[0] || 0));
-    botLabel.append(botCount);
-    botBox.append(botLabel);
-    botBox.append(button('Tambahkan bot otomatis', 'secondary wide', () => sendAction('add_bots', { count: Number(botCount.value) }), maxBots < 1));
-    if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
-    parent.append(botBox);
 
-    const canStart = roomState.players.length >= 5 && villagers >= 1;
-    const start = button('Mulai permainan & acak kartu', 'primary wide', () => sendAction('start_game'), !canStart);
-    parent.append(start);
+  const maxBots = Math.min(20, 20 - roomState.players.length);
+  const botBox = node('div', 'bot-setup');
+  addText(botBox, 'h3', '', 'Mode latihan vs bot');
+  addText(botBox, 'p', 'hint', 'Bot otomatis membuka kartu, melakukan aksi malam, dan memberikan suara. Lima bot dapat digunakan untuk latihan dengan satu moderator.');
+  const botLabel = node('label', 'bot-count-label');
+  botLabel.append(node('span', '', 'Jumlah bot tambahan'));
+  const botCount = node('select');
+  botCount.id = 'botCount';
+  const choices = [1, 2, 3, 4, 5, 8, 10, 15, 20].filter(value => value <= maxBots);
+  if (maxBots > 0 && !choices.length) choices.push(maxBots);
+  for (const value of choices) botCount.append(new Option(value + ' bot', String(value)));
+  botCount.value = String(choices.includes(5) ? 5 : (choices[0] || 0));
+  botLabel.append(botCount);
+  botBox.append(botLabel);
+  botBox.append(button('Tambahkan bot otomatis', 'secondary wide', () => sendAction('add_bots', { count: Number(botCount.value) }), maxBots < 1));
+  if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
+  parent.append(botBox);
+
+  const canStart = roomState.players.length >= 5 && villagers >= 1;
+  parent.append(button('Mulai & bagikan kartu', 'primary wide', () => sendAction('start_game'), !canStart));
+}
+
+function renderModeratorRoleDraw(parent) {
+  phaseHeader(parent, 'PEMBAGIAN KARTU', 'Tunggu semua pemain membuka kartu', 'Setiap pemain membuka kartu pada perangkatnya sendiri. Moderator tidak melihat kartu pemain melalui layar pemain, tetapi dapat memantau status pembukaan di sini.');
+  const opened = roomState.players.filter(player => player.hasDrawn).length;
+  addText(parent, 'div', 'notice', opened + ' / ' + roomState.players.length + ' pemain sudah membuka kartu.');
+  const complete = roomState.players.length > 0 && opened === roomState.players.length;
+  parent.append(button('Lanjut ke Malam 1', 'primary wide', () => sendAction('start_night'), !complete));
+}
+
+function renderModeratorNight(parent) {
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Pantau status aksi semua pemain. Target dan hasil setiap aksi hanya terlihat oleh moderator.');
+  const room = roomState.room;
+  addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi malam.');
+  const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
+  parent.append(button('Lanjut ke Pagi', 'primary wide', () => sendAction('resolve_night'), !complete));
+  if (!complete) parent.append(button('Lewati pemain yang belum beraksi', 'secondary wide', () => {
+    if (confirm('Aksi pemain yang belum selesai akan dilewati. Lanjutkan ke pagi?')) sendAction('resolve_night', { force: true });
+  }));
+}
+
+function renderModeratorMorning(parent) {
+  phaseHeader(parent, 'PAGI HARI · RONDE ' + roomState.room.round, 'Hasil kejadian malam', 'Bacakan hasil ini kepada pemain. Layar pemain hanya menampilkan status pribadi: bertahan atau tereliminasi.');
+  const result = roomState.room.lastResult;
+  const card = node('div', 'result-card');
+  addText(card, 'h3', '', result?.message || 'Malam telah berlalu.');
+  if (result?.eliminatedId) {
+    const eliminated = roomState.players.find(player => player.id === result.eliminatedId);
+    if (eliminated) addText(card, 'p', '', 'Pemain: ' + eliminated.name + ' · Peran: ' + roleLabel(eliminated.role));
+  }
+  parent.append(card);
+  if (roomState.room.winner) {
+    addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
+    parent.append(button('Umumkan pemenang', 'primary wide', () => sendAction('start_discussion')));
   } else {
-    addText(parent, 'div', 'notice warning', 'Tunggu host memulai permainan. Pengaturan peran ditentukan oleh host.');
+    parent.append(button('Lanjut ke Diskusi', 'primary wide', () => sendAction('start_discussion')));
   }
 }
 
-function renderRoleCard(parent, role) {
-  const info = ROLE_INFO[role] || ['Peran', ''];
-  const card = node('div', 'role-card');
-  card.dataset.role = role;
-  const art = node('div', 'role-art');
-  const image = node('img');
-  image.src = './assets/illustrations/role-' + (ROLE_INFO[role] ? role : 'villager') + '.svg';
-  image.alt = 'Ilustrasi peran ' + info[0];
-  image.loading = 'eager';
-  art.append(image);
-  card.append(art);
-  addText(card, 'div', 'eyebrow-small', 'KARTU RAHASIA KAMU');
-  addText(card, 'div', 'role-name', info[0]);
-  addText(card, 'p', '', info[1]);
+function renderModeratorDiscussion(parent) {
+  phaseHeader(parent, 'FASE DISKUSI', 'Diskusi sedang berlangsung', 'Tidak ada hitung mundur. Moderator menentukan sendiri kapan diskusi selesai.');
+  addText(parent, 'div', 'notice', 'Pemain dapat berdiskusi sampai moderator menekan tombol berikutnya.');
+  parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
+}
+
+function renderModeratorVoting(parent) {
+  phaseHeader(parent, 'FASE VOTING', 'Pantau suara pemain', 'Pilihan setiap pemain hanya terlihat oleh moderator. Hasil diumumkan setelah moderator menekan Lanjut.');
+  const room = roomState.room;
+  addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
+  const complete = room.votesSubmitted >= room.votesRequired;
+  parent.append(button('Lanjut · Umumkan hasil voting', 'primary wide', () => sendAction('resolve_vote'), !complete));
+  if (!complete) parent.append(button('Hitung suara yang sudah masuk', 'secondary wide', () => {
+    if (confirm('Pemain yang belum memilih akan dilewati. Hitung suara sekarang?')) sendAction('resolve_vote', { force: true });
+  }));
+}
+
+function renderModeratorResult(parent) {
+  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Moderator dapat melihat pemain yang tereliminasi beserta perannya. Pemain lain hanya melihat status pribadinya.');
+  const result = roomState.room.lastResult;
+  const card = node('div', 'result-card');
+  addText(card, 'h3', '', result?.message || 'Hasil voting tersedia.');
+  if (result?.eliminatedId) {
+    const eliminated = roomState.players.find(player => player.id === result.eliminatedId);
+    if (eliminated) addText(card, 'p', '', 'Pemain: ' + eliminated.name + ' · Peran: ' + roleLabel(eliminated.role));
+  }
+  parent.append(card);
+  parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
+}
+
+function renderModeratorFinished(parent) {
+  phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Hasil akhir dan seluruh peran hanya ditampilkan pada panel moderator.');
+  addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
+  if (roomState.room.lastResult?.message) addText(parent, 'div', 'notice success', roomState.room.lastResult.message);
+  const card = node('div', 'result-card');
+  for (const player of roomState.players) {
+    card.append(node('p', '', player.name + ' — ' + roleLabel(player.role) + (player.alive ? ' · Hidup' : ' · Tereliminasi')));
+  }
   parent.append(card);
 }
 
-function renderRoleDraw(parent) {
-  phaseHeader(parent, 'PEMBAGIAN KARTU', 'Ambil kartu peranmu', 'Kartu hanya ditampilkan pada perangkat pemain yang mengambilnya. Jangan tunjukkan layar kepada pemain lain.');
+function renderPlayerRoleDraw(parent) {
   if (!roomState.self.hasDrawn) {
     const card = node('div', 'card-back');
     const label = node('div');
@@ -360,254 +475,83 @@ function renderRoleDraw(parent) {
     label.append(node('span', '', 'TEKAN UNTUK MEMBUKA KARTU'));
     card.append(label);
     parent.append(card);
-    parent.append(button('Ambil kartu rahasia', 'primary wide', () => sendAction('draw_card')));
+    parent.append(button('Buka kartu saya', 'primary wide', () => sendAction('draw_card')));
   } else {
     renderRoleCard(parent, roomState.self.role);
-    addText(parent, 'div', 'notice success', 'Kartu berhasil diambil. Peranmu sudah tersimpan secara rahasia di room.');
-  }
-  const allDrawn = roomState.players.every(player => player.hasDrawn);
-  if (roomState.players.some(player => player.isBot)) addText(parent, 'div', 'notice success', 'Bot sudah mengambil kartu secara otomatis.');
-  if (isHost()) {
-    parent.append(button('Mulai malam pertama', 'primary wide', () => sendAction('start_night'), !allDrawn));
-    if (!allDrawn) addText(parent, 'p', 'hint', 'Host dapat memulai setelah semua pemain mengambil kartu.');
-  } else {
-    addText(parent, 'p', 'hint', 'Setelah semua kartu diambil, host akan memulai malam pertama.');
+    addText(parent, 'div', 'notice success', 'Kartu sudah dibuka. Rahasiakan peranmu.');
   }
 }
 
-function renderNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Waktunya aksi rahasia', 'Lakukan aksi sesuai peran. Target dan hasil aksi tidak ditampilkan kepada pemain lain.');
+function renderPlayerNight(parent) {
   const self = roomState.self;
+  if (!self.alive) {
+    addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi.');
+    return;
+  }
   if (!self.role) {
-    addText(parent, 'div', 'notice warning', 'Kartu belum diambil pada perangkat ini. Hubungi host.');
+    addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Hubungi moderator.');
     return;
   }
   renderRoleCard(parent, self.role);
-  if (!roomState.players.find(player => player.id === self.id)?.alive) {
-    addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi. Tunggu hasil ronde berikutnya.');
-  } else if (['wolf', 'seer', 'doctor'].includes(self.role)) {
-    if (self.hasActed) {
-      addText(parent, 'div', 'notice success', 'Aksimu sudah dikirim secara rahasia. Tunggu pemain lain.');
-    } else {
-      const title = self.role === 'wolf' ? 'Pilih target serangan' : self.role === 'seer' ? 'Pilih pemain untuk diperiksa' : 'Pilih pemain untuk dilindungi';
-      addText(parent, 'h3', '', title);
-      const grid = node('div', 'action-grid');
-      const targets = roomState.players.filter(player => player.alive
-        && (self.role === 'doctor' || player.id !== self.id)
-        && (self.role !== 'wolf' || !player.isWolf));
-      if (self.role === 'doctor') addText(parent, 'p', 'hint', 'Doctor juga dapat melindungi dirinya sendiri.');
-      for (const target of targets) {
-        grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
-      }
-      parent.append(grid);
-      if (!targets.length) addText(parent, 'div', 'notice', 'Tidak ada target yang tersedia.');
-    }
-  } else {
-    addText(parent, 'div', 'notice', 'Sebagai Warga Desa, kamu tidak memiliki aksi malam. Tunggu sampai pagi.');
-  }
-  const progress = roomState.room.nightActionsSubmitted + ' / ' + roomState.room.nightActionsRequired + ' aksi malam terkirim';
-  addText(parent, 'div', 'notice', progress);
-  if (isHost()) {
-    const complete = roomState.room.nightActionsSubmitted >= roomState.room.nightActionsRequired;
-    parent.append(button('Selesaikan malam & umumkan hasil', 'primary wide',
-      () => sendAction('resolve_night'), !complete));
-    if (!complete) parent.append(button('Paksa selesaikan malam (lewati aksi yang belum masuk)', 'secondary wide',
-      () => { if (confirm('Aksi pemain yang belum mengirim akan dilewati. Lanjutkan?')) sendAction('resolve_night', { force: true }); }));
-  } else {
-    addText(parent, 'p', 'hint', 'Host akan menyelesaikan fase malam setelah semua peran aktif mengirim aksi.');
-  }
-  if (self.seerResult) {
-    const result = self.seerResult.result === 'wolf' ? 'terindikasi Werewolf' : 'bukan Werewolf';
-    addText(parent, 'div', 'notice success', 'Hasil pemeriksaan ronde ' + self.seerResult.round + ': ' + self.seerResult.playerName + ' ' + result + '.');
-  }
-}
-
-function renderDiscussion(parent) {
-  phaseHeader(parent, 'FASE DISKUSI', 'Diskusikan kecurigaan', 'Pilih cara berdiskusi. Semua pemain tetap berada di room yang sama dan voting berikutnya dilakukan melalui web.');
-  const room = roomState.room;
-  if (room.lastResult?.kind === 'night') addText(parent, 'div', 'notice success', room.lastResult.message);
-  if (!room.discussionMode) {
-    if (isHost()) {
-      const form = node('form', 'discussion-form');
-      const modeLabel = node('label', '');
-      modeLabel.append(node('span', '', 'Metode diskusi'));
-      const mode = node('select');
-      mode.id = 'discussionMode';
-      mode.append(new Option('Offline · Tatap muka', 'offline'), new Option('Online · Chat / Voice / Video Call', 'online'));
-      modeLabel.append(mode);
-      const durationLabel = node('label', '');
-      durationLabel.append(node('span', '', 'Durasi diskusi'));
-      const duration = node('select');
-      duration.id = 'discussionDuration';
-      for (const value of [3, 5, 7, 10, 15, 20]) duration.append(new Option(value + ' menit', String(value)));
-      duration.value = '5';
-      durationLabel.append(duration);
-      const callLabel = node('label', '');
-      callLabel.append(node('span', '', 'Tautan voice / video call (opsional)'));
-      const call = node('input');
-      call.id = 'discussionCallUrl';
-      call.type = 'url';
-      call.placeholder = 'https://meet.google.com/...';
-      callLabel.append(call);
-      const help = addText(form, 'p', 'hint', 'Mode offline untuk diskusi satu tempat. Mode online mengaktifkan chat room dan dapat memakai tautan panggilan eksternal.');
-      form.append(modeLabel, durationLabel, callLabel);
-      form.append(button('Mulai diskusi', 'primary wide', () => {
-        sendAction('set_discussion', {
-          mode: mode.value,
-          durationMinutes: Number(duration.value),
-          callUrl: call.value.trim()
-        });
-      }));
-      parent.append(form);
-    } else {
-      addText(parent, 'div', 'notice warning', 'Host sedang memilih diskusi offline atau online.');
+  if (self.hasActed) {
+    addText(parent, 'div', 'notice success', 'Aksimu sudah dikirim. Tunggu moderator.');
+    if (self.role === 'seer' && self.seerResult) {
+      const result = self.seerResult.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf';
+      addText(parent, 'div', 'notice', 'Hasil pemeriksaan: ' + self.seerResult.playerName + ' ' + result + '.');
     }
     return;
   }
-
-  const botCount = roomState.players.filter(player => player.isBot).length;
-  const soloBotMode = botCount > 0 && roomState.players.filter(player => !player.isBot).length === 1;
-  if (botCount) addText(parent, 'div', soloBotMode ? 'notice success' : 'notice', soloBotMode
-    ? 'Mode solo aktif: bot sudah mengirim pendapat, akan membalas chat, dan memilih secara otomatis. Baca diskusi lalu lanjutkan ke voting kapan saja.'
-    : botCount + ' bot aktif. Bot mengikuti aksi malam dan voting otomatis; komentar bot muncul saat diskusi online.');
-  if (roomState.self.role === 'seer' && roomState.self.seerResult) {
-    const privateResult = roomState.self.seerResult.result === 'wolf' ? 'terindikasi Werewolf' : 'bukan Werewolf';
-    addText(parent, 'div', 'notice success', 'Hasil pemeriksaan rahasia: ' + roomState.self.seerResult.playerName + ' ' + privateResult + '.');
+  if (self.role === 'villager') {
+    parent.append(button('Saya sudah siap', 'primary wide', () => sendAction('night_pass')));
+    return;
   }
-  const timer = addText(parent, 'div', 'timer', '--:--');
-  addText(parent, 'p', 'hint', room.discussionMode === 'offline'
-    ? 'Mode offline aktif: silakan berdiskusi langsung. Gunakan perangkat masing-masing hanya untuk melihat status dan melakukan voting.'
-    : 'Mode online aktif: gunakan chat room di bawah atau tautan voice/video call yang dibagikan host.');
-  if (room.discussionMode === 'online') {
-    if (room.callUrl) {
-      const link = node('a', 'call-link', 'Buka voice / video call ↗');
-      link.href = room.callUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      parent.append(link);
-    }
-    renderChat(parent);
-  } else {
-    addText(parent, 'div', 'notice', 'Diskusi tatap muka berlangsung. Jangan membagikan kartu rahasia atau membuka layar peran kepada pemain lain.');
-  }
-  if (isHost()) {
-    const startVote = button('Mulai voting', 'primary wide', () => sendAction('start_voting'), true);
-    startVote.id = 'startVoting';
-    parent.append(startVote);
-    if (botCount) parent.append(button('Lewati diskusi & lanjut voting', 'secondary wide', () => sendAction('start_voting', { force: true })));
-    clockTimer = setInterval(() => updateDiscussionClock(timer, startVote, room.discussionEndsAt), 1000);
-    updateDiscussionClock(timer, startVote, room.discussionEndsAt);
-  } else {
-    clockTimer = setInterval(() => updateDiscussionClock(timer, null, room.discussionEndsAt), 1000);
-    updateDiscussionClock(timer, null, room.discussionEndsAt);
-    addText(parent, 'p', 'hint', 'Voting akan dibuka setelah waktu diskusi berakhir dan host memulainya.');
-  }
-}
-
-function updateDiscussionClock(timer, startButton, endAt) {
-  const remaining = Math.max(0, Number(endAt || 0) - Date.now());
-  const seconds = Math.ceil(remaining / 1000);
-  timer.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
-  if (startButton) startButton.disabled = remaining > 0;
-}
-
-function renderChat(parent) {
-  const box = node('div', 'chat-box');
-  const list = node('div', 'chat-list');
-  list.setAttribute('aria-live', 'polite');
-  for (const message of roomState.chat || []) {
-    const item = node('div', 'chat-message');
-    const heading = node('div');
-    heading.append(node('b', '', message.name));
-    const speaker = roomState.players.find(player => player.id === message.playerId);
-    if (speaker?.isBot) heading.append(node('span', 'chat-bot-badge', 'BOT'));
-    const time = node('time', '', new Date(message.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-    heading.append(time);
-    item.append(heading, node('p', '', message.text));
-    list.append(item);
-  }
-  if (!roomState.chat?.length) addText(list, 'p', 'hint', 'Belum ada pesan. Mulai diskusi dengan sopan dan jangan membagikan peran rahasia.');
-  box.append(list);
-  const form = node('form', 'chat-form');
-  const input = node('input');
-  input.id = 'chatInput';
-  input.maxLength = 500;
-  const soloBotMode = roomState.players.some(player => player.isBot) && roomState.players.filter(player => !player.isBot).length === 1;
-  input.placeholder = soloBotMode ? 'Tulis pendapat atau tanyakan sesuatu kepada bot...' : 'Tulis pesan diskusi...';
-  input.autocomplete = 'off';
-  input.required = true;
-  const submit = node('button', 'primary', 'Kirim');
-  submit.type = 'submit';
-  form.append(input, submit);
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    sendAction('send_chat', { text });
-    input.value = '';
+  const title = self.role === 'wolf' ? 'Pilih target serangan'
+    : self.role === 'seer' ? 'Pilih pemain untuk diperiksa'
+      : 'Pilih pemain untuk dilindungi';
+  addText(parent, 'h3', '', title);
+  const grid = node('div', 'action-grid');
+  const targets = (roomState.targets || []).filter(target => {
+    if (self.role === 'doctor') return true;
+    if (target.id === self.id) return false;
+    if (self.role === 'wolf' && (roomState.wolfTeam || []).includes(target.name)) return false;
+    return true;
   });
-  box.append(form);
-  parent.append(box);
-  list.scrollTop = list.scrollHeight;
+  for (const target of targets) {
+    grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+  }
+  parent.append(grid);
 }
 
-function renderVoting(parent) {
-  phaseHeader(parent, 'FASE VOTING', 'Pilih satu pemain', 'Setiap pemain hidup memiliki satu suara. Pilihanmu dirahasiakan sampai seluruh suara masuk.');
-  const room = roomState.room;
-  const progress = room.votesSubmitted + ' / ' + room.votesRequired + ' suara masuk';
-  addText(parent, 'div', 'notice', progress);
-  if (roomState.players.some(player => player.isBot)) addText(parent, 'p', 'hint', 'Bot telah memberikan suara secara otomatis. Pilihan tetap dirahasiakan sampai voting selesai.');
-  const bar = node('div', 'progress');
-  const fill = node('span');
-  fill.style.width = (room.votesRequired ? Math.min(100, room.votesSubmitted / room.votesRequired * 100) : 0) + '%';
-  bar.append(fill);
-  parent.append(bar);
-  if (isHost()) {
-    const allVotesIn = room.votesSubmitted >= room.votesRequired;
-    parent.append(button('Selesaikan voting', 'secondary wide', () => sendAction('resolve_vote'), !allVotesIn));
-    if (!allVotesIn) parent.append(button('Paksa hitung suara yang sudah masuk', 'secondary wide',
-      () => { if (confirm('Pemain yang belum memilih akan dilewati. Lanjutkan?')) sendAction('resolve_vote', { force: true }); }));
-  }
-  if (!roomState.players.find(player => player.id === roomState.self.id)?.alive) {
+function renderPlayerMorning(parent) {
+  addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
+    roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
+}
+
+function renderPlayerVoting(parent) {
+  const self = roomState.self;
+  if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
     return;
   }
-  if (roomState.self.hasVoted) {
-    addText(parent, 'div', 'notice success', 'Suaramu sudah tersimpan. Tunggu pemain lain menyelesaikan voting.');
+  if (self.hasVoted) {
+    addText(parent, 'div', 'notice success', 'Suaramu sudah masuk. Tunggu moderator.');
     return;
   }
+  addText(parent, 'h3', '', 'Pilih satu pemain');
   const grid = node('div', 'action-grid');
-  for (const player of roomState.players.filter(item => item.alive && item.id !== roomState.self.id)) {
-    grid.append(button(player.name, 'action-button', () => {
-      if (confirm('Pilih ' + player.name + ' untuk dieliminasi?')) sendAction('cast_vote', { targetId: player.id });
+  for (const target of (roomState.targets || []).filter(item => item.id !== self.id)) {
+    grid.append(button(target.name, 'action-button', () => {
+      if (confirm('Berikan suara kepada ' + target.name + '?')) sendAction('cast_vote', { targetId: target.id });
     }));
   }
   parent.append(grid);
 }
 
-function renderResult(parent) {
-  phaseHeader(parent, 'HASIL RONDE', 'Hasil voting', 'Periksa hasil ronde sebelum host melanjutkan permainan.');
-  const result = roomState.room.lastResult;
-  const card = node('div', 'result-card');
-  addText(card, 'h3', '', result?.message || 'Ronde selesai.');
-  addText(card, 'p', '', 'Pemain yang tereliminasi akan ditampilkan bersama perannya. Peran pemain yang masih hidup tetap rahasia.');
-  parent.append(card);
-  if (isHost()) parent.append(button('Mulai malam berikutnya', 'primary wide', () => sendAction('next_round')));
-  else addText(parent, 'p', 'hint', 'Tunggu host memulai ronde berikutnya.');
+function renderPlayerVoteResult(parent) {
+  addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
+    roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
 }
 
-function renderFinished(parent) {
-  phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Seluruh peran kini dibuka dan hasil akhir dapat dilihat semua pemain.');
-  addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
-  if (roomState.room.lastResult?.message) addText(parent, 'div', 'notice success', roomState.room.lastResult.message);
-  const card = node('div', 'result-card');
-  for (const player of roomState.players) {
-    const line = node('p', '', player.name + ' — ' + roleLabel(player.role) + (player.alive ? ' · Hidup' : ' · Tereliminasi'));
-    card.append(line);
-  }
-  parent.append(card);
-  if (isHost()) parent.append(button('Tutup room', 'secondary wide', () => leaveCurrentRoom()));
-}
 
 async function leaveCurrentRoom() {
   if (!session) return;
@@ -643,8 +587,14 @@ $('createForm').addEventListener('submit', async event => {
         }
       }
     });
-    await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('createName').value.trim() });
-    if (soloMode) await sendAction('add_bots', { count: 4 });
+    await enterRoom({
+      code: result.code,
+      token: result.token,
+      playerId: result.moderatorId,
+      name: $('createName').value.trim(),
+      isModerator: true
+    });
+    if (soloMode) await sendAction('add_bots', { count: 5 });
   } catch (error) {
     showMessage(error.message, true);
   } finally {
