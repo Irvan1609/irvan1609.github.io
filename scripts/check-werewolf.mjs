@@ -12,7 +12,7 @@ const sw = read('public/sw.js');
 
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode',
-  'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList',
+  'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
   'phaseContent', 'roomMessage', 'phasePanel'
 ]) {
   assert.match(html, new RegExp('id="' + id + '"'), 'Missing UI element ' + id);
@@ -45,7 +45,7 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261104-werewolf-reliability-fixes1/);
+assert.match(html, /20261105-werewolf-persistent-room1/);
 assert.doesNotMatch(worker, /cleanCallUrl|Tautan diskusi online/);
 assert.match(worker, /room\.discussionMode = 'offline'/);
 assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
@@ -54,10 +54,26 @@ assert.match(app, /function systemNarrationText/);
 assert.match(app, /function playWolfHowl/);
 assert.match(app, /function playRoosterCrow/);
 assert.match(app, /speechSynthesis/);
-assert.match(app, /moderatorInput\.max = '1'/);
+assert.match(app, /data-moderator-mode/);
+assert.match(app, /\['host', 'Host'\]/);
+assert.match(app, /\['system', 'Sistem'\]/);
+assert.match(app, /\['random', 'Acak'\]/);
+assert.doesNotMatch(app, /data-ability/);
+assert.match(app, /roleDraft/);
+assert.match(app, /function captureRoleDraft/);
+assert.match(app, /reset_to_lobby/);
+assert.match(app, /PLAYER_NAME_KEY/);
+assert.match(app, /villager_math/);
+assert.match(app, /waiting-room-roster/);
 assert.match(worker, /resolveSystemNightIfReady/);
 assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
+assert.match(worker, /type === 'reset_to_lobby'/);
+assert.match(worker, /activeModeratorMode/);
+assert.match(worker, /moderatorMode/);
+assert.match(worker, /villagerPrompts/);
+assert.match(worker, /villager_math/);
+assert.match(worker, /lobbyPlayers/);
 assert.match(app, /function renderPlayerPhase/);
 assert.match(app, /function renderPrivateInspectionResult/);
 assert.match(app, /Hasil penerawangan malam/);
@@ -114,18 +130,22 @@ assert.doesNotMatch(app, /Pemain bergabung: .*\/ 20\. Minimal 5 pemain/);
 assert.match(css, /entry-grid\{grid-template-columns:minmax\(0,1fr\)/, 'Entry forms must be stacked vertically.');
 
 assert.match(app, /ROLE_CONFIG_GROUPS/);
-assert.match(app, /ABILITY_OPTIONS/);
+assert.doesNotMatch(app, /ABILITY_OPTIONS|ABILITY_DEFAULTS|data-ability/, 'Role skill checkboxes are no longer part of the moderator settings.');
 assert.match(app, /update_settings/);
 assert.match(app, /Memiliki dua bobot suara/);
 assert.match(html, /id="playersSection"/);
 assert.match(css, /prefers-reduced-motion/);
 assert.match(css, /role-count-grid/);
+assert.match(css, /role-count-grid\{grid-template-columns:repeat\(3/);
+assert.match(css, /moderator-mode-row/);
+assert.match(css, /waiting-room-roster/);
+assert.match(css, /villager-math-question/);
 assert.match(css, /ability-toggle-grid/);
 assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261104-werewolf-reliability-fixes1/);
+assert.match(sw, /20261105-werewolf-persistent-room1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
@@ -148,15 +168,15 @@ assert.match(app, /function renderWolfTeamPanel/);
 assert.match(app, /roomState\.wolfTeam/);
 assert.match(app, /Voting bersifat rahasia/);
 assert.match(app, /function renderModeratorEventReport/);
-assert.match(app, /KARTU MODERATOR/);
-assert.match(app, /moderator: \['Moderator Sistem'/);
-assert.match(app, /roleCounts\.moderator/);
+assert.match(app, /ROLE MODERATOR · PENGATUR JALANNYA PERMAINAN/);
+assert.match(app, /moderator: \['Moderator'/);
+assert.match(app, /roleCounts\?\.moderator/);
 assert.match(css, /\.role-flip-card/);
 assert.match(css, /\.role-flip-card\.is-flipped/);
 assert.match(css, /\.wolf-team-panel/);
 assert.match(css, /\.moderator-event-report/);
-assert.match(html, /20261104-werewolf-reliability-fixes1/);
-assert.match(sw, /20261104-werewolf-reliability-fixes1/);
+assert.match(html, /20261105-werewolf-persistent-room1/);
+assert.match(sw, /20261105-werewolf-persistent-room1/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
