@@ -189,17 +189,22 @@ function wolfAttackSummary(room) {
     return { ready: false, targetId: null, tied: false };
   }
   const tally = {};
+  const firstVoteAt = {};
   for (const wolf of wolves) {
     const action = room.nightActions[wolf.id];
     if (!action?.targetId) continue;
     const weight = wolf.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
     tally[action.targetId] = (tally[action.targetId] || 0) + weight;
+    const submittedAt = Number(action.submittedAt) || Number.MAX_SAFE_INTEGER;
+    firstVoteAt[action.targetId] = Math.min(firstVoteAt[action.targetId] ?? Number.MAX_SAFE_INTEGER, submittedAt);
   }
   const highest = Math.max(0, ...Object.values(tally));
   const leaders = Object.keys(tally).filter(id => tally[id] === highest);
+  const roomOrder = id => room.players.findIndex(player => player.id === id);
+  leaders.sort((left, right) => (firstVoteAt[left] - firstVoteAt[right]) || (roomOrder(left) - roomOrder(right)));
   return {
     ready: true,
-    targetId: highest > 0 && leaders.length === 1 ? leaders[0] : null,
+    targetId: highest > 0 ? leaders[0] : null,
     tied: highest > 0 && leaders.length > 1
   };
 }
@@ -355,6 +360,16 @@ export class WerewolfRoom {
   constructor(state, env) {
     this.state = state;
     this.env = env || {};
+    this.mutationQueue = Promise.resolve();
+  }
+
+  async runExclusive(operation) {
+    const previous = this.mutationQueue;
+    let release;
+    this.mutationQueue = new Promise(resolve => { release = resolve; });
+    await previous;
+    try { return await operation(); }
+    finally { release(); }
   }
 
   async loadRoom() {
@@ -362,6 +377,7 @@ export class WerewolfRoom {
   }
 
   async saveRoom(room) {
+    room.revision = Math.max(0, Number(room.revision) || 0) + 1;
     room.expiresAt = Date.now() + ROOM_TTL_MS;
     await this.state.storage.put('room', room);
     if (this.state.storage.setAlarm) await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
@@ -426,6 +442,7 @@ export class WerewolfRoom {
     return {
       room: {
         code: room.code,
+        revision: Number(room.revision) || 0,
         phase: room.phase,
         round: room.round,
         hostId: room.hostId,
@@ -699,7 +716,10 @@ export class WerewolfRoom {
           continue;
         }
       }
-      if (selected || type === 'witch_heal') room.nightActions[bot.id] = { type, ...(selected ? { targetId: selected.id } : {}) };
+      if (selected || type === 'witch_heal') room.nightActions[bot.id] = {
+        type, ...(selected ? { targetId: selected.id } : {}),
+        ...(type === 'wolf_vote' ? { submittedAt: Date.now() } : {})
+      };
       else room.nightActions[bot.id] = { type: 'pass' };
     }
   }
@@ -765,7 +785,7 @@ export class WerewolfRoom {
         return json({ code: room.code, moderatorId: host.moderator.id, token: host.token, phase: room.phase }, 201);
       }
 
-      if (url.pathname === '/internal/join' && request.method === 'POST') {
+      if (url.pathname === '/internal/join' && request.method === 'POST') return await this.runExclusive(async () => {
         const room = await this.loadRoom();
         if (!room || room.expiresAt <= Date.now()) throw new HttpError(404, 'Room tidak ditemukan atau sudah kedaluwarsa.');
         if (room.phase !== 'lobby') throw new HttpError(409, 'Permainan sudah dimulai. Room tidak menerima pemain baru.');
@@ -780,7 +800,7 @@ export class WerewolfRoom {
         await this.saveRoom(room);
         await this.broadcast(room);
         return json({ code: room.code, playerId: created.player.id, token: created.token, phase: room.phase }, 201);
-      }
+      });
 
       if (url.pathname === '/internal/ticket' && request.method === 'POST') {
         const room = await this.loadRoom();
@@ -805,7 +825,7 @@ export class WerewolfRoom {
         return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
       }
 
-      if (url.pathname === '/internal/action' && request.method === 'POST') {
+      if (url.pathname === '/internal/action' && request.method === 'POST') return await this.runExclusive(async () => {
         const room = await this.loadRoom();
         if (!room || room.expiresAt <= Date.now()) throw new HttpError(404, 'Room tidak ditemukan.');
         const player = await this.authenticate(request, room);
@@ -816,9 +836,9 @@ export class WerewolfRoom {
         await this.saveRoom(room);
         await this.broadcast(room);
         return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
-      }
+      });
 
-      if ((url.pathname === '/internal/ws' || /^\/rooms\/[A-HJ-NP-Z2-9]{6}\/ws$/.test(url.pathname)) && request.method === 'GET') {
+      if ((url.pathname === '/internal/ws' || /^\/rooms\/[A-HJ-NP-Z2-9]{6}\/ws$/.test(url.pathname)) && request.method === 'GET') return await this.runExclusive(async () => {
         if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') throw new HttpError(426, 'WebSocket upgrade diperlukan.');
         const origin = request.headers.get('Origin') || '';
         if (origin && !allowedOrigins(this.env).has(origin)) throw new HttpError(403, 'Origin tidak diizinkan.');
@@ -848,7 +868,7 @@ export class WerewolfRoom {
         await this.saveRoom(room);
         await this.broadcast(room);
         return new Response(null, { status: 101, webSocket: client });
-      }
+      });
 
       return json({ error: 'Endpoint internal tidak ditemukan.' }, 404);
     } catch (error) {
@@ -866,6 +886,8 @@ export class WerewolfRoom {
       const player = room.players.find(item => item.id === current.id && item.alive);
       if (!player) continue;
       player.alive = false;
+      if (room.nightActions) delete room.nightActions[player.id];
+      if (room.votes) delete room.votes[player.id];
       eliminated.push(player);
       details.push({
         id: player.id,
@@ -905,8 +927,10 @@ export class WerewolfRoom {
   finishVote(room, now) {
     const tally = {};
     for (const [voterId, targetId] of Object.entries(room.votes || {})) {
-      const voter = room.players.find(item => item.id === voterId);
-      const weight = voter?.role === 'mayor' && abilityEnabled(room, 'mayorDoubleVote') ? 2 : 1;
+      const voter = room.players.find(item => item.id === voterId && item.alive);
+      const target = room.players.find(item => item.id === targetId && item.alive);
+      if (!voter || !target || voter.id === target.id) continue;
+      const weight = voter.role === 'mayor' && abilityEnabled(room, 'mayorDoubleVote') ? 2 : 1;
       tally[targetId] = (tally[targetId] || 0) + weight;
     }
     const highestVote = Math.max(0, ...Object.values(tally));
@@ -995,6 +1019,40 @@ export class WerewolfRoom {
       requireModerator();
       requirePhase('lobby');
       room.settings = normalizeSettings(body.settings);
+      return;
+    }
+
+    if (type === 'leave_room') {
+      requirePlayer();
+      const leavingPlayer = room.players.find(item => item.id === player.id);
+      if (!leavingPlayer) throw new HttpError(404, 'Pemain tidak ditemukan di room.');
+      if (room.phase === 'lobby') {
+        room.players = room.players.filter(item => item.id !== player.id);
+        return;
+      }
+      if (room.phase === 'finished' || !leavingPlayer.alive) {
+        leavingPlayer.connected = false;
+        leavingPlayer.tokenHash = null;
+        return;
+      }
+      const phaseBeforeLeave = room.phase;
+      if (phaseBeforeLeave === 'role_draw') leavingPlayer.hasDrawn = true;
+      const outcome = this.eliminatePlayer(room, leavingPlayer.id, 'left_room');
+      leavingPlayer.connected = false;
+      leavingPlayer.tokenHash = null;
+      room.lastResult = {
+        kind: 'leave',
+        message: leavingPlayer.name + ' meninggalkan permainan dan tereliminasi.',
+        eliminatedId: leavingPlayer.id,
+        eliminatedIds: outcome.players.map(item => item.id),
+        eliminations: outcome.details,
+        events: [leavingPlayer.name + ' keluar dari room.'], at: now, round: room.round
+      };
+      if (checkWinner()) room.phase = 'finished';
+      else if (phaseBeforeLeave === 'role_draw' && this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
+        await this.applyAction(room, room.moderator, { type: 'start_night' });
+      } else if (phaseBeforeLeave === 'night') await this.resolveSystemNightIfReady(room, now);
+      else if (phaseBeforeLeave === 'voting') this.resolveSystemVoteIfReady(room, now);
       return;
     }
 
@@ -1087,7 +1145,7 @@ export class WerewolfRoom {
         if (isWolf(selected.role) || selected.id === player.id) {
           throw new HttpError(400, 'Werewolf tidak dapat memilih anggota kawanan sendiri.');
         }
-        room.nightActions[player.id] = { type: 'wolf_vote', targetId: selected.id };
+        room.nightActions[player.id] = { type: 'wolf_vote', targetId: selected.id, submittedAt: now };
       } else if (player.role === 'doctor') {
         if (!abilityEnabled(room, 'doctorProtection')) throw new HttpError(403, 'Kemampuan Doctor dinonaktifkan.');
         room.nightActions[player.id] = { type: 'doctor_protect', targetId: selected.id };
@@ -1209,14 +1267,17 @@ export class WerewolfRoom {
           room.guardianTargets = { ...(room.guardianTargets || {}), [actor.id]: action.targetId };
         }
       }
+      const highest = Math.max(0, ...Object.values(wolfVotes));
+      const wolfAttack = wolfAttackSummary(room);
+      victimId = wolfAttack.targetId;
       const events = [];
+      if (wolfAttack.tied && victimId) {
+        events.push('Pilihan Werewolf terbagi sama kuat; target dengan suara terbanyak dipilih berdasarkan suara yang masuk lebih dahulu.');
+      }
       if (!cupidWasUsed && room.cupidUsed && room.lovers?.length === 2) {
         const linkedNames = room.lovers.map(id => room.players.find(item => item.id === id)?.name).filter(Boolean);
         if (linkedNames.length === 2) events.push('Cupid mengikat ' + linkedNames.join(' dan ') + '.');
       }
-      const highest = Math.max(0, ...Object.values(wolfVotes));
-      const candidates = Object.keys(wolfVotes).filter(id => wolfVotes[id] === highest);
-      victimId = candidates.length === 1 ? candidates[0] : null;
       let message = 'Malam berlalu tanpa korban.';
       let eliminatedId = null;
       const doctorHeal = actors.some(actor => room.nightActions[actor.id]?.type === 'witch_heal');
@@ -1263,8 +1324,8 @@ export class WerewolfRoom {
       } else if (victimId && (protectedIds.has(victimId) || doctorHeal)) {
         message = 'Serangan Werewolf berhasil digagalkan oleh perlindungan.';
       } else if (highest > 0 && !victimId) {
-        message = 'Pilihan Werewolf seri. Tidak ada korban dari serangan.';
-        events.push('Pilihan serangan Werewolf seri; tidak ada target serangan.');
+        message = 'Serangan Werewolf tidak menghasilkan target yang sah.';
+        events.push('Tidak ada target serangan Werewolf yang sah.');
       } else if (!events.length) {
         events.push('Tidak ada aksi malam yang menyebabkan perubahan pada pemain.');
       }
@@ -1411,19 +1472,21 @@ export class WerewolfRoom {
 
   async webSocketClose(socket) {
     try {
-      const attachment = socket.deserializeAttachment();
-      const room = await this.loadRoom();
-      if (!room || !attachment?.actorId || attachment.actorType === 'moderator') return;
-      const otherSocket = (this.state.getWebSockets ? this.state.getWebSockets() : [])
-        .some(item => item !== socket && item.deserializeAttachment()?.actorId === attachment.actorId);
-      if (!otherSocket) {
-        const player = room.players.find(item => item.id === attachment.actorId);
-        if (player) {
-          player.connected = false;
-          await this.saveRoom(room);
-          await this.broadcast(room);
+      await this.runExclusive(async () => {
+        const attachment = socket.deserializeAttachment();
+        const room = await this.loadRoom();
+        if (!room || !attachment?.actorId || attachment.actorType === 'moderator') return;
+        const otherSocket = (this.state.getWebSockets ? this.state.getWebSockets() : [])
+          .some(item => item !== socket && item.deserializeAttachment()?.actorId === attachment.actorId);
+        if (!otherSocket) {
+          const player = room.players.find(item => item.id === attachment.actorId);
+          if (player && player.connected) {
+            player.connected = false;
+            await this.saveRoom(room);
+            await this.broadcast(room);
+          }
         }
-      }
+      });
     } catch { /* A disconnected client must not block room cleanup. */ }
   }
 

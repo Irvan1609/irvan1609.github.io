@@ -71,7 +71,10 @@ let reconnectTimer = null;
 let pollTimer = null;
 let clockTimer = null;
 let reconnectDelay = 1200;
-let polling = false;
+let heartbeatTimer = null;
+let realtimeGeneration = 0;
+let connectingGeneration = null;
+let pollingSession = null;
 let gameAudioContext = null;
 let lastNarrationKey = '';
 
@@ -166,7 +169,8 @@ function setConnection(connected) {
 async function request(path, options = {}) {
   const headers = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
-  if (options.auth !== false && session?.token) headers.Authorization = 'Bearer ' + session.token;
+  const authSession = options.session || session;
+  if (options.auth !== false && authSession?.token) headers.Authorization = 'Bearer ' + authSession.token;
   const response = await fetch(API_BASE + path, {
     method: options.method || 'GET',
     headers,
@@ -175,7 +179,11 @@ async function request(path, options = {}) {
   });
   let data = {};
   try { data = await response.json(); } catch {}
-  if (!response.ok) throw new Error(data.error || 'Permintaan gagal (' + response.status + ').');
+  if (!response.ok) {
+    const error = new Error(data.error || 'Permintaan gagal (' + response.status + ').');
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -186,11 +194,15 @@ function saveSession() {
 }
 
 function stopRealtime() {
+  realtimeGeneration += 1;
+  connectingGeneration = null;
   if (reconnectTimer) clearTimeout(reconnectTimer);
   if (pollTimer) clearInterval(pollTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (clockTimer) clearInterval(clockTimer);
   reconnectTimer = null;
   pollTimer = null;
+  heartbeatTimer = null;
   clockTimer = null;
   if (socket) {
     socket.onclose = null;
@@ -199,9 +211,27 @@ function stopRealtime() {
   socket = null;
 }
 
+function clearInvalidSession(activeSession) {
+  if (session !== activeSession) return;
+  stopRealtime();
+  localStorage.removeItem(SESSION_PREFIX + activeSession.code);
+  if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
+  session = null;
+  roomState = null;
+  lastNarrationKey = '';
+  $('roomPanel').classList.add('hidden');
+  $('entryPanel').classList.remove('hidden');
+  const url = new URL(location.href);
+  url.searchParams.delete('room');
+  history.replaceState({}, '', url);
+  showMessage('Sesi tidak valid atau room sudah kedaluwarsa. Silakan bergabung kembali.', true);
+}
+
 async function enterRoom(nextSession) {
   stopRealtime();
   session = nextSession;
+  roomState = null;
+  lastNarrationKey = '';
   saveSession();
   $('entryPanel').classList.add('hidden');
   $('roomPanel').classList.remove('hidden');
@@ -210,101 +240,142 @@ async function enterRoom(nextSession) {
   const invite = new URL(location.href);
   invite.searchParams.set('room', session.code);
   history.replaceState({}, '', invite);
-  try { await refreshState(); }
-  catch (error) { showMessage('Sesi tersimpan, tetapi data room belum dapat dimuat: ' + error.message, true); }
+  try {
+    await refreshState();
+  } catch (error) {
+    if (session !== nextSession) return false;
+    if (error.status === 401 || error.status === 404) {
+      clearInvalidSession(nextSession);
+      return false;
+    }
+    showMessage('Koneksi belum stabil. Sesi tetap disimpan dan sistem akan mencoba menyambungkan ulang: ' + error.message, true);
+  }
+  if (session !== nextSession) return false;
   connectRealtime();
+  const activeSession = nextSession;
   pollTimer = setInterval(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) refreshState().catch(() => {});
+    if (session === activeSession && (!socket || socket.readyState !== WebSocket.OPEN)) refreshState().catch(() => {});
   }, 5000);
+  return true;
 }
 
 async function refreshState() {
-  if (!session) return;
-  if (polling) return;
-  polling = true;
+  const activeSession = session;
+  if (!activeSession || pollingSession === activeSession) return;
+  pollingSession = activeSession;
   try {
-    const result = await request('/rooms/' + session.code + '/state');
-    applyState(result.state);
+    const result = await request('/rooms/' + activeSession.code + '/state', { session: activeSession });
+    if (session === activeSession) applyState(result.state, activeSession);
+  } catch (error) {
+    if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
+    throw error;
   } finally {
-    polling = false;
+    if (pollingSession === activeSession) pollingSession = null;
   }
 }
 
 async function connectRealtime() {
-  if (!session) return;
+  const activeSession = session;
+  const generation = realtimeGeneration;
+  if (!activeSession) return;
+  if (socket && (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)) return;
+  if (connectingGeneration === generation) return;
+  connectingGeneration = generation;
   try {
-    const result = await request('/rooms/' + session.code + '/ticket', { method: 'POST', body: {} });
+    const result = await request('/rooms/' + activeSession.code + '/ticket', { method: 'POST', body: {}, session: activeSession });
+    if (session !== activeSession || generation !== realtimeGeneration) return;
     const wsBase = API_BASE.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
-    const nextSocket = new WebSocket(wsBase + '/rooms/' + session.code + '/ws?ticket=' + encodeURIComponent(result.ticket));
+    const nextSocket = new WebSocket(wsBase + '/rooms/' + activeSession.code + '/ws?ticket=' + encodeURIComponent(result.ticket));
     socket = nextSocket;
     nextSocket.onopen = () => {
+      if (session !== activeSession || generation !== realtimeGeneration || socket !== nextSocket) {
+        try { nextSocket.close(); } catch {}
+        return;
+      }
       reconnectDelay = 1200;
       setConnection(true);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(() => {
+        if (socket === nextSocket && nextSocket.readyState === WebSocket.OPEN) {
+          try { nextSocket.send('ping'); } catch {}
+        }
+      }, 25000);
     };
     nextSocket.onmessage = event => {
+      if (session !== activeSession || generation !== realtimeGeneration || socket !== nextSocket) return;
       if (event.data === 'pong') return;
       try {
         const message = JSON.parse(event.data);
-        if (message.type === 'state') applyState(message.state);
+        if (message.type === 'state') applyState(message.state, activeSession);
         if (message.type === 'error') showMessage(message.error, true);
       } catch {}
     };
     nextSocket.onclose = () => {
       if (socket === nextSocket) {
         socket = null;
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
         setConnection(false);
-        scheduleReconnect();
+        scheduleReconnect(generation);
       }
     };
-    nextSocket.onerror = () => {
-      try { nextSocket.close(); } catch {}
-    };
-  } catch {
-    setConnection(false);
-    scheduleReconnect();
+    nextSocket.onerror = () => { try { nextSocket.close(); } catch {} };
+  } catch (error) {
+    if (session === activeSession && generation === realtimeGeneration) {
+      setConnection(false);
+      if (error.status === 401 || error.status === 404) {
+        refreshState().catch(() => {}).finally(() => {
+          if (session === activeSession && generation === realtimeGeneration) scheduleReconnect(generation);
+        });
+      } else scheduleReconnect(generation);
+    }
+  } finally {
+    if (connectingGeneration === generation) connectingGeneration = null;
   }
 }
 
-function scheduleReconnect() {
-  if (!session || reconnectTimer) return;
+function scheduleReconnect(generation = realtimeGeneration) {
+  if (!session || generation !== realtimeGeneration || reconnectTimer) return;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    connectRealtime();
+    if (generation === realtimeGeneration) connectRealtime();
   }, reconnectDelay);
   reconnectDelay = Math.min(reconnectDelay * 1.7, 12000);
 }
 
 async function sendAction(type, payload = {}) {
+  const activeSession = session;
+  if (!activeSession) return;
   try {
-    const result = await request('/rooms/' + session.code + '/action', {
-      method: 'POST',
-      body: { type, ...payload }
+    const result = await request('/rooms/' + activeSession.code + '/action', {
+      method: 'POST', body: { type, ...payload }, session: activeSession
     });
-    applyState(result.state);
+    if (session !== activeSession) return;
+    applyState(result.state, activeSession);
     showMessage('');
   } catch (error) {
-    showMessage(error.message, true);
+    if (session === activeSession) {
+      showMessage(error.message, true);
+      if ([401, 404, 409].includes(error.status)) refreshState().catch(() => {});
+    }
   }
 }
 
-function applyState(nextState) {
-  if (!nextState || !nextState.room) return;
+function applyState(nextState, expectedSession = session) {
+  if (!nextState || !nextState.room || (expectedSession && session !== expectedSession)) return;
+  if (session && nextState.room.code !== session.code) return;
   const previous = roomState;
   const sameRoom = previous?.room?.code === nextState.room.code;
+  const nextRevision = Number(nextState.room.revision) || 0;
+  const previousRevision = Number(previous?.room?.revision) || 0;
+  if (sameRoom && nextRevision && previousRevision && nextRevision < previousRevision) return;
   const phaseChanged = sameRoom && (
     previous.room.phase !== nextState.room.phase || previous.room.round !== nextState.room.round
   );
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
-
-  const narrationKey = [
-    nextState.room.code,
-    nextState.room.phase,
-    nextState.room.round,
-    nextState.room.lastResult?.at || ''
-  ].join(':');
-  if (previous && nextState.self?.isModerator && systemModeratorEnabled(nextState)
-    && narrationKey !== lastNarrationKey) {
+  const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round, nextState.room.lastResult?.at || ''].join(':');
+  if (previous && nextState.self?.isModerator && systemModeratorEnabled(nextState) && narrationKey !== lastNarrationKey) {
     const narration = systemNarrationText(nextState.room);
     if (narration) speakSystemNarration(narration);
   }
@@ -973,13 +1044,7 @@ function renderPlayerNight(parent) {
   }
   if (self.hasActed) {
     addText(parent, 'div', 'notice success', 'Aksimu sudah dikirim. Tunggu moderator.');
-    if (['seer', 'detective'].includes(self.role) && self.seerResult) {
-      const result = self.seerResult.result === 'wolf' || self.seerResult.result === 'wolf_team'
-        ? (self.role === 'detective' ? 'kubu Werewolf' : 'Werewolf')
-        : self.seerResult.result === 'neutral' ? 'kubu Netral'
-          : self.role === 'detective' ? 'kubu Desa' : 'bukan Werewolf';
-      addText(parent, 'div', 'notice', 'Hasil pemeriksaan: ' + self.seerResult.playerName + ' termasuk ' + result + '.');
-    }
+    renderPrivateInspectionResult(parent);
     return;
   }
   const roleAbility = {
@@ -1024,7 +1089,7 @@ function renderPlayerNight(parent) {
     if (!attack.ready) {
       addText(parent, 'div', 'notice', 'Menunggu seluruh Werewolf menyelesaikan pilihan serangan. Target hanya terlihat oleh Witch.');
     } else if (attack.targetName) {
-      addText(parent, 'div', 'notice warning', 'Target serangan Werewolf: ' + attack.targetName + '. Gunakan ramuan penyembuh untuk menyelamatkannya.');
+      addText(parent, 'div', 'notice warning', 'Target serangan Werewolf: ' + attack.targetName + (attack.tied ? '. Suara seri; sistem memakai pilihan yang masuk lebih dahulu sebagai pemecah seri.' : '. Gunakan ramuan penyembuh untuk menyelamatkannya.'));
     } else {
       addText(parent, 'div', 'notice', attack.tied ? 'Suara Werewolf seri. Tidak ada target untuk diselamatkan.' : 'Tidak ada target serangan Werewolf yang dapat diselamatkan.');
     }
@@ -1083,9 +1148,21 @@ function renderPlayerDiscussion(parent) {
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
 
+function renderPrivateInspectionResult(parent) {
+  const self = roomState.self;
+  const result = self?.seerResult;
+  if (!result || !['seer', 'detective'].includes(self.role)) return;
+  const faction = result.result === 'wolf' || result.result === 'wolf_team'
+    ? (self.role === 'detective' ? 'kubu Werewolf' : 'Werewolf')
+    : result.result === 'neutral' ? 'kubu Netral'
+      : self.role === 'detective' ? 'kubu Desa' : 'bukan Werewolf';
+  addText(parent, 'div', 'notice success', 'Hasil penerawangan malam ' + result.round + ': ' + result.playerName + ' termasuk ' + faction + '. Hasil ini hanya terlihat olehmu.');
+}
+
 function renderPlayerMorning(parent) {
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
+  renderPrivateInspectionResult(parent);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
 
@@ -1200,18 +1277,32 @@ function renderPlayerVoteResult(parent) {
 
 async function leaveCurrentRoom() {
   if (!session) return;
-  const code = session.code;
-  stopRealtime();
-  localStorage.removeItem(SESSION_PREFIX + code);
-  session = null;
-  roomState = null;
-  lastNarrationKey = '';
-  $('roomPanel').classList.add('hidden');
-  $('entryPanel').classList.remove('hidden');
-  const url = new URL(location.href);
-  url.searchParams.delete('room');
-  history.replaceState({}, '', url);
-  showMessage('Kamu keluar dari room. Room akan kedaluwarsa otomatis setelah tidak aktif.');
+  const activeSession = session;
+  if (roomState?.self?.isModerator) {
+    showMessage('Moderator tidak dapat keluar sebagai pemain. Tutup tab jika ingin berhenti memantau room.', true);
+    return;
+  }
+  try {
+    await request('/rooms/' + activeSession.code + '/action', {
+      method: 'POST', body: { type: 'leave_room' }, session: activeSession
+    });
+    if (session !== activeSession) return;
+    stopRealtime();
+    localStorage.removeItem(SESSION_PREFIX + activeSession.code);
+    if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
+    session = null;
+    roomState = null;
+    lastNarrationKey = '';
+    $('roomPanel').classList.add('hidden');
+    $('entryPanel').classList.remove('hidden');
+    const url = new URL(location.href);
+    url.searchParams.delete('room');
+    history.replaceState({}, '', url);
+    showMessage('Kamu sudah keluar dari room. Jika permainan sedang berlangsung, karaktermu dihitung tereliminasi.');
+  } catch (error) {
+    if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
+    else if (session === activeSession) showMessage(error.message, true);
+  }
 }
 
 $('createForm').addEventListener('submit', async event => {
@@ -1281,7 +1372,11 @@ $('copyInvite').addEventListener('click', async () => {
 });
 
 $('leaveRoom').addEventListener('click', () => {
-  if (confirm('Keluar dari room? Kamu dapat bergabung kembali menggunakan kode dan perangkat yang sama.')) leaveCurrentRoom();
+  if (roomState?.self?.isModerator) {
+    showMessage('Moderator tidak dapat keluar sebagai pemain. Tutup tab jika ingin berhenti memantau room.', true);
+    return;
+  }
+  if (confirm('Keluar dari room? Di lobby namamu akan dihapus. Jika permainan sudah dimulai, karaktermu akan tereliminasi.')) leaveCurrentRoom();
 });
 
 async function restoreSession() {
