@@ -377,6 +377,8 @@ export class WerewolfRoom {
         round: room.round,
         hostId: room.hostId,
         settings: room.settings,
+        discussionMode: room.phase === 'discussion' ? room.discussionMode || null : null,
+        callUrl: room.phase === 'discussion' && room.discussionMode === 'online' ? room.callUrl || '' : '',
         nightActionsRequired: alive.length,
         nightActionsSubmitted,
         votesRequired: alive.length,
@@ -1117,9 +1119,25 @@ export class WerewolfRoom {
       return;
     }
 
+    if (type === 'set_discussion') {
+      requireModerator();
+      requirePhase('discussion');
+      const mode = String(body.mode || '');
+      if (!['offline', 'online'].includes(mode)) throw new HttpError(400, 'Pilih mode diskusi offline atau online.');
+      const callUrl = mode === 'online' ? cleanCallUrl(body.callUrl) : '';
+      if (mode === 'online' && !callUrl) throw new HttpError(400, 'Tautan diskusi online wajib diisi.');
+      room.discussionMode = mode;
+      room.callUrl = callUrl;
+      room.discussionEndsAt = null;
+      return;
+    }
+
     if (type === 'start_voting') {
       requireModerator();
       requirePhase('discussion');
+      if (!['offline', 'online'].includes(room.discussionMode)) {
+        throw new HttpError(409, 'Moderator harus menentukan mode diskusi sebelum membuka voting.');
+      }
       room.phase = 'voting';
       room.votes = {};
       this.runBotVotes(room, now);
