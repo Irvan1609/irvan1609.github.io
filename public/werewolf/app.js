@@ -19,7 +19,7 @@ const ROLE_INFO = {
   jester: ['Jester', 'Menang sendiri jika berhasil dieliminasi melalui voting. Tidak memiliki aksi malam.']
 };
 const EXTRA_ROLE_OPTIONS = [
-  ['alphaWolf', 'Alpha Wolf', 'Menggantikan satu Werewolf biasa; suara serangannya bernilai dua.'],
+  ['alphaWolf', 'Alpha Wolf', 'Role Werewolf khusus; kemampuan suara serangan ganda dapat diatur moderator.'],
   ['bodyguard', 'Bodyguard', 'Mengorbankan diri untuk menyelamatkan target dari serangan.'],
   ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
