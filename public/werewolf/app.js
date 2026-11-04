@@ -508,6 +508,17 @@ function captureRoleDraft(container, event) {
   updateRoleConfigSummary(container);
 }
 
+function clearAllRoleCounts(container) {
+  const roleCounts = {};
+  for (const input of container.querySelectorAll('[data-role-count]')) {
+    input.value = '0';
+    roleCounts[input.dataset.roleCount] = 0;
+  }
+  const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
+  roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode };
+  updateRoleConfigSummary(container);
+}
+
 function renderRoleConfigEditor(container, settings) {
   const config = roleSettingsForUI(settings);
   container.replaceChildren();
@@ -533,6 +544,12 @@ function renderRoleConfigEditor(container, settings) {
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
   addText(moderatorSection, 'p', 'hint', 'Host: perpindahan fase dikendalikan host. Sistem: fase otomatis setelah semua aksi selesai. Acak: sistem memilih salah satu mode setiap permainan.');
+  const roleActions = node('div', 'role-config-actions');
+  const clearRolesButton = button('Jadikan Semua Role 0', 'secondary role-zero-button', () => clearAllRoleCounts(container));
+  clearRolesButton.dataset.clearAllRoles = 'true';
+  roleActions.append(clearRolesButton);
+  addText(roleActions, 'p', 'hint', 'Kosongkan semua jumlah role pemain untuk menyusun komposisi secara manual. Mode moderator tidak berubah.');
+  moderatorSection.append(roleActions);
   container.append(moderatorSection);
   for (const group of ROLE_CONFIG_GROUPS) {
     const section = node('section', 'role-config-team role-team-' + group.key);
@@ -633,8 +650,9 @@ function renderRoom() {
   $('phaseTracker').classList.toggle('hidden', !moderator);
   const resetButton = $('resetRoom');
   if (resetButton) {
-    resetButton.classList.toggle('hidden', !moderator || room.phase === 'lobby' || room.phase === 'finished');
-    resetButton.textContent = 'Reset ke Ruang Tunggu';
+    resetButton.classList.toggle('hidden', !moderator || room.phase === 'lobby');
+    resetButton.textContent = 'Restart Permainan';
+    resetButton.title = 'Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu';
   }
   $('playersSection').classList.toggle('hidden', !moderator);
   $('roomIdentity').classList.toggle('hidden', !moderator);
@@ -1425,7 +1443,7 @@ $('copyInvite').addEventListener('click', async () => {
 
 $('resetRoom').addEventListener('click', () => {
   if (!roomState?.self?.isModerator || roomState.room.phase === 'lobby') return;
-  if (confirm('Reset permainan dan kembalikan semua pemain ke ruang tunggu? Kode room, nama, dan koneksi pemain tetap dipertahankan.')) sendAction('reset_to_lobby');
+  if (confirm('Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu? Kode room, nama, dan koneksi pemain tetap dipertahankan.')) sendAction('reset_to_lobby');
 });
 
 $('leaveRoom').addEventListener('click', () => {
