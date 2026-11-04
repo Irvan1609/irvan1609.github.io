@@ -150,6 +150,29 @@ function isWolf(role) {
   return WOLF_ROLES.has(role);
 }
 
+function wolfAttackSummary(room) {
+  const wolves = room.players.filter(player => player.alive && isWolf(player.role));
+  if (!wolves.length) return { ready: true, targetId: null, tied: false };
+  const actions = wolves.map(player => room.nightActions?.[player.id]);
+  if (actions.some(action => action?.type !== 'wolf_vote')) {
+    return { ready: false, targetId: null, tied: false };
+  }
+  const tally = {};
+  for (const wolf of wolves) {
+    const action = room.nightActions[wolf.id];
+    if (!action?.targetId) continue;
+    const weight = wolf.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
+    tally[action.targetId] = (tally[action.targetId] || 0) + weight;
+  }
+  const highest = Math.max(0, ...Object.values(tally));
+  const leaders = Object.keys(tally).filter(id => tally[id] === highest);
+  return {
+    ready: true,
+    targetId: highest > 0 && leaders.length === 1 ? leaders[0] : null,
+    tied: highest > 0 && leaders.length > 1
+  };
+}
+
 function cleanCallUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -347,6 +370,7 @@ export class WerewolfRoom {
       const nightAction = room.nightActions?.[player.id] || null;
       const voteTargetId = room.votes?.[player.id] || null;
       const actionTarget = nightAction?.targetId ? room.players.find(item => item.id === nightAction.targetId) : null;
+      const actionPartner = nightAction?.partnerId ? room.players.find(item => item.id === nightAction.partnerId) : null;
       const voteTarget = voteTargetId ? room.players.find(item => item.id === voteTargetId) : null;
       return {
         id: player.id,
@@ -359,6 +383,7 @@ export class WerewolfRoom {
         hasActed: Boolean(nightAction),
         nightActionType: nightAction?.type || null,
         nightActionTarget: actionTarget?.name || null,
+        nightActionPartner: actionPartner?.name || null,
         hasVoted: Boolean(voteTargetId),
         voteTarget: voteTarget?.name || null
       };
@@ -370,6 +395,14 @@ export class WerewolfRoom {
       : room.phase === 'morning'
         ? (room.lastResult?.eliminatedId === self.id ? 'eliminated' : self.alive ? 'survived' : 'eliminated')
         : self.alive ? 'alive' : 'eliminated';
+    const witchAttack = !isModerator && self?.role === 'witch' && room.phase === 'night'
+      ? wolfAttackSummary(room)
+      : null;
+    const loverIds = Array.isArray(room.lovers) ? room.lovers : [];
+    const canSeeLovers = !isModerator && self && (self.role === 'cupid' || loverIds.includes(self.id));
+    const loverNames = canSeeLovers
+      ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean)
+      : [];
     return {
       room: {
         code: room.code,
@@ -386,6 +419,7 @@ export class WerewolfRoom {
         lastResult: isModerator ? room.lastResult : null,
         winner: isModerator ? room.winner : null,
         additionalWinners: isModerator ? (room.additionalWinners || []) : [],
+        lovers: isModerator ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean) : [],
         gameOver: room.phase === 'finished'
       },
       players,
@@ -406,8 +440,16 @@ export class WerewolfRoom {
         seerResult: !isModerator && ['seer', 'detective'].includes(self.role) && room.seerResults
           ? room.seerResults[self.id] || null
           : null,
+        witchAttack: witchAttack ? {
+          ready: witchAttack.ready,
+          targetName: witchAttack.targetId
+            ? room.players.find(player => player.id === witchAttack.targetId)?.name || null
+            : null,
+          tied: witchAttack.tied
+        } : null,
+        loverNames,
         hunterUsed: Boolean(self.hunterUsed),
-        cupidUsed: Boolean(room.cupidUsed),
+        cupidUsed: !isModerator && self.role === 'cupid' ? Boolean(room.cupidUsed) : false,
         guardianTargetName: room.guardianTargets?.[self.id]
           ? room.players.find(item => item.id === room.guardianTargets[self.id])?.name || null
           : null,
@@ -573,7 +615,8 @@ export class WerewolfRoom {
       seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
       cupid: 'cupidBond', detective: 'detectiveInspection'
     };
-    for (const bot of alive.filter(player => player.isBot)) {
+    for (const bot of alive.filter(player => player.isBot)
+      .sort((left, right) => Number(left.role === 'witch') - Number(right.role === 'witch'))) {
       if (room.nightActions[bot.id]) continue;
       if (['villager', 'hunter', 'mayor', 'jester'].includes(bot.role)
         || (bot.role === 'cupid' && (room.round > 1 || !abilityEnabled(room, 'cupidBond')))
@@ -614,13 +657,14 @@ export class WerewolfRoom {
         if (selected) room.guardianTargets[bot.id] = selected.id;
       } else if (bot.role === 'witch') {
         const potions = room.witchPotions?.[bot.id] || { heal: false, poison: false };
-        if (potions.heal && room.lastResult?.eliminatedId) type = 'witch_heal';
+        const attack = wolfAttackSummary(room);
+        if (!attack.ready) continue;
+        if (attack.targetId && potions.heal) type = 'witch_heal';
         else if (potions.poison) {
           type = 'witch_poison';
           const candidates = alive.filter(player => player.id !== bot.id && !isWolf(player.role));
           selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
-        }
-        if (!potions.heal && !potions.poison) {
+        } else {
           room.nightActions[bot.id] = { type: 'pass' };
           continue;
         }
@@ -989,9 +1033,14 @@ export class WerewolfRoom {
       } else if (player.role === 'witch') {
         const mode = String(body.mode || '');
         const potions = room.witchPotions?.[player.id] || { heal: true, poison: true };
-        if (mode === 'heal' && potions.heal) room.nightActions[player.id] = { type: 'witch_heal' };
-        else if (mode === 'poison' && potions.poison && selected.id !== player.id) room.nightActions[player.id] = { type: 'witch_poison', targetId: selected.id };
-        else throw new HttpError(400, 'Ramuan tidak tersedia atau pilihan tidak valid.');
+        if (mode === 'heal' && potions.heal) {
+          const attack = wolfAttackSummary(room);
+          if (!attack.ready) throw new HttpError(409, 'Tunggu semua Werewolf menyelesaikan pilihan serangan.');
+          if (!attack.targetId) throw new HttpError(409, 'Tidak ada target serangan Werewolf yang dapat diselamatkan.');
+          room.nightActions[player.id] = { type: 'witch_heal', targetId: attack.targetId };
+        } else if (mode === 'poison' && potions.poison && selected.id !== player.id) {
+          room.nightActions[player.id] = { type: 'witch_poison', targetId: selected.id };
+        } else throw new HttpError(400, 'Ramuan tidak tersedia atau pilihan tidak valid.');
       } else if (player.role === 'cupid' && room.round === 1 && !room.cupidUsed && abilityEnabled(room, 'cupidBond')) {
         const partner = target(body.partnerId);
         if (!partner || partner.id === selected.id || selected.id === player.id || partner.id === player.id) {
@@ -1001,6 +1050,7 @@ export class WerewolfRoom {
       } else {
         throw new HttpError(403, 'Peran ini tidak memiliki aksi malam.');
       }
+      this.runBotNightActions(room);
       return;
     }
 
@@ -1008,7 +1058,6 @@ export class WerewolfRoom {
       requirePlayer();
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
-      const witchPotions = room.witchPotions?.[player.id] || { heal: false, poison: false };
       const roleAbilities = {
         seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
         cupid: 'cupidBond', detective: 'detectiveInspection'
@@ -1017,10 +1066,11 @@ export class WerewolfRoom {
         || (roleAbilities[player.role] && !abilityEnabled(room, roleAbilities[player.role]))
         || (player.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))
         || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed))
-        || (player.role === 'witch' && !witchPotions.heal && !witchPotions.poison);
+        || player.role === 'witch';
       if (!canPass) throw new HttpError(403, 'Peran ini harus menyelesaikan aksi malamnya.');
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
       room.nightActions[player.id] = { type: 'pass' };
+      this.runBotNightActions(room);
       return;
     }
 

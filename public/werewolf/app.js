@@ -10,7 +10,7 @@ const ROLE_INFO = {
   seer: ['Seer', 'Periksa satu pemain setiap malam untuk mengetahui apakah ia Werewolf.'],
   doctor: ['Doctor', 'Lindungi satu pemain dari serangan setiap malam.'],
   bodyguard: ['Bodyguard', 'Jaga satu pemain setiap malam. Jika target diserang, kamu yang menerima serangan.'],
-  witch: ['Witch', 'Memiliki satu ramuan penyembuh dan satu racun untuk digunakan masing-masing sekali selama permainan.'],
+  witch: ['Witch', 'Mengetahui target serangan Werewolf setelah kawanan memilih. Memiliki satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   hunter: ['Hunter', 'Jika tereliminasi, pilih satu pemain hidup untuk ditembak.'],
   cupid: ['Cupid', 'Pada malam pertama, hubungkan dua pemain. Jika salah satu tereliminasi, pasangannya ikut tereliminasi.'],
   guardian_angel: ['Guardian Angel', 'Pilih satu pemain untuk dilindungi setiap malam. Mendapat kemenangan tambahan jika target pilihan terakhir masih hidup saat permainan berakhir.'],
@@ -386,6 +386,7 @@ function renderPlayers() {
     if (player.isBot) name.append(node('span', 'bot-mark', ' BOT'));
     const details = [];
     if (player.role) details.push(roleLabel(player.role));
+    if (player.nightActionPartner) details.push('Pasangan: ' + player.nightActionPartner);
     if (!player.alive) details.push('Tereliminasi');
     else if (roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
     else if (roomState.room.phase === 'night') {
@@ -502,6 +503,13 @@ function renderModeratorPhase(parent) {
 }
 
 function renderPlayerPhase(parent) {
+  const loverNames = roomState.self?.loverNames || [];
+  if (loverNames.length === 2) {
+    const message = roomState.self.role === 'cupid'
+      ? 'Pasangan yang kamu hubungkan: ' + loverNames.join(' & ') + '.'
+      : 'Kamu terikat sebagai pasangan dengan ' + loverNames.filter(name => name !== roomState.self.name).join(' & ') + '. Jika salah satu tereliminasi, pasangannya ikut tereliminasi.';
+    addText(parent, 'div', 'notice success', message);
+  }
   switch (roomState.room.phase) {
     case 'lobby':
       addText(parent, 'div', 'notice', 'Menunggu moderator memulai permainan.');
@@ -607,6 +615,9 @@ function renderModeratorMorning(parent) {
     if (eliminated) addText(card, 'p', '', 'Pemain: ' + eliminated.name + ' · Peran: ' + roleLabel(eliminated.role));
   }
   parent.append(card);
+  if (roomState.room.lovers?.length === 2) {
+    addText(parent, 'div', 'notice', 'Pasangan Cupid: ' + roomState.room.lovers.join(' & '));
+  }
   if (roomState.room.winner) {
     addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
     parent.append(button('Umumkan pemenang', 'primary wide', () => sendAction('start_discussion')));
@@ -705,6 +716,9 @@ function renderModeratorResult(parent) {
 function renderModeratorFinished(parent) {
   phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Hasil akhir dan seluruh peran hanya ditampilkan pada panel moderator.');
   addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
+  if (roomState.room.lovers?.length === 2) {
+    addText(parent, 'div', 'notice', 'Pasangan Cupid: ' + roomState.room.lovers.join(' & '));
+  }
   if (roomState.room.additionalWinners?.length) {
     const names = roomState.players.filter(player => roomState.room.additionalWinners.includes(player.id)).map(player => player.name);
     addText(parent, 'div', 'notice success', 'Kemenangan tambahan Guardian Angel: ' + names.join(', '));
@@ -761,7 +775,7 @@ function renderPlayerNight(parent) {
   if (['villager', 'hunter', 'mayor', 'jester'].includes(self.role)
     || (roleAbility[self.role] && !abilityOn(roleAbility[self.role]))
     || (self.role === 'guardian_angel' && !abilityOn('guardianProtection') && !abilityOn('guardianBonus'))
-    || (self.role === 'cupid' && (roomState.room.round > 1 || !abilityOn('cupidBond')))) {
+    || (self.role === 'cupid' && (roomState.room.round > 1 || !abilityOn('cupidBond') || self.cupidUsed))) {
     parent.append(button('Saya sudah siap', 'primary wide', () => sendAction('night_pass')));
     return;
   }
@@ -788,15 +802,26 @@ function renderPlayerNight(parent) {
     if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target pilihan terakhir: ' + self.guardianTargetName);
   } else if (self.role === 'witch') {
     const potions = self.witchPotions || { heal: false, poison: false };
+    const attack = self.witchAttack || { ready: false, targetName: null, tied: false };
     addText(parent, 'h3', '', 'Pilih ramuan');
-    if (potions.heal) parent.append(button('Gunakan ramuan penyembuh', 'secondary wide', () => sendAction('night_action', { mode: 'heal' })));
+    if (!attack.ready) {
+      addText(parent, 'div', 'notice', 'Menunggu seluruh Werewolf menyelesaikan pilihan serangan. Target hanya terlihat oleh Witch.');
+    } else if (attack.targetName) {
+      addText(parent, 'div', 'notice warning', 'Target serangan Werewolf: ' + attack.targetName + '. Gunakan ramuan penyembuh untuk menyelamatkannya.');
+    } else {
+      addText(parent, 'div', 'notice', attack.tied ? 'Suara Werewolf seri. Tidak ada target untuk diselamatkan.' : 'Tidak ada target serangan Werewolf yang dapat diselamatkan.');
+    }
+    if (potions.heal) {
+      parent.append(button('Gunakan ramuan penyembuh', 'secondary wide',
+        () => sendAction('night_action', { mode: 'heal' }), !attack.ready || !attack.targetName));
+    }
     if (potions.poison) {
       addText(parent, 'p', 'hint', 'Pilih target untuk ramuan racun:');
       const grid = node('div', 'action-grid');
       for (const target of targets) grid.append(button('Racun · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id, mode: 'poison' })));
       parent.append(grid);
     }
-    if (!potions.heal && !potions.poison) parent.append(button('Saya sudah menggunakan semua ramuan', 'primary wide', () => sendAction('night_pass')));
+    parent.append(button('Lewati penggunaan ramuan', 'secondary wide', () => sendAction('night_pass')));
   } else if (self.role === 'cupid' && roomState.room.round === 1) {
     addText(parent, 'h3', '', 'Hubungkan dua pemain');
     const first = node('select', 'target-select');
