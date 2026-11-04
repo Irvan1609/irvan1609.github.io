@@ -278,3 +278,9 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 /* Host room shutdown control. */
 .text-button.disband-button{background:#48262d;border-color:#75414a;color:#ffd9dc}
 .text-button.disband-button:hover:not(:disabled){background:#63313a;border-color:#a95a65}
+
+/* Keep host controls visible and easy to identify on desktop and mobile. */
+.room-top-actions{flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.text-button.restart-button{background:#d6ae70;border:1px solid #f0d6a6;color:#171b22;font-weight:900;opacity:1}
+.text-button.restart-button:hover:not(:disabled){background:#f0d6a6;color:#171b22}
+@media(max-width:620px){.room-top-actions{justify-content:flex-start}.room-top-actions .status-pill{margin-right:auto}.room-top-actions .text-button{min-height:38px;padding:8px 11px}}
