@@ -25,6 +25,17 @@ async function payload(response, expectedStatus = 200) {
   return data;
 }
 
+async function submitVillagerMath(room, token) {
+  const view = (await payload(await room.fetch(makeRequest('/internal/state', 'GET', undefined, token)))).state;
+  const prompt = view.self.villagerPrompt;
+  assert.ok(prompt && prompt.id && prompt.question);
+  assert.equal(prompt.options.length, 4);
+  assert.deepEqual(Object.keys(prompt).sort(), ['id', 'options', 'question']);
+  await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'night_action', mode: 'villager_math', promptId: prompt.id, choiceIndex: 0
+  }, token)));
+}
+
 const storage = new MemoryStorage();
 const room = new WerewolfRoom({ storage, getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
@@ -133,13 +144,13 @@ assert.equal(saved.phase, 'night');
 const nightActions = [
   { type: 'night_action', targetId: saved.players[3].id },
   { type: 'night_action', targetId: saved.players[0].id },
-  { type: 'night_action', targetId: saved.players[3].id },
-  { type: 'night_pass' },
-  { type: 'night_pass' }
+  { type: 'night_action', targetId: saved.players[3].id }
 ];
-for (let i = 0; i < playerTokens.length; i += 1) {
+for (let i = 0; i < nightActions.length; i += 1) {
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', nightActions[i], playerTokens[i])));
 }
+await submitVillagerMath(room, playerTokens[3]);
+await submitVillagerMath(room, playerTokens[4]);
 const nightProgress = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
@@ -331,8 +342,8 @@ for (const token of systemTokens) {
 }
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'night', 'System moderator starts night after every card is opened.');
-assert.equal(systemState.nightActions[systemState.players[3].id].type, 'pass');
-assert.equal(systemState.nightActions[systemState.players[4].id].type, 'pass');
+assert.equal(systemState.nightActions[systemState.players[3].id], undefined, 'System mode waits for human Villagers to complete the night challenge.');
+assert.equal(systemState.nightActions[systemState.players[4].id], undefined);
 await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: systemState.players[3].id
 }, systemTokens[0])));
@@ -342,8 +353,10 @@ await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
 await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: systemState.players[3].id
 }, systemTokens[2])));
+await submitVillagerMath(systemRoom, systemTokens[3]);
+await submitVillagerMath(systemRoom, systemTokens[4]);
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles finish.');
+assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles and Villager challenges finish.');
 assert.match(systemState.lastResult.message, /perlindungan/);
 await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, systemToken)));
 systemState = await systemRoom.loadRoom();
@@ -437,8 +450,8 @@ assert.equal(cupidModeratorView.players[2].nightActionPartner, witchNames[4]);
 await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', mode: 'heal'
 }, witchTokens[1])));
-await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, witchTokens[3])));
-await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, witchTokens[4])));
+await submitVillagerMath(witchRoom, witchTokens[3]);
+await submitVillagerMath(witchRoom, witchTokens[4]);
 await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, witchCreated.token)));
 witchState = await witchRoom.loadRoom();
 assert.equal(witchState.phase, 'morning');
@@ -498,8 +511,8 @@ await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST',
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
 }, cupidNightTokens[2])));
-await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, cupidNightTokens[3])));
-await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, cupidNightTokens[4])));
+await submitVillagerMath(cupidNightRoom, cupidNightTokens[3]);
+await submitVillagerMath(cupidNightRoom, cupidNightTokens[4]);
 
 const wolfNightPrivateView = (await payload(await cupidNightRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
@@ -693,7 +706,11 @@ assert.equal(scaledState.players.length, 25);
 assert.equal(scaledState.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 6);
 assert.equal(scaledState.players.filter(player => player.role === 'seer').length, 1);
 assert.equal(scaledState.players.filter(player => player.role === 'doctor').length, 1);
-assert.equal(scaledState.players.filter(player => player.role === 'villager').length, 17);
+assert.equal(scaledState.players.filter(player => player.role === 'villager').length, 9);
+assert.equal(scaledState.players.filter(player => player.role === 'alpha_wolf').length, 1);
+for (const role of ['bodyguard', 'witch', 'hunter', 'cupid', 'detective', 'mayor', 'guardian_angel', 'jester']) {
+  assert.equal(scaledState.players.filter(player => player.role === role).length, 1, `Default role deck should include ${role}.`);
+}
 console.log('Werewolf role-scaling check passed: 25 players receive a proportionate default role deck.');
 
 // No fixed room total: join 25 humans, add 25 bots, then use a role count above twenty.
@@ -761,7 +778,7 @@ await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: tieState.players[3].id
 }, tieTokens[1])));
 for (let index = 2; index < 5; index += 1) {
-  await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, tieTokens[index])));
+  await submitVillagerMath(tieRoom, tieTokens[index]);
 }
 await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, tieCreated.token)));
 tieState = await tieRoom.loadRoom();
@@ -829,15 +846,50 @@ concurrentState.players.forEach((player, index) => {
 await concurrentRoom.saveRoom(concurrentState);
 await payload(await concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, concurrentCreated.token)));
 concurrentState = await concurrentRoom.loadRoom();
+await submitVillagerMath(concurrentRoom, concurrentTokens[3]);
+await submitVillagerMath(concurrentRoom, concurrentTokens[4]);
 const concurrentResponses = await Promise.all([
   concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[4].id }, concurrentTokens[0])),
   concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[0].id }, concurrentTokens[1])),
-  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[4].id }, concurrentTokens[2])),
-  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, concurrentTokens[3])),
-  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, concurrentTokens[4]))
+  concurrentRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_action', targetId: concurrentState.players[4].id }, concurrentTokens[2]))
 ]);
 for (const response of concurrentResponses) await payload(response);
 concurrentState = await concurrentRoom.loadRoom();
 assert.equal(Object.keys(concurrentState.nightActions).length, 5);
 console.log('Werewolf concurrent-action regression passed: simultaneous actions are retained without lost updates.');
+
+// Room reset preserves the same roster, tokens, and room code for another game.
+const replayRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const replayCreated = await payload(await replayRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'RPLY25', name: 'Replay Host', settings: { moderatorMode: 'random' }
+})), 201);
+const replayTokens = [];
+for (const name of ['Replay A', 'Replay B', 'Replay C', 'Replay D', 'Replay E']) {
+  replayTokens.push((await payload(await replayRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, replayCreated.token)));
+let replayState = await replayRoom.loadRoom();
+assert.ok(['host', 'system'].includes(replayState.activeModeratorMode));
+replayState.phase = 'finished';
+replayState.winner = 'villagers';
+replayState.lastResult = { kind: 'vote', message: 'Game selesai.' };
+replayState.players.forEach(player => { player.role = 'villager'; player.alive = false; player.hasDrawn = true; });
+await replayRoom.saveRoom(replayState);
+const originalIds = replayState.players.map(player => player.id);
+const originalHashes = replayState.players.map(player => player.tokenHash);
+await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'reset_to_lobby' }, replayCreated.token)));
+replayState = await replayRoom.loadRoom();
+assert.equal(replayState.phase, 'lobby');
+assert.equal(replayState.round, 0);
+assert.equal(replayState.winner, null);
+assert.equal(replayState.players.length, 5);
+assert.deepEqual(replayState.players.map(player => player.id), originalIds);
+assert.deepEqual(replayState.players.map(player => player.tokenHash), originalHashes);
+assert.ok(replayState.players.every(player => player.role === null && player.alive && !player.hasDrawn));
+const replayPlayerView = (await payload(await replayRoom.fetch(makeRequest('/internal/state', 'GET', undefined, replayTokens[0])))).state;
+assert.equal(replayPlayerView.lobbyPlayers.length, 5);
+assert.equal(replayPlayerView.players.length, 0, 'Lobby roster for players must not reveal roles.');
+await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, replayCreated.token)));
+assert.equal((await replayRoom.loadRoom()).phase, 'role_draw');
+console.log('Werewolf persistent-room regression passed: reset returns the same players to the lobby and the next game starts in the same room.');
 
