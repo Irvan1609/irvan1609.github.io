@@ -303,6 +303,10 @@ async function connectRealtime() {
           clearInvalidSession(activeSession, message.message || 'Host membubarkan room. Kamu telah dikeluarkan dari room.', false);
           return;
         }
+        if (message.type === 'player_kicked') {
+          clearInvalidSession(activeSession, message.message || 'Host mengeluarkanmu dari room. Sesi ini sudah tidak berlaku.', false);
+          return;
+        }
         if (message.type === 'state') applyState(message.state, activeSession);
         if (message.type === 'error') showMessage(message.error, true);
       } catch {}
@@ -620,26 +624,47 @@ function renderPlayers() {
   const list = $('playersList');
   list.replaceChildren();
   const players = roomState.players || [];
+  const moderator = isRoomModerator();
+  const host = isHost();
   $('playerCount').textContent = players.length + ' pemain';
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
+    const identity = node('div', 'player-identity');
     const avatar = node('span', 'player-avatar', (player.name || '?').slice(0, 1).toUpperCase());
     const name = node('span', 'player-name', player.name);
     if (player.isBot) name.append(node('span', 'bot-mark', ' BOT'));
+    identity.append(avatar, name);
+
     const details = [];
-    if (player.role) details.push(roleLabel(player.role));
-    if (player.nightActionPartner) details.push('Pasangan: ' + player.nightActionPartner);
+    if (moderator && player.role) details.push(roleLabel(player.role));
+    if (moderator && player.nightActionPartner) details.push('Pasangan: ' + player.nightActionPartner);
     if (!player.alive) details.push('Tereliminasi');
-    else if (roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
-    else if (roomState.room.phase === 'night') {
+    else if (moderator && roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
+    else if (moderator && roomState.room.phase === 'night') {
       details.push(player.hasActed
         ? 'Aksi selesai' + (player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
         : 'Menunggu aksi');
-    } else if (roomState.room.phase === 'voting') {
+    } else if (moderator && roomState.room.phase === 'voting') {
       details.push(player.hasVoted ? 'Memilih ' + (player.voteTarget || 'pemain') : 'Belum voting');
-    } else if (player.connected) details.push('Online');
-    chip.append(avatar, name, node('span', 'player-meta', details.join(' · ') || (player.connected ? 'Online' : 'Menunggu')));
+    } else details.push(player.connected ? 'Online' : 'Menunggu');
+
+    chip.append(identity, node('span', 'player-meta', details.join(' · ')));
+    if (host && !player.isHost && player.id !== roomState.self?.id) {
+      const kickButton = button('Kick', 'kick-player-button', () => kickPlayer(player));
+      kickButton.title = 'Keluarkan ' + player.name + ' dari room';
+      kickButton.setAttribute('aria-label', 'Keluarkan ' + player.name + ' dari room');
+      chip.append(kickButton);
+    }
     list.append(chip);
+  }
+}
+
+async function kickPlayer(player) {
+  if (!isHost() || !player?.id || player.isHost || player.id === roomState?.self?.id) return;
+  const name = String(player.name || 'Pemain');
+  if (!confirm('Keluarkan ' + name + ' dari room? Pemain akan terputus dan sesi lamanya tidak dapat digunakan lagi.')) return;
+  if (await sendAction('kick_player', { playerId: player.id })) {
+    showMessage(name + ' berhasil dikeluarkan dari room.');
   }
 }
 
@@ -695,15 +720,17 @@ function renderRoom() {
     leaveButton.disabled = moderator && !host;
     leaveButton.classList.toggle('disband-button', host);
   }
-  $('playersSection').classList.toggle('hidden', !moderator);
+  const canManagePlayers = moderator || host;
+  $('playersSection').classList.toggle('hidden', !canManagePlayers);
   $('roomIdentity').classList.toggle('hidden', !moderator);
   $('roomMeta').classList.toggle('hidden', !moderator);
-  if (moderator) {
-    updatePhaseTracker(room.phase);
-    renderPlayers();
-  } else {
-    $('playersList').replaceChildren();
-  }
+  const playersHint = $('playersSection').querySelector('.hint-inline');
+  if (playersHint) playersHint.textContent = moderator
+    ? 'Moderator dapat melihat status dan peran pemain.'
+    : 'Host dapat mengeluarkan pemain tanpa melihat role mereka.';
+  if (moderator) updatePhaseTracker(room.phase);
+  if (canManagePlayers) renderPlayers();
+  else $('playersList').replaceChildren();
   const activeElement = document.activeElement;
   const activeId = activeElement && activeElement.id ? activeElement.id : '';
   const activeValue = activeElement && 'value' in activeElement ? activeElement.value : undefined;
