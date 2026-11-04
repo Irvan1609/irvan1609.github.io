@@ -137,7 +137,7 @@ assert.match(app, /roomState\.wolfTeam/);
 assert.match(app, /Voting bersifat rahasia/);
 assert.match(app, /function renderModeratorEventReport/);
 assert.match(app, /KARTU MODERATOR/);
-assert.match(app, /moderator: \['Moderator'/);
+assert.match(app, /moderator: \['Moderator Sistem'/);
 assert.match(app, /roleCounts\.moderator/);
 assert.match(css, /\.role-flip-card/);
 assert.match(css, /\.role-flip-card\.is-flipped/);
