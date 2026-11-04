@@ -966,7 +966,7 @@ const disbandResult = await payload(await disbandRoom.fetch(makeRequest('/intern
 }, disbandCreated.token)));
 assert.equal(disbandResult.disbanded, true);
 assert.match(disbandResult.message, /dibubarkan oleh host/i);
-assert.equal(await disbandRoom.loadRoom(), undefined, 'Room state must be removed.');
+assert.equal(await disbandRoom.loadRoom(), null, 'Room state must be removed.');
 assert.equal(disbandStorage.values.size, 0, 'Room and temporary ticket data must be deleted.');
 assert.equal(disbandStorage.alarmAt, null, 'Room expiry alarm must be cancelled.');
 assert.equal(disbandSockets.length, 3);
