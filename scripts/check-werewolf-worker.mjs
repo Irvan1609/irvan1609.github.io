@@ -382,6 +382,122 @@ const moderatorLoversView = (await payload(await witchRoom.fetch(
 assert.deepEqual(moderatorLoversView.room.lovers, [witchNames[3], witchNames[4]]);
 console.log('Werewolf Witch/Cupid checks passed: Witch-only attack clue, guarded healing, private Cupid pair disclosure, and moderator visibility.');
 
+// A Cupid pair may contain a Werewolf and a Villager. Killing either member removes both.
+const cupidNightRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const cupidNightCreated = await payload(await cupidNightRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'CPDNT1', name: 'Cupid Night Moderator'
+})), 201);
+const cupidNightNames = ['Wolf One', 'Wolf Two', 'Cupid One', 'Village One', 'Village Two'];
+const cupidNightTokens = [];
+for (const name of cupidNightNames) {
+  const joined = await payload(await cupidNightRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  cupidNightTokens.push(joined.token);
+}
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, cupidNightCreated.token)));
+let cupidNightState = await cupidNightRoom.loadRoom();
+const cupidNightRoles = ['wolf', 'wolf', 'cupid', 'villager', 'villager'];
+cupidNightState.players.forEach((player, index) => {
+  player.role = cupidNightRoles[index];
+  player.hasDrawn = true;
+});
+await cupidNightRoom.saveRoom(cupidNightState);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, cupidNightCreated.token)));
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[3].id
+}, cupidNightTokens[0])));
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[3].id
+}, cupidNightTokens[1])));
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
+}, cupidNightTokens[2])));
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, cupidNightTokens[3])));
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, cupidNightTokens[4])));
+
+const wolfNightPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
+))).state;
+assert.deepEqual(wolfNightPrivateView.wolfTeam, cupidNightNames.slice(0, 2));
+assert.deepEqual(wolfNightPrivateView.players, []);
+assert.equal(wolfNightPrivateView.room.lastResult, null);
+assert.deepEqual(wolfNightPrivateView.room.lovers, []);
+assert.ok(wolfNightPrivateView.targets.every(target => Object.keys(target).sort().join(',') === 'id,name'));
+const villagerNightPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[4])
+))).state;
+assert.deepEqual(villagerNightPrivateView.wolfTeam, []);
+assert.deepEqual(villagerNightPrivateView.players, []);
+
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night'
+}, cupidNightCreated.token)));
+cupidNightState = await cupidNightRoom.loadRoom();
+assert.equal(cupidNightState.players[0].alive, false);
+assert.equal(cupidNightState.players[3].alive, false);
+assert.equal(cupidNightState.lastResult.eliminations.find(item => item.id === cupidNightState.players[3].id).cause, 'werewolf_attack');
+assert.equal(cupidNightState.lastResult.eliminations.find(item => item.id === cupidNightState.players[0].id).cause, 'cupid_bond');
+assert.ok(cupidNightState.lastResult.events.some(event => event.includes('Cupid mengikat Wolf One dan Village One')));
+const linkedWolfVillagerView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[3])
+))).state;
+assert.equal(linkedWolfVillagerView.self.role, 'villager');
+assert.deepEqual(linkedWolfVillagerView.self.loverNames, ['Wolf One', 'Village One']);
+assert.deepEqual(linkedWolfVillagerView.players, []);
+assert.equal(linkedWolfVillagerView.room.lastResult, null);
+assert.deepEqual(linkedWolfVillagerView.room.lovers, []);
+assert.ok(linkedWolfVillagerView.targets.every(target => Object.keys(target).sort().join(',') === 'id,name'));
+const cupidPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[2])
+))).state;
+assert.deepEqual(cupidPrivateView.self.loverNames, ['Wolf One', 'Village One']);
+assert.deepEqual(cupidPrivateView.players, []);
+console.log('Werewolf privacy/Cupid checks passed: wolves know their pack, players see no other roles, and a linked Werewolf/Villager die together.');
+
+// Voting also eliminates both linked players, while other players cannot inspect roles or votes.
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_discussion'
+}, witchCreated.token)));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'offline'
+}, witchCreated.token)));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_voting'
+}, witchCreated.token)));
+const privateVoteView = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchTokens[0])
+))).state;
+assert.equal(privateVoteView.self.role, 'wolf');
+assert.deepEqual(privateVoteView.players, []);
+assert.equal(privateVoteView.room.lastResult, null);
+assert.deepEqual(privateVoteView.room.lovers, []);
+assert.deepEqual(privateVoteView.wolfTeam, [witchNames[0]]);
+assert.ok(privateVoteView.targets.every(target => Object.keys(target).sort().join(',') === 'id,name'));
+const voteTargets = [3, 3, 3, 4, 3];
+for (let index = 0; index < voteTargets.length; index += 1) {
+  const current = await witchRoom.loadRoom();
+  await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'cast_vote', targetId: current.players[voteTargets[index]].id
+  }, witchTokens[index])));
+}
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_vote'
+}, witchCreated.token)));
+const voteCupidResult = (await payload(await witchRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, witchCreated.token)
+))).state;
+const voteResultState = await witchRoom.loadRoom();
+assert.deepEqual(voteCupidResult.room.lastResult.eliminatedIds, [
+  voteResultState.players[3].id,
+  voteResultState.players[4].id
+]);
+assert.deepEqual(voteCupidResult.room.lastResult.eliminations.map(item => item.cause), ['vote', 'cupid_bond']);
+assert.deepEqual(voteCupidResult.room.lastResult.eliminations.map(item => item.role), ['villager', 'villager']);
+console.log('Werewolf voting privacy check passed: votes stay private to players and a Cupid pair is eliminated together by vote.');
+
 const botWitchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const botWitchCreated = await payload(await botWitchRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'B8TCH3', name: 'Bot Moderator'
