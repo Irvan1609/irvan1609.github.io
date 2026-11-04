@@ -177,7 +177,8 @@ const onlineDiscussion = (await payload(await room.fetch(
 ))).state;
 assert.equal(onlineDiscussion.room.discussionMode, 'online');
 assert.equal(onlineDiscussion.room.callUrl, 'https://meet.google.com/test-room');
-assert.equal(onlineDiscussion.room.discussionEndsAt, null);
+saved = await room.loadRoom();
+assert.equal(saved.discussionEndsAt, null);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
 saved = await room.loadRoom();
