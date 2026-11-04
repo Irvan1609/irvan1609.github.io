@@ -706,12 +706,16 @@ assert.equal(scaledState.players.length, 25);
 assert.equal(scaledState.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 6);
 assert.equal(scaledState.players.filter(player => player.role === 'seer').length, 1);
 assert.equal(scaledState.players.filter(player => player.role === 'doctor').length, 1);
-assert.equal(scaledState.players.filter(player => player.role === 'villager').length, 9);
+assert.equal(scaledState.players.filter(player => player.role === 'villager').length, 5);
 assert.equal(scaledState.players.filter(player => player.role === 'alpha_wolf').length, 1);
-for (const role of ['bodyguard', 'witch', 'hunter', 'cupid', 'detective', 'mayor', 'guardian_angel', 'jester']) {
-  assert.equal(scaledState.players.filter(player => player.role === role).length, 1, `Default role deck should include ${role}.`);
+const expected25RoleCounts = {
+  bodyguard: 2, witch: 2, hunter: 2, cupid: 1, detective: 2,
+  mayor: 1, guardian_angel: 1, jester: 1
+};
+for (const [role, expected] of Object.entries(expected25RoleCounts)) {
+  assert.equal(scaledState.players.filter(player => player.role === role).length, expected, `25-player role mix should include ${expected} ${role} role(s).`);
 }
-console.log('Werewolf role-scaling check passed: 25 players receive a proportionate default role deck.');
+console.log('Werewolf role-scaling check passed: 25 players receive a mixed deck with only five Villagers.');
 
 // A large automatic room adds more special roles rather than filling the remainder with Villagers.
 const auto50Room = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
@@ -727,11 +731,15 @@ await payload(await auto50Room.fetch(makeRequest('/internal/action', 'POST', { t
 const auto50State = await auto50Room.loadRoom();
 assert.equal(auto50State.players.length, 50);
 assert.equal(auto50State.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 12);
-assert.equal(auto50State.players.filter(player => player.role === 'villager').length, 20);
-for (const role of ['seer', 'doctor', 'bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel']) {
-  assert.equal(auto50State.players.filter(player => player.role === role).length, 2, `Large automatic deck should include two ${role} roles.`);
+assert.equal(auto50State.players.filter(player => player.role === 'villager').length, 10);
+const expected50RoleCounts = {
+  seer: 3, doctor: 3, bodyguard: 4, witch: 4, hunter: 3,
+  cupid: 1, detective: 3, mayor: 3, guardian_angel: 3, jester: 1
+};
+for (const [role, expected] of Object.entries(expected50RoleCounts)) {
+  assert.equal(auto50State.players.filter(player => player.role === role).length, expected, `50-player role mix should include ${expected} ${role} role(s).`);
 }
-console.log('Werewolf large automatic role-scaling check passed: 50 players receive a broader special-role mix and only 20 Villagers.');
+console.log('Werewolf large automatic role-scaling check passed: 50 players receive 28 special roles and only 10 Villagers.');
 
 // No fixed room total: join 25 humans, add 25 bots, then use a role count above twenty.
 const largeRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
