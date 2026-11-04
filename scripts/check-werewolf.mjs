@@ -130,7 +130,7 @@ assert.doesNotMatch(app, /Pemain bergabung: .*\/ 20\. Minimal 5 pemain/);
 assert.match(css, /entry-grid\{grid-template-columns:minmax\(0,1fr\)/, 'Entry forms must be stacked vertically.');
 
 assert.match(app, /ROLE_CONFIG_GROUPS/);
-assert.match(app, /ABILITY_OPTIONS/);
+assert.doesNotMatch(app, /ABILITY_OPTIONS|ABILITY_DEFAULTS|data-ability/, 'Role skill checkboxes are no longer part of the moderator settings.');
 assert.match(app, /update_settings/);
 assert.match(app, /Memiliki dua bobot suara/);
 assert.match(html, /id="playersSection"/);
@@ -169,7 +169,7 @@ assert.match(app, /roomState\.wolfTeam/);
 assert.match(app, /Voting bersifat rahasia/);
 assert.match(app, /function renderModeratorEventReport/);
 assert.match(app, /ROLE MODERATOR · PENGATUR JALANNYA PERMAINAN/);
-assert.match(app, /moderator: \['Moderator Sistem'/);
+assert.match(app, /moderator: \['Moderator'/);
 assert.match(app, /roleCounts\.moderator/);
 assert.match(css, /\.role-flip-card/);
 assert.match(css, /\.role-flip-card\.is-flipped/);
