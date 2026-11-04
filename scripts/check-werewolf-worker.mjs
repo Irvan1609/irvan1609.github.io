@@ -176,7 +176,7 @@ await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { typ
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'voting');
-assert.equal(Object.keys(soloState.votes).length, 5);
+assert.equal(Object.keys(soloState.votes).length, soloState.players.filter(player => player.alive).length);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_vote' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.ok(['result', 'finished'].includes(soloState.phase));
