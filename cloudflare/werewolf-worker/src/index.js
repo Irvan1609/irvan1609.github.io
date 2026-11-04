@@ -1320,9 +1320,9 @@ export class WerewolfRoom {
     if (type === 'start_voting') {
       requireModerator();
       requirePhase('discussion');
-      if (room.discussionMode !== 'offline') {
-        throw new HttpError(409, 'Diskusi offline harus dimulai sebelum voting.');
-      }
+      room.discussionMode = 'offline';
+      room.callUrl = '';
+      room.discussionEndsAt = null;
       room.phase = 'voting';
       room.votes = {};
       this.runBotVotes(room, now);
