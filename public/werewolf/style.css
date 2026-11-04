@@ -250,3 +250,27 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .role-config-actions .hint{margin:0;max-width:380px}
 .role-zero-button{min-height:34px;padding:7px 11px;background:#26374d;border:1px solid #6b593c;color:#f0d6a6;font-size:10px;white-space:nowrap}
 @media(max-width:620px){.role-config-actions{align-items:stretch;flex-direction:column}.role-zero-button{width:100%}.role-config-actions .hint{max-width:none}}
+
+
+/* Private Werewolf coordination: visible only during the night phase. */
+.wolf-night-room{margin:14px 0;padding:14px;border:1px solid #8a7047;border-radius:14px;background:linear-gradient(145deg,#29251d,#151d2a)}
+.wolf-night-room h3{margin:5px 0 7px;color:#f0d6a6;font:600 20px var(--serif)}
+.wolf-team-members{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+.wolf-team-member{padding:6px 10px;border:1px solid #715c3b;border-radius:99px;background:#171f2c;color:#f0d6a6;font-size:10px;font-weight:800}
+.wolf-selection-board{margin:12px 0;padding:11px;border:1px solid #48536a;border-radius:10px;background:#101a29}
+.wolf-selection-row{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:8px 2px;border-bottom:1px solid #2d3a4d;font-size:11px}
+.wolf-selection-row:last-child{border-bottom:0}
+.wolf-selection-row b{min-width:0;overflow-wrap:anywhere;color:#e7eaf0}
+.wolf-choice-made{color:#a9dfc1;text-align:right;font-size:10px}
+.wolf-choice-pending{color:#b6bdc9;text-align:right;font-size:10px}
+.wolf-private-chat{margin-top:12px;padding:11px;border:1px solid #48536a;border-radius:10px;background:#101a29}
+.wolf-chat-messages{display:flex;flex-direction:column;gap:8px;max-height:220px;min-height:62px;overflow:auto;padding:5px 2px}
+.wolf-chat-message{padding:8px 10px;border:1px solid #34445a;border-radius:9px;background:#19273a}
+.wolf-chat-message-header{display:flex;justify-content:space-between;gap:8px;color:#f0d6a6;font-size:10px}
+.wolf-chat-message-header time{color:#8798ad;font-size:9px}
+.wolf-chat-message p{margin:5px 0 0;color:#e2e8f0;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.wolf-chat-empty{margin:6px 0;color:#9caabe;font-size:10px}
+.wolf-chat-form{display:flex;gap:7px;margin-top:9px}
+.wolf-chat-input{min-width:0;flex:1;min-height:38px}
+.wolf-chat-form button{flex:0 0 auto;min-height:38px}
+@media(max-width:430px){.wolf-night-room,.wolf-private-chat{padding:10px}.wolf-selection-row{align-items:flex-start;flex-direction:column;gap:4px}.wolf-choice-made,.wolf-choice-pending{text-align:left}.wolf-chat-form{gap:6px}.wolf-chat-form button{padding:8px 11px}}

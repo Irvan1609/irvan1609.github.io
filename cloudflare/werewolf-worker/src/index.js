@@ -1,6 +1,7 @@
 const ROOM_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_BOT_BATCH = 500;
 const MAX_CHAT_MESSAGES = 100;
+const MAX_WOLF_CHAT_MESSAGES = 60;
 const BOT_NAMES = ['Aruna', 'Bima', 'Citra', 'Damar', 'Elang', 'Farah', 'Genta', 'Hana', 'Indra', 'Jihan', 'Kirana', 'Laras', 'Mahesa', 'Nadia', 'Raka', 'Salsa', 'Tara', 'Umar', 'Vina'];
 const BOT_PERSONALITIES = ['calm', 'analytical', 'assertive', 'cautious'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -209,18 +210,18 @@ function isWolf(role) {
   return WOLF_ROLES.has(role);
 }
 
-function wolfAttackSummary(room) {
+function wolfAttackSummary(room, allowPartial = false) {
   const wolves = room.players.filter(player => player.alive && isWolf(player.role));
   if (!wolves.length) return { ready: true, targetId: null, tied: false };
   const actions = wolves.map(player => room.nightActions?.[player.id]);
-  if (actions.some(action => action?.type !== 'wolf_vote')) {
+  if (!allowPartial && actions.some(action => action?.type !== 'wolf_vote')) {
     return { ready: false, targetId: null, tied: false };
   }
   const tally = {};
   const firstVoteAt = {};
   for (const wolf of wolves) {
-    const action = room.nightActions[wolf.id];
-    if (!action?.targetId) continue;
+    const action = room.nightActions?.[wolf.id];
+    if (action?.type !== 'wolf_vote' || !action.targetId) continue;
     const weight = wolf.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
     tally[action.targetId] = (tally[action.targetId] || 0) + weight;
     const submittedAt = Number(action.submittedAt) || Number.MAX_SAFE_INTEGER;
@@ -462,6 +463,22 @@ export class WerewolfRoom {
     const witchAttack = !isModerator && self?.role === 'witch' && room.phase === 'night'
       ? wolfAttackSummary(room)
       : null;
+    const canSeeWolfRoom = !isModerator && room.phase === 'night' && Boolean(self?.alive) && isWolf(self?.role);
+    const wolfSelections = canSeeWolfRoom
+      ? room.players.filter(item => item.alive && isWolf(item.role)).map(wolf => {
+        const action = room.nightActions?.[wolf.id];
+        const selected = action?.type === 'wolf_vote'
+          ? room.players.find(item => item.id === action.targetId)
+          : null;
+        return {
+          playerId: wolf.id,
+          name: wolf.name,
+          hasChosen: Boolean(selected),
+          targetName: selected?.name || null,
+          isSelf: wolf.id === self.id
+        };
+      })
+      : [];
     const loverIds = Array.isArray(room.lovers) ? room.lovers : [];
     const canSeeLovers = !isModerator && self && (self.role === 'cupid' || loverIds.includes(self.id));
     const loverNames = canSeeLovers
@@ -494,8 +511,17 @@ export class WerewolfRoom {
       })) : [],
       players,
       targets,
-      wolfTeam: !isModerator && isWolf(self?.role)
+      wolfTeam: canSeeWolfRoom
         ? room.players.filter(player => player.alive && isWolf(player.role)).map(player => player.name)
+        : [],
+      wolfSelections,
+      wolfChat: canSeeWolfRoom
+        ? (Array.isArray(room.wolfChat) ? room.wolfChat : []).slice(-MAX_WOLF_CHAT_MESSAGES).map(message => ({
+          id: message.id,
+          name: message.name,
+          text: message.text,
+          at: message.at
+        }))
         : [],
       self: self ? {
         id: self.id,
@@ -506,6 +532,9 @@ export class WerewolfRoom {
         status,
         hasDrawn: Boolean(self.hasDrawn),
         hasActed: Boolean(room.nightActions && room.nightActions[self.id]),
+        wolfTargetName: canSeeWolfRoom && room.nightActions?.[self.id]?.type === 'wolf_vote'
+          ? room.players.find(item => item.id === room.nightActions[self.id].targetId)?.name || null
+          : null,
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)),
         seerResult: !isModerator && ['seer', 'detective'].includes(self.role) && room.seerResults
           ? room.seerResults[self.id] || null
@@ -833,6 +862,7 @@ export class WerewolfRoom {
           villagerPrompts: {},
           activeModeratorMode: null,
           chat: [],
+          wolfChat: [],
           lastResult: null,
           winner: null,
           createdAt: Date.now(),
@@ -1107,6 +1137,7 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
       return;
@@ -1194,6 +1225,7 @@ export class WerewolfRoom {
         };
       });
       room.chat = [];
+      room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
       if (this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
@@ -1221,11 +1253,35 @@ export class WerewolfRoom {
       }
       room.phase = 'night';
       room.nightActions = {};
+      room.wolfChat = [];
       this.prepareVillagerPrompts(room);
       room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
       this.runBotNightActions(room);
       await this.resolveSystemNightIfReady(room, now);
+      return;
+    }
+
+    if (type === 'wolf_chat') {
+      requirePlayer();
+      requirePhase('night');
+      if (!player.alive || !isWolf(player.role)) {
+        throw new HttpError(403, 'Chat kawanan hanya tersedia untuk Werewolf yang masih hidup pada malam hari.');
+      }
+      const text = String(body.text || '').trim();
+      if (!text) throw new HttpError(400, 'Pesan chat tidak boleh kosong.');
+      if (text.length > 280) throw new HttpError(400, 'Pesan chat maksimal 280 karakter.');
+      room.wolfChat = Array.isArray(room.wolfChat) ? room.wolfChat : [];
+      room.wolfChat.push({
+        id: crypto.randomUUID(),
+        playerId: player.id,
+        name: player.name,
+        text,
+        at: now
+      });
+      if (room.wolfChat.length > MAX_WOLF_CHAT_MESSAGES) {
+        room.wolfChat.splice(0, room.wolfChat.length - MAX_WOLF_CHAT_MESSAGES);
+      }
       return;
     }
 
@@ -1378,7 +1434,7 @@ export class WerewolfRoom {
         }
       }
       const highest = Math.max(0, ...Object.values(wolfVotes));
-      const wolfAttack = wolfAttackSummary(room);
+      const wolfAttack = wolfAttackSummary(room, body.force === true);
       victimId = wolfAttack.targetId;
       const events = [];
       if (wolfAttack.tied && victimId) {
@@ -1450,6 +1506,7 @@ export class WerewolfRoom {
         round: room.round
       };
       room.nightActions = {};
+      room.wolfChat = [];
       checkWinner();
       room.phase = 'morning';
       room.discussionMode = null;
@@ -1558,6 +1615,7 @@ export class WerewolfRoom {
       room.round += 1;
       room.phase = 'night';
       room.nightActions = {};
+      room.wolfChat = [];
       this.prepareVillagerPrompts(room);
       room.votes = {};
       room.bodyguardTargets = {};

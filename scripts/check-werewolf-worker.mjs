@@ -505,9 +505,48 @@ await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST',
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[3].id
 }, cupidNightTokens[0])));
+const liveWolfSelection = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.deepEqual(liveWolfSelection.wolfTeam, ['Wolf One', 'Wolf Two']);
+assert.deepEqual(liveWolfSelection.wolfSelections, [
+  { playerId: cupidNightState.players[0].id, name: 'Wolf One', hasChosen: true, targetName: 'Village One', isSelf: false },
+  { playerId: cupidNightState.players[1].id, name: 'Wolf Two', hasChosen: false, targetName: null, isSelf: true }
+]);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[3].id
 }, cupidNightTokens[1])));
+const allWolfSelections = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
+))).state;
+assert.deepEqual(allWolfSelections.wolfSelections, [
+  { playerId: cupidNightState.players[0].id, name: 'Wolf One', hasChosen: true, targetName: 'Village One', isSelf: true },
+  { playerId: cupidNightState.players[1].id, name: 'Wolf Two', hasChosen: true, targetName: 'Village One', isSelf: false }
+]);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Serang Village One bersama-sama.'
+}, cupidNightTokens[0])));
+const wolfChatForTeammate = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.equal(wolfChatForTeammate.wolfChat.length, 1);
+assert.equal(wolfChatForTeammate.wolfChat[0].name, 'Wolf One');
+assert.equal(wolfChatForTeammate.wolfChat[0].text, 'Serang Village One bersama-sama.');
+const moderatorWolfRoomView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightCreated.token)
+))).state;
+assert.deepEqual(moderatorWolfRoomView.wolfTeam, []);
+assert.deepEqual(moderatorWolfRoomView.wolfSelections, []);
+assert.deepEqual(moderatorWolfRoomView.wolfChat, []);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Saya bukan Werewolf.'
+}, cupidNightTokens[3])), 403);
+const privateVillagerWolfView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[3])
+))).state;
+assert.deepEqual(privateVillagerWolfView.wolfTeam, []);
+assert.deepEqual(privateVillagerWolfView.wolfSelections, []);
+assert.deepEqual(privateVillagerWolfView.wolfChat, []);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
 }, cupidNightTokens[2])));
@@ -518,6 +557,8 @@ const wolfNightPrivateView = (await payload(await cupidNightRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[0])
 ))).state;
 assert.deepEqual(wolfNightPrivateView.wolfTeam, cupidNightNames.slice(0, 2));
+assert.equal(wolfNightPrivateView.wolfSelections.length, 2);
+assert.equal(wolfNightPrivateView.wolfChat.length, 1);
 assert.deepEqual(wolfNightPrivateView.players, []);
 assert.equal(wolfNightPrivateView.room.lastResult, null);
 assert.deepEqual(wolfNightPrivateView.room.lovers, []);
@@ -532,6 +573,23 @@ await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST',
   type: 'resolve_night'
 }, cupidNightCreated.token)));
 cupidNightState = await cupidNightRoom.loadRoom();
+assert.equal(cupidNightState.phase, 'morning');
+assert.deepEqual(cupidNightState.wolfChat, []);
+const wolfMorningPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightTokens[1])
+))).state;
+assert.deepEqual(wolfMorningPrivateView.wolfTeam, []);
+assert.deepEqual(wolfMorningPrivateView.wolfSelections, []);
+assert.deepEqual(wolfMorningPrivateView.wolfChat, []);
+assert.equal(wolfMorningPrivateView.room.phase, 'morning');
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Chat harus tertutup setelah pagi.'
+}, cupidNightTokens[1])), 409);
+const moderatorMorningPrivateView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightCreated.token)
+))).state;
+assert.deepEqual(moderatorMorningPrivateView.wolfTeam, []);
+assert.deepEqual(moderatorMorningPrivateView.wolfChat, []);
 assert.equal(cupidNightState.players[0].alive, false);
 assert.equal(cupidNightState.players[3].alive, false);
 assert.equal(cupidNightState.lastResult.eliminations.find(item => item.id === cupidNightState.players[3].id).cause, 'werewolf_attack');
@@ -957,3 +1015,45 @@ await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { t
 assert.equal((await replayRoom.loadRoom()).phase, 'role_draw');
 console.log('Werewolf persistent-room regression passed: reset returns the same players to the lobby and the next game starts in the same room.');
 
+
+
+// Forced morning resolution must execute any Werewolf votes already submitted,
+// even if one pack member has not completed an action.
+const partialWolfRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const partialWolfCreated = await payload(await partialWolfRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WLFPT1', name: 'Partial Wolf Host'
+})), 201);
+const partialWolfTokens = [];
+for (const name of ['Partial Wolf One', 'Partial Wolf Two', 'Partial Village']) {
+  partialWolfTokens.push((await payload(await partialWolfRoom.fetch(
+    makeRequest('/internal/join', 'POST', { name })
+  ), 201)).token);
+}
+let partialWolfState = await partialWolfRoom.loadRoom();
+partialWolfState.phase = 'role_draw';
+partialWolfState.round = 1;
+partialWolfState.activeModeratorMode = 'host';
+partialWolfState.players.forEach((player, index) => {
+  player.role = ['wolf', 'wolf', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await partialWolfRoom.saveRoom(partialWolfState);
+await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, partialWolfCreated.token)));
+partialWolfState = await partialWolfRoom.loadRoom();
+await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: partialWolfState.players[2].id
+}, partialWolfTokens[0])));
+await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night'
+}, partialWolfCreated.token)), 409);
+await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night', force: true
+}, partialWolfCreated.token)));
+partialWolfState = await partialWolfRoom.loadRoom();
+assert.equal(partialWolfState.phase, 'morning');
+assert.equal(partialWolfState.players[2].alive, false, 'A submitted wolf vote must execute even when another wolf has not voted.');
+assert.ok(partialWolfState.lastResult.events.some(event => event.includes('Werewolf menyerang Partial Village')));
+console.log('Werewolf forced-morning regression passed: submitted pack votes still execute when missing players are skipped.');
