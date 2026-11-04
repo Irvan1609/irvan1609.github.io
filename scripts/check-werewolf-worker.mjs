@@ -532,6 +532,12 @@ const wolfChatForTeammate = (await payload(await cupidNightRoom.fetch(
 assert.equal(wolfChatForTeammate.wolfChat.length, 1);
 assert.equal(wolfChatForTeammate.wolfChat[0].name, 'Wolf One');
 assert.equal(wolfChatForTeammate.wolfChat[0].text, 'Serang Village One bersama-sama.');
+const moderatorWolfRoomView = (await payload(await cupidNightRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, cupidNightCreated.token)
+))).state;
+assert.deepEqual(moderatorWolfRoomView.wolfTeam, []);
+assert.deepEqual(moderatorWolfRoomView.wolfSelections, []);
+assert.deepEqual(moderatorWolfRoomView.wolfChat, []);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'wolf_chat', text: 'Saya bukan Werewolf.'
 }, cupidNightTokens[3])), 403);
@@ -576,6 +582,9 @@ assert.deepEqual(wolfMorningPrivateView.wolfTeam, []);
 assert.deepEqual(wolfMorningPrivateView.wolfSelections, []);
 assert.deepEqual(wolfMorningPrivateView.wolfChat, []);
 assert.equal(wolfMorningPrivateView.room.phase, 'morning');
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'wolf_chat', text: 'Chat harus tertutup setelah pagi.'
+}, cupidNightTokens[1])), 409);
 const moderatorMorningPrivateView = (await payload(await cupidNightRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, cupidNightCreated.token)
 ))).state;
