@@ -794,6 +794,7 @@ function renderWolfNightRoom(parent) {
 
   const form = node('form', 'wolf-chat-form');
   const input = node('input', 'wolf-chat-input');
+  input.id = 'wolfChatInput';
   input.type = 'text';
   input.maxLength = 280;
   input.autocomplete = 'off';
@@ -808,9 +809,12 @@ function renderWolfNightRoom(parent) {
     event.preventDefault();
     const text = wolfChatDraft.trim();
     if (!text) return;
-    wolfChatDraft = '';
     const sent = await sendAction('wolf_chat', { text });
-    if (!sent) {
+    if (sent && wolfChatDraft === text) {
+      wolfChatDraft = '';
+      const currentInput = $('wolfChatInput');
+      if (currentInput) currentInput.value = '';
+    } else if (!sent) {
       wolfChatDraft = text;
       renderRoom();
     }
@@ -818,6 +822,7 @@ function renderWolfNightRoom(parent) {
   chat.append(form);
   panel.append(chat);
   parent.append(panel);
+  messages.scrollTop = messages.scrollHeight;
 }
 
 function renderModeratorEventReport(parent, result) {
