@@ -241,6 +241,10 @@ function isHost() {
   return Boolean(roomState?.self?.isModerator);
 }
 
+function abilityOn(key) {
+  return roomState?.room?.settings?.abilities?.[key] !== false;
+}
+
 function addText(parent, tag, className, text) {
   const item = node(tag, className, text);
   parent.append(item);
@@ -695,8 +699,14 @@ function renderPlayerNight(parent) {
     }
     return;
   }
+  const roleAbility = {
+    seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
+    cupid: 'cupidBond', guardian_angel: 'guardianProtection', detective: 'detectiveInspection'
+  };
   if (['villager', 'hunter', 'mayor', 'jester'].includes(self.role)
-    || (self.role === 'cupid' && roomState.room.round > 1)) {
+    || (roleAbility[self.role] && !abilityOn(roleAbility[self.role]))
+    || (self.role === 'guardian_angel' && !abilityOn('guardianProtection') && !abilityOn('guardianBonus'))
+    || (self.role === 'cupid' && (roomState.room.round > 1 || !abilityOn('cupidBond')))) {
     parent.append(button('Saya sudah siap', 'primary wide', () => sendAction('night_pass')));
     return;
   }
@@ -711,7 +721,11 @@ function renderPlayerNight(parent) {
     for (const target of targets) grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
     parent.append(grid);
   } else if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'].includes(self.role)) {
-    const titles = { seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain', bodyguard: 'Jaga pemain', guardian_angel: 'Pilih target perlindungan' };
+    const titles = {
+      seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
+      bodyguard: 'Jaga pemain',
+      guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan'
+    };
     addText(parent, 'h3', '', titles[self.role]);
     const grid = node('div', 'action-grid');
     for (const target of targets) grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
@@ -758,6 +772,10 @@ function renderPlayerMorning(parent) {
 }
 
 function renderHunterShot(parent) {
+  if (!abilityOn('hunterShot')) {
+    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter dinonaktifkan oleh moderator.');
+    return;
+  }
   if (roomState.self.hunterUsed) {
     addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter sudah digunakan.');
     return;
