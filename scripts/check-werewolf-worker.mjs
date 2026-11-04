@@ -1089,8 +1089,10 @@ const replayHostView = (await payload(await replayRoom.fetch(
 assert.equal(replayHostView.self.isHost, true);
 assert.equal(replayHostView.self.isModerator, replayState.activeModeratorId === replayState.hostId);
 assert.equal(replayHostView.self.role, null);
-assert.equal(replayHostView.players.length, 5);
-if (replayState.activeModeratorId !== replayState.hostId) {
+if (replayState.activeModeratorId === replayState.hostId) {
+  assert.equal(replayHostView.players.length, 5);
+} else {
+  assert.equal(replayHostView.players.length, 0, 'Host receives a private player view when another participant is moderator.');
   assert.ok(replayState.players.some(player => player.id === replayState.hostId), 'Host must remain an active player when another participant becomes moderator.');
 }
 replayState.phase = 'finished';
