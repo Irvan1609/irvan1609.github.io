@@ -562,10 +562,10 @@ export class WerewolfRoom {
     for (const bot of alive.filter(player => player.isBot)) {
       if (Object.prototype.hasOwnProperty.call(room.votes, bot.id)) continue;
       let selected = null;
-      if (bot.role === 'wolf') {
+      if (isWolf(bot.role)) {
         const coordinated = Object.entries(room.votes).find(([playerId, targetId]) =>
-          room.players.some(player => player.id === playerId && player.role === 'wolf')
-          && alive.some(player => player.id === targetId && player.role !== 'wolf'));
+          room.players.some(player => player.id === playerId && isWolf(player.role))
+          && alive.some(player => player.id === targetId && !isWolf(player.role)));
         selected = coordinated ? alive.find(player => player.id === coordinated[1]) : null;
       } else {
         const clue = room.seerResults?.[bot.id];
@@ -577,7 +577,7 @@ export class WerewolfRoom {
         }
       }
       if (!selected) {
-        const candidates = alive.filter(player => player.id !== bot.id && (bot.role !== 'wolf' || player.role !== 'wolf'));
+        const candidates = alive.filter(player => player.id !== bot.id && (!isWolf(bot.role) || !isWolf(player.role)));
         selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
       }
       if (selected) room.votes[bot.id] = selected.id;
@@ -852,6 +852,7 @@ export class WerewolfRoom {
       }
       room.phase = 'night';
       room.nightActions = {};
+      room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
       this.runBotNightActions(room);
       return;
@@ -905,8 +906,10 @@ export class WerewolfRoom {
       requirePlayer();
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
+      const witchPotions = room.witchPotions?.[player.id] || { heal: false, poison: false };
       const canPass = ['villager', 'hunter', 'mayor', 'jester'].includes(player.role)
-        || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed));
+        || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed))
+        || (player.role === 'witch' && !witchPotions.heal && !witchPotions.poison);
       if (!canPass) throw new HttpError(403, 'Peran ini harus menyelesaikan aksi malamnya.');
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
       room.nightActions[player.id] = { type: 'pass' };
