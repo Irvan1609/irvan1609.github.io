@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261104-werewolf-reliability-fixes1">
+  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-persistent-room1">
 </head>
 <body>
   <header class="subweb-header">
@@ -61,7 +61,7 @@
       <div class="panel room-panel">
         <div class="room-top">
           <div id="roomIdentity"><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button></div></div>
-          <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
+          <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="resetRoom" class="text-button hidden" type="button">Reset ke Ruang Tunggu</button><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
         </div>
         <p id="roomMessage" class="message-line" role="status" aria-live="polite"></p>
         <div id="roomMeta" class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
@@ -82,6 +82,6 @@
     <footer>Werewolf · Pilih moderator host atau moderator sistem. Diskusi hanya offline; efek suara malam dan pagi aktif otomatis.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261104-werewolf-reliability-fixes1"></script>
+  <script type="module" src="./app.js?v=20261105-werewolf-persistent-room1"></script>
 </body>
 </html>
