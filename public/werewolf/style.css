@@ -299,3 +299,28 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .kick-player-button{grid-column:2;grid-row:1;min-height:30px;padding:5px 8px;background:#49252d;border:1px solid #80505a;color:#ffd9dc;font-size:9px;font-weight:900}
 .kick-player-button:hover:not(:disabled){background:#63313a;border-color:#ad6470}
 @media(max-width:430px){.player-chip{padding:8px;column-gap:5px}.player-identity{gap:6px}.kick-player-button{min-height:27px;padding:4px 7px;font-size:8px}.player-meta{font-size:7px}}
+
+
+/* Role cards: only show the ability and its exact usage rule. */
+.role-card{min-height:345px;max-width:460px;padding:18px;gap:4px}
+.role-card .role-art{width:128px;height:112px;margin:0 auto 2px}
+.role-card .role-name{font-size:clamp(25px,5vw,34px);margin:0 0 5px}
+.role-card-details,.role-flip-details{display:grid;width:100%;max-width:380px;gap:7px;text-align:left}
+.role-card-detail,.role-flip-detail{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:start;gap:8px;padding:8px 9px;border:1px solid #3d4c60;border-radius:9px;background:#0c1726d9}
+.role-card-detail-label,.role-flip-detail-label{font-size:8px;letter-spacing:.1em;font-weight:900;color:#e5c783}
+.role-card-detail-text,.role-flip-detail-text{font-size:10px;line-height:1.4;color:#e0e6ef;overflow-wrap:anywhere}
+.role-flip-card{width:min(330px,100%);height:410px}
+.role-flip-face{gap:7px;padding:17px}
+.role-flip-art{width:108px;height:98px}
+.role-flip-name{font-size:clamp(25px,5vw,32px)}
+.role-flip-details{max-width:100%;gap:6px}
+.role-flip-detail{grid-template-columns:72px minmax(0,1fr);padding:7px 8px}
+.role-flip-detail-label{font-size:7px}
+.role-flip-detail-text{font-size:9px;line-height:1.35}
+@media(max-width:620px){
+  .role-card{min-height:330px;padding:15px}
+  .role-card .role-art{width:116px;height:100px}
+  .role-card-detail{grid-template-columns:76px minmax(0,1fr);padding:7px 8px}
+  .role-flip-card{height:400px}
+  .role-flip-art{width:96px;height:88px}
+}
