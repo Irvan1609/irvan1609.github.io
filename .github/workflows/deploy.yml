@@ -16,6 +16,7 @@ on:
       - "scripts/public-build.mjs"
       - "scripts/check-ui-contract.mjs"
       - "scripts/check-werewolf.mjs"
+      - "scripts/check-werewolf-worker.mjs"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
