@@ -555,13 +555,14 @@ export class WerewolfRoom {
     const alive = room.players.filter(player => player.alive);
     const roleAbilities = {
       seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
-      cupid: 'cupidBond', guardian_angel: 'guardianProtection', detective: 'detectiveInspection'
+      cupid: 'cupidBond', detective: 'detectiveInspection'
     };
     for (const bot of alive.filter(player => player.isBot)) {
       if (room.nightActions[bot.id]) continue;
       if (['villager', 'hunter', 'mayor', 'jester'].includes(bot.role)
         || (bot.role === 'cupid' && (room.round > 1 || !abilityEnabled(room, 'cupidBond')))
-        || (roleAbilities[bot.role] && !abilityEnabled(room, roleAbilities[bot.role]))) {
+        || (roleAbilities[bot.role] && !abilityEnabled(room, roleAbilities[bot.role]))
+        || (bot.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))) {
         room.nightActions[bot.id] = { type: 'pass' };
         continue;
       }
@@ -596,12 +597,16 @@ export class WerewolfRoom {
         }
         if (selected) room.guardianTargets[bot.id] = selected.id;
       } else if (bot.role === 'witch') {
-        const potions = room.witchPotions?.[bot.id] || { heal: true, poison: true };
+        const potions = room.witchPotions?.[bot.id] || { heal: false, poison: false };
         if (potions.heal && room.lastResult?.eliminatedId) type = 'witch_heal';
         else if (potions.poison) {
           type = 'witch_poison';
           const candidates = alive.filter(player => player.id !== bot.id && !isWolf(player.role));
           selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+        }
+        if (!potions.heal && !potions.poison) {
+          room.nightActions[bot.id] = { type: 'pass' };
+          continue;
         }
       } else if (bot.role === 'cupid') {
         type = 'cupid_link';
@@ -958,7 +963,9 @@ export class WerewolfRoom {
         if (selected.id === player.id) throw new HttpError(400, 'Bodyguard harus melindungi pemain lain.');
         room.nightActions[player.id] = { type: 'bodyguard_protect', targetId: selected.id };
       } else if (player.role === 'guardian_angel') {
-        if (!abilityEnabled(room, 'guardianProtection')) throw new HttpError(403, 'Kemampuan Guardian Angel dinonaktifkan.');
+        if (!abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus')) {
+          throw new HttpError(403, 'Kemampuan Guardian Angel dinonaktifkan.');
+        }
         if (selected.id === player.id) throw new HttpError(400, 'Guardian Angel harus memilih pemain lain.');
         room.guardianTargets[player.id] = selected.id;
         room.nightActions[player.id] = { type: 'guardian_protect', targetId: selected.id };
@@ -987,10 +994,11 @@ export class WerewolfRoom {
       const witchPotions = room.witchPotions?.[player.id] || { heal: false, poison: false };
       const roleAbilities = {
         seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
-        cupid: 'cupidBond', guardian_angel: 'guardianProtection', detective: 'detectiveInspection'
+        cupid: 'cupidBond', detective: 'detectiveInspection'
       };
       const canPass = ['villager', 'hunter', 'mayor', 'jester'].includes(player.role)
         || (roleAbilities[player.role] && !abilityEnabled(room, roleAbilities[player.role]))
+        || (player.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))
         || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed))
         || (player.role === 'witch' && !witchPotions.heal && !witchPotions.poison);
       if (!canPass) throw new HttpError(403, 'Peran ini harus menyelesaikan aksi malamnya.');
@@ -1018,7 +1026,8 @@ export class WerewolfRoom {
           const weight = actor.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
           wolfVotes[action.targetId] = (wolfVotes[action.targetId] || 0) + weight;
         }
-        if (['doctor_protect', 'guardian_protect'].includes(action.type)) protectedIds.add(action.targetId);
+        if (action.type === 'doctor_protect') protectedIds.add(action.targetId);
+        if (action.type === 'guardian_protect' && abilityEnabled(room, 'guardianProtection')) protectedIds.add(action.targetId);
         if (action.type === 'bodyguard_protect') {
           const guard = room.players.find(item => item.id === actor.id && item.alive);
           if (guard) room.bodyguardTargets = { ...(room.bodyguardTargets || {}), [guard.id]: action.targetId };
