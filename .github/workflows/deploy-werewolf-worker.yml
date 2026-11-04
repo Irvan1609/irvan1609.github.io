@@ -1,0 +1,114 @@
+name: Deploy Werewolf Room API
+
+on:
+  push:
+    branches: [development, master]
+    paths:
+      - "cloudflare/werewolf-worker/**"
+      - "public/werewolf/**"
+      - ".github/workflows/deploy-werewolf-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: werewolf-worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+
+      - name: Validate Worker and game rules
+        run: |
+          node --check cloudflare/werewolf-worker/src/index.js
+          node scripts/check-werewolf-worker.mjs
+
+      - name: Generate environment-specific Wrangler config
+        id: config
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const production = process.env.BRANCH_NAME === 'master';
+          const name = production ? 'werewolf-room-api' : 'werewolf-room-api-dev';
+          const config = {
+            name,
+            main: 'cloudflare/werewolf-worker/src/index.js',
+            compatibility_date: '2026-10-01',
+            workers_dev: true,
+            vars: {
+              ALLOWED_ORIGINS: production
+                ? 'https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
+                : 'https://irvan1609.github.io,https://werewolf-room-api-dev.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
+            },
+            assets: {
+              directory: 'public/werewolf',
+              binding: 'ASSETS',
+              run_worker_first: true
+            },
+            durable_objects: {
+              bindings: [{ name: 'ROOMS', class_name: 'WerewolfRoom' }]
+            },
+            migrations: [{
+              tag: 'v1',
+              new_sqlite_classes: ['WerewolfRoom']
+            }],
+            ratelimits: [
+              { name: 'ROOM_CREATE_LIMITER', namespace_id: '91609101', simple: { limit: 5, period: 60 } },
+              { name: 'ROOM_JOIN_LIMITER', namespace_id: '91609102', simple: { limit: 20, period: 60 } }
+            ]
+          };
+          fs.writeFileSync('wrangler.werewolf.json', JSON.stringify(config, null, 2));
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'worker_name=' + name + '\n');
+          NODE
+
+      - name: Deploy Durable Object Worker
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: deploy --config ./wrangler.werewolf.json
+
+      - name: Verify Worker health
+        env:
+          WORKER_NAME: ${{ steps.config.outputs.worker_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://${WORKER_NAME}.andyirvan1609.workers.dev"
+          URL="$BASE/health"
+          for attempt in {1..12}; do
+            BODY="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$URL" || true)"
+            if printf '%s' "$BODY" | jq -e '.ok == true and .service == "werewolf-room-api" and .realtime == true and .storage == "durable-objects"' >/dev/null 2>&1; then
+              echo "$BODY" | jq .
+              echo "Worker healthy: $URL"
+              if [ "$WORKER_NAME" = "werewolf-room-api-dev" ]; then
+                PAGE="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/" || true)"
+                ART="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/assets/illustrations/hero-night.svg" || true)"
+                HEADER="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/subweb-header.css" || true)"
+                APP="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE/app.js" || true)"
+                if ! printf '%s' "$PAGE" | grep -q 'THE VILLAGE' || ! printf '%s' "$PAGE" | grep -q 'soloMode' || ! printf '%s' "$PAGE" | grep -q './subweb-header.css' || ! printf '%s' "$ART" | grep -q '<svg' || ! printf '%s' "$HEADER" | grep -q '.subweb-header' || ! printf '%s' "$APP" | grep -q 'add_bots' || ! printf '%s' "$APP" | grep -q 'werewolf-room-api-dev.andyirvan1609.workers.dev'; then
+                  echo "::error::Worker staging hidup, tetapi halaman game, mode solo bot, stylesheet, API staging, atau ilustrasinya tidak lengkap."
+                  exit 1
+                fi
+                echo "Werewolf preview ready (solo bots enabled): $BASE/"
+              fi
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Worker terdeploy tetapi health check belum berhasil: $URL"
+          exit 1

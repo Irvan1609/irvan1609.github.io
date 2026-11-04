@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-labelledby="title desc">
+<title id="title">Guardian Angel</title><desc id="desc">Ilustrasi kartu role Guardian Angel untuk game Werewolf.</desc>
+<defs><radialGradient id="bg"><stop offset="0" stop-color="#74a6d8" stop-opacity=".42"/><stop offset="1" stop-color="#101a29" stop-opacity="0"/></radialGradient><linearGradient id="line" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#74a6d8"/><stop offset="1" stop-color="#f2d49a"/></linearGradient></defs>
+<rect x="5" y="5" width="310" height="210" rx="24" fill="#111d2d" stroke="#74a6d8" stroke-opacity=".55" stroke-width="2"/>
+<circle cx="160" cy="91" r="77" fill="url(#bg)"/><circle cx="160" cy="91" r="55" fill="#16263a" stroke="#74a6d8" stroke-opacity=".55"/>
+<path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" transform="translate(108 39) scale(2.15)" fill="none" stroke="url(#line)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M35 173h250" stroke="#74a6d8" stroke-opacity=".35"/>
+<text x="160" y="195" fill="#f2d49a" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="3" text-anchor="middle">PELINDUNG</text>
+</svg>

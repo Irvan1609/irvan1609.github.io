@@ -25,6 +25,8 @@ sebelumnya.
 - Baca bagian ini dan catatan perubahan (bagian 16), lalu seluruh konteks yang relevan sebelum melanjutkan. Pernyataan historis pada bagian 1–15 tetap perlu diverifikasi terhadap keadaan terkini.
 - Dokumen ini adalah memori kerja yang dipelihara oleh asisten, bukan sinkronisasi otomatis percakapan lintas akun. Instruksi eksplisit terbaru pengguna tetap menjadi acuan.
 - Status aplikasi, bug, dan deployment dalam dokumen impor belum diaudit ulang dalam tugas dokumentasi ini.
+- **Pembaruan 4 November 2026 — Werewolf:** pengguna meminta agar game dapat dilihat dan dimainkan melalui web. Branch `master` adalah produksi; jangan merge PR #152 hanya untuk memperoleh URL preview. Deployment Cloudflare Pages preview dicoba, tetapi token `CLOUDFLARE_API_TOKEN` yang tersedia ditolak endpoint Pages dengan error autentikasi 10000 (token dapat men-deploy Worker, tetapi tidak memiliki akses Pages). Jalur preview dialihkan ke Worker development `werewolf-room-api-dev.andyirvan1609.workers.dev`, yang menyajikan frontend game dan API realtime dari origin yang sama. Worker produksi tetap terpisah.
+- **URL preview aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Workflow Deploy Werewolf Room API pada commit `1983c8e1a68f9390705db18c4aa45e7fdb2a787a` berhasil; health check API, halaman HTML, stylesheet header, bundle app, dan ilustrasi SVG lulus.
 - Arahan terbaru fitur Pengamatan (10 Oktober 2026): sampel anak langsung unit percobaan (tanaman/buah), jumlah dapat berbeda antarunit; urutan campuran BB semua sampel lalu PB/TB/LB per sampel diulang pada unit berikutnya; panen berbeda menjadi parameter tersendiri (bb-p1, bb-p2). Rekap rerata/jumlah per unit disetujui.
 
 ## 1. Profil dan cara bekerja
@@ -562,3 +564,82 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 - **Status serah terima:** fitur Pengamatan selesai diimplementasikan dan teruji lokal; CI development lulus. Promosi master belum diizinkan oleh gate CI yang ada. PR draf #147 sudah dibuat: https://github.com/Irvan1609/irvan1609.github.io/pull/147 (commit implementasi d9a757b64d4be25ddb9fc4fc7864ff2830f6d523). Jangan merge atau mengklaim fitur aktif di URL publik sebelum batas ukuran Field Zero dibereskan dan semua gate lulus.
 - **Langkah berikutnya:** selesaikan masalah ukuran berkas Field Zero secara terpisah tanpa menaikkan batas atau menonaktifkan tes; jalankan CI integrasi lagi, lalu merge/deploy dan verifikasi /stat/ jika lolos. Data pengamatan lokal tidak ikut sinkronisasi cloud.
+
+
+### 2026-11-03 — Subweb Werewolf (implementasi awal)
+
+- **Tujuan pengguna:** menambahkan subweb permainan Werewolf pada repository utama. Pengguna menyetujui arah dua mode: local pass-and-play dan online multiplayer.
+- **Keputusan implementasi:** aplikasi ditempatkan di `public/werewolf/`, URL `/werewolf/`; subweb permainan publik, terpisah dari modul agronomi/admin. UI mobile-first dengan tema gelap.
+- **Fitur lokal yang dibuat:** input daftar pemain, pembagian role rahasia bergiliran, Werewolf, Villager, Seer, Doctor, opsi Hunter, fase malam, pemilihan korban/perlindungan/pemeriksaan, diskusi, voting, eliminasi, dan penentuan pemenang.
+- **File:** `public/werewolf/index.html`, `style.css`, `app.js`; kartu di beranda `index.html`; cache PWA `public/sw.js`; pemeriksaan `scripts/check-werewolf.mjs`; perintah pemeriksaan `package.json`.
+- **Online multiplayer:** baru berupa UI penanda status belum aktif. Belum ada backend room realtime yang dibuat atau dideploy; jangan mengklaim pemain beda perangkat sudah dapat bermain. Langkah berikutnya adalah membangun Cloudflare Worker + Durable Objects/WebSocket dengan validasi server-side, room code, reconnect, role secrecy, night/day/voting, rate limits, dan tes.
+- **Branch/commit:** `development`; implementasi awal `347f4df75bddd3406b7e217aabba71e2c987a3e4`; commit koreksi terakhir `f3fd22c2675d25e589bd922136f8b63f84bf6615`; branch pengembangan sebelumnya diarsipkan sebagai `archive/development-pre-werewolf-20261103`. Branch development diselaraskan dengan master melalui merge commit `b89944f336717358594d778953fbb0f7584a6505` sebelum implementasi.
+- **Verifikasi:** belum menjalankan build/tes lokal atau browser; lingkungan ini tidak memiliki koneksi clone GitHub. Tes otomatis ditambahkan untuk dijalankan oleh GitHub Actions. Belum merge ke master dan belum deploy ke GitHub Pages.
+- **Status:** implementasi local-play awal tersedia di branch development; online belum aktif; CI dan perilaku browser masih harus diverifikasi.
+- **Langkah berikutnya:** jalankan CI; perbaiki temuan; lanjutkan backend online; setelah seluruh tes lulus, buat PR ke master dan verifikasi URL publik.
+
+
+### 2026-11-03 — Werewolf: revisi menjadi room realtime dengan diskusi hybrid
+
+- **Klarifikasi tujuan pengguna:** pemain menggunakan web pada perangkat masing-masing untuk mengambil kartu peran, melakukan aksi malam, dan voting. Diskusi dapat dipilih sebagai tatap muka/offline atau online. Mode online menyediakan chat room dan kolom tautan voice/video call eksternal.
+- **Keputusan baru (menggantikan arah pass-and-play satu perangkat sebagai alur utama):** satu room multiplayer lintas perangkat; host membuat room dan membagikan kode/tautan; pemain bergabung dengan nama unik. Setiap pemain mengambil kartu sendiri; role hanya dikirim ke pemain pemiliknya, sedangkan Werewolf dapat mengenali sesama kawanan setelah membuka kartu.
+- **Fitur UI:** lobby, kode room, status koneksi, kartu rahasia, aksi malam, pengumuman hasil malam, pemilihan metode diskusi, timer, chat online, tautan voice/video call, voting rahasia, hasil ronde, dan penentuan pemenang. UI mobile-first. Diskusi offline berarti tatap muka; sinkronisasi room dan aksi tetap membutuhkan koneksi internet.
+- **Backend:** Cloudflare Worker + Durable Object per room; state permainan authoritative di server; WebSocket untuk pembaruan realtime; tiket WebSocket sekali pakai; token sesi per pemain; validasi aksi/role/fase di server; room kedaluwarsa setelah 12 jam tidak aktif; batas 20 pemain; rate limit pembuatan/join room dan chat.
+- **Aturan permainan MVP:** Werewolf, Warga Desa, Seer, Doctor; aksi malam, perlindungan, pemeriksaan rahasia, voting, eliminasi, seri, dan kondisi menang. Host dapat memaksa penyelesaian fase jika pemain terputus/tidak mengirim aksi atau suara. Role pemain hidup tidak dibocorkan ke pemain lain; role pemain tereliminasi dan seluruh role setelah permainan selesai ditampilkan.
+- **File utama:** public/werewolf/index.html, style.css, app.js; cloudflare/werewolf-worker/src/index.js, wrangler.toml; .github/workflows/deploy-werewolf-worker.yml; scripts/check-werewolf.mjs, scripts/check-werewolf-worker.mjs; package.json; public/sw.js; kartu di index.html.
+- **Lingkungan deployment:** push ke development men-deploy Worker staging bernama werewolf-room-api-dev; master men-deploy Worker produksi bernama werewolf-room-api. Frontend localhost memakai staging; website produksi memakai Worker produksi. Deployment membutuhkan GitHub secrets CLOUDFLARE_API_TOKEN dan CLOUDFLARE_ACCOUNT_ID serta subdomain workers.dev akun andyirvan1609.
+- **Keamanan/privasi:** session token hanya disimpan pada browser pemain; role dan target aksi tidak disebarkan; chat dibatasi 5 pesan/10 detik per pemain; nama 2–20 karakter; room maksimal 20 pemain; tautan panggilan hanya HTTPS. Jangan mencatat token sesi atau data room ke dokumen publik.
+- **Branch/PR:** tetap pada development; PR #152 ke master diperbarui otomatis. Belum merge ke master, belum mengaktifkan URL produksi, dan belum menyatakan multiplayer siap digunakan sampai CI, deploy staging, dan uji browser lintas perangkat lulus.
+- **Verifikasi yang direncanakan:** CI memeriksa sintaks, kontrak UI, serta simulasi backend room (buat/join, role privacy, aksi malam, diskusi hybrid, chat, voting, dan transisi ronde). Workflow terpisah men-deploy Worker staging pada branch development dan memeriksa endpoint health.
+- **Langkah berikutnya:** periksa hasil Validate Statistical Web dan Deploy Werewolf Room API; perbaiki kegagalan jika ada; lakukan uji dua atau lebih perangkat dengan room staging; baru setelah itu minta persetujuan promosi PR ke master.
+
+
+### 2026-11-04 — Redesign visual Werewolf (Dark Fantasy 2D Illustrated)
+
+- **Arahan pengguna:** redesign khusus subweb Werewolf, bukan mengubah desain global Agrotik. Pertahankan backend multiplayer dan mekanisme permainan.
+- **Keputusan desain:** tema Dark Fantasy 2D Illustrated, mobile-first, identitas visual "The Village After Dark"; hero ilustrasi desa malam, palet biru arang dan emas, kartu role bergambar, avatar pemain, panel fase, dan transisi ringan.
+- **Perubahan frontend:** landing/lobby game dirancang ulang; formulir create/join beserta ID yang dipakai JavaScript dipertahankan. Room, daftar pemain, panel fase, chat, voting, timer, dan status koneksi tetap memakai kontrak aplikasi yang sama. Kartu role menampilkan ilustrasi SVG berdasarkan role. Panel fase mendapat atribut data-phase untuk treatment visual.
+- **Aset lokal SVG:** `public/werewolf/assets/illustrations/hero-night.svg`, `card-back.svg`, `role-wolf.svg`, `role-seer.svg`, `role-doctor.svg`, `role-villager.svg`. Aset vektor ringan dan tidak memerlukan layanan gambar eksternal.
+- **Responsivitas & aksesibilitas:** layout desktop/tablet/mobile, focus-visible, dan dukungan `prefers-reduced-motion`. Font memakai fallback sistem/serif agar tidak bergantung pada CDN font eksternal.
+- **PWA:** cache version dinaikkan menjadi `20261104-werewolf-visual1`; semua ilustrasi ditambahkan ke daftar core precache.
+- **Backend:** tidak diubah. Worker staging dan kontrak Durable Objects/WebSocket dipertahankan.
+- **Verifikasi:** pemeriksaan kontrak UI diperbarui untuk memastikan elemen form dan ID kompatibel, aset ilustrasi tersedia, fase visual aktif, dan kontrak backend tidak berubah. Hasil CI serta uji browser lintas perangkat tetap perlu diperiksa.
+- **Branch:** `development`; PR #152 tetap menjadi jalur review ke `master`. Belum dipublikasikan ke produksi.
+
+
+### 2026-11-04 — Deploy preview Werewolf tanpa mengubah produksi
+
+- **Arahan pengguna:** minta game dapat dilihat dan dimainkan melalui web.
+- **Keputusan:** jangan merge PR #152 ke `master` hanya untuk preview; alur produksi tetap mengikuti `UPDATE_POLICY.md`. Percobaan Cloudflare Pages preview gagal di tahap daftar project karena token Cloudflare menghasilkan authentication error 10000 untuk endpoint Pages. Karena token yang sama berhasil men-deploy Workers, preview dialihkan untuk disajikan langsung oleh Worker development.
+- **File yang diubah:** `.github/workflows/deploy-werewolf-worker.yml`, `cloudflare/werewolf-worker/src/index.js`, `public/werewolf/app.js`, `public/werewolf/index.html`, `public/werewolf/subweb-header.css`, `scripts/check-werewolf.mjs`, `scripts/check-werewolf-worker.mjs`. Workflow Pages preview sementara yang gagal dihapus.
+- **Perubahan:** Wrangler config menyertakan aset statis dari `public/werewolf` dengan binding `ASSETS`; request GET non-API disajikan sebagai frontend game; Worker dev mengizinkan origin-nya sendiri. HTML memakai stylesheet header relatif. Frontend memilih Worker produksi hanya pada host `irvan1609.github.io`; host preview/lokal menggunakan Worker development.
+- **Backend:** Durable Objects, API room, role secrecy, WebSocket, dan aturan game dipertahankan. Worker development tetap terpisah dari Worker produksi.
+- **Verifikasi sebelumnya:** build penuh `npm run verify` pada workflow preview Cloudflare Pages lulus, tetapi deployment Pages gagal karena token tidak memiliki akses Pages. Worker development berhasil deploy dan health check lulus sebelum penambahan static asset binding.
+- **Verifikasi setelah perubahan ini:** `Deploy Werewolf Room API` lulus pada commit `1983c8e1a68f9390705db18c4aa45e7fdb2a787a`; health check API, halaman `/`, `subweb-header.css`, `app.js`, dan ilustrasi SVG lulus. `Validate Statistical Web` dan `Security Guard` juga lulus pada commit yang sama.
+- **Status:** preview aktif di `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`; branch `master` dan website produksi tidak berubah. PR #152 masih draft dan belum di-merge.
+- **Batas verifikasi:** belum ada uji manual melalui browser dengan dua atau lebih perangkat; alur create/join, role draw, night action, diskusi, chat, voting, dan reconnect perlu dicoba oleh pengguna.
+- **Langkah berikutnya:** buka URL preview pada dua perangkat/browser berbeda, buat room minimal 5 pemain, lalu uji satu siklus permainan. Laporkan bila ada error agar dapat diperbaiki pada branch development.
+
+
+### 2026-11-04 — Mode latihan Werewolf vs bot
+
+- **Arahan pengguna:** sediakan bot agar pengguna dapat menguji permainan sendiri.
+- **Implementasi pada branch development:** mode latihan solo membuat room dengan 1 host manusia + 4 bot otomatis (opsi default dapat dimatikan untuk multiplayer biasa). Lobby juga menyediakan kontrol untuk menambah bot 1–19 sesuai kapasitas room.
+- **Perilaku bot:** bot memiliki identitas roster dan peran yang diacak server; kartu bot otomatis dianggap diambil; Werewolf bot melakukan serangan, Seer memeriksa pemain, Doctor melindungi pemain; bot menulis komentar diskusi singkat saat mode online; bot melakukan voting otomatis. Host dapat melewati timer diskusi untuk mempercepat uji coba.
+- **Keamanan:** bot tidak memiliki token login dan aksi NPC dijalankan di Durable Object/server, bukan dari browser. Snapshot hanya menandai status bot; peran tetap dirahasiakan sesuai aturan game.
+- **Transparansi:** bot menggunakan logika otomatis berbasis aturan/acak dan petunjuk Seer, bukan model AI percakapan. Komentar diskusi merupakan teks skrip.
+- **Verifikasi:** integrasi test satu host + empat bot lulus; termasuk pengambilan kartu, aksi malam untuk peran khusus, komentar diskusi, dan voting. `Validate Statistical Web`, `Security Guard`, serta deployment `Deploy Werewolf Room API` lulus pada commit `4d2d6e468ff9c6a60bb3fd0ae2f2381a97c3f6f8`. Health check Worker dan pemeriksaan halaman preview yang memastikan kontrol solo bot, stylesheet, app.js, serta ilustrasi SVG tersedia juga lulus.
+- **URL preview aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Opsi **Mode latihan solo · 4 bot** sudah aktif dan dicentang secara default pada form pembuatan room.
+- **Batas verifikasi:** uji otomatis lulus, tetapi sesi bermain manual melalui browser belum dilakukan. Bot menggunakan logika otomatis berbasis aturan/acak, bukan LLM percakapan.
+- **Produksi:** perubahan tetap pada branch development; website produksi tidak berubah dan jangan merge ke master tanpa persetujuan pengguna.
+
+
+### 2026-11-04 — Polishing solo Werewolf experience
+
+- **Default game balance:** default composition changed to 1 Werewolf + Seer + Doctor; with one host and four bots this leaves two Villagers. Lobby displays a role composition preview and prevents starting if fewer than five players or no Villager remains.
+- **Bot discussion:** three living bots can contribute contextual comments; a bot Seer can share its actual inspection result. Bots keep a suspicion target and use it during voting; Seer evidence takes priority.
+- **Solo flow:** after the night resolves, a room with one human and bots automatically enters online discussion for 90 seconds. The human can skip the discussion immediately and proceed to voting.
+- **Interactive replies:** when the solo player sends a chat message, one living bot replies with a context-aware scripted response. Bot messages are marked with a BOT badge.
+- **Rules and UX:** added a collapsible role guide, a six-step phase tracker, a role-balance preview, mobile refinements, and Doctor self-protection support.
+- **Transparency:** bots remain rule-based NPCs, not LLM agents. Their chat replies use templates and simple keyword/context checks.
+- **Verification:** expanded Worker integration test for deterministic special-role actions, automatic solo discussion, Seer clue disclosure, bot chat reply, and automatic voting. Deployment and CI checks are pending for the current branch commit.

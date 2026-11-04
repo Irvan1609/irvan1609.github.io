@@ -1,4 +1,4 @@
-const VERSION='20261010-adminroutes2';
+const VERSION='20261104-werewolf-role-config1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -10,7 +10,25 @@ const CORE_URLS=[
   '/',
   '/offline.html',
   '/manifest.webmanifest',
-  '/icons/agrotik.svg'
+  '/icons/agrotik.svg',
+  '/werewolf/',
+  '/werewolf/style.css',
+  '/werewolf/app.js',
+  '/werewolf/assets/illustrations/hero-night.svg',
+  '/werewolf/assets/illustrations/card-back.svg',
+  '/werewolf/assets/illustrations/role-wolf.svg',
+  '/werewolf/assets/illustrations/role-seer.svg',
+  '/werewolf/assets/illustrations/role-doctor.svg',
+  '/werewolf/assets/illustrations/role-villager.svg',
+  '/werewolf/assets/illustrations/role-alpha_wolf.svg',
+  '/werewolf/assets/illustrations/role-bodyguard.svg',
+  '/werewolf/assets/illustrations/role-witch.svg',
+  '/werewolf/assets/illustrations/role-hunter.svg',
+  '/werewolf/assets/illustrations/role-cupid.svg',
+  '/werewolf/assets/illustrations/role-guardian_angel.svg',
+  '/werewolf/assets/illustrations/role-detective.svg',
+  '/werewolf/assets/illustrations/role-mayor.svg',
+  '/werewolf/assets/illustrations/role-jester.svg'
 ];
 
 const THIRD_PARTY_HOSTS=new Set(['cdn.jsdelivr.net','cdnjs.cloudflare.com']);
@@ -122,7 +140,7 @@ async function staticResponse(request){
     if(cacheableResponse(response))await put(RUNTIME_CACHE,request,response);
     return response;
   }).catch(()=>null);
-  const criticalFresh=(url.pathname.startsWith('/game/')&&url.pathname.endsWith('.js'))||['/account.js','/resilience.js','/pwa-register.js'].includes(url.pathname);
+  const criticalFresh=(url.pathname.startsWith('/game/')&&url.pathname.endsWith('.js'))||(url.pathname.startsWith('/werewolf/')&&url.pathname.endsWith('.js'))||['/account.js','/resilience.js','/pwa-register.js'].includes(url.pathname);
   if(criticalFresh)return await refresh||cached||new Response('',{status:504,statusText:'Offline'});
   if(cached){void refresh;return cached;}
   return await refresh||new Response('',{status:504,statusText:'Offline'});
