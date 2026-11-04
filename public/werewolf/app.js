@@ -4,11 +4,31 @@ const API_BASE = location.hostname === 'irvan1609.github.io'
   : 'https://werewolf-room-api-dev.andyirvan1609.workers.dev';
 const SESSION_PREFIX = 'werewolf.session.';
 const ROLE_INFO = {
-  wolf: ['Werewolf', 'Kamu bagian dari kawanan Werewolf. Pilih satu warga untuk diserang setiap malam.'],
-  villager: ['Warga Desa', 'Kamu tidak memiliki aksi malam. Gunakan diskusi dan voting untuk menemukan Werewolf.'],
-  seer: ['Seer', 'Setiap malam, periksa satu pemain. Hasil pemeriksaan hanya terlihat olehmu.'],
-  doctor: ['Doctor', 'Setiap malam, lindungi satu pemain dari serangan Werewolf.']
+  wolf: ['Werewolf', 'Serang satu pemain setiap malam bersama kawanan.'],
+  alpha_wolf: ['Alpha Wolf', 'Pemimpin kawanan. Suara serangan malam bernilai dua.'],
+  villager: ['Warga Desa', 'Tidak memiliki aksi malam. Gunakan diskusi dan voting untuk menemukan Werewolf.'],
+  seer: ['Seer', 'Periksa satu pemain setiap malam untuk mengetahui apakah ia Werewolf.'],
+  doctor: ['Doctor', 'Lindungi satu pemain dari serangan setiap malam.'],
+  bodyguard: ['Bodyguard', 'Jaga satu pemain setiap malam. Jika target diserang, kamu yang menerima serangan.'],
+  witch: ['Witch', 'Memiliki satu ramuan penyembuh dan satu racun untuk digunakan masing-masing sekali selama permainan.'],
+  hunter: ['Hunter', 'Jika tereliminasi, pilih satu pemain hidup untuk ditembak.'],
+  cupid: ['Cupid', 'Pada malam pertama, hubungkan dua pemain. Jika salah satu tereliminasi, pasangannya ikut tereliminasi.'],
+  guardian_angel: ['Guardian Angel', 'Pilih satu pemain untuk dijaga sepanjang permainan. Menang tambahan jika target tetap hidup saat permainan berakhir.'],
+  detective: ['Detective', 'Periksa satu pemain setiap malam untuk mengetahui kubunya: Desa, Werewolf, atau Netral.'],
+  mayor: ['Mayor', 'Suara voting bernilai dua. Tidak memiliki aksi malam.'],
+  jester: ['Jester', 'Menang sendiri jika berhasil dieliminasi melalui voting. Tidak memiliki aksi malam.']
 };
+const EXTRA_ROLE_OPTIONS = [
+  ['alphaWolf', 'Alpha Wolf', 'Menggantikan satu Werewolf biasa; suara serangannya bernilai dua.'],
+  ['bodyguard', 'Bodyguard', 'Mengorbankan diri untuk menyelamatkan target dari serangan.'],
+  ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
+  ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
+  ['cupid', 'Cupid', 'Menghubungkan dua pemain pada malam pertama.'],
+  ['guardianAngel', 'Guardian Angel', 'Menjaga satu target; mendapat kemenangan tambahan jika target selamat.'],
+  ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
+  ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
+  ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.']
+];
 let session = null;
 let roomState = null;
 let socket = null;
@@ -331,6 +351,7 @@ function renderPlayerPhase(parent) {
     case 'morning': renderPlayerMorning(parent); break;
     case 'discussion':
       addText(parent, 'div', 'notice', 'Diskusi sedang berlangsung. Tunggu moderator membuka voting.');
+      if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
       break;
     case 'voting': renderPlayerVoting(parent); break;
     case 'result': renderPlayerVoteResult(parent); break;
@@ -345,10 +366,12 @@ function renderModeratorLobby(parent) {
   phaseHeader(parent, 'PANEL MODERATOR', 'Atur permainan', 'Moderator mengendalikan seluruh tahapan. Pemain bergabung melalui kode room dan tidak menjadi moderator.');
   addText(parent, 'div', 'notice', 'Minimal 5 pemain, maksimal 20 pemain. Moderator tidak dihitung sebagai pemain.');
   const settings = roomState.room.settings || {};
+  const extras = settings.extraRoles || {};
   const roleCounts = [
     ['Werewolf', Number(settings.wolves || 1)],
     ['Seer', settings.seer ? 1 : 0],
-    ['Doctor', settings.doctor ? 1 : 0]
+    ['Doctor', settings.doctor ? 1 : 0],
+    ...EXTRA_ROLE_OPTIONS.map(([key, label]) => [label, extras[key] ? 1 : 0])
   ];
   const specialRoles = roleCounts.reduce((sum, item) => sum + item[1], 0);
   const villagers = roomState.players.length - specialRoles;
@@ -419,7 +442,7 @@ function renderModeratorMorning(parent) {
   }
   parent.append(card);
   if (roomState.room.winner) {
-    addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
+    addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
     parent.append(button('Umumkan pemenang', 'primary wide', () => sendAction('start_discussion')));
   } else {
     parent.append(button('Lanjut ke Diskusi', 'primary wide', () => sendAction('start_discussion')));
@@ -458,7 +481,11 @@ function renderModeratorResult(parent) {
 
 function renderModeratorFinished(parent) {
   phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Hasil akhir dan seluruh peran hanya ditampilkan pada panel moderator.');
-  addText(parent, 'div', 'winner', roomState.room.winner === 'wolves' ? 'Werewolf menang' : 'Warga desa menang');
+  addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
+  if (roomState.room.additionalWinners?.length) {
+    const names = roomState.players.filter(player => roomState.room.additionalWinners.includes(player.id)).map(player => player.name);
+    addText(parent, 'div', 'notice success', 'Kemenangan tambahan Guardian Angel: ' + names.join(', '));
+  }
   if (roomState.room.lastResult?.message) addText(parent, 'div', 'notice success', roomState.room.lastResult.message);
   const card = node('div', 'result-card');
   for (const player of roomState.players) {
@@ -495,36 +522,101 @@ function renderPlayerNight(parent) {
   renderRoleCard(parent, self.role);
   if (self.hasActed) {
     addText(parent, 'div', 'notice success', 'Aksimu sudah dikirim. Tunggu moderator.');
-    if (self.role === 'seer' && self.seerResult) {
-      const result = self.seerResult.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf';
-      addText(parent, 'div', 'notice', 'Hasil pemeriksaan: ' + self.seerResult.playerName + ' ' + result + '.');
+    if (['seer', 'detective'].includes(self.role) && self.seerResult) {
+      const result = self.seerResult.result === 'wolf' || self.seerResult.result === 'wolf_team'
+        ? (self.role === 'detective' ? 'kubu Werewolf' : 'Werewolf')
+        : self.seerResult.result === 'neutral' ? 'kubu Netral'
+          : self.role === 'detective' ? 'kubu Desa' : 'bukan Werewolf';
+      addText(parent, 'div', 'notice', 'Hasil pemeriksaan: ' + self.seerResult.playerName + ' termasuk ' + result + '.');
     }
     return;
   }
-  if (self.role === 'villager') {
+  if (['villager', 'hunter', 'mayor', 'jester'].includes(self.role)
+    || (self.role === 'cupid' && roomState.room.round > 1)) {
     parent.append(button('Saya sudah siap', 'primary wide', () => sendAction('night_pass')));
     return;
   }
-  const title = self.role === 'wolf' ? 'Pilih target serangan'
-    : self.role === 'seer' ? 'Pilih pemain untuk diperiksa'
-      : 'Pilih pemain untuk dilindungi';
-  addText(parent, 'h3', '', title);
-  const grid = node('div', 'action-grid');
   const targets = (roomState.targets || []).filter(target => {
-    if (self.role === 'doctor') return true;
     if (target.id === self.id) return false;
-    if (self.role === 'wolf' && (roomState.wolfTeam || []).includes(target.name)) return false;
+    if (['wolf', 'alpha_wolf'].includes(self.role) && (roomState.wolfTeam || []).includes(target.name)) return false;
+    if (self.role === 'guardian_angel' && self.guardianTargetName && target.name !== self.guardianTargetName) return false;
     return true;
   });
-  for (const target of targets) {
-    grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+  if (['wolf', 'alpha_wolf'].includes(self.role)) {
+    addText(parent, 'h3', '', 'Pilih target serangan');
+    const grid = node('div', 'action-grid');
+    for (const target of targets) grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+    parent.append(grid);
+  } else if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'].includes(self.role)) {
+    const titles = { seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain', bodyguard: 'Jaga pemain', guardian_angel: 'Pilih target perlindungan' };
+    addText(parent, 'h3', '', titles[self.role]);
+    const grid = node('div', 'action-grid');
+    for (const target of targets) grid.append(button(target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+    parent.append(grid);
+    if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target tetap: ' + self.guardianTargetName);
+  } else if (self.role === 'witch') {
+    const potions = self.witchPotions || { heal: false, poison: false };
+    addText(parent, 'h3', '', 'Pilih ramuan');
+    if (potions.heal) parent.append(button('Gunakan ramuan penyembuh', 'secondary wide', () => sendAction('night_action', { mode: 'heal' })));
+    if (potions.poison) {
+      addText(parent, 'p', 'hint', 'Pilih target untuk ramuan racun:');
+      const grid = node('div', 'action-grid');
+      for (const target of targets) grid.append(button('Racun · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id, mode: 'poison' })));
+      parent.append(grid);
+    }
+    if (!potions.heal && !potions.poison) parent.append(button('Saya sudah menggunakan semua ramuan', 'primary wide', () => sendAction('night_pass')));
+  } else if (self.role === 'cupid' && roomState.room.round === 1) {
+    addText(parent, 'h3', '', 'Hubungkan dua pemain');
+    const first = node('select', 'target-select');
+    const second = node('select', 'target-select');
+    first.id = 'cupidFirst';
+    second.id = 'cupidSecond';
+    first.append(new Option('Pemain pertama', ''));
+    second.append(new Option('Pemain kedua', ''));
+    for (const target of targets) {
+      first.append(new Option(target.name, target.id));
+      second.append(new Option(target.name, target.id));
+    }
+    parent.append(first, second);
+    parent.append(button('Hubungkan pasangan', 'primary wide', () => {
+      if (!first.value || !second.value || first.value === second.value) {
+        showMessage('Pilih dua pemain yang berbeda.', true);
+        return;
+      }
+      sendAction('night_action', { targetId: first.value, partnerId: second.value });
+    }));
   }
-  parent.append(grid);
 }
 
 function renderPlayerMorning(parent) {
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
+  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+}
+
+function renderHunterShot(parent) {
+  if (roomState.self.hunterUsed) {
+    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter sudah digunakan.');
+    return;
+  }
+  addText(parent, 'h3', '', 'Kemampuan terakhir Hunter');
+  addText(parent, 'p', 'hint', 'Pilih satu pemain hidup untuk ditembak.');
+  const grid = node('div', 'action-grid');
+  for (const target of roomState.targets || []) {
+    grid.append(button('Tembak ' + target.name, 'action-button', () => {
+      if (confirm('Tembak ' + target.name + '?')) sendAction('hunter_shot', { targetId: target.id });
+    }));
+  }
+  parent.append(grid);
+}
+
+function winnerLabel(winner) {
+  return ({
+    wolves: 'Kubu Werewolf menang',
+    villagers: 'Kubu Desa menang',
+    jester: 'Jester menang sendiri',
+    lovers: 'Pasangan Lovers menang'
+  })[winner] || 'Permainan selesai';
 }
 
 function renderPlayerVoting(parent) {
@@ -583,7 +675,8 @@ $('createForm').addEventListener('submit', async event => {
         settings: {
           wolves: Number($('wolfCount').value),
           seer: $('includeSeer').checked,
-          doctor: $('includeDoctor').checked
+          doctor: $('includeDoctor').checked,
+          extraRoles: Object.fromEntries(EXTRA_ROLE_OPTIONS.map(([key]) => [key, $('role-' + key).checked]))
         }
       }
     });
