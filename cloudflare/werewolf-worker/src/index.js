@@ -413,7 +413,17 @@ export class WerewolfRoom {
           : null,
         witchPotions: !isModerator ? room.witchPotions?.[self.id] || null : null
       } : null,
-      chat: []
+      chat: isModerator
+        ? (room.chat || [])
+          .filter(message => room.players.some(player => player.id === message.playerId && player.isBot))
+          .map(message => ({
+            id: message.id,
+            name: message.name,
+            text: message.text,
+            at: message.at,
+            isBot: true
+          }))
+        : []
     };
   }
 
@@ -493,18 +503,22 @@ export class WerewolfRoom {
     room.botReplyCursor = 0;
     for (const [index, bot] of speakers.entries()) {
       const clue = room.seerResults?.[bot.id];
-      let candidates = alive.filter(player => player.id !== bot.id && (bot.role !== 'wolf' || player.role !== 'wolf'));
-      if (clue?.result === 'not_wolf') candidates = candidates.filter(player => player.name !== clue.playerName);
-      const suspected = clue?.result === 'wolf'
-        ? alive.find(player => player.name === clue.playerName)
+      const wolfClue = clue?.result === 'wolf' || clue?.result === 'wolf_team';
+      let candidates = alive.filter(player => player.id !== bot.id && (!isWolf(bot.role) || !isWolf(player.role)));
+      if (clue && ['not_wolf', 'village'].includes(clue.result)) {
+        candidates = candidates.filter(player => player.name !== clue.playerName);
+      }
+      const suspected = wolfClue
+        ? alive.find(player => player.name === clue.playerName && isWolf(player.role))
         : candidates.length ? candidates[randomInt(candidates.length)] : null;
       bot.suspicionTargetId = suspected?.id || null;
 
       let text;
-      if (bot.role === 'seer' && clue) {
-        text = clue.result === 'wolf'
-          ? 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya menunjukkan Werewolf. Kita perlu mempertimbangkan temuan ini.'
-          : 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya bukan Werewolf, jadi kita perlu mencari petunjuk lain.';
+      if (['seer', 'detective'].includes(bot.role) && clue) {
+        const faction = bot.role === 'detective'
+          ? (clue.result === 'wolf_team' ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa')
+          : (clue.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf');
+        text = 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya menunjukkan ' + faction + '. Kita perlu mempertimbangkan temuan ini.';
       } else if (room.lastResult?.kind === 'night' && !room.lastResult.eliminatedId) {
         text = bot.personality === 'assertive'
           ? 'Tidak ada korban malam ini. Jangan lengah; kita tetap harus menemukan siapa yang menyerang.'
@@ -536,7 +550,7 @@ export class WerewolfRoom {
     const lower = message.toLowerCase();
     const clue = bot.role === 'seer' ? room.seerResults?.[bot.id] : null;
     let reply;
-    if (clue?.result === 'wolf') {
+    if (clue?.result === 'wolf' || clue?.result === 'wolf_team') {
       reply = 'Aku sudah menyampaikan hasil pemeriksaanku: ' + clue.playerName + ' terindikasi Werewolf. Menurutku informasi itu perlu kita tindak lanjuti.';
     } else if (/bukti|alasan|yakin/.test(lower)) {
       reply = 'Setuju, kita sebaiknya tidak hanya menebak. Cocokkan cerita dan petunjuk sebelum menentukan suara.';
@@ -639,8 +653,8 @@ export class WerewolfRoom {
         selected = coordinated ? alive.find(player => player.id === coordinated[1]) : null;
       } else {
         const clue = room.seerResults?.[bot.id];
-        if (clue?.result === 'wolf') {
-          selected = alive.find(player => player.name === clue.playerName && player.role === 'wolf');
+        if (clue?.result === 'wolf' || clue?.result === 'wolf_team') {
+          selected = alive.find(player => player.name === clue.playerName && isWolf(player.role));
         }
         if (!selected && bot.suspicionTargetId) {
           selected = alive.find(player => player.id === bot.suspicionTargetId && player.id !== bot.id);
@@ -1116,6 +1130,7 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      this.seedBotDiscussion(room, now);
       return;
     }
 

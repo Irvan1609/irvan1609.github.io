@@ -227,7 +227,45 @@ soloState = await soloRoom.loadRoom();
 assert.equal(Object.keys(soloState.nightActions).length, 5);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
 assert.equal((await soloRoom.loadRoom()).phase, 'morning');
+soloState = await soloRoom.loadRoom();
+soloState.phase = 'morning';
+soloState.winner = null;
+soloState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+  player.alive = true;
+  player.suspicionTargetId = null;
+});
+soloState.seerResults = {
+  [soloState.players[1].id]: {
+    round: 1,
+    playerName: soloState.players[0].name,
+    result: 'wolf'
+  }
+};
+soloState.lastResult = {
+  kind: 'night',
+  message: 'Malam berlalu tanpa korban.',
+  eliminatedId: null,
+  at: Date.now(),
+  round: 1
+};
+await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
+soloState = await soloRoom.loadRoom();
+assert.equal(soloState.phase, 'discussion');
+assert.equal(soloState.discussionMode, null);
+assert.equal(soloState.chat.length, 3);
+assert.ok(soloState.chat.every(message =>
+  soloState.players.some(player => player.id === message.playerId && player.isBot)
+));
+assert.ok(soloState.chat[0].text.includes(soloState.players[0].name));
+const soloModeratorView = (await payload(await soloRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, soloToken)
+))).state;
+assert.equal(soloModeratorView.chat.length, 3);
+assert.ok(soloModeratorView.chat.every(message => message.isBot));
+const soloPlayerView = soloRoom.snapshot(soloState, soloState.players[0].id, 'player');
+assert.deepEqual(soloPlayerView.chat, []);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'set_discussion', mode: 'offline' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
 soloState = await soloRoom.loadRoom();

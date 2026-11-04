@@ -1,4 +1,4 @@
-const VERSION='20261104-werewolf-discussion-mode1';
+const VERSION='20261104-werewolf-bot-discussion1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;

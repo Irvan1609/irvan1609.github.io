@@ -650,6 +650,30 @@ function renderModeratorDiscussion(parent) {
     addText(panel, 'div', 'notice', 'Mode diskusi belum ditentukan. Pilih salah satu mode sebelum voting.');
   }
   parent.append(panel);
+
+  const botMessages = Array.isArray(roomState.chat) ? roomState.chat : [];
+  if (botMessages.length) {
+    const log = node('section', 'bot-discussion-log');
+    addText(log, 'div', 'eyebrow-small', 'SIMULASI DISKUSI BOT');
+    addText(log, 'h3', '', 'Komentar bot (simulasi)');
+    addText(log, 'p', 'hint', 'Komentar otomatis berbasis role dan petunjuk permainan, bukan percakapan AI. Tidak ada timer; moderator bebas melanjutkan kapan saja.');
+    const box = node('div', 'chat-box');
+    const list = node('div', 'chat-list');
+    list.setAttribute('role', 'log');
+    list.setAttribute('aria-live', 'polite');
+    for (const message of botMessages) {
+      const item = node('article', 'chat-message');
+      const author = node('b', '', message.name || 'Bot');
+      author.append(node('span', 'chat-bot-badge', 'BOT'));
+      item.append(author);
+      item.append(node('p', '', message.text || ''));
+      list.append(item);
+    }
+    box.append(list);
+    log.append(box);
+    parent.append(log);
+  }
+
   parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting'), !room.discussionMode));
 }
 

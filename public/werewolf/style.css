@@ -114,3 +114,14 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .discussion-link-input{width:100%;min-width:0}
 .discussion-mode-panel .call-link{max-width:100%;overflow-wrap:anywhere}
 @media(max-width:430px){.discussion-mode-panel{padding:12px}.discussion-mode-grid{grid-template-columns:1fr}}
+
+
+/* Moderator-only NPC discussion feed; player screens remain action-only. */
+.bot-discussion-log{margin:14px 0;padding:14px;border:1px solid #6b593b;border-radius:13px;background:linear-gradient(145deg,#29271988,#172337)}
+.bot-discussion-log h3{margin:5px 0;color:var(--gold2);font:600 19px var(--serif)}
+.bot-discussion-log>.hint{margin:5px 0 10px}
+.bot-discussion-log .chat-box{margin-top:10px}
+.bot-discussion-log .chat-list{height:auto;max-height:260px}
+.bot-discussion-log .chat-message{padding:9px 10px;border:1px solid #4c402e;border-radius:9px;background:#1b2028}
+.bot-discussion-log .chat-message p{color:#e8ddc9}
+@media(max-width:430px){.bot-discussion-log{padding:11px}.bot-discussion-log h3{font-size:17px}}
