@@ -1267,6 +1267,9 @@ export class WerewolfRoom {
           room.guardianTargets = { ...(room.guardianTargets || {}), [actor.id]: action.targetId };
         }
       }
+      const highest = Math.max(0, ...Object.values(wolfVotes));
+      const wolfAttack = wolfAttackSummary(room);
+      victimId = wolfAttack.targetId;
       const events = [];
       if (wolfAttack.tied && victimId) {
         events.push('Pilihan Werewolf terbagi sama kuat; target dengan suara terbanyak dipilih berdasarkan suara yang masuk lebih dahulu.');
@@ -1275,9 +1278,6 @@ export class WerewolfRoom {
         const linkedNames = room.lovers.map(id => room.players.find(item => item.id === id)?.name).filter(Boolean);
         if (linkedNames.length === 2) events.push('Cupid mengikat ' + linkedNames.join(' dan ') + '.');
       }
-      const highest = Math.max(0, ...Object.values(wolfVotes));
-      const wolfAttack = wolfAttackSummary(room);
-      victimId = wolfAttack.targetId;
       let message = 'Malam berlalu tanpa korban.';
       let eliminatedId = null;
       const doctorHeal = actors.some(actor => room.nightActions[actor.id]?.type === 'witch_heal');
