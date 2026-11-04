@@ -3,6 +3,7 @@ const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 20;
 const MAX_CHAT_MESSAGES = 100;
 const BOT_NAMES = ['Aruna', 'Bima', 'Citra', 'Damar', 'Elang', 'Farah', 'Genta', 'Hana', 'Indra', 'Jihan', 'Kirana', 'Laras', 'Mahesa', 'Nadia', 'Raka', 'Salsa', 'Tara', 'Umar', 'Vina'];
+const BOT_PERSONALITIES = ['calm', 'analytical', 'assertive', 'cautious'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function json(data, status = 200, headers = {}) {
@@ -347,8 +348,78 @@ export class WerewolfRoom {
       hasDrawn: false,
       joinedAt: Date.now(),
       isHost: false,
-      isBot: true
+      isBot: true,
+      personality: BOT_PERSONALITIES[randomInt(BOT_PERSONALITIES.length)],
+      suspicionTargetId: null
     };
+  }
+
+  seedBotDiscussion(room, now) {
+    const alive = room.players.filter(player => player.alive);
+    const speakers = alive.filter(player => player.isBot)
+      .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'))
+      .slice(0, 3);
+    room.botReplyCursor = 0;
+    for (const [index, bot] of speakers.entries()) {
+      const clue = room.seerResults?.[bot.id];
+      let candidates = alive.filter(player => player.id !== bot.id && (bot.role !== 'wolf' || player.role !== 'wolf'));
+      if (clue?.result === 'not_wolf') candidates = candidates.filter(player => player.name !== clue.playerName);
+      const suspected = clue?.result === 'wolf'
+        ? alive.find(player => player.name === clue.playerName)
+        : candidates.length ? candidates[randomInt(candidates.length)] : null;
+      bot.suspicionTargetId = suspected?.id || null;
+
+      let text;
+      if (bot.role === 'seer' && clue) {
+        text = clue.result === 'wolf'
+          ? 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya menunjukkan Werewolf. Kita perlu mempertimbangkan temuan ini.'
+          : 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya bukan Werewolf, jadi kita perlu mencari petunjuk lain.';
+      } else if (room.lastResult?.kind === 'night' && !room.lastResult.eliminatedId) {
+        text = bot.personality === 'assertive'
+          ? 'Tidak ada korban malam ini. Jangan lengah; kita tetap harus menemukan siapa yang menyerang.'
+          : 'Tidak ada korban malam ini. Doctor mungkin berhasil melindungi seseorang. Mari periksa informasi yang kita punya.';
+      } else if (room.lastResult?.kind === 'night' && room.lastResult.eliminatedId) {
+        const eliminated = room.players.find(player => player.id === room.lastResult.eliminatedId);
+        text = eliminated
+          ? 'Kita kehilangan ' + eliminated.name + ' semalam. Aku ingin mendengar alasan sebelum kita menuduh siapa pun.'
+          : 'Kejadian semalam harus kita bahas dengan tenang. Jangan terburu-buru menuduh.';
+      } else if (suspected) {
+        text = bot.personality === 'assertive'
+          ? 'Aku ingin mengawasi ' + suspected.name + '. Ada baiknya kita meminta penjelasan sebelum voting.'
+          : 'Untuk sementara aku memperhatikan ' + suspected.name + ', tetapi aku masih terbuka pada bukti lain.';
+      } else {
+        text = 'Aku belum punya petunjuk yang cukup. Mari dengarkan pendapat semua pemain.';
+      }
+      room.chat.push({ id: crypto.randomUUID(), playerId: bot.id, name: bot.name, text, at: now + index });
+    }
+    if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
+  }
+
+  respondToSoloChat(room, message, now) {
+    const humans = room.players.filter(player => !player.isBot);
+    const bots = room.players.filter(player => player.isBot && player.alive);
+    if (humans.length !== 1 || !bots.length) return;
+    const cursor = Number(room.botReplyCursor || 0);
+    const bot = bots[cursor % bots.length];
+    room.botReplyCursor = cursor + 1;
+    const lower = message.toLowerCase();
+    const clue = bot.role === 'seer' ? room.seerResults?.[bot.id] : null;
+    let reply;
+    if (clue?.result === 'wolf') {
+      reply = 'Aku sudah menyampaikan hasil pemeriksaanku: ' + clue.playerName + ' terindikasi Werewolf. Menurutku informasi itu perlu kita tindak lanjuti.';
+    } else if (/bukti|alasan|yakin/.test(lower)) {
+      reply = 'Setuju, kita sebaiknya tidak hanya menebak. Cocokkan cerita dan petunjuk sebelum menentukan suara.';
+    } else if (/curiga|duga|tersangka|suspect/.test(lower)) {
+      reply = 'Aku paham kecurigaanmu. Coba jelaskan petunjuk yang kamu lihat supaya kita bisa menilainya bersama.';
+    } else if (/siapa|pilih|vote|voting/.test(lower)) {
+      reply = 'Aku masih menimbang pilihan. Perhatikan siapa yang punya alasan paling kuat dan siapa yang justru menghindari pertanyaan.';
+    } else {
+      reply = bot.personality === 'assertive'
+        ? 'Kita harus tetap fokus. Sampaikan alasanmu, lalu kita tentukan pilihan berdasarkan petunjuk.'
+        : 'Menarik. Aku akan mempertimbangkan pendapatmu, tetapi jangan lupakan informasi dari malam tadi.';
+    }
+    room.chat.push({ id: crypto.randomUUID(), playerId: bot.id, name: bot.name, text: reply, at: now + 1 });
+    if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
   }
 
   runBotNightActions(room) {
@@ -394,6 +465,9 @@ export class WerewolfRoom {
         const clue = room.seerResults?.[bot.id];
         if (clue?.result === 'wolf') {
           selected = alive.find(player => player.name === clue.playerName && player.role === 'wolf');
+        }
+        if (!selected && bot.suspicionTargetId) {
+          selected = alive.find(player => player.id === bot.suspicionTargetId && player.id !== bot.id);
         }
       }
       if (!selected) {
@@ -586,7 +660,9 @@ export class WerewolfRoom {
         item.role = deck[index];
         item.alive = true;
         item.hasDrawn = Boolean(item.isBot);
+        item.suspicionTargetId = null;
       });
+      room.botReplyCursor = 0;
       room.round = 1;
       room.phase = 'role_draw';
       room.nightActions = {};
@@ -680,10 +756,12 @@ export class WerewolfRoom {
       checkWinner();
       if (!room.winner) {
         room.phase = 'discussion';
-        room.discussionMode = null;
-        room.discussionEndsAt = null;
+        const soloBotMode = room.players.some(item => item.isBot) && room.players.filter(item => !item.isBot).length === 1;
+        room.discussionMode = soloBotMode ? 'online' : null;
+        room.discussionEndsAt = soloBotMode ? now + 90000 : null;
         room.callUrl = '';
         room.chat = [];
+        if (soloBotMode) this.seedBotDiscussion(room, now);
       }
       return;
     }
@@ -699,22 +777,7 @@ export class WerewolfRoom {
       room.discussionEndsAt = now + duration * 60 * 1000;
       room.callUrl = mode === 'online' ? cleanCallUrl(body.callUrl) : '';
       room.chat = [];
-      if (mode === 'online') {
-        const botLines = [
-          'Aku belum punya bukti kuat. Jangan terburu-buru menentukan siapa yang bersalah.',
-          'Coba perhatikan siapa yang paling diuntungkan dari kejadian malam tadi.',
-          'Aku ingin mendengar alasan semua orang sebelum memberikan suara.'
-        ];
-        room.players.filter(player => player.isBot && player.alive).slice(0, 3).forEach((bot, index) => {
-          room.chat.push({
-            id: crypto.randomUUID(),
-            playerId: bot.id,
-            name: bot.name,
-            text: botLines[index],
-            at: now + index
-          });
-        });
-      }
+      if (mode === 'online') this.seedBotDiscussion(room, now);
       return;
     }
 
@@ -731,6 +794,7 @@ export class WerewolfRoom {
       rate.count += 1;
       await this.state.storage.put(rateKey, rate);
       room.chat.push({ id: crypto.randomUUID(), playerId: player.id, name: player.name, text, at: now });
+      this.respondToSoloChat(room, text, now);
       if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
       return;
     }
