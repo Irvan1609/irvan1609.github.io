@@ -6,6 +6,8 @@ on:
     paths:
       - "cloudflare/werewolf-worker/**"
       - "public/werewolf/**"
+      - "scripts/check-werewolf-worker.mjs"
+      - "scripts/check-werewolf.mjs"
       - ".github/workflows/deploy-werewolf-worker.yml"
   workflow_dispatch:
 
