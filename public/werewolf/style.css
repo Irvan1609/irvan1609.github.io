@@ -274,3 +274,7 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .wolf-chat-input{min-width:0;flex:1;min-height:38px}
 .wolf-chat-form button{flex:0 0 auto;min-height:38px}
 @media(max-width:430px){.wolf-night-room,.wolf-private-chat{padding:10px}.wolf-selection-row{align-items:flex-start;flex-direction:column;gap:4px}.wolf-choice-made,.wolf-choice-pending{text-align:left}.wolf-chat-form{gap:6px}.wolf-chat-form button{padding:8px 11px}}
+
+/* Host room shutdown control. */
+.text-button.disband-button{background:#48262d;border-color:#75414a;color:#ffd9dc}
+.text-button.disband-button:hover:not(:disabled){background:#63313a;border-color:#a95a65}
