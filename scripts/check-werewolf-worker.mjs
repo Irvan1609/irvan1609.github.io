@@ -1312,3 +1312,45 @@ assert.deepEqual(activeKickState.chat, []);
 assert.deepEqual(activeKickState.wolfChat, []);
 await payload(await activeKickRoom.fetch(makeRequest('/internal/state', 'GET', undefined, activeKickJoined[4].token)), 401);
 console.log('Werewolf active-game kick regression passed: host can kick outside moderator mode, private roles stay hidden, and stale action/vote references are cleared.');
+
+
+// An active non-host moderator can also kick players, while the host remains in the roster.
+const moderatorKickRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const moderatorKickCreated = await payload(await moderatorKickRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'MODK24', name: 'Moderator Kick Host'
+})), 201);
+const moderatorKickPlayers = [];
+for (const name of ['Mod One', 'Wolf One', 'Wolf Two', 'Village One']) {
+  moderatorKickPlayers.push(await payload(await moderatorKickRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+}
+let moderatorKickState = await moderatorKickRoom.loadRoom();
+const selectedModerator = moderatorKickState.players.find(player => player.name === 'Mod One');
+const moderatorVictim = moderatorKickState.players.find(player => player.name === 'Village One');
+moderatorKickState.phase = 'discussion';
+moderatorKickState.round = 1;
+moderatorKickState.activeModeratorMode = 'random';
+moderatorKickState.activeModeratorId = selectedModerator.id;
+moderatorKickState.activeModeratorRosterIndex = moderatorKickState.players.findIndex(player => player.id === selectedModerator.id);
+moderatorKickState.moderator = selectedModerator;
+moderatorKickState.players = moderatorKickState.players.filter(player => player.id !== selectedModerator.id);
+const moderatorRoleByName = {
+  'Moderator Kick Host': 'villager',
+  'Wolf One': 'wolf',
+  'Wolf Two': 'wolf',
+  'Village One': 'villager'
+};
+for (const player of moderatorKickState.players) {
+  player.role = moderatorRoleByName[player.name];
+  player.alive = true;
+  player.hasDrawn = true;
+}
+await moderatorKickRoom.saveRoom(moderatorKickState);
+await payload(await moderatorKickRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'kick_player', playerId: moderatorVictim.id
+}, moderatorKickPlayers[0].token)));
+moderatorKickState = await moderatorKickRoom.loadRoom();
+assert.ok(!moderatorKickState.players.some(player => player.id === moderatorVictim.id));
+assert.ok(moderatorKickState.players.some(player => player.id === moderatorKickCreated.moderatorId),
+  'Kicking by a non-host moderator must not remove the host player.');
+await payload(await moderatorKickRoom.fetch(makeRequest('/internal/state', 'GET', undefined, moderatorKickPlayers[3].token)), 401);
+console.log('Werewolf moderator kick regression passed: an active non-host moderator can remove a participant without removing the host.');
