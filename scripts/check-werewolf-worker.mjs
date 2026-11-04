@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import worker, { WerewolfRoom } from '../cloudflare/werewolf-worker/src/index.js';
+import worker, { WerewolfRoom, recommendedRoleCounts } from '../cloudflare/werewolf-worker/src/index.js';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -716,6 +716,42 @@ for (const [role, expected] of Object.entries(expected25RoleCounts)) {
   assert.equal(scaledState.players.filter(player => player.role === role).length, expected, `25-player role mix should include ${expected} ${role} role(s).`);
 }
 console.log('Werewolf role-scaling check passed: 25 players receive a mixed deck with only five Villagers.');
+
+// Every room size from 4 through 25 receives an exact, balanced automatic role composition.
+const expectedAutomaticRoleDecks = {
+  4: { wolf: 1, seer: 1, villager: 2 },
+  5: { wolf: 1, seer: 1, doctor: 1, villager: 2 },
+  6: { wolf: 1, seer: 1, doctor: 1, bodyguard: 1, villager: 2 },
+  7: { wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, villager: 2 },
+  8: { wolf: 2, seer: 1, doctor: 1, bodyguard: 1, witch: 1, villager: 2 },
+  9: { wolf: 2, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, villager: 2 },
+  10: { wolf: 2, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, villager: 2 },
+  11: { wolf: 2, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, villager: 2 },
+  12: { wolf: 2, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, villager: 2 },
+  13: { wolf: 2, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, villager: 2 },
+  14: { wolf: 2, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, villager: 2 },
+  15: { wolf: 2, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, villager: 3 },
+  16: { wolf: 3, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, villager: 3 },
+  17: { wolf: 3, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 1, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 3 },
+  18: { wolf: 3, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 3 },
+  19: { wolf: 3, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 3 },
+  20: { wolf: 4, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 1, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 4 },
+  21: { wolf: 4, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 1, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 4 },
+  22: { wolf: 4, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 2, cupid: 1, detective: 1, mayor: 1, guardian_angel: 1, jester: 1, villager: 4 },
+  23: { wolf: 4, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 2, cupid: 1, detective: 2, mayor: 1, guardian_angel: 1, jester: 1, villager: 4 },
+  24: { wolf: 5, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 2, cupid: 1, detective: 2, mayor: 1, guardian_angel: 1, jester: 1, villager: 4 },
+  25: { wolf: 5, alpha_wolf: 1, seer: 1, doctor: 1, bodyguard: 2, witch: 2, hunter: 2, cupid: 1, detective: 2, mayor: 1, guardian_angel: 1, jester: 1, villager: 5 }
+};
+const compactRoleCounts = counts => Object.fromEntries(
+  Object.entries(counts).filter(([, count]) => count > 0).sort(([left], [right]) => left.localeCompare(right))
+);
+for (const [playerCount, expected] of Object.entries(expectedAutomaticRoleDecks)) {
+  const actual = recommendedRoleCounts(Number(playerCount));
+  assert.equal(Object.values(actual).reduce((sum, count) => sum + count, 0), Number(playerCount), `Automatic role deck must total ${playerCount} players.`);
+  assert.deepEqual(compactRoleCounts(actual), compactRoleCounts(expected), `Unexpected automatic role composition for ${playerCount} players.`);
+  assert.ok(actual.villager <= Math.max(2, Math.floor(Number(playerCount) * 0.2)), `Villagers must remain near 20% for ${playerCount} players.`);
+}
+console.log('Werewolf automatic role presets passed for every room size from 4 through 25 players.');
 
 // A large automatic room adds more special roles rather than filling the remainder with Villagers.
 const auto50Room = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
