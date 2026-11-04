@@ -663,7 +663,7 @@ export class WerewolfRoom {
         if (attachment?.actorId !== playerId || attachment.actorType === 'moderator') continue;
         socket.send(JSON.stringify({
           type: 'player_kicked',
-          message: 'Host mengeluarkanmu dari room. Sesi ini sudah tidak berlaku.'
+          message: 'Kamu dikeluarkan dari room oleh host atau moderator. Sesi ini sudah tidak berlaku.'
         }));
         socket.close(4002, 'Dikeluarkan host');
       } catch { /* A disconnected participant no longer needs the notification. */ }
@@ -1206,7 +1206,7 @@ export class WerewolfRoom {
     const checkWinner = () => this.checkWinner(room);
 
     if (type === 'kick_player') {
-      if (!isHost) throw new HttpError(403, 'Hanya host yang dapat mengeluarkan pemain.');
+      if (!isHost && !isModerator) throw new HttpError(403, 'Hanya host atau moderator yang dapat mengeluarkan pemain.');
       const playerId = String(body.playerId || '').trim();
       if (!playerId) throw new HttpError(400, 'Pilih pemain yang akan dikeluarkan.');
       const playerIndex = room.players.findIndex(item => item.id === playerId);
