@@ -209,7 +209,40 @@ assert.equal(Object.keys(soloState.votes).length, soloState.players.filter(playe
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_vote' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.ok(['result', 'finished'].includes(soloState.phase));
-console.log('Werewolf solo-bot checks passed: bots auto-complete night actions and votes while moderator controls every transition.');
+
+const disabledRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
+  ALLOWED_ORIGINS: 'https://irvan1609.github.io'
+});
+const disabledCreated = await payload(await disabledRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'DS2234', name: 'Disabled Moderator',
+  settings: {
+    roleCounts: {
+      wolf: 1, alpha_wolf: 0, seer: 1, doctor: 0, bodyguard: 0,
+      witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
+      mayor: 0, jester: 0, villager: 3
+    },
+    abilities: { seerInspection: false }
+  }
+})), 201);
+const disabledTokens = [];
+for (const name of ['Fina', 'Gilang', 'Hana', 'Iqbal', 'Joko']) {
+  const joined = await payload(await disabledRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  disabledTokens.push(joined.token);
+}
+await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, disabledCreated.token)));
+const disabledState = await disabledRoom.loadRoom();
+disabledState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'villager', 'villager', 'villager'][index];
+  player.hasDrawn = true;
+});
+await disabledRoom.saveRoom(disabledState);
+await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, disabledCreated.token)));
+await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: disabledState.players[0].id
+}, disabledTokens[1])), 403);
+await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, disabledTokens[1])));
+assert.equal((await disabledRoom.loadRoom()).nightActions[disabledState.players[1].id].type, 'pass');
+console.log('Werewolf configurable-role checks passed: role counts are validated and disabled abilities cannot be used.');
 
 const assetRequests = [];
 const assetResponse = await worker.fetch(new Request('https://werewolf-room-api-dev.andyirvan1609.workers.dev/'), {
