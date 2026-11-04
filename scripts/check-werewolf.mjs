@@ -20,3 +20,7 @@ assert.match(app,/location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html,/href="\.\/subweb-header\.css"/);
 
 assert.match(app,/Mode latihan vs bot/);assert.match(app,/Lewati diskusi & lanjut voting/);assert.match(app,/Bot otomatis/);
+
+assert.match(html,/phaseTracker/);assert.match(html,/Aturan singkat & cara bermain/);
+assert.match(app,/role-balance/);assert.match(app,/updatePhaseTracker/);assert.match(app,/chat-bot-badge/);
+assert.match(app,/self\.role === 'doctor'/);
