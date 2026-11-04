@@ -210,18 +210,18 @@ function isWolf(role) {
   return WOLF_ROLES.has(role);
 }
 
-function wolfAttackSummary(room) {
+function wolfAttackSummary(room, allowPartial = false) {
   const wolves = room.players.filter(player => player.alive && isWolf(player.role));
   if (!wolves.length) return { ready: true, targetId: null, tied: false };
   const actions = wolves.map(player => room.nightActions?.[player.id]);
-  if (actions.some(action => action?.type !== 'wolf_vote')) {
+  if (!allowPartial && actions.some(action => action?.type !== 'wolf_vote')) {
     return { ready: false, targetId: null, tied: false };
   }
   const tally = {};
   const firstVoteAt = {};
   for (const wolf of wolves) {
-    const action = room.nightActions[wolf.id];
-    if (!action?.targetId) continue;
+    const action = room.nightActions?.[wolf.id];
+    if (action?.type !== 'wolf_vote' || !action.targetId) continue;
     const weight = wolf.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
     tally[action.targetId] = (tally[action.targetId] || 0) + weight;
     const submittedAt = Number(action.submittedAt) || Number.MAX_SAFE_INTEGER;
@@ -1434,7 +1434,7 @@ export class WerewolfRoom {
         }
       }
       const highest = Math.max(0, ...Object.values(wolfVotes));
-      const wolfAttack = wolfAttackSummary(room);
+      const wolfAttack = wolfAttackSummary(room, body.force === true);
       victimId = wolfAttack.targetId;
       const events = [];
       if (wolfAttack.tied && victimId) {
