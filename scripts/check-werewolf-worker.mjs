@@ -628,7 +628,9 @@ assert.equal(privateVoteView.self.role, 'wolf');
 assert.deepEqual(privateVoteView.players, []);
 assert.equal(privateVoteView.room.lastResult, null);
 assert.deepEqual(privateVoteView.room.lovers, []);
-assert.deepEqual(privateVoteView.wolfTeam, [witchNames[0]]);
+assert.deepEqual(privateVoteView.wolfTeam, []);
+assert.deepEqual(privateVoteView.wolfSelections, []);
+assert.deepEqual(privateVoteView.wolfChat, []);
 assert.ok(privateVoteView.targets.every(target => Object.keys(target).sort().join(',') === 'id,name'));
 const voteTargets = [3, 3, 3, 4, 3];
 for (let index = 0; index < voteTargets.length; index += 1) {
@@ -1021,7 +1023,7 @@ console.log('Werewolf persistent-room regression passed: reset returns the same 
 // even if one pack member has not completed an action.
 const partialWolfRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const partialWolfCreated = await payload(await partialWolfRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WLFPT1', name: 'Partial Wolf Host'
+  code: 'WLFPT2', name: 'Partial Wolf Host'
 })), 201);
 const partialWolfTokens = [];
 for (const name of ['Partial Wolf One', 'Partial Wolf Two', 'Partial Village']) {

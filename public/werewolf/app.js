@@ -1013,7 +1013,7 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Tidak ada hitung mundur. Semua aksi diproses saat moderator melanjutkan ke pagi; pilihan dan chat Werewolf hanya terlihat oleh kawanan.');
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Tidak ada hitung mundur malam. Semua aksi diproses saat moderator melanjutkan ke pagi; pilihan dan chat Werewolf hanya terlihat oleh kawanan.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi malam.');
   const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
