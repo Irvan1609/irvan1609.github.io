@@ -722,7 +722,7 @@ function renderRoom() {
   }
   const canManagePlayers = moderator || host;
   $('playersSection').classList.toggle('hidden', !canManagePlayers);
-  $('roomIdentity').classList.toggle('hidden', !moderator);
+  $('roomIdentity').classList.toggle('hidden', !moderator && !host);
   $('roomMeta').classList.toggle('hidden', !moderator);
   const playersHint = $('playersSection').querySelector('.hint-inline');
   if (playersHint) playersHint.textContent = moderator
