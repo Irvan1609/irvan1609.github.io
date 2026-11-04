@@ -161,28 +161,42 @@ await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { typ
 soloState = await soloRoom.loadRoom();
 assert.ok(soloState.players.filter(player => player.isBot).every(player => player.hasDrawn));
 assert.equal(soloState.players.find(player => !player.isBot).hasDrawn, false);
+const soloHuman = soloState.players.find(player => !player.isBot);
+const soloBots = soloState.players.filter(player => player.isBot);
+soloHuman.role = 'villager';
+soloBots[0].role = 'wolf';
+soloBots[1].role = 'seer';
+soloBots[2].role = 'doctor';
+soloBots[3].role = 'villager';
+await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, soloToken)));
 soloState = await soloRoom.loadRoom();
-const soloHuman = soloState.players.find(player => !player.isBot);
-if (['wolf', 'seer', 'doctor'].includes(soloHuman.role)) {
-  const target = soloState.players.find(player => player.alive && player.id !== soloHuman.id
-    && (soloHuman.role !== 'wolf' || player.role !== 'wolf'));
-  await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
-    type: 'night_action', targetId: target.id
-  }, soloToken)));
-}
+const soloWolf = soloState.players.find(player => player.isBot && player.role === 'wolf');
+const soloSeer = soloState.players.find(player => player.isBot && player.role === 'seer');
+const soloDoctor = soloState.players.find(player => player.isBot && player.role === 'doctor');
+const soloBotVillager = soloState.players.find(player => player.isBot && player.role === 'villager');
+soloState.nightActions[soloWolf.id] = { type: 'wolf_vote', targetId: soloBotVillager.id };
+soloState.nightActions[soloSeer.id] = { type: 'seer_inspect', targetId: soloWolf.id };
+soloState.nightActions[soloDoctor.id] = { type: 'doctor_protect', targetId: soloHuman.id };
+await soloRoom.saveRoom(soloState);
 const soloActors = soloState.players.filter(player => player.alive && ['wolf', 'seer', 'doctor'].includes(player.role));
-assert.equal(Object.keys((await soloRoom.loadRoom()).nightActions).length, soloActors.length);
+assert.equal(Object.keys(soloState.nightActions).length, soloActors.length);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'discussion');
+assert.equal(soloState.room?.discussionMode ?? soloState.discussionMode, 'online');
+assert.ok(soloState.discussionEndsAt > Date.now() || soloState.room?.discussionEndsAt > Date.now());
+assert.ok(soloState.chat.some(message => message.playerId === soloSeer.id && /memeriksa/.test(message.text)));
+assert.ok(soloState.chat.every(message => soloState.players.some(player => player.id === message.playerId && player.isBot)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'online', durationMinutes: 1
+  type: 'send_chat', text: 'Aku curiga Bot Aruna. Apa ada bukti?'
 }, soloToken)));
 soloState = await soloRoom.loadRoom();
-assert.ok(soloState.chat.length > 0);
-assert.ok(soloState.chat.every(message => soloState.players.some(player => player.id === message.playerId && player.isBot)));
+const humanChat = soloState.chat.find(message => message.playerId === soloHuman.id);
+assert.ok(humanChat);
+assert.ok(soloState.chat.some(message => message.playerId !== soloHuman.id && message.at > humanChat.at
+  && soloState.players.some(player => player.id === message.playerId && player.isBot)));
 const soloAliveBeforeVote = soloState.players.filter(player => player.alive).length;
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_voting', force: true
