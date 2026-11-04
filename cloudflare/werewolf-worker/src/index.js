@@ -156,6 +156,12 @@ function recommendedRoleCounts(playerCount) {
       remaining -= 1;
     }
   }
+  const scalableRoles = ['seer', 'doctor', 'bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel'];
+  const extraSpecialSlots = Math.floor(Math.max(0, playerCount - 25) / 3);
+  for (let index = 0; index < extraSpecialSlots && remaining > 1; index += 1) {
+    counts[scalableRoles[index % scalableRoles.length]] += 1;
+    remaining -= 1;
+  }
   counts.villager = remaining;
   return counts;
 }
