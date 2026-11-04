@@ -44,6 +44,23 @@ function shuffle(items) {
   return result;
 }
 
+function createVillagerPrompt() {
+  const left = randomInt(19) + 1;
+  const right = randomInt(19) + 1;
+  const answer = left + right;
+  const distractors = new Set();
+  for (const offset of shuffle([-3, -2, -1, 1, 2, 3, 4])) {
+    const candidate = answer + offset;
+    if (candidate >= 0 && candidate !== answer) distractors.add(candidate);
+    if (distractors.size === 3) break;
+  }
+  while (distractors.size < 3) {
+    const candidate = randomInt(39);
+    if (candidate !== answer) distractors.add(candidate);
+  }
+  return { id: crypto.randomUUID(), question: left + ' + ' + right, answer, options: shuffle([answer, ...distractors]) };
+}
+
 async function digest(value) {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -91,6 +108,14 @@ function abilityEnabled(room, key) {
 function normalizeSettings(input = {}) {
   input = input && typeof input === 'object' ? input : {};
   const hasExplicitCounts = input.roleCounts && typeof input.roleCounts === 'object';
+  const legacyModeratorCount = Number(input.roleCounts?.moderator ?? 0);
+  if (hasExplicitCounts && Object.prototype.hasOwnProperty.call(input.roleCounts, 'moderator')
+    && (!Number.isSafeInteger(legacyModeratorCount) || (legacyModeratorCount !== 0 && legacyModeratorCount !== 1))) {
+    throw new HttpError(400, 'Mode moderator lama hanya dapat diatur menjadi 0 atau 1.');
+  }
+  const moderatorMode = ['host', 'system', 'random'].includes(String(input.moderatorMode || ''))
+    ? String(input.moderatorMode)
+    : legacyModeratorCount === 1 ? 'system' : 'host';
   const roleCounts = hasExplicitCounts ? {} : null;
   if (roleCounts) {
     for (const key of ROLE_COUNT_KEYS) {
@@ -100,11 +125,7 @@ function normalizeSettings(input = {}) {
       }
       roleCounts[key] = count;
     }
-    const moderatorCount = Number(input.roleCounts.moderator ?? 0);
-    if (!Number.isSafeInteger(moderatorCount) || (moderatorCount !== 0 && moderatorCount !== 1)) {
-      throw new HttpError(400, 'Mode moderator hanya dapat diatur menjadi 0 atau 1.');
-    }
-    roleCounts.moderator = moderatorCount;
+    roleCounts.moderator = moderatorMode === 'system' ? 1 : 0;
   }
   const wolves = Number(input.wolves ?? 1);
   if (!Number.isSafeInteger(wolves) || wolves < 1) throw new HttpError(400, 'Jumlah Werewolf harus berupa bilangan bulat positif.');
@@ -112,40 +133,25 @@ function normalizeSettings(input = {}) {
   for (const key of EXTRA_ROLE_KEYS) extraRoles[key] = input.extraRoles?.[key] === true;
   const abilities = {};
   for (const key of ABILITY_KEYS) abilities[key] = input.abilities?.[key] !== false;
-  return { wolves, seer: input.seer !== false, doctor: input.doctor !== false, extraRoles, roleCounts, abilities };
+  return { wolves, seer: input.seer !== false, doctor: input.doctor !== false, extraRoles, roleCounts, abilities, moderatorMode };
 }
 
-function recommendedRoleCounts(playerCount, settings = {}) {
+function recommendedRoleCounts(playerCount) {
   const counts = Object.fromEntries(ROLE_COUNT_KEYS.map(key => [key, 0]));
   if (!Number.isSafeInteger(playerCount) || playerCount < 2) return counts;
-
-  const requestedWolves = Number(settings.wolves ?? 1);
-  const wolfCount = Math.min(
-    playerCount - 1,
-    Math.max(1, Math.floor(playerCount / 4), Number.isSafeInteger(requestedWolves) ? requestedWolves : 1)
-  );
-  const extras = settings.extraRoles || {};
-  counts.wolf = wolfCount;
-  if (extras.alphaWolf) {
-    counts.wolf -= 1;
+  const wolfCount = Math.min(playerCount - 1, Math.max(1, Math.floor(playerCount / 4)));
+  if (playerCount >= 12 && wolfCount >= 3) {
     counts.alpha_wolf = 1;
-  }
-
+    counts.wolf = wolfCount - 1;
+  } else counts.wolf = wolfCount;
   let remaining = playerCount - wolfCount;
-  const optionalRoles = [
-    ['seer', settings.seer !== false],
-    ['doctor', settings.doctor !== false],
-    ['bodyguard', extras.bodyguard === true],
-    ['witch', extras.witch === true],
-    ['hunter', extras.hunter === true],
-    ['cupid', extras.cupid === true],
-    ['guardian_angel', extras.guardianAngel === true],
-    ['detective', extras.detective === true],
-    ['mayor', extras.mayor === true],
-    ['jester', extras.jester === true]
+  const roleSchedule = [
+    ['seer', 3], ['doctor', 4], ['bodyguard', 7], ['witch', 9],
+    ['hunter', 11], ['cupid', 13], ['detective', 15], ['mayor', 17],
+    ['guardian_angel', 19], ['jester', 21]
   ];
-  for (const [role, enabled] of optionalRoles) {
-    if (enabled && remaining > 1) {
+  for (const [role, minimumPlayers] of roleSchedule) {
+    if (playerCount >= minimumPlayers && remaining > 1) {
       counts[role] += 1;
       remaining -= 1;
     }
@@ -447,6 +453,8 @@ export class WerewolfRoom {
         round: room.round,
         hostId: room.hostId,
         settings: room.settings,
+        moderatorMode: room.settings?.moderatorMode || (Number(room.settings?.roleCounts?.moderator ?? 0) === 1 ? 'system' : 'host'),
+        activeModeratorMode: room.activeModeratorMode || null,
         discussionMode: room.phase === 'discussion' ? room.discussionMode || null : null,
         callUrl: '',
         nightActionsRequired: alive.length,
@@ -459,6 +467,9 @@ export class WerewolfRoom {
         lovers: isModerator ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean) : [],
         gameOver: room.phase === 'finished'
       },
+      lobbyPlayers: room.phase === 'lobby' ? room.players.map(player => ({
+        id: player.id, name: player.name, connected: Boolean(player.connected), isBot: Boolean(player.isBot)
+      })) : [],
       players,
       targets,
       wolfTeam: !isModerator && isWolf(self?.role)
@@ -490,7 +501,13 @@ export class WerewolfRoom {
         guardianTargetName: room.guardianTargets?.[self.id]
           ? room.players.find(item => item.id === room.guardianTargets[self.id])?.name || null
           : null,
-        witchPotions: !isModerator ? room.witchPotions?.[self.id] || null : null
+        witchPotions: !isModerator ? room.witchPotions?.[self.id] || null : null,
+        villagerPrompt: !isModerator && self.role === 'villager' && room.phase === 'night'
+          ? (() => {
+            const prompt = room.villagerPrompts?.[self.id];
+            return prompt ? { id: prompt.id, question: prompt.question, options: prompt.options } : null;
+          })()
+          : null
       } : null,
       chat: isModerator
         ? (room.chat || [])
@@ -646,6 +663,13 @@ export class WerewolfRoom {
     if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
   }
 
+  prepareVillagerPrompts(room) {
+    room.villagerPrompts = {};
+    for (const player of room.players.filter(item => item.alive && item.role === 'villager')) {
+      room.villagerPrompts[player.id] = createVillagerPrompt();
+    }
+  }
+
   runBotNightActions(room) {
     const alive = room.players.filter(player => player.alive);
     const roleAbilities = {
@@ -655,7 +679,16 @@ export class WerewolfRoom {
     for (const bot of alive.filter(player => player.isBot)
       .sort((left, right) => Number(left.role === 'witch') - Number(right.role === 'witch'))) {
       if (room.nightActions[bot.id]) continue;
-      if (['villager', 'hunter', 'mayor', 'jester'].includes(bot.role)
+      if (bot.role === 'villager') {
+        const prompt = room.villagerPrompts?.[bot.id];
+        if (prompt) {
+          const correctIndex = prompt.options.indexOf(prompt.answer);
+          const choiceIndex = randomInt(4) < 3 ? correctIndex : randomInt(4);
+          room.nightActions[bot.id] = { type: 'villager_math', promptId: prompt.id, choiceIndex, correct: choiceIndex === correctIndex };
+        }
+        continue;
+      }
+      if (['hunter', 'mayor', 'jester'].includes(bot.role)
         || (bot.role === 'cupid' && (room.round > 1 || !abilityEnabled(room, 'cupidBond')))
         || (roleAbilities[bot.role] && !abilityEnabled(room, roleAbilities[bot.role]))
         || (bot.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))) {
@@ -775,6 +808,8 @@ export class WerewolfRoom {
           nightActions: {},
           votes: {},
           seerResults: {},
+          villagerPrompts: {},
+          activeModeratorMode: null,
           chat: [],
           lastResult: null,
           winner: null,
@@ -961,7 +996,8 @@ export class WerewolfRoom {
 
 
   isSystemModerator(room) {
-    return Number(room.settings?.roleCounts?.moderator ?? 0) === 1;
+    const mode = room.activeModeratorMode || room.settings?.moderatorMode;
+    return mode ? mode === 'system' : Number(room.settings?.roleCounts?.moderator ?? 0) === 1;
   }
 
   prepareSystemNight(room) {
@@ -973,7 +1009,7 @@ export class WerewolfRoom {
     for (const player of room.players.filter(item => item.alive && !item.isBot)) {
       if (room.nightActions[player.id]) continue;
       const potions = room.witchPotions?.[player.id] || { heal: true, poison: true };
-      const canPass = ['villager', 'hunter', 'mayor', 'jester'].includes(player.role)
+      const canPass = ['hunter', 'mayor', 'jester'].includes(player.role)
         || (roleAbilities[player.role] && !abilityEnabled(room, roleAbilities[player.role]))
         || (player.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))
         || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed || !abilityEnabled(room, 'cupidBond')))
@@ -1019,6 +1055,38 @@ export class WerewolfRoom {
       requireModerator();
       requirePhase('lobby');
       room.settings = normalizeSettings(body.settings);
+      return;
+    }
+
+    if (type === 'reset_to_lobby') {
+      requireModerator();
+      if (room.phase === 'lobby') return;
+      room.phase = 'lobby';
+      room.round = 0;
+      room.activeModeratorMode = null;
+      for (const item of room.players) {
+        item.role = null;
+        item.alive = true;
+        item.hasDrawn = false;
+        item.suspicionTargetId = null;
+        item.hunterUsed = false;
+      }
+      room.nightActions = {};
+      room.votes = {};
+      room.seerResults = {};
+      room.villagerPrompts = {};
+      room.witchPotions = {};
+      room.guardianTargets = {};
+      room.bodyguardTargets = {};
+      room.lovers = null;
+      room.cupidUsed = false;
+      room.additionalWinners = [];
+      room.discussionMode = null;
+      room.discussionEndsAt = null;
+      room.callUrl = '';
+      room.chat = [];
+      room.lastResult = null;
+      room.winner = null;
       return;
     }
 
@@ -1074,6 +1142,11 @@ export class WerewolfRoom {
         throw new HttpError(409, 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain. Moderator tidak dihitung.');
       }
       const deck = roleDeck(room.settings, room.players.length);
+      const configuredModeratorMode = room.settings?.moderatorMode
+        || (Number(room.settings?.roleCounts?.moderator ?? 0) === 1 ? 'system' : 'host');
+      room.activeModeratorMode = configuredModeratorMode === 'random'
+        ? (randomInt(2) === 0 ? 'host' : 'system')
+        : configuredModeratorMode;
       room.players.forEach((item, index) => {
         item.role = deck[index];
         item.alive = true;
@@ -1085,6 +1158,7 @@ export class WerewolfRoom {
       room.nightActions = {};
       room.votes = {};
       room.seerResults = {};
+      room.villagerPrompts = {};
       room.witchPotions = {};
       room.guardianTargets = {};
       room.lovers = null;
@@ -1125,6 +1199,7 @@ export class WerewolfRoom {
       }
       room.phase = 'night';
       room.nightActions = {};
+      this.prepareVillagerPrompts(room);
       room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
       this.runBotNightActions(room);
@@ -1137,6 +1212,19 @@ export class WerewolfRoom {
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
+      if (player.role === 'villager' && body.mode === 'villager_math') {
+        const prompt = room.villagerPrompts?.[player.id];
+        const choiceIndex = Number(body.choiceIndex);
+        if (!prompt || prompt.id !== String(body.promptId || '')
+          || !Number.isSafeInteger(choiceIndex) || choiceIndex < 0 || choiceIndex >= prompt.options.length) {
+          throw new HttpError(400, 'Soal malam tidak valid atau sudah kedaluwarsa.');
+        }
+        const correctIndex = prompt.options.indexOf(prompt.answer);
+        room.nightActions[player.id] = { type: 'villager_math', promptId: prompt.id, choiceIndex, correct: choiceIndex === correctIndex };
+        this.runBotNightActions(room);
+        await this.resolveSystemNightIfReady(room, now);
+        return;
+      }
       const selected = player.role === 'witch' && body.mode === 'heal' ? null : target(body.targetId);
       if (!selected && !(player.role === 'witch' && body.mode === 'heal')) {
         throw new HttpError(400, 'Target tidak ditemukan atau sudah tereliminasi.');
@@ -1198,7 +1286,7 @@ export class WerewolfRoom {
         seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
         cupid: 'cupidBond', detective: 'detectiveInspection'
       };
-      const canPass = ['villager', 'hunter', 'mayor', 'jester'].includes(player.role)
+      const canPass = ['hunter', 'mayor', 'jester'].includes(player.role)
         || (roleAbilities[player.role] && !abilityEnabled(room, roleAbilities[player.role]))
         || (player.role === 'guardian_angel' && !abilityEnabled(room, 'guardianProtection') && !abilityEnabled(room, 'guardianBonus'))
         || (player.role === 'cupid' && (room.round > 1 || room.cupidUsed))
@@ -1448,6 +1536,7 @@ export class WerewolfRoom {
       room.round += 1;
       room.phase = 'night';
       room.nightActions = {};
+      this.prepareVillagerPrompts(room);
       room.votes = {};
       room.bodyguardTargets = {};
       room.discussionMode = null;
