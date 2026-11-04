@@ -168,6 +168,7 @@ assert.match(app, /Lewati pemain yang belum beraksi/);
 assert.match(app, /Tidak ada hitung mundur malam/);
 assert.match(app, /Tidak ada batas maksimal ronde malam/);
 assert.match(worker, /No fixed night-round cap/);
+assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
 assert.match(app, /role-balance/);
 assert.match(app, /updatePhaseTracker/);
 assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
