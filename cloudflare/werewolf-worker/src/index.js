@@ -246,31 +246,47 @@ export class WerewolfRoom {
     const token = bearer(request);
     if (!token) return null;
     const tokenHash = await digest(token);
-    return room.players.find(player => player.tokenHash === tokenHash) || null;
+    if (room.moderator?.tokenHash === tokenHash) {
+      return { id: room.moderator.id, name: room.moderator.name, isModerator: true };
+    }
+    const player = room.players.find(item => item.tokenHash === tokenHash);
+    if (!player) return null;
+    return { ...player, isModerator: Boolean(player.id === room.hostId && !room.moderator) };
   }
 
-  snapshot(room, playerId) {
-    const self = room.players.find(player => player.id === playerId);
-    const canReveal = room.phase === 'finished';
-    const players = room.players.map(player => {
-      const item = {
+  snapshot(room, actorId, actorType = 'player') {
+    const isModerator = actorType === 'moderator' || room.moderator?.id === actorId;
+    const self = isModerator ? room.moderator : room.players.find(player => player.id === actorId);
+    const alive = room.players.filter(player => player.alive);
+    const nightActionsSubmitted = alive.filter(player => room.nightActions?.[player.id]).length;
+    const votesSubmitted = alive.filter(player => Object.prototype.hasOwnProperty.call(room.votes || {}, player.id)).length;
+    const players = isModerator ? room.players.map(player => {
+      const nightAction = room.nightActions?.[player.id] || null;
+      const voteTargetId = room.votes?.[player.id] || null;
+      const actionTarget = nightAction?.targetId ? room.players.find(item => item.id === nightAction.targetId) : null;
+      const voteTarget = voteTargetId ? room.players.find(item => item.id === voteTargetId) : null;
+      return {
         id: player.id,
         name: player.name,
+        role: player.role,
         alive: player.alive,
         connected: Boolean(player.connected),
-        isHost: player.id === room.hostId,
         isBot: Boolean(player.isBot),
         hasDrawn: Boolean(player.hasDrawn),
-        hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, player.id))
+        hasActed: Boolean(nightAction),
+        nightActionType: nightAction?.type || null,
+        nightActionTarget: actionTarget?.name || null,
+        hasVoted: Boolean(voteTargetId),
+        voteTarget: voteTarget?.name || null
       };
-      if (!player.alive || canReveal) item.role = player.role;
-      if (self && self.hasDrawn && self.role === 'wolf') item.isWolf = player.role === 'wolf';
-      return item;
-    });
-    const nightActionsRequired = room.players.filter(player => player.alive && ['wolf', 'seer', 'doctor'].includes(player.role)).length;
-    const nightActionsSubmitted = Object.keys(room.nightActions || {}).length;
-    const votesRequired = room.players.filter(player => player.alive).length;
-    const votesSubmitted = Object.keys(room.votes || {}).length;
+    }) : [];
+    const targets = !isModerator && self
+      ? alive.map(player => ({ id: player.id, name: player.name }))
+      : [];
+    const status = !self || isModerator ? 'moderator'
+      : room.phase === 'morning'
+        ? (room.lastResult?.eliminatedId === self.id ? 'eliminated' : self.alive ? 'survived' : 'eliminated')
+        : self.alive ? 'alive' : 'eliminated';
     return {
       room: {
         code: room.code,
@@ -278,27 +294,34 @@ export class WerewolfRoom {
         round: room.round,
         hostId: room.hostId,
         settings: room.settings,
-        discussionMode: room.discussionMode,
-        discussionEndsAt: room.discussionEndsAt,
-        callUrl: room.callUrl,
-        lastResult: room.lastResult,
-        winner: room.winner,
-        nightActionsRequired,
+        nightActionsRequired: alive.length,
         nightActionsSubmitted,
-        votesRequired,
-        votesSubmitted
+        votesRequired: alive.length,
+        votesSubmitted,
+        lastResult: isModerator ? room.lastResult : null,
+        winner: isModerator ? room.winner : null,
+        gameOver: room.phase === 'finished'
       },
       players,
+      targets,
+      wolfTeam: !isModerator && self?.role === 'wolf'
+        ? room.players.filter(player => player.alive && player.role === 'wolf').map(player => player.name)
+        : [],
       self: self ? {
         id: self.id,
         name: self.name,
-        role: self.hasDrawn ? self.role : null,
+        isModerator,
+        role: isModerator ? null : (self.hasDrawn ? self.role : null),
+        alive: isModerator ? true : Boolean(self.alive),
+        status,
         hasDrawn: Boolean(self.hasDrawn),
         hasActed: Boolean(room.nightActions && room.nightActions[self.id]),
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)),
-        seerResult: room.seerResults ? room.seerResults[self.id] || null : null
+        seerResult: !isModerator && self.role === 'seer' && room.seerResults
+          ? room.seerResults[self.id] || null
+          : null
       } : null,
-      chat: room.discussionMode === 'online' ? (room.chat || []).slice(-MAX_CHAT_MESSAGES) : []
+      chat: []
     };
   }
 
@@ -307,14 +330,18 @@ export class WerewolfRoom {
     for (const socket of sockets) {
       try {
         const attachment = socket.deserializeAttachment();
-        if (attachment && attachment.playerId) {
-          socket.send(JSON.stringify({ type: 'state', state: this.snapshot(room, attachment.playerId) }));
+        if (attachment && attachment.actorId) {
+          socket.send(JSON.stringify({
+            type: 'state',
+            state: this.snapshot(room, attachment.actorId, attachment.actorType || 'player')
+          }));
         }
       } catch { /* A closed socket is removed by the runtime. */ }
     }
   }
 
-  async makePlayer(name, isHost = false) {
+
+  async makePlayer(name) {
     const token = randomToken(32);
     return {
       player: {
@@ -326,7 +353,19 @@ export class WerewolfRoom {
         connected: false,
         hasDrawn: false,
         joinedAt: Date.now(),
-        isHost
+        isHost: false
+      },
+      token
+    };
+  }
+
+  async makeModerator(name) {
+    const token = randomToken(32);
+    return {
+      moderator: {
+        id: crypto.randomUUID(),
+        name,
+        tokenHash: await digest(token)
       },
       token
     };
@@ -424,8 +463,13 @@ export class WerewolfRoom {
 
   runBotNightActions(room) {
     const alive = room.players.filter(player => player.alive);
-    for (const bot of alive.filter(player => player.isBot && ['wolf', 'seer', 'doctor'].includes(player.role))) {
+    for (const bot of alive.filter(player => player.isBot)) {
       if (room.nightActions[bot.id]) continue;
+      if (bot.role === 'villager') {
+        room.nightActions[bot.id] = { type: 'pass' };
+        continue;
+      }
+      if (!['wolf', 'seer', 'doctor'].includes(bot.role)) continue;
       let selected = null;
       let type = '';
       if (bot.role === 'wolf') {
@@ -450,6 +494,7 @@ export class WerewolfRoom {
       if (selected) room.nightActions[bot.id] = { type, targetId: selected.id };
     }
   }
+
 
   runBotVotes(room, now) {
     const alive = room.players.filter(player => player.alive);
@@ -476,9 +521,6 @@ export class WerewolfRoom {
       }
       if (selected) room.votes[bot.id] = selected.id;
     }
-    if (alive.length && alive.every(player => Object.prototype.hasOwnProperty.call(room.votes, player.id))) {
-      this.finishVote(room, now);
-    }
   }
 
   async fetch(request) {
@@ -489,13 +531,14 @@ export class WerewolfRoom {
         const existing = await this.loadRoom();
         if (!validCode(body.code)) throw new HttpError(400, 'Kode room tidak valid.');
         if (existing && existing.expiresAt > Date.now()) return json({ error: 'Kode room sudah digunakan.' }, 409);
-        const host = await this.makePlayer(validName(body.name), true);
+        const host = await this.makeModerator(validName(body.name));
         const room = {
           code: String(body.code || '').toUpperCase(),
           phase: 'lobby',
           round: 0,
-          hostId: host.player.id,
-          players: [host.player],
+          hostId: host.moderator.id,
+          moderator: host.moderator,
+          players: [],
           settings: normalizeSettings(body.settings),
           discussionMode: null,
           discussionEndsAt: null,
@@ -510,7 +553,7 @@ export class WerewolfRoom {
           expiresAt: Date.now() + ROOM_TTL_MS
         };
         await this.saveRoom(room);
-        return json({ code: room.code, playerId: host.player.id, token: host.token, phase: room.phase }, 201);
+        return json({ code: room.code, moderatorId: host.moderator.id, token: host.token, phase: room.phase }, 201);
       }
 
       if (url.pathname === '/internal/join' && request.method === 'POST') {
@@ -537,7 +580,11 @@ export class WerewolfRoom {
         if (!player) throw new HttpError(401, 'Sesi tidak valid. Masuk kembali ke room.');
         const ticket = randomToken(24);
         const ticketHash = await digest(ticket);
-        await this.state.storage.put('ticket:' + ticketHash, { playerId: player.id, expiresAt: Date.now() + 30000 });
+        await this.state.storage.put('ticket:' + ticketHash, {
+          actorId: player.id,
+          actorType: player.isModerator ? 'moderator' : 'player',
+          expiresAt: Date.now() + 30000
+        });
         return json({ ticket, expiresIn: 30 });
       }
 
@@ -546,7 +593,7 @@ export class WerewolfRoom {
         if (!room || room.expiresAt <= Date.now()) throw new HttpError(404, 'Room tidak ditemukan.');
         const player = await this.authenticate(request, room);
         if (!player) throw new HttpError(401, 'Sesi tidak valid.');
-        return json({ state: this.snapshot(room, player.id) });
+        return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
       }
 
       if (url.pathname === '/internal/action' && request.method === 'POST') {
@@ -559,7 +606,7 @@ export class WerewolfRoom {
         room.expiresAt = Date.now() + ROOM_TTL_MS;
         await this.saveRoom(room);
         await this.broadcast(room);
-        return json({ state: this.snapshot(room, player.id) });
+        return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
       }
 
       if ((url.pathname === '/internal/ws' || /^\/rooms\/[A-HJ-NP-Z2-9]{6}\/ws$/.test(url.pathname)) && request.method === 'GET') {
@@ -574,14 +621,20 @@ export class WerewolfRoom {
         await this.state.storage.delete('ticket:' + ticketHash);
         const room = await this.loadRoom();
         if (!room || room.expiresAt <= Date.now()) throw new HttpError(404, 'Room tidak ditemukan.');
-        const player = room.players.find(item => item.id === ticketRecord.playerId);
-        if (!player) throw new HttpError(401, 'Pemain tidak ditemukan.');
+        const isModerator = ticketRecord.actorType === 'moderator';
+        const actor = isModerator
+          ? room.moderator
+          : room.players.find(item => item.id === ticketRecord.actorId);
+        if (!actor) throw new HttpError(401, 'Akun room tidak ditemukan.');
         const pair = new WebSocketPair();
         const client = pair[0];
         const server = pair[1];
         this.state.acceptWebSocket(server);
-        server.serializeAttachment({ playerId: player.id });
-        player.connected = true;
+        server.serializeAttachment({
+          actorId: actor.id,
+          actorType: isModerator ? 'moderator' : 'player'
+        });
+        if (!isModerator) actor.connected = true;
         room.expiresAt = Date.now() + ROOM_TTL_MS;
         await this.saveRoom(room);
         await this.broadcast(room);
@@ -597,10 +650,12 @@ export class WerewolfRoom {
 
   finishVote(room, now) {
     const tally = {};
-    for (const targetId of Object.values(room.votes || {})) tally[targetId] = (tally[targetId] || 0) + 1;
+    for (const targetId of Object.values(room.votes || {})) {
+      tally[targetId] = (tally[targetId] || 0) + 1;
+    }
     const highestVote = Math.max(0, ...Object.values(tally));
     const winners = Object.keys(tally).filter(id => tally[id] === highestVote);
-    let message = 'Voting seri atau belum ada suara. Tidak ada pemain yang dieliminasi.';
+    let message = 'Voting seri atau belum ada suara. Tidak ada pemain yang tereliminasi.';
     let eliminatedId = null;
     if (winners.length === 1) {
       const eliminated = room.players.find(item => item.id === winners[0] && item.alive);
@@ -616,16 +671,22 @@ export class WerewolfRoom {
     const villagers = alive.length - wolves;
     if (wolves === 0) room.winner = 'villagers';
     else if (wolves >= villagers) room.winner = 'wolves';
-    if (room.winner) room.phase = 'finished';
-    else room.phase = 'result';
+    room.phase = room.winner ? 'finished' : 'result';
   }
 
   async applyAction(room, player, body) {
     const type = String(body.type || '');
     const now = Date.now();
-    const isHost = player.id === room.hostId;
-    const requireHost = () => { if (!isHost) throw new HttpError(403, 'Hanya host yang dapat melakukan tindakan ini.'); };
-    const requirePhase = phase => { if (room.phase !== phase) throw new HttpError(409, 'Aksi tidak sesuai dengan fase permainan.'); };
+    const isModerator = Boolean(player.isModerator || player.id === room.moderator?.id);
+    const requireModerator = () => {
+      if (!isModerator) throw new HttpError(403, 'Hanya moderator yang dapat melakukan tindakan ini.');
+    };
+    const requirePlayer = () => {
+      if (isModerator) throw new HttpError(403, 'Moderator tidak dapat melakukan aksi sebagai pemain.');
+    };
+    const requirePhase = phase => {
+      if (room.phase !== phase) throw new HttpError(409, 'Aksi tidak sesuai dengan fase permainan.');
+    };
     const target = id => room.players.find(item => item.id === String(id || '') && item.alive);
     const checkWinner = () => {
       const alive = room.players.filter(item => item.alive);
@@ -633,27 +694,34 @@ export class WerewolfRoom {
       const villagers = alive.length - wolves;
       if (wolves === 0) room.winner = 'villagers';
       else if (wolves >= villagers) room.winner = 'wolves';
-      if (room.winner) room.phase = 'finished';
     };
 
     if (type === 'add_bots') {
-      requireHost();
+      requireModerator();
       requirePhase('lobby');
-      const count = Number(body.count ?? 4);
-      if (!Number.isInteger(count) || count < 1 || count > 19) throw new HttpError(400, 'Jumlah bot harus 1–19.');
-      if (room.players.length + count > MAX_PLAYERS) throw new HttpError(409, 'Jumlah pemain maksimal 20 termasuk host dan bot.');
+      const count = Number(body.count ?? 5);
+      if (!Number.isInteger(count) || count < 1 || count > MAX_PLAYERS) {
+        throw new HttpError(400, 'Jumlah bot harus 1–20.');
+      }
+      if (room.players.length + count > MAX_PLAYERS) {
+        throw new HttpError(409, 'Jumlah pemain maksimal 20, tidak termasuk moderator.');
+      }
       for (let index = 0; index < count; index += 1) room.players.push(this.makeBot(room));
       return;
     }
 
     if (type === 'start_game') {
-      requireHost();
+      requireModerator();
       requirePhase('lobby');
-      if (room.players.length < MIN_PLAYERS) throw new HttpError(409, 'Minimal 5 pemain untuk memulai.');
+      if (room.players.length < MIN_PLAYERS) {
+        throw new HttpError(409, 'Minimal 5 pemain harus bergabung, tidak termasuk moderator.');
+      }
       const roles = Array(room.settings.wolves).fill('wolf');
       if (room.settings.seer) roles.push('seer');
       if (room.settings.doctor) roles.push('doctor');
-      if (roles.length >= room.players.length) throw new HttpError(409, 'Jumlah peran khusus terlalu banyak. Sisakan minimal satu Warga Desa.');
+      if (roles.length >= room.players.length) {
+        throw new HttpError(409, 'Jumlah peran khusus terlalu banyak. Sisakan minimal satu Warga Desa.');
+      }
       while (roles.length < room.players.length) roles.push('villager');
       const deck = shuffle(roles);
       room.players.forEach((item, index) => {
@@ -662,7 +730,6 @@ export class WerewolfRoom {
         item.hasDrawn = Boolean(item.isBot);
         item.suspicionTargetId = null;
       });
-      room.botReplyCursor = 0;
       room.round = 1;
       room.phase = 'role_draw';
       room.nightActions = {};
@@ -675,16 +742,19 @@ export class WerewolfRoom {
     }
 
     if (type === 'draw_card') {
+      requirePlayer();
       requirePhase('role_draw');
-      if (player.hasDrawn) throw new HttpError(409, 'Kartu sudah diambil.');
+      if (player.hasDrawn) throw new HttpError(409, 'Kartu sudah dibuka.');
       player.hasDrawn = true;
       return;
     }
 
     if (type === 'start_night') {
-      requireHost();
+      requireModerator();
       requirePhase('role_draw');
-      if (room.players.some(item => !item.hasDrawn)) throw new HttpError(409, 'Tunggu semua pemain mengambil kartu.');
+      if (room.players.some(item => !item.hasDrawn)) {
+        throw new HttpError(409, 'Tunggu semua pemain membuka kartu.');
+      }
       room.phase = 'night';
       room.nightActions = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
@@ -693,13 +763,16 @@ export class WerewolfRoom {
     }
 
     if (type === 'night_action') {
+      requirePlayer();
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
       if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
       const selected = target(body.targetId);
       if (!selected) throw new HttpError(400, 'Target tidak ditemukan atau sudah tereliminasi.');
       if (player.role === 'wolf') {
-        if (selected.role === 'wolf' || selected.id === player.id) throw new HttpError(400, 'Werewolf tidak dapat memilih anggota kawanan sendiri.');
+        if (selected.role === 'wolf' || selected.id === player.id) {
+          throw new HttpError(400, 'Werewolf tidak dapat memilih anggota kawanan sendiri.');
+        }
         room.nightActions[player.id] = { type: 'wolf_vote', targetId: selected.id };
       } else if (player.role === 'doctor') {
         room.nightActions[player.id] = { type: 'doctor_protect', targetId: selected.id };
@@ -712,12 +785,24 @@ export class WerewolfRoom {
       return;
     }
 
-    if (type === 'resolve_night') {
-      requireHost();
+    if (type === 'night_pass') {
+      requirePlayer();
       requirePhase('night');
-      const actors = room.players.filter(item => item.alive && ['wolf', 'seer', 'doctor'].includes(item.role));
+      if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
+      if (player.role !== 'villager') throw new HttpError(403, 'Hanya Warga Desa yang dapat melewati aksi malam.');
+      if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
+      room.nightActions[player.id] = { type: 'pass' };
+      return;
+    }
+
+    if (type === 'resolve_night') {
+      requireModerator();
+      requirePhase('night');
+      const actors = room.players.filter(item => item.alive);
       const missing = actors.filter(item => !room.nightActions[item.id]);
-      if (missing.length && body.force !== true) throw new HttpError(409, 'Belum semua peran aktif mengirim aksi.');
+      if (missing.length && body.force !== true) {
+        throw new HttpError(409, 'Belum semua pemain yang hidup menyelesaikan aksi malam.');
+      }
       const wolfVotes = {};
       let protectedId = null;
       for (const actor of actors) {
@@ -754,58 +839,32 @@ export class WerewolfRoom {
       room.lastResult = { kind: 'night', message, eliminatedId, at: now, round: room.round };
       room.nightActions = {};
       checkWinner();
-      if (!room.winner) {
-        room.phase = 'discussion';
-        const soloBotMode = room.players.some(item => item.isBot) && room.players.filter(item => !item.isBot).length === 1;
-        room.discussionMode = soloBotMode ? 'online' : null;
-        room.discussionEndsAt = soloBotMode ? now + 90000 : null;
-        room.callUrl = '';
-        room.chat = [];
-        if (soloBotMode) this.seedBotDiscussion(room, now);
-      }
-      return;
-    }
-
-    if (type === 'set_discussion') {
-      requireHost();
-      requirePhase('discussion');
-      const mode = body.mode === 'online' ? 'online' : body.mode === 'offline' ? 'offline' : '';
-      if (!mode) throw new HttpError(400, 'Pilih diskusi offline atau online.');
-      const duration = Number(body.durationMinutes || 5);
-      if (!Number.isInteger(duration) || duration < 1 || duration > 20) throw new HttpError(400, 'Durasi diskusi harus 1–20 menit.');
-      room.discussionMode = mode;
-      room.discussionEndsAt = now + duration * 60 * 1000;
-      room.callUrl = mode === 'online' ? cleanCallUrl(body.callUrl) : '';
+      room.phase = 'morning';
+      room.discussionMode = null;
+      room.discussionEndsAt = null;
+      room.callUrl = '';
       room.chat = [];
-      if (mode === 'online') this.seedBotDiscussion(room, now);
       return;
     }
 
-    if (type === 'send_chat') {
-      requirePhase('discussion');
-      if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat mengirim pesan.');
-      if (room.discussionMode !== 'online') throw new HttpError(409, 'Chat hanya aktif pada diskusi online.');
-      const text = String(body.text || '').trim();
-      if (!text || text.length > 500) throw new HttpError(400, 'Pesan harus terdiri dari 1–500 karakter.');
-      const rateKey = 'chat-rate:' + player.id;
-      const rate = await this.state.storage.get(rateKey) || { start: now, count: 0 };
-      if (now - rate.start >= 10000) { rate.start = now; rate.count = 0; }
-      if (rate.count >= 5) throw new HttpError(429, 'Terlalu banyak pesan. Tunggu beberapa detik.');
-      rate.count += 1;
-      await this.state.storage.put(rateKey, rate);
-      room.chat.push({ id: crypto.randomUUID(), playerId: player.id, name: player.name, text, at: now });
-      this.respondToSoloChat(room, text, now);
-      if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
+    if (type === 'start_discussion') {
+      requireModerator();
+      requirePhase('morning');
+      if (room.winner) {
+        room.phase = 'finished';
+        return;
+      }
+      room.phase = 'discussion';
+      room.discussionMode = null;
+      room.discussionEndsAt = null;
+      room.callUrl = '';
+      room.chat = [];
       return;
     }
 
     if (type === 'start_voting') {
-      requireHost();
+      requireModerator();
       requirePhase('discussion');
-      if (!room.discussionMode) throw new HttpError(409, 'Host harus memilih metode diskusi terlebih dahulu.');
-      if (room.discussionEndsAt && now < room.discussionEndsAt && body.force !== true) {
-        throw new HttpError(409, 'Waktu diskusi belum selesai.');
-      }
       room.phase = 'voting';
       room.votes = {};
       this.runBotVotes(room, now);
@@ -813,31 +872,32 @@ export class WerewolfRoom {
     }
 
     if (type === 'cast_vote') {
+      requirePlayer();
       requirePhase('voting');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan voting.');
-      if (Object.prototype.hasOwnProperty.call(room.votes, player.id)) throw new HttpError(409, 'Suara sudah dikirim.');
+      if (Object.prototype.hasOwnProperty.call(room.votes, player.id)) {
+        throw new HttpError(409, 'Suara sudah dikirim.');
+      }
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih pemain lain yang masih hidup.');
       room.votes[player.id] = selected.id;
-      const alivePlayers = room.players.filter(item => item.alive);
-      if (alivePlayers.every(item => Object.prototype.hasOwnProperty.call(room.votes, item.id))) {
-        this.finishVote(room, now);
-      }
       return;
     }
 
     if (type === 'resolve_vote') {
-      requireHost();
+      requireModerator();
       requirePhase('voting');
       const alivePlayers = room.players.filter(item => item.alive);
       const missing = alivePlayers.filter(item => !Object.prototype.hasOwnProperty.call(room.votes, item.id));
-      if (missing.length && body.force !== true) throw new HttpError(409, 'Belum semua pemain memberikan suara.');
+      if (missing.length && body.force !== true) {
+        throw new HttpError(409, 'Belum semua pemain memberikan suara.');
+      }
       this.finishVote(room, now);
       return;
     }
 
     if (type === 'next_round') {
-      requireHost();
+      requireModerator();
       requirePhase('result');
       room.round += 1;
       room.phase = 'night';
@@ -855,6 +915,7 @@ export class WerewolfRoom {
     throw new HttpError(400, 'Jenis aksi tidak dikenal.');
   }
 
+
   async webSocketMessage(socket, message) {
     if (String(message) === 'ping') {
       try { socket.send('pong'); } catch {}
@@ -865,11 +926,11 @@ export class WerewolfRoom {
     try {
       const attachment = socket.deserializeAttachment();
       const room = await this.loadRoom();
-      if (!room || !attachment?.playerId) return;
+      if (!room || !attachment?.actorId || attachment.actorType === 'moderator') return;
       const otherSocket = (this.state.getWebSockets ? this.state.getWebSockets() : [])
-        .some(item => item !== socket && item.deserializeAttachment()?.playerId === attachment.playerId);
+        .some(item => item !== socket && item.deserializeAttachment()?.actorId === attachment.actorId);
       if (!otherSocket) {
-        const player = room.players.find(item => item.id === attachment.playerId);
+        const player = room.players.find(item => item.id === attachment.actorId);
         if (player) {
           player.connected = false;
           await this.saveRoom(room);
@@ -878,6 +939,7 @@ export class WerewolfRoom {
       }
     } catch { /* A disconnected client must not block room cleanup. */ }
   }
+
 
   async webSocketError(socket) {
     await this.webSocketClose(socket);
