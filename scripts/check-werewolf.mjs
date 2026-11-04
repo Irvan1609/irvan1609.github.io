@@ -47,7 +47,7 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261104-flexible-player-count3/);
+assert.match(html, /20261104-private-cards-moderator-report1/);
 assert.match(worker, /cleanCallUrl/);
 assert.match(worker, /room\.discussionMode = mode/);
 assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
@@ -108,7 +108,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261104-werewolf-flexible-player-count3/);
+assert.match(sw, /20261104-werewolf-private-cards-moderator-report1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
@@ -119,3 +119,25 @@ assert.match(app, /updatePhaseTracker/);
 assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: separate moderator dashboard, minimal player actions, manual phase control, responsive UI, and private role assets.');
+
+
+assert.match(app, /function renderPlayerRoleReminder/);
+assert.match(app, /role-flip-card/);
+assert.match(app, /aria-pressed/);
+assert.match(app, /function renderWolfTeamPanel/);
+assert.match(app, /roomState\.wolfTeam/);
+assert.match(app, /Voting bersifat rahasia/);
+assert.match(app, /function renderModeratorEventReport/);
+assert.match(app, /KARTU MODERATOR/);
+assert.match(app, /moderator: \['Moderator'/);
+assert.match(app, /roleCounts\.moderator/);
+assert.match(css, /\.role-flip-card/);
+assert.match(css, /\.role-flip-card\.is-flipped/);
+assert.match(css, /\.wolf-team-panel/);
+assert.match(css, /\.moderator-event-report/);
+assert.match(html, /20261104-private-cards-moderator-report1/);
+assert.match(sw, /20261104-werewolf-private-cards-moderator-report1/);
+assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
+assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
+
+console.log('Werewolf private-card, moderator-report, role privacy, and wolf-team UI checks passed.');

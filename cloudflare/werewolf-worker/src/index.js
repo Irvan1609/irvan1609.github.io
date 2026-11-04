@@ -865,19 +865,26 @@ export class WerewolfRoom {
 
   eliminatePlayer(room, playerId, cause) {
     const eliminated = [];
-    const queue = [playerId];
+    const details = [];
+    const queue = [{ id: playerId, cause: cause || 'unknown' }];
     while (queue.length) {
-      const id = queue.shift();
-      const player = room.players.find(item => item.id === id && item.alive);
+      const current = queue.shift();
+      const player = room.players.find(item => item.id === current.id && item.alive);
       if (!player) continue;
       player.alive = false;
       eliminated.push(player);
-      if (room.lovers?.includes(id)) {
-        const partnerId = room.lovers.find(value => value !== id);
-        if (partnerId) queue.push(partnerId);
+      details.push({
+        id: player.id,
+        name: player.name,
+        role: player.role,
+        cause: current.cause
+      });
+      if (room.lovers?.includes(current.id)) {
+        const partnerId = room.lovers.find(value => value !== current.id);
+        if (partnerId) queue.push({ id: partnerId, cause: 'cupid_bond' });
       }
     }
-    return eliminated;
+    return { players: eliminated, details };
   }
 
   checkWinner(room) {
@@ -913,17 +920,23 @@ export class WerewolfRoom {
     let message = 'Voting seri atau belum ada suara. Tidak ada pemain yang tereliminasi.';
     let eliminatedId = null;
     let eliminatedIds = [];
+    let eliminations = [];
+    const events = [];
     if (winners.length === 1) {
       const targetPlayer = room.players.find(item => item.id === winners[0] && item.alive);
       if (targetPlayer) {
-        const eliminated = this.eliminatePlayer(room, targetPlayer.id, 'vote');
-        eliminatedIds = eliminated.map(item => item.id);
+        const outcome = this.eliminatePlayer(room, targetPlayer.id, 'vote');
+        eliminatedIds = outcome.players.map(item => item.id);
+        eliminations = outcome.details;
         eliminatedId = targetPlayer.id;
-        message = eliminated.map(item => item.name).join(' dan ') + ' tereliminasi melalui voting.';
+        message = outcome.players.map(item => item.name).join(' dan ') + ' tereliminasi melalui voting.';
+        events.push('Pemain dengan suara terbanyak: ' + targetPlayer.name + '.');
         if (targetPlayer.role === 'jester' && abilityEnabled(room, 'jesterSoloWin')) room.winner = 'jester';
       }
+    } else {
+      events.push('Voting seri atau tidak menghasilkan pilihan yang sah.');
     }
-    room.lastResult = { kind: 'vote', message, eliminatedId, eliminatedIds, at: now, round: room.round };
+    room.lastResult = { kind: 'vote', message, eliminatedId, eliminatedIds, eliminations, events, at: now, round: room.round };
     if (!room.winner) this.checkWinner(room);
     room.phase = room.winner ? 'finished' : 'result';
   }
@@ -1109,6 +1122,7 @@ export class WerewolfRoom {
       const protectedIds = new Set();
       const poisonTargets = [];
       let victimId = null;
+      const cupidWasUsed = Boolean(room.cupidUsed);
       for (const actor of actors) {
         const action = room.nightActions[actor.id];
         if (!action) continue;
@@ -1152,6 +1166,11 @@ export class WerewolfRoom {
           room.guardianTargets = { ...(room.guardianTargets || {}), [actor.id]: action.targetId };
         }
       }
+      const events = [];
+      if (!cupidWasUsed && room.cupidUsed && room.lovers?.length === 2) {
+        const linkedNames = room.lovers.map(id => room.players.find(item => item.id === id)?.name).filter(Boolean);
+        if (linkedNames.length === 2) events.push('Cupid mengikat ' + linkedNames.join(' dan ') + '.');
+      }
       const highest = Math.max(0, ...Object.values(wolfVotes));
       const candidates = Object.keys(wolfVotes).filter(id => wolfVotes[id] === highest);
       victimId = candidates.length === 1 ? candidates[0] : null;
@@ -1166,21 +1185,56 @@ export class WerewolfRoom {
       }
       const deaths = [];
       if (victimId && !protectedIds.has(victimId) && !doctorHeal) {
-        if (bodyguardInterception) deaths.push(bodyguardInterception);
-        else deaths.push(victimId);
+        if (bodyguardInterception) deaths.push({ id: bodyguardInterception, cause: 'bodyguard_sacrifice' });
+        else deaths.push({ id: victimId, cause: 'werewolf_attack' });
       }
-      for (const id of poisonTargets) if (!deaths.includes(id)) deaths.push(id);
+      for (const id of poisonTargets) {
+        if (!deaths.some(item => item.id === id)) deaths.push({ id, cause: 'witch_poison' });
+      }
       const eliminated = [];
-      for (const id of deaths) eliminated.push(...this.eliminatePlayer(room, id, 'night'));
+      const eliminations = [];
+      for (const death of deaths) {
+        const outcome = this.eliminatePlayer(room, death.id, death.cause);
+        eliminated.push(...outcome.players);
+        eliminations.push(...outcome.details);
+      }
+
+      const attackedPlayer = victimId ? room.players.find(item => item.id === victimId) : null;
+      if (victimId && (protectedIds.has(victimId) || doctorHeal)) {
+        events.push('Target serangan Werewolf: ' + (attackedPlayer?.name || 'tidak diketahui') + '; serangan berhasil digagalkan oleh perlindungan.');
+      } else if (bodyguardInterception) {
+        const guard = room.players.find(item => item.id === bodyguardInterception);
+        events.push('Bodyguard ' + (guard?.name || 'tidak diketahui') + ' mengorbankan diri untuk melindungi ' + (attackedPlayer?.name || 'target') + '.');
+      } else if (victimId) {
+        events.push('Werewolf menyerang ' + (attackedPlayer?.name || 'target tidak diketahui') + '.');
+      }
+      for (const id of poisonTargets) {
+        const poisoned = room.players.find(item => item.id === id);
+        events.push('Witch menggunakan racun kepada ' + (poisoned?.name || 'target tidak diketahui') + '.');
+      }
+
       if (eliminated.length) {
         eliminatedId = eliminated[0].id;
         message = eliminated.map(item => item.name).join(' dan ') + ' tereliminasi pada malam hari.';
+        events.push('Korban akhir: ' + eliminated.map(item => item.name).join(', ') + '.');
       } else if (victimId && (protectedIds.has(victimId) || doctorHeal)) {
         message = 'Serangan Werewolf berhasil digagalkan oleh perlindungan.';
       } else if (highest > 0 && !victimId) {
         message = 'Pilihan Werewolf seri. Tidak ada korban dari serangan.';
+        events.push('Pilihan serangan Werewolf seri; tidak ada target serangan.');
+      } else if (!events.length) {
+        events.push('Tidak ada aksi malam yang menyebabkan perubahan pada pemain.');
       }
-      room.lastResult = { kind: 'night', message, eliminatedId, eliminatedIds: eliminated.map(item => item.id), at: now, round: room.round };
+      room.lastResult = {
+        kind: 'night',
+        message,
+        eliminatedId,
+        eliminatedIds: eliminated.map(item => item.id),
+        eliminations,
+        events,
+        at: now,
+        round: room.round
+      };
       room.nightActions = {};
       checkWinner();
       room.phase = 'morning';
@@ -1239,7 +1293,8 @@ export class WerewolfRoom {
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih target yang masih hidup.');
       player.hunterUsed = true;
-      const eliminated = this.eliminatePlayer(room, selected.id, 'hunter');
+      const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
+      const eliminated = outcome.players;
       this.checkWinner(room);
       if (room.winner) room.phase = 'finished';
       room.lastResult = {
@@ -1247,6 +1302,8 @@ export class WerewolfRoom {
         message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
         eliminatedId: selected.id,
         eliminatedIds: eliminated.map(item => item.id),
+        eliminations: outcome.details,
+        events: ['Hunter menembak ' + selected.name + '.'],
         at: now,
         round: room.round
       };
