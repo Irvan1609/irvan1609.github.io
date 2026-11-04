@@ -13,7 +13,7 @@ const ROLE_INFO = {
   witch: ['Witch', 'Memiliki satu ramuan penyembuh dan satu racun untuk digunakan masing-masing sekali selama permainan.'],
   hunter: ['Hunter', 'Jika tereliminasi, pilih satu pemain hidup untuk ditembak.'],
   cupid: ['Cupid', 'Pada malam pertama, hubungkan dua pemain. Jika salah satu tereliminasi, pasangannya ikut tereliminasi.'],
-  guardian_angel: ['Guardian Angel', 'Pilih satu pemain untuk dijaga sepanjang permainan. Menang tambahan jika target tetap hidup saat permainan berakhir.'],
+  guardian_angel: ['Guardian Angel', 'Pilih satu pemain untuk dilindungi setiap malam. Mendapat kemenangan tambahan jika target pilihan terakhir masih hidup saat permainan berakhir.'],
   detective: ['Detective', 'Periksa satu pemain setiap malam untuk mengetahui kubunya: Desa, Werewolf, atau Netral.'],
   mayor: ['Mayor', 'Suara voting bernilai dua. Tidak memiliki aksi malam.'],
   jester: ['Jester', 'Menang sendiri jika berhasil dieliminasi melalui voting. Tidak memiliki aksi malam.']
@@ -373,7 +373,10 @@ function renderModeratorLobby(parent) {
     ['Doctor', settings.doctor ? 1 : 0],
     ...EXTRA_ROLE_OPTIONS.map(([key, label]) => [label, extras[key] ? 1 : 0])
   ];
-  const specialRoles = roleCounts.reduce((sum, item) => sum + item[1], 0);
+  const specialRoles = Number(settings.wolves || 1)
+    + (settings.seer ? 1 : 0)
+    + (settings.doctor ? 1 : 0)
+    + EXTRA_ROLE_OPTIONS.filter(([key]) => key !== 'alphaWolf' && extras[key]).length;
   const villagers = roomState.players.length - specialRoles;
   const balance = node('div', 'role-balance');
   addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI PERAN');
