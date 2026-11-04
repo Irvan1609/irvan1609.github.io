@@ -33,10 +33,10 @@
       </div>
       <div class="entry-grid">
         <form id="createForm" class="entry-card">
-          <div class="card-kicker">HOST ROOM</div>
+          <div class="card-kicker">MODERATOR ROOM</div>
           <h3>Buat room baru</h3>
-          <label>Nama pemain
-            <input id="createName" maxlength="20" placeholder="Masukkan nama kamu" required>
+          <label>Nama moderator
+            <input id="createName" maxlength="20" placeholder="Masukkan nama moderator" required>
           </label>
           <div class="form-row">
             <label>Jumlah Werewolf
@@ -47,9 +47,9 @@
             <label class="check-row"><input id="includeSeer" type="checkbox" checked><span><b>Seer</b><small>Memeriksa identitas satu pemain setiap malam.</small></span></label>
             <label class="check-row"><input id="includeDoctor" type="checkbox" checked><span><b>Doctor</b><small>Melindungi satu pemain dari serangan.</small></span></label>
           </div>
-          <label class="check-row solo-mode-row"><input id="soloMode" type="checkbox" checked><span><b>Mode latihan solo · 4 bot</b><small>Room langsung diisi empat bot agar kamu bisa bermain sendiri. Matikan opsi ini jika ingin bermain dengan teman.</small></span></label>
+          <label class="check-row solo-mode-row"><input id="soloMode" type="checkbox" checked><span><b>Mode latihan · 5 bot</b><small>Moderator dapat berlatih mengelola permainan dengan lima bot tanpa harus menjadi pemain.</small></span></label>
           <button class="primary wide" id="createButton" type="submit">Buat room</button>
-          <p class="hint">Kamu menjadi host sekaligus pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
+          <p class="hint">Moderator mengelola permainan dan tidak dihitung sebagai pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
         </form>
 
         <form id="joinForm" class="entry-card join-card">
@@ -73,7 +73,7 @@
           <article><b>Doctor</b><p>Melindungi satu pemain setiap malam, termasuk dirinya sendiri.</p></article>
           <article><b>Warga Desa</b><p>Menggunakan diskusi dan voting untuk menemukan serta mengeliminasi Werewolf.</p></article>
         </div>
-        <p class="hint">Alur permainan: ambil kartu → malam → diskusi → voting → hasil ronde. Peran tetap rahasia sampai pemain tereliminasi atau permainan selesai.</p>
+        <p class="hint">Alur permainan: moderator membagikan kartu, mengendalikan malam dan pagi, membuka diskusi, memulai voting, lalu mengumumkan hasil. Tidak ada timer otomatis.</p>
       </details>
       <p id="entryMessage" class="message-line" role="status" aria-live="polite"></p>
     </section>
@@ -81,15 +81,15 @@
     <section id="roomPanel" class="hidden">
       <div class="panel room-panel">
         <div class="room-top">
-          <div><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button></div></div>
+          <div id="roomIdentity"><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button></div></div>
           <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
         </div>
         <p id="roomMessage" class="message-line" role="status" aria-live="polite"></p>
-        <div class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
+        <div id="roomMeta" class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
         <ol id="phaseTracker" class="phase-tracker" aria-label="Tahapan permainan">
-          <li data-step="lobby">Lobby</li><li data-step="role_draw">Kartu</li><li data-step="night">Malam</li><li data-step="discussion">Diskusi</li><li data-step="voting">Voting</li><li data-step="result">Hasil</li>
+          <li data-step="lobby">Lobby</li><li data-step="role_draw">Kartu</li><li data-step="night">Malam</li><li data-step="morning">Pagi</li><li data-step="discussion">Diskusi</li><li data-step="voting">Voting</li><li data-step="result">Hasil</li>
         </ol>
-        <div class="players-section">
+        <div id="playersSection" class="players-section">
           <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Peran pemain lain tetap rahasia.</span></div>
           <div id="playersList" class="players-list"></div>
         </div>
