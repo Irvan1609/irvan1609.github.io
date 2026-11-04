@@ -70,7 +70,7 @@ assert.match(app, /function clearAllRoleCounts/);
 assert.match(app, /Jadikan Semua Role 0/);
 assert.match(app, /clearRolesButton\.dataset\.clearAllRoles/);
 assert.match(app, /Restart Permainan/);
-assert.match(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
+assert.match(app, /resetButton\.classList\.toggle\('hidden', !moderator\)/);
 assert.match(css, /role-config-actions/);
 assert.match(css, /role-zero-button/);
 assert.match(css, /room-top-actions #resetRoom/);
