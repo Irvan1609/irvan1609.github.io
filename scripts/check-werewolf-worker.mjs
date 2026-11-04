@@ -139,7 +139,7 @@ assert.equal(saved.players[3].alive, true); // Doctor protected the selected tar
 const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
-assert.match(morningModerator.room.lastResult.message, /Doctor/);
+assert.match(morningModerator.room.lastResult.message, /perlindungan/);
 assert.equal(morningModerator.players[0].role, 'wolf');
 const morningPlayer = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
