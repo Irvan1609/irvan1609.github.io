@@ -1021,7 +1021,6 @@ export class WerewolfRoom {
         if (actionResult?.kickedPlayerId) this.closeKickedPlayerSockets(actionResult.kickedPlayerId);
         await this.broadcast(room);
         return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
-        return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
       });
 
       if ((url.pathname === '/internal/ws' || /^\/rooms\/[A-HJ-NP-Z2-9]{6}\/ws$/.test(url.pathname)) && request.method === 'GET') return await this.runExclusive(async () => {
