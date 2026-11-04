@@ -730,7 +730,7 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Pantau status aksi semua pemain. Target dan hasil setiap aksi hanya terlihat oleh moderator.');
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Tidak ada hitung mundur malam. Moderator menentukan sendiri kapan beralih ke pagi. Target dan hasil setiap aksi hanya terlihat oleh moderator.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi malam.');
   const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
@@ -839,6 +839,7 @@ function renderModeratorResult(parent) {
   addText(card, 'h3', '', result?.message || 'Hasil voting tersedia.');
   renderModeratorEventReport(card, result);
   parent.append(card);
+  addText(parent, 'p', 'hint', 'Tidak ada batas maksimal ronde malam. Permainan berlanjut sampai kondisi kemenangan terpenuhi.');
   parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
 }
 
@@ -882,6 +883,7 @@ function renderPlayerNight(parent) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi.');
     return;
   }
+  addText(parent, 'p', 'hint', 'Fase malam tidak memakai hitung mundur. Selesaikan aksi dan tunggu moderator melanjutkan ke pagi.');
   if (!self.role) {
     addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Hubungi moderator.');
     return;
