@@ -385,7 +385,7 @@ console.log('Werewolf Witch/Cupid checks passed: Witch-only attack clue, guarded
 // A Cupid pair may contain a Werewolf and a Villager. Killing either member removes both.
 const cupidNightRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const cupidNightCreated = await payload(await cupidNightRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'CPDNT2', name: 'Cupid Night Moderator'
+  code: 'CPDNT2', name: 'Cupid Moderator'
 })), 201);
 const cupidNightNames = ['Wolf One', 'Wolf Two', 'Cupid One', 'Village One', 'Village Two'];
 const cupidNightTokens = [];
