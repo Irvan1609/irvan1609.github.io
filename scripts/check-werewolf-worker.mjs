@@ -63,7 +63,7 @@ const roleSettings = {
   roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
     witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
-    mayor: 0, jester: 0, villager: 2
+    mayor: 0, jester: 0, villager: 2, moderator: 0
   },
   abilities: {
     alphaDoubleVote: true, seerInspection: true, doctorProtection: true,
@@ -86,7 +86,16 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
 saved = await room.loadRoom();
 assert.equal(saved.settings.roleCounts.wolf, 1);
 assert.equal(saved.settings.roleCounts.villager, 2);
+assert.equal(saved.settings.roleCounts.moderator, 0);
 assert.equal(saved.settings.abilities.mayorDoubleVote, false);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: { ...roleSettings, roleCounts: { ...roleSettings.roleCounts, moderator: 1 } }
+}, moderatorToken)));
+assert.equal((await room.loadRoom()).settings.roleCounts.moderator, 1);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: { ...roleSettings, roleCounts: { ...roleSettings.roleCounts, moderator: 2 } }
+}, moderatorToken)), 400);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'update_settings', settings: roleSettings }, moderatorToken)));
 
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, moderatorToken)));
@@ -157,32 +166,22 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: '
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'discussion');
 assert.equal(saved.discussionEndsAt, null);
-assert.equal(saved.discussionMode, null);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
+assert.equal(saved.discussionMode, 'offline');
+assert.equal(saved.callUrl, '');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'set_discussion', mode: 'online', callUrl: 'https://meet.google.com/test-room'
+}, moderatorToken)), 400);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
   type: 'set_discussion', mode: 'offline'
 }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'online', callUrl: 'http://meet.google.com/test-room'
-}, moderatorToken)), 400);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
   type: 'set_discussion', mode: 'offline'
 }, moderatorToken)));
-let offlineDiscussion = (await payload(await room.fetch(
+const offlineDiscussion = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
 ))).state;
 assert.equal(offlineDiscussion.room.discussionMode, 'offline');
 assert.equal(offlineDiscussion.room.callUrl, '');
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'online', callUrl: 'https://meet.google.com/test-room'
-}, moderatorToken)));
-const onlineDiscussion = (await payload(await room.fetch(
-  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
-))).state;
-assert.equal(onlineDiscussion.room.discussionMode, 'online');
-assert.equal(onlineDiscussion.room.callUrl, 'https://meet.google.com/test-room');
-saved = await room.loadRoom();
-assert.equal(saved.discussionEndsAt, null);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
 saved = await room.loadRoom();
@@ -269,7 +268,8 @@ await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'discussion');
-assert.equal(soloState.discussionMode, null);
+assert.equal(soloState.discussionMode, 'offline');
+assert.equal(soloState.callUrl, '');
 assert.equal(soloState.chat.length, 3);
 assert.ok(soloState.chat.every(message =>
   soloState.players.some(player => player.id === message.playerId && player.isBot)
@@ -291,6 +291,70 @@ await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { typ
 soloState = await soloRoom.loadRoom();
 assert.ok(['result', 'finished'].includes(soloState.phase));
 
+
+const systemStorage = new MemoryStorage();
+const systemRoom = new WerewolfRoom({ storage: systemStorage, getWebSockets: () => [] }, {});
+const systemCreated = await payload(await systemRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SYS1MD', name: 'System Moderator',
+  settings: {
+    roleCounts: {
+      wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
+      witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
+      mayor: 0, jester: 0, villager: 2, moderator: 1
+    }
+  }
+})), 201);
+const systemToken = systemCreated.token;
+const systemTokens = [];
+for (const name of ['Ari', 'Bela', 'Caca', 'Dika', 'Evan']) {
+  const joined = await payload(await systemRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  systemTokens.push(joined.token);
+}
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, systemToken)));
+let systemState = await systemRoom.loadRoom();
+assert.equal(systemState.settings.roleCounts.moderator, 1);
+assert.equal(systemState.players.length, 5, 'Moderator mode must not consume a player role slot.');
+systemState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+  player.hasDrawn = false;
+});
+await systemRoom.saveRoom(systemState);
+for (const token of systemTokens) {
+  await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, token)));
+}
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'night', 'System moderator starts night after every card is opened.');
+assert.equal(systemState.nightActions[systemState.players[3].id].type, 'pass');
+assert.equal(systemState.nightActions[systemState.players[4].id].type, 'pass');
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: systemState.players[3].id
+}, systemTokens[0])));
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: systemState.players[0].id
+}, systemTokens[1])));
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: systemState.players[3].id
+}, systemTokens[2])));
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles finish.');
+assert.match(systemState.lastResult.message, /perlindungan/);
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, systemToken)));
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.discussionMode, 'offline');
+await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, systemToken)));
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'voting');
+for (let index = 0; index < systemTokens.length; index += 1) {
+  const targetId = index === 3 ? systemState.players[4].id : systemState.players[3].id;
+  await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'cast_vote', targetId
+  }, systemTokens[index])));
+}
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'result', 'System moderator counts votes automatically after all living players vote.');
+assert.equal(systemState.players[3].alive, false);
+console.log('Werewolf system moderator checks passed: automatic night start, passive-role passes, automatic night resolution, offline discussion, and automatic vote tally.');
+
 const witchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
 });
@@ -307,7 +371,7 @@ const witchSettings = {
   roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0,
     witch: 1, hunter: 0, cupid: 1, guardian_angel: 0, detective: 0,
-    mayor: 0, jester: 0, villager: 2
+    mayor: 0, jester: 0, villager: 2, moderator: 0
   },
   abilities: {
     alphaDoubleVote: true, seerInspection: true, doctorProtection: true,
