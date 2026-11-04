@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b101b">
-  <meta name="description" content="Werewolf — ambil kartu, jalankan aksi rahasia, diskusi offline atau online, lalu voting bersama.">
+  <meta name="description" content="Werewolf — permainan realtime yang seluruh fasenya dikendalikan moderator.">
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
@@ -23,7 +23,7 @@
       <div class="eyebrow"><span class="eyebrow-dot"></span> SOCIAL DEDUCTION · MULTIPLAYER & SOLO VS BOT</div>
       <h1>THE VILLAGE<br><em>AFTER DARK</em></h1>
       <p>Di siang hari, semua tampak biasa. Saat malam tiba, tidak semua orang bisa dipercaya.</p>
-      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Solo vs Bot</span><span>✦ Kartu rahasia</span><span>✦ Diskusi hybrid</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
+      <div class="hero-tags"><span>✦ Room realtime</span><span>✦ Moderator control</span><span>✦ Kartu rahasia</span><span>✦ Voting manual</span></div><div class="hero-art-caption"><span>THE MOON IS WATCHING</span><b>WHO CAN YOU TRUST?</b></div><div class="hero-bottomline"><span>ONE VILLAGE. MANY SECRETS.</span><span>EST. AFTER SUNSET</span></div>
     </section>
 
     <section id="entryPanel" class="panel entry-panel">
@@ -62,7 +62,7 @@
             <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
           </label>
           <button class="secondary wide" id="joinButton" type="submit">Gabung room</button>
-          <p class="hint">Minta kode room dari host. Satu pemain menggunakan satu perangkat agar kartu dan aksinya tetap rahasia.</p>
+          <p class="hint">Minta kode room dari moderator. Setiap pemain menggunakan satu perangkat agar kartu dan aksinya tetap rahasia.</p>
         </form>
       </div>
       <details class="how-to-play">
@@ -90,7 +90,7 @@
           <li data-step="lobby">Lobby</li><li data-step="role_draw">Kartu</li><li data-step="night">Malam</li><li data-step="morning">Pagi</li><li data-step="discussion">Diskusi</li><li data-step="voting">Voting</li><li data-step="result">Hasil</li>
         </ol>
         <div id="playersSection" class="players-section">
-          <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Peran pemain lain tetap rahasia.</span></div>
+          <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Moderator dapat melihat status dan peran pemain.</span></div>
           <div id="playersList" class="players-list"></div>
         </div>
       </div>
@@ -100,7 +100,7 @@
       </section>
     </section>
 
-    <footer>Werewolf · Semua kartu, aksi, dan voting dikelola melalui room. Diskusi dapat dilakukan tatap muka atau online.</footer>
+    <footer>Werewolf · Moderator mengendalikan pembagian kartu, malam, pagi, diskusi, dan voting. Tidak ada pergantian fase otomatis.</footer>
   </main>
 
   <script type="module" src="./app.js?v=20261104-moderator1"></script>
