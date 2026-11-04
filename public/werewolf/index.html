@@ -52,7 +52,7 @@
             <label class="check-row"><input id="role-witch" type="checkbox"><span><b>Witch</b><small>Satu ramuan penyembuh dan satu racun, masing-masing sekali.</small></span></label>
             <label class="check-row"><input id="role-hunter" type="checkbox"><span><b>Hunter</b><small>Dapat menembak satu pemain setelah tereliminasi.</small></span></label>
             <label class="check-row"><input id="role-cupid" type="checkbox"><span><b>Cupid</b><small>Menghubungkan dua pemain pada malam pertama.</small></span></label>
-            <label class="check-row"><input id="role-guardianAngel" type="checkbox"><span><b>Guardian Angel</b><small>Menjaga satu target; mendapat kemenangan tambahan jika target selamat.</small></span></label>
+            <label class="check-row"><input id="role-guardianAngel" type="checkbox"><span><b>Guardian Angel</b><small>Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target terakhir selamat.</small></span></label>
             <label class="check-row"><input id="role-detective" type="checkbox"><span><b>Detective</b><small>Memeriksa kubu pemain setiap malam.</small></span></label>
             <label class="check-row"><input id="role-mayor" type="checkbox"><span><b>Mayor</b><small>Memiliki dua bobot suara dalam voting.</small></span></label>
             <label class="check-row"><input id="role-jester" type="checkbox"><span><b>Jester</b><small>Menang jika tereliminasi melalui voting.</small></span></label>
@@ -78,10 +78,16 @@
       <details class="how-to-play">
         <summary>Aturan singkat & cara bermain</summary>
         <div class="rules-grid">
-          <article><b>Werewolf</b><p>Memilih satu pemain untuk diserang setiap malam. Menang jika jumlah Werewolf menyamai atau melebihi warga yang tersisa.</p></article>
-          <article><b>Seer</b><p>Memeriksa satu pemain setiap malam. Hasilnya hanya diketahui Seer.</p></article>
-          <article><b>Doctor</b><p>Melindungi satu pemain setiap malam, termasuk dirinya sendiri.</p></article>
-          <article><b>Warga Desa</b><p>Menggunakan diskusi dan voting untuk menemukan serta mengeliminasi Werewolf.</p></article>
+          <article><b>Werewolf & Alpha Wolf</b><p>Memilih target serangan setiap malam. Suara Alpha Wolf bernilai dua. Kubu Werewolf menang saat jumlahnya menyamai atau melebihi kubu Desa.</p></article>
+          <article><b>Seer & Detective</b><p>Seer memeriksa apakah target Werewolf. Detective mengetahui kubu target: Desa, Werewolf, atau Netral.</p></article>
+          <article><b>Doctor & Bodyguard</b><p>Doctor membatalkan satu serangan. Bodyguard mengorbankan dirinya jika target yang dijaga diserang.</p></article>
+          <article><b>Witch</b><p>Memiliki satu ramuan penyembuh otomatis untuk korban serangan dan satu ramuan racun untuk membunuh target. Masing-masing hanya sekali.</p></article>
+          <article><b>Hunter</b><p>Setelah tereliminasi, Hunter dapat menembak satu pemain yang masih hidup.</p></article>
+          <article><b>Cupid</b><p>Pada malam pertama menghubungkan dua pemain. Jika salah satunya tereliminasi, pasangannya ikut tereliminasi. Jika mereka menjadi dua pemain terakhir, pasangan menang.</p></article>
+          <article><b>Guardian Angel</b><p>Memilih target perlindungan setiap malam dan mendapat kemenangan tambahan jika target terakhir tetap hidup saat permainan berakhir.</p></article>
+          <article><b>Mayor</b><p>Suara Mayor memiliki bobot dua dalam penghitungan voting.</p></article>
+          <article><b>Jester</b><p>Menang sendiri jika tereliminasi melalui voting. Tidak menang jika tersingkir pada malam hari.</p></article>
+          <article><b>Warga Desa</b><p>Tidak memiliki aksi malam. Gunakan diskusi dan voting untuk menemukan kubu Werewolf.</p></article>
         </div>
         <p class="hint">Alur permainan: moderator membagikan kartu, mengendalikan malam dan pagi, membuka diskusi, memulai voting, lalu mengumumkan hasil. Tidak ada timer otomatis.</p>
       </details>
