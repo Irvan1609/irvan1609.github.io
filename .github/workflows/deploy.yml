@@ -51,6 +51,13 @@ jobs:
         run: npm run test:security
       - name: Verify application
         run: npm run verify
+      - name: Verify Werewolf files in Pages artifact
+        run: |
+          test -s dist/werewolf/index.html
+          test -s dist/werewolf/app.js
+          test -s dist/werewolf/style.css
+          test -s dist/werewolf/subweb-header.css
+          test -s dist/werewolf/assets/illustrations/hero-night.svg
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
       - name: Upload artifact
@@ -68,5 +75,21 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+      - name: Verify Werewolf page is publicly served
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          URL="${PAGE_URL%/}/werewolf/"
+          for attempt in {1..10}; do
+            PAGE="$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$URL" || true)"
+            if printf '%s' "$PAGE" | grep -q 'THE VILLAGE'; then
+              echo "Werewolf page is live: $URL"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::GitHub Pages deployment completed, but $URL did not serve the Werewolf page."
+          exit 1
 
 # Deployment source: master via GitHub Actions / GitHub Pages.
