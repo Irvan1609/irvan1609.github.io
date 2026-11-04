@@ -54,6 +54,7 @@ for (const file of [
   'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
+  assert.ok(sw.includes('/werewolf/assets/illustrations/' + file), 'Role illustration is not precached: ' + file);
 }
 
 assert.match(html, /THE VILLAGE/);
