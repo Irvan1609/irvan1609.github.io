@@ -804,7 +804,7 @@ console.log('Werewolf leave-room regression passed: lobby departures remove the 
 // A departure during card reveal cannot block the host from starting the night.
 const activeLeaveRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const activeLeaveCreated = await payload(await activeLeaveRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'ZUT234', name: 'Active Leave Moderator'
+  code: 'ZUT234', name: 'Active Moderator'
 })), 201);
 const activeLeaveTokens = [];
 for (const name of ['Wolf A', 'Seer A', 'Doctor A', 'Leaving Player', 'Villager A']) {
@@ -831,7 +831,7 @@ console.log('Werewolf active-leave regression passed: a departed player cannot b
 // Simultaneous night actions must not overwrite each other.
 const concurrentRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const concurrentCreated = await payload(await concurrentRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'RACE24', name: 'Concurrency Moderator'
+  code: 'RACE24', name: 'Race Moderator'
 })), 201);
 const concurrentTokens = [];
 for (const name of ['Race Wolf', 'Race Seer', 'Race Doctor', 'Race Town A', 'Race Town B']) {
