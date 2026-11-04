@@ -539,7 +539,6 @@ function renderPlayerNight(parent) {
   const targets = (roomState.targets || []).filter(target => {
     if (target.id === self.id) return false;
     if (['wolf', 'alpha_wolf'].includes(self.role) && (roomState.wolfTeam || []).includes(target.name)) return false;
-    if (self.role === 'guardian_angel' && self.guardianTargetName && target.name !== self.guardianTargetName) return false;
     return true;
   });
   if (['wolf', 'alpha_wolf'].includes(self.role)) {
@@ -642,6 +641,7 @@ function renderPlayerVoting(parent) {
 function renderPlayerVoteResult(parent) {
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
+  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
 
 
