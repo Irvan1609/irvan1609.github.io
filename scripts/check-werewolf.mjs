@@ -114,7 +114,7 @@ assert.match(app, /nextState\.room\.revision/);
 assert.match(app, /type: 'leave_room'/);
 assert.match(app, /type: 'disband_room'/);
 assert.match(app, /room_disbanded/);
-assert.match(app, /type: 'kick_player'/);
+assert.match(app, /sendAction\('kick_player'/);
 assert.match(app, /player_kicked/);
 assert.match(app, /function kickPlayer/);
 assert.match(app, /kick-player-button/);
