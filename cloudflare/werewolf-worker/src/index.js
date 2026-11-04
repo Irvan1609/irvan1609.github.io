@@ -1213,8 +1213,6 @@ export class WerewolfRoom {
         events.push('Witch menggunakan racun kepada ' + (poisoned?.name || 'target tidak diketahui') + '.');
       }
 
-      let message = 'Malam berlalu tanpa korban.';
-      let eliminatedId = null;
       if (eliminated.length) {
         eliminatedId = eliminated[0].id;
         message = eliminated.map(item => item.name).join(' dan ') + ' tereliminasi pada malam hari.';
