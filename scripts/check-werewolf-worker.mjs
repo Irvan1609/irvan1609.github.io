@@ -46,7 +46,10 @@ const created = await payload(await room.fetch(makeRequest('/internal/create', '
 })), 201);
 assert.ok(created.moderatorId);
 let saved = await room.loadRoom();
-assert.equal(saved.players.length, 0);
+assert.equal(saved.players.length, 1);
+assert.equal(saved.players[0].id, created.moderatorId);
+assert.equal(saved.players[0].isHost, true);
+assert.equal(saved.players[0].tokenHash, saved.moderator.tokenHash);
 assert.equal(saved.phase, 'lobby');
 assert.equal(saved.settings.roleCounts, null);
 assert.equal(saved.settings.wolves, 1);
@@ -62,13 +65,13 @@ for (const name of names) {
   const joined = await payload(await room.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
   playerTokens.push(joined.token);
 }
-assert.equal((await room.loadRoom()).players.length, 5);
+assert.equal((await room.loadRoom()).players.length, 6);
 
 const moderatorBeforeStart = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
 assert.equal(moderatorBeforeStart.self.isModerator, true);
-assert.equal(moderatorBeforeStart.players.length, 5);
+assert.equal(moderatorBeforeStart.players.length, 6);
 assert.equal(moderatorBeforeStart.players.some(player => player.role), false);
 
 const roleSettings = {
@@ -114,6 +117,9 @@ await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: '
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'role_draw');
 assert.equal(saved.players.length, 5);
+assert.equal(saved.activeModeratorId, saved.hostId);
+assert.equal(saved.moderator.id, saved.hostId);
+assert.ok(!saved.players.some(player => player.id === saved.hostId));
 
 // Deterministic roles make the night and voting checks repeatable.
 saved.players[0].role = 'wolf';
@@ -251,8 +257,10 @@ const soloCreated = await payload(await soloRoom.fetch(makeRequest('/internal/cr
 const soloToken = soloCreated.token;
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'add_bots', count: 5 }, soloToken)));
 let soloState = await soloRoom.loadRoom();
-assert.equal(soloState.players.length, 5);
-assert.ok(soloState.players.every(player => player.isBot && !player.tokenHash));
+assert.equal(soloState.players.length, 6);
+assert.equal(soloState.players.filter(player => player.isBot).length, 5);
+assert.ok(soloState.players.filter(player => player.isBot).every(player => !player.tokenHash));
+assert.ok(soloState.players.some(player => player.isHost));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.ok(soloState.players.every(player => player.hasDrawn));
@@ -319,12 +327,12 @@ const systemCreated = await payload(await systemRoom.fetch(makeRequest('/interna
     roleCounts: {
       wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
       witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
-      mayor: 0, jester: 0, villager: 2, moderator: 1
+      mayor: 0, jester: 0, villager: 3, moderator: 1
     }
   }
 })), 201);
 const systemToken = systemCreated.token;
-const systemTokens = [];
+const systemTokens = [systemToken];
 for (const name of ['Ari', 'Bela', 'Caca', 'Dika', 'Evan']) {
   const joined = await payload(await systemRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
   systemTokens.push(joined.token);
@@ -332,15 +340,23 @@ for (const name of ['Ari', 'Bela', 'Caca', 'Dika', 'Evan']) {
 await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, systemToken)));
 let systemState = await systemRoom.loadRoom();
 assert.equal(systemState.settings.roleCounts.moderator, 1);
-assert.equal(systemState.players.length, 5, 'Moderator mode must not consume a player role slot.');
+assert.equal(systemState.players.length, 6, 'System moderator mode keeps the host in the active player roster.');
+assert.equal(systemState.activeModeratorId, null);
+assert.ok(systemState.players.some(player => player.id === systemState.hostId));
 systemState.players.forEach((player, index) => {
-  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager'][index];
+  player.role = ['wolf', 'seer', 'doctor', 'villager', 'villager', 'villager'][index];
   player.hasDrawn = false;
 });
 await systemRoom.saveRoom(systemState);
 for (const token of systemTokens) {
   await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, token)));
 }
+const systemHostView = (await payload(await systemRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, systemToken)
+))).state;
+assert.equal(systemHostView.self.isHost, true);
+assert.equal(systemHostView.self.isModerator, false);
+assert.equal(systemHostView.self.role, 'wolf');
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'night', 'System moderator starts night after every card is opened.');
 assert.equal(systemState.nightActions[systemState.players[3].id], undefined, 'System mode waits for human Villagers to complete the night challenge.');
@@ -356,6 +372,7 @@ await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
 }, systemTokens[2])));
 await submitVillagerMath(systemRoom, systemTokens[3]);
 await submitVillagerMath(systemRoom, systemTokens[4]);
+await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles and Villager challenges finish.');
 assert.match(systemState.lastResult.message, /perlindungan/);
@@ -852,8 +869,9 @@ await payload(await largeRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'add_bots', count: 25
 }, largeCreated.token)));
 let largeState = await largeRoom.loadRoom();
-assert.equal(largeState.players.length, 50);
+assert.equal(largeState.players.length, 51);
 assert.equal(largeState.players.filter(player => player.isBot).length, 25);
+assert.equal(largeState.players.filter(player => player.isHost).length, 1);
 const largeRoleCounts = {
   wolf: 12, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
   witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
@@ -920,9 +938,9 @@ const leaveCreated = await payload(await leaveRoom.fetch(makeRequest('/internal/
 })), 201);
 const leaver = await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Rejoin Me' })), 201);
 await payload(await leaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, leaver.token)));
-assert.equal((await leaveRoom.loadRoom()).players.length, 0);
-await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Rejoin Me' })), 201);
 assert.equal((await leaveRoom.loadRoom()).players.length, 1);
+await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Rejoin Me' })), 201);
+assert.equal((await leaveRoom.loadRoom()).players.length, 2);
 await payload(await leaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, leaveCreated.token)), 403);
 console.log('Werewolf leave-room regression passed: lobby departures remove the player and release the name.');
 
@@ -1050,27 +1068,49 @@ const replayTokens = [];
 for (const name of ['Replay A', 'Replay B', 'Replay C', 'Replay D', 'Replay E']) {
   replayTokens.push((await payload(await replayRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
 }
+const originalRoster = (await replayRoom.loadRoom()).players.map(player => ({ id: player.id, tokenHash: player.tokenHash }));
 await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, replayCreated.token)));
 let replayState = await replayRoom.loadRoom();
-assert.ok(['host', 'system'].includes(replayState.activeModeratorMode));
+assert.equal(replayState.activeModeratorMode, 'random');
+assert.ok(replayState.activeModeratorId);
+assert.ok(!replayState.players.some(player => player.id === replayState.activeModeratorId));
+const selectedModeratorIndex = originalRoster.findIndex(player => player.id === replayState.activeModeratorId);
+const selectedModeratorToken = selectedModeratorIndex === 0
+  ? replayCreated.token
+  : replayTokens[selectedModeratorIndex - 1];
+const selectedModeratorView = (await payload(await replayRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, selectedModeratorToken)
+))).state;
+assert.equal(selectedModeratorView.self.isModerator, true);
+assert.equal(selectedModeratorView.self.id, replayState.activeModeratorId);
+const replayHostView = (await payload(await replayRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, replayCreated.token)
+))).state;
+assert.equal(replayHostView.self.isHost, true);
+assert.equal(replayHostView.self.isModerator, replayState.activeModeratorId === replayState.hostId);
+assert.equal(replayHostView.self.role, null);
+assert.equal(replayHostView.players.length, 5);
+if (replayState.activeModeratorId !== replayState.hostId) {
+  assert.ok(replayState.players.some(player => player.id === replayState.hostId), 'Host must remain an active player when another participant becomes moderator.');
+}
 replayState.phase = 'finished';
 replayState.winner = 'villagers';
 replayState.lastResult = { kind: 'vote', message: 'Game selesai.' };
 replayState.players.forEach(player => { player.role = 'villager'; player.alive = false; player.hasDrawn = true; });
 await replayRoom.saveRoom(replayState);
-const originalIds = replayState.players.map(player => player.id);
-const originalHashes = replayState.players.map(player => player.tokenHash);
+const originalIds = originalRoster.map(player => player.id);
+const originalHashes = originalRoster.map(player => player.tokenHash);
 await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'reset_to_lobby' }, replayCreated.token)));
 replayState = await replayRoom.loadRoom();
 assert.equal(replayState.phase, 'lobby');
 assert.equal(replayState.round, 0);
 assert.equal(replayState.winner, null);
-assert.equal(replayState.players.length, 5);
+assert.equal(replayState.players.length, 6);
 assert.deepEqual(replayState.players.map(player => player.id), originalIds);
 assert.deepEqual(replayState.players.map(player => player.tokenHash), originalHashes);
 assert.ok(replayState.players.every(player => player.role === null && player.alive && !player.hasDrawn));
 const replayPlayerView = (await payload(await replayRoom.fetch(makeRequest('/internal/state', 'GET', undefined, replayTokens[0])))).state;
-assert.equal(replayPlayerView.lobbyPlayers.length, 5);
+assert.equal(replayPlayerView.lobbyPlayers.length, 6);
 assert.equal(replayPlayerView.players.length, 0, 'Lobby roster for players must not reveal roles.');
 await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, replayCreated.token)));
 assert.equal((await replayRoom.loadRoom()).phase, 'role_draw');
@@ -1094,6 +1134,11 @@ let partialWolfState = await partialWolfRoom.loadRoom();
 partialWolfState.phase = 'role_draw';
 partialWolfState.round = 1;
 partialWolfState.activeModeratorMode = 'host';
+const suspendedHost = partialWolfState.players.find(player => player.id === partialWolfState.hostId);
+partialWolfState.activeModeratorId = suspendedHost.id;
+partialWolfState.activeModeratorRosterIndex = 0;
+partialWolfState.moderator = suspendedHost;
+partialWolfState.players = partialWolfState.players.filter(player => player.id !== suspendedHost.id);
 partialWolfState.players.forEach((player, index) => {
   player.role = ['wolf', 'wolf', 'villager'][index];
   player.alive = true;
