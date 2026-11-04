@@ -24,11 +24,44 @@ const EXTRA_ROLE_OPTIONS = [
   ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
   ['cupid', 'Cupid', 'Menghubungkan dua pemain pada malam pertama.'],
-  ['guardianAngel', 'Guardian Angel', 'Menjaga satu target; mendapat kemenangan tambahan jika target selamat.'],
+  ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
   ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
   ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.']
 ];
+const ROLE_CONFIG_GROUPS = [
+  { key: 'wolves', label: 'KUBU WEREWOLF', roles: [
+    ['wolf', 'Werewolf'], ['alpha_wolf', 'Alpha Wolf']
+  ]},
+  { key: 'village', label: 'KUBU DESA', roles: [
+    ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
+    ['witch', 'Witch'], ['hunter', 'Hunter'], ['cupid', 'Cupid'],
+    ['detective', 'Detective'], ['mayor', 'Mayor'], ['villager', 'Warga Desa']
+  ]},
+  { key: 'neutral', label: 'KUBU NETRAL', roles: [
+    ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
+  ]}
+];
+const ABILITY_OPTIONS = [
+  ['alphaDoubleVote', 'Alpha Wolf: suara serangan dua kali lipat'],
+  ['seerInspection', 'Seer: pemeriksaan identitas'],
+  ['doctorProtection', 'Doctor: perlindungan malam'],
+  ['bodyguardSacrifice', 'Bodyguard: mengorbankan diri untuk target'],
+  ['witchHeal', 'Witch: ramuan penyembuh'],
+  ['witchPoison', 'Witch: ramuan racun'],
+  ['hunterShot', 'Hunter: tembakan setelah tereliminasi'],
+  ['cupidBond', 'Cupid: menghubungkan dua pemain'],
+  ['guardianProtection', 'Guardian Angel: perlindungan target'],
+  ['guardianBonus', 'Guardian Angel: kemenangan tambahan'],
+  ['detectiveInspection', 'Detective: pemeriksaan kubu'],
+  ['mayorDoubleVote', 'Mayor: bobot suara dua kali lipat'],
+  ['jesterSoloWin', 'Jester: kemenangan solo melalui voting']
+];
+const ROLE_COUNT_DEFAULTS = {
+  wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
+  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0, jester: 0, villager: 2
+};
+const ABILITY_DEFAULTS = Object.fromEntries(ABILITY_OPTIONS.map(([key]) => [key, true]));
 let session = null;
 let roomState = null;
 let socket = null;
@@ -214,6 +247,129 @@ function addText(parent, tag, className, text) {
   return item;
 }
 
+function roleSettingsForUI(settings = {}) {
+  if (settings.roleCounts) {
+    return {
+      roleCounts: { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts },
+      abilities: { ...ABILITY_DEFAULTS, ...(settings.abilities || {}) }
+    };
+  }
+  const extras = settings.extraRoles || {};
+  const roleCounts = {
+    ...ROLE_COUNT_DEFAULTS,
+    wolf: Math.max(0, Number(settings.wolves || 1) - (extras.alphaWolf ? 1 : 0)),
+    alpha_wolf: extras.alphaWolf ? 1 : 0,
+    seer: settings.seer === false ? 0 : 1,
+    doctor: settings.doctor === false ? 0 : 1,
+    bodyguard: extras.bodyguard ? 1 : 0,
+    witch: extras.witch ? 1 : 0,
+    hunter: extras.hunter ? 1 : 0,
+    cupid: extras.cupid ? 1 : 0,
+    guardian_angel: extras.guardianAngel ? 1 : 0,
+    detective: extras.detective ? 1 : 0,
+    mayor: extras.mayor ? 1 : 0,
+    jester: extras.jester ? 1 : 0
+  };
+  const assigned = Object.entries(roleCounts).filter(([key]) => key !== 'villager')
+    .reduce((sum, [, value]) => sum + value, 0);
+  roleCounts.villager = Math.max(0, (roomState?.players?.length || 5) - assigned);
+  return { roleCounts, abilities: { ...ABILITY_DEFAULTS } };
+}
+
+function roleConfigTotals(roleCounts = {}) {
+  const sum = keys => keys.reduce((total, key) => total + Number(roleCounts[key] || 0), 0);
+  return {
+    total: sum(ROLE_CONFIG_GROUPS.flatMap(group => group.roles.map(([key]) => key))),
+    wolves: sum(['wolf', 'alpha_wolf']),
+    village: sum(ROLE_CONFIG_GROUPS.find(group => group.key === 'village').roles.map(([key]) => key)),
+    neutral: sum(['guardian_angel', 'jester'])
+  };
+}
+
+function updateRoleConfigSummary(container) {
+  const summary = container.querySelector('[data-role-summary]');
+  if (!summary) return;
+  const roleCounts = {};
+  for (const input of container.querySelectorAll('[data-role-count]')) roleCounts[input.dataset.roleCount] = Math.max(0, Number(input.value) || 0);
+  const totals = roleConfigTotals(roleCounts);
+  summary.replaceChildren();
+  const grid = node('div', 'role-team-summary');
+  for (const [label, value] of [
+    ['Total role', totals.total], ['Werewolf', totals.wolves],
+    ['Desa', totals.village], ['Netral', totals.neutral]
+  ]) {
+    const item = node('div', 'role-team-summary-item');
+    addText(item, 'b', '', String(value));
+    addText(item, 'span', '', label);
+    grid.append(item);
+  }
+  summary.append(grid);
+}
+
+function renderRoleConfigEditor(container, settings) {
+  const config = roleSettingsForUI(settings);
+  container.replaceChildren();
+  container.classList.add('role-config-editor');
+  for (const group of ROLE_CONFIG_GROUPS) {
+    const section = node('section', 'role-config-team role-team-' + group.key);
+    addText(section, 'div', 'role-section-label', group.label);
+    const grid = node('div', 'role-count-grid');
+    for (const [key, label] of group.roles) {
+      const field = node('label', 'role-count-field');
+      addText(field, 'span', '', label);
+      const input = node('input', 'role-count-input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '20';
+      input.step = '1';
+      input.inputMode = 'numeric';
+      input.value = String(config.roleCounts[key] ?? 0);
+      input.dataset.roleCount = key;
+      field.append(input);
+      grid.append(field);
+    }
+    section.append(grid);
+    container.append(section);
+  }
+  const abilities = node('section', 'ability-config');
+  addText(abilities, 'div', 'role-section-label', 'PENGATURAN KEMAMPUAN');
+  const abilityGrid = node('div', 'ability-toggle-grid');
+  for (const [key, label] of ABILITY_OPTIONS) {
+    const field = node('label', 'ability-toggle');
+    const input = node('input');
+    input.type = 'checkbox';
+    input.checked = config.abilities[key] !== false;
+    input.dataset.ability = key;
+    const text = node('span', '', label);
+    field.append(input, text);
+    abilityGrid.append(field);
+  }
+  abilities.append(abilityGrid);
+  container.append(abilities);
+  const summary = node('div', 'role-config-summary');
+  summary.dataset.roleSummary = 'true';
+  container.append(summary);
+  container.addEventListener('input', () => updateRoleConfigSummary(container));
+  container.addEventListener('change', () => updateRoleConfigSummary(container));
+  updateRoleConfigSummary(container);
+}
+
+function readRoleSettings(container) {
+  const roleCounts = {};
+  const abilities = {};
+  for (const input of container.querySelectorAll('[data-role-count]')) {
+    const count = Number(input.value);
+    if (!Number.isInteger(count) || count < 0 || count > 20) {
+      throw new Error('Jumlah setiap role harus berupa bilangan bulat antara 0 dan 20.');
+    }
+    roleCounts[input.dataset.roleCount] = count;
+  }
+  for (const input of container.querySelectorAll('[data-ability]')) {
+    abilities[input.dataset.ability] = input.checked;
+  }
+  return { roleCounts, abilities };
+}
+
 function renderPlayers() {
   const list = $('playersList');
   list.replaceChildren();
@@ -363,25 +519,29 @@ function renderPlayerPhase(parent) {
 }
 
 function renderModeratorLobby(parent) {
-  phaseHeader(parent, 'PANEL MODERATOR', 'Atur permainan', 'Moderator mengendalikan seluruh tahapan. Pemain bergabung melalui kode room dan tidak menjadi moderator.');
-  addText(parent, 'div', 'notice', 'Minimal 5 pemain, maksimal 20 pemain. Moderator tidak dihitung sebagai pemain.');
+  phaseHeader(parent, 'PANEL MODERATOR', 'Atur permainan', 'Atur jumlah setiap role, kubu, dan kemampuan sebelum kartu dibagikan.');
+  addText(parent, 'div', 'notice', 'Jumlah role harus sama persis dengan pemain yang bergabung. Moderator tidak dihitung sebagai pemain.');
   const settings = roomState.room.settings || {};
-  const extras = settings.extraRoles || {};
-  const roleCounts = [
-    ['Werewolf', Number(settings.wolves || 1)],
-    ['Seer', settings.seer ? 1 : 0],
-    ['Doctor', settings.doctor ? 1 : 0],
-    ...EXTRA_ROLE_OPTIONS.map(([key, label]) => [label, extras[key] ? 1 : 0])
-  ];
-  const specialRoles = Number(settings.wolves || 1)
-    + (settings.seer ? 1 : 0)
-    + (settings.doctor ? 1 : 0)
-    + EXTRA_ROLE_OPTIONS.filter(([key]) => key !== 'alphaWolf' && extras[key]).length;
-  const villagers = roomState.players.length - specialRoles;
+  const configEditor = node('div', 'role-config-lobby');
+  renderRoleConfigEditor(configEditor, settings);
+  parent.append(configEditor);
+  parent.append(button('Simpan konfigurasi role', 'secondary wide', () => {
+    try {
+      sendAction('update_settings', { settings: readRoleSettings(configEditor) });
+    } catch (error) {
+      showMessage(error.message, true);
+    }
+  }));
+
+  const config = roleSettingsForUI(settings);
+  const totals = roleConfigTotals(config.roleCounts);
+  const exact = totals.total === roomState.players.length;
   const balance = node('div', 'role-balance');
-  addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI PERAN');
+  addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
   const balanceGrid = node('div', 'role-balance-grid');
-  for (const [label, count] of [...roleCounts, ['Warga Desa', Math.max(0, villagers)]]) {
+  for (const [label, count] of [
+    ['Werewolf', totals.wolves], ['Desa', totals.village], ['Netral', totals.neutral], ['Total role', totals.total]
+  ]) {
     const item = node('div', 'role-balance-item');
     addText(item, 'b', '', String(count));
     addText(item, 'span', '', label);
@@ -389,8 +549,9 @@ function renderModeratorLobby(parent) {
   }
   balance.append(balanceGrid);
   if (roomState.players.length < 5) addText(balance, 'p', 'hint', 'Tambahkan pemain hingga minimal 5 orang.');
-  else if (villagers < 1) addText(balance, 'p', 'notice warning', 'Peran khusus terlalu banyak. Sisakan minimal satu Warga Desa.');
-  else addText(balance, 'p', 'hint', villagers + ' Warga Desa akan melengkapi komposisi permainan.');
+  else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + roomState.players.length + ' pemain. Sesuaikan angka role lalu simpan.');
+  else if (totals.wolves < 1 || totals.village < 1) addText(balance, 'p', 'notice warning', 'Harus ada minimal satu anggota kubu Werewolf dan satu anggota kubu Desa.');
+  else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain.');
   parent.append(balance);
 
   const maxBots = Math.min(20, 20 - roomState.players.length);
@@ -411,7 +572,7 @@ function renderModeratorLobby(parent) {
   if (maxBots < 1) addText(botBox, 'p', 'hint', 'Room sudah penuh.');
   parent.append(botBox);
 
-  const canStart = roomState.players.length >= 5 && villagers >= 1;
+  const canStart = roomState.players.length >= 5 && exact && totals.wolves >= 1 && totals.village >= 1;
   parent.append(button('Mulai & bagikan kartu', 'primary wide', () => sendAction('start_game'), !canStart));
 }
 
@@ -663,6 +824,11 @@ async function leaveCurrentRoom() {
   showMessage('Kamu keluar dari room. Room akan kedaluwarsa otomatis setelah tidak aktif.');
 }
 
+renderRoleConfigEditor($('createRoleConfig'), {
+  roleCounts: ROLE_COUNT_DEFAULTS,
+  abilities: ABILITY_DEFAULTS
+});
+
 $('createForm').addEventListener('submit', async event => {
   event.preventDefault();
   const buttonElement = $('createButton');
@@ -675,12 +841,7 @@ $('createForm').addEventListener('submit', async event => {
       auth: false,
       body: {
         name: $('createName').value.trim(),
-        settings: {
-          wolves: Number($('wolfCount').value),
-          seer: $('includeSeer').checked,
-          doctor: $('includeDoctor').checked,
-          extraRoles: Object.fromEntries(EXTRA_ROLE_OPTIONS.map(([key]) => [key, $('role-' + key).checked]))
-        }
+        settings: readRoleSettings($('createRoleConfig'))
       }
     });
     await enterRoom({
