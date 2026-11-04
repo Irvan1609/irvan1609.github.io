@@ -494,7 +494,14 @@ export class WerewolfRoom {
         hasVoted: Boolean(voteTargetId),
         voteTarget: voteTarget?.name || null
       };
-    }) : [];
+    }) : self?.id === room.hostId ? room.players.map(player => ({
+      id: player.id,
+      name: player.name,
+      isHost: player.id === room.hostId,
+      alive: Boolean(player.alive),
+      connected: Boolean(player.connected),
+      isBot: Boolean(player.isBot)
+    })) : [];
     const targets = !isModerator && self
       ? alive.map(player => ({ id: player.id, name: player.name }))
       : [];
@@ -638,7 +645,7 @@ export class WerewolfRoom {
     for (const socket of sockets) {
       try {
         socket.send(JSON.stringify({ type: 'room_disbanded', message }));
-      } catch { /* A disconnected participant no longer needs a notification. */ }
+      } catch { /* A disconnected participant no longer needs the notification. */ }
     }
     for (const socket of sockets) {
       try { socket.close(4001, 'Room dibubarkan oleh host'); } catch {}
@@ -648,6 +655,20 @@ export class WerewolfRoom {
     else if (this.state.storage.delete) await this.state.storage.delete('room');
   }
 
+  closeKickedPlayerSockets(playerId) {
+    const sockets = this.state.getWebSockets ? this.state.getWebSockets() : [];
+    for (const socket of sockets) {
+      try {
+        const attachment = socket.deserializeAttachment();
+        if (attachment?.actorId !== playerId || attachment.actorType === 'moderator') continue;
+        socket.send(JSON.stringify({
+          type: 'player_kicked',
+          message: 'Host mengeluarkanmu dari room. Sesi ini sudah tidak berlaku.'
+        }));
+        socket.close(4002, 'Dikeluarkan host');
+      } catch { /* A disconnected participant no longer needs the notification. */ }
+    }
+  }
 
   async makePlayer(name) {
     const token = randomToken(32);
@@ -994,10 +1015,12 @@ export class WerewolfRoom {
           await this.disbandRoom(message);
           return json({ disbanded: true, message });
         }
-        await this.applyAction(room, player, body);
+        const actionResult = await this.applyAction(room, player, body);
         room.expiresAt = Date.now() + ROOM_TTL_MS;
         await this.saveRoom(room);
+        if (actionResult?.kickedPlayerId) this.closeKickedPlayerSockets(actionResult.kickedPlayerId);
         await this.broadcast(room);
+        return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
         return json({ state: this.snapshot(room, player.id, player.isModerator ? 'moderator' : 'player') });
       });
 
@@ -1182,6 +1205,60 @@ export class WerewolfRoom {
     };
     const target = id => room.players.find(item => item.id === String(id || '') && item.alive);
     const checkWinner = () => this.checkWinner(room);
+
+    if (type === 'kick_player') {
+      if (!isHost) throw new HttpError(403, 'Hanya host yang dapat mengeluarkan pemain.');
+      const playerId = String(body.playerId || '').trim();
+      if (!playerId) throw new HttpError(400, 'Pilih pemain yang akan dikeluarkan.');
+      const playerIndex = room.players.findIndex(item => item.id === playerId);
+      if (playerIndex < 0) throw new HttpError(404, 'Pemain tidak ditemukan di room.');
+      const removed = room.players[playerIndex];
+      if (removed.id === room.hostId || removed.isHost) {
+        throw new HttpError(403, 'Host room tidak dapat dikeluarkan.');
+      }
+
+      const phaseBeforeKick = room.phase;
+      room.players.splice(playerIndex, 1);
+      const withoutPlayerReferences = (source, keep) => Object.fromEntries(
+        Object.entries(source || {}).filter(([key, value]) => keep(key, value))
+      );
+      room.nightActions = withoutPlayerReferences(room.nightActions, (actorId, action) =>
+        actorId !== playerId && action?.targetId !== playerId && action?.partnerId !== playerId
+      );
+      room.votes = withoutPlayerReferences(room.votes, (voterId, targetId) =>
+        voterId !== playerId && targetId !== playerId
+      );
+      room.seerResults = withoutPlayerReferences(room.seerResults, (seerId, result) =>
+        seerId !== playerId && result?.playerName !== removed.name
+      );
+      room.villagerPrompts = withoutPlayerReferences(room.villagerPrompts, actorId => actorId !== playerId);
+      room.witchPotions = withoutPlayerReferences(room.witchPotions, witchId => witchId !== playerId);
+      room.guardianTargets = withoutPlayerReferences(room.guardianTargets, (guardianId, targetId) =>
+        guardianId !== playerId && targetId !== playerId
+      );
+      room.bodyguardTargets = withoutPlayerReferences(room.bodyguardTargets, (guardId, targetId) =>
+        guardId !== playerId && targetId !== playerId
+      );
+      if (Array.isArray(room.lovers) && room.lovers.includes(playerId)) room.lovers = null;
+      room.additionalWinners = (room.additionalWinners || []).filter(id => id !== playerId);
+      room.chat = (room.chat || []).filter(message => message.playerId !== playerId);
+      room.wolfChat = (room.wolfChat || []).filter(message => message.playerId !== playerId);
+
+      if (phaseBeforeKick !== 'lobby' && phaseBeforeKick !== 'finished') {
+        if (checkWinner()) room.phase = 'finished';
+        else if (phaseBeforeKick === 'role_draw' && this.isSystemModerator(room)
+          && room.players.every(item => item.hasDrawn)) {
+          await this.applyAction(room, room.moderator, { type: 'start_night' });
+        } else if (phaseBeforeKick === 'night') {
+          this.runBotNightActions(room);
+          await this.resolveSystemNightIfReady(room, now);
+        } else if (phaseBeforeKick === 'voting') {
+          this.runBotVotes(room, now);
+          this.resolveSystemVoteIfReady(room, now);
+        }
+      }
+      return { kickedPlayerId: playerId };
+    }
 
     if (type === 'update_settings') {
       requireModerator();
