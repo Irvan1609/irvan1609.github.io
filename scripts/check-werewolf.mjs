@@ -83,7 +83,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261104-werewolf-role-config1/);
+assert.match(sw, /20261104-werewolf-discussion-mode1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
