@@ -8,6 +8,7 @@ class MemoryStorage {
   async delete(key) { return this.values.delete(key); }
   async setAlarm(value) { this.alarmAt = value; }
   async deleteAll() { this.values.clear(); }
+  async deleteAlarm() { this.alarmAt = null; }
 }
 
 function makeRequest(path, method = 'GET', body, token) {
@@ -924,6 +925,64 @@ await payload(await leaveRoom.fetch(makeRequest('/internal/join', 'POST', { name
 assert.equal((await leaveRoom.loadRoom()).players.length, 1);
 await payload(await leaveRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'leave_room' }, leaveCreated.token)), 403);
 console.log('Werewolf leave-room regression passed: lobby departures remove the player and release the name.');
+
+// Only the host can disband a room. Connected players receive a final event,
+// every socket closes, and all durable room/session data is deleted.
+const disbandStorage = new MemoryStorage();
+const disbandSockets = [];
+const disbandRoom = new WerewolfRoom({
+  storage: disbandStorage,
+  getWebSockets: () => disbandSockets
+}, {});
+const disbandCreated = await payload(await disbandRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'DAS234', name: 'Disband Host'
+})), 201);
+const disbandPlayers = [];
+for (const name of ['Disband Player One', 'Disband Player Two']) {
+  disbandPlayers.push(await payload(await disbandRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+}
+await payload(await disbandRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, disbandCreated.token)));
+const disbandState = await disbandRoom.loadRoom();
+assert.equal(disbandState.phase, 'role_draw', 'Host must be able to disband an active game.');
+const disbandSocket = actor => ({
+  sent: [],
+  closed: null,
+  deserializeAttachment() { return { actorId: actor.id, actorType: actor.isModerator ? 'moderator' : 'player' }; },
+  send(message) { this.sent.push(JSON.parse(message)); },
+  close(code, reason) { this.closed = { code, reason }; }
+});
+disbandSockets.push(
+  disbandSocket({ id: disbandCreated.moderatorId, isModerator: true }),
+  ...disbandPlayers.map(player => disbandSocket({ id: player.playerId, isModerator: false }))
+);
+await payload(await disbandRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'disband_room'
+}, disbandPlayers[0].token)), 403);
+assert.ok(await disbandRoom.loadRoom(), 'A non-host player must not be able to disband the room.');
+const disbandResult = await payload(await disbandRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'disband_room'
+}, disbandCreated.token)));
+assert.equal(disbandResult.disbanded, true);
+assert.match(disbandResult.message, /dibubarkan oleh host/i);
+assert.equal(await disbandRoom.loadRoom(), undefined, 'Room state must be removed.');
+assert.equal(disbandStorage.values.size, 0, 'Room and temporary ticket data must be deleted.');
+assert.equal(disbandStorage.alarmAt, null, 'Room expiry alarm must be cancelled.');
+assert.equal(disbandSockets.length, 3);
+for (const socket of disbandSockets) {
+  assert.deepEqual(socket.sent, [{
+    type: 'room_disbanded',
+    message: 'Room dibubarkan oleh host. Kamu telah dikeluarkan dari room.'
+  }]);
+  assert.equal(socket.closed.code, 4001);
+  assert.equal(socket.closed.reason, 'Room dibubarkan oleh host');
+}
+await payload(await disbandRoom.fetch(makeRequest('/internal/state', 'GET', undefined, disbandPlayers[0].token)), 404);
+await payload(await disbandRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'DAS234', name: 'New Host'
+})), 201);
+console.log('Werewolf host-disband regression passed: host-only shutdown notifies all connected clients, closes sockets, deletes room data, and releases the room code.');
 
 // A departure during card reveal cannot block the host from starting the night.
 const activeLeaveRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
