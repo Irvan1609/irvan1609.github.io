@@ -145,7 +145,7 @@ for (const file of [
 }
 
 assert.match(html, /THE VILLAGE/);
-assert.match(html, /MODERATOR ROOM/);
+assert.match(html, /HOST ROOM/);
 assert.match(html, /data-step="morning"/);
 const joinFormPosition = html.indexOf('<form id="joinForm"');
 const createFormPosition = html.indexOf('<form id="createForm"');
@@ -154,7 +154,7 @@ assert.doesNotMatch(html, /createRoleConfig|soloMode|how-to-play/, 'Landing must
 assert.doesNotMatch(app, /createRoleConfig|soloMode/, 'Role and bot configuration must not be read from the landing form.');
 assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role configuration must remain in the moderator lobby.');
 assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
-assert.match(app, /roomState\.players\.length >= 2 && exact/, 'Starting requires at least two players and an exact role count.');
+assert.match(app, /activePlayerCount >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
 assert.match(app, /recommendedRoleCounts/);
 assert.match(app, /\['witch', 7\]/);
 assert.match(app, /\['detective', 11\]/);
