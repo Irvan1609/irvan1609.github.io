@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261104-roles2">
+  <link rel="stylesheet" href="./style.css?v=20261104-role-config1">
 </head>
 <body>
   <header class="subweb-header">
@@ -38,25 +38,7 @@
           <label>Nama moderator
             <input id="createName" maxlength="20" placeholder="Masukkan nama moderator" required>
           </label>
-          <div class="form-row">
-            <label>Jumlah Werewolf
-              <select id="wolfCount"><option value="1" selected>1 Werewolf</option><option value="2">2 Werewolf</option><option value="3">3 Werewolf</option><option value="4">4 Werewolf</option></select>
-            </label>
-          </div>
-          <div class="role-options">
-            <label class="check-row"><input id="includeSeer" type="checkbox" checked><span><b>Seer</b><small>Memeriksa identitas satu pemain setiap malam.</small></span></label>
-            <label class="check-row"><input id="includeDoctor" type="checkbox" checked><span><b>Doctor</b><small>Melindungi satu pemain dari serangan.</small></span></label>
-            <div class="role-section-label">ROLE TAMBAHAN · OPSIONAL</div>
-            <label class="check-row"><input id="role-alphaWolf" type="checkbox"><span><b>Alpha Wolf</b><small>Menggantikan satu Werewolf biasa; suara serangannya bernilai dua.</small></span></label>
-            <label class="check-row"><input id="role-bodyguard" type="checkbox"><span><b>Bodyguard</b><small>Mengorbankan diri untuk menyelamatkan target dari serangan.</small></span></label>
-            <label class="check-row"><input id="role-witch" type="checkbox"><span><b>Witch</b><small>Satu ramuan penyembuh dan satu racun, masing-masing sekali.</small></span></label>
-            <label class="check-row"><input id="role-hunter" type="checkbox"><span><b>Hunter</b><small>Dapat menembak satu pemain setelah tereliminasi.</small></span></label>
-            <label class="check-row"><input id="role-cupid" type="checkbox"><span><b>Cupid</b><small>Menghubungkan dua pemain pada malam pertama.</small></span></label>
-            <label class="check-row"><input id="role-guardianAngel" type="checkbox"><span><b>Guardian Angel</b><small>Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target terakhir selamat.</small></span></label>
-            <label class="check-row"><input id="role-detective" type="checkbox"><span><b>Detective</b><small>Memeriksa kubu pemain setiap malam.</small></span></label>
-            <label class="check-row"><input id="role-mayor" type="checkbox"><span><b>Mayor</b><small>Memiliki dua bobot suara dalam voting.</small></span></label>
-            <label class="check-row"><input id="role-jester" type="checkbox"><span><b>Jester</b><small>Menang jika tereliminasi melalui voting.</small></span></label>
-          </div>
+          <div id="createRoleConfig" aria-label="Konfigurasi role dan kemampuan"></div>
           <label class="check-row solo-mode-row"><input id="soloMode" type="checkbox" checked><span><b>Mode latihan · 5 bot</b><small>Moderator dapat berlatih mengelola permainan dengan lima bot tanpa harus menjadi pemain.</small></span></label>
           <button class="primary wide" id="createButton" type="submit">Buat room</button>
           <p class="hint">Moderator mengelola permainan dan tidak dihitung sebagai pemain. Minimal 5 pemain, maksimal 20 pemain.</p>
@@ -119,6 +101,6 @@
     <footer>Werewolf · Moderator mengendalikan pembagian kartu, malam, pagi, diskusi, dan voting. Tidak ada pergantian fase otomatis.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261104-moderator1"></script>
+  <script type="module" src="./app.js?v=20261104-role-config1"></script>
 </body>
 </html>
