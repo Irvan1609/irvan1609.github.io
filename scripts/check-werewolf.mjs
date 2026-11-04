@@ -81,6 +81,6 @@ assert.match(app, /Mode latihan vs bot/);
 assert.match(app, /Lewati pemain yang belum beraksi/);
 assert.match(app, /role-balance/);
 assert.match(app, /updatePhaseTracker/);
-assert.match(app, /self\.role === 'seer'/);
+assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: separate moderator dashboard, minimal player actions, manual phase control, responsive UI, and private role assets.');
