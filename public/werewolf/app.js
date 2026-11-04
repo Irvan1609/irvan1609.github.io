@@ -520,13 +520,13 @@ function renderPlayerPhase(parent) {
 }
 
 function renderModeratorLobby(parent) {
-  phaseHeader(parent, 'PANEL MODERATOR', 'Atur permainan', 'Atur jumlah setiap role, kubu, dan kemampuan sebelum kartu dibagikan.');
-  addText(parent, 'div', 'notice', 'Jumlah role harus sama persis dengan pemain yang bergabung. Moderator tidak dihitung sebagai pemain.');
+  phaseHeader(parent, 'PANEL MODERATOR', 'Atur role setelah pemain bergabung', 'Tentukan role dan jumlahnya di sini. Pengaturan ini dapat diubah selama room masih berada di lobby.');
+  addText(parent, 'div', 'notice', 'Pemain bergabung: ' + roomState.players.length + ' / 20. Minimal 5 pemain. Jumlah role harus sama dengan jumlah pemain; moderator tidak dihitung.');
   const settings = roomState.room.settings || {};
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
-  parent.append(button('Simpan konfigurasi role', 'secondary wide', () => {
+  parent.append(button('Simpan pengaturan role', 'secondary wide', () => {
     try {
       sendAction('update_settings', { settings: readRoleSettings(configEditor) });
     } catch (error) {
@@ -574,7 +574,8 @@ function renderModeratorLobby(parent) {
   parent.append(botBox);
 
   const canStart = roomState.players.length >= 5 && exact && totals.wolves >= 1 && totals.village >= 1;
-  parent.append(button('Mulai & bagikan kartu', 'primary wide', () => sendAction('start_game'), !canStart));
+  parent.append(button('Mulai Permainan & Bagikan Kartu', 'primary wide', () => sendAction('start_game'), !canStart));
+  addText(parent, 'p', 'hint', 'Kartu dibagikan secara privat. Setiap pemain membukanya sendiri pada perangkat masing-masing.');
 }
 
 function renderModeratorRoleDraw(parent) {
@@ -915,24 +916,17 @@ async function leaveCurrentRoom() {
   showMessage('Kamu keluar dari room. Room akan kedaluwarsa otomatis setelah tidak aktif.');
 }
 
-renderRoleConfigEditor($('createRoleConfig'), {
-  roleCounts: ROLE_COUNT_DEFAULTS,
-  abilities: ABILITY_DEFAULTS
-});
-
 $('createForm').addEventListener('submit', async event => {
   event.preventDefault();
   const buttonElement = $('createButton');
   buttonElement.disabled = true;
-  const soloMode = $('soloMode').checked;
   showMessage('Membuat room...');
   try {
     const result = await request('/rooms', {
       method: 'POST',
       auth: false,
       body: {
-        name: $('createName').value.trim(),
-        settings: readRoleSettings($('createRoleConfig'))
+        name: $('createName').value.trim()
       }
     });
     await enterRoom({
@@ -942,7 +936,7 @@ $('createForm').addEventListener('submit', async event => {
       name: $('createName').value.trim(),
       isModerator: true
     });
-    if (soloMode) await sendAction('add_bots', { count: 5 });
+    showMessage('Room berhasil dibuat. Bagikan kode room kepada pemain.');
   } catch (error) {
     showMessage(error.message, true);
   } finally {

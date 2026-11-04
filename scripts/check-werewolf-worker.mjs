@@ -30,12 +30,16 @@ const room = new WerewolfRoom({ storage, getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
 });
 const created = await payload(await room.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WALF23', name: 'Moderator',
-  settings: { wolves: 1, seer: true, doctor: true }
+  code: 'WALF23', name: 'Moderator'
 })), 201);
 assert.ok(created.moderatorId);
 let saved = await room.loadRoom();
 assert.equal(saved.players.length, 0);
+assert.equal(saved.phase, 'lobby');
+assert.equal(saved.settings.roleCounts, null);
+assert.equal(saved.settings.wolves, 1);
+assert.equal(saved.settings.seer, true);
+assert.equal(saved.settings.doctor, true);
 assert.equal(saved.hostId, created.moderatorId);
 assert.ok(saved.moderator.tokenHash);
 

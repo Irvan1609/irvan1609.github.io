@@ -11,7 +11,7 @@ const home = read('index.html');
 const sw = read('public/sw.js');
 
 for (const id of [
-  'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'soloMode',
+  'createForm', 'joinForm', 'createName', 'joinName', 'joinCode',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList',
   'phaseContent', 'roomMessage', 'phasePanel'
 ]) {
@@ -47,7 +47,7 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261104-bot-discussion1/);
+assert.match(html, /20261104-room-lobby1/);
 assert.match(worker, /cleanCallUrl/);
 assert.match(worker, /room\.discussionMode = mode/);
 assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
@@ -76,7 +76,16 @@ for (const file of [
 assert.match(html, /THE VILLAGE/);
 assert.match(html, /MODERATOR ROOM/);
 assert.match(html, /data-step="morning"/);
-assert.match(html, /createRoleConfig/);
+const joinFormPosition = html.indexOf('<form id="joinForm"');
+const createFormPosition = html.indexOf('<form id="createForm"');
+assert.ok(joinFormPosition >= 0 && createFormPosition > joinFormPosition, 'Join Room must appear above Create Room.');
+assert.doesNotMatch(html, /createRoleConfig|soloMode|how-to-play/, 'Landing must not contain role setup, bot setup, or the long rules panel.');
+assert.doesNotMatch(app, /createRoleConfig|soloMode/, 'Role and bot configuration must not be read from the landing form.');
+assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role configuration must remain in the moderator lobby.');
+assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
+assert.match(app, /roomState\.players\.length >= 5 && exact/, 'Starting requires at least five players and an exact role count.');
+assert.match(css, /entry-grid\{grid-template-columns:minmax\(0,1fr\)/, 'Entry forms must be stacked vertically.');
+
 assert.match(app, /ROLE_CONFIG_GROUPS/);
 assert.match(app, /ABILITY_OPTIONS/);
 assert.match(app, /update_settings/);
@@ -89,7 +98,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261104-werewolf-bot-discussion1/);
+assert.match(sw, /20261104-werewolf-room-lobby1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
