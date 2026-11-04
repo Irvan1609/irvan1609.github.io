@@ -210,7 +210,19 @@ assert.equal(voteResultPlayer.self.status, 'eliminated');
 
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'next_round' }, moderatorToken)));
 assert.equal((await room.loadRoom()).phase, 'night');
-console.log('Werewolf moderator flow checks passed: separate moderator, private cards, manual night/morning/discussion/voting transitions, and player-only action snapshots.');
+
+// Repeated moderator-controlled rounds must not stop at an arbitrary night limit.
+for (let expectedRound = 3; expectedRound <= 250; expectedRound += 1) {
+  const current = await room.loadRoom();
+  current.phase = 'result';
+  current.winner = null;
+  await room.saveRoom(current);
+  await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'next_round' }, moderatorToken)));
+  const advanced = await room.loadRoom();
+  assert.equal(advanced.round, expectedRound, `Night round ${expectedRound} must remain available.`);
+  assert.equal(advanced.phase, 'night');
+}
+console.log('Werewolf moderator flow checks passed: private actions, manual phase control, and 250 consecutive night rounds without a round cap.');
 
 const soloStorage = new MemoryStorage();
 const soloRoom = new WerewolfRoom({ storage: soloStorage, getWebSockets: () => [] }, {});
