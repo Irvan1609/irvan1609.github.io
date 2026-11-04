@@ -815,7 +815,6 @@ function renderWolfNightRoom(parent) {
       const currentInput = $('wolfChatInput');
       if (currentInput) currentInput.value = '';
     } else if (!sent) {
-      wolfChatDraft = text;
       renderRoom();
     }
   });
