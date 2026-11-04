@@ -5,20 +5,20 @@ const API_BASE = location.hostname === 'irvan1609.github.io'
 const SESSION_PREFIX = 'werewolf.session.';
 const PLAYER_NAME_KEY = 'werewolf.lastPlayerName';
 const ROLE_INFO = {
-  wolf: ['Werewolf', 'Serang satu pemain setiap malam bersama kawanan.'],
-  alpha_wolf: ['Alpha Wolf', 'Pemimpin kawanan. Suara serangan malam bernilai dua.'],
-  villager: ['Warga Desa', 'Tidak memiliki kemampuan khusus, tetapi mengerjakan tantangan penjumlahan rahasia setiap malam.'],
-  seer: ['Seer', 'Periksa satu pemain setiap malam untuk mengetahui apakah ia Werewolf.'],
-  doctor: ['Doctor', 'Lindungi satu pemain dari serangan setiap malam.'],
-  bodyguard: ['Bodyguard', 'Jaga satu pemain setiap malam. Jika target diserang, kamu yang menerima serangan.'],
-  witch: ['Witch', 'Mengetahui target serangan Werewolf setelah kawanan memilih. Memiliki satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
-  hunter: ['Hunter', 'Jika tereliminasi, pilih satu pemain hidup untuk ditembak.'],
-  cupid: ['Cupid', 'Pada malam pertama, hubungkan dua pemain. Jika salah satu tereliminasi, pasangannya ikut tereliminasi.'],
-  guardian_angel: ['Guardian Angel', 'Pilih satu pemain untuk dilindungi setiap malam. Mendapat kemenangan tambahan jika target pilihan terakhir masih hidup saat permainan berakhir.'],
-  detective: ['Detective', 'Periksa satu pemain setiap malam untuk mengetahui kubunya: Desa, Werewolf, atau Netral.'],
-  mayor: ['Mayor', 'Suara voting bernilai dua. Tidak memiliki aksi malam.'],
-  jester: ['Jester', 'Menang sendiri jika berhasil dieliminasi melalui voting. Tidak memiliki aksi malam.'],
-  moderator: ['Moderator', 'Mengatur alur permainan melalui host, sistem otomatis, atau mode acak sesuai pengaturan room.']
+  wolf: ['Werewolf', 'Menentukan korban bersama kawanan.', 'Setiap malam pilih 1 pemain hidup di luar kubu Werewolf.'],
+  alpha_wolf: ['Alpha Wolf', 'Suara serangan bernilai 2.', 'Setiap malam pilih 1 target bersama kawanan; tidak bisa memilih Werewolf.'],
+  villager: ['Warga Desa', 'Mengandalkan deduksi dan voting untuk menang bersama Desa.', 'Malam: jawab soal penjumlahan. Siang: diskusi dan pilih 1 pemain.'],
+  seer: ['Seer', 'Mengungkap apakah target adalah Werewolf.', 'Setiap malam periksa 1 pemain lain; hasilnya Werewolf / bukan Werewolf.'],
+  doctor: ['Doctor', 'Mencegah target tewas oleh serangan Werewolf.', 'Setiap malam lindungi 1 pemain hidup; boleh diri sendiri. Tidak menahan racun Witch.'],
+  bodyguard: ['Bodyguard', 'Mengalihkan serangan dari target kepadamu.', 'Setiap malam jaga 1 pemain lain; jika diserang Werewolf, kamu gugur menggantikannya.'],
+  witch: ['Witch', 'Memiliki 1 ramuan penyembuh dan 1 racun.', 'Heal: selamatkan target serangan. Poison: racuni 1 pemain lain. Tiap ramuan sekali; 1 aksi per malam.'],
+  hunter: ['Hunter', 'Mendapat 1 tembakan setelah gugur.', 'Saat tereliminasi, tembak 1 pemain yang masih hidup. Sekali per game.'],
+  cupid: ['Cupid', 'Mengikat dua pemain sebagai Lovers.', 'Malam 1 pilih 2 pemain berbeda selain dirimu. Jika satu gugur, pasangannya ikut gugur.'],
+  guardian_angel: ['Guardian Angel', 'Melindungi target dan berpeluang menang bonus.', 'Setiap malam pilih 1 pemain lain. Bonus jika kamu hidup dan target terakhir tetap hidup saat game berakhir.'],
+  detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
+  mayor: ['Mayor', 'Suara voting bernilai 2.', 'Saat voting pilih 1 pemain seperti biasa. Tidak ada aksi malam.'],
+  jester: ['Jester', 'Menang sendiri jika dieliminasi melalui voting.', 'Harus gugur lewat voting; serangan malam atau tembakan tidak memicu kemenangan.'],
+  moderator: ['Moderator', 'Mengendalikan fase dan hasil permainan.', 'Mode Host/Acak: moderator tidak menerima kartu. Mode Sistem: host tetap bermain.']
 };
 const EXTRA_ROLE_OPTIONS = [
   ['alphaWolf', 'Alpha Wolf', 'Role Werewolf khusus; kemampuan suara serangan ganda dapat diatur moderator.'],
@@ -762,8 +762,19 @@ function phaseHeader(parent, kicker, title, description) {
   parent.append(head);
 }
 
+function appendRoleDetails(parent, info, prefix) {
+  const details = node('span', prefix + '-details');
+  for (const [label, value] of [['KEKUATAN', info[1]], ['ATURAN PAKAI', info[2]]]) {
+    const row = node('span', prefix + '-detail');
+    addText(row, 'span', prefix + '-detail-label', label);
+    addText(row, 'span', prefix + '-detail-text', value);
+    details.append(row);
+  }
+  parent.append(details);
+}
+
 function renderRoleCard(parent, role, eyebrow = 'KARTU RAHASIA KAMU') {
-  const info = ROLE_INFO[role] || ['Peran', ''];
+  const info = ROLE_INFO[role] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
   const card = node('div', 'role-card');
   card.dataset.role = role;
   const art = node('div', 'role-art');
@@ -775,14 +786,14 @@ function renderRoleCard(parent, role, eyebrow = 'KARTU RAHASIA KAMU') {
   card.append(art);
   addText(card, 'div', 'eyebrow-small', eyebrow);
   addText(card, 'div', 'role-name', info[0]);
-  addText(card, 'p', '', info[1]);
+  appendRoleDetails(card, info, 'role-card');
   parent.append(card);
 }
 
 function renderPlayerRoleReminder(parent) {
   const role = roomState.self?.role;
   if (!role || !roomState.self.hasDrawn) return;
-  const info = ROLE_INFO[role] || ['Peran', ''];
+  const info = ROLE_INFO[role] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
   const card = node('button', 'role-flip-card');
   card.type = 'button';
   card.setAttribute('aria-label', 'Kartu tertutup. Tekan untuk melihat role.');
@@ -801,7 +812,7 @@ function renderPlayerRoleReminder(parent) {
   front.append(art);
   addText(front, 'span', 'role-flip-eyebrow', 'KARTU RAHASIA KAMU');
   addText(front, 'span', 'role-flip-name', info[0]);
-  addText(front, 'span', 'role-flip-description', info[1]);
+  appendRoleDetails(front, info, 'role-flip');
   inner.append(back, front);
   card.append(inner);
   card.addEventListener('click', () => {
@@ -810,7 +821,6 @@ function renderPlayerRoleReminder(parent) {
     card.setAttribute('aria-label', flipped ? 'Role terlihat. Tekan untuk menutup kartu.' : 'Kartu tertutup. Tekan untuk melihat role.');
   });
   parent.append(card);
-  addText(parent, 'p', 'hint role-flip-hint', 'Tekan kartu untuk melihat role. Tekan sekali lagi untuk menutupnya.');
 }
 
 function renderWolfNightRoom(parent) {
