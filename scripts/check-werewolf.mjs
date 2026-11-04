@@ -37,13 +37,23 @@ for (const text of [
 ]) assert.ok(app.includes(text), 'Missing moderator-led UI text: ' + text);
 
 assert.match(app, /function renderModeratorPhase/);
+assert.match(app, /function renderPlayerDiscussion/);
+assert.match(app, /set_discussion/);
+assert.match(app, /Diskusi offline/);
+assert.match(app, /Simpan diskusi online/);
+assert.match(app, /Buka ruang diskusi online/);
+assert.match(worker, /cleanCallUrl/);
+assert.match(worker, /room\.discussionMode = mode/);
+assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
+assert.match(css, /discussion-mode-grid/);
+assert.match(css, /discussion-link-field/);
 assert.match(app, /function renderPlayerPhase/);
 assert.match(app, /roomState\?\.self\?\.isModerator/);
 assert.match(app, /roomState\.targets/);
 assert.match(app, /phasePanel\.dataset\.phase/);
 assert.match(app, /assets\/illustrations\/role-/);
 assert.match(app, /player-avatar/);
-assert.doesNotMatch(app, /updateDiscussionClock|set_discussion|send_chat/);
+assert.doesNotMatch(app, /updateDiscussionClock|send_chat/);
 assert.doesNotMatch(app, /setInterval\(\(\) => updateDiscussionClock/);
 
 for (const file of [
