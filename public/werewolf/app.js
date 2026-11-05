@@ -62,7 +62,7 @@ const ROLE_COUNT_DEFAULTS = {
   moderator: 0
 };
 const PHASE_TIMER_DEFAULTS = {
-  roleDrawSeconds: 20, nightSeconds: 45, dawnSeconds: 15,
+  roleDrawSeconds: 20, nightSeconds: 45, dawnSeconds: 15, inspectionSeconds: 10,
   discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8
 };
 let session = null;
@@ -1023,6 +1023,7 @@ function renderRoleConfigEditor(container, settings) {
     ['roleDrawSeconds', 'Buka kartu (detik)', 5, 120],
     ['nightSeconds', 'Tengah malam (detik)', 10, 300],
     ['dawnSeconds', 'Subuh (detik)', 5, 120],
+    ['inspectionSeconds', 'Hasil penerawangan (detik)', 3, 60],
     ['discussionSeconds', 'Pagi / diskusi (detik)', 5, 300],
     ['votingSeconds', 'Sore / voting (detik)', 5, 180],
     ['resultSeconds', 'Hasil voting (detik)', 3, 60]
@@ -1041,7 +1042,7 @@ function renderRoleConfigEditor(container, settings) {
     timerGrid.append(field);
   }
   timerSection.append(timerGrid);
-  addText(timerSection, 'p', 'hint', 'Default: kartu 20 dtk · tengah malam 45 dtk · subuh 15 dtk · diskusi 30 dtk · voting 15 dtk · hasil 8 dtk. Mode Sistem menjalankan seluruh fase otomatis.');
+  addText(timerSection, 'p', 'hint', 'Default: kartu 20 dtk · tengah malam 45 dtk · penerawangan 10 dtk · subuh 15 dtk · diskusi 30 dtk · voting 15 dtk · hasil 8 dtk. Mode Sistem menjalankan semua fase otomatis.');
   container.append(timerSection);
 
   const summary = node('div', 'role-config-summary');
