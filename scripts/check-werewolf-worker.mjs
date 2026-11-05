@@ -390,6 +390,19 @@ await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles and Villager challenges finish.');
 assert.match(systemState.lastResult.message, /perlindungan/);
+const systemMorningView = (await payload(await systemRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, systemTokens[3])
+))).state;
+assert.equal(systemMorningView.room.publicResult.kind, 'night');
+assert.equal(systemMorningView.room.publicResult.message, systemState.lastResult.message,
+  'System moderator must publish the same night-result message produced by the shared resolution engine.');
+assert.deepEqual(
+  systemMorningView.room.publicResult.eliminatedPlayers.map(item => item.name),
+  systemState.lastResult.eliminations.map(item => item.name),
+  'The public elimination list must match the actual system-resolved night result.'
+);
+assert.equal(systemMorningView.room.lastResult, null,
+  'Private moderator action details must remain hidden from players in system mode.');
 await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, systemToken)));
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.discussionMode, 'offline');
@@ -405,7 +418,20 @@ for (let index = 0; index < systemTokens.length; index += 1) {
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'result', 'System moderator counts votes automatically after all living players vote.');
 assert.equal(systemState.players[3].alive, false);
-console.log('Werewolf system moderator checks passed: automatic night start, passive-role passes, automatic night resolution, offline discussion, and automatic vote tally.');
+const systemVoteView = (await payload(await systemRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, systemTokens[3])
+))).state;
+assert.equal(systemVoteView.room.publicResult.kind, 'vote');
+assert.equal(systemVoteView.room.publicResult.message, systemState.lastResult.message,
+  'System moderator must publish the same voting result message produced by the shared vote resolver.');
+assert.deepEqual(
+  systemVoteView.room.publicResult.eliminatedPlayers.map(item => item.name),
+  systemState.lastResult.eliminations.map(item => item.name),
+  'The public elimination list must match the actual system-resolved voting result.'
+);
+assert.equal(systemVoteView.room.lastResult, null,
+  'Private moderator vote details must remain hidden from players in system mode.');
+console.log('Werewolf system moderator checks passed: automatic night start, passive-role passes, automatic night resolution, public result parity, offline discussion, and automatic vote tally.');
 
 const witchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'

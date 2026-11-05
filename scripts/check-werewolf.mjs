@@ -165,6 +165,11 @@ assert.match(css, /\.victory-neutral/);
 assert.match(css, /\.public-result-card/);
 assert.match(css, /\.moderator-event-outcome/);
 
+assert.match(app, /function renderSystemModeratorMorning/);
+assert.match(app, /function renderSystemModeratorVoteResult/);
+assert.match(app, /case 'morning':[\s\S]*?systemModeratorEnabled\(\)[\s\S]*?renderSystemModeratorMorning/);
+assert.match(app, /case 'result':[\s\S]*?systemModeratorEnabled\(\)[\s\S]*?renderSystemModeratorVoteResult/);
+assert.match(app, /const canRestart = moderatorView \|\| \(systemModeratorEnabled\(\) && isHost\(\)\)/);
 assert.match(app, /function renderPlayerPhase/);
 assert.match(app, /function appendRoleDetails/);
 assert.match(app, /KEKUATAN/);

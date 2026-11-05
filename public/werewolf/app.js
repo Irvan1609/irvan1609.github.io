@@ -1132,10 +1132,16 @@ function renderPlayerPhase(parent) {
     }
     case 'role_draw': renderPlayerRoleDraw(parent); break;
     case 'night': renderPlayerNight(parent); break;
-    case 'morning': renderPlayerMorning(parent); break;
+    case 'morning':
+      if (systemModeratorEnabled()) renderSystemModeratorMorning(parent);
+      else renderPlayerMorning(parent);
+      break;
     case 'discussion': renderPlayerDiscussion(parent); break;
     case 'voting': renderPlayerVoting(parent); break;
-    case 'result': renderPlayerVoteResult(parent); break;
+    case 'result':
+      if (systemModeratorEnabled()) renderSystemModeratorVoteResult(parent);
+      else renderPlayerVoteResult(parent);
+      break;
     case 'finished':
       renderVictoryScreen(parent, false);
       break;
@@ -1150,7 +1156,8 @@ function renderPlayerPhase(parent) {
 function renderSystemHostControls(parent) {
   const phase = roomState.room.phase;
   if (phase === 'morning') {
-    parent.append(button('Lanjut ke Diskusi', 'primary wide', () => sendAction('start_discussion')));
+    parent.append(button(roomState.room.winner ? 'Umumkan pemenang' : 'Lanjut ke Diskusi',
+      'primary wide', () => sendAction('start_discussion')));
   } else if (phase === 'discussion') {
     parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
   } else if (phase === 'result') {
@@ -1540,6 +1547,34 @@ function renderPrivateInspectionResult(parent) {
   addText(parent, 'div', 'notice success', 'Hasil penerawangan malam ' + result.round + ': ' + result.playerName + ' termasuk ' + faction + '. Hasil ini hanya terlihat olehmu.');
 }
 
+function renderSystemModeratorMorning(parent) {
+  const round = Number(roomState.room.round) || 1;
+  phaseHeader(parent, 'PAGI HARI · RONDE ' + round, 'Hasil kejadian malam',
+    'Moderator sistem telah memproses aksi malam. Ringkasan hasil yang sama ditampilkan kepada seluruh pemain; informasi role dan aksi pribadi tetap dirahasiakan.');
+  const result = roomState.room.publicResult;
+  renderPublicResult(parent);
+  const card = node('div', 'result-card');
+  addText(card, 'h3', '', result?.message || 'Malam telah berlalu.');
+  parent.append(card);
+  addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
+    roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
+  renderPrivateInspectionResult(parent);
+  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+}
+
+function renderSystemModeratorVoteResult(parent) {
+  phaseHeader(parent, 'HASIL VOTING', 'Hasil voting diumumkan',
+    'Moderator sistem menghitung suara setelah seluruh pemain memberikan pilihan. Hasil eliminasi ditampilkan kepada semua pemain; pilihan suara tetap rahasia.');
+  const result = roomState.room.publicResult;
+  renderPublicResult(parent);
+  const card = node('div', 'result-card');
+  addText(card, 'h3', '', result?.message || 'Hasil voting tersedia.');
+  parent.append(card);
+  addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
+    roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
+  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+}
+
 function renderPlayerMorning(parent) {
   renderPublicResult(parent);
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
@@ -1752,7 +1787,8 @@ function renderVictoryScreen(parent, moderatorView = false) {
   renderReplayTimeline(screen, room.gameHistory, 'Replay permainan', room.gameHistoryTruncated);
   parent.append(screen);
 
-  if (moderatorView) {
+  const canRestart = moderatorView || (systemModeratorEnabled() && isHost());
+  if (canRestart) {
     parent.append(button('Main Lagi · Kembali ke Ruang Tunggu', 'primary wide', () => {
       if (confirm('Kembalikan semua pemain ke ruang tunggu? Daftar pemain dan kode room tetap dipertahankan.')) sendAction('reset_to_lobby');
     }));
