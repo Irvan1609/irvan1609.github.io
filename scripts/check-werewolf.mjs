@@ -63,7 +63,7 @@ assert.match(app, /renderDiscussionTools/);
 assert.match(app, /CHAT DISKUSI/);
 assert.match(app, /Abstain · Tidak memilih siapa pun/);
 assert.match(app, /Ganti BOT/);
-assert.match(app, /skip_missing_night/);
+assert.doesNotMatch(app, /skip_missing_night/);
 assert.match(worker, /type === 'replace_with_bot'/);
 assert.match(worker, /type === 'restore_player_control'/);
 assert.match(worker, /type === 'skip_missing_night'/);
