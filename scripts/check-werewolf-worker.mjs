@@ -2106,4 +2106,104 @@ assert.equal(lateCardView.self.hasDrawn, true);
 assert.ok(lateCardView.self.role, 'A player may privately reveal their own card after the night has begun.');
 console.log('Werewolf role-card deadline passed: 20-second timeout, automatic night start and late private card reveal.');
 
+// Dawn trigger regressions: Hunter can revise a last shot; Reviver can restore a night victim.
+const hunterDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const hunterDawnCreated = await payload(await hunterDawnRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'HUNTD1', name: 'Hunter Dawn Host',
+  settings: { moderatorMode: 'host', roleCounts: {
+    wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+    hunter: 1, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+    jester: 0, priest: 0, vigilante: 0, mason: 0, moderator: 0, villager: 3
+  }, abilities: { hunterShot: true, reviverOnce: true } }
+})), 201);
+const hunterDawnTokens = [];
+for (const name of ['Wolf Dawn', 'Hunter Dawn', 'Village Dawn A', 'Village Dawn B', 'Village Dawn C']) {
+  hunterDawnTokens.push((await payload(await hunterDawnRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, hunterDawnCreated.token)));
+let hunterDawnState = await hunterDawnRoom.loadRoom();
+hunterDawnState.players.forEach((player, index) => {
+  player.role = ['wolf', 'hunter', 'villager', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+  player.hunterUsed = false;
+  player.reviverUsed = false;
+});
+hunterDawnRoom.prepareVillagerPrompts(hunterDawnState);
+await hunterDawnRoom.saveRoom(hunterDawnState);
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, hunterDawnCreated.token)));
+hunterDawnState = await hunterDawnRoom.loadRoom();
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: hunterDawnState.players[1].id
+}, hunterDawnTokens[0])));
+for (const token of hunterDawnTokens.slice(1)) await submitVillagerMath(hunterDawnRoom, token);
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, hunterDawnCreated.token)));
+hunterDawnState = await hunterDawnRoom.loadRoom();
+assert.equal(hunterDawnState.phase, 'dawn', 'A Hunter killed at night must open the dawn trigger phase.');
+assert.equal(hunterDawnState.dawnActionsRequired, 1);
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'dawn_action', targetId: hunterDawnState.players[2].id
+}, hunterDawnTokens[1])));
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'dawn_action', targetId: hunterDawnState.players[3].id
+}, hunterDawnTokens[1])));
+const hunterDawnView = (await payload(await hunterDawnRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, hunterDawnTokens[1])
+))).state;
+assert.equal(hunterDawnView.self.dawnActionTargetId, hunterDawnState.players[3].id,
+  'Hunter must be able to replace a dawn shot before the phase timer expires.');
+await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_dawn'
+}, hunterDawnCreated.token)));
+hunterDawnState = await hunterDawnRoom.loadRoom();
+assert.equal(hunterDawnState.phase, 'morning');
+assert.equal(hunterDawnState.players[1].hunterUsed, true);
+assert.equal(hunterDawnState.players[2].alive, true);
+assert.equal(hunterDawnState.players[3].alive, false,
+  'Only the Hunter’s latest selected target should be eliminated.');
+
+const reviverDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const reviverDawnCreated = await payload(await reviverDawnRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'REVIVE', name: 'Reviver Dawn Host',
+  settings: { moderatorMode: 'host', roleCounts: {
+    wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+    hunter: 0, reviver: 1, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+    jester: 0, priest: 0, vigilante: 0, mason: 0, moderator: 0, villager: 3
+  }, abilities: { hunterShot: true, reviverOnce: true } }
+})), 201);
+const reviverDawnTokens = [];
+for (const name of ['Wolf Revive', 'Reviver', 'Village Revive A', 'Village Revive B', 'Village Revive C']) {
+  reviverDawnTokens.push((await payload(await reviverDawnRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, reviverDawnCreated.token)));
+let reviverDawnState = await reviverDawnRoom.loadRoom();
+reviverDawnState.players.forEach((player, index) => {
+  player.role = ['wolf', 'reviver', 'villager', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+  player.reviverUsed = false;
+});
+reviverDawnRoom.prepareVillagerPrompts(reviverDawnState);
+await reviverDawnRoom.saveRoom(reviverDawnState);
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, reviverDawnCreated.token)));
+reviverDawnState = await reviverDawnRoom.loadRoom();
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: reviverDawnState.players[4].id
+}, reviverDawnTokens[0])));
+for (const token of reviverDawnTokens.slice(1)) await submitVillagerMath(reviverDawnRoom, token);
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, reviverDawnCreated.token)));
+reviverDawnState = await reviverDawnRoom.loadRoom();
+assert.equal(reviverDawnState.phase, 'dawn', 'A living Reviver with a night victim must receive a dawn action window.');
+assert.equal(reviverDawnState.dawnActionsRequired, 1);
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'dawn_action', targetId: reviverDawnState.players[4].id
+}, reviverDawnTokens[1])));
+await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_dawn'
+}, reviverDawnCreated.token)));
+reviverDawnState = await reviverDawnRoom.loadRoom();
+assert.equal(reviverDawnState.phase, 'morning');
+assert.equal(reviverDawnState.players[4].alive, true, 'Reviver must restore a victim from the same night.');
+assert.equal(reviverDawnState.players[1].reviverUsed, true, 'Reviver can only use the ability once per game.');
+
 console.log('Werewolf online enhancements passed: strict majority, bot handoff and automatic morning after skipped actions.');
