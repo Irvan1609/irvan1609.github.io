@@ -1025,7 +1025,7 @@ export class WerewolfRoom {
     const alive = room.players.filter(player => player.alive);
     const speakers = alive.filter(player => player.isBot)
       .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'))
-      .slice(0, 3);
+      .slice(0, 5);
     room.botReplyCursor = 0;
     for (const [index, bot] of speakers.entries()) {
       const clue = room.seerResults?.[bot.id];
