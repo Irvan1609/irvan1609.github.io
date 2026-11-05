@@ -1798,22 +1798,26 @@ function renderVictoryScreen(parent, moderatorView = false) {
 
 function systemNarrationText(room) {
   const resultMessage = String(room.lastResult?.message || '').trim();
-  const round = Number(room.round) || 1;
   switch (room.phase) {
     case 'role_draw':
-      return 'Kartu peran telah dibagikan. Silakan buka kartu masing-masing dan rahasiakan peran kalian.';
+      return 'Takdir telah dibagikan. Buka kartu kalian. Simpan rahasia.';
     case 'night':
-      return 'Malam ke-' + round + ' telah tiba. Warga desa, silakan pejamkan mata. Werewolf dan pemilik peran khusus, silakan melakukan aksi malam. Sistem akan mengumumkan pagi setelah semua aksi selesai.';
+      return 'Malam menyelimuti desa. Semua warga, pejamkan mata. Werewolf, bangun.';
     case 'morning':
-      return 'Pagi telah tiba. ' + (resultMessage || 'Malam telah berlalu.') + ' Silakan dengarkan pengumuman sebelum diskusi dimulai.';
+      return 'Fajar menyingsing. ' + (resultMessage || 'Desa masih sunyi.');
     case 'discussion':
-      return 'Warga desa, sekarang waktunya berdiskusi secara langsung. Sampaikan petunjuk dan kecurigaan kalian. Tidak ada batas waktu; voting dimulai ketika moderator siap.';
+      return 'Desa terbangun. Bicaralah, sebelum suara menentukan nasib seseorang.';
     case 'voting':
-      return 'Waktu voting telah tiba. Pilih satu pemain yang paling kalian curigai. Pilihan setiap pemain bersifat rahasia.';
+      return 'Waktunya memilih. Siapa yang kalian curigai?';
     case 'result':
-      return 'Hasil voting: ' + (resultMessage || 'Hasil telah dihitung.') + ' Moderator dapat melanjutkan ke malam berikutnya.';
+      return 'Suara telah dihitung. ' + (resultMessage || 'Tak ada keputusan.');
     case 'finished':
-      return 'Permainan selesai. ' + winnerLabel(room.winner) + '. Terima kasih telah bermain.';
+      return 'Permainan usai. ' + ({
+        wolves: 'Werewolf menguasai desa.',
+        villagers: 'Desa berhasil diselamatkan.',
+        jester: 'Jester berhasil memperdaya semua orang.',
+        lovers: 'Cinta memenangkan permainan.'
+      })[room.winner] + '';
     default:
       return '';
   }
@@ -1825,8 +1829,8 @@ function speakSystemNarration(message) {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = 'id-ID';
-    utterance.rate = 0.94;
-    utterance.pitch = 0.96;
+    utterance.rate = 0.9;
+    utterance.pitch = 0.9;
     utterance.volume = 0.92;
     const voice = window.speechSynthesis.getVoices().find(item => /^id([_-]|$)/i.test(item.lang));
     if (voice) utterance.voice = voice;
@@ -1838,10 +1842,10 @@ function renderSystemNarrator(parent) {
   const narration = systemNarrationText(roomState.room);
   if (!narration) return;
   const panel = node('section', 'system-narrator-panel');
-  addText(panel, 'div', 'eyebrow-small', 'MODERATOR SISTEM');
-  addText(panel, 'h3', '', 'Narasi otomatis');
+  addText(panel, 'div', 'eyebrow-small', 'SUARA DESA');
+  addText(panel, 'h3', '', 'Narator');
   addText(panel, 'p', '', narration);
-  panel.append(button('Putar ulang narasi', 'secondary wide', () => speakSystemNarration(narration)));
+  panel.append(button('Dengarkan lagi', 'secondary wide', () => speakSystemNarration(narration)));
   parent.append(panel);
 }
 
