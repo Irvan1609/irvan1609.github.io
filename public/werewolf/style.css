@@ -724,3 +724,25 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .discussion-chat-list{height:185px;max-height:32vh}
   .voice-controls button{flex-basis:100%}
 }
+
+
+/* Public living-player roster shown to every active player. */
+.living-players-panel{
+  display:grid;gap:8px;margin:0 0 13px;padding:11px 12px;
+  border:1px solid #38566a;border-radius:12px;
+  background:linear-gradient(135deg,#132b32,#142338)
+}
+.living-players-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.living-players-heading b{color:#b9e6cf;font-size:10px;letter-spacing:.12em}
+.living-players-heading span{color:#e2edf6;font-size:11px;font-weight:800}
+.living-players-list{display:flex;flex-wrap:wrap;gap:6px}
+.living-player-chip{
+  display:inline-flex;align-items:center;gap:6px;min-height:27px;
+  padding:5px 9px;border:1px solid #355a50;border-radius:999px;
+  background:#193b35;color:#e2f5e9;font-size:11px;font-weight:700
+}
+.living-player-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#54d68b}
+@media(max-width:430px){
+  .living-players-panel{padding:9px 10px;margin-bottom:10px}
+  .living-player-chip{min-height:25px;padding:4px 8px;font-size:10px}
+}
