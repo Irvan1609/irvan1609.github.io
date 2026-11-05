@@ -950,6 +950,10 @@ function renderRoleConfigEditor(container, settings) {
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
   addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam, diskusi, dan voting berjalan otomatis sesuai durasi. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
+  const moderatorInfo = node('details', 'role-config-info-disclosure moderator-info-disclosure');
+  moderatorInfo.append(node('summary', '', 'Kekuatan & aturan moderator'));
+  appendRoleDetails(moderatorInfo, ROLE_INFO.moderator, 'role-config-info');
+  moderatorSection.append(moderatorInfo);
   const roleActions = node('div', 'role-config-actions');
   const clearRolesButton = button('Jadikan Semua Role 0', 'secondary role-zero-button', () => clearAllRoleCounts(container));
   clearRolesButton.dataset.clearAllRoles = 'true';
@@ -962,6 +966,7 @@ function renderRoleConfigEditor(container, settings) {
     addText(section, 'div', 'role-section-label', group.label);
     const grid = node('div', 'role-count-grid');
     for (const [key, label] of group.roles) {
+      const item = node('div', 'role-count-item');
       const field = node('label', 'role-count-field');
       addText(field, 'span', '', label);
       const input = node('input', 'role-count-input');
@@ -972,7 +977,13 @@ function renderRoleConfigEditor(container, settings) {
       input.value = String(config.roleCounts[key] ?? 0);
       input.dataset.roleCount = key;
       field.append(input);
-      grid.append(field);
+      item.append(field);
+      const info = ROLE_INFO[key] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
+      const disclosure = node('details', 'role-config-info-disclosure');
+      disclosure.append(node('summary', '', 'Kekuatan & aturan pakai'));
+      appendRoleDetails(disclosure, info, 'role-config-info');
+      item.append(disclosure);
+      grid.append(item);
     }
     section.append(grid);
     container.append(section);
@@ -1563,8 +1574,30 @@ function renderLivingPlayers(parent) {
   parent.append(panel);
 }
 
+function renderSystemHostPlayerContext(parent) {
+  const self = roomState.self || {};
+  const panel = node('section', 'system-host-player-context');
+  addText(panel, 'div', 'eyebrow-small', 'HOST JUGA PEMAIN');
+  if (self.role && self.hasDrawn) {
+    const info = ROLE_INFO[self.role] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
+    addText(panel, 'b', 'system-host-player-role', 'Role kamu: ' + info[0]);
+    const disclosure = node('details', 'role-config-info-disclosure system-host-role-disclosure');
+    disclosure.append(node('summary', '', 'Lihat kekuatan & aturan pakai role kamu'));
+    appendRoleDetails(disclosure, info, 'role-config-info');
+    panel.append(disclosure);
+  } else {
+    addText(panel, 'p', 'system-host-player-role', 'Kartu rahasia dan aksi pribadimu sama seperti pemain lain. Buka kartu saat diminta.');
+  }
+  addText(panel, 'p', 'system-host-player-note',
+    'Dashboard menampilkan progres umum. Role dan target rahasia pemain lain tetap tersembunyi.');
+  parent.append(panel);
+}
+
 function renderPlayerPhase(parent) {
-  if (systemModeratorEnabled() && isHost()) renderModeratorDashboard(parent);
+  if (systemModeratorEnabled() && isHost()) {
+    renderModeratorDashboard(parent);
+    renderSystemHostPlayerContext(parent);
+  }
   if (roomState.room.phase !== 'lobby') renderLivingPlayers(parent);
   renderMasonCircle(parent);
   const loverNames = roomState.self?.loverNames || [];
