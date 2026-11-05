@@ -32,7 +32,7 @@ for (const token of [
 ]) assert.ok(worker.includes(token), 'Missing server game contract ' + token);
 
 for (const text of [
-  'Buka kartu saya', 'Lanjut ke Malam 1', 'Pagi tiba dalam 10 detik.',
+  'Buka kartu saya', 'Lanjut ke Malam ', 'TENGAH MALAM DIMULAI DALAM',
   'Voting', 'DISKUSI TERSISA', 'VOTING TERSISA',
   'Kamu bertahan.', 'Kamu tereliminasi.'
 ]) assert.ok(app.includes(text), 'Missing moderator-led UI text: ' + text);
