@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b101b">
-  <meta name="description" content="Werewolf — permainan realtime yang seluruh fasenya dikendalikan moderator.">
+  <meta name="description" content="Werewolf multiplayer dengan mode online/offline, voice chat, dan kontrol moderator realtime.">
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-role-factions-math3">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-online-voice-phases1">
 </head>
 <body>
   <header class="subweb-header">
@@ -51,6 +51,13 @@
           <label>Nama host
             <input id="createName" maxlength="20" placeholder="Masukkan nama host" required>
           </label>
+          <label>Mode permainan
+            <select id="createGameMode">
+              <option value="online" selected>Online · voice chat dan chat</option>
+              <option value="offline">Offline/tatap muka · tanpa voice chat</option>
+            </select>
+          </label>
+          <p class="hint">Kedua mode tetap memakai internet untuk sinkronisasi room antarperangkat.</p>
           <button class="primary wide" id="createButton" type="submit">Buat Room</button>
           <p class="hint">Host otomatis masuk ke daftar pemain. Jika host atau pemain lain dipilih sebagai moderator, ia sementara tidak menerima kartu role.</p>
         </form>
@@ -80,7 +87,7 @@
       </section>
     </section>
 
-    <footer>Werewolf · Role acak, chat, dan voice chat otomatis saat diskusi. Efek suara malam dan pagi aktif otomatis.</footer>
+    <footer>Werewolf · Voice chat tersedia di semua fase mode online; chat tersedia sepanjang permainan.</footer>
   </main>
 
   <dialog id="inviteDialog" class="invite-dialog" aria-labelledby="inviteDialogTitle">
@@ -115,6 +122,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261105-werewolf-role-factions-math3"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-online-voice-phases1"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const VERSION='20261105-werewolf-role-factions-math3';
+const VERSION='20261106-werewolf-online-voice-phases1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;

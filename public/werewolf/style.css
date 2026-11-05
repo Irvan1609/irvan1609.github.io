@@ -769,3 +769,11 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .role-flip-art{width:112px;height:94px}
   .role-flip-description{font-size:8.5px;line-height:1.35}
 }
+
+
+/* Room-wide player monitoring and temporary BOT handoff. */
+.player-management-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:5px;min-width:0}
+.player-management-actions button{min-height:28px;padding:4px 7px;font-size:8px;white-space:nowrap}
+.bot-player-button{background:#1d4037;border:1px solid #477a68;color:#c4f1dd}
+.restore-bot-button{background:#3a344d;border:1px solid #71658d;color:#e4d8ff}
+@media(max-width:430px){.player-management-actions{gap:4px}.player-management-actions button{min-height:26px;padding:4px 6px;font-size:7px}}

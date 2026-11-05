@@ -729,3 +729,14 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - Frontend mengenali `irvan1609.github.io` dan `www.irvan1609.github.io` sebagai host produksi agar room realtime tidak tersambung ke staging.
 - File: `public/werewolf/app.js`, `scripts/check-werewolf.mjs`, `PAKET_MIGRASI_CHATGPT_IRVAN.md`.
 - Verifikasi lokal: UI/backend Werewolf checks dan syntax check lulus.
+
+
+### 2026-11-06 — Mode online/offline, voice lintas fase, dan anti-stall Werewolf
+
+- **Permintaan:** host memilih mode Online atau Offline saat membuat room; mode Online menyediakan voice chat di lobby serta semua fase; mode Offline menonaktifkan voice chat. Chat teks tersedia sepanjang permainan. Fase malam tidak boleh tertahan oleh pemain yang tidak merespons; moderator dapat memantau status kartu/aksi/voting, mengeluarkan pemain, atau mengambil alih sementara dengan BOT. Voting menyediakan abstain dan eliminasi mensyaratkan lebih dari 50% suara.
+- **Implementasi frontend:** pilihan mode ditambahkan pada form Buat Room; mode disimpan dalam settings room. Panel chat dirender pada semua fase, termasuk lobby. Voice chat otomatis dicoba pada mode Online; browser tetap meminta izin mikrofon dan menyediakan kontrol Aktifkan Audio bila autoplay diblokir. Pemain yang dikendalikan BOT melihat status penonton dan tidak dapat mengirim aksi/chat.
+- **Implementasi backend:** mode room divalidasi dan disimpan server-side. Voice WebRTC dibatasi ke room Online tetapi tersedia di lobby, semua fase, dan layar selesai; pemain tereliminasi tidak ikut voice selama game aktif. Chat teks tersedia lintas fase dan riwayatnya tidak dihapus saat berganti fase.
+- **Anti-stall:** snapshot moderator/host menampilkan status kartu dibuka, aksi malam, aksi yang dilewati, voting, abstain, koneksi, dan BOT. Host/moderator dapat kick, mengganti pemain dengan BOT sementara, atau mengembalikan kendali. BOT otomatis menyelesaikan kartu/aksi malam/voting sesuai fase. Moderator juga dapat melewati aksi malam yang tertunda; hasil Seer diproses dan pagi terbuka otomatis 10 detik kemudian tanpa tombol moderator.
+- **Voting:** abstain disimpan sebagai ballot yang sah. Ambang eliminasi dihitung terhadap total bobot suara seluruh pemain hidup (termasuk abstain dan pemain yang tidak mengirim suara); kandidat harus mendapat lebih dari 50%. Mayor tetap memiliki bobot suara ganda.
+- **Verifikasi awal:** pemeriksaan statis dan integrasi ditambahkan untuk chat lobby lintas fase, voice lobby/voting, mode Offline, abstain, mayoritas ketat, penggantian BOT, pemulihan pemain, skip aksi malam, dan transisi otomatis 10 detik. Hasil workflow dan health check staging akan dicatat setelah selesai.
+- **Deployment:** perubahan diarahkan ke branch development dan Worker staging. Produksi master tidak diubah.
