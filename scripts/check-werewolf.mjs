@@ -283,7 +283,7 @@ assert.match(css, /\.wolf-selection-board/);
 assert.match(css, /\.wolf-private-chat/);
 assert.match(css, /\.wolf-chat-form/);
 assert.match(css, /\.moderator-event-report/);
-assert.match(app, /URUTAN AKSI MALAM/);
+assert.match(app, /URUTAN AKSI DAN HASIL/);
 assert.match(app, /moderator-event-number/);
 assert.match(worker, /Perlindungan malam nonaktif/);
 assert.match(worker, /Menetapkan target bonus kemenangan/);
