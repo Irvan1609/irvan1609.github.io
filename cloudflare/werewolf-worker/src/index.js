@@ -2464,7 +2464,7 @@ export class WerewolfRoom {
     await this.runExclusive(async () => {
       const attachment = socket.deserializeAttachment();
       const room = await this.loadRoom();
-      if (!room || !['morning', 'discussion'].includes(room.phase) || !attachment?.actorId) return;
+      if (!room || !attachment?.actorId) return;
       if (room.settings?.gameMode !== 'online') return;
       const senderId = attachment.actorId;
       const includeEliminated = ['lobby', 'finished'].includes(room.phase);
