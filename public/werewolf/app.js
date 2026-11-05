@@ -2021,12 +2021,12 @@ function parseRoomCodeFromQr(value) {
     const parsed = new URL(raw, location.origin);
     const fromUrl = (
       parsed.searchParams.get('room') ||
-      new URLSearchParams(parsed.hash.replace(/^#\\??/, '')).get('room') ||
+      new URLSearchParams(parsed.hash.replace(/^#\??/, '')).get('room') ||
       ''
     ).trim().toUpperCase();
     if (valid(fromUrl)) return fromUrl;
   } catch {}
-  const match = raw.match(/(?:[?&#]|^)room=([A-HJ-NP-Z2-9]{6})(?:[&#\\s]|$)/i);
+  const match = raw.match(/(?:[?&#]|^)room=([A-HJ-NP-Z2-9]{6})(?:[&#\s]|$)/i);
   return match ? match[1].toUpperCase() : '';
 }
 
