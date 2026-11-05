@@ -188,6 +188,8 @@ assert.match(app, /phaseChanged && nextState\.room\.phase === 'role_draw'\) play
 assert.match(app, /Waktu membuka kartu · 20 detik/);
 assert.match(app, /MALAM DIMULAI DALAM/);
 assert.match(app, /Buka kartu saya sekarang/);
+assert.match(app, /roomState\.self\?\.hasRole/);
+assert.match(app, /pending-role-card/);
 assert.match(app, /startNightAfterDrawButton/);
 assert.match(app, /roleDrawEndsAt/);
 assert.match(app, /function renderSystemHostPlayerContext/);
