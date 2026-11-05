@@ -2776,7 +2776,7 @@ export class WerewolfRoom {
           room.lastResult.message = room.lastResult.message + ' Tembakan Hunter menyusul; '
             + eliminations.map(item => item.name).join(' dan ') + ' turut gugur.';
         }
-        room.lastResult.at = now;
+        if (eliminations.length) room.lastResult.at = now;
       }
       if (!room.winner) this.checkWinner(room);
       if (room.winner) {
