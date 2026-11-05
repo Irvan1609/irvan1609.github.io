@@ -1725,6 +1725,33 @@ for (const phase of ['role_draw', 'night', 'discussion', 'voting', 'result', 'fi
   voiceState = await voiceRoom.loadRoom();
 }
 voiceState = await voiceRoom.loadRoom();
+voiceState.phase = 'discussion';
+voiceState.settings.gameMode = 'online';
+const voiceControlledPlayer = voiceState.players.find(player => player.id === voicePlayers[0].playerId);
+voiceControlledPlayer.isBotControlled = true;
+await voiceRoom.saveRoom(voiceState);
+const controlledVoiceSnapshot = voiceRoom.snapshot(voiceState, voicePlayers[1].playerId);
+assert.ok(!controlledVoiceSnapshot.voicePeers.some(peer => peer.id === voicePlayers[0].playerId),
+  'A player temporarily controlled by BOT must not appear as a voice peer.');
+const beforeControlledSender = voiceTwoSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[1].playerId,
+  signalKind: 'offer', payload: { type: 'offer', sdp: 'bot-controlled-sender' }
+}));
+assert.equal(voiceTwoSocket.messages.length, beforeControlledSender,
+  'A BOT-controlled player must not send voice signals.');
+voiceControlledPlayer.isBotControlled = false;
+voiceState.players.find(player => player.id === voicePlayers[1].playerId).isBotControlled = true;
+await voiceRoom.saveRoom(voiceState);
+const beforeControlledTarget = voiceTwoSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[1].playerId,
+  signalKind: 'offer', payload: { type: 'offer', sdp: 'bot-controlled-target' }
+}));
+assert.equal(voiceTwoSocket.messages.length, beforeControlledTarget,
+  'A BOT-controlled player must not receive voice signals.');
+voiceState = await voiceRoom.loadRoom();
+voiceState.players.forEach(player => { player.isBotControlled = false; });
 voiceState.settings.gameMode = 'offline';
 await voiceRoom.saveRoom(voiceState);
 const messageCountBeforeOffline = voiceTwoSocket.messages.length;
