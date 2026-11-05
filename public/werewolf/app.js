@@ -1322,6 +1322,25 @@ function updatePhaseClock() {
     const cardsComplete = roomState?.room?.roleCardsDrawn >= roomState?.room?.roleCardsRequired;
     startNightButton.disabled = !cardsComplete && seconds > 0;
   }
+  const nightButton = $('advanceNightButton');
+  if (nightButton) {
+    const room = roomState?.room || {};
+    const pending = Math.max(0, Number(room.nightActionsRequired) - Number(room.nightActionsSubmitted));
+    nightButton.disabled = pending > 0 && seconds > 0;
+    nightButton.textContent = pending > 0 && seconds > 0 ? 'Menunggu aksi · ' + seconds + ' detik' : 'Lanjut ke Subuh';
+  }
+  const dawnButton = $('advanceDawnButton');
+  if (dawnButton) {
+    const room = roomState?.room || {};
+    const pending = Math.max(0, Number(room.dawnActionsRequired) - Number(room.dawnActionsSubmitted));
+    dawnButton.disabled = pending > 0 && seconds > 0;
+    dawnButton.textContent = pending > 0 && seconds > 0 ? 'Menunggu aksi pemicu · ' + seconds + ' detik' : 'Lanjut ke Pagi';
+  }
+  const nextRoundButton = $('nextRoundButton');
+  if (nextRoundButton) {
+    nextRoundButton.disabled = seconds > 0;
+    nextRoundButton.textContent = seconds > 0 ? 'Ronde berikutnya · ' + seconds + ' detik' : 'Lanjut ke Malam ' + ((roomState?.room?.round || 0) + 1);
+  }
 }
 
 function startPhaseClock() {
@@ -1819,13 +1838,14 @@ function renderModeratorLobby(parent) {
 }
 
 function renderModeratorRoleDraw(parent) {
-  phaseHeader(parent, 'PEMBAGIAN KARTU', 'Waktu membuka kartu · 20 detik', 'Dering khusus sudah dikirim saat permainan dimulai. Pemain yang terlambat tetap dapat membuka kartu setelah malam dimulai.');
+  const duration = roleSettingsForUI(roomState.room.settings || {}).timers.roleDrawSeconds;
+  phaseHeader(parent, 'BUKA KARTU', 'Waktu membuka kartu · ' + duration + ' detik', 'Setiap pemain membuka kartu rahasianya sendiri. Setelah waktunya habis, permainan berlanjut ke tengah malam.');
   const opened = roomState.players.filter(player => player.hasDrawn).length;
   addText(parent, 'div', 'notice', opened + ' / ' + roomState.players.length + ' pemain sudah membuka kartu.');
   appendPhaseCountdown(parent, 'MALAM DIMULAI DALAM', roomState.room.roleDrawEndsAt);
   const complete = roomState.players.length > 0 && opened === roomState.players.length;
   if (systemModeratorEnabled()) {
-    addText(parent, 'div', 'notice success', 'Sistem memulai malam setelah semua kartu dibuka atau waktu 20 detik habis.');
+    addText(parent, 'div', 'notice success', 'Sistem memulai tengah malam setelah semua kartu dibuka atau waktu habis.');
   } else {
     const next = button('Lanjut ke Malam 1', 'primary wide', () => sendAction('start_night'),
       !complete && Number(roomState.room.roleDrawEndsAt) > Date.now());
@@ -1836,25 +1856,35 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Aksi malam', 'Pemain yang belum bertindak dapat diganti BOT atau dilewati oleh moderator.');
   const room = roomState.room;
+  phaseHeader(parent, 'TENGAH MALAM · RONDE ' + room.round, 'Aksi rahasia berlangsung', 'Werewolf dan role khusus menjalankan kemampuan. Semua pilihan tetap dapat diubah sampai waktu tengah malam berakhir.');
+  const pending = Math.max(0, Number(room.nightActionsRequired) - Number(room.nightActionsSubmitted));
   addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' aksi masuk.'
-    + (room.nightActionsSkipped ? ' ' + room.nightActionsSkipped + ' pemain dilewati.' : ''));
-  if (room.nightRevealEndsAt) {
-    addText(parent, 'div', 'notice success', room.nightActionsSkipped
-      ? 'Aksi yang belum masuk dilewati. Hasil penerawangan dikirim secara privat. Pagi tiba dalam 10 detik.'
-      : 'Semua aksi selesai. Hasil penerawangan Seer sudah dikirim secara privat. Pagi tiba dalam 10 detik.');
-    appendPhaseCountdown(parent, 'PAGI DALAM', room.nightRevealEndsAt);
-  } else if (room.nightActionsSubmitted < room.nightActionsRequired) {
-    addText(parent, 'div', 'notice success', 'Tidak perlu menunggu pemain yang belum beraksi. Ganti dengan BOT atau lewati aksi yang tertunda.');
-    parent.append(button('Lewati pemain yang belum beraksi · mulai 10 detik', 'secondary wide', () => {
-      if (confirm('Aksi pemain yang belum masuk akan dilewati. Pagi akan terbuka otomatis 10 detik setelah hasil penerawangan ditampilkan.')) sendAction('skip_missing_night');
-    }));
-  }
+    + (pending ? ' ' + pending + ' pemain masih memilih.' : ' Semua pemain sudah memilih.'));
+  appendPhaseCountdown(parent, 'SUBUH DALAM', room.nightEndsAt);
+  const advance = button('Lanjut ke Subuh', 'primary wide', () =>
+    sendAction('resolve_night', { force: Number(room.nightEndsAt) > 0 && room.nightEndsAt <= Date.now() }),
+    pending > 0 && Number(room.nightEndsAt) > Date.now());
+  advance.id = 'advanceNightButton';
+  parent.append(advance);
+}
+
+function renderModeratorDawn(parent) {
+  const room = roomState.room;
+  phaseHeader(parent, 'SUBUH · RONDE ' + room.round, 'Aksi pemicu', 'Hunter yang gugur dapat menembak. Reviver dapat membangkitkan satu korban malam. Hasil baru diumumkan saat pagi tiba.');
+  const pending = Math.max(0, Number(room.dawnActionsRequired) - Number(room.dawnActionsSubmitted));
+  addText(parent, 'div', 'notice', room.dawnActionsSubmitted + ' / ' + room.dawnActionsRequired + ' aksi subuh masuk.'
+    + (pending ? ' Menunggu ' + pending + ' aksi pemicu.' : ' Tidak ada aksi pemicu yang tertunda.'));
+  appendPhaseCountdown(parent, 'PAGI DALAM', room.dawnEndsAt);
+  const advance = button('Lanjut ke Pagi', 'primary wide', () =>
+    sendAction('resolve_dawn', { force: Number(room.dawnEndsAt) > 0 && room.dawnEndsAt <= Date.now() }),
+    pending > 0 && Number(room.dawnEndsAt) > Date.now());
+  advance.id = 'advanceDawnButton';
+  parent.append(advance);
 }
 
 function renderModeratorMorning(parent) {
-  phaseHeader(parent, 'PAGI HARI · RONDE ' + roomState.room.round, 'Hasil kejadian malam', 'Hasil malam sudah diumumkan. Pemain berdiskusi sebelum host membuka voting.');
+  phaseHeader(parent, 'PAGI · RONDE ' + roomState.room.round, 'Warga mulai berdiskusi', 'Korban dan kejadian semalam telah diumumkan. Warga punya waktu untuk mengumpulkan petunjuk sebelum sore tiba.');
   const room = roomState.room;
   const result = room.lastResult;
   renderPublicResult(parent);
@@ -1867,7 +1897,7 @@ function renderModeratorMorning(parent) {
     return;
   }
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', room.discussionEndsAt);
-  const votingButton = button('Voting', 'primary wide', () => sendAction('start_voting'),
+  const votingButton = button('Lanjut ke Sore · Voting', 'primary wide', () => sendAction('start_voting'),
     Boolean(room.discussionEndsAt && room.discussionEndsAt > Date.now()));
   votingButton.id = 'startVotingButton';
   parent.append(votingButton);
@@ -1896,8 +1926,16 @@ function renderModeratorResult(parent) {
   addText(card, 'h3', '', result?.message || 'Hasil voting tersedia.');
   renderModeratorEventReport(card, result);
   parent.append(card);
-  addText(parent, 'p', 'hint', 'Tidak ada batas maksimal ronde malam. Permainan berlanjut sampai kondisi kemenangan terpenuhi.');
-  parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
+  addText(parent, 'p', 'hint', 'Tidak ada batas maksimal ronde. Permainan berlanjut sampai kondisi kemenangan terpenuhi.');
+  appendPhaseCountdown(parent, 'RONDE BERIKUTNYA DALAM', roomState.room.resultEndsAt);
+  if (systemModeratorEnabled()) {
+    addText(parent, 'div', 'notice success', 'Sistem akan memulai malam berikutnya secara otomatis setelah hasil dibacakan.');
+  } else {
+    const next = button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round'),
+      Boolean(roomState.room.resultEndsAt && roomState.room.resultEndsAt > Date.now()));
+    next.id = 'nextRoundButton';
+    parent.append(next);
+  }
 }
 
 function renderModeratorFinished(parent) {
