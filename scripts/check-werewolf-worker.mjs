@@ -174,7 +174,7 @@ assert.match(morningModerator.room.lastResult.message, /perlindungan/);
 const nightActionReport = morningModerator.room.lastResult.actionReport;
 assert.ok(Array.isArray(nightActionReport));
 assert.deepEqual(nightActionReport.map(item => item.role), [
-  'Werewolf', 'Seer', 'Doctor', 'Warga Desa', 'Hasil akhir'
+  'Werewolf', 'Seer', 'Doctor', 'Warga Desa', 'Warga Desa', 'Hasil akhir'
 ]);
 assert.match(nightActionReport[0].outcome, /Doni/);
 assert.match(nightActionReport.find(item => item.role === 'Seer').outcome, /Werewolf/);

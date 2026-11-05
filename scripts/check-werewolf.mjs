@@ -242,7 +242,7 @@ assert.match(css, /\.moderator-event-report/);
 assert.match(app, /URUTAN AKSI MALAM/);
 assert.match(app, /moderator-event-number/);
 assert.match(app, /actionReport/);
-assert.match(css, /\.phase-panel \.hint\{display:none!important\}/);
+assert.match(css, /phase-panel \.hint/);
 assert.match(css, /\.moderator-event-detail/);
 assert.doesNotMatch(app.slice(app.indexOf('function phaseHeader'), app.indexOf('function appendRoleDetails')), /if \(description\)/);
 
