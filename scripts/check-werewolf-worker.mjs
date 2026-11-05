@@ -2066,6 +2066,9 @@ const roleDrawTimeoutCreated = await payload(await roleDrawTimeoutRoom.fetch(mak
 const roleDrawTimeoutPlayer = await payload(await roleDrawTimeoutRoom.fetch(
   makeRequest('/internal/join', 'POST', { name: 'Late Card Player' })
 ), 201);
+await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Second Card Player'
+})), 201);
 await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_game'
 }, roleDrawTimeoutCreated.token)));
