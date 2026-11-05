@@ -2171,8 +2171,7 @@ function renderPlayerNight(parent) {
 
 function renderPlayerDiscussion(parent) {
   renderPublicResult(parent);
-  renderPrivateInspectionResult(parent);
-  addText(parent, 'div', 'notice success', 'Diskusi berlangsung. Chat dan voice chat aktif di semua fase mode online.');
+  addText(parent, 'div', 'notice success', 'Warga berkumpul di balai desa. Sampaikan petunjuk sebelum sore tiba.');
   appendPhaseCountdown(parent, 'PAGI TERSISA', roomState.room.discussionEndsAt);
 }
 
@@ -2266,15 +2265,40 @@ function renderDiscussionTools(parent) {
   if (onlineMode) refreshVoiceUI();
 }
 
+function inspectionResultText(entry, role) {
+  if (!entry) return '';
+  if (role === 'seer') return entry.role ? roleLabel(entry.role) : 'Hasil belum tersedia';
+  return entry.result === 'wolf_team' ? 'Kubu Werewolf'
+    : entry.result === 'neutral' ? 'Kubu Netral' : 'Kubu Desa';
+}
+
 function renderPrivateInspectionResult(parent) {
   const self = roomState.self;
-  const result = self?.seerResult;
-  if (!result || !['seer', 'detective'].includes(self.role)) return;
-  const faction = result.result === 'wolf' || result.result === 'wolf_team'
-    ? (self.role === 'detective' ? 'kubu Werewolf' : 'Werewolf')
-    : result.result === 'neutral' ? 'kubu Netral'
-      : self.role === 'detective' ? 'kubu Desa' : 'bukan Werewolf';
-  addText(parent, 'div', 'notice success', 'Hasil penerawangan malam ' + result.round + ': ' + result.playerName + ' termasuk ' + faction + '. Hasil ini hanya terlihat olehmu.');
+  if (!self || !['seer', 'detective'].includes(self.role)) return;
+  const history = Array.isArray(self.inspectionHistory) ? self.inspectionHistory : [];
+  const result = self.seerResult;
+  if (!history.length && !result) return;
+  const panel = node('section', 'private-inspection-panel');
+  if (result) {
+    addText(panel, 'div', 'notice success',
+      'Penerawangan terbaru · ' + result.playerName + ' — ' + inspectionResultText(result, self.role)
+      + '. Hanya kamu yang dapat melihat hasil ini.');
+  }
+  if (history.length) {
+    addText(panel, 'div', 'eyebrow-small', 'RIWAYAT PENERAWANGAN');
+    const chips = node('div', 'inspection-history-list');
+    for (const entry of history) {
+      const faction = self.role === 'seer' ? factionForRole(entry.role)
+        : entry.result === 'wolf_team' ? 'wolves'
+          : entry.result === 'neutral' ? 'neutral' : 'village';
+      const chip = node('span', 'inspection-history-chip inspected-' + faction);
+      addText(chip, 'b', '', entry.playerName || 'Pemain');
+      addText(chip, 'small', '', inspectionResultText(entry, self.role));
+      chips.append(chip);
+    }
+    panel.append(chips);
+  }
+  parent.append(panel);
 }
 
 function renderSystemModeratorMorning(parent) {
@@ -2288,7 +2312,6 @@ function renderSystemModeratorMorning(parent) {
   parent.append(card);
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
-  renderPrivateInspectionResult(parent);
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
@@ -2303,7 +2326,6 @@ function renderSystemModeratorVoteResult(parent) {
   parent.append(card);
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
-  renderPrivateInspectionResult(parent);
   appendPhaseCountdown(parent, 'RONDE BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
 
@@ -2313,58 +2335,59 @@ function renderPlayerMorning(parent) {
   renderPublicResult(parent);
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
-  renderPrivateInspectionResult(parent);
-  addText(parent, 'div', 'notice success', 'Diskusi berlangsung. Voting dimulai otomatis sesuai durasi atau setelah moderator host melanjutkan.');
+  addText(parent, 'div', 'notice success', 'Diskusi berlangsung. Voting dibuka otomatis saat waktu pagi berakhir.');
   appendPhaseCountdown(parent, 'PAGI TERSISA', roomState.room.discussionEndsAt);
 }
 
 function renderPlayerDawn(parent) {
-  const self = roomState.self;
-  phaseHeader(parent, 'SUBUH · RONDE ' + roomState.room.round, 'Kemampuan pemicu', 'Kemampuan yang aktif setelah pemain tereliminasi dijalankan pada fase ini.');
+  const self = roomState.self || {};
+  const dawnOpen = !roomState.room.dawnEndsAt || Date.now() < Number(roomState.room.dawnEndsAt);
+  phaseHeader(parent, 'SUBUH · RONDE ' + roomState.room.round, 'Aksi pemicu',
+    'Pilihan dapat diubah sampai waktu Subuh berakhir.');
   renderPublicResult(parent);
-  renderPrivateInspectionResult(parent);
-  if (self.hasDawnAction) {
-    addText(parent, 'div', 'notice success', 'Aksi Subuh sudah dikirim. Tunggu fase Pagi.');
-  } else if (self.role === 'hunter' && !self.alive && !self.hunterUsed) {
-    renderHunterShot(parent);
+  if (self.role === 'hunter' && !self.alive && !self.hunterUsed) {
+    renderHunterShot(parent, dawnOpen);
   } else if (self.role === 'reviver' && self.alive && !self.reviverUsed) {
     const targets = Array.isArray(roomState.reviveTargets) ? roomState.reviveTargets : [];
     if (!targets.length) addText(parent, 'div', 'notice', 'Belum ada pemain yang dapat dihidupkan kembali.');
     else {
       addText(parent, 'h3', '', 'Pilih pemain untuk dihidupkan');
-      addText(parent, 'p', 'hint', 'Kemampuan ini hanya dapat digunakan sekali selama permainan.');
+      addText(parent, 'p', 'hint', 'Kamu dapat mengganti target sampai hitung mundur Subuh berakhir.');
       const grid = node('div', 'action-grid');
       for (const target of targets) {
-        grid.append(button('Hidupkan · ' + target.name, 'action-button', () => {
-          if (confirm('Hidupkan kembali ' + target.name + '?')) sendAction('revive_player', { targetId: target.id });
-        }));
+        const selected = self.dawnActionType === 'revive_player' && self.dawnActionTargetId === target.id;
+        grid.append(button((selected ? '✓ Dipilih · ' : 'Hidupkan · ') + target.name,
+          selected ? 'action-button selected' : 'action-button',
+          () => sendAction('revive_player', { targetId: target.id }), !dawnOpen));
       }
       parent.append(grid);
     }
   } else if (self.role === 'reviver' && self.alive && self.reviverUsed) {
-    addText(parent, 'div', 'notice', 'Kemampuan Reviver sudah digunakan pada ronde sebelumnya.');
+    addText(parent, 'div', 'notice', 'Kemampuan Reviver sudah digunakan.');
   } else {
-    addText(parent, 'div', 'notice', 'Tidak ada kemampuan pemicu untuk role kamu. Tunggu fase Pagi.');
+    addText(parent, 'div', 'notice', 'Tidak ada kemampuan pemicu untuk role kamu. Tunggu fajar menyingsing.');
   }
   appendPhaseCountdown(parent, 'SUBUH TERSISA', roomState.room.dawnEndsAt);
 }
 
-function renderHunterShot(parent) {
+function renderHunterShot(parent, dawnOpen = true) {
   if (!abilityOn('hunterShot')) {
-    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter dinonaktifkan oleh moderator.');
+    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter dinonaktifkan.');
     return;
   }
   if (roomState.self.hunterUsed) {
-    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter sudah digunakan.');
+    addText(parent, 'div', 'notice', 'Kesempatan menembak Hunter sudah digunakan.');
     return;
   }
-  addText(parent, 'h3', '', 'Kemampuan terakhir Hunter');
-  addText(parent, 'p', 'hint', 'Pilih satu pemain hidup untuk ditembak.');
+  addText(parent, 'h3', '', 'Tembakan terakhir Hunter');
+  addText(parent, 'p', 'hint', 'Pilih target. Kamu masih dapat mengganti sasaran selama Subuh.');
   const grid = node('div', 'action-grid');
   for (const target of roomState.targets || []) {
-    grid.append(button('Tembak ' + target.name, 'action-button', () => {
-      if (confirm('Tembak ' + target.name + '?')) sendAction('hunter_shot', { targetId: target.id });
-    }));
+    const selected = roomState.self.dawnActionType === 'hunter_shot'
+      && roomState.self.dawnActionTargetId === target.id;
+    grid.append(button((selected ? '✓ Dipilih · ' : 'Tembak · ') + target.name,
+      selected ? 'action-button selected' : 'action-button',
+      () => sendAction('hunter_shot', { targetId: target.id }), !dawnOpen));
   }
   parent.append(grid);
 }
