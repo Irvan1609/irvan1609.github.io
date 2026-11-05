@@ -774,3 +774,16 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Penyempurnaan akhir voice takeover, 6 November 2026:** pemain yang sedang dikendalikan BOT sementara dikeluarkan dari daftar voice peer; server juga menolak sinyal suara dari maupun ke pemain tersebut. Tes integrasi mencakup kedua arah ini.
 - **Commit kode terverifikasi:** `e401ef9c5d262061cd8b456e833f6544e40b586b`. GitHub Actions `Validate Statistical Web` run `42075410139` sukses dan `Deploy Werewolf Room API` run `42075410009` sukses. Worker staging kembali lolos health check (`ok: true`, `realtime: true`, `storage: durable-objects`) dan smoke-check halaman publik.
 - **Status akhir:** semua perubahan Werewolf pada rangkaian ini berada di branch `development` dan Worker staging. Branch produksi `master` tetap pada commit `72f172fcef314e2a1d7d2fff3bb0fdcc70cd0d4d`; tidak ada promosi ke produksi.
+
+
+### 2026-11-06 — Host sebagai pemain dan panduan kekuatan role di lobby
+
+- **Host pada mode moderator Sistem:** UI kini memberi penanda bahwa host tetap bermain sebagai pemain. Panel khusus menampilkan role pribadi host dan menyediakan detail kekuatan serta aturan pakai role setelah kartu dibuka. Host tetap mendapat dashboard progres umum, daftar status pemain, dan kontrol fase siang.
+- **Privasi:** snapshot server memastikan host hanya menerima role miliknya sendiri. Daftar pemain untuk host tidak memuat role pemain lain atau target aksi malam rahasia. Host tetap menjalankan aksi malam, diskusi, dan voting berdasarkan role sendiri seperti pemain lain.
+- **Konfigurasi role lobby:** setiap role pemain kini memiliki detail yang dapat dibuka/tutup, berisi bagian KEKUATAN dan ATURAN PAKAI. Informasi moderator juga tersedia terpisah dari jumlah role pemain.
+- **Responsif:** rincian kemampuan dibuat ringkas dan dapat dibuka saat diperlukan agar daftar role tidak terlalu panjang di layar HP.
+- **File:** `public/werewolf/app.js`, `public/werewolf/style.css`, `scripts/check-werewolf.mjs`, dan `scripts/check-werewolf-worker.mjs`.
+- **Commit kode:** `c375b69da7cb81b2ee3e3942915d9f489d6d93bc`.
+- **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42076337869` sukses; `Deploy Werewolf Room API` run `42076337832` sukses. Tes UI, backend, aturan role, privasi, build, health check, dan smoke-check asset staging lulus.
+- **URL staging:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
+- **Produksi:** branch `master` tidak diubah.
