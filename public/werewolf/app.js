@@ -1092,7 +1092,7 @@ function renderModeratorDashboard(parent) {
     done = Number(room.roleCardsDrawn) || players.filter(player => player.hasDrawn).length;
     required = Number(room.roleCardsRequired) || total;
   } else if (room.phase === 'night') {
-    task = 'Aksi malam';
+    task = 'Aksi Tengah Malam';
     done = Number(room.nightActionsSubmitted) || 0;
     required = Number(room.nightActionsRequired) || alive;
   } else if (room.phase === 'dawn') {
@@ -1905,7 +1905,7 @@ function renderModeratorVoting(parent) {
   phaseHeader(parent, 'SORE · EKSEKUSI', 'Pemungutan suara', 'Pilih satu pemain untuk digantung. Pilihan setiap pemain tetap rahasia.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
-  appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
+  appendPhaseCountdown(parent, 'SORE TERSISA', room.votingEndsAt);
   addText(parent, 'div', 'notice success', systemModeratorEnabled()
     ? 'Sistem menghitung hasil saat semua suara masuk atau waktu habis.'
     : 'Voting ditutup otomatis setelah waktu habis. Host tidak perlu menekan tombol hasil.');
@@ -2307,6 +2307,8 @@ function renderPlayerDawn(parent) {
       }
       parent.append(grid);
     }
+  } else if (self.role === 'reviver' && self.alive && self.reviverUsed) {
+    addText(parent, 'div', 'notice', 'Kemampuan Reviver sudah digunakan pada ronde sebelumnya.');
   } else {
     addText(parent, 'div', 'notice', 'Tidak ada kemampuan pemicu untuk role kamu. Tunggu fase Pagi.');
   }
