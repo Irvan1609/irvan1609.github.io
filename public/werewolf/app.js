@@ -1,6 +1,7 @@
 import { qrMatrix, qrSvg } from './qr.js';
 const $ = id => document.getElementById(id);
-const API_BASE = location.hostname === 'irvan1609.github.io'
+const isProductionHost = ['irvan1609.github.io', 'www.irvan1609.github.io'].includes(location.hostname);
+const API_BASE = isProductionHost
   ? 'https://werewolf-room-api.andyirvan1609.workers.dev'
   : 'https://werewolf-room-api-dev.andyirvan1609.workers.dev';
 const SESSION_PREFIX = 'werewolf.session.';
