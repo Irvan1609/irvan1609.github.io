@@ -1686,3 +1686,84 @@ await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
 assert.equal(voiceTwoSocket.messages.length, messageCountBeforeClosedPhase,
   'Voice signalling must stop immediately when discussion ends.');
 console.log('Werewolf discussion voice regression passed: connected players and moderator receive private WebRTC signalling only during discussion.');
+
+// Living-player visibility and automatic completion for roles without night actions.
+const autoPassStorage = new MemoryStorage();
+const autoPassRoom = new WerewolfRoom({ storage: autoPassStorage, getWebSockets: () => [] }, {});
+const autoPassSettings = {
+  ...roleSettings,
+  moderatorMode: 'host',
+  roleCounts: {
+    ...roleSettings.roleCounts,
+    wolf: 1, alpha_wolf: 0, seer: 1, doctor: 0, bodyguard: 0,
+    witch: 0, hunter: 1, cupid: 0, guardian_angel: 0, detective: 0,
+    mayor: 1, jester: 0, villager: 1, moderator: 0
+  }
+};
+const autoPassCreated = await payload(await autoPassRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'ATPV23', name: 'Auto Pass Host', settings: autoPassSettings
+})), 201);
+const autoPassTokens = [];
+for (const name of ['Satu', 'Dua', 'Tiga', 'Empat', 'Lima']) {
+  const joined = await payload(await autoPassRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  autoPassTokens.push(joined.token);
+}
+await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, autoPassCreated.token)));
+let autoPassState = await autoPassRoom.loadRoom();
+assert.equal(autoPassState.players.length, 5);
+['wolf', 'seer', 'hunter', 'mayor', 'villager'].forEach((role, index) => {
+  autoPassState.players[index].role = role;
+  autoPassState.players[index].hasDrawn = true;
+  autoPassState.players[index].alive = true;
+});
+await autoPassRoom.saveRoom(autoPassState);
+await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, autoPassCreated.token)));
+autoPassState = await autoPassRoom.loadRoom();
+assert.equal(autoPassState.nightActions[autoPassState.players[2].id].type, 'pass');
+assert.equal(autoPassState.nightActions[autoPassState.players[2].id].automatic, true);
+assert.equal(autoPassState.nightActions[autoPassState.players[3].id].type, 'pass');
+assert.equal(autoPassState.nightActions[autoPassState.players[3].id].automatic, true);
+const autoPassModeratorView = (await payload(await autoPassRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoPassCreated.token)
+))).state;
+assert.equal(autoPassModeratorView.room.nightActionsSubmitted, 2);
+assert.equal(autoPassModeratorView.room.nightActionsRequired, 5);
+assert.equal(autoPassModeratorView.room.nightActionsAutoPassed, 2);
+const publicLivingView = (await payload(await autoPassRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoPassTokens[0])
+))).state;
+assert.deepEqual(publicLivingView.livingPlayers.map(player => player.name), ['Satu', 'Dua', 'Tiga', 'Empat', 'Lima']);
+assert.ok(publicLivingView.livingPlayers.every(player => !Object.hasOwn(player, 'role')),
+  'Players may see who is alive but must not see anyone else’s role.');
+const autoPassedPlayerView = (await payload(await autoPassRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoPassTokens[2])
+))).state;
+assert.equal(autoPassedPlayerView.self.nightActionAutomatic, true);
+await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoPassState.players[2].id
+}, autoPassTokens[0])));
+await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoPassState.players[0].id
+}, autoPassTokens[1])));
+await submitVillagerMath(autoPassRoom, autoPassTokens[4]);
+autoPassState = await autoPassRoom.loadRoom();
+assert.ok(autoPassState.nightRevealEndsAt, 'Night reveal begins when active actions and automatic passes are all counted.');
+const autoPassDeadline = autoPassState.nightRevealEndsAt;
+const realNowForAutoPass = Date.now;
+try {
+  Date.now = () => autoPassDeadline + 1;
+  await autoPassRoom.alarm();
+} finally {
+  Date.now = realNowForAutoPass;
+}
+autoPassState = await autoPassRoom.loadRoom();
+const autoPassReport = autoPassState.lastResult.actionReport.find(item => item.role === 'Otomatis dihitung');
+assert.ok(autoPassReport, 'Moderator report must include automatically completed no-action roles.');
+assert.match(autoPassReport.actor, /Tiga/);
+assert.match(autoPassReport.actor, /Empat/);
+console.log('Werewolf living-player and automatic night-pass regressions passed.');
+
