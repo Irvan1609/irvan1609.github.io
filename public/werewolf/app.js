@@ -23,6 +23,7 @@ const ROLE_INFO = {
   priest: ['Priest', 'Memiliki satu berkah perlindungan untuk satu pemain.', 'Sekali per game, lindungi satu pemain dari serangan Werewolf. Boleh melindungi diri sendiri. Jika berkah sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   vigilante: ['Vigilante', 'Memiliki satu tembakan untuk mengeliminasi pemain lain.', 'Sekali per game, tembak satu pemain hidup pada malam hari. Tidak dapat menargetkan diri sendiri. Jika tembakan sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   mason: ['Mason', 'Mengenali anggota Mason lain yang masih hidup.', 'Mason dapat melihat nama sesama Mason. Tidak memiliki aksi khusus malam; jawab perhitungan seperti Warga Desa.'],
+  reviver: ['Reviver', 'Menghidupkan kembali satu pemain yang telah gugur.', 'Pada fase Subuh pilih satu pemain yang sudah mati. Hanya sekali per permainan.'],
   moderator: ['Moderator', 'Mengendalikan fase dan hasil permainan.', 'Mode Host/Acak: moderator tidak menerima kartu. Mode Sistem: host tetap bermain.']
 };
 const EXTRA_ROLE_OPTIONS = [
@@ -37,7 +38,8 @@ const EXTRA_ROLE_OPTIONS = [
   ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.'],
   ['priest', 'Priest', 'Sekali per game melindungi satu pemain dari serangan Werewolf.'],
   ['vigilante', 'Vigilante', 'Sekali per game menembak satu pemain pada malam hari.'],
-  ['mason', 'Mason', 'Mengenali sesama Mason; malam tanpa aksi khusus diisi perhitungan.']
+  ['mason', 'Mason', 'Mengenali sesama Mason; malam tanpa aksi khusus diisi perhitungan.'],
+  ['reviver', 'Reviver', 'Sekali per game menghidupkan satu pemain yang sudah gugur pada fase Subuh.']
 ];
 const ROLE_CONFIG_GROUPS = [
   { key: 'wolves', label: 'KUBU WEREWOLF', roles: [
@@ -47,7 +49,7 @@ const ROLE_CONFIG_GROUPS = [
     ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
     ['witch', 'Witch'], ['hunter', 'Hunter'], ['cupid', 'Cupid'],
     ['detective', 'Detective'], ['mayor', 'Mayor'], ['priest', 'Priest'],
-    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['villager', 'Warga Desa']
+    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['reviver', 'Reviver'], ['villager', 'Warga Desa']
   ]},
   { key: 'neutral', label: 'KUBU NETRAL', roles: [
     ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
@@ -56,8 +58,12 @@ const ROLE_CONFIG_GROUPS = [
 const ROLE_COUNT_DEFAULTS = {
   wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
   hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
-  priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
+  priest: 0, vigilante: 0, mason: 0, reviver: 0, jester: 0, villager: 2,
   moderator: 0
+};
+const PHASE_TIMER_DEFAULTS = {
+  roleDrawSeconds: 20, nightSeconds: 45, dawnSeconds: 15,
+  discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8
 };
 let session = null;
 let roomState = null;
@@ -852,17 +858,16 @@ function roleSettingsForUI(settings = {}) {
   if (draft) return {
     roleCounts: { ...ROLE_COUNT_DEFAULTS, ...draft.roleCounts },
     moderatorMode: draft.moderatorMode,
-    timers: { discussionSeconds: 30, votingSeconds: 15, ...(draft.timers || {}) }
+    timers: { ...PHASE_TIMER_DEFAULTS, ...(draft.timers || {}) }
   };
   return {
     roleCounts: settings.roleCounts
       ? { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts }
       : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode,
-    timers: {
-      discussionSeconds: Number(settings.timers?.discussionSeconds ?? 30),
-      votingSeconds: Number(settings.timers?.votingSeconds ?? 15)
-    }
+    timers: Object.fromEntries(Object.entries(PHASE_TIMER_DEFAULTS).map(([key, fallback]) =>
+      [key, Number(settings.timers?.[key] ?? fallback)]
+    ))
   };
 }
 
@@ -913,7 +918,8 @@ function captureRoleDraft(container, event) {
   }
   const timers = {};
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
-    timers[input.dataset.phaseDuration] = Math.max(5, Number(input.value) || 5);
+    const minimum = Number(input.min) || 3;
+    timers[input.dataset.phaseDuration] = Math.max(minimum, Number(input.value) || minimum);
   }
   roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
   updateRoleConfigSummary(container);
@@ -928,7 +934,8 @@ function clearAllRoleCounts(container) {
   const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
   const timers = {};
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
-    timers[input.dataset.phaseDuration] = Math.max(5, Number(input.value) || 5);
+    const minimum = Number(input.min) || 3;
+    timers[input.dataset.phaseDuration] = Math.max(minimum, Number(input.value) || minimum);
   }
   roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
   updateRoleConfigSummary(container);
@@ -976,8 +983,9 @@ function renderRoleConfigEditor(container, settings) {
     const grid = node('div', 'role-count-grid');
     for (const [key, label] of group.roles) {
       const item = node('div', 'role-count-item');
-      const field = node('label', 'role-count-field');
-      addText(field, 'span', '', label);
+      const field = node('div', 'role-count-field');
+      addText(field, 'span', 'role-count-label', label);
+      const control = node('div', 'role-count-control');
       const input = node('input', 'role-count-input');
       input.type = 'number';
       input.min = '0';
@@ -985,7 +993,19 @@ function renderRoleConfigEditor(container, settings) {
       input.inputMode = 'numeric';
       input.value = String(config.roleCounts[key] ?? 0);
       input.dataset.roleCount = key;
-      field.append(input);
+      input.setAttribute('aria-label', 'Jumlah role ' + label);
+      const decrease = button('−', 'role-count-step', () => {
+        input.value = String(Math.max(0, (Number(input.value) || 0) - 1));
+        captureRoleDraft(container, { target: input });
+      });
+      decrease.setAttribute('aria-label', 'Kurangi ' + label);
+      const increase = button('+', 'role-count-step', () => {
+        input.value = String((Number(input.value) || 0) + 1);
+        captureRoleDraft(container, { target: input });
+      });
+      increase.setAttribute('aria-label', 'Tambah ' + label);
+      control.append(decrease, input, increase);
+      field.append(control);
       item.append(field);
       const info = ROLE_INFO[key] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
       const disclosure = node('details', 'role-config-info-disclosure');
@@ -1001,8 +1021,12 @@ function renderRoleConfigEditor(container, settings) {
   addText(timerSection, 'div', 'role-section-label', 'DURASI PERMAINAN');
   const timerGrid = node('div', 'phase-duration-grid');
   for (const [key, label, min, max] of [
-    ['discussionSeconds', 'Diskusi (detik)', 5, 300],
-    ['votingSeconds', 'Voting (detik)', 5, 180]
+    ['roleDrawSeconds', 'Buka kartu (detik)', 5, 120],
+    ['nightSeconds', 'Tengah malam (detik)', 10, 300],
+    ['dawnSeconds', 'Subuh (detik)', 5, 120],
+    ['discussionSeconds', 'Pagi / diskusi (detik)', 5, 300],
+    ['votingSeconds', 'Sore / voting (detik)', 5, 180],
+    ['resultSeconds', 'Hasil voting (detik)', 3, 60]
   ]) {
     const field = node('label', 'phase-duration-field');
     addText(field, 'span', '', label);
@@ -1018,7 +1042,7 @@ function renderRoleConfigEditor(container, settings) {
     timerGrid.append(field);
   }
   timerSection.append(timerGrid);
-  addText(timerSection, 'p', 'hint', 'Diskusi default 30 detik dan voting 15 detik. Atur sesuai kebutuhan sebelum permainan dimulai.');
+  addText(timerSection, 'p', 'hint', 'Default: kartu 20 dtk · tengah malam 45 dtk · subuh 15 dtk · diskusi 30 dtk · voting 15 dtk · hasil 8 dtk. Mode Sistem menjalankan seluruh fase otomatis.');
   container.append(timerSection);
 
   const summary = node('div', 'role-config-summary');
@@ -1041,9 +1065,10 @@ function readRoleSettings(container) {
   const timers = {};
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     const seconds = Number(input.value);
-    const maximum = input.dataset.phaseDuration === 'discussionSeconds' ? 300 : 180;
-    if (!Number.isSafeInteger(seconds) || seconds < 5 || seconds > maximum) {
-      throw new Error('Durasi harus berupa bilangan bulat 5–' + maximum + ' detik.');
+    const minimum = Number(input.min) || 3;
+    const maximum = Number(input.max) || 300;
+    if (!Number.isSafeInteger(seconds) || seconds < minimum || seconds > maximum) {
+      throw new Error('Durasi harus berupa bilangan bulat ' + minimum + '–' + maximum + ' detik.');
     }
     timers[input.dataset.phaseDuration] = seconds;
   }
