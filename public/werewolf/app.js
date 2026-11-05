@@ -1736,25 +1736,6 @@ function renderPlayerPhase(parent) {
   if (!['lobby', 'finished'].includes(phase)) renderLivingPlayers(parent);
 }
 
-function renderSystemHostControls(parent) {
-  // All system-moderated phases advance from server-side timers.
-  return;
-  const phase = roomState.room.phase;
-  if (phase === 'night' && !roomState.room.nightRevealEndsAt
-    && roomState.room.nightActionsSubmitted < roomState.room.nightActionsRequired) {
-    parent.append(button('Lewati aksi yang belum masuk · 10 detik', 'secondary wide', () => {
-      if (confirm('Aksi yang belum masuk akan dilewati. Hasil malam diproses otomatis setelah 10 detik.')) sendAction('skip_missing_night');
-    }));
-  } else if (phase === 'morning') {
-    parent.append(button(roomState.room.winner ? 'Umumkan pemenang' : 'Lanjut ke Diskusi',
-      'primary wide', () => sendAction('start_discussion')));
-  } else if (phase === 'discussion') {
-    parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
-  } else if (phase === 'result') {
-    parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
-  }
-}
-
 function renderModeratorLobby(parent) {
   phaseHeader(parent, 'PANEL MODERATOR', 'Atur role setelah pemain bergabung', 'Tentukan role dan jumlahnya di sini. Pengaturan ini dapat diubah selama room masih berada di lobby.');
   const settings = roomState.room.settings || {};
@@ -2727,17 +2708,6 @@ function speakSystemNarration(message) {
     if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   } catch {}
-}
-
-function renderSystemNarrator(parent) {
-  const narration = systemNarrationText(roomState.room);
-  if (!narration) return;
-  const panel = node('section', 'system-narrator-panel');
-  addText(panel, 'div', 'eyebrow-small', 'SUARA DESA');
-  addText(panel, 'h3', '', 'Narator');
-  addText(panel, 'p', '', narration);
-  panel.append(button('Dengarkan lagi', 'secondary wide', () => speakSystemNarration(narration)));
-  parent.append(panel);
 }
 
 function renderPlayerVoting(parent) {
