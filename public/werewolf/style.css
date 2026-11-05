@@ -699,3 +699,28 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .phase-duration-input{width:64px;min-width:64px}
   .phase-countdown{padding:10px 11px}
 }
+
+
+/* Live discussion chat and automatic audio-only voice room. */
+.discussion-tools{display:grid;gap:12px;margin:15px 0}
+.discussion-voice-panel,.discussion-chat-panel{
+  min-width:0;padding:13px;border:1px solid #3c5068;border-radius:13px;
+  background:linear-gradient(145deg,#192a3e,#101a29)
+}
+.discussion-voice-panel h3{margin:5px 0 7px;color:var(--gold2);font:600 19px var(--serif)}
+.voice-status{margin:6px 0;color:#cbd6e4;font-size:11px;line-height:1.55}
+.voice-peer-count{display:inline-flex;margin:2px 0 9px;color:#a9cbb8;font-size:10px;font-weight:800}
+.voice-controls{display:flex;flex-wrap:wrap;gap:8px}
+.voice-controls button{flex:1 1 130px;min-height:38px}
+.discussion-chat-panel>.eyebrow-small{margin-bottom:8px}
+.discussion-chat-list{height:210px;max-height:35vh;min-height:115px;overflow-y:auto}
+.discussion-chat-form{align-items:center}
+.discussion-chat-form input{flex:1;min-width:0}
+.discussion-chat-form button{min-width:66px}
+.moderator-chat-badge{border-color:#6c7f96;color:#b8c9df}
+.voice-audio{display:none!important}
+@media(max-width:430px){
+  .discussion-voice-panel,.discussion-chat-panel{padding:10px}
+  .discussion-chat-list{height:185px;max-height:32vh}
+  .voice-controls button{flex-basis:100%}
+}
