@@ -182,25 +182,20 @@ const nightProgress = (await payload(await room.fetch(
 ))).state;
 assert.equal(nightProgress.room.nightActionsSubmitted, 5);
 assert.equal(nightProgress.room.nightActionsRequired, 5);
-assert.ok(nightProgress.room.nightRevealEndsAt > Date.now());
-const seerNightReveal = (await payload(await room.fetch(
+assert.ok(nightProgress.room.nightEndsAt > Date.now());
+const seerNightView = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
 ))).state;
-assert.equal(seerNightReveal.room.phase, 'night');
-assert.equal(seerNightReveal.self.seerResult.playerName, 'Alya');
-assert.equal(seerNightReveal.self.seerResult.result, 'wolf',
-  'Seer must receive the private result as soon as all night actions are complete.');
+assert.equal(seerNightView.room.phase, 'night');
+assert.equal(seerNightView.self.seerResult, null,
+  'Seer results must remain hidden until the night phase is resolved.');
 const nonSeerNightView = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
 ))).state;
 assert.equal(nonSeerNightView.self.seerResult, null, 'Seer inspection must stay private.');
-const realNowAfterNight = Date.now;
-try {
-  Date.now = () => nightProgress.room.nightRevealEndsAt + 1;
-  await room.alarm();
-} finally {
-  Date.now = realNowAfterNight;
-}
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night'
+}, moderatorToken)));
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
 assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
@@ -300,7 +295,14 @@ const voteResultPlayer = (await payload(await room.fetch(
 assert.equal(voteResultPlayer.room.lastResult, null);
 assert.equal(voteResultPlayer.self.status, 'eliminated');
 
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'next_round' }, moderatorToken)));
+const firstResultDeadline = saved.resultEndsAt;
+const realNowBeforeNextRound = Date.now;
+try {
+  Date.now = () => firstResultDeadline + 1;
+  await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'next_round' }, moderatorToken)));
+} finally {
+  Date.now = realNowBeforeNextRound;
+}
 assert.equal((await room.loadRoom()).phase, 'night');
 
 // Repeated moderator-controlled rounds must not stop at an arbitrary night limit.
@@ -308,6 +310,9 @@ for (let expectedRound = 3; expectedRound <= 250; expectedRound += 1) {
   const current = await room.loadRoom();
   current.phase = 'result';
   current.winner = null;
+  current.resultResolved = true;
+  current.resultEndsAt = 0;
+  current.resultActions = {};
   await room.saveRoom(current);
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'next_round' }, moderatorToken)));
   const advanced = await room.loadRoom();
@@ -451,9 +456,9 @@ await submitVillagerMath(systemRoom, systemTokens[3]);
 await submitVillagerMath(systemRoom, systemTokens[4]);
 await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'night', 'System moderator waits for the private Seer reveal window before morning.');
-assert.ok(systemState.nightRevealEndsAt);
-const systemNightDeadline = systemState.nightRevealEndsAt;
+assert.equal(systemState.phase, 'night', 'System moderator keeps the night open for its configured action window.');
+assert.ok(systemState.nightEndsAt);
+const systemNightDeadline = systemState.nightEndsAt;
 const realNowAfterSystemNight = Date.now;
 try {
   Date.now = () => systemNightDeadline + 1;
@@ -462,7 +467,7 @@ try {
   Date.now = realNowAfterSystemNight;
 }
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'morning', 'System moderator moves to morning automatically after the 10-second Seer reveal.');
+assert.equal(systemState.phase, 'morning', 'System moderator resolves the night and moves to morning automatically when no dawn-trigger role can act.');
 assert.ok(systemState.discussionEndsAt);
 assert.match(systemState.lastResult.message, /perlindungan/);
 const systemMorningView = (await payload(await systemRoom.fetch(
@@ -1610,15 +1615,10 @@ await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', 
 }, seerDeathTokens[2])));
 await submitVillagerMath(seerDeathRoom, seerDeathTokens[3]);
 seerDeathState = await seerDeathRoom.loadRoom();
-assert.ok(seerDeathState.nightRevealEndsAt);
-const seerDeathDeadline = seerDeathState.nightRevealEndsAt;
-const realNowForSeerDeath = Date.now;
-try {
-  Date.now = () => seerDeathDeadline + 1;
-  await seerDeathRoom.alarm();
-} finally {
-  Date.now = realNowForSeerDeath;
-}
+assert.ok(seerDeathState.nightEndsAt);
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night'
+}, seerDeathCreated.token)));
 seerDeathState = await seerDeathRoom.loadRoom();
 assert.equal(seerDeathState.phase, 'morning');
 assert.equal(seerDeathState.players[1].alive, false);
