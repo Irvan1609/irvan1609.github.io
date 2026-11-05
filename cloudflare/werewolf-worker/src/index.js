@@ -810,8 +810,8 @@ export class WerewolfRoom {
         dawnReturnPhase: room.dawnReturnPhase || null,
         resultEndsAt: Number(room.resultEndsAt) || null,
         votingEndsAt: Number(room.votingEndsAt) || null,
-        dawnActionsSubmitted: this.dawnActors(room).filter(item => Boolean(room.dawnActions?.[item.id])).length,
-        dawnActionsRequired: this.dawnActors(room).length,
+        dawnActionsSubmitted: this.dawnProgress(room).submitted,
+        dawnActionsRequired: this.dawnProgress(room).required,
         callUrl: '',
         nightActionsRequired: alive.length,
         nightActionsSubmitted,
@@ -1517,6 +1517,20 @@ export class WerewolfRoom {
     );
   }
 
+  refreshDawnEligible(room) {
+    const ids = new Set(Array.isArray(room.dawnEligiblePlayerIds) ? room.dawnEligiblePlayerIds : []);
+    for (const actor of this.dawnActors(room)) ids.add(actor.id);
+    room.dawnEligiblePlayerIds = [...ids];
+    return room.dawnEligiblePlayerIds;
+  }
+
+  dawnProgress(room) {
+    const eligible = this.refreshDawnEligible(room);
+    const active = new Set(this.dawnActors(room).map(item => item.id));
+    const submitted = eligible.filter(id => Boolean(room.dawnActions?.[id]) || !active.has(id)).length;
+    return { submitted, required: eligible.length };
+  }
+
   appendDawnReport(room, actor, role, action, outcome) {
     room.lastResult = room.lastResult || { kind: 'night', message: 'Fase Subuh berlangsung.', events: [], eliminations: [] };
     room.lastResult.events = Array.isArray(room.lastResult.events) ? room.lastResult.events : [];
@@ -1532,6 +1546,7 @@ export class WerewolfRoom {
     room.dawnActions = room.dawnActions || {};
     let safety = room.players.length + 1;
     while (safety-- > 0) {
+      this.refreshDawnEligible(room);
       const actor = this.dawnActors(room).find(item => item.isBot && !room.dawnActions?.[item.id]);
       if (!actor) break;
       if (actor.role === 'hunter') {
@@ -1578,6 +1593,7 @@ export class WerewolfRoom {
     room.dawnReturnPhase = returnPhase === 'result' ? 'result' : 'morning';
     room.dawnEndsAt = now + Number(room.settings?.timers?.dawnSeconds ?? 15) * 1000;
     room.dawnActions = {};
+    room.dawnEligiblePlayerIds = this.dawnActors(room).map(item => item.id);
     room.nightEndsAt = null;
     room.nightRevealEndsAt = null;
     room.discussionEndsAt = null;
@@ -1593,8 +1609,8 @@ export class WerewolfRoom {
 
   resolveSystemDawnIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'dawn') return;
-    const actors = this.dawnActors(room);
-    if (actors.length > 0 && actors.every(item => Boolean(room.dawnActions?.[item.id]))) this.advanceDawn(room, now);
+    const progress = this.dawnProgress(room);
+    if (progress.required > 0 && progress.submitted >= progress.required) this.advanceDawn(room, now);
   }
 
   advanceDawn(room, now) {
@@ -1825,6 +1841,7 @@ export class WerewolfRoom {
       room.dawnEndsAt = null;
       room.dawnReturnPhase = null;
       room.dawnActions = {};
+      room.dawnEligiblePlayerIds = [];
       room.resultEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
@@ -1975,6 +1992,7 @@ export class WerewolfRoom {
       room.dawnEndsAt = null;
       room.dawnReturnPhase = null;
       room.dawnActions = {};
+      room.dawnEligiblePlayerIds = [];
       room.resultEndsAt = null;
       room.nightSkippedPlayerIds = [];
       room.phase = 'role_draw';
@@ -2685,6 +2703,7 @@ export class WerewolfRoom {
       room.dawnEndsAt = null;
       room.dawnReturnPhase = null;
       room.dawnActions = {};
+      room.dawnEligiblePlayerIds = [];
       room.resultEndsAt = null;
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
