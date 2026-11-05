@@ -662,6 +662,20 @@ export class WerewolfRoom {
     const loverNames = canSeeLovers
       ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean)
       : [];
+    const discussionOpen = ['morning', 'discussion'].includes(room.phase);
+    const connectedAttachments = (this.state.getWebSockets ? this.state.getWebSockets() : [])
+      .map(item => {
+        try { return item.deserializeAttachment(); } catch { return null; }
+      }).filter(item => item?.actorId);
+    const connectedIds = new Set(connectedAttachments.map(item => item.actorId));
+    const voicePeers = discussionOpen ? [
+      ...room.players.filter(item => item.alive && connectedIds.has(item.id)).map(item => ({
+        id: item.id, name: item.name, isModerator: false
+      })),
+      ...(room.activeModeratorId && connectedIds.has(room.activeModeratorId)
+        ? [{ id: room.moderator.id, name: room.moderator.name, isModerator: true }]
+        : [])
+    ].filter((item, index, all) => all.findIndex(other => other.id === item.id) === index) : [];
     const publicResult = !['lobby', 'role_draw', 'night'].includes(room.phase)
       && room.lastResult && room.lastResult.kind !== 'phase'
       ? {
@@ -752,6 +766,7 @@ export class WerewolfRoom {
           at: message.at
         }))
         : [],
+      voicePeers,
       self: self ? {
         id: self.id,
         name: self.name,
@@ -790,16 +805,16 @@ export class WerewolfRoom {
           })()
           : null
       } : null,
-      chat: isModerator
-        ? (room.chat || [])
-          .filter(message => room.players.some(player => player.id === message.playerId && player.isBot))
-          .map(message => ({
-            id: message.id,
-            name: message.name,
-            text: message.text,
-            at: message.at,
-            isBot: true
-          }))
+      chat: discussionOpen
+        ? (room.chat || []).slice(-MAX_CHAT_MESSAGES).map(message => ({
+          id: message.id,
+          playerId: message.playerId,
+          name: message.name,
+          text: message.text,
+          at: message.at,
+          isBot: Boolean(message.isBot),
+          isModerator: Boolean(message.isModerator)
+        }))
         : []
     };
   }
@@ -1130,6 +1145,7 @@ export class WerewolfRoom {
           activeModeratorId: null,
           activeModeratorRosterIndex: null,
           chat: [],
+          chatRateLimit: {},
           wolfChat: [],
           lastResult: null,
           winner: null,
@@ -1534,6 +1550,7 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      room.chatRateLimit = {};
       room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
@@ -1622,6 +1639,10 @@ export class WerewolfRoom {
         throw new HttpError(409, 'Minimal 2 pemain aktif diperlukan. Moderator tidak dihitung sebagai pemain.');
       }
       const deck = roleDeck(room.settings, activePlayers.length);
+      // Randomize both the deck and the player slots independently so role assignment
+      // never depends on join order or the visible player-list order.
+      const randomizedSlots = shuffle(activePlayers);
+      const roleAssignments = new Map(randomizedSlots.map((item, index) => [item.id, deck[index]]));
       if (selectedModerator) {
         room.activeModeratorRosterIndex = room.players.findIndex(item => item.id === selectedModerator.id);
         room.players = activePlayers;
@@ -1633,8 +1654,8 @@ export class WerewolfRoom {
         room.activeModeratorRosterIndex = null;
       }
       room.activeModeratorMode = configuredModeratorMode;
-      room.players.forEach((item, index) => {
-        item.role = deck[index];
+      room.players.forEach(item => {
+        item.role = roleAssignments.get(item.id);
         item.alive = true;
         item.hasDrawn = Boolean(item.isBot);
         item.suspicionTargetId = null;
@@ -1658,6 +1679,7 @@ export class WerewolfRoom {
         };
       });
       room.chat = [];
+      room.chatRateLimit = {};
       room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
@@ -2082,6 +2104,8 @@ export class WerewolfRoom {
       room.votingEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      room.chatRateLimit = {};
+      if (!hasWinner) this.seedBotDiscussion(room, now);
       this.recordGameEvent(room, {
         kind: 'night_result', phase: room.phase, title: 'Hasil malam ' + room.round,
         message: room.lastResult.message, events: room.lastResult.events,
@@ -2089,6 +2113,34 @@ export class WerewolfRoom {
         at: now, round: room.round
       });
       this.recordGameFinished(room, now);
+      return;
+    }
+
+    if (type === 'send_discussion_chat') {
+      if (!['morning', 'discussion'].includes(room.phase)) {
+        throw new HttpError(409, 'Chat hanya tersedia selama diskusi.');
+      }
+      if (!isModerator && !player.alive) {
+        throw new HttpError(403, 'Pemain yang tereliminasi hanya dapat membaca chat.');
+      }
+      const text = String(body.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!text) throw new HttpError(400, 'Pesan chat tidak boleh kosong.');
+      if (text.length > 280) throw new HttpError(400, 'Pesan maksimal 280 karakter.');
+      room.chatRateLimit = room.chatRateLimit || {};
+      const lastSentAt = Number(room.chatRateLimit[player.id]) || 0;
+      if (now - lastSentAt < 500) throw new HttpError(429, 'Tunggu sebentar sebelum mengirim pesan lagi.');
+      room.chatRateLimit[player.id] = now;
+      room.chat = Array.isArray(room.chat) ? room.chat : [];
+      room.chat.push({
+        id: crypto.randomUUID(),
+        playerId: player.id,
+        name: player.name,
+        text,
+        at: now,
+        isBot: false,
+        isModerator
+      });
+      if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
       return;
     }
 
@@ -2105,6 +2157,7 @@ export class WerewolfRoom {
       room.votingEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      room.chatRateLimit = {};
       this.seedBotDiscussion(room, now);
       this.recordGameEvent(room, {
         kind: 'discussion_started', phase: 'discussion', title: 'Diskusi ronde ' + room.round,
@@ -2244,9 +2297,56 @@ export class WerewolfRoom {
 
 
   async webSocketMessage(socket, message) {
-    if (String(message) === 'ping') {
+    const raw = typeof message === 'string'
+      ? message
+      : message instanceof ArrayBuffer ? new TextDecoder().decode(message)
+        : String(message);
+    if (raw === 'ping') {
       try { socket.send('pong'); } catch {}
+      return;
     }
+    if (raw.length > 16000) return;
+    let data;
+    try { data = JSON.parse(raw); } catch { return; }
+    if (data?.type !== 'voice_signal') return;
+
+    await this.runExclusive(async () => {
+      const attachment = socket.deserializeAttachment();
+      const room = await this.loadRoom();
+      if (!room || !['morning', 'discussion'].includes(room.phase) || !attachment?.actorId) return;
+      const senderId = attachment.actorId;
+      const senderIsModerator = this.isCurrentModerator(room, senderId);
+      const sender = room.players.find(item => item.id === senderId && item.alive);
+      if (!senderIsModerator && !sender) return;
+
+      const targetId = String(data.targetId || '');
+      if (!targetId || targetId === senderId) return;
+      const targetIsModerator = this.isCurrentModerator(room, targetId);
+      const target = room.players.find(item => item.id === targetId && item.alive);
+      if (!targetIsModerator && !target) return;
+
+      const signalKind = String(data.signalKind || '');
+      if (!['offer', 'answer', 'candidate'].includes(signalKind)) return;
+      if (!data.payload || typeof data.payload !== 'object' || Array.isArray(data.payload)) return;
+      let payloadText;
+      try { payloadText = JSON.stringify(data.payload); } catch { return; }
+      if (payloadText.length > 12000) return;
+
+      const outgoing = JSON.stringify({
+        type: 'voice_signal',
+        fromId: senderId,
+        fromName: senderIsModerator ? room.moderator.name : sender.name,
+        signalKind,
+        payload: data.payload
+      });
+      const sockets = this.state.getWebSockets ? this.state.getWebSockets() : [];
+      for (const recipient of sockets) {
+        try {
+          const recipientAttachment = recipient.deserializeAttachment();
+          if (recipientAttachment?.actorId === targetId) recipient.send(outgoing);
+        } catch { /* Ignore disconnected peers. */ }
+      }
+    });
   }
 
   async webSocketClose(socket) {
