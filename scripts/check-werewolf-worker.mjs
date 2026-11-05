@@ -824,10 +824,16 @@ await disabledRoom.saveRoom(disabledState);
 await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, disabledCreated.token)));
 await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: disabledState.players[0].id
-}, disabledTokens[1])), 409);
+}, disabledTokens[1])), 403);
 await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, disabledTokens[1])), 409);
-assert.equal((await disabledRoom.loadRoom()).nightActions[disabledState.players[1].id].type, 'pass');
-console.log('Werewolf configurable-role checks passed: role counts are validated and disabled abilities cannot be used.');
+const disabledPlayerView = (await payload(await disabledRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, disabledTokens[1])
+))).state;
+assert.equal(disabledPlayerView.self.nightActionMode, 'math');
+assert.ok(disabledPlayerView.self.villagerPrompt, 'A role with its special ability disabled must receive the village calculation challenge.');
+await submitVillagerMath(disabledRoom, disabledTokens[1]);
+assert.equal((await disabledRoom.loadRoom()).nightActions[disabledState.players[1].id].type, 'villager_math');
+console.log('Werewolf configurable-role checks passed: disabled abilities switch to a required calculation challenge.');
 
 const assetRequests = [];
 const assetResponse = await worker.fetch(new Request('https://werewolf-room-api-dev.andyirvan1609.workers.dev/'), {
@@ -1687,10 +1693,9 @@ assert.equal(voiceTwoSocket.messages.length, messageCountBeforeClosedPhase,
   'Voice signalling must stop immediately when discussion ends.');
 console.log('Werewolf discussion voice regression passed: connected players and moderator receive private WebRTC signalling only during discussion.');
 
-// Living-player visibility and automatic completion for roles without night actions.
-const autoPassStorage = new MemoryStorage();
-const autoPassRoom = new WerewolfRoom({ storage: autoPassStorage, getWebSockets: () => [] }, {});
-const autoPassSettings = {
+// Living-player visibility and calculation challenges for roles without a night ability.
+const mathRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const mathSettings = {
   ...roleSettings,
   moderatorMode: 'host',
   roleCounts: {
@@ -1700,70 +1705,165 @@ const autoPassSettings = {
     mayor: 1, jester: 0, villager: 1, moderator: 0
   }
 };
-const autoPassCreated = await payload(await autoPassRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'ATPV23', name: 'Auto Pass Host', settings: autoPassSettings
+const mathCreated = await payload(await mathRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'MATH23', name: 'Math Host', settings: mathSettings
 })), 201);
-const autoPassTokens = [];
+const mathTokens = [];
 for (const name of ['Satu', 'Dua', 'Tiga', 'Empat', 'Lima']) {
-  const joined = await payload(await autoPassRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
-  autoPassTokens.push(joined.token);
+  const joined = await payload(await mathRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  mathTokens.push(joined.token);
 }
-await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_game'
-}, autoPassCreated.token)));
-let autoPassState = await autoPassRoom.loadRoom();
-assert.equal(autoPassState.players.length, 5);
+}, mathCreated.token)));
+let mathState = await mathRoom.loadRoom();
 ['wolf', 'seer', 'hunter', 'mayor', 'villager'].forEach((role, index) => {
-  autoPassState.players[index].role = role;
-  autoPassState.players[index].hasDrawn = true;
-  autoPassState.players[index].alive = true;
+  mathState.players[index].role = role;
+  mathState.players[index].hasDrawn = true;
+  mathState.players[index].alive = true;
 });
-await autoPassRoom.saveRoom(autoPassState);
-await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
+await mathRoom.saveRoom(mathState);
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_night'
-}, autoPassCreated.token)));
-autoPassState = await autoPassRoom.loadRoom();
-assert.equal(autoPassState.nightActions[autoPassState.players[2].id].type, 'pass');
-assert.equal(autoPassState.nightActions[autoPassState.players[2].id].automatic, true);
-assert.equal(autoPassState.nightActions[autoPassState.players[3].id].type, 'pass');
-assert.equal(autoPassState.nightActions[autoPassState.players[3].id].automatic, true);
-const autoPassModeratorView = (await payload(await autoPassRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, autoPassCreated.token)
+}, mathCreated.token)));
+mathState = await mathRoom.loadRoom();
+assert.equal(mathState.nightActions[mathState.players[2].id], undefined,
+  'Hunter must not be automatically passed; the player must answer a calculation.');
+assert.equal(mathState.nightActions[mathState.players[3].id], undefined,
+  'Mayor must not be automatically passed; the player must answer a calculation.');
+const mathModeratorView = (await payload(await mathRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, mathCreated.token)
 ))).state;
-assert.equal(autoPassModeratorView.room.nightActionsSubmitted, 2);
-assert.equal(autoPassModeratorView.room.nightActionsRequired, 5);
-assert.equal(autoPassModeratorView.room.nightActionsAutoPassed, 2);
-const publicLivingView = (await payload(await autoPassRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, autoPassTokens[0])
+assert.equal(mathModeratorView.room.nightActionsSubmitted, 0);
+assert.equal(mathModeratorView.room.nightActionsRequired, 5);
+assert.equal(mathModeratorView.room.nightActionsAutoPassed, undefined);
+const publicLivingView = (await payload(await mathRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, mathTokens[0])
 ))).state;
 assert.deepEqual(publicLivingView.livingPlayers.map(player => player.name), ['Satu', 'Dua', 'Tiga', 'Empat', 'Lima']);
 assert.ok(publicLivingView.livingPlayers.every(player => !Object.hasOwn(player, 'role')),
   'Players may see who is alive but must not see anyone else’s role.');
-const autoPassedPlayerView = (await payload(await autoPassRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, autoPassTokens[2])
+const hunterMathView = (await payload(await mathRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, mathTokens[2])
 ))).state;
-assert.equal(autoPassedPlayerView.self.nightActionAutomatic, true);
-await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: autoPassState.players[2].id
-}, autoPassTokens[0])));
-await payload(await autoPassRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: autoPassState.players[0].id
-}, autoPassTokens[1])));
-await submitVillagerMath(autoPassRoom, autoPassTokens[4]);
-autoPassState = await autoPassRoom.loadRoom();
-assert.ok(autoPassState.nightRevealEndsAt, 'Night reveal begins when active actions and automatic passes are all counted.');
-const autoPassDeadline = autoPassState.nightRevealEndsAt;
-const realNowForAutoPass = Date.now;
+assert.equal(hunterMathView.self.nightActionMode, 'math');
+assert.ok(hunterMathView.self.villagerPrompt, 'Hunter must receive a calculation prompt when alive at night.');
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: mathState.players[4].id
+}, mathTokens[0])));
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: mathState.players[0].id
+}, mathTokens[1])));
+await submitVillagerMath(mathRoom, mathTokens[2]);
+await submitVillagerMath(mathRoom, mathTokens[3]);
+await submitVillagerMath(mathRoom, mathTokens[4]);
+mathState = await mathRoom.loadRoom();
+assert.equal(mathState.nightActions[mathState.players[2].id].type, 'villager_math');
+assert.equal(mathState.nightActions[mathState.players[3].id].type, 'villager_math');
+assert.ok(mathState.nightRevealEndsAt, 'Night reveal begins after special actions and calculation challenges are all submitted.');
+const mathDeadline = mathState.nightRevealEndsAt;
+const realNowForMath = Date.now;
 try {
-  Date.now = () => autoPassDeadline + 1;
-  await autoPassRoom.alarm();
+  Date.now = () => mathDeadline + 1;
+  await mathRoom.alarm();
 } finally {
-  Date.now = realNowForAutoPass;
+  Date.now = realNowForMath;
 }
-autoPassState = await autoPassRoom.loadRoom();
-const autoPassReport = autoPassState.lastResult.actionReport.find(item => item.role === 'Otomatis dihitung');
-assert.ok(autoPassReport, 'Moderator report must include automatically completed no-action roles.');
-assert.match(autoPassReport.actor, /Tiga/);
-assert.match(autoPassReport.actor, /Empat/);
-console.log('Werewolf living-player and automatic night-pass regressions passed.');
+mathState = await mathRoom.loadRoom();
+const mathReport = mathState.lastResult.actionReport;
+for (const role of ['Hunter', 'Mayor', 'Warga Desa']) {
+  assert.ok(mathReport.some(item => item.role === role), 'Moderator report must list the calculation action for ' + role + '.');
+}
+assert.ok(!mathReport.some(item => item.role === 'Otomatis dihitung' || item.role === 'Aksi dilewati'));
+console.log('Werewolf living-player and night-calculation regressions passed.');
+
+// New Village roles: Priest protection, Vigilante shot, and Mason private knowledge.
+const newRoleRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const newRoleSettings = {
+  ...roleSettings,
+  moderatorMode: 'host',
+  roleCounts: {
+    ...roleSettings.roleCounts,
+    wolf: 1, alpha_wolf: 0, seer: 1, doctor: 0, bodyguard: 0,
+    witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
+    mayor: 1, priest: 1, vigilante: 1, mason: 2, jester: 0, villager: 1, moderator: 0
+  }
+};
+const newRoleCreated = await payload(await newRoleRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'NEWROL', name: 'New Role Host', settings: newRoleSettings
+})), 201);
+const newRoleTokens = [];
+for (const name of ['Wolf One', 'Seer One', 'Priest One', 'Vigilante One', 'Mason One', 'Mason Two', 'Mayor One', 'Villager One']) {
+  const joined = await payload(await newRoleRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  newRoleTokens.push(joined.token);
+}
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, newRoleCreated.token)));
+let newRoleState = await newRoleRoom.loadRoom();
+['wolf', 'seer', 'priest', 'vigilante', 'mason', 'mason', 'mayor', 'villager'].forEach((role, index) => {
+  newRoleState.players[index].role = role;
+  newRoleState.players[index].hasDrawn = true;
+  newRoleState.players[index].alive = true;
+});
+await newRoleRoom.saveRoom(newRoleState);
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, newRoleCreated.token)));
+const masonView = (await payload(await newRoleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, newRoleTokens[4])
+))).state;
+assert.deepEqual(masonView.self.masonNames, ['Mason Two'],
+  'Mason may privately see the names of other living Masons, without their role cards.');
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: newRoleState.players[4].id
+}, newRoleTokens[0])));
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: newRoleState.players[0].id
+}, newRoleTokens[1])));
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: newRoleState.players[4].id
+}, newRoleTokens[2])));
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: newRoleState.players[6].id
+}, newRoleTokens[3])));
+for (const token of [newRoleTokens[4], newRoleTokens[5], newRoleTokens[6], newRoleTokens[7]]) {
+  await submitVillagerMath(newRoleRoom, token);
+}
+newRoleState = await newRoleRoom.loadRoom();
+assert.equal(newRoleState.nightActions[newRoleState.players[2].id].type, 'priest_protect');
+assert.equal(newRoleState.nightActions[newRoleState.players[3].id].type, 'vigilante_shot');
+assert.ok(newRoleState.nightRevealEndsAt);
+const newRoleDeadline = newRoleState.nightRevealEndsAt;
+const realNowForNewRoles = Date.now;
+try {
+  Date.now = () => newRoleDeadline + 1;
+  await newRoleRoom.alarm();
+} finally {
+  Date.now = realNowForNewRoles;
+}
+newRoleState = await newRoleRoom.loadRoom();
+assert.equal(newRoleState.players[4].alive, true, 'Priest must protect its selected player from the wolf attack.');
+assert.equal(newRoleState.players[6].alive, false, 'Vigilante must eliminate its selected target.');
+assert.equal(newRoleState.players[2].priestUsed, true);
+assert.equal(newRoleState.players[3].vigilanteUsed, true);
+assert.ok(newRoleState.lastResult.actionReport.some(item => item.role === 'Priest'));
+assert.ok(newRoleState.lastResult.actionReport.some(item => item.role === 'Vigilante'));
+assert.ok(newRoleState.lastResult.actionReport.some(item => item.role === 'Mason'));
+newRoleState.phase = 'night';
+newRoleState.round = 2;
+newRoleState.nightActions = {};
+newRoleState.nightRevealEndsAt = null;
+newRoleRoom.prepareVillagerPrompts(newRoleState);
+await newRoleRoom.saveRoom(newRoleState);
+for (const token of [newRoleTokens[2], newRoleTokens[3]]) {
+  const usedRoleView = (await payload(await newRoleRoom.fetch(
+    makeRequest('/internal/state', 'GET', undefined, token)
+  ))).state;
+  assert.equal(usedRoleView.self.nightActionMode, 'math',
+    'Used one-shot roles must switch to the calculation challenge on later nights.');
+  assert.ok(usedRoleView.self.villagerPrompt);
+}
+console.log('Werewolf Priest, Vigilante, and Mason role regressions passed.');
+
 
