@@ -175,6 +175,13 @@ const nightActions = [
 for (let i = 0; i < nightActions.length; i += 1) {
   await payload(await room.fetch(makeRequest('/internal/action', 'POST', nightActions[i], playerTokens[i])));
 }
+// Doctor may revise the target repeatedly until the midnight timer closes.
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: saved.players[4].id
+}, playerTokens[2])));
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: saved.players[3].id
+}, playerTokens[2])));
 await submitVillagerMath(room, playerTokens[3]);
 await submitVillagerMath(room, playerTokens[4]);
 const nightProgress = (await payload(await room.fetch(
@@ -182,25 +189,42 @@ const nightProgress = (await payload(await room.fetch(
 ))).state;
 assert.equal(nightProgress.room.nightActionsSubmitted, 5);
 assert.equal(nightProgress.room.nightActionsRequired, 5);
-assert.ok(nightProgress.room.nightRevealEndsAt > Date.now());
+assert.equal(nightProgress.room.nightRevealEndsAt, null,
+  'Completing every action must not close the editable choice window early.');
+assert.ok(nightProgress.room.nightEndsAt > Date.now());
+saved = await room.loadRoom();
+saved.nightEndsAt = Date.now() - 1;
+await room.saveRoom(saved);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'skip_missing_night'
+}, moderatorToken)));
+const revealState = await room.loadRoom();
+assert.ok(revealState.nightRevealEndsAt > Date.now());
 const seerNightReveal = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
 ))).state;
 assert.equal(seerNightReveal.room.phase, 'night');
 assert.equal(seerNightReveal.self.seerResult.playerName, 'Alya');
 assert.equal(seerNightReveal.self.seerResult.result, 'wolf',
-  'Seer must receive the private result as soon as all night actions are complete.');
+  'Seer receives the private result when the reveal window begins.');
+assert.equal(seerNightReveal.self.seerResult.role, 'wolf');
+assert.equal(seerNightReveal.self.inspectionHistory.length, 1);
 const nonSeerNightView = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
 ))).state;
 assert.equal(nonSeerNightView.self.seerResult, null, 'Seer inspection must stay private.');
 const realNowAfterNight = Date.now;
 try {
-  Date.now = () => nightProgress.room.nightRevealEndsAt + 1;
+  Date.now = () => revealState.nightRevealEndsAt + 1;
   await room.alarm();
 } finally {
   Date.now = realNowAfterNight;
 }
+saved = await room.loadRoom();
+assert.equal(saved.phase, 'dawn');
+saved.dawnEndsAt = Date.now() - 1;
+await room.saveRoom(saved);
+await room.alarm();
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
 assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
