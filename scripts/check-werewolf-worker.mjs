@@ -2154,6 +2154,7 @@ assert.deepEqual(dawnState.settings.timers, {
   discussionSeconds: 35, votingSeconds: 16, resultSeconds: 6
 });
 const [reviverPlayer, hunterPlayer, wolfPlayer, villagePlayer] = dawnState.players;
+dawnState.players.forEach(item => { item.hasDrawn = true; });
 reviverPlayer.role = 'reviver'; reviverPlayer.alive = true; reviverPlayer.reviverUsed = false;
 hunterPlayer.role = 'hunter'; hunterPlayer.alive = false; hunterPlayer.hunterUsed = false;
 wolfPlayer.role = 'wolf'; wolfPlayer.alive = true;
