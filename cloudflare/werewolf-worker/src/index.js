@@ -722,7 +722,7 @@ export class WerewolfRoom {
     const onlineRoom = room.settings?.gameMode === 'online';
     const includeEliminatedVoice = ['lobby', 'finished'].includes(room.phase);
     const voicePeers = onlineRoom ? [
-      ...room.players.filter(item => !item.isBot && connectedIds.has(item.id)
+      ...room.players.filter(item => !item.isBot && !item.isBotControlled && connectedIds.has(item.id)
         && (includeEliminatedVoice || item.alive)).map(item => ({
         id: item.id, name: item.name, isModerator: false
       })),
@@ -2473,13 +2473,13 @@ export class WerewolfRoom {
       const senderId = attachment.actorId;
       const includeEliminated = ['lobby', 'finished'].includes(room.phase);
       const senderIsModerator = this.isCurrentModerator(room, senderId);
-      const sender = room.players.find(item => item.id === senderId && !item.isBot
+      const sender = room.players.find(item => item.id === senderId && !item.isBot && !item.isBotControlled
         && (item.alive || includeEliminated));
       if (!senderIsModerator && !sender) return;
       const targetId = String(data.targetId || '');
       if (!targetId || targetId === senderId) return;
       const targetIsModerator = this.isCurrentModerator(room, targetId);
-      const target = room.players.find(item => item.id === targetId && !item.isBot
+      const target = room.players.find(item => item.id === targetId && !item.isBot && !item.isBotControlled
         && (item.alive || includeEliminated));
       if (!targetIsModerator && !target) return;
 
