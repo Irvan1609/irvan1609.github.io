@@ -179,8 +179,6 @@ assert.deepEqual(nightActionReport.map(item => item.role), [
 assert.match(nightActionReport[0].outcome, /Doni/);
 assert.match(nightActionReport.find(item => item.role === 'Seer').outcome, /Werewolf/);
 assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /selamat/);
-assert.match(worker, /Perlindungan malam nonaktif/);
-assert.match(worker, /Menetapkan target bonus kemenangan/);
 
 assert.match(nightActionReport.find(item => item.role === 'Warga Desa').outcome, /Jawaban (benar|salah)/);
 assert.deepEqual(nightActionReport.map(item => item.order),

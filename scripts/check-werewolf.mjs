@@ -241,6 +241,9 @@ assert.match(css, /\.wolf-chat-form/);
 assert.match(css, /\.moderator-event-report/);
 assert.match(app, /URUTAN AKSI MALAM/);
 assert.match(app, /moderator-event-number/);
+assert.match(worker, /Perlindungan malam nonaktif/);
+assert.match(worker, /Menetapkan target bonus kemenangan/);
+
 assert.match(app, /actionReport/);
 assert.match(css, /phase-panel \.hint/);
 assert.match(css, /\.moderator-event-detail/);
