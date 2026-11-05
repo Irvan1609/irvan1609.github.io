@@ -746,3 +746,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Koreksi kontrak UI:** tombol moderator kini memakai aksi server `skip_missing_night`, bukan `resolve_night` dengan force. Pemeriksaan statis diselaraskan dengan kontrak baru.
+
+
+- **Penyesuaian label kontrol moderator:** label tombol lewati aksi malam dibuat eksplisit “Lewati pemain yang belum beraksi” agar sesuai dengan istilah status pada dashboard.

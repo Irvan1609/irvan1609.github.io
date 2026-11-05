@@ -1754,7 +1754,7 @@ function renderModeratorNight(parent) {
     appendPhaseCountdown(parent, 'PAGI DALAM', room.nightRevealEndsAt);
   } else if (room.nightActionsSubmitted < room.nightActionsRequired) {
     addText(parent, 'div', 'notice success', 'Tidak perlu menunggu pemain yang belum beraksi. Ganti dengan BOT atau lewati aksi yang tertunda.');
-    parent.append(button('Lewati yang belum beraksi · mulai 10 detik', 'secondary wide', () => {
+    parent.append(button('Lewati pemain yang belum beraksi · mulai 10 detik', 'secondary wide', () => {
       if (confirm('Aksi pemain yang belum masuk akan dilewati. Pagi akan terbuka otomatis 10 detik setelah hasil penerawangan ditampilkan.')) sendAction('skip_missing_night');
     }));
   }
