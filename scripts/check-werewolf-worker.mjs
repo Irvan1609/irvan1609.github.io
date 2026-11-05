@@ -163,9 +163,29 @@ const nightProgress = (await payload(await room.fetch(
 ))).state;
 assert.equal(nightProgress.room.nightActionsSubmitted, 5);
 assert.equal(nightProgress.room.nightActionsRequired, 5);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, moderatorToken)));
+assert.ok(nightProgress.room.nightRevealEndsAt > Date.now());
+const seerNightReveal = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
+))).state;
+assert.equal(seerNightReveal.room.phase, 'night');
+assert.equal(seerNightReveal.self.seerResult.playerName, 'Alya');
+assert.equal(seerNightReveal.self.seerResult.result, 'wolf',
+  'Seer must receive the private result as soon as all night actions are complete.');
+const nonSeerNightView = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
+))).state;
+assert.equal(nonSeerNightView.self.seerResult, null, 'Seer inspection must stay private.');
+const realNowAfterNight = Date.now;
+try {
+  Date.now = () => nightProgress.room.nightRevealEndsAt + 1;
+  await room.alarm();
+} finally {
+  Date.now = realNowAfterNight;
+}
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
+assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
+  'Morning discussion must default to 30 seconds.');
 assert.equal(saved.players[3].alive, true); // Doctor protected the selected target.
 const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
@@ -201,30 +221,20 @@ assert.equal(seerMorning.self.seerResult.result, 'wolf');
 assert.equal(seerMorning.self.seerResult.round, 1);
 assert.ok(seerMorning.room.revision > 0);
 
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, moderatorToken)));
-saved = await room.loadRoom();
-assert.equal(saved.phase, 'discussion');
-assert.equal(saved.discussionEndsAt, null);
-assert.equal(saved.discussionMode, 'offline');
-assert.equal(saved.callUrl, '');
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'online', callUrl: 'https://meet.google.com/test-room'
-}, moderatorToken)), 400);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'offline'
-}, playerTokens[0])), 403);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'set_discussion', mode: 'offline'
-}, moderatorToken)));
-const offlineDiscussion = (await payload(await room.fetch(
-  makeRequest('/internal/state', 'GET', undefined, playerTokens[0])
-))).state;
-assert.equal(offlineDiscussion.room.discussionMode, 'offline');
-assert.equal(offlineDiscussion.room.callUrl, '');
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
+const discussionDeadline = saved.discussionEndsAt;
+const realNowAfterDiscussion = Date.now;
+try {
+  Date.now = () => discussionDeadline + 1;
+  await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)));
+} finally {
+  Date.now = realNowAfterDiscussion;
+}
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'voting');
+assert.equal(saved.votingEndsAt, discussionDeadline + 1 + 15000,
+  'Voting must default to a 15-second window.');
 
 for (let i = 0; i < playerTokens.length; i += 1) {
   const targetIndex = i === 4 ? 3 : 4;
@@ -236,9 +246,16 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'voting'); // Votes never advance the phase automatically.
 assert.equal(Object.keys(saved.votes).length, 5);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_vote' }, playerTokens[0])), 403);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_vote' }, moderatorToken)));
+const votingDeadline = saved.votingEndsAt;
+const realNowAfterVoting = Date.now;
+try {
+  Date.now = () => votingDeadline + 1;
+  await room.alarm();
+} finally {
+  Date.now = realNowAfterVoting;
+}
 saved = await room.loadRoom();
-assert.equal(saved.phase, 'result');
+assert.equal(saved.phase, 'result', 'Manual moderator voting must be tallied automatically when its timer expires.');
 assert.equal(saved.players[4].alive, false);
 const voteResultPlayer = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[4])
@@ -281,7 +298,7 @@ assert.ok(soloState.players.every(player => player.hasDrawn));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(Object.keys(soloState.nightActions).length, 5);
-await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, soloToken)));
+await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, soloToken)));
 assert.equal((await soloRoom.loadRoom()).phase, 'morning');
 soloState = await soloRoom.loadRoom();
 soloState.phase = 'morning';
@@ -388,7 +405,18 @@ await submitVillagerMath(systemRoom, systemTokens[3]);
 await submitVillagerMath(systemRoom, systemTokens[4]);
 await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'morning', 'System moderator resolves night after all active roles and Villager challenges finish.');
+assert.equal(systemState.phase, 'night', 'System moderator waits for the private Seer reveal window before morning.');
+assert.ok(systemState.nightRevealEndsAt);
+const realNowAfterSystemNight = Date.now;
+try {
+  Date.now = () => systemState.nightRevealEndsAt + 1;
+  await systemRoom.alarm();
+} finally {
+  Date.now = realNowAfterSystemNight;
+}
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'morning', 'System moderator moves to morning automatically after the 10-second Seer reveal.');
+assert.ok(systemState.discussionEndsAt);
 assert.match(systemState.lastResult.message, /perlindungan/);
 const systemMorningView = (await payload(await systemRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, systemTokens[3])
@@ -403,12 +431,16 @@ assert.deepEqual(
 );
 assert.equal(systemMorningView.room.lastResult, null,
   'Private moderator action details must remain hidden from players in system mode.');
-await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, systemToken)));
+const systemDiscussionDeadline = systemState.discussionEndsAt;
+const realNowAfterSystemDiscussion = Date.now;
+try {
+  Date.now = () => systemDiscussionDeadline + 1;
+  await systemRoom.alarm();
+} finally {
+  Date.now = realNowAfterSystemDiscussion;
+}
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.discussionMode, 'offline');
-await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, systemToken)));
-systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'voting');
+assert.equal(systemState.phase, 'voting', 'System moderator must start voting automatically after the discussion timer.');
 for (let index = 0; index < systemTokens.length; index += 1) {
   const targetId = index === 3 ? systemState.players[4].id : systemState.players[3].id;
   await payload(await systemRoom.fetch(makeRequest('/internal/action', 'POST', {
@@ -510,7 +542,7 @@ await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
 }, witchTokens[1])));
 await submitVillagerMath(witchRoom, witchTokens[3]);
 await submitVillagerMath(witchRoom, witchTokens[4]);
-await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, witchCreated.token)));
+await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, witchCreated.token)));
 witchState = await witchRoom.loadRoom();
 assert.equal(witchState.phase, 'morning');
 assert.equal(witchState.players[3].alive, true);
@@ -963,7 +995,7 @@ await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', {
 for (let index = 2; index < 5; index += 1) {
   await submitVillagerMath(tieRoom, tieTokens[index]);
 }
-await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, tieCreated.token)));
+await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, tieCreated.token)));
 tieState = await tieRoom.loadRoom();
 assert.equal(tieState.phase, 'finished', 'The winning faction must be announced immediately after night resolution.');
 assert.equal(tieState.winner, 'wolves');
