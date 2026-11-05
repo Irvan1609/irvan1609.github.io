@@ -448,7 +448,17 @@ for (let index = 0; index < systemTokens.length; index += 1) {
   }, systemTokens[index])));
 }
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'result', 'System moderator counts votes automatically after all living players vote.');
+assert.equal(systemState.phase, 'voting', 'System moderator keeps the voting window open for its configured duration.');
+const systemVotingDeadline = systemState.votingEndsAt;
+const realNowAfterSystemVotes = Date.now;
+try {
+  Date.now = () => systemVotingDeadline + 1;
+  await systemRoom.alarm();
+} finally {
+  Date.now = realNowAfterSystemVotes;
+}
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'result', 'System moderator publishes the result automatically when the voting timer expires.');
 assert.equal(systemState.players[3].alive, false);
 const systemVoteView = (await payload(await systemRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, systemTokens[3])
