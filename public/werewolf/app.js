@@ -1852,14 +1852,17 @@ function renderModeratorNight(parent) {
   addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' aksi masuk.'
     + (room.nightActionsSkipped ? ' ' + room.nightActionsSkipped + ' pemain dilewati.' : ''));
   if (room.nightRevealEndsAt) {
-    addText(parent, 'div', 'notice success', 'Aksi ditutup. Hasil penerawangan dikirim secara privat sebelum Subuh.');
+    addText(parent, 'div', 'notice success', 'Tengah malam ditutup. Hasil penerawangan dikirim secara privat sebelum Subuh.');
     appendPhaseCountdown(parent, 'SUBUH DALAM', room.nightRevealEndsAt);
   } else {
     appendPhaseCountdown(parent, 'TENGAH MALAM TERSISA', room.nightEndsAt);
-    if (room.nightActionsSubmitted < room.nightActionsRequired) {
-      addText(parent, 'div', 'notice', 'Aksi yang belum masuk akan dilewati otomatis pada mode Sistem.');
-      parent.append(button('Lewati aksi yang belum masuk', 'secondary wide', () => sendAction('skip_missing_night')));
-    }
+    const pending = Number(room.nightActionsRequired) - Number(room.nightActionsSubmitted);
+    addText(parent, 'div', 'notice', pending > 0
+      ? pending + ' aksi belum masuk. Semua pilihan dapat diganti sampai waktu habis.'
+      : 'Semua aksi sudah masuk. Pilihan tetap dapat diganti sampai waktu habis.');
+    const timerRunning = Number(room.nightEndsAt) > Date.now();
+    parent.append(button(pending > 0 ? 'Tutup Tengah Malam · Lewati ' + pending + ' aksi' : 'Tutup Tengah Malam · Lanjut Subuh',
+      'primary wide', () => sendAction('skip_missing_night'), timerRunning));
   }
 }
 
