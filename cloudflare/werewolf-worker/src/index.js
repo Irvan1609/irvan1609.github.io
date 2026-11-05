@@ -518,6 +518,7 @@ export class WerewolfRoom {
     if (!this.state.storage.setAlarm) return;
     const now = Date.now();
     const deadlines = [Number(room.expiresAt) || now + ROOM_TTL_MS];
+    if (room.phase === 'role_draw' && Number(room.roleDrawEndsAt) > 0) deadlines.push(Number(room.roleDrawEndsAt));
     if (room.phase === 'night' && Number(room.nightRevealEndsAt) > 0) deadlines.push(Number(room.nightRevealEndsAt));
     if (room.phase === 'morning' && this.isSystemModerator(room) && Number(room.discussionEndsAt) > 0) deadlines.push(Number(room.discussionEndsAt));
     if (room.phase === 'voting' && Number(room.votingEndsAt) > 0) deadlines.push(Number(room.votingEndsAt));
@@ -778,6 +779,7 @@ export class WerewolfRoom {
         activeModeratorMode: room.activeModeratorMode || null,
         discussionMode: room.phase === 'discussion' ? room.discussionMode || null : null,
         discussionEndsAt: Number(room.discussionEndsAt) || null,
+        roleDrawEndsAt: Number(room.roleDrawEndsAt) || null,
         nightRevealEndsAt: Number(room.nightRevealEndsAt) || null,
         votingEndsAt: Number(room.votingEndsAt) || null,
         callUrl: '',
@@ -834,6 +836,7 @@ export class WerewolfRoom {
         role: isModerator ? null : (self.hasDrawn ? self.role : null),
         alive: isModerator ? true : Boolean(self.alive),
         status,
+        hasRole: Boolean(!isModerator && self.role),
         hasDrawn: Boolean(self.hasDrawn),
         hasActed: Boolean(room.nightActions && room.nightActions[self.id]),
         nightActionType: room.nightActions?.[self.id]?.type || null,
@@ -1783,6 +1786,7 @@ export class WerewolfRoom {
       room.botDiscussionRound = null;
       room.nightSkippedPlayerIds = [];
       room.phase = 'role_draw';
+      room.roleDrawEndsAt = now + 20000;
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
       room.votes = {};
@@ -1824,10 +1828,13 @@ export class WerewolfRoom {
 
     if (type === 'draw_card') {
       requirePlayer();
-      requirePhase('role_draw');
+      if (room.phase === 'lobby' || room.phase === 'finished') {
+        throw new HttpError(409, 'Kartu hanya dapat dibuka setelah permainan dimulai.');
+      }
       if (player.hasDrawn) throw new HttpError(409, 'Kartu sudah dibuka.');
       player.hasDrawn = true;
-      if (this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
+      if (room.phase === 'role_draw' && this.isSystemModerator(room)
+        && room.players.every(item => item.hasDrawn)) {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
       }
       return;
@@ -1836,9 +1843,12 @@ export class WerewolfRoom {
     if (type === 'start_night') {
       requireModerator();
       requirePhase('role_draw');
-      if (room.players.some(item => !item.hasDrawn)) {
-        throw new HttpError(409, 'Tunggu semua pemain membuka kartu.');
+      const cardsRemain = room.players.some(item => !item.hasDrawn);
+      const cardDeadlinePassed = Number(room.roleDrawEndsAt) > 0 && room.roleDrawEndsAt <= now;
+      if (cardsRemain && !cardDeadlinePassed) {
+        throw new HttpError(409, 'Beri pemain waktu membuka kartu atau tunggu hitung mundur selesai.');
       }
+      room.roleDrawEndsAt = null;
       room.phase = 'night';
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
@@ -2548,7 +2558,10 @@ export class WerewolfRoom {
       }
 
       let changed = false;
-      if (room.phase === 'night' && Number(room.nightRevealEndsAt) > 0 && room.nightRevealEndsAt <= now) {
+      if (room.phase === 'role_draw' && Number(room.roleDrawEndsAt) > 0 && room.roleDrawEndsAt <= now) {
+        await this.applyAction(room, room.moderator, { type: 'start_night' });
+        changed = true;
+      } else if (room.phase === 'night' && Number(room.nightRevealEndsAt) > 0 && room.nightRevealEndsAt <= now) {
         await this.applyAction(room, room.moderator, { type: 'resolve_night' });
         changed = true;
       } else if (room.phase === 'morning' && this.isSystemModerator(room)
