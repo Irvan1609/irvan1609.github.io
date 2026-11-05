@@ -812,7 +812,8 @@ export class WerewolfRoom {
           name: message.name,
           text: message.text,
           at: message.at,
-          isBot: Boolean(message.isBot),
+          isBot: Boolean(message.isBot
+            || room.players.some(player => player.id === message.playerId && player.isBot)),
           isModerator: Boolean(message.isModerator)
         }))
         : []
