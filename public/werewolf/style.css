@@ -802,3 +802,33 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .pending-role-card{display:grid;gap:7px;margin:0 0 12px;padding:11px;border:1px solid #b78d43;border-radius:11px;background:linear-gradient(145deg,#382b18,#171d2b)}
 .pending-role-copy{margin:0;color:#f0dfbd;font-size:10px;line-height:1.5}
 .pending-role-card .primary{min-height:40px}
+
+
+/* Compact, independent role controls for touch screens and stable role disclosures. */
+.role-count-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));align-items:start;grid-auto-rows:min-content}
+.role-count-item{display:grid;grid-template-rows:auto auto;align-content:start;gap:6px;width:100%;max-width:100%;min-width:0;overflow:hidden}
+.role-count-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;max-width:100%;min-width:0;padding:7px 8px}
+.role-count-label{min-width:0;overflow-wrap:anywhere}
+.role-count-control{display:flex;align-items:center;gap:4px;min-width:0}
+.role-count-step{display:inline-grid;place-items:center;width:30px;min-width:30px;min-height:32px;height:32px;padding:0;border:1px solid #526782;background:#263950;color:#f3dfb4;font-size:17px;font-weight:900;line-height:1}
+.role-count-input{width:42px;min-width:42px;min-height:32px;padding:3px;text-align:center;font-weight:900}
+.role-config-info-disclosure{display:block;width:100%;max-width:100%;min-width:0;overflow:hidden}
+.role-config-info-disclosure>summary{display:block;width:100%;max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+.role-config-info-details{display:grid;width:100%;max-width:100%;min-width:0;overflow:hidden}
+.role-config-info-detail{grid-template-columns:56px minmax(0,1fr);min-width:0}
+.role-config-info-detail-text{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.revived-result-player{border-color:#477c70;background:#142b2b}
+@media(max-width:620px){
+  .role-count-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .role-count-item{min-width:0;max-width:100%;overflow:hidden}
+  .role-count-field{grid-template-columns:minmax(0,1fr);align-items:start;gap:6px;padding:7px}
+  .role-count-control{justify-content:space-between;width:100%}
+  .role-count-step{width:34px;min-width:34px;min-height:36px;height:36px}
+  .role-count-input{flex:1;width:0;min-width:36px;min-height:36px}
+  .role-config-info-disclosure{width:100%;max-width:100%;min-width:0}
+}
+@media(max-width:380px){
+  .role-count-grid{grid-template-columns:1fr}
+  .role-count-field{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .role-count-control{width:auto}
+}
