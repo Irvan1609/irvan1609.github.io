@@ -1599,11 +1599,38 @@ export class WerewolfRoom {
   }
 
   beginDawn(room, now, returnPhase = 'morning') {
+    const destination = returnPhase === 'result' ? 'result' : 'morning';
+    const actors = this.dawnActors(room);
+    if (!actors.length) {
+      room.dawnEndsAt = null;
+      room.dawnReturnPhase = null;
+      room.dawnActions = {};
+      room.dawnEligiblePlayerIds = [];
+      if (!room.winner) this.checkWinner(room);
+      if (room.winner) {
+        room.phase = 'finished';
+      } else if (destination === 'result') {
+        room.phase = 'result';
+        room.resultEndsAt = now + Number(room.settings?.timers?.resultSeconds ?? 8) * 1000;
+      } else {
+        room.phase = 'morning';
+        room.discussionEndsAt = now + Number(room.settings?.timers?.discussionSeconds ?? 30) * 1000;
+        this.seedBotDiscussion(room, now);
+      }
+      this.recordGameEvent(room, {
+        kind: 'dawn_skipped', phase: room.phase, title: 'Subuh berlalu',
+        message: 'Tak ada kemampuan pemicu yang perlu dijalankan. Desa memasuki fase berikutnya.',
+        at: now, round: room.round
+      });
+      this.recordGameFinished(room, now);
+      return;
+    }
+
     room.phase = 'dawn';
-    room.dawnReturnPhase = returnPhase === 'result' ? 'result' : 'morning';
+    room.dawnReturnPhase = destination;
     room.dawnEndsAt = now + Number(room.settings?.timers?.dawnSeconds ?? 15) * 1000;
     room.dawnActions = {};
-    room.dawnEligiblePlayerIds = this.dawnActors(room).map(item => item.id);
+    room.dawnEligiblePlayerIds = actors.map(item => item.id);
     room.nightEndsAt = null;
     room.nightRevealEndsAt = null;
     room.discussionEndsAt = null;
