@@ -2298,7 +2298,6 @@ function renderSystemModeratorVoteResult(parent) {
   parent.append(card);
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
-  renderPrivateInspectionResult(parent);
   if (roomState.self.role === 'hunter' && !roomState.self.alive && !roomState.room.resultResolved) renderHunterShot(parent);
   appendPhaseCountdown(parent, 'MALAM BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
