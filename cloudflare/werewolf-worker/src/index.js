@@ -141,6 +141,7 @@ function normalizeSettings(input = {}) {
     roleDrawSeconds: Number(input.timers?.roleDrawSeconds ?? 20),
     nightSeconds: Number(input.timers?.nightSeconds ?? 45),
     dawnSeconds: Number(input.timers?.dawnSeconds ?? 15),
+    inspectionSeconds: Number(input.timers?.inspectionSeconds ?? 10),
     discussionSeconds: Number(input.timers?.discussionSeconds ?? 30),
     votingSeconds: Number(input.timers?.votingSeconds ?? 15),
     resultSeconds: Number(input.timers?.resultSeconds ?? 8)
@@ -149,6 +150,7 @@ function normalizeSettings(input = {}) {
     roleDrawSeconds: [5, 120, 'pembukaan kartu'],
     nightSeconds: [10, 300, 'tengah malam'],
     dawnSeconds: [5, 120, 'subuh'],
+    inspectionSeconds: [3, 60, 'hasil penerawangan'],
     discussionSeconds: [5, 300, 'pagi/diskusi'],
     votingSeconds: [5, 180, 'sore/voting'],
     resultSeconds: [3, 60, 'hasil voting']
@@ -1723,7 +1725,7 @@ export class WerewolfRoom {
       ];
     }
     room.nightEndsAt = null;
-    room.nightRevealEndsAt = now + 10000;
+    room.nightRevealEndsAt = now + Number(room.settings?.timers?.inspectionSeconds ?? 10) * 1000;
   }
 
   async resolveSystemNightIfReady(room, now) {
@@ -2175,8 +2177,9 @@ export class WerewolfRoom {
       requirePlayer();
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
-      if (room.nightRevealEndsAt || (room.nightSkippedPlayerIds || []).includes(player.id)) {
-        throw new HttpError(409, 'Aksi malam sudah ditutup. Pagi akan terbuka otomatis.');
+      if (room.nightRevealEndsAt || (room.nightSkippedPlayerIds || []).includes(player.id)
+        || (this.isSystemModerator(room) && Number(room.nightEndsAt) > 0 && now >= room.nightEndsAt)) {
+        throw new HttpError(409, 'Waktu tengah malam sudah berakhir. Aksi tidak dapat diubah lagi.');
       }
       if (body.mode === 'villager_math') {
         if (!canAnswerNightMath(room, player)) {
@@ -2667,6 +2670,9 @@ export class WerewolfRoom {
       if (player.role !== 'hunter' || player.alive || player.hunterUsed || !abilityEnabled(room, 'hunterShot')) {
         throw new HttpError(403, 'Kemampuan Hunter tidak tersedia.');
       }
+      if (this.isSystemModerator(room) && Number(room.dawnEndsAt) > 0 && now >= room.dawnEndsAt) {
+        throw new HttpError(409, 'Waktu Subuh sudah berakhir.');
+      }
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih target yang masih hidup.');
       room.dawnActions = room.dawnActions || {};
@@ -2679,6 +2685,9 @@ export class WerewolfRoom {
       requirePhase('dawn');
       if (player.role !== 'reviver' || !player.alive || player.reviverUsed || !abilityEnabled(room, 'reviverReturn')) {
         throw new HttpError(403, 'Kemampuan Reviver tidak tersedia.');
+      }
+      if (this.isSystemModerator(room) && Number(room.dawnEndsAt) > 0 && now >= room.dawnEndsAt) {
+        throw new HttpError(409, 'Waktu Subuh sudah berakhir.');
       }
       const selected = room.players.find(item => item.id === String(body.targetId || '') && !item.alive);
       if (!selected) throw new HttpError(400, 'Pilih pemain yang sudah tereliminasi.');
