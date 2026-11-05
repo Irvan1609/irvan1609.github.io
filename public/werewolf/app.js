@@ -1056,7 +1056,9 @@ function renderModeratorDashboard(parent) {
     const progress = node('div', 'moderator-dashboard-progress');
     const heading = node('div', 'moderator-dashboard-progress-heading');
     addText(heading, 'b', '', task);
-    addText(heading, 'span', '', done + ' / ' + required + ' selesai');
+    addText(heading, 'span', '', done + ' / ' + required + ' selesai'
+      + (room.phase === 'night' && room.nightActionsAutoPassed
+        ? ' · ' + room.nightActionsAutoPassed + ' otomatis' : ''));
     const track = node('div', 'moderator-progress-track');
     track.setAttribute('role', 'progressbar');
     track.setAttribute('aria-valuemin', '0');
@@ -1094,7 +1096,8 @@ function renderPlayers() {
     else if (moderator && roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
     else if (moderator && roomState.room.phase === 'night') {
       details.push(player.hasActed
-        ? 'Aksi selesai' + (player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
+        ? (player.nightActionAutomatic ? 'Dihitung otomatis' : 'Aksi selesai')
+          + (player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
         : 'Menunggu aksi');
     } else if (moderator && roomState.room.phase === 'voting') {
       details.push(player.hasVoted ? 'Memilih ' + (player.voteTarget || 'pemain') : 'Belum voting');
@@ -1496,8 +1499,28 @@ function renderModeratorPhase(parent) {
   if (systemModeratorEnabled()) renderSystemNarrator(parent);
 }
 
+function renderLivingPlayers(parent) {
+  const players = Array.isArray(roomState.livingPlayers) ? roomState.livingPlayers : [];
+  const panel = node('section', 'living-players-panel');
+  const heading = node('div', 'living-players-heading');
+  addText(heading, 'b', '', 'MASIH HIDUP');
+  addText(heading, 'span', '', players.length + ' pemain');
+  panel.append(heading);
+  const list = node('div', 'living-players-list');
+  for (const player of players) {
+    const name = String(player.name || 'Pemain');
+    const chip = node('span', 'living-player-chip');
+    chip.append(node('span', 'living-player-dot'), document.createTextNode(name));
+    list.append(chip);
+  }
+  if (!players.length) addText(list, 'span', 'hint', 'Belum ada daftar pemain hidup.');
+  panel.append(list);
+  parent.append(panel);
+}
+
 function renderPlayerPhase(parent) {
   if (systemModeratorEnabled() && isHost()) renderModeratorDashboard(parent);
+  if (roomState.room.phase !== 'lobby') renderLivingPlayers(parent);
   const loverNames = roomState.self?.loverNames || [];
   if (loverNames.length === 2) {
     const message = roomState.self.role === 'cupid'
@@ -1658,9 +1681,10 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Malam selesai otomatis setelah semua pemain mengirim aksi.');
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Pemain tanpa kemampuan malam otomatis dihitung selesai.');
   const room = roomState.room;
-  addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi malam.');
+  addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah dihitung.'
+    + (room.nightActionsAutoPassed ? ' (' + room.nightActionsAutoPassed + ' otomatis)' : ''));
   const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
   if (complete && room.nightRevealEndsAt) {
     addText(parent, 'div', 'notice success', 'Semua aksi selesai. Hasil penerawangan Seer sudah dikirim secara privat. Pagi tiba dalam 10 detik.');
@@ -1779,7 +1803,9 @@ function renderPlayerNight(parent) {
     return;
   }
   if (self.hasActed) {
-    addText(parent, 'div', 'notice success', 'Aksimu sudah dikirim. Tunggu moderator.');
+    addText(parent, 'div', 'notice success', self.nightActionAutomatic
+      ? 'Role kamu tidak memiliki aksi malam. Sistem sudah menghitungmu selesai otomatis.'
+      : 'Aksimu sudah dikirim. Tunggu moderator.');
     renderPrivateInspectionResult(parent);
     return;
   }
