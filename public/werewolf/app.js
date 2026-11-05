@@ -65,6 +65,11 @@ let gameAudioContext = null;
 let lastNarrationKey = '';
 let roleDraft = null;
 let wolfChatDraft = '';
+let qrScannerStream = null;
+let qrScannerFrame = 0;
+let qrScannerActive = false;
+let qrScannerLastScan = 0;
+let qrScannerDecoderPromise = null;
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -1985,6 +1990,125 @@ $('joinCode').addEventListener('input', event => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
 });
 
+function stopQrScanner() {
+  qrScannerActive = false;
+  if (qrScannerFrame) cancelAnimationFrame(qrScannerFrame);
+  qrScannerFrame = 0;
+  if (qrScannerStream) {
+    qrScannerStream.getTracks().forEach(track => track.stop());
+    qrScannerStream = null;
+  }
+  const video = $('qrScannerVideo');
+  if (video) {
+    video.pause();
+    video.srcObject = null;
+  }
+}
+
+function closeQrScanner() {
+  stopQrScanner();
+  const dialog = $('scanQrDialog');
+  if (dialog?.open && typeof dialog.close === 'function') dialog.close();
+  else dialog?.removeAttribute('open');
+}
+
+function parseRoomCodeFromQr(value) {
+  const raw = String(value || '').trim();
+  const valid = code => /^[A-HJ-NP-Z2-9]{6}$/.test(code);
+  const direct = raw.toUpperCase();
+  if (valid(direct)) return direct;
+  try {
+    const parsed = new URL(raw, location.origin);
+    const fromUrl = (
+      parsed.searchParams.get('room') ||
+      new URLSearchParams(parsed.hash.replace(/^#\\??/, '')).get('room') ||
+      ''
+    ).trim().toUpperCase();
+    if (valid(fromUrl)) return fromUrl;
+  } catch {}
+  const match = raw.match(/(?:[?&#]|^)room=([A-HJ-NP-Z2-9]{6})(?:[&#\\s]|$)/i);
+  return match ? match[1].toUpperCase() : '';
+}
+
+function acceptScannedRoomQr(value) {
+  const code = parseRoomCodeFromQr(value);
+  if (!code) {
+    $('qrScannerStatus').textContent = 'QR ini bukan undangan Werewolf. Arahkan kamera ke QR undangan room.';
+    return false;
+  }
+  closeQrScanner();
+  $('joinCode').value = code;
+  $('joinName').focus();
+  showMessage('QR berhasil dibaca. Masukkan nama, lalu tekan Gabung Room (' + code + ').');
+  return true;
+}
+
+function scanQrFrame(timestamp = 0) {
+  if (!qrScannerActive) return;
+  const video = $('qrScannerVideo');
+  if (video && video.readyState >= 2 && video.videoWidth && timestamp - qrScannerLastScan >= 140) {
+    qrScannerLastScan = timestamp;
+    const canvas = $('qrScannerCanvas');
+    const width = Math.min(video.videoWidth, 720);
+    const height = Math.max(1, Math.round(video.videoHeight * width / video.videoWidth));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    try {
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(video, 0, 0, width, height);
+      const frame = context.getImageData(0, 0, width, height);
+      const decoded = window.jsQR?.(frame.data, width, height, { inversionAttempts: 'attemptBoth' });
+      if (decoded?.data && acceptScannedRoomQr(decoded.data)) return;
+    } catch {}
+  }
+  if (qrScannerActive) qrScannerFrame = requestAnimationFrame(scanQrFrame);
+}
+
+async function openQrScanner() {
+  const dialog = $('scanQrDialog');
+  const status = $('qrScannerStatus');
+  status.textContent = 'Memuat pemindai dan meminta izin kamera...';
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Akses kamera tidak tersedia. Masukkan kode room secara manual.');
+    }
+    qrScannerDecoderPromise ||= import('./vendor/jsQR.js');
+    await qrScannerDecoderPromise;
+    if (!window.jsQR) throw new Error('Pemindai QR gagal dimuat. Masukkan kode room secara manual.');
+    if (!dialog.open && !dialog.hasAttribute('open')) return;
+    qrScannerStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    });
+    if (!dialog.open && !dialog.hasAttribute('open')) {
+      stopQrScanner();
+      return;
+    }
+    const video = $('qrScannerVideo');
+    video.srcObject = qrScannerStream;
+    video.muted = true;
+    video.playsInline = true;
+    await video.play();
+    qrScannerLastScan = 0;
+    qrScannerActive = true;
+    status.textContent = 'Arahkan kamera ke QR undangan Werewolf.';
+    qrScannerFrame = requestAnimationFrame(scanQrFrame);
+  } catch (error) {
+    stopQrScanner();
+    status.textContent = error.name === 'NotAllowedError'
+      ? 'Izin kamera ditolak. Aktifkan izin kamera atau masukkan kode room manual.'
+      : (error.message || 'Kamera tidak dapat dibuka. Masukkan kode room manual.');
+  }
+}
+
 function buildInviteUrl() {
   if (!session?.code) throw new Error('Room belum tersedia.');
   const invite = new URL(location.href);
@@ -2048,6 +2172,12 @@ async function createInviteQrPng() {
 
 $('copyInvite').addEventListener('click', copyInviteLink);
 $('showInviteQr').addEventListener('click', openInviteDialog);
+$('scanQrButton').addEventListener('click', openQrScanner);
+$('closeQrScanner').addEventListener('click', closeQrScanner);
+$('scanQrDialog').addEventListener('click', event => {
+  if (event.target === $('scanQrDialog')) closeQrScanner();
+});
+$('scanQrDialog').addEventListener('close', stopQrScanner);
 $('closeInviteDialog').addEventListener('click', () => {
   const dialog = $('inviteDialog');
   if (typeof dialog.close === 'function') dialog.close();
@@ -2172,6 +2302,12 @@ async function checkApi() {
 }
 
 document.addEventListener('pointerdown', unlockGameAudio, { once: true });
+window.addEventListener('pagehide', stopQrScanner);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' || !qrScannerActive) return;
+  stopQrScanner();
+  $('qrScannerStatus').textContent = 'Kamera dihentikan karena halaman tidak aktif. Tutup lalu scan ulang.';
+});
 $('reconnectButton')?.addEventListener('click', reconnectNow);
 window.addEventListener('online', reconnectNow);
 window.addEventListener('offline', () => setConnection(false, 'Internet terputus'));
