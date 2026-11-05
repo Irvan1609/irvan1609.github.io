@@ -1791,7 +1791,7 @@ const newRoleSettings = {
   }
 };
 const newRoleCreated = await payload(await newRoleRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'NEWROL', name: 'New Role Host', settings: newRoleSettings
+  code: 'NEWRL2', name: 'New Role Host', settings: newRoleSettings
 })), 201);
 const newRoleTokens = [];
 for (const name of ['Wolf One', 'Seer One', 'Priest One', 'Vigilante One', 'Mason One', 'Mason Two', 'Mayor One', 'Villager One']) {
