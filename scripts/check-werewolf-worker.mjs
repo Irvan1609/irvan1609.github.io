@@ -1648,6 +1648,13 @@ await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', 
 }, seerDeathTokens[2])));
 await submitVillagerMath(seerDeathRoom, seerDeathTokens[3]);
 seerDeathState = await seerDeathRoom.loadRoom();
+assert.equal(seerDeathState.nightRevealEndsAt, null);
+seerDeathState.nightEndsAt = Date.now() - 1;
+await seerDeathRoom.saveRoom(seerDeathState);
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'skip_missing_night'
+}, seerDeathCreated.token)));
+seerDeathState = await seerDeathRoom.loadRoom();
 assert.ok(seerDeathState.nightRevealEndsAt);
 const seerDeathDeadline = seerDeathState.nightRevealEndsAt;
 const realNowForSeerDeath = Date.now;
@@ -1658,6 +1665,11 @@ try {
   Date.now = realNowForSeerDeath;
 }
 seerDeathState = await seerDeathRoom.loadRoom();
+assert.equal(seerDeathState.phase, 'dawn');
+seerDeathState.dawnEndsAt = Date.now() - 1;
+await seerDeathRoom.saveRoom(seerDeathState);
+await seerDeathRoom.alarm();
+seerDeathState = await seerDeathRoom.loadRoom();
 assert.equal(seerDeathState.phase, 'morning');
 assert.equal(seerDeathState.players[1].alive, false);
 const deadSeerView = (await payload(await seerDeathRoom.fetch(
@@ -1665,6 +1677,8 @@ const deadSeerView = (await payload(await seerDeathRoom.fetch(
 ))).state;
 assert.equal(deadSeerView.self.seerResult.playerName, 'Alpha');
 assert.equal(deadSeerView.self.seerResult.result, 'wolf');
+assert.equal(deadSeerView.self.seerResult.role, 'wolf');
+assert.equal(deadSeerView.self.inspectionHistory.length, 1);
 assert.ok(seerDeathState.lastResult.actionReport.some(item => item.role === 'Seer'),
   'The moderator report must retain the Seer action even after the Seer is eliminated.');
 console.log('Werewolf Seer death regression passed: private reading remains visible after night elimination.');
@@ -1881,7 +1895,14 @@ await submitVillagerMath(mathRoom, mathTokens[4]);
 mathState = await mathRoom.loadRoom();
 assert.equal(mathState.nightActions[mathState.players[2].id].type, 'villager_math');
 assert.equal(mathState.nightActions[mathState.players[3].id].type, 'villager_math');
-assert.ok(mathState.nightRevealEndsAt, 'Night reveal begins after special actions and calculation challenges are all submitted.');
+assert.equal(mathState.nightRevealEndsAt, null, 'Night remains open until its configured deadline even when every player has acted.');
+mathState.nightEndsAt = Date.now() - 1;
+await mathRoom.saveRoom(mathState);
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'skip_missing_night'
+}, mathCreated.token)));
+mathState = await mathRoom.loadRoom();
+assert.ok(mathState.nightRevealEndsAt);
 const mathDeadline = mathState.nightRevealEndsAt;
 const realNowForMath = Date.now;
 try {
@@ -1954,6 +1975,13 @@ for (const token of [newRoleTokens[4], newRoleTokens[5], newRoleTokens[6], newRo
 newRoleState = await newRoleRoom.loadRoom();
 assert.equal(newRoleState.nightActions[newRoleState.players[2].id].type, 'priest_protect');
 assert.equal(newRoleState.nightActions[newRoleState.players[3].id].type, 'vigilante_shot');
+assert.equal(newRoleState.nightRevealEndsAt, null);
+newRoleState.nightEndsAt = Date.now() - 1;
+await newRoleRoom.saveRoom(newRoleState);
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'skip_missing_night'
+}, newRoleCreated.token)));
+newRoleState = await newRoleRoom.loadRoom();
 assert.ok(newRoleState.nightRevealEndsAt);
 const newRoleDeadline = newRoleState.nightRevealEndsAt;
 const realNowForNewRoles = Date.now;
@@ -2077,6 +2105,9 @@ await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', 
 await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: skipPhaseState.players[0].id
 }, skipPhaseTokens[1].token)));
+skipPhaseState = await skipPhaseRoom.loadRoom();
+skipPhaseState.nightEndsAt = Date.now() - 1;
+await skipPhaseRoom.saveRoom(skipPhaseState);
 await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'skip_missing_night' }, skipPhaseCreated.token)));
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 3);
@@ -2088,6 +2119,11 @@ assert.equal(skipPhaseSeerView.self.seerResult.result, 'wolf');
 const realNowForSkipPhase = Date.now;
 try { Date.now = () => skipPhaseState.nightRevealEndsAt + 1; await skipPhaseRoom.alarm(); }
 finally { Date.now = realNowForSkipPhase; }
+skipPhaseState = await skipPhaseRoom.loadRoom();
+assert.equal(skipPhaseState.phase, 'dawn');
+skipPhaseState.dawnEndsAt = Date.now() - 1;
+await skipPhaseRoom.saveRoom(skipPhaseState);
+await skipPhaseRoom.alarm();
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
@@ -2188,7 +2224,7 @@ assert.equal(dawnState.phase, 'role_draw');
 assert.ok(dawnState.roleDrawEndsAt >= Date.now() + 17000
   && dawnState.roleDrawEndsAt <= Date.now() + 18000);
 assert.deepEqual(dawnState.settings.timers, {
-  roleDrawSeconds: 18, nightSeconds: 50, dawnSeconds: 12,
+  roleDrawSeconds: 18, nightSeconds: 50, dawnSeconds: 12, inspectionSeconds: 10,
   discussionSeconds: 35, votingSeconds: 16, resultSeconds: 6
 });
 const [reviverPlayer, hunterPlayer, wolfPlayer, villagePlayer] = dawnState.players;
@@ -2222,14 +2258,23 @@ await payload(await dawnRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'revive_player', targetId: villagePlayer.id
 }, dawnCreated.token)));
 dawnState = await dawnRoom.loadRoom();
-assert.equal(dawnState.players.find(item => item.id === villagePlayer.id).alive, true);
-assert.equal(dawnState.players.find(item => item.id === reviverPlayer.id).reviverUsed, true);
-assert.equal(dawnState.phase, 'dawn', 'Dawn remains open while the dead Hunter has a trigger action.');
+assert.equal(dawnState.players.find(item => item.id === villagePlayer.id).alive, false,
+  'Reviver selection is stored but must not execute before the Subuh timer ends.');
+assert.equal(dawnState.players.find(item => item.id === reviverPlayer.id).reviverUsed, false);
+assert.equal(dawnState.phase, 'dawn');
+assert.equal(dawnState.dawnActions[reviverPlayer.id].targetId, villagePlayer.id);
 await payload(await dawnRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'hunter_shot', targetId: wolfPlayer.id
 }, dawnTokens[0])));
 dawnState = await dawnRoom.loadRoom();
-assert.equal(dawnState.phase, 'finished', 'Winner evaluation must happen after dawn trigger actions.');
+assert.equal(dawnState.phase, 'dawn', 'Hunter selection is also held until Subuh ends.');
+assert.equal(dawnState.players.find(item => item.id === wolfPlayer.id).alive, true);
+assert.equal(dawnState.dawnActions[hunterPlayer.id].targetId, wolfPlayer.id);
+dawnState.dawnEndsAt = Date.now() - 1;
+await dawnRoom.saveRoom(dawnState);
+await dawnRoom.alarm();
+dawnState = await dawnRoom.loadRoom();
+assert.equal(dawnState.phase, 'finished', 'Winner evaluation must happen after all dawn trigger actions.');
 assert.equal(dawnState.winner, 'villagers');
 assert.equal(dawnState.players.find(item => item.id === villagePlayer.id).alive, true);
 assert.ok(dawnState.lastResult.revivedPlayers.some(item => item.id === villagePlayer.id));
