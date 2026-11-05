@@ -1101,9 +1101,13 @@ function renderModeratorDashboard(parent) {
     done = Number(room.roleCardsDrawn) || players.filter(player => player.hasDrawn).length;
     required = Number(room.roleCardsRequired) || total;
   } else if (room.phase === 'night') {
-    task = 'Aksi malam';
+    task = 'Aksi tengah malam';
     done = Number(room.nightActionsSubmitted) || 0;
     required = Number(room.nightActionsRequired) || alive;
+  } else if (room.phase === 'dawn') {
+    task = 'Aksi subuh';
+    done = Number(room.dawnActionsSubmitted) || 0;
+    required = Number(room.dawnActionsRequired) || 0;
   } else if (room.phase === 'voting') {
     task = 'Voting';
     done = Number(room.votesSubmitted) || 0;
@@ -1603,6 +1607,7 @@ function renderModeratorPhase(parent) {
     case 'lobby': renderModeratorLobby(parent); break;
     case 'role_draw': renderModeratorRoleDraw(parent); break;
     case 'night': renderModeratorNight(parent); break;
+    case 'dawn': renderModeratorDawn(parent); break;
     case 'morning': renderModeratorMorning(parent); break;
     case 'discussion': renderModeratorDiscussion(parent); break;
     case 'voting': renderModeratorVoting(parent); break;
@@ -1610,7 +1615,6 @@ function renderModeratorPhase(parent) {
     case 'finished': renderModeratorFinished(parent); break;
     default: addText(parent, 'p', 'notice', 'Status permainan tidak dikenali.');
   }
-  if (systemModeratorEnabled()) renderSystemNarrator(parent);
 }
 
 function renderLivingPlayers(parent) {
@@ -1621,10 +1625,21 @@ function renderLivingPlayers(parent) {
   addText(heading, 'span', '', players.length + ' pemain');
   panel.append(heading);
   const list = node('div', 'living-players-list');
+  const history = new Map((roomState.self?.seerHistory || []).map(item => [item.targetId, item]));
   for (const player of players) {
     const name = String(player.name || 'Pemain');
-    const chip = node('span', 'living-player-chip');
+    const inspected = history.get(player.id);
+    const result = inspected?.result;
+    const isWolf = result === 'wolf' || result === 'wolf_team';
+    const isNeutral = result === 'neutral';
+    const chip = node('span', 'living-player-chip' + (inspected ? ' seer-inspected ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe') : ''));
     chip.append(node('span', 'living-player-dot'), document.createTextNode(name));
+    if (inspected) {
+      const label = roomState.self.role === 'detective'
+        ? (isWolf ? 'Werewolf' : isNeutral ? 'Netral' : 'Desa')
+        : (isWolf ? 'Werewolf' : 'Bukan Werewolf');
+      chip.append(node('small', 'seer-inspection-tag', label));
+    }
     list.append(chip);
   }
   if (!players.length) addText(list, 'span', 'hint', 'Belum ada daftar pemain hidup.');
@@ -1652,81 +1667,63 @@ function renderSystemHostPlayerContext(parent) {
 }
 
 function renderPlayerPhase(parent) {
-  if (systemModeratorEnabled() && isHost()) {
-    renderModeratorDashboard(parent);
-    renderSystemHostPlayerContext(parent);
-  }
-  if (roomState.room.phase !== 'lobby') renderLivingPlayers(parent);
-  renderMasonCircle(parent);
-  const loverNames = roomState.self?.loverNames || [];
-  if (loverNames.length === 2) {
-    const message = roomState.self.role === 'cupid'
-      ? 'Pasangan yang kamu hubungkan: ' + loverNames.join(' & ') + '. Role pasangan tetap rahasia.'
-      : 'Kamu terikat sebagai pasangan dengan ' + loverNames.filter(name => name !== roomState.self.name).join(' & ') + '. Jika salah satu tereliminasi, pasangannya ikut tereliminasi. Role pasangan tetap rahasia.';
-    addText(parent, 'div', 'notice success', message);
-  }
-  if (roomState.room.phase !== 'lobby') renderPlayerRoleReminder(parent);
-  if (roomState.self?.isBotControlled) {
-    addText(parent, 'div', 'notice warning',
-      'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
-    if (roomState.room.phase === 'finished') renderVictoryScreen(parent, false);
+  const phase = roomState.room.phase;
+  const self = roomState.self || {};
+  if (phase === 'lobby') {
+    phaseHeader(parent, 'RUANG TUNGGU', 'Menunggu permainan dimulai',
+      'Kamu sudah berada di room yang sama dengan pemain lainnya. Host akan memulai permainan setelah semua siap.');
+    const roster = node('div', 'waiting-room-roster');
+    const lobbyPlayers = roomState.lobbyPlayers || [];
+    addText(roster, 'div', 'waiting-room-count', lobbyPlayers.length + ' pemain di ruang tunggu');
+    const list = node('div', 'waiting-room-list');
+    for (const player of lobbyPlayers) {
+      const item = node('div', 'waiting-room-player');
+      addText(item, 'b', '', player.name);
+      addText(item, 'span', player.connected ? 'online' : 'offline', player.connected ? 'Online' : 'Menunggu');
+      list.append(item);
+    }
+    roster.append(list);
+    parent.append(roster);
     return;
   }
-  switch (roomState.room.phase) {
-    case 'lobby': {
-      phaseHeader(parent, 'RUANG TUNGGU', 'Menunggu permainan dimulai', 'Kamu sudah berada di room yang sama dengan pemain lainnya. Host akan memulai permainan setelah semua siap.');
-      const roster = node('div', 'waiting-room-roster');
-      const lobbyPlayers = roomState.lobbyPlayers || [];
-      addText(roster, 'div', 'waiting-room-count', lobbyPlayers.length + ' pemain di ruang tunggu');
-      const list = node('div', 'waiting-room-list');
-      for (const player of lobbyPlayers) {
-        const item = node('div', 'waiting-room-player');
-        addText(item, 'b', '', player.name);
-        addText(item, 'span', player.connected ? 'online' : 'offline', player.connected ? 'Online' : 'Menunggu');
-        list.append(item);
-      }
-      roster.append(list);
-      parent.append(roster);
-      break;
-    }
+
+  if (!(phase === 'role_draw' && !self.hasDrawn)) renderPlayerRoleReminder(parent);
+  if (systemModeratorEnabled() && isHost()) {
+    addText(parent, 'div', 'notice', 'Moderator sistem menjalankan seluruh fase otomatis. Host tetap bermain sebagai warga desa sesuai kartu yang diterima.');
+  }
+  renderMasonCircle(parent);
+  const loverNames = self.loverNames || [];
+  if (loverNames.length === 2) {
+    const message = self.role === 'cupid'
+      ? 'Pasangan yang kamu hubungkan: ' + loverNames.join(' & ') + '. Role pasangan tetap rahasia.'
+      : 'Kamu terikat sebagai pasangan dengan ' + loverNames.filter(name => name !== self.name).join(' & ') + '. Jika salah satu tereliminasi, pasangannya ikut tereliminasi. Role pasangan tetap rahasia.';
+    addText(parent, 'div', 'notice success', message);
+  }
+  renderPrivateInspectionResult(parent);
+
+  if (self.isBotControlled) {
+    addText(parent, 'div', 'notice warning',
+      'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
+    if (phase === 'finished') renderVictoryScreen(parent, false);
+    renderLivingPlayers(parent);
+    return;
+  }
+
+  switch (phase) {
     case 'role_draw': renderPlayerRoleDraw(parent); break;
     case 'night': renderPlayerNight(parent); break;
-    case 'morning':
-      if (systemModeratorEnabled()) renderSystemModeratorMorning(parent);
-      else renderPlayerMorning(parent);
-      break;
+    case 'dawn': renderPlayerDawn(parent); break;
+    case 'morning': renderPlayerMorning(parent); break;
     case 'discussion': renderPlayerDiscussion(parent); break;
     case 'voting': renderPlayerVoting(parent); break;
     case 'result':
       if (systemModeratorEnabled()) renderSystemModeratorVoteResult(parent);
       else renderPlayerVoteResult(parent);
       break;
-    case 'finished':
-      renderVictoryScreen(parent, false);
-      break;
+    case 'finished': renderVictoryScreen(parent, false); break;
     default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
   }
-  if (systemModeratorEnabled()) {
-    renderSystemNarrator(parent);
-    if (isHost()) renderSystemHostControls(parent);
-  }
-}
-
-function renderSystemHostControls(parent) {
-  const phase = roomState.room.phase;
-  if (phase === 'night' && !roomState.room.nightRevealEndsAt
-    && roomState.room.nightActionsSubmitted < roomState.room.nightActionsRequired) {
-    parent.append(button('Lewati aksi yang belum masuk · 10 detik', 'secondary wide', () => {
-      if (confirm('Aksi yang belum masuk akan dilewati. Hasil malam diproses otomatis setelah 10 detik.')) sendAction('skip_missing_night');
-    }));
-  } else if (phase === 'morning') {
-    parent.append(button(roomState.room.winner ? 'Umumkan pemenang' : 'Lanjut ke Diskusi',
-      'primary wide', () => sendAction('start_discussion')));
-  } else if (phase === 'discussion') {
-    parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
-  } else if (phase === 'result') {
-    parent.append(button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round')));
-  }
+  renderLivingPlayers(parent);
 }
 
 function renderModeratorLobby(parent) {
@@ -1741,7 +1738,7 @@ function renderModeratorLobby(parent) {
       : 'Mode offline/tatap muka: voice chat dimatikan; chat teks tetap tersedia. Room tetap membutuhkan internet untuk sinkronisasi antarperangkat.');
   addText(parent, 'div', 'notice', 'Pemain terdaftar: ' + roomState.players.length + '. Pemain yang menerima role: ' + roleSlots + '. Moderator sementara tidak dihitung sebagai pemain aktif.');
   addText(parent, 'div', mode === 'system' ? 'notice success' : 'notice', mode === 'system'
-    ? 'Moderator sistem aktif. Host tetap bermain; malam dan voting otomatis, sedangkan host melanjutkan fase siang.'
+    ? 'Moderator sistem aktif. Seluruh fase berjalan otomatis sesuai durasi, tanpa host perlu menekan tombol perpindahan.'
     : mode === 'random' ? 'Mode acak aktif. Satu pemain manusia akan dipilih sebagai moderator dan sementara dikeluarkan dari daftar pemain aktif.'
       : 'Moderator host aktif. Host akan dikeluarkan sementara dari daftar pemain aktif saat permainan dimulai.');
   addText(parent, 'p', 'hint', 'Untuk 4–25 pemain, sistem menyusun komposisi role bertahap pada setiap jumlah pemain. Warga Desa dijaga sekitar 20%; role khusus dan netral dibuka bergantian, lalu beberapa role dapat berulang. Pengaturan manual host tetap menjadi prioritas.');
