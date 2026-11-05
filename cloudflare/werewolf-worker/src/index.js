@@ -1730,7 +1730,7 @@ export class WerewolfRoom {
 
   async resolveSystemNightIfReady(room, now) {
     if (room.phase !== 'night') return;
-    if (this.isSystemModerator(room) && Number(room.nightEndsAt) > now) return;
+    if (Number(room.nightEndsAt) > 0 && room.nightEndsAt > now) return;
     const alive = room.players.filter(item => item.alive);
     const skipped = new Set(room.nightSkippedPlayerIds || []);
     if (alive.every(item => Boolean(room.nightActions?.[item.id]) || skipped.has(item.id))) this.prepareNightReveal(room, now);
@@ -2273,11 +2273,11 @@ export class WerewolfRoom {
     if (type === 'skip_missing_night') {
       requireModerator();
       requirePhase('night');
-      if (room.nightRevealEndsAt) throw new HttpError(409, 'Hitung mundur menuju pagi sudah berjalan.');
+      if (room.nightRevealEndsAt) throw new HttpError(409, 'Hitung mundur menuju Subuh sudah berjalan.');
+      if (Number(room.nightEndsAt) > now) throw new HttpError(409, 'Pilihan tengah malam masih dapat diubah sampai waktu habis.');
       const skipped = new Set(room.nightSkippedPlayerIds || []);
       const missing = room.players.filter(item => item.alive
         && !room.nightActions?.[item.id] && !skipped.has(item.id));
-      if (!missing.length) throw new HttpError(409, 'Semua pemain sudah menyelesaikan aksi malam.');
       room.nightSkippedPlayerIds = [...skipped, ...missing.map(item => item.id)];
       this.prepareNightReveal(room, now);
       return;
