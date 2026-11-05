@@ -275,6 +275,18 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'voting'); // Votes never advance the phase automatically.
 assert.equal(Object.keys(saved.votes).length, 5);
 assert.equal(saved.votes[saved.players[4].id], null, 'Abstain must be stored as a submitted ballot.');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'cast_vote', targetId: saved.players[3].id
+}, playerTokens[0])));
+saved = await room.loadRoom();
+assert.equal(saved.votes[saved.players[0].id], saved.players[3].id,
+  'A player may replace a vote while the voting timer remains active.');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'cast_vote', targetId: saved.players[4].id
+}, playerTokens[0])));
+saved = await room.loadRoom();
+assert.equal(saved.votes[saved.players[0].id], saved.players[4].id,
+  'The latest vote choice must replace the earlier ballot.');
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_vote' }, playerTokens[0])), 403);
 const votingDeadline = saved.votingEndsAt;
 const realNowAfterVoting = Date.now;
