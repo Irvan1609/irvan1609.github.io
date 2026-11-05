@@ -777,3 +777,22 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .bot-player-button{background:#1d4037;border:1px solid #477a68;color:#c4f1dd}
 .restore-bot-button{background:#3a344d;border:1px solid #71658d;color:#e4d8ff}
 @media(max-width:430px){.player-management-actions{gap:4px}.player-management-actions button{min-height:26px;padding:4px 6px;font-size:7px}}
+
+
+/* Role selection guidance and system-host player context. */
+.role-count-item{display:grid;gap:4px;min-width:0}
+.role-config-info-disclosure{min-width:0;border:1px solid #34475e;border-radius:8px;background:#101c2b;color:#dce6f2}
+.role-config-info-disclosure>summary{padding:6px 8px;color:#e5c783;font-size:9px;font-weight:850;cursor:pointer;list-style:none}
+.role-config-info-disclosure>summary::-webkit-details-marker{display:none}
+.role-config-info-disclosure>summary:after{content:"＋";float:right;color:#b9c9dc}
+.role-config-info-disclosure[open]>summary:after{content:"−"}
+.role-config-info-details{display:grid;width:100%;gap:5px;padding:0 7px 7px;text-align:left}
+.role-config-info-detail{display:grid;grid-template-columns:62px minmax(0,1fr);gap:6px;align-items:start;padding-top:5px;border-top:1px solid #34475e}
+.role-config-info-detail-label{font-size:7px;font-weight:900;letter-spacing:.06em;color:#e5c783}
+.role-config-info-detail-text{min-width:0;color:#dce6f2;font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+.moderator-info-disclosure{margin-top:8px}
+.system-host-player-context{display:grid;gap:7px;margin:0 0 12px;padding:10px 11px;border:1px solid #54728f;border-radius:11px;background:linear-gradient(145deg,#1b2d43,#101c2b)}
+.system-host-player-role{margin:0;color:#f0e5d2;font-size:12px;line-height:1.45}
+.system-host-player-note{margin:0;color:#b9c9dc;font-size:9px;line-height:1.45}
+.system-host-role-disclosure{background:#0c1725}
+@media(max-width:430px){.role-config-info-disclosure>summary{padding:6px;font-size:8px}.role-config-info-detail{grid-template-columns:56px minmax(0,1fr)}.role-config-info-detail-text{font-size:8px}.system-host-player-context{padding:9px}}
