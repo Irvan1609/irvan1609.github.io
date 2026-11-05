@@ -63,7 +63,7 @@ assert.match(app, /renderDiscussionTools/);
 assert.match(app, /CHAT DISKUSI/);
 assert.match(app, /function renderLivingPlayers/);
 assert.match(app, /MASIH HIDUP/);
-assert.match(worker, /livingPlayers: alive\\.map/);
+assert.match(worker, /livingPlayers: alive\.map/);
 assert.match(worker, /prepareAutomaticNightPasses/);
 assert.match(worker, /nightActionsAutoPassed/);
 assert.match(worker, /Otomatis dihitung/);
