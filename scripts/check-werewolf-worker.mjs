@@ -939,7 +939,8 @@ for (let index = 2; index < 5; index += 1) {
 }
 await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, tieCreated.token)));
 tieState = await tieRoom.loadRoom();
-assert.equal(tieState.phase, 'morning');
+assert.equal(tieState.phase, 'finished', 'The winning faction must be announced immediately after night resolution.');
+assert.equal(tieState.winner, 'wolves');
 assert.equal([tieState.players[2], tieState.players[3]].filter(player => !player.alive).length, 1);
 assert.match(tieState.lastResult.message, /tereliminasi pada malam hari/);
 assert.ok(tieState.lastResult.events.some(event => /terbagi sama kuat/.test(event)));
