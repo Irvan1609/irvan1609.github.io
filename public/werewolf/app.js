@@ -1163,6 +1163,8 @@ function renderPlayers() {
           ? (player.nightActionType === 'villager_math' ? 'Perhitungan selesai' : 'Aksi selesai')
             + (moderator && player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
           : 'Belum melakukan aksi');
+    } else if (canMonitor && phase === 'dawn') {
+      details.push(player.hasDawnAction ? 'Aksi Subuh selesai' : 'Menunggu aksi Subuh');
     } else if (canMonitor && phase === 'voting') {
       details.push(player.hasVoted
         ? player.voteAbstain ? 'Abstain' : moderator && player.voteTarget ? 'Memilih ' + player.voteTarget : 'Sudah voting'
@@ -1507,8 +1509,8 @@ function renderPublicResult(parent) {
   const result = roomState.room.publicResult;
   if (!result) return;
   const titles = {
-    night: 'HASIL AKSI MALAM',
-    vote: 'HASIL VOTING',
+    night: 'HASIL TENGAH MALAM',
+    vote: 'HASIL SORE',
     hunter: 'HASIL AKSI HUNTER',
     leave: 'PERUBAHAN PEMAIN'
   };
@@ -1516,6 +1518,7 @@ function renderPublicResult(parent) {
   addText(panel, 'div', 'eyebrow-small', titles[result.kind] || 'HASIL PERMAINAN');
   addText(panel, 'h3', '', result.message || 'Hasil aksi telah diproses.');
   const eliminated = Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers : [];
+  const revived = Array.isArray(result.revivedPlayers) ? result.revivedPlayers : [];
   if (eliminated.length) {
     const list = node('div', 'public-result-list');
     for (const item of eliminated) {
@@ -1527,10 +1530,10 @@ function renderPublicResult(parent) {
     panel.append(list);
   } else {
     addText(panel, 'p', 'public-result-empty',
-      result.kind === 'night' ? 'Tidak ada pemain yang tereliminasi malam ini.'
-        : 'Tidak ada pemain yang tereliminasi pada hasil ini.');
+      revived.length ? 'Tidak ada eliminasi baru pada fase ini.'
+        : result.kind === 'night' ? 'Tidak ada pemain yang tereliminasi malam ini.'
+          : 'Tidak ada pemain yang tereliminasi pada hasil ini.');
   }
-  const revived = Array.isArray(result.revivedPlayers) ? result.revivedPlayers : [];
   if (revived.length) {
     const revivedList = node('div', 'public-result-list revived-result-list');
     for (const item of revived) {
