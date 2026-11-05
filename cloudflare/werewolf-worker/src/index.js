@@ -2037,7 +2037,6 @@ export class WerewolfRoom {
         const correctIndex = prompt.options.indexOf(prompt.answer);
         room.nightActions[player.id] = { type: 'villager_math', promptId: prompt.id, choiceIndex, correct: choiceIndex === correctIndex };
         this.runBotNightActions(room);
-        await this.resolveSystemNightIfReady(room, now);
         return;
       }
       const selected = player.role === 'witch' && body.mode === 'heal' ? null : target(body.targetId);
@@ -2436,6 +2435,144 @@ export class WerewolfRoom {
         eliminations: room.lastResult.eliminations, actionReport: room.lastResult.actionReport,
         at: now, round: room.round
       });
+      return;
+    }
+
+    if (type === 'dawn_action') {
+      requirePlayer();
+      requirePhase('dawn');
+      if (Number(room.dawnEndsAt) > 0 && now >= Number(room.dawnEndsAt)) {
+        throw new HttpError(409, 'Waktu subuh sudah berakhir.');
+      }
+      const nightDeadIds = new Set(room.lastResult?.kind === 'night'
+        ? (room.lastResult.eliminations || []).map(item => item.id) : []);
+      if (player.role === 'hunter' && !player.alive && nightDeadIds.has(player.id)
+        && !player.hunterUsed && abilityEnabled(room, 'hunterShot')) {
+        const selected = target(body.targetId);
+        if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih pemain hidup untuk ditembak.');
+        room.dawnActions[player.id] = { type: 'hunter_shot', targetId: selected.id };
+      } else if (player.role === 'reviver' && player.alive && !player.reviverUsed
+        && abilityEnabled(room, 'reviverOnce')) {
+        const selected = room.players.find(item => item.id === String(body.targetId || '')
+          && nightDeadIds.has(item.id) && !item.alive);
+        if (!selected) throw new HttpError(400, 'Pilih satu korban yang gugur pada malam ini.');
+        room.dawnActions[player.id] = { type: 'revive_player', targetId: selected.id };
+      } else {
+        throw new HttpError(403, 'Tidak ada kemampuan subuh yang dapat digunakan.');
+      }
+      return;
+    }
+
+    if (type === 'resolve_dawn') {
+      requireModerator();
+      requirePhase('dawn');
+      const nightDeadIds = new Set(room.lastResult?.kind === 'night'
+        ? (room.lastResult.eliminations || []).map(item => item.id) : []);
+      const eligible = room.players.filter(item =>
+        item.role === 'hunter' && !item.alive && nightDeadIds.has(item.id)
+          && !item.hunterUsed && abilityEnabled(room, 'hunterShot')
+        || item.role === 'reviver' && item.alive && !item.reviverUsed
+          && abilityEnabled(room, 'reviverOnce') && nightDeadIds.size > 0
+      );
+      const pending = eligible.filter(item => !room.dawnActions?.[item.id]);
+      const deadlinePassed = Number(room.dawnEndsAt) > 0 && Number(room.dawnEndsAt) <= now;
+      if (pending.length && body.force !== true && !deadlinePassed) {
+        throw new HttpError(409, 'Tunggu aksi Hunter dan Reviver atau sampai waktu subuh berakhir.');
+      }
+
+      const events = [];
+      const dawnEliminations = [];
+      const dawnReport = [];
+      const reportName = id => room.players.find(item => item.id === id)?.name || 'pemain';
+
+      // Revive first, so a Hunter who is saved during dawn no longer fires.
+      for (const actor of room.players.filter(item => item.role === 'reviver' && item.alive)) {
+        const action = room.dawnActions?.[actor.id];
+        if (action?.type !== 'revive_player' || actor.reviverUsed || !abilityEnabled(room, 'reviverOnce')) continue;
+        const targetPlayer = room.players.find(item => item.id === action.targetId
+          && nightDeadIds.has(item.id) && !item.alive);
+        if (!targetPlayer) continue;
+        targetPlayer.alive = true;
+        actor.reviverUsed = true;
+        events.push(targetPlayer.name + ' kembali hidup setelah dibangkitkan saat subuh.');
+        dawnReport.push({
+          order: 120, role: 'Reviver', actor: actor.name,
+          action: 'Membangkitkan ' + targetPlayer.name,
+          outcome: 'Berhasil; kemampuan Reviver telah digunakan.'
+        });
+      }
+
+      for (const actor of room.players.filter(item => item.role === 'hunter' && !item.alive)) {
+        const action = room.dawnActions?.[actor.id];
+        if (action?.type !== 'hunter_shot' || actor.hunterUsed || !nightDeadIds.has(actor.id)
+          || actor.alive || !abilityEnabled(room, 'hunterShot')) continue;
+        const targetPlayer = room.players.find(item => item.id === action.targetId && item.alive);
+        if (!targetPlayer) continue;
+        actor.hunterUsed = true;
+        const outcome = this.eliminatePlayer(room, targetPlayer.id, 'hunter');
+        dawnEliminations.push(...outcome.details);
+        events.push('Terdengar satu tembakan dari arah ' + actor.name + '. ' + outcome.players.map(item => item.name).join(' dan ') + ' gugur.');
+        dawnReport.push({
+          order: 130, role: 'Hunter', actor: actor.name,
+          action: 'Menembak ' + targetPlayer.name,
+          outcome: 'Tembakan dilepaskan saat subuh.'
+        });
+      }
+
+      const originalEliminations = (room.lastResult?.eliminations || []).filter(item => {
+        const current = room.players.find(player => player.id === item.id);
+        return current && !current.alive;
+      });
+      const eliminations = [...originalEliminations, ...dawnEliminations];
+      const eliminatedIds = [...new Set(eliminations.map(item => item.id))];
+      room.lastResult = room.lastResult || { kind: 'night', events: [], actionReport: [] };
+      room.lastResult.eliminations = eliminations;
+      room.lastResult.eliminatedIds = eliminatedIds;
+      room.lastResult.eliminatedId = eliminatedIds[0] || null;
+      if (eliminations.length) {
+        room.lastResult.message = eliminations.map(item => item.name).join(' dan ') + ' ditemukan gugur setelah malam berlalu.';
+      } else if (events.some(item => /kembali hidup/.test(item))) {
+        room.lastResult.message = 'Korban malam berhasil diselamatkan. Desa menyambut pagi tanpa kehilangan warga.';
+      } else if (!room.lastResult.message || room.lastResult.message === 'Malam berlalu tanpa korban.') {
+        room.lastResult.message = 'Tak seorang pun ditemukan gugur malam ini.';
+      }
+      room.lastResult.events = [...(room.lastResult.events || []), ...events];
+      room.lastResult.actionReport = [...(room.lastResult.actionReport || []), ...dawnReport]
+        .sort((left, right) => left.order - right.order || left.actor.localeCompare(right.actor, 'id'));
+      room.lastResult.at = now;
+      room.dawnActions = {};
+      room.dawnEndsAt = null;
+      room.nightEndsAt = null;
+      room.resultEndsAt = null;
+      room.votingEndsAt = null;
+      room.callUrl = '';
+
+      for (const bot of room.players.filter(item => item.isBot)) {
+        const action = dawnReport.find(item => item.actor === bot.name);
+        if (!action) continue;
+        const report = room.botNightReports?.[bot.id];
+        const extra = action.role === 'Reviver'
+          ? 'Saat subuh, aku membangkitkan ' + action.action.replace('Membangkitkan ', '') + '.'
+          : 'Saat subuh, aku menembak ' + action.action.replace('Menembak ', '') + '.';
+        room.botNightReports[bot.id] = {
+          round: room.round,
+          text: (report?.round === room.round ? report.text + ' ' : '') + extra
+        };
+      }
+
+      const hasWinner = this.checkWinner(room);
+      room.phase = hasWinner ? 'finished' : 'morning';
+      room.discussionMode = null;
+      room.discussionEndsAt = hasWinner ? null
+        : now + Number(room.settings?.timers?.discussionSeconds ?? 30) * 1000;
+      if (!hasWinner) this.seedBotDiscussion(room, now);
+      this.recordGameEvent(room, {
+        kind: 'dawn_result', phase: room.phase, title: 'Hasil subuh ronde ' + room.round,
+        message: room.lastResult.message, events: room.lastResult.events,
+        eliminations: room.lastResult.eliminations, actionReport: room.lastResult.actionReport,
+        at: now, round: room.round
+      });
+      this.recordGameFinished(room, now);
       return;
     }
 
