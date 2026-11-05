@@ -1040,11 +1040,26 @@ export class WerewolfRoom {
       bot.suspicionTargetId = suspected?.id || null;
 
       let text;
+      const actionReport = Array.isArray(room.lastResult?.actionReport) ? room.lastResult.actionReport : [];
+      const ownAction = actionReport.find(item =>
+        String(item.actor || '').split(/,\\s*/).includes(bot.name)
+      );
       if (['seer', 'detective'].includes(bot.role) && clue) {
         const faction = bot.role === 'detective'
           ? (clue.result === 'wolf_team' ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa')
           : (clue.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf');
-        text = 'Aku memeriksa ' + clue.playerName + ' tadi malam. Hasilnya menunjukkan ' + faction + '. Kita perlu mempertimbangkan temuan ini.';
+        text = 'Tadi malam aku memeriksa ' + clue.playerName + '. Hasilnya ' + faction + '. Kita perlu membahas temuan ini.';
+      } else if (ownAction) {
+        let actionText = String(ownAction.action || 'menjalankan kemampuan').replace(/^Pilihan:\\s*/, '');
+        if (ownAction.role === 'Werewolf') {
+          const individual = actionText.split(/;\\s*/).find(item => item.startsWith(bot.name + ' →'));
+          if (individual) actionText = individual;
+          text = 'Tadi malam aku ikut menentukan sasaran serangan: ' + actionText.replace(bot.name + ' → ', '') + '. Aku ingin mendengar apakah ada yang melihat hal mencurigakan.';
+        } else if (ownAction.role === 'Reviver') {
+          text = 'Saat Subuh tadi aku menggunakan kemampuanku: ' + actionText + '. ' + String(ownAction.outcome || '');
+        } else {
+          text = 'Tadi malam aku melakukan aksi: ' + actionText + '. ' + String(ownAction.outcome || '');
+        }
       } else if (room.lastResult?.kind === 'night' && !room.lastResult.eliminatedId) {
         text = bot.personality === 'assertive'
           ? 'Tidak ada korban malam ini. Jangan lengah; kita tetap harus menemukan siapa yang menyerang.'
