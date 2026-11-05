@@ -428,6 +428,12 @@ const systemHostView = (await payload(await systemRoom.fetch(
 assert.equal(systemHostView.self.isHost, true);
 assert.equal(systemHostView.self.isModerator, false);
 assert.equal(systemHostView.self.role, 'wolf');
+assert.equal(systemHostView.self.hasDrawn, true, 'The host must receive their own role card as a player in system moderator mode.');
+assert.equal(systemHostView.players.length, systemState.players.length, 'The host must see the player status roster while playing.');
+assert.ok(systemHostView.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'role')),
+  'The system host must not see other players’ private roles.');
+assert.ok(systemHostView.players.every(player => !Object.prototype.hasOwnProperty.call(player, 'nightActionTarget')),
+  'The system host must not see other players’ private night targets.');
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'night', 'System moderator starts night after every card is opened.');
 assert.equal(systemState.nightActions[systemState.players[3].id], undefined, 'System mode waits for human Villagers to complete the night challenge.');
