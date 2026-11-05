@@ -1342,7 +1342,7 @@ function renderRoleCard(parent, role, eyebrow = 'KARTU RAHASIA KAMU') {
 
 function renderPlayerRoleReminder(parent) {
   const role = roomState.self?.role;
-  if (!role) return;
+  if (!role && !roomState.self?.hasRole) return;
   if (!roomState.self.hasDrawn) {
     const pending = node('section', 'pending-role-card');
     addText(pending, 'div', 'eyebrow-small', 'KARTU RAHASIA BELUM DIBUKA');
