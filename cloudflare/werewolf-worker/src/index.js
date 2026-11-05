@@ -1251,6 +1251,17 @@ export class WerewolfRoom {
     }
   }
 
+  runBotResultActions(room) {
+    room.resultActions = room.resultActions || {};
+    const living = room.players.filter(player => player.alive);
+    const wolfTargets = living.filter(player => isWolf(player.role));
+    for (const bot of room.players.filter(player => player.isBot && player.role === 'hunter' && !player.alive && !player.hunterUsed)) {
+      const candidates = wolfTargets.length ? wolfTargets : living;
+      const selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+      if (selected) room.resultActions[bot.id] = { type: 'hunter_shot', targetId: selected.id };
+    }
+  }
+
   runBotVotes(room, now) {
     const alive = room.players.filter(player => player.alive);
     for (const bot of alive.filter(player => player.isBot)) {
@@ -1548,6 +1559,7 @@ export class WerewolfRoom {
     if (!room.winner && !hunterTriggerPending) this.checkWinner(room);
     room.resultActions = {};
     room.resultResolved = !hunterTriggerPending;
+    if (hunterTriggerPending) this.runBotResultActions(room);
     room.votingEndsAt = null;
     room.discussionEndsAt = null;
     room.resultEndsAt = room.winner ? null
