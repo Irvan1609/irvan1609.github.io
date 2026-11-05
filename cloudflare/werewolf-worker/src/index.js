@@ -777,6 +777,7 @@ export class WerewolfRoom {
         kind: room.lastResult.kind,
         message: String(room.lastResult.message || ''),
         round: Number(room.lastResult.round) || room.round,
+         at: room.lastResult.at || null,
         eliminatedPlayers: (Array.isArray(room.lastResult.eliminations) ? room.lastResult.eliminations : [])
           .map(item => ({
             name: String(item.name || 'Pemain'),
