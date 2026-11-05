@@ -2274,6 +2274,56 @@ function renderSystemModeratorVoteResult(parent) {
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
 
+function renderPlayerDawn(parent) {
+  const self = roomState.self || {};
+  const room = roomState.room || {};
+  phaseHeader(parent, 'SUBUH · RONDE ' + room.round, 'Fajar belum sepenuhnya tiba',
+    'Sebelum warga berkumpul, beberapa kemampuan terakhir masih dapat mengubah nasib korban malam.');
+  appendPhaseCountdown(parent, 'PAGI TIBA DALAM', room.dawnEndsAt);
+  if (Number(room.dawnEndsAt) > 0 && Date.now() >= Number(room.dawnEndsAt)) {
+    addText(parent, 'div', 'notice', 'Waktu subuh berakhir. Semua aksi pemicu sedang diproses.');
+    return;
+  }
+  if (self.role === 'hunter' && !self.alive && !self.hunterUsed) {
+    addText(parent, 'div', 'notice warning', 'Kamu gugur saat malam. Sebelum pergi, kamu masih dapat melepaskan satu tembakan.');
+    if (self.dawnActionType === 'hunter_shot') {
+      addText(parent, 'div', 'notice success', 'Target tembakan tersimpan. Kamu masih bisa menggantinya sampai subuh berakhir.');
+    }
+    const grid = node('div', 'action-grid');
+    for (const target of roomState.targets || []) {
+      grid.append(button('Tembak · ' + target.name,
+        'action-button' + (self.dawnActionTargetId === target.id ? ' selected' : ''),
+        () => sendAction('dawn_action', { targetId: target.id })));
+    }
+    parent.append(grid);
+    return;
+  }
+  if (self.role === 'reviver' && self.alive && !self.reviverUsed && abilityOn('reviverOnce')) {
+    const targets = roomState.reviveTargets || [];
+    addText(parent, 'h3', '', 'Pilih satu korban untuk dibangkitkan');
+    addText(parent, 'p', 'hint', 'Hanya korban yang gugur pada malam ini yang dapat dihidupkan kembali. Kemampuan hanya dapat digunakan sekali.');
+    if (self.dawnActionType === 'revive_player') {
+      addText(parent, 'div', 'notice success', 'Pilihan kebangkitan tersimpan. Kamu masih bisa menggantinya sampai subuh berakhir.');
+    }
+    const grid = node('div', 'action-grid');
+    for (const target of targets) {
+      grid.append(button('Bangkitkan · ' + target.name,
+        'action-button' + (self.dawnActionTargetId === target.id ? ' selected' : ''),
+        () => sendAction('dawn_action', { targetId: target.id })));
+    }
+    if (!targets.length) addText(parent, 'div', 'notice', 'Tidak ada korban malam yang dapat dibangkitkan.');
+    else parent.append(grid);
+    return;
+  }
+  if (self.role === 'reviver' && self.reviverUsed) {
+    addText(parent, 'div', 'notice', 'Kemampuan Reviver sudah digunakan pada ronde sebelumnya.');
+  } else if (self.alive) {
+    addText(parent, 'div', 'notice success', 'Kamu tidak memiliki aksi pemicu saat subuh. Tunggu warga berkumpul di pagi hari.');
+  } else {
+    addText(parent, 'div', 'notice warning', 'Kamu telah gugur. Menunggu pengumuman pagi.');
+  }
+}
+
 function renderPlayerMorning(parent) {
   phaseHeader(parent, 'PAGI · RONDE ' + roomState.room.round,
     'Warga berkumpul di alun-alun', 'Lihat siapa yang gugur, kumpulkan petunjuk, lalu tentukan siapa yang akan dibawa ke tiang eksekusi sore nanti.');
@@ -2556,28 +2606,29 @@ function renderSystemNarrator(parent) {
 }
 
 function renderPlayerVoting(parent) {
-  const self = roomState.self;
-  appendPhaseCountdown(parent, 'VOTING TERSISA', roomState.room.votingEndsAt);
+  const self = roomState.self || {};
+  const room = roomState.room || {};
+  appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
   if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
     return;
   }
-  if (self.hasVoted) {
-    addText(parent, 'div', 'notice success', self.voteAbstain
-      ? 'Kamu memilih abstain. Hasil diumumkan otomatis saat waktu voting selesai.'
-      : 'Suaramu sudah masuk. Hasil diumumkan otomatis saat waktu voting selesai.');
+  if (Number(room.votingEndsAt) > 0 && Date.now() >= Number(room.votingEndsAt)) {
+    addText(parent, 'div', 'notice', 'Waktu voting berakhir. Suara sedang dihitung.');
     return;
   }
-  addText(parent, 'h3', '', 'Pilih pemain atau abstain');
-  addText(parent, 'div', 'notice', 'Voting bersifat rahasia. Role dan pilihan suara pemain lain tidak ditampilkan.');
-  parent.append(button('Tidak memilih siapa pun · Abstain', 'secondary wide', () => {
-    if (confirm('Kirim suara abstain?')) sendAction('cast_vote', { abstain: true });
-  }));
+  addText(parent, 'h3', '', 'Tentukan pilihanmu');
+  addText(parent, 'div', 'notice', self.hasVoted
+    ? 'Pilihan tersimpan. Kamu masih dapat menggantinya sampai waktu voting berakhir.'
+    : 'Voting bersifat rahasia. Role dan pilihan pemain lain tidak ditampilkan.');
+  parent.append(button('Abstain · Tidak memilih siapa pun',
+    'secondary wide phase-timed-action' + (self.voteAbstain ? ' selected' : ''),
+    () => sendAction('cast_vote', { abstain: true })));
   const grid = node('div', 'action-grid');
   for (const target of (roomState.targets || []).filter(item => item.id !== self.id)) {
-    grid.append(button('Pilih · ' + target.name, 'action-button', () => {
-      if (confirm('Berikan suara kepada ' + target.name + '?')) sendAction('cast_vote', { targetId: target.id });
-    }));
+    grid.append(button('Pilih · ' + target.name,
+      'action-button' + (self.voteTargetId === target.id ? ' selected' : ''),
+      () => sendAction('cast_vote', { targetId: target.id })));
   }
   parent.append(grid);
 }
