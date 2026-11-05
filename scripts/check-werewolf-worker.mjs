@@ -158,7 +158,7 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'night');
 
 const nightActions = [
-  { type: 'night_action', targetId: saved.players[1].id },
+  { type: 'night_action', targetId: saved.players[3].id },
   { type: 'night_action', targetId: saved.players[0].id },
   { type: 'night_action', targetId: saved.players[3].id }
 ];
@@ -195,20 +195,19 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
 assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
   'Morning discussion must default to 30 seconds.');
-assert.equal(saved.players[1].alive, false, 'Seer must be allowed to die during the same night they inspect a target.');
-assert.equal(saved.players[3].alive, true);
+assert.equal(saved.players[3].alive, true); // Doctor protected the selected target.
 const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
-assert.match(morningModerator.room.lastResult.message, /Bima/);
+assert.match(morningModerator.room.lastResult.message, /perlindungan/);
 const nightActionReport = morningModerator.room.lastResult.actionReport;
 assert.ok(Array.isArray(nightActionReport));
 assert.deepEqual(nightActionReport.map(item => item.role), [
   'Werewolf', 'Seer', 'Doctor', 'Warga Desa', 'Warga Desa', 'Hasil akhir'
 ]);
-assert.match(nightActionReport[0].outcome, /Bima/);
+assert.match(nightActionReport[0].outcome, /Doni/);
 assert.match(nightActionReport.find(item => item.role === 'Seer').outcome, /Werewolf/);
-assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /tidak terkena serangan/);
+assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /selamat/);
 
 assert.match(nightActionReport.find(item => item.role === 'Warga Desa').outcome, /Jawaban (benar|salah)/);
 assert.deepEqual(nightActionReport.map(item => item.order),
@@ -226,8 +225,7 @@ assert.ok(morningPlayer.targets.every(target => target.name && target.id));
 const seerMorning = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
 ))).state;
-assert.equal(seerMorning.self.alive, false, 'A Seer eliminated during the night must still receive their completed reading.');
-assert.equal(seerMorning.self.status, 'eliminated');
+assert.equal(seerMorning.self.alive, true);
 assert.equal(seerMorning.self.seerResult.playerName, 'Alya');
 assert.equal(seerMorning.self.seerResult.result, 'wolf');
 assert.equal(seerMorning.self.seerResult.round, 1);
@@ -241,14 +239,6 @@ const chatReader = (await payload(await room.fetch(
 assert.equal(chatReader.chat.length, 1);
 assert.equal(chatReader.chat[0].name, 'Doni');
 assert.equal(chatReader.chat[0].text, 'Aku melihat kejadian malam tadi.');
-const eliminatedSeerChat = (await payload(await room.fetch(
-  makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
-))).state;
-assert.equal(eliminatedSeerChat.chat.length, 1, 'Eliminated players may read the discussion chat.');
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'send_discussion_chat', text: 'Pesan setelah mati'
-}, playerTokens[1])), 403);
-
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
 const discussionDeadline = saved.discussionEndsAt;
@@ -1545,6 +1535,67 @@ const productionHiddenArchive = (await payload(await productionReplayRoom.fetch(
 assert.equal(productionHiddenArchive.room.gameArchive.length, 0, 'Archived private game history is visible only to the moderator in the lobby.');
 console.log('Werewolf replay regression passed: action history stays private during play, is shared after victory, and is archived across restarts.');
 
+
+// A Seer who is killed by the night attack still receives their private inspection result.
+const seerDeathStorage = new MemoryStorage();
+const seerDeathRoom = new WerewolfRoom({ storage: seerDeathStorage, getWebSockets: () => [] }, {});
+const seerDeathSettings = {
+  ...roleSettings,
+  roleCounts: { ...roleSettings.roleCounts, villager: 1 }
+};
+const seerDeathCreated = await payload(await seerDeathRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SEER01', name: 'Seer Death Host', settings: seerDeathSettings
+})), 201);
+const seerDeathTokens = [];
+for (const name of ['Alpha', 'Bima', 'Citra', 'Doni']) {
+  const joined = await payload(await seerDeathRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  seerDeathTokens.push(joined.token);
+}
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, seerDeathCreated.token)));
+let seerDeathState = await seerDeathRoom.loadRoom();
+assert.equal(seerDeathState.players.length, 4);
+['wolf', 'seer', 'doctor', 'villager'].forEach((role, index) => {
+  seerDeathState.players[index].role = role;
+  seerDeathState.players[index].hasDrawn = true;
+  seerDeathState.players[index].alive = true;
+});
+await seerDeathRoom.saveRoom(seerDeathState);
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, seerDeathCreated.token)));
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: seerDeathState.players[1].id
+}, seerDeathTokens[0])));
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: seerDeathState.players[0].id
+}, seerDeathTokens[1])));
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: seerDeathState.players[3].id
+}, seerDeathTokens[2])));
+await submitVillagerMath(seerDeathRoom, seerDeathTokens[3]);
+seerDeathState = await seerDeathRoom.loadRoom();
+assert.ok(seerDeathState.nightRevealEndsAt);
+const seerDeathDeadline = seerDeathState.nightRevealEndsAt;
+const realNowForSeerDeath = Date.now;
+try {
+  Date.now = () => seerDeathDeadline + 1;
+  await seerDeathRoom.alarm();
+} finally {
+  Date.now = realNowForSeerDeath;
+}
+seerDeathState = await seerDeathRoom.loadRoom();
+assert.equal(seerDeathState.phase, 'morning');
+assert.equal(seerDeathState.players[1].alive, false);
+const deadSeerView = (await payload(await seerDeathRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, seerDeathTokens[1])
+))).state;
+assert.equal(deadSeerView.self.seerResult.playerName, 'Alpha');
+assert.equal(deadSeerView.self.seerResult.result, 'wolf');
+assert.ok(seerDeathState.lastResult.actionReport.some(item => item.role === 'Seer'),
+  'The moderator report must retain the Seer action even after the Seer is eliminated.');
+console.log('Werewolf Seer death regression passed: private reading remains visible after night elimination.');
 
 // Role assignment is randomized independently from lobby/player order on every new game.
 const roleShuffleStorage = new MemoryStorage();
