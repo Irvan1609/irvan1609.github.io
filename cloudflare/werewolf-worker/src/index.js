@@ -1918,6 +1918,7 @@ export class WerewolfRoom {
       room.nightSkippedPlayerIds = [];
       room.votes = {};
       room.seerResults = {};
+      room.seerHistory = {};
       room.villagerPrompts = {};
       room.witchPotions = {};
       room.guardianTargets = {};
@@ -2169,7 +2170,6 @@ export class WerewolfRoom {
       if (room.nightRevealEndsAt || (room.nightSkippedPlayerIds || []).includes(player.id)) {
         throw new HttpError(409, 'Aksi malam sudah ditutup. Pagi akan terbuka otomatis.');
       }
-      if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
       if (body.mode === 'villager_math') {
         if (!canAnswerNightMath(room, player)) {
           throw new HttpError(403, 'Selesaikan kemampuan khusus role terlebih dahulu.');
@@ -2202,6 +2202,9 @@ export class WerewolfRoom {
         const ability = player.role === 'seer' ? 'seerInspection' : 'detectiveInspection';
         if (!abilityEnabled(room, ability)) throw new HttpError(403, 'Kemampuan pemeriksaan dinonaktifkan.');
         if (selected.id === player.id) throw new HttpError(400, 'Tidak dapat memeriksa diri sendiri.');
+        if ((room.seerHistory?.[player.id] || []).some(item => item.playerId === selected.id)) {
+          throw new HttpError(409, 'Pemain ini sudah pernah kamu periksa. Pilih pemain lain.');
+        }
         room.nightActions[player.id] = { type: player.role === 'seer' ? 'seer_inspect' : 'detective_inspect', targetId: selected.id };
       } else if (player.role === 'bodyguard') {
         if (!abilityEnabled(room, 'bodyguardSacrifice')) throw new HttpError(403, 'Kemampuan Bodyguard dinonaktifkan.');
@@ -2219,14 +2222,12 @@ export class WerewolfRoom {
           throw new HttpError(403, 'Berkah Priest sudah digunakan atau dinonaktifkan.');
         }
         room.nightActions[player.id] = { type: 'priest_protect', targetId: selected.id };
-        player.priestUsed = true;
       } else if (player.role === 'vigilante') {
         if (!abilityEnabled(room, 'vigilanteShot') || player.vigilanteUsed) {
           throw new HttpError(403, 'Tembakan Vigilante sudah digunakan atau dinonaktifkan.');
         }
         if (selected.id === player.id) throw new HttpError(400, 'Vigilante harus memilih pemain lain.');
         room.nightActions[player.id] = { type: 'vigilante_shot', targetId: selected.id };
-        player.vigilanteUsed = true;
       } else if (player.role === 'witch') {
         const mode = String(body.mode || '');
         const potions = room.witchPotions?.[player.id] || { heal: true, poison: true };
@@ -2310,7 +2311,11 @@ export class WerewolfRoom {
           potions.heal = false;
           room.witchPotions[actor.id] = potions;
         }
-        if (action.type === 'vigilante_shot') vigilanteTargets.push(action.targetId);
+        if (action.type === 'vigilante_shot') {
+          vigilanteTargets.push(action.targetId);
+          actor.vigilanteUsed = true;
+        }
+        if (action.type === 'priest_protect') actor.priestUsed = true;
         if (action.type === 'witch_poison') {
           poisonTargets.push(action.targetId);
           const potions = room.witchPotions[actor.id] || { heal: true, poison: true };
@@ -2339,6 +2344,11 @@ export class WerewolfRoom {
       const highest = Math.max(0, ...Object.values(wolfVotes));
       const wolfAttack = wolfAttackSummary(room, body.force === true);
       victimId = wolfAttack.targetId;
+      for (const actor of actors) {
+        if (room.nightActions[actor.id]?.type === 'witch_heal') {
+          room.nightActions[actor.id].targetId = victimId || null;
+        }
+      }
       const events = [];
       if (wolfAttack.tied && victimId) {
         events.push('Pilihan Werewolf terbagi sama kuat; target dengan suara terbanyak dipilih berdasarkan suara yang masuk lebih dahulu.');
@@ -2413,7 +2423,7 @@ export class WerewolfRoom {
         bodyguard: 'Bodyguard', witch: 'Witch', hunter: 'Hunter', cupid: 'Cupid',
         guardian_angel: 'Guardian Angel', detective: 'Detective', mayor: 'Mayor',
         priest: 'Priest', vigilante: 'Vigilante', mason: 'Mason',
-        jester: 'Jester', villager: 'Warga Desa'
+        reviver: 'Reviver', jester: 'Jester', villager: 'Warga Desa'
       })[role] || 'Role';
       const addActionReport = (order, role, actor, action, outcome) => {
         actionReport.push({ order, role, actor, action, outcome });
@@ -2634,50 +2644,14 @@ export class WerewolfRoom {
 
     if (type === 'hunter_shot') {
       requirePlayer();
-      if (!['dawn', 'morning', 'discussion', 'result'].includes(room.phase)) throw new HttpError(409, 'Hunter hanya dapat menembak pada fase Subuh setelah tereliminasi.');
-      if (player.role !== 'hunter' || player.alive || player.hunterUsed || !abilityEnabled(room, 'hunterShot')) throw new HttpError(403, 'Kemampuan Hunter tidak tersedia.');
-      if (room.phase === 'dawn' && room.dawnActions?.[player.id]) throw new HttpError(409, 'Aksi Subuh sudah dikirim.');
+      requirePhase('dawn');
+      if (player.role !== 'hunter' || player.alive || player.hunterUsed || !abilityEnabled(room, 'hunterShot')) {
+        throw new HttpError(403, 'Kemampuan Hunter tidak tersedia.');
+      }
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih target yang masih hidup.');
-      player.hunterUsed = true;
-      const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
-      const eliminated = outcome.players;
-      if (room.phase === 'dawn') {
-        room.dawnActions = room.dawnActions || {};
-        room.dawnActions[player.id] = { type: 'hunter_shot', targetId: selected.id };
-        room.lastResult.eliminations = [...(room.lastResult.eliminations || []), ...outcome.details];
-        room.lastResult.eliminatedIds = [...(room.lastResult.eliminatedIds || []), ...eliminated.map(item => item.id)];
-        room.lastResult.eliminatedId ||= selected.id;
-        room.lastResult.events = [...(room.lastResult.events || []), 'Hunter menembak ' + selected.name + '.'];
-        room.lastResult.message = (room.lastResult.message || '') + ' Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.';
-        this.appendDawnReport(room, player, 'Hunter', 'Menembak ' + selected.name, 'Target tereliminasi.');
-        this.recordGameEvent(room, {
-          kind: 'hunter_result', phase: 'dawn', title: 'Tembakan Hunter',
-          message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
-          eliminations: outcome.details, at: now, round: room.round
-        });
-        this.runBotDawnActions(room);
-        this.resolveSystemDawnIfReady(room, now);
-      } else {
-        this.checkWinner(room);
-        if (room.winner) room.phase = 'finished';
-        room.lastResult = {
-          kind: 'hunter',
-          message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
-          eliminatedId: selected.id,
-          eliminatedIds: eliminated.map(item => item.id),
-          eliminations: outcome.details,
-          events: ['Hunter menembak ' + selected.name + '.'],
-          at: now,
-          round: room.round
-        };
-        this.recordGameEvent(room, {
-          kind: 'hunter_result', phase: room.phase, title: 'Tembakan Hunter',
-          message: room.lastResult.message, events: room.lastResult.events,
-          eliminations: room.lastResult.eliminations, at: now, round: room.round
-        });
-        this.recordGameFinished(room, now);
-      }
+      room.dawnActions = room.dawnActions || {};
+      room.dawnActions[player.id] = { type: 'hunter_shot', targetId: selected.id };
       return;
     }
 
@@ -2687,34 +2661,18 @@ export class WerewolfRoom {
       if (player.role !== 'reviver' || !player.alive || player.reviverUsed || !abilityEnabled(room, 'reviverReturn')) {
         throw new HttpError(403, 'Kemampuan Reviver tidak tersedia.');
       }
-      if (room.dawnActions?.[player.id]) throw new HttpError(409, 'Aksi Subuh sudah dikirim.');
       const selected = room.players.find(item => item.id === String(body.targetId || '') && !item.alive);
       if (!selected) throw new HttpError(400, 'Pilih pemain yang sudah tereliminasi.');
-      selected.alive = true;
-      player.reviverUsed = true;
-      if (room.winner === 'jester' && selected.role === 'jester') room.winner = null;
       room.dawnActions = room.dawnActions || {};
       room.dawnActions[player.id] = { type: 'revive_player', targetId: selected.id };
-      room.lastResult.revivedPlayers = [...(room.lastResult.revivedPlayers || []), {
-        id: selected.id, name: selected.name, role: selected.role
-      }];
-      room.lastResult.message = (room.lastResult.message || '') + ' ' + selected.name + ' dihidupkan kembali.';
-      this.appendDawnReport(room, player, 'Reviver', 'Menghidupkan kembali ' + selected.name, 'Pemain kembali hidup.');
-      this.recordGameEvent(room, {
-        kind: 'revive_result', phase: 'dawn', title: 'Reviver menghidupkan pemain',
-        message: selected.name + ' kembali hidup.', at: now, round: room.round
-      });
-      this.runBotDawnActions(room);
-      this.resolveSystemDawnIfReady(room, now);
       return;
     }
 
     if (type === 'advance_dawn') {
       requireModerator();
       requirePhase('dawn');
-      const pending = this.dawnActors(room).filter(item => !room.dawnActions?.[item.id]);
-      if (pending.length && Number(room.dawnEndsAt) > now && body.force !== true) {
-        throw new HttpError(409, 'Tunggu aksi pemicu atau sampai waktu Subuh selesai.');
+      if (Number(room.dawnEndsAt) > now && body.force !== true) {
+        throw new HttpError(409, 'Pilihan Subuh masih dapat diubah sampai waktu habis.');
       }
       this.advanceDawn(room, now);
       return;
@@ -2727,9 +2685,6 @@ export class WerewolfRoom {
       if (room.votingEndsAt && now >= room.votingEndsAt) {
         this.finishVote(room, now);
         return;
-      }
-      if (Object.prototype.hasOwnProperty.call(room.votes, player.id)) {
-        throw new HttpError(409, 'Suara sudah dikirim.');
       }
       if (body.abstain === true || body.targetId === 'abstain') room.votes[player.id] = null;
       else {
