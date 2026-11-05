@@ -141,7 +141,7 @@ assert.match(app, /Malam turun di ' \+ village/);
 assert.match(app, /Matahari baru saja terbit/);
 assert.match(app, /Warga berkumpul di alun-alun/);
 assert.match(app, /Sore tiba\. Tiang eksekusi berdiri/);
-assert.match(app, /Suara telah dihitung\./);
+assert.match(app, /Keputusan telah dijatuhkan/);
 assert.match(app, /Kawanan Werewolf akhirnya menguasai desa/);
 assert.match(app, /utterance\.rate = 0\.9/);
 assert.match(app, /utterance\.pitch = 0\.9/);
