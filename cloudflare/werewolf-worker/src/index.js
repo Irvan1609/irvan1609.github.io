@@ -1798,7 +1798,6 @@ export class WerewolfRoom {
           poison: abilityEnabled(room, 'witchPoison')
         };
       });
-      room.chat = [];
       room.chatRateLimit = {};
       room.wolfChat = [];
       room.lastResult = null;
