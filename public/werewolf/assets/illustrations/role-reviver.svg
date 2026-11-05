@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 260" role="img" aria-labelledby="title desc">
+<title id="title">Reviver</title><desc id="desc">A village healer holding a glowing symbol of returning life.</desc>
+<defs><linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b4a91"/><stop offset="1" stop-color="#202e55"/></linearGradient><radialGradient id="glow"><stop stop-color="#d8fff0"/><stop offset=".45" stop-color="#73d9b7"/><stop offset="1" stop-color="#3a927d" stop-opacity="0"/></radialGradient></defs>
+<ellipse cx="160" cy="236" rx="92" ry="13" fill="#101827" opacity=".65"/>
+<path d="M82 226c7-54 25-92 78-101 53 9 71 47 78 101z" fill="url(#cloak)" stroke="#9b8acb" stroke-width="5"/>
+<path d="M119 141l41 28 41-28-12 85h-58z" fill="#d5c9ed" opacity=".9"/>
+<path d="M126 82c0-33 15-53 34-53s34 20 34 53v24c0 27-16 45-34 45s-34-18-34-45z" fill="#d7a27d" stroke="#704b42" stroke-width="4"/>
+<path d="M121 82c-3-42 15-62 42-62 31 0 45 24 37 68-7-13-18-19-29-22-12 15-29 21-50 16z" fill="#3a315f" stroke="#b5a3dc" stroke-width="5"/>
+<path d="M142 102h9m19 0h9" stroke="#503a38" stroke-width="4" stroke-linecap="round"/><path d="M150 121q10 8 20 0" fill="none" stroke="#8a4e4a" stroke-width="3" stroke-linecap="round"/>
+<path d="M111 158c-23 11-35 33-38 57l33 5 26-39zM209 158c23 11 35 33 38 57l-33 5-26-39z" fill="#d7a27d" stroke="#704b42" stroke-width="4"/>
+<circle cx="160" cy="170" r="42" fill="url(#glow)"/><circle cx="160" cy="170" r="19" fill="#bff6df" stroke="#4caa91" stroke-width="4"/>
+<path d="M160 156v28m-14-14h28" stroke="#3e8f79" stroke-width="6" stroke-linecap="round"/>
+<path d="M105 218l55 18 55-18" fill="none" stroke="#e7d6a7" stroke-width="5" stroke-linecap="round"/>
+</svg>
