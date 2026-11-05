@@ -342,7 +342,7 @@ assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
 assert.match(app, /Mode latihan vs bot/);
-assert.match(app, /Lewati pemain yang belum beraksi/);
+assert.match(app, /Lanjut ke Subuh/);
 assert.match(app, /Pilihan tetap dapat diubah sampai waktu tengah malam berakhir/);
 assert.match(app, /appendPhaseCountdown/);
 assert.match(app, /startPhaseClock/);
