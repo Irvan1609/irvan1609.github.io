@@ -1117,8 +1117,9 @@ replayState.winner = 'villagers';
 replayState.lastResult = { kind: 'vote', message: 'Game selesai.' };
 replayState.players.forEach(player => { player.role = 'villager'; player.alive = false; player.hasDrawn = true; });
 await replayRoom.saveRoom(replayState);
+const publicViewerToken = selectedModeratorIndex === 1 ? replayTokens[1] : replayTokens[0];
 const publicFinalView = (await payload(await replayRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, replayTokens[0])
+  makeRequest('/internal/state', 'GET', undefined, publicViewerToken)
 ))).state;
 assert.equal(publicFinalView.room.winner, 'villagers', 'All players must receive the final winning team.');
 assert.equal(publicFinalView.room.publicResult.message, 'Game selesai.', 'All players must receive a public result summary.');
