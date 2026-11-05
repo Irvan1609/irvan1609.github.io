@@ -224,11 +224,12 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'dawn');
 saved.dawnEndsAt = Date.now() - 1;
 await room.saveRoom(saved);
-await room.alarm();
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, moderatorToken)));
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
-assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
-  'Morning discussion must default to 30 seconds.');
+assert.ok(saved.discussionEndsAt > Date.now()
+  && saved.discussionEndsAt <= Date.now() + 30000,
+  'Morning discussion must default to a 30-second timer after Subuh closes.');
 assert.equal(saved.players[3].alive, true); // Doctor protected the selected target.
 const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
@@ -1668,7 +1669,7 @@ seerDeathState = await seerDeathRoom.loadRoom();
 assert.equal(seerDeathState.phase, 'dawn');
 seerDeathState.dawnEndsAt = Date.now() - 1;
 await seerDeathRoom.saveRoom(seerDeathState);
-await seerDeathRoom.alarm();
+await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, seerDeathCreated.token)));
 seerDeathState = await seerDeathRoom.loadRoom();
 assert.equal(seerDeathState.phase, 'morning');
 assert.equal(seerDeathState.players[1].alive, false);
@@ -2123,7 +2124,7 @@ skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'dawn');
 skipPhaseState.dawnEndsAt = Date.now() - 1;
 await skipPhaseRoom.saveRoom(skipPhaseState);
-await skipPhaseRoom.alarm();
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, skipPhaseCreated.token)));
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
