@@ -769,3 +769,8 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Produksi:** branch `master` dan URL produksi `https://irvan1609.github.io/werewolf/` tidak diubah dalam rangkaian ini.
 - **Batas verifikasi:** pengujian otomatis dan deployment staging lulus, tetapi sesi bermain manual dari beberapa HP/browser, izin mikrofon, kualitas audio, dan koneksi WebRTC lintas jaringan belum diuji. Browser dapat meminta izin mikrofon dan dapat memerlukan tindakan pengguna untuk mengaktifkan audio; konfigurasi STUN saja juga tidak menjamin koneksi suara pada semua jenis NAT.
 - **Langkah berikutnya:** uji satu room Online dari minimal dua perangkat/jaringan berbeda, lalu uji room Offline untuk memastikan voice tidak aktif. Jika hasil stabil, baru pertimbangkan promosi ke produksi.
+
+
+- **Penyempurnaan akhir voice takeover, 6 November 2026:** pemain yang sedang dikendalikan BOT sementara dikeluarkan dari daftar voice peer; server juga menolak sinyal suara dari maupun ke pemain tersebut. Tes integrasi mencakup kedua arah ini.
+- **Commit kode terverifikasi:** `e401ef9c5d262061cd8b456e833f6544e40b586b`. GitHub Actions `Validate Statistical Web` run `42075410139` sukses dan `Deploy Werewolf Room API` run `42075410009` sukses. Worker staging kembali lolos health check (`ok: true`, `realtime: true`, `storage: durable-objects`) dan smoke-check halaman publik.
+- **Status akhir:** semua perubahan Werewolf pada rangkaian ini berada di branch `development` dan Worker staging. Branch produksi `master` tetap pada commit `72f172fcef314e2a1d7d2fff3bb0fdcc70cd0d4d`; tidak ada promosi ke produksi.
