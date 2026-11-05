@@ -11,6 +11,15 @@ class MemoryStorage {
   async deleteAlarm() { this.alarmAt = null; }
 }
 
+class FakeSocket {
+  constructor(actorId, actorType = 'player') {
+    this.attachment = { actorId, actorType };
+    this.messages = [];
+  }
+  deserializeAttachment() { return this.attachment; }
+  send(message) { this.messages.push(String(message)); }
+}
+
 function makeRequest(path, method = 'GET', body, token) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -149,7 +158,7 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'night');
 
 const nightActions = [
-  { type: 'night_action', targetId: saved.players[3].id },
+  { type: 'night_action', targetId: saved.players[1].id },
   { type: 'night_action', targetId: saved.players[0].id },
   { type: 'night_action', targetId: saved.players[3].id }
 ];
@@ -186,19 +195,20 @@ saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
 assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
   'Morning discussion must default to 30 seconds.');
-assert.equal(saved.players[3].alive, true); // Doctor protected the selected target.
+assert.equal(saved.players[1].alive, false, 'Seer must be allowed to die during the same night they inspect a target.');
+assert.equal(saved.players[3].alive, true);
 const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
-assert.match(morningModerator.room.lastResult.message, /perlindungan/);
+assert.match(morningModerator.room.lastResult.message, /Bima/);
 const nightActionReport = morningModerator.room.lastResult.actionReport;
 assert.ok(Array.isArray(nightActionReport));
 assert.deepEqual(nightActionReport.map(item => item.role), [
   'Werewolf', 'Seer', 'Doctor', 'Warga Desa', 'Warga Desa', 'Hasil akhir'
 ]);
-assert.match(nightActionReport[0].outcome, /Doni/);
+assert.match(nightActionReport[0].outcome, /Bima/);
 assert.match(nightActionReport.find(item => item.role === 'Seer').outcome, /Werewolf/);
-assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /selamat/);
+assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /tidak terkena serangan/);
 
 assert.match(nightActionReport.find(item => item.role === 'Warga Desa').outcome, /Jawaban (benar|salah)/);
 assert.deepEqual(nightActionReport.map(item => item.order),
@@ -216,10 +226,28 @@ assert.ok(morningPlayer.targets.every(target => target.name && target.id));
 const seerMorning = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
 ))).state;
+assert.equal(seerMorning.self.alive, false, 'A Seer eliminated during the night must still receive their completed reading.');
+assert.equal(seerMorning.self.status, 'eliminated');
 assert.equal(seerMorning.self.seerResult.playerName, 'Alya');
 assert.equal(seerMorning.self.seerResult.result, 'wolf');
 assert.equal(seerMorning.self.seerResult.round, 1);
 assert.ok(seerMorning.room.revision > 0);
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'send_discussion_chat', text: 'Aku melihat kejadian malam tadi.'
+}, playerTokens[3])));
+const chatReader = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[4])
+))).state;
+assert.equal(chatReader.chat.length, 1);
+assert.equal(chatReader.chat[0].name, 'Doni');
+assert.equal(chatReader.chat[0].text, 'Aku melihat kejadian malam tadi.');
+const eliminatedSeerChat = (await payload(await room.fetch(
+  makeRequest('/internal/state', 'GET', undefined, playerTokens[1])
+))).state;
+assert.equal(eliminatedSeerChat.chat.length, 1, 'Eliminated players may read the discussion chat.');
+await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'send_discussion_chat', text: 'Pesan setelah mati'
+}, playerTokens[1])), 403);
 
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, playerTokens[0])), 403);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, moderatorToken)), 409);
@@ -1515,3 +1543,93 @@ const productionHiddenArchive = (await payload(await productionReplayRoom.fetch(
 ))).state;
 assert.equal(productionHiddenArchive.room.gameArchive.length, 0, 'Archived private game history is visible only to the moderator in the lobby.');
 console.log('Werewolf replay regression passed: action history stays private during play, is shared after victory, and is archived across restarts.');
+
+
+// Role assignment is randomized independently from lobby/player order on every new game.
+const roleShuffleStorage = new MemoryStorage();
+const roleShuffleRoom = new WerewolfRoom({ storage: roleShuffleStorage, getWebSockets: () => [] }, {});
+const roleShuffleCreated = await payload(await roleShuffleRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'RND123', name: 'Shuffle Host', settings: roleSettings
+})), 201);
+const roleShuffleToken = roleShuffleCreated.token;
+for (const name of ['Rani', 'Seno', 'Tika', 'Udin', 'Vera']) {
+  await payload(await roleShuffleRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+}
+const roleShuffleSignatures = new Set();
+for (let round = 0; round < 12; round += 1) {
+  await payload(await roleShuffleRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, roleShuffleToken)));
+  const state = await roleShuffleRoom.loadRoom();
+  const counts = state.players.reduce((result, player) => {
+    result[player.role] = (result[player.role] || 0) + 1;
+    return result;
+  }, {});
+  assert.deepEqual(counts, { wolf: 1, seer: 1, doctor: 1, villager: 2 });
+  roleShuffleSignatures.add(state.players.map(player => player.id + ':' + player.role).sort().join('|'));
+  await payload(await roleShuffleRoom.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'reset_to_lobby'
+  }, roleShuffleToken)));
+}
+assert.ok(roleShuffleSignatures.size > 1,
+  'Repeated games with the same players and role counts must produce different player-to-role assignments.');
+console.log('Werewolf role randomization regression passed: every role count is preserved and player-role assignment changes across games.');
+
+// Discussion text chat and WebRTC signalling are scoped to connected, living participants.
+const voiceSockets = [];
+const voiceStorage = new MemoryStorage();
+const voiceRoom = new WerewolfRoom({ storage: voiceStorage, getWebSockets: () => voiceSockets }, {});
+const voiceCreated = await payload(await voiceRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'VOICE1', name: 'Voice Host'
+})), 201);
+const voicePlayers = [];
+for (const name of ['Voice One', 'Voice Two']) {
+  voicePlayers.push(await payload(await voiceRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+}
+let voiceState = await voiceRoom.loadRoom();
+voiceState.phase = 'morning';
+voiceState.activeModeratorId = voiceState.hostId;
+voiceState.players.forEach(player => { player.alive = true; });
+await voiceRoom.saveRoom(voiceState);
+const voiceHostSocket = new FakeSocket(voiceState.hostId, 'moderator');
+const voiceOneSocket = new FakeSocket(voicePlayers[0].playerId);
+const voiceTwoSocket = new FakeSocket(voicePlayers[1].playerId);
+voiceSockets.push(voiceHostSocket, voiceOneSocket, voiceTwoSocket);
+const voiceSnapshot = voiceRoom.snapshot(voiceState, voicePlayers[0].playerId);
+assert.equal(voiceSnapshot.voicePeers.length, 3);
+assert.ok(voiceSnapshot.voicePeers.some(peer => peer.id === voiceState.hostId && peer.isModerator));
+assert.ok(voiceSnapshot.voicePeers.some(peer => peer.id === voicePlayers[1].playerId));
+await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+  type: 'voice_signal',
+  targetId: voicePlayers[1].playerId,
+  signalKind: 'offer',
+  payload: { type: 'offer', sdp: 'test-sdp' }
+}));
+const relayedSignal = voiceTwoSocket.messages.map(message => {
+  try { return JSON.parse(message); } catch { return null; }
+}).find(message => message?.type === 'voice_signal');
+assert.ok(relayedSignal, 'A valid discussion voice offer must be relayed to its intended peer.');
+assert.equal(relayedSignal.fromId, voicePlayers[0].playerId);
+assert.equal(relayedSignal.signalKind, 'offer');
+assert.equal(relayedSignal.payload.sdp, 'test-sdp');
+await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+  type: 'voice_signal',
+  targetId: voiceState.hostId,
+  signalKind: 'candidate',
+  payload: { candidate: 'test-candidate' }
+}));
+const relayedToModerator = voiceHostSocket.messages.map(message => {
+  try { return JSON.parse(message); } catch { return null; }
+}).find(message => message?.type === 'voice_signal');
+assert.ok(relayedToModerator, 'The moderator may join the discussion voice room.');
+voiceState = await voiceRoom.loadRoom();
+voiceState.phase = 'voting';
+await voiceRoom.saveRoom(voiceState);
+const messageCountBeforeClosedPhase = voiceTwoSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+  type: 'voice_signal',
+  targetId: voicePlayers[1].playerId,
+  signalKind: 'offer',
+  payload: { type: 'offer', sdp: 'must-not-relay' }
+}));
+assert.equal(voiceTwoSocket.messages.length, messageCountBeforeClosedPhase,
+  'Voice signalling must stop immediately when discussion ends.');
+console.log('Werewolf discussion voice regression passed: connected players and moderator receive private WebRTC signalling only during discussion.');
