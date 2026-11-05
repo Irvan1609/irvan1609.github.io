@@ -56,7 +56,8 @@ assert.ok((worker.match(/kind: 'night_started'/g) || []).length >= 2,
 assert.match(html, /id="reconnectButton"/);
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerDiscussion/);
-assert.match(app, /Diskusi offline/);
+assert.match(app, /Diskusi pemain/);
+assert.match(app, /Chat dan voice chat aktif selama fase diskusi/);
 assert.doesNotMatch(app, /Simpan diskusi online|discussionCallUrl|meet\\.google\\.com|Buka ruang diskusi online|Diskusi online/);
 assert.match(app, /Komentar bot \(simulasi\)/);
 assert.match(app, /roomState\.chat/);
