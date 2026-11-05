@@ -70,6 +70,17 @@ let qrScannerFrame = 0;
 let qrScannerActive = false;
 let qrScannerLastScan = 0;
 let qrScannerDecoderPromise = null;
+let voiceLocalStream = null;
+const voicePeerConnections = new Map();
+const voiceRemoteAudio = new Map();
+const voicePendingCandidates = new Map();
+let voiceStartPromise = null;
+let voiceGeneration = 0;
+let voiceAutoAttemptKey = '';
+let voiceStatus = 'Voice chat otomatis aktif selama diskusi.';
+let voiceMuted = false;
+let voiceNeedsAudioGesture = false;
+let voiceOutbox = [];
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -210,6 +221,7 @@ function stopRealtime() {
     try { socket.close(); } catch {}
   }
   socket = null;
+  stopDiscussionVoice();
 }
 
 function clearInvalidSession(
@@ -309,6 +321,8 @@ async function connectRealtime() {
           try { nextSocket.send('ping'); } catch {}
         }
       }, 25000);
+      flushVoiceSignalOutbox();
+      syncDiscussionVoice();
     };
     nextSocket.onmessage = event => {
       if (session !== activeSession || generation !== realtimeGeneration || socket !== nextSocket) return;
@@ -323,6 +337,10 @@ async function connectRealtime() {
           clearInvalidSession(activeSession, message.message || 'Kamu dikeluarkan dari room oleh host atau moderator. Sesi ini sudah tidak berlaku.', false);
           return;
         }
+        if (message.type === 'voice_signal') {
+          handleVoiceSignal(message).catch(() => {});
+          return;
+        }
         if (message.type === 'state') applyState(message.state, activeSession);
         if (message.type === 'error') showMessage(message.error, true);
       } catch {}
@@ -333,6 +351,7 @@ async function connectRealtime() {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = null;
         setConnection(false);
+        stopDiscussionVoice();
         scheduleReconnect(generation);
       }
     };
@@ -432,6 +451,297 @@ function applyState(nextState, expectedSession = session) {
   lastNarrationKey = narrationKey;
   roomState = nextState;
   renderRoom();
+  syncDiscussionVoice();
+}
+
+function discussionVoiceAllowed(state = roomState) {
+  return Boolean(state?.room
+    && ['morning', 'discussion'].includes(state.room.phase)
+    && (state.self?.isModerator || state.self?.alive));
+}
+
+function refreshVoiceUI() {
+  const status = $('voiceStatus');
+  if (status) status.textContent = voiceStatus;
+  const count = $('voicePeerCount');
+  if (count) {
+    const peers = (roomState?.voicePeers || []).filter(item => item.id !== roomState?.self?.id);
+    count.textContent = peers.length + ' pemain terhubung';
+  }
+  const mic = $('voiceMicToggle');
+  if (mic) {
+    mic.textContent = voiceLocalStream
+      ? (voiceMuted ? 'Nyalakan Mikrofon' : 'Matikan Mikrofon')
+      : voiceStartPromise ? 'Meminta Izin Mikrofon…' : 'Aktifkan Mikrofon';
+    mic.disabled = Boolean(voiceStartPromise) || !discussionVoiceAllowed();
+  }
+  const audio = $('voiceAudioUnlock');
+  if (audio) audio.classList.toggle('hidden', !voiceNeedsAudioGesture);
+}
+
+function closeVoicePeer(peerId) {
+  const connection = voicePeerConnections.get(peerId);
+  if (connection) {
+    connection.onicecandidate = null;
+    connection.ontrack = null;
+    connection.onconnectionstatechange = null;
+    try { connection.close(); } catch {}
+    voicePeerConnections.delete(peerId);
+  }
+  const audio = voiceRemoteAudio.get(peerId);
+  if (audio) {
+    try { audio.pause(); } catch {}
+    audio.srcObject = null;
+    audio.remove();
+    voiceRemoteAudio.delete(peerId);
+  }
+  voicePendingCandidates.delete(peerId);
+}
+
+function stopDiscussionVoice() {
+  voiceGeneration += 1;
+  if (voiceLocalStream) {
+    voiceLocalStream.getTracks().forEach(track => {
+      try { track.stop(); } catch {}
+    });
+  }
+  voiceLocalStream = null;
+  for (const peerId of [...voicePeerConnections.keys()]) closeVoicePeer(peerId);
+  for (const audio of voiceRemoteAudio.values()) {
+    try { audio.pause(); } catch {}
+    audio.srcObject = null;
+    audio.remove();
+  }
+  voiceRemoteAudio.clear();
+  voicePendingCandidates.clear();
+  voiceOutbox = [];
+  voiceStartPromise = null;
+  voiceAutoAttemptKey = '';
+  voiceMuted = false;
+  voiceNeedsAudioGesture = false;
+  voiceStatus = 'Voice chat otomatis aktif selama diskusi.';
+}
+
+function sendVoiceSignal(targetId, signalKind, payload) {
+  const message = { type: 'voice_signal', targetId, signalKind, payload };
+  if (socket?.readyState === WebSocket.OPEN) {
+    try { socket.send(JSON.stringify(message)); return true; } catch {}
+  }
+  voiceOutbox.push(message);
+  if (voiceOutbox.length > 80) voiceOutbox.splice(0, voiceOutbox.length - 80);
+  return false;
+}
+
+function flushVoiceSignalOutbox() {
+  if (socket?.readyState !== WebSocket.OPEN || !voiceOutbox.length) return;
+  const pending = voiceOutbox.splice(0);
+  for (const message of pending) {
+    try { socket.send(JSON.stringify(message)); }
+    catch { voiceOutbox.unshift(message); break; }
+  }
+}
+
+async function flushVoiceCandidates(peerId, connection) {
+  const pending = voicePendingCandidates.get(peerId) || [];
+  voicePendingCandidates.delete(peerId);
+  for (const candidate of pending) {
+    try { await connection.addIceCandidate(candidate); } catch {}
+  }
+}
+
+async function createVoicePeer(peer, shouldOffer = false) {
+  const peerId = peer.id;
+  if (!voiceLocalStream || !peerId || peerId === roomState?.self?.id) return null;
+  const existing = voicePeerConnections.get(peerId);
+  if (existing) return existing;
+  if (typeof RTCPeerConnection !== 'function') {
+    voiceStatus = 'Browser ini belum mendukung voice chat WebRTC.';
+    refreshVoiceUI();
+    return null;
+  }
+  const connection = new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ]
+  });
+  voicePeerConnections.set(peerId, connection);
+  for (const track of voiceLocalStream.getAudioTracks()) connection.addTrack(track, voiceLocalStream);
+  connection.onicecandidate = event => {
+    if (event.candidate) sendVoiceSignal(peerId, 'candidate',
+      typeof event.candidate.toJSON === 'function' ? event.candidate.toJSON() : event.candidate);
+  };
+  connection.ontrack = event => {
+    let audio = voiceRemoteAudio.get(peerId);
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.className = 'voice-audio';
+      audio.dataset.peerId = peerId;
+      document.body.append(audio);
+      voiceRemoteAudio.set(peerId, audio);
+    }
+    audio.srcObject = event.streams?.[0] || new MediaStream([event.track]);
+    audio.play().then(() => {
+      voiceNeedsAudioGesture = false;
+      refreshVoiceUI();
+    }).catch(() => {
+      voiceNeedsAudioGesture = true;
+      voiceStatus = 'Ketuk Aktifkan Audio agar suara pemain lain terdengar.';
+      refreshVoiceUI();
+    });
+  };
+  connection.onconnectionstatechange = () => {
+    if (connection.connectionState === 'failed') {
+      voiceStatus = 'Koneksi suara ke ' + (peer.name || 'pemain') + ' gagal. Coba jaringan lain.';
+    } else {
+      const connected = [...voicePeerConnections.values()]
+        .filter(item => item.connectionState === 'connected').length;
+      if (connected) voiceStatus = 'Voice chat aktif · ' + connected + ' koneksi suara.';
+    }
+    refreshVoiceUI();
+  };
+  if (shouldOffer) {
+    const offer = await connection.createOffer();
+    await connection.setLocalDescription(offer);
+    sendVoiceSignal(peerId, 'offer', connection.localDescription);
+  }
+  return connection;
+}
+
+async function reconcileVoiceConnections() {
+  if (!voiceLocalStream || !discussionVoiceAllowed()) return;
+  const peers = (roomState.voicePeers || []).filter(item => item.id && item.id !== roomState.self.id);
+  const allowedIds = new Set(peers.map(item => item.id));
+  for (const peerId of [...voicePeerConnections.keys()]) {
+    if (!allowedIds.has(peerId)) closeVoicePeer(peerId);
+  }
+  for (const peer of peers) {
+    if (voicePeerConnections.has(peer.id)) continue;
+    const shouldOffer = String(roomState.self.id).localeCompare(String(peer.id)) < 0;
+    try { await createVoicePeer(peer, shouldOffer); } catch {
+      closeVoicePeer(peer.id);
+      voiceStatus = 'Tidak berhasil menghubungkan suara dengan ' + peer.name + '.';
+      refreshVoiceUI();
+    }
+  }
+  flushVoiceSignalOutbox();
+}
+
+async function startDiscussionVoice(manual = false) {
+  if (!discussionVoiceAllowed()) return false;
+  if (voiceLocalStream) {
+    await reconcileVoiceConnections();
+    return true;
+  }
+  if (voiceStartPromise) return voiceStartPromise;
+  const generation = voiceGeneration;
+  voiceStatus = 'Meminta izin mikrofon…';
+  refreshVoiceUI();
+  let pending;
+  pending = (async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Akses mikrofon tidak tersedia. Gunakan browser HTTPS yang mendukung mikrofon.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false
+      });
+      if (generation !== voiceGeneration || !discussionVoiceAllowed()) {
+        stream.getTracks().forEach(track => track.stop());
+        return false;
+      }
+      voiceLocalStream = stream;
+      voiceMuted = false;
+      for (const track of stream.getAudioTracks()) track.enabled = true;
+      voiceStatus = 'Mikrofon aktif · menghubungkan pemain diskusi…';
+      refreshVoiceUI();
+      await reconcileVoiceConnections();
+      return true;
+    } catch (error) {
+      voiceStatus = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError'
+        ? 'Izin mikrofon belum diberikan. Izinkan mikrofon, lalu coba lagi.'
+        : error?.message || 'Mikrofon tidak dapat diaktifkan.';
+      refreshVoiceUI();
+      return false;
+    } finally {
+      if (voiceStartPromise === pending) voiceStartPromise = null;
+      refreshVoiceUI();
+    }
+  })();
+  voiceStartPromise = pending;
+  return pending;
+}
+
+function syncDiscussionVoice() {
+  if (!discussionVoiceAllowed()) {
+    if (voiceLocalStream || voicePeerConnections.size || voiceStartPromise) stopDiscussionVoice();
+    return;
+  }
+  const key = roomState.room.code + ':' + roomState.room.round;
+  if (voiceLocalStream) {
+    voiceAutoAttemptKey = key;
+    reconcileVoiceConnections().catch(() => {});
+    return;
+  }
+  if (voiceStartPromise || voiceAutoAttemptKey === key) return;
+  voiceAutoAttemptKey = key;
+  startDiscussionVoice(false).catch(() => {});
+}
+
+function toggleVoiceMic() {
+  if (!voiceLocalStream) {
+    startDiscussionVoice(true).catch(() => {});
+    return;
+  }
+  voiceMuted = !voiceMuted;
+  for (const track of voiceLocalStream.getAudioTracks()) track.enabled = !voiceMuted;
+  voiceStatus = voiceMuted ? 'Mikrofon dimatikan.' : 'Mikrofon aktif.';
+  refreshVoiceUI();
+}
+
+async function unlockRemoteAudio() {
+  let failed = false;
+  for (const audio of voiceRemoteAudio.values()) {
+    try { await audio.play(); } catch { failed = true; }
+  }
+  voiceNeedsAudioGesture = failed;
+  if (!failed) voiceStatus = 'Audio pemain lain aktif.';
+  refreshVoiceUI();
+}
+
+async function handleVoiceSignal(message) {
+  if (!discussionVoiceAllowed() || !message?.fromId) return;
+  if (!voiceLocalStream) {
+    await startDiscussionVoice(true);
+    if (!voiceLocalStream) return;
+  }
+  const peer = (roomState.voicePeers || []).find(item => item.id === message.fromId)
+    || { id: message.fromId, name: message.fromName || 'Pemain' };
+  let connection = voicePeerConnections.get(peer.id);
+  if (!connection) connection = await createVoicePeer(peer, false);
+  if (!connection) return;
+
+  if (message.signalKind === 'offer') {
+    await connection.setRemoteDescription(message.payload);
+    await flushVoiceCandidates(peer.id, connection);
+    const answer = await connection.createAnswer();
+    await connection.setLocalDescription(answer);
+    sendVoiceSignal(peer.id, 'answer', connection.localDescription);
+  } else if (message.signalKind === 'answer') {
+    await connection.setRemoteDescription(message.payload);
+    await flushVoiceCandidates(peer.id, connection);
+  } else if (message.signalKind === 'candidate') {
+    if (connection.remoteDescription) {
+      try { await connection.addIceCandidate(message.payload); } catch {}
+    } else {
+      const pending = voicePendingCandidates.get(peer.id) || [];
+      pending.push(message.payload);
+      voicePendingCandidates.set(peer.id, pending.slice(-40));
+    }
+  }
 }
 
 function roleLabel(role) {
@@ -1378,6 +1688,7 @@ function renderModeratorMorning(parent) {
     addText(parent, 'div', 'winner', winnerLabel(room.winner));
     return;
   }
+  renderDiscussionTools(parent);
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', room.discussionEndsAt);
   const votingButton = button('Voting', 'primary wide', () => sendAction('start_voting'),
     Boolean(room.discussionEndsAt && room.discussionEndsAt > Date.now()));
@@ -1386,35 +1697,8 @@ function renderModeratorMorning(parent) {
 }
 
 function renderModeratorDiscussion(parent) {
-  phaseHeader(parent, 'FASE DISKUSI', 'Diskusi tatap muka', 'Diskusi berlangsung offline tanpa batas waktu. Moderator menentukan sendiri kapan voting dimulai.');
-  const panel = node('div', 'discussion-mode-panel');
-  addText(panel, 'h3', '', 'Diskusi offline');
-  addText(panel, 'div', 'notice success', 'Mode aktif: diskusi tatap muka. Tidak ada tautan meeting dan tidak ada hitung mundur.');
-  parent.append(panel);
-
-  const botMessages = Array.isArray(roomState.chat) ? roomState.chat : [];
-  if (botMessages.length) {
-    const log = node('section', 'bot-discussion-log');
-    addText(log, 'div', 'eyebrow-small', 'SIMULASI DISKUSI BOT');
-    addText(log, 'h3', '', 'Komentar bot (simulasi)');
-    addText(log, 'p', 'hint', 'Komentar otomatis berbasis role dan petunjuk permainan. Tidak ada timer; moderator bebas melanjutkan kapan saja.');
-    const box = node('div', 'chat-box');
-    const list = node('div', 'chat-list');
-    list.setAttribute('role', 'log');
-    list.setAttribute('aria-live', 'polite');
-    for (const message of botMessages) {
-      const item = node('article', 'chat-message');
-      const author = node('b', '', message.name || 'Bot');
-      author.append(node('span', 'chat-bot-badge', 'BOT'));
-      item.append(author);
-      item.append(node('p', '', message.text || ''));
-      list.append(item);
-    }
-    box.append(list);
-    log.append(box);
-    parent.append(log);
-  }
-
+  phaseHeader(parent, 'FASE DISKUSI', 'Diskusi pemain', 'Chat dan voice chat aktif selama fase diskusi. Moderator menentukan kapan voting dimulai.');
+  renderDiscussionTools(parent);
   parent.append(button('Lanjut ke Voting', 'primary wide', () => sendAction('start_voting')));
 }
 
@@ -1615,9 +1899,98 @@ function renderPlayerNight(parent) {
 
 function renderPlayerDiscussion(parent) {
   renderPublicResult(parent);
-  addText(parent, 'div', 'notice success', 'Diskusi tatap muka sedang berlangsung. Ikuti arahan moderator dan berdiskusilah bersama pemain lain.');
+  renderPrivateInspectionResult(parent);
+  addText(parent, 'div', 'notice success', 'Diskusi berlangsung. Chat dan voice chat aktif otomatis.');
+  renderDiscussionTools(parent);
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+}
+
+function renderDiscussionTools(parent) {
+  const self = roomState.self || {};
+  const canUseVoice = Boolean(self.isModerator || self.alive);
+  const canSendChat = Boolean(self.isModerator || self.alive);
+  const section = node('section', 'discussion-tools');
+  const voice = node('div', 'discussion-voice-panel');
+  addText(voice, 'div', 'eyebrow-small', 'VOICE CHAT · AUDIO SAJA');
+  addText(voice, 'h3', '', 'Suara diskusi');
+  const status = addText(voice, 'p', 'voice-status', voiceStatus);
+  status.id = 'voiceStatus';
+  const count = addText(voice, 'span', 'voice-peer-count', '0 pemain terhubung');
+  count.id = 'voicePeerCount';
+  const controls = node('div', 'voice-controls');
+  if (canUseVoice) {
+    const mic = button(
+      voiceLocalStream ? (voiceMuted ? 'Nyalakan Mikrofon' : 'Matikan Mikrofon') : 'Aktifkan Mikrofon',
+      'secondary',
+      toggleVoiceMic,
+      Boolean(voiceStartPromise)
+    );
+    mic.id = 'voiceMicToggle';
+    controls.append(mic);
+    const audio = button('Aktifkan Audio', 'secondary', unlockRemoteAudio, !voiceNeedsAudioGesture);
+    audio.id = 'voiceAudioUnlock';
+    if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
+    controls.append(audio);
+  } else {
+    addText(voice, 'p', 'hint', 'Voice chat hanya untuk pemain yang masih hidup dan moderator.');
+  }
+  voice.append(controls);
+  section.append(voice);
+
+  const chat = node('section', 'discussion-chat-panel');
+  addText(chat, 'div', 'eyebrow-small', 'CHAT DISKUSI');
+  const list = node('div', 'chat-list discussion-chat-list');
+  list.id = 'discussionChatList';
+  list.setAttribute('role', 'log');
+  list.setAttribute('aria-live', 'polite');
+  const messages = Array.isArray(roomState.chat) ? roomState.chat : [];
+  if (!messages.length) addText(list, 'p', 'hint', 'Belum ada pesan. Mulai diskusi di sini.');
+  for (const message of messages) {
+    const item = node('article', 'chat-message');
+    const author = node('b', '', message.name || 'Pemain');
+    if (message.isBot) author.append(node('span', 'chat-bot-badge', 'BOT'));
+    else if (message.isModerator) author.append(node('span', 'chat-bot-badge moderator-chat-badge', 'MOD'));
+    item.append(author);
+    const time = node('time', '', message.at
+      ? new Date(message.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      : '');
+    item.append(time);
+    item.append(node('p', '', message.text || ''));
+    list.append(item);
+  }
+  chat.append(list);
+  if (canSendChat) {
+    const form = node('form', 'chat-form discussion-chat-form');
+    form.id = 'discussionChatForm';
+    const input = node('input');
+    input.id = 'discussionChatInput';
+    input.type = 'text';
+    input.maxLength = 280;
+    input.autocomplete = 'off';
+    input.placeholder = 'Tulis pesan diskusi…';
+    input.setAttribute('aria-label', 'Pesan diskusi');
+    const submit = node('button', 'primary', 'Kirim');
+    submit.type = 'submit';
+    form.append(input, submit);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      const sent = await sendAction('send_discussion_chat', { text });
+      if (sent) {
+        const current = $('discussionChatInput');
+        if (current) { current.value = ''; current.focus(); }
+      }
+    });
+    chat.append(form);
+  } else {
+    addText(chat, 'p', 'hint', 'Kamu sudah tereliminasi. Chat hanya dapat dibaca.');
+  }
+  section.append(chat);
+  parent.append(section);
+  list.scrollTop = list.scrollHeight;
+  refreshVoiceUI();
 }
 
 function renderPrivateInspectionResult(parent) {
@@ -1643,6 +2016,7 @@ function renderSystemModeratorMorning(parent) {
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
   renderPrivateInspectionResult(parent);
+  renderDiscussionTools(parent);
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
@@ -1657,6 +2031,7 @@ function renderSystemModeratorVoteResult(parent) {
   parent.append(card);
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
+  renderPrivateInspectionResult(parent);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
 
@@ -1667,6 +2042,7 @@ function renderPlayerMorning(parent) {
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
   renderPrivateInspectionResult(parent);
+  renderDiscussionTools(parent);
   addText(parent, 'div', 'notice success', 'Waktu diskusi dimulai. Host membuka voting setelah hitung mundur selesai.');
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
@@ -1854,6 +2230,7 @@ function renderVictoryScreen(parent, moderatorView = false) {
     addText(screen, 'p', 'victory-special-note', 'Pasangan Cupid: ' + room.lovers.join(' & '));
   }
   if (room.publicResult) renderPublicResult(screen);
+  renderPrivateInspectionResult(screen);
   if (moderatorView && room.lastResult) renderModeratorEventReport(screen, room.lastResult);
 
   const roster = node('section', 'final-roster');
