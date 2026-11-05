@@ -19,6 +19,9 @@ const ROLE_INFO = {
   detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
   mayor: ['Mayor', 'Suara voting bernilai 2.', 'Saat voting pilih 1 pemain seperti biasa. Tidak ada aksi malam.'],
   jester: ['Jester', 'Menang sendiri jika dieliminasi melalui voting.', 'Harus gugur lewat voting; serangan malam atau tembakan tidak memicu kemenangan.'],
+  priest: ['Priest', 'Memiliki satu berkah perlindungan untuk satu pemain.', 'Sekali per game, lindungi satu pemain dari serangan Werewolf. Boleh melindungi diri sendiri. Jika berkah sudah dipakai, jawab perhitungan pada malam berikutnya.'],
+  vigilante: ['Vigilante', 'Memiliki satu tembakan untuk mengeliminasi pemain lain.', 'Sekali per game, tembak satu pemain hidup pada malam hari. Tidak dapat menargetkan diri sendiri. Jika tembakan sudah dipakai, jawab perhitungan pada malam berikutnya.'],
+  mason: ['Mason', 'Mengenali anggota Mason lain yang masih hidup.', 'Mason dapat melihat nama sesama Mason. Tidak memiliki aksi khusus malam; jawab perhitungan seperti Warga Desa.'],
   moderator: ['Moderator', 'Mengendalikan fase dan hasil permainan.', 'Mode Host/Acak: moderator tidak menerima kartu. Mode Sistem: host tetap bermain.']
 };
 const EXTRA_ROLE_OPTIONS = [
@@ -30,7 +33,10 @@ const EXTRA_ROLE_OPTIONS = [
   ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
   ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
-  ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.']
+  ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.'],
+  ['priest', 'Priest', 'Sekali per game melindungi satu pemain dari serangan Werewolf.'],
+  ['vigilante', 'Vigilante', 'Sekali per game menembak satu pemain pada malam hari.'],
+  ['mason', 'Mason', 'Mengenali sesama Mason; malam tanpa aksi khusus diisi perhitungan.']
 ];
 const ROLE_CONFIG_GROUPS = [
   { key: 'wolves', label: 'KUBU WEREWOLF', roles: [
@@ -39,7 +45,8 @@ const ROLE_CONFIG_GROUPS = [
   { key: 'village', label: 'KUBU DESA', roles: [
     ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
     ['witch', 'Witch'], ['hunter', 'Hunter'], ['cupid', 'Cupid'],
-    ['detective', 'Detective'], ['mayor', 'Mayor'], ['villager', 'Warga Desa']
+    ['detective', 'Detective'], ['mayor', 'Mayor'], ['priest', 'Priest'],
+    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['villager', 'Warga Desa']
   ]},
   { key: 'neutral', label: 'KUBU NETRAL', roles: [
     ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
@@ -47,7 +54,8 @@ const ROLE_CONFIG_GROUPS = [
 ];
 const ROLE_COUNT_DEFAULTS = {
   wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
-  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0, jester: 0, villager: 2,
+  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+  priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
   moderator: 0
 };
 let session = null;
@@ -1056,9 +1064,7 @@ function renderModeratorDashboard(parent) {
     const progress = node('div', 'moderator-dashboard-progress');
     const heading = node('div', 'moderator-dashboard-progress-heading');
     addText(heading, 'b', '', task);
-    addText(heading, 'span', '', done + ' / ' + required + ' selesai'
-      + (room.phase === 'night' && room.nightActionsAutoPassed
-        ? ' · ' + room.nightActionsAutoPassed + ' otomatis' : ''));
+    addText(heading, 'span', '', done + ' / ' + required + ' selesai');
     const track = node('div', 'moderator-progress-track');
     track.setAttribute('role', 'progressbar');
     track.setAttribute('aria-valuemin', '0');
@@ -1096,7 +1102,7 @@ function renderPlayers() {
     else if (moderator && roomState.room.phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
     else if (moderator && roomState.room.phase === 'night') {
       details.push(player.hasActed
-        ? (player.nightActionAutomatic ? 'Dihitung otomatis' : 'Aksi selesai')
+        ? (player.nightActionType === 'villager_math' ? 'Perhitungan selesai' : 'Aksi selesai')
           + (player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
         : 'Menunggu aksi');
     } else if (moderator && roomState.room.phase === 'voting') {
@@ -1259,15 +1265,26 @@ function appendRoleDetails(parent, info, prefix) {
   parent.append(details);
 }
 
+function renderFactionBadge(parent, role) {
+  const faction = factionForRole(role);
+  const label = faction === 'moderator' ? 'PENGATUR PERMAINAN' : factionLabel(faction);
+  addText(parent, 'span', 'role-faction-badge faction-' + faction, label);
+}
+
 function renderRoleCard(parent, role, eyebrow = 'KARTU RAHASIA KAMU') {
   const info = ROLE_INFO[role] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
   const card = node('div', 'role-card');
   card.dataset.role = role;
+  renderFactionBadge(card, role);
   const art = node('div', 'role-art');
   const image = node('img');
   image.src = './assets/illustrations/role-' + (ROLE_INFO[role] ? role : 'villager') + '.svg';
-  image.alt = 'Ilustrasi peran ' + info[0];
+  image.alt = 'Potret ' + info[0];
   image.loading = 'eager';
+  image.onerror = () => {
+    image.onerror = null;
+    image.src = './assets/illustrations/role-villager.svg';
+  };
   art.append(image);
   card.append(art);
   addText(card, 'div', 'eyebrow-small', eyebrow);
@@ -1289,11 +1306,16 @@ function renderPlayerRoleReminder(parent) {
   addText(back, 'span', 'role-flip-title', 'THE VILLAGE');
   addText(back, 'span', 'role-flip-subtitle', 'TEKAN UNTUK MELIHAT ROLE');
   const front = node('span', 'role-flip-face role-flip-front');
+  renderFactionBadge(front, role);
   const art = node('span', 'role-flip-art');
   const image = node('img');
   image.src = './assets/illustrations/role-' + (ROLE_INFO[role] ? role : 'villager') + '.svg';
-  image.alt = '';
+  image.alt = 'Potret ' + info[0];
   image.loading = 'eager';
+  image.onerror = () => {
+    image.onerror = null;
+    image.src = './assets/illustrations/role-villager.svg';
+  };
   art.append(image);
   front.append(art);
   addText(front, 'span', 'role-flip-eyebrow', 'KARTU RAHASIA KAMU');
@@ -1521,6 +1543,7 @@ function renderLivingPlayers(parent) {
 function renderPlayerPhase(parent) {
   if (systemModeratorEnabled() && isHost()) renderModeratorDashboard(parent);
   if (roomState.room.phase !== 'lobby') renderLivingPlayers(parent);
+  renderMasonCircle(parent);
   const loverNames = roomState.self?.loverNames || [];
   if (loverNames.length === 2) {
     const message = roomState.self.role === 'cupid'
@@ -1681,10 +1704,9 @@ function renderModeratorRoleDraw(parent) {
 }
 
 function renderModeratorNight(parent) {
-  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Pemain tanpa kemampuan malam otomatis dihitung selesai.');
+  phaseHeader(parent, 'MALAM ' + roomState.room.round, 'Menunggu aksi malam', 'Role tanpa kemampuan khusus menyelesaikan perhitungan seperti Warga Desa.');
   const room = roomState.room;
-  addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah dihitung.'
-    + (room.nightActionsAutoPassed ? ' (' + room.nightActionsAutoPassed + ' otomatis)' : ''));
+  addText(parent, 'div', 'notice', room.nightActionsSubmitted + ' / ' + room.nightActionsRequired + ' pemain sudah menyelesaikan aksi.');
   const complete = room.nightActionsSubmitted >= room.nightActionsRequired;
   if (complete && room.nightRevealEndsAt) {
     addText(parent, 'div', 'notice success', 'Semua aksi selesai. Hasil penerawangan Seer sudah dikirim secara privat. Pagi tiba dalam 10 detik.');
@@ -1767,6 +1789,35 @@ function renderPlayerRoleDraw(parent) {
   }
 }
 
+function renderNightMath(parent, title = 'Perhitungan malam') {
+  const prompt = roomState.self?.villagerPrompt;
+  addText(parent, 'h3', '', title);
+  if (!prompt || !Array.isArray(prompt.options) || prompt.options.length !== 4) {
+    addText(parent, 'div', 'notice warning', 'Soal perhitungan belum tersedia. Tunggu sinkronisasi room.');
+    return;
+  }
+  addText(parent, 'p', 'hint', 'Jawab satu soal untuk menyelesaikan giliran malam. Hasil jawaban tidak mengubah role atau voting.');
+  addText(parent, 'div', 'villager-math-question', prompt.question + ' = ?');
+  const answers = node('div', 'action-grid villager-math-options');
+  prompt.options.forEach((value, index) => {
+    answers.append(button(String.fromCharCode(65 + index) + ' · ' + value, 'action-button', () =>
+      sendAction('night_action', { mode: 'villager_math', promptId: prompt.id, choiceIndex: index })
+    ));
+  });
+  parent.append(answers);
+}
+
+function renderMasonCircle(parent) {
+  if (roomState.self?.role !== 'mason' || !roomState.self.alive) return;
+  const names = Array.isArray(roomState.self.masonNames) ? roomState.self.masonNames : [];
+  const panel = node('section', 'mason-circle-panel');
+  addText(panel, 'b', '', 'LINGKARAN MASON');
+  addText(panel, 'p', '', names.length
+    ? 'Sesama Mason yang masih hidup: ' + names.join(', ')
+    : 'Kamu satu-satunya Mason yang masih hidup.');
+  parent.append(panel);
+}
+
 function renderPlayerNight(parent) {
   const self = roomState.self;
   if (!self.alive) {
@@ -1803,43 +1854,18 @@ function renderPlayerNight(parent) {
     return;
   }
   if (self.hasActed) {
-    addText(parent, 'div', 'notice success', self.nightActionAutomatic
-      ? 'Role kamu tidak memiliki aksi malam. Sistem sudah menghitungmu selesai otomatis.'
-      : 'Aksimu sudah dikirim. Tunggu moderator.');
+    addText(parent, 'div', 'notice success', self.nightActionType === 'villager_math'
+      ? 'Perhitungan malam sudah dikirim. Tunggu moderator.'
+      : 'Aksi khususmu sudah dikirim. Tunggu moderator.');
     renderPrivateInspectionResult(parent);
     return;
   }
-  const roleAbility = {
-    seer: 'seerInspection', doctor: 'doctorProtection', bodyguard: 'bodyguardSacrifice',
-    cupid: 'cupidBond', detective: 'detectiveInspection'
-  };
-  if (self.role === 'villager') {
-    const prompt = self.villagerPrompt;
-    addText(parent, 'h3', '', 'Tantangan malam · Penjumlahan');
-    if (!prompt || !Array.isArray(prompt.options) || prompt.options.length !== 4) {
-      addText(parent, 'div', 'notice warning', 'Soal malam belum tersedia. Tunggu sinkronisasi room.');
-      return;
-    }
-    addText(parent, 'p', 'hint', 'Selesaikan soal rahasia berikut. Pilih satu dari empat jawaban; hasilnya tidak memengaruhi kemenangan atau voting.');
-    addText(parent, 'div', 'villager-math-question', prompt.question + ' = ?');
-    const answers = node('div', 'action-grid villager-math-options');
-    prompt.options.forEach((value, index) => {
-      answers.append(button(String.fromCharCode(65 + index) + ' · ' + value, 'action-button', () =>
-        sendAction('night_action', { mode: 'villager_math', promptId: prompt.id, choiceIndex: index })
-      ));
-    });
-    parent.append(answers);
-    return;
-  }
-  if (['hunter', 'mayor', 'jester'].includes(self.role)
-    || (roleAbility[self.role] && !abilityOn(roleAbility[self.role]))
-    || (self.role === 'guardian_angel' && !abilityOn('guardianProtection') && !abilityOn('guardianBonus'))
-    || (self.role === 'cupid' && (roomState.room.round > 1 || !abilityOn('cupidBond') || self.cupidUsed))) {
-    parent.append(button('Saya sudah siap', 'primary wide', () => sendAction('night_pass')));
+  if (self.nightActionMode === 'math') {
+    renderNightMath(parent);
     return;
   }
   const targets = (roomState.targets || []).filter(target => {
-    if (target.id === self.id) return false;
+    if (target.id === self.id && !['doctor', 'priest'].includes(self.role)) return false;
     if (['wolf', 'alpha_wolf'].includes(self.role) && (roomState.wolfTeam || []).includes(target.name)) return false;
     return true;
   });
@@ -1849,19 +1875,27 @@ function renderPlayerNight(parent) {
     const grid = node('div', 'action-grid');
     for (const target of targets) grid.append(button('Serang · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
     parent.append(grid);
-  } else if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'].includes(self.role)) {
+  } else if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'].includes(self.role)) {
     const titles = {
       seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
       bodyguard: 'Jaga pemain',
-      guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan'
+      guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan',
+      priest: 'Gunakan satu berkah perlindungan',
+      vigilante: 'Gunakan satu tembakan'
     };
     addText(parent, 'h3', '', titles[self.role]);
-    addText(parent, 'p', 'hint', 'Pilih nama pemain yang ingin kamu periksa atau lindungi. Aksi dikirim setelah satu pilihan ditekan.');
-    const actionVerb = self.role === 'seer' || self.role === 'detective' ? 'Periksa' : self.role === 'doctor' ? 'Lindungi' : self.role === 'bodyguard' ? 'Jaga' : 'Pilih';
+    addText(parent, 'p', 'hint', 'Pilih satu nama. Priest boleh melindungi diri sendiri; Vigilante harus memilih pemain lain.');
+    const actionVerb = self.role === 'seer' || self.role === 'detective' ? 'Periksa'
+      : self.role === 'doctor' || self.role === 'priest' ? 'Lindungi'
+        : self.role === 'bodyguard' ? 'Jaga'
+          : self.role === 'vigilante' ? 'Tembak' : 'Pilih';
     const grid = node('div', 'action-grid');
     for (const target of targets) grid.append(button(actionVerb + ' · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
     parent.append(grid);
     if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target pilihan terakhir: ' + self.guardianTargetName);
+    if (['priest', 'vigilante'].includes(self.role) && self.villagerPrompt) {
+      renderNightMath(parent, 'Simpan kemampuan · jawab perhitungan');
+    }
   } else if (self.role === 'witch') {
     const potions = self.witchPotions || { heal: false, poison: false };
     const attack = self.witchAttack || { ready: false, targetName: null, tied: false };
@@ -1883,7 +1917,7 @@ function renderPlayerNight(parent) {
       for (const target of targets) grid.append(button('Racun · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id, mode: 'poison' })));
       parent.append(grid);
     }
-    parent.append(button('Lewati penggunaan ramuan', 'secondary wide', () => sendAction('night_pass')));
+    if (self.villagerPrompt) renderNightMath(parent, 'Tidak memakai ramuan · jawab perhitungan');
   } else if (self.role === 'cupid' && roomState.room.round === 1) {
     addText(parent, 'h3', '', 'Hubungkan dua pemain');
     addText(parent, 'p', 'hint', 'Tekan dua nama yang berbeda. Cupid tidak dapat memilih dirinya sendiri; role kedua pemain tetap rahasia.');
@@ -2095,6 +2129,7 @@ function renderHunterShot(parent) {
 }
 
 function factionForRole(role) {
+  if (role === 'moderator') return 'moderator';
   if (['wolf', 'alpha_wolf'].includes(role)) return 'wolves';
   if (['jester', 'guardian_angel'].includes(role)) return 'neutral';
   return 'village';
@@ -2104,7 +2139,8 @@ function factionLabel(faction) {
   return ({
     wolves: 'KUBU WEREWOLF',
     village: 'PENDUDUK DESA',
-    neutral: 'KUBU NETRAL'
+    neutral: 'KUBU NETRAL',
+    moderator: 'PENGATUR PERMAINAN'
   })[faction] || 'KUBU TIDAK DIKETAHUI';
 }
 
