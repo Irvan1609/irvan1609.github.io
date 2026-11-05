@@ -758,3 +758,14 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .mason-circle-panel{display:grid;gap:5px;margin:0 0 12px;padding:11px 13px;border:1px solid #3d76b5;border-radius:12px;background:linear-gradient(135deg,#142d4d,#173b62);color:#edf6ff}
 .mason-circle-panel b{font-size:10px;letter-spacing:.12em;color:#a9d3ff}
 .mason-circle-panel p{margin:0;font-size:12px;line-height:1.45}
+
+/* Keep the revealed faction and portrait fully visible on compact phones. */
+.role-flip-face{gap:6px;padding:16px}
+.role-flip-art{width:125px;height:105px}
+.role-flip-description{max-width:235px;font-size:9px;line-height:1.4}
+@media(max-width:430px){
+  .role-flip-card{height:330px}
+  .role-flip-face{gap:5px;padding:14px}
+  .role-flip-art{width:112px;height:94px}
+  .role-flip-description{font-size:8.5px;line-height:1.35}
+}
