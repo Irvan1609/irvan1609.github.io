@@ -743,3 +743,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Perbaikan validasi awal, 6 November 2026:** run GitHub Actions pertama menemukan sisa operator ternary pada snapshot chat setelah batas fase dihapus; diperbaiki sebelum staging deployment. Tampilan pemain yang sementara digantikan BOT juga tetap diarahkan ke layar pemenang saat game selesai.
+
+
+- **Koreksi kontrak UI:** tombol moderator kini memakai aksi server `skip_missing_night`, bukan `resolve_night` dengan force. Pemeriksaan statis diselaraskan dengan kontrak baru.
