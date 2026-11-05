@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-production2">
+  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-qrscan1">
 </head>
 <body>
   <header class="subweb-header">
@@ -40,6 +40,7 @@
           <label>Kode room
             <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
           </label>
+          <button id="scanQrButton" class="secondary wide scan-qr-button" type="button">Scan QR Undangan</button>
           <button class="secondary wide" id="joinButton" type="submit">Gabung Room</button>
           <p class="hint">Masukkan kode room yang dibagikan host.</p>
         </form>
@@ -99,6 +100,21 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261105-werewolf-production2"></script>
+  <dialog id="scanQrDialog" class="scan-qr-dialog" aria-labelledby="scanQrTitle">
+    <div class="scan-qr-content">
+      <div class="invite-dialog-heading">
+        <div><small>GABUNG ROOM</small><h2 id="scanQrTitle">Scan QR Undangan</h2></div>
+        <button id="closeQrScanner" class="invite-dialog-close" type="button" aria-label="Tutup pemindai">×</button>
+      </div>
+      <div class="scan-qr-video-wrap">
+        <video id="qrScannerVideo" class="scan-qr-video" autoplay muted playsinline></video>
+        <div class="scan-qr-frame" aria-hidden="true"></div>
+      </div>
+      <p id="qrScannerStatus" class="scan-qr-status" role="status" aria-live="polite">Siapkan kamera untuk memindai QR undangan.</p>
+      <canvas id="qrScannerCanvas" class="hidden" aria-hidden="true"></canvas>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js?v=20261105-werewolf-qrscan1"></script>
 </body>
 </html>
