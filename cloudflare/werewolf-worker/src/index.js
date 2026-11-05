@@ -1042,7 +1042,7 @@ export class WerewolfRoom {
       let text;
       const actionReport = Array.isArray(room.lastResult?.actionReport) ? room.lastResult.actionReport : [];
       const ownAction = actionReport.find(item =>
-        String(item.actor || '').split(/,\\s*/).includes(bot.name)
+        String(item.actor || '').split(/,\s*/).includes(bot.name)
       );
       if (['seer', 'detective'].includes(bot.role) && clue) {
         const faction = bot.role === 'detective'
@@ -1050,9 +1050,9 @@ export class WerewolfRoom {
           : (clue.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf');
         text = 'Tadi malam aku memeriksa ' + clue.playerName + '. Hasilnya ' + faction + '. Kita perlu membahas temuan ini.';
       } else if (ownAction) {
-        let actionText = String(ownAction.action || 'menjalankan kemampuan').replace(/^Pilihan:\\s*/, '');
+        let actionText = String(ownAction.action || 'menjalankan kemampuan').replace(/^Pilihan:\s*/, '');
         if (ownAction.role === 'Werewolf') {
-          const individual = actionText.split(/;\\s*/).find(item => item.startsWith(bot.name + ' →'));
+          const individual = actionText.split(/;\s*/).find(item => item.startsWith(bot.name + ' →'));
           if (individual) actionText = individual;
           text = 'Tadi malam aku ikut menentukan sasaran serangan: ' + actionText.replace(bot.name + ' → ', '') + '. Aku ingin mendengar apakah ada yang melihat hal mencurigakan.';
         } else if (ownAction.role === 'Reviver') {
@@ -1530,8 +1530,10 @@ export class WerewolfRoom {
 
   runBotDawnActions(room) {
     room.dawnActions = room.dawnActions || {};
-    for (const actor of this.dawnActors(room).filter(item => item.isBot)) {
-      if (room.dawnActions[actor.id]) continue;
+    let safety = room.players.length + 1;
+    while (safety-- > 0) {
+      const actor = this.dawnActors(room).find(item => item.isBot && !room.dawnActions?.[item.id]);
+      if (!actor) break;
       if (actor.role === 'hunter') {
         const alive = room.players.filter(item => item.alive);
         const wolves = alive.filter(item => isWolf(item.role));
@@ -1592,7 +1594,7 @@ export class WerewolfRoom {
   resolveSystemDawnIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'dawn') return;
     const actors = this.dawnActors(room);
-    if (actors.every(item => Boolean(room.dawnActions?.[item.id]))) this.advanceDawn(room, now);
+    if (actors.length > 0 && actors.every(item => Boolean(room.dawnActions?.[item.id]))) this.advanceDawn(room, now);
   }
 
   advanceDawn(room, now) {
@@ -1818,7 +1820,12 @@ export class WerewolfRoom {
       room.phase = 'lobby';
       room.round = 0;
       room.botDiscussionRound = null;
+      room.nightEndsAt = null;
       room.nightRevealEndsAt = null;
+      room.dawnEndsAt = null;
+      room.dawnReturnPhase = null;
+      room.dawnActions = {};
+      room.resultEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
       room.activeModeratorMode = null;
@@ -1833,6 +1840,7 @@ export class WerewolfRoom {
         item.hasDrawn = false;
         item.suspicionTargetId = null;
         item.hunterUsed = false;
+        item.reviverUsed = false;
         item.priestUsed = false;
         item.vigilanteUsed = false;
       }
@@ -1962,6 +1970,12 @@ export class WerewolfRoom {
       });
       room.round = 1;
       room.botDiscussionRound = null;
+      room.nightEndsAt = null;
+      room.nightRevealEndsAt = null;
+      room.dawnEndsAt = null;
+      room.dawnReturnPhase = null;
+      room.dawnActions = {};
+      room.resultEndsAt = null;
       room.nightSkippedPlayerIds = [];
       room.phase = 'role_draw';
       room.roleDrawEndsAt = now + Number(room.settings?.timers?.roleDrawSeconds ?? 20) * 1000;
@@ -1977,6 +1991,7 @@ export class WerewolfRoom {
       room.additionalWinners = [];
       room.players.forEach(item => {
         item.hunterUsed = false;
+        item.reviverUsed = false;
         item.priestUsed = false;
         item.vigilanteUsed = false;
         if (item.role === 'witch') room.witchPotions[item.id] = {
