@@ -475,9 +475,9 @@ await submitVillagerMath(systemRoom, systemTokens[3]);
 await submitVillagerMath(systemRoom, systemTokens[4]);
 await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'night', 'System moderator waits for the private Seer reveal window before morning.');
-assert.ok(systemState.nightRevealEndsAt);
-const systemNightDeadline = systemState.nightRevealEndsAt;
+assert.equal(systemState.phase, 'night', 'System moderator keeps the midnight choice window open until its timer ends.');
+assert.equal(systemState.nightRevealEndsAt, null);
+const systemNightDeadline = systemState.nightEndsAt;
 const realNowAfterSystemNight = Date.now;
 try {
   Date.now = () => systemNightDeadline + 1;
@@ -486,7 +486,21 @@ try {
   Date.now = realNowAfterSystemNight;
 }
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'morning', 'System moderator moves to morning automatically after the 10-second Seer reveal.');
+assert.ok(systemState.nightRevealEndsAt, 'The private inspection reveal starts after midnight expires.');
+const systemRevealDeadline = systemState.nightRevealEndsAt;
+try {
+  Date.now = () => systemRevealDeadline + 1;
+  await systemRoom.alarm();
+} finally {
+  Date.now = realNowAfterSystemNight;
+}
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'dawn', 'System moderator automatically enters Subuh after the private reveal.');
+systemState.dawnEndsAt = Date.now() - 1;
+await systemRoom.saveRoom(systemState);
+await systemRoom.alarm();
+systemState = await systemRoom.loadRoom();
+assert.equal(systemState.phase, 'morning', 'System moderator automatically enters Pagi after Subuh.');
 assert.ok(systemState.discussionEndsAt);
 assert.match(systemState.lastResult.message, /perlindungan/);
 const systemMorningView = (await payload(await systemRoom.fetch(
