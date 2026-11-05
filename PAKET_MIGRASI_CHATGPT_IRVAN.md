@@ -787,3 +787,13 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42076337869` sukses; `Deploy Werewolf Room API` run `42076337832` sukses. Tes UI, backend, aturan role, privasi, build, health check, dan smoke-check asset staging lulus.
 - **URL staging:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
 - **Produksi:** branch `master` tidak diubah.
+
+
+### 2026-11-06 — Batas 20 detik pembukaan kartu dan dering mulai permainan
+
+- **Waktu pembukaan kartu:** saat permainan dimulai, server menetapkan `roleDrawEndsAt` tepat 20 detik ke depan. Hitung mundur terlihat di layar pemain dan moderator.
+- **Perpindahan otomatis:** Durable Object alarm memulai fase malam ketika 20 detik habis. Host/moderator dapat memulai malam lebih awal setelah seluruh kartu dibuka. Pada mode moderator Sistem, malam juga dimulai lebih awal bila seluruh pemain sudah membuka kartu.
+- **Pemain terlambat:** kartu yang belum dibuka tidak pernah ditandai seolah-olah sudah dilihat. Pemain tetap dapat membuka kartu rahasianya sendiri pada fase malam/siang setelah batas waktu. Snapshot hanya menyatakan bahwa pemain memiliki kartu; isi role tetap null sampai pemain menekan tombol buka kartu.
+- **Dering:** frontend memainkan tiga nada khusus saat transisi lobby ke pembagian kartu, berbeda dari suara lolongan malam dan kokok pagi. Suara memakai Web Audio setelah interaksi pengguna mengaktifkan AudioContext; kebijakan browser dapat tetap membatasi audio bila perangkat belum pernah berinteraksi atau tab dibisukan.
+- **UI:** hitung mundur 20 detik, indikator malam dimulai, tombol moderator aktif setelah semua kartu terbuka atau waktu habis, serta pengingat buka kartu bagi pemain terlambat.
+- **Pengujian:** regresi Worker membuktikan deadline 20 detik, auto-start malam, privasi kartu yang belum dibuka, dan pembukaan kartu pribadi setelah fase malam berjalan. Validasi UI dan seluruh rangkaian regresi lulus.

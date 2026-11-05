@@ -796,3 +796,9 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .system-host-player-note{margin:0;color:#b9c9dc;font-size:9px;line-height:1.45}
 .system-host-role-disclosure{background:#0c1725}
 @media(max-width:430px){.role-config-info-disclosure>summary{padding:6px;font-size:8px}.role-config-info-detail{grid-template-columns:56px minmax(0,1fr)}.role-config-info-detail-text{font-size:8px}.system-host-player-context{padding:9px}}
+
+
+/* Late role-card reveal remains available after the 20-second start window. */
+.pending-role-card{display:grid;gap:7px;margin:0 0 12px;padding:11px;border:1px solid #b78d43;border-radius:11px;background:linear-gradient(145deg,#382b18,#171d2b)}
+.pending-role-copy{margin:0;color:#f0dfbd;font-size:10px;line-height:1.5}
+.pending-role-card .primary{min-height:40px}
