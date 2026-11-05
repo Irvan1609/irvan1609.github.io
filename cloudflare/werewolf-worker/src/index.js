@@ -1101,6 +1101,15 @@ export class WerewolfRoom {
           selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
         }
         if (selected) room.guardianTargets[bot.id] = selected.id;
+      } else if (bot.role === 'priest') {
+        type = 'priest_protect';
+        selected = alive[randomInt(alive.length)] || null;
+        if (selected) bot.priestUsed = true;
+      } else if (bot.role === 'vigilante') {
+        type = 'vigilante_shot';
+        const candidates = alive.filter(player => player.id !== bot.id);
+        selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+        if (selected) bot.vigilanteUsed = true;
       } else if (bot.role === 'witch') {
         const potions = room.witchPotions?.[bot.id] || { heal: false, poison: false };
         const attack = wolfAttackSummary(room);
