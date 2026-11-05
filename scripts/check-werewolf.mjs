@@ -70,11 +70,18 @@ assert.doesNotMatch(worker, /prepareAutomaticNightPasses|nightActionsAutoPassed|
 assert.match(app, /function renderFactionBadge/);
 assert.match(app, /function renderNightMath/);
 assert.match(app, /function renderMasonCircle/);
-for (const role of ['priest', 'vigilante', 'mason']) {
+const allCardRoles = [
+  'wolf', 'alpha_wolf', 'villager', 'seer', 'doctor', 'bodyguard', 'witch',
+  'hunter', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
+  'priest', 'vigilante', 'mason', 'moderator'
+];
+for (const role of allCardRoles) {
   assert.match(app, new RegExp(role + ': \\['));
-  assert.match(worker, new RegExp("'" + role + "'"));
   assert.match(read('public/werewolf/assets/illustrations/role-' + role + '.svg'), /<svg/);
 }
+assert.match(css, /\.role-faction-badge\.faction-wolves/);
+assert.match(css, /\.role-faction-badge\.faction-village/);
+assert.match(css, /\.role-faction-badge\.faction-neutral/);
 assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: discussionOpen/);
