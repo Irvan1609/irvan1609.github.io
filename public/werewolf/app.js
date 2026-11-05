@@ -496,8 +496,8 @@ function refreshVoiceUI() {
   const mic = $('voiceMicToggle');
   if (mic) {
     mic.textContent = voiceLocalStream
-      ? (voiceMuted ? 'Nyalakan Mikrofon' : 'Matikan Mikrofon')
-      : voiceStartPromise ? 'Meminta Izin Mikrofon…' : 'Aktifkan Mikrofon';
+      ? (voiceMuted ? 'Nyalakan Mic' : 'Matikan Mic')
+      : voiceStartPromise ? 'Menghubungkan…' : 'Gabung Voice';
     mic.disabled = Boolean(voiceStartPromise) || !discussionVoiceAllowed();
   }
   const audio = $('voiceAudioUnlock');
@@ -2051,7 +2051,10 @@ function renderPlayerNight(parent) {
     return;
   }
 
-  if (self.nightActionMode === 'math' && !['witch', 'priest', 'vigilante'].includes(self.role)) {
+  if (self.nightActionMode === 'math'
+    && (!['witch', 'priest', 'vigilante'].includes(self.role)
+      || (self.role === 'priest' && self.priestUsed)
+      || (self.role === 'vigilante' && self.vigilanteUsed))) {
     renderNightMath(parent);
     return;
   }
@@ -2324,7 +2327,7 @@ function renderSystemModeratorMorning(parent) {
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
-  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+  // Hunter's last shot is available only during Subuh.
 }
 
 function renderSystemModeratorVoteResult(parent) {
