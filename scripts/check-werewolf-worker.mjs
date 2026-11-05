@@ -221,12 +221,8 @@ try {
   Date.now = realNowAfterNight;
 }
 saved = await room.loadRoom();
-assert.equal(saved.phase, 'dawn');
-saved.dawnEndsAt = Date.now() - 1;
-await room.saveRoom(saved);
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, moderatorToken)));
-saved = await room.loadRoom();
-assert.equal(saved.phase, 'morning');
+assert.equal(saved.phase, 'morning',
+  'When no Hunter or Reviver can act, Subuh is skipped instead of showing an empty phase.');
 assert.ok(saved.discussionEndsAt > Date.now()
   && saved.discussionEndsAt <= Date.now() + 30000,
   'Morning discussion must default to a 30-second timer after Subuh closes.');
@@ -496,12 +492,8 @@ try {
   Date.now = realNowAfterSystemNight;
 }
 systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'dawn', 'System moderator automatically enters Subuh after the private reveal.');
-systemState.dawnEndsAt = Date.now() - 1;
-await systemRoom.saveRoom(systemState);
-await systemRoom.alarm();
-systemState = await systemRoom.loadRoom();
-assert.equal(systemState.phase, 'morning', 'System moderator automatically enters Pagi after Subuh.');
+assert.equal(systemState.phase, 'morning',
+  'System mode skips Subuh automatically when no trigger ability is waiting.');
 assert.ok(systemState.discussionEndsAt);
 assert.match(systemState.lastResult.message, /perlindungan/);
 const systemMorningView = (await payload(await systemRoom.fetch(
@@ -1666,12 +1658,8 @@ try {
   Date.now = realNowForSeerDeath;
 }
 seerDeathState = await seerDeathRoom.loadRoom();
-assert.equal(seerDeathState.phase, 'dawn');
-seerDeathState.dawnEndsAt = Date.now() - 1;
-await seerDeathRoom.saveRoom(seerDeathState);
-await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, seerDeathCreated.token)));
-seerDeathState = await seerDeathRoom.loadRoom();
-assert.equal(seerDeathState.phase, 'morning');
+assert.equal(seerDeathState.phase, 'morning',
+  'No trigger role is present, so the game moves directly from reveal to morning.');
 assert.equal(seerDeathState.players[1].alive, false);
 const deadSeerView = (await payload(await seerDeathRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, seerDeathTokens[1])
@@ -2121,12 +2109,8 @@ const realNowForSkipPhase = Date.now;
 try { Date.now = () => skipPhaseState.nightRevealEndsAt + 1; await skipPhaseRoom.alarm(); }
 finally { Date.now = realNowForSkipPhase; }
 skipPhaseState = await skipPhaseRoom.loadRoom();
-assert.equal(skipPhaseState.phase, 'dawn');
-skipPhaseState.dawnEndsAt = Date.now() - 1;
-await skipPhaseRoom.saveRoom(skipPhaseState);
-await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'advance_dawn' }, skipPhaseCreated.token)));
-skipPhaseState = await skipPhaseRoom.loadRoom();
-assert.equal(skipPhaseState.phase, 'morning');
+assert.equal(skipPhaseState.phase, 'morning',
+  'Skipped night actions resolve before morning when no trigger role is waiting.');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
 const roleDrawTimeoutRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
@@ -2321,13 +2305,8 @@ autoState.nightRevealEndsAt = Date.now() - 1;
 await autoRoom.saveRoom(autoState);
 await autoRoom.alarm();
 autoState = await autoRoom.loadRoom();
-assert.equal(autoState.phase, 'dawn', 'Night results must transition into Subuh.');
-assert.ok(autoState.dawnEndsAt > Date.now());
-autoState.dawnEndsAt = Date.now() - 1;
-await autoRoom.saveRoom(autoState);
-await autoRoom.alarm();
-autoState = await autoRoom.loadRoom();
-assert.equal(autoState.phase, 'morning', 'Subuh must transition into Pagi automatically.');
+assert.equal(autoState.phase, 'morning',
+  'Night results move directly to Pagi when there are no Hunter or Reviver triggers.');
 assert.ok(autoState.discussionEndsAt > Date.now());
 autoState.discussionEndsAt = Date.now() - 1;
 await autoRoom.saveRoom(autoState);
