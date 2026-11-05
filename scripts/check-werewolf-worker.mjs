@@ -407,9 +407,10 @@ await submitVillagerMath(systemRoom, systemTokens[5]);
 systemState = await systemRoom.loadRoom();
 assert.equal(systemState.phase, 'night', 'System moderator waits for the private Seer reveal window before morning.');
 assert.ok(systemState.nightRevealEndsAt);
+const systemNightDeadline = systemState.nightRevealEndsAt;
 const realNowAfterSystemNight = Date.now;
 try {
-  Date.now = () => systemState.nightRevealEndsAt + 1;
+  Date.now = () => systemNightDeadline + 1;
   await systemRoom.alarm();
 } finally {
   Date.now = realNowAfterSystemNight;
