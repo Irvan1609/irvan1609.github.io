@@ -1501,7 +1501,8 @@ function eliminationCauseLabel(cause) {
     bodyguard_sacrifice: 'Pengorbanan Bodyguard',
     cupid_bond: 'Efek ikatan Cupid',
     vote: 'Hasil voting',
-    hunter: 'Tembakan Hunter'
+    hunter: 'Tembakan Hunter',
+    vigilante_shot: 'Tembakan Vigilante'
   })[cause] || 'Penyebab eliminasi';
 }
 
