@@ -2646,29 +2646,29 @@ function renderSystemNarrator(parent) {
 }
 
 function renderPlayerVoting(parent) {
-  const self = roomState.self;
-  phaseHeader(parent, 'SORE · TIANG EKSEKUSI', 'Waktu voting', 'Pilih satu pemain yang menurutmu harus digantung. Suara bersifat rahasia.');
+  const self = roomState.self || {};
+  const votingOpen = !roomState.room.votingEndsAt || Date.now() < Number(roomState.room.votingEndsAt);
+  phaseHeader(parent, 'SORE · TIANG EKSEKUSI', 'Pemungutan suara',
+    'Tentukan siapa yang akan dibawa ke tiang eksekusi. Pilihanmu rahasia dan dapat diganti sampai waktu habis.');
   appendPhaseCountdown(parent, 'SORE TERSISA', roomState.room.votingEndsAt);
   if (!self.alive) {
-    addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
+    addText(parent, 'div', 'notice warning', 'Kamu sudah gugur dan tidak dapat memberikan suara.');
     return;
   }
-  if (self.hasVoted) {
-    addText(parent, 'div', 'notice success', self.voteAbstain
-      ? 'Kamu memilih abstain. Hasil diumumkan otomatis saat waktu voting selesai.'
-      : 'Suaramu sudah masuk. Hasil diumumkan otomatis saat waktu voting selesai.');
-    return;
-  }
-  addText(parent, 'h3', '', 'Pilih pemain atau abstain');
-  addText(parent, 'div', 'notice', 'Voting bersifat rahasia. Role dan pilihan suara pemain lain tidak ditampilkan.');
-  parent.append(button('Tidak memilih siapa pun · Abstain', 'secondary wide', () => {
-    if (confirm('Kirim suara abstain?')) sendAction('cast_vote', { abstain: true });
-  }));
+  addText(parent, 'div', self.hasVoted ? 'notice success' : 'notice',
+    self.hasVoted ? 'Pilihan tersimpan. Kamu masih dapat mengubah suara sampai sore berakhir.'
+      : 'Belum memilih. Suara pemain lain tidak akan terlihat.');
+  addText(parent, 'h3', '', 'Pilih satu nama atau abstain');
+  const abstain = button(self.voteAbstain ? '✓ Abstain dipilih' : 'Abstain',
+    self.voteAbstain ? 'action-button selected' : 'secondary wide',
+    () => sendAction('cast_vote', { abstain: true }), !votingOpen);
+  parent.append(abstain);
   const grid = node('div', 'action-grid');
   for (const target of (roomState.targets || []).filter(item => item.id !== self.id)) {
-    grid.append(button('Pilih · ' + target.name, 'action-button', () => {
-      if (confirm('Berikan suara kepada ' + target.name + '?')) sendAction('cast_vote', { targetId: target.id });
-    }));
+    const selected = self.voteTargetId === target.id;
+    grid.append(button((selected ? '✓ Dipilih · ' : 'Pilih · ') + target.name,
+      selected ? 'action-button selected' : 'action-button',
+      () => sendAction('cast_vote', { targetId: target.id }), !votingOpen));
   }
   parent.append(grid);
 }
