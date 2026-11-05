@@ -2056,7 +2056,7 @@ assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aks
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
 const roleDrawTimeoutRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const roleDrawTimeoutCreated = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'CARD20', name: 'Card Timeout Host',
+  code: 'CARD28', name: 'Card Timeout Host',
   settings: { moderatorMode: 'host', roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
     hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
