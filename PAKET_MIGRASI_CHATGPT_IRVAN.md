@@ -755,3 +755,17 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Perbaikan persistensi chat:** riwayat chat lobby kini dipertahankan ketika host memulai permainan; riwayat baru dibersihkan saat room dikembalikan ke lobby untuk game berikutnya.
+
+
+### 2026-11-06 — Verifikasi dan deployment staging Werewolf Online/Offline
+
+- **Tujuan:** menyelesaikan implementasi mode Online/Offline, voice chat lintas fase, chat semua fase, status aktivitas pemain, kick/BOT takeover, transisi malam otomatis 10 detik, dan abstain dengan ambang eliminasi ketat >50%.
+- **Perbaikan backend:** riwayat chat lobby tidak lagi dihapus saat game dimulai; relay sinyal WebRTC kini diizinkan pada semua fase room Online (lobby, role_draw, night, morning, discussion, voting, result, finished), tetap ditolak pada mode Offline; komentar BOT dibuat idempoten per ronde agar tidak terduplikasi ketika fase morning berlanjut ke discussion.
+- **Perbaikan pengujian:** tes integrasi diperluas untuk menguji relay voice pada seluruh fase; fixture chat BOT diselaraskan dengan riwayat chat yang dipertahankan; kode room uji yang tidak sesuai alfabet room diperbaiki.
+- **File yang diubah pada rangkaian ini:** `cloudflare/werewolf-worker/src/index.js`, `scripts/check-werewolf-worker.mjs`, dan dokumen ini.
+- **Commit branch development:** `77ab69c842f71e7fff8b7793ff8c34c69bb8587a`.
+- **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42074900356` sukses; `Deploy Werewolf Room API` run `42074900324` sukses. Langkah validasi Worker, deploy Durable Object Worker, dan health check semuanya sukses. Health check mengembalikan `ok: true`, `realtime: true`, dan `storage: durable-objects`; smoke-check halaman staging, stylesheet, bundle aplikasi, dan ilustrasi juga sukses.
+- **URL staging aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
+- **Produksi:** branch `master` dan URL produksi `https://irvan1609.github.io/werewolf/` tidak diubah dalam rangkaian ini.
+- **Batas verifikasi:** pengujian otomatis dan deployment staging lulus, tetapi sesi bermain manual dari beberapa HP/browser, izin mikrofon, kualitas audio, dan koneksi WebRTC lintas jaringan belum diuji. Browser dapat meminta izin mikrofon dan dapat memerlukan tindakan pengguna untuk mengaktifkan audio; konfigurasi STUN saja juga tidak menjamin koneksi suara pada semua jenis NAT.
+- **Langkah berikutnya:** uji satu room Online dari minimal dua perangkat/jaringan berbeda, lalu uji room Offline untuk memastikan voice tidak aktif. Jika hasil stabil, baru pertimbangkan promosi ke produksi.
