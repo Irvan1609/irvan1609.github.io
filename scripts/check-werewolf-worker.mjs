@@ -1122,7 +1122,7 @@ const publicFinalView = (await payload(await replayRoom.fetch(
 ))).state;
 assert.equal(publicFinalView.room.winner, 'villagers', 'All players must receive the final winning team.');
 assert.equal(publicFinalView.room.publicResult.message, 'Game selesai.', 'All players must receive a public result summary.');
-assert.equal(publicFinalView.room.finalPlayers.length, 6, 'The final roster must be visible to every player after the game.');
+assert.equal(publicFinalView.room.finalPlayers.length, 5, 'The final roster must include every active player after the temporary moderator is excluded.');
 assert.ok(publicFinalView.room.finalPlayers.every(item =>
   item.faction === 'village' && item.isWinner && item.winReason === 'Pemenang utama'
 ), 'Every member of the winning Village faction must be marked as a winner.');
