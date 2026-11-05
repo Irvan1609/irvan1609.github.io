@@ -1,4 +1,4 @@
-const VERSION='20261105-werewolf-living-autopass1';
+const VERSION='20261105-werewolf-role-factions-math3';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -31,6 +31,9 @@ const CORE_URLS=[
   '/werewolf/assets/illustrations/role-detective.svg',
   '/werewolf/assets/illustrations/role-mayor.svg',
   '/werewolf/assets/illustrations/role-jester.svg',
+  '/werewolf/assets/illustrations/role-priest.svg',
+  '/werewolf/assets/illustrations/role-vigilante.svg',
+  '/werewolf/assets/illustrations/role-mason.svg',
   '/werewolf/assets/illustrations/role-moderator.svg'
 ];
 

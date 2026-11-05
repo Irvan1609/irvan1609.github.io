@@ -746,3 +746,15 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .living-players-panel{padding:9px 10px;margin-bottom:10px}
   .living-player-chip{min-height:25px;padding:4px 8px;font-size:10px}
 }
+
+/* Faction identity is visible on every revealed role card. */
+.role-faction-badge{display:inline-flex;align-items:center;justify-content:center;justify-self:center;width:max-content;max-width:100%;padding:6px 11px;border:1px solid transparent;border-radius:999px;font-size:9px;font-weight:950;letter-spacing:.11em;line-height:1.2;text-align:center}
+.role-faction-badge.faction-wolves{color:#ffe7e7;background:#8e202a;border-color:#e15b64;box-shadow:0 5px 18px #9e1f2d35}
+.role-faction-badge.faction-village{color:#e8f3ff;background:#164d91;border-color:#4f91d6;box-shadow:0 5px 18px #14549a35}
+.role-faction-badge.faction-neutral{color:#252a32;background:#f7f8fb;border-color:#fff;box-shadow:0 5px 18px #ffffff25}
+.role-faction-badge.faction-moderator{color:#f4f5f7;background:#495365;border-color:#8c98aa}
+.role-card>.role-faction-badge{margin:0 auto 7px}
+.role-flip-front>.role-faction-badge{margin:0 auto 5px}
+.mason-circle-panel{display:grid;gap:5px;margin:0 0 12px;padding:11px 13px;border:1px solid #3d76b5;border-radius:12px;background:linear-gradient(135deg,#142d4d,#173b62);color:#edf6ff}
+.mason-circle-panel b{font-size:10px;letter-spacing:.12em;color:#a9d3ff}
+.mason-circle-panel p{margin:0;font-size:12px;line-height:1.45}
