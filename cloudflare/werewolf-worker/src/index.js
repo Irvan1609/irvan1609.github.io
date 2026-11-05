@@ -2598,6 +2598,7 @@ export class WerewolfRoom {
           message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
           eliminations: outcome.details, at: now, round: room.round
         });
+        this.runBotDawnActions(room);
         this.resolveSystemDawnIfReady(room, now);
       } else {
         this.checkWinner(room);
@@ -2644,6 +2645,7 @@ export class WerewolfRoom {
         kind: 'revive_result', phase: 'dawn', title: 'Reviver menghidupkan pemain',
         message: selected.name + ' kembali hidup.', at: now, round: room.round
       });
+      this.runBotDawnActions(room);
       this.resolveSystemDawnIfReady(room, now);
       return;
     }
