@@ -1188,7 +1188,8 @@ await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST'
   type: 'resolve_night', force: true
 }, partialWolfCreated.token)));
 partialWolfState = await partialWolfRoom.loadRoom();
-assert.equal(partialWolfState.phase, 'morning');
+assert.equal(partialWolfState.phase, 'finished', 'The game must finish immediately when the resolved attack leaves Werewolf at parity.');
+assert.equal(partialWolfState.winner, 'wolves');
 assert.equal(partialWolfState.players[2].alive, false, 'A submitted wolf vote must execute even when another wolf has not voted.');
 assert.ok(partialWolfState.lastResult.events.some(event => event.includes('Werewolf menyerang Partial Village')));
 console.log('Werewolf forced-morning regression passed: submitted pack votes still execute when missing players are skipped.');
