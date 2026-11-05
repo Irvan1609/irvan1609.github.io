@@ -1710,15 +1710,18 @@ const relayedToModerator = voiceHostSocket.messages.map(message => {
 }).find(message => message?.type === 'voice_signal');
 assert.ok(relayedToModerator, 'The moderator may join the discussion voice room.');
 voiceState = await voiceRoom.loadRoom();
-voiceState.phase = 'voting';
-await voiceRoom.saveRoom(voiceState);
-const messageCountBeforeVoting = voiceTwoSocket.messages.length;
-await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
-  type: 'voice_signal', targetId: voicePlayers[1].playerId,
-  signalKind: 'offer', payload: { type: 'offer', sdp: 'voting-sdp' }
-}));
-assert.ok(voiceTwoSocket.messages.length > messageCountBeforeVoting,
-  'Online voice signalling must remain available during voting.');
+for (const phase of ['role_draw', 'night', 'discussion', 'voting', 'result', 'finished']) {
+  voiceState.phase = phase;
+  await voiceRoom.saveRoom(voiceState);
+  const messageCountBeforePhase = voiceTwoSocket.messages.length;
+  await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
+    type: 'voice_signal', targetId: voicePlayers[1].playerId,
+    signalKind: 'offer', payload: { type: 'offer', sdp: phase + '-sdp' }
+  }));
+  assert.ok(voiceTwoSocket.messages.length > messageCountBeforePhase,
+    'Online voice signalling must remain available during ' + phase + '.');
+  voiceState = await voiceRoom.loadRoom();
+}
 voiceState = await voiceRoom.loadRoom();
 voiceState.settings.gameMode = 'offline';
 await voiceRoom.saveRoom(voiceState);
