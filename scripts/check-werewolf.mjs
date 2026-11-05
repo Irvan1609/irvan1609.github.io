@@ -32,8 +32,8 @@ for (const token of [
 ]) assert.ok(worker.includes(token), 'Missing server game contract ' + token);
 
 for (const text of [
-  'Buka kartu saya', 'Lanjut ke Malam 1', 'Lanjut ke Pagi',
-  'Lanjut ke Diskusi', 'Lanjut ke Voting', 'Lanjut · Umumkan hasil voting',
+  'Buka kartu saya', 'Lanjut ke Malam 1', 'Pagi tiba dalam 10 detik.',
+  'Voting', 'DISKUSI TERSISA', 'VOTING TERSISA',
   'Kamu bertahan.', 'Kamu tereliminasi.'
 ]) assert.ok(app.includes(text), 'Missing moderator-led UI text: ' + text);
 
@@ -281,7 +281,14 @@ assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
 assert.match(app, /Mode latihan vs bot/);
 assert.match(app, /Lewati pemain yang belum beraksi/);
-assert.match(app, /Tidak ada hitung mundur malam/);
+assert.match(app, /Malam tidak memakai batas waktu/);
+assert.match(app, /appendPhaseCountdown/);
+assert.match(app, /startPhaseClock/);
+assert.match(app, /data-phase-duration/);
+assert.match(worker, /nightRevealEndsAt/);
+assert.match(worker, /votingEndsAt/);
+assert.match(worker, /discussionSeconds/);
+assert.match(worker, /Durable Object timed phase alarm|scheduleRoomAlarm/);
 assert.match(app, /Tidak ada batas maksimal ronde malam/);
 assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
@@ -289,7 +296,7 @@ assert.match(app, /role-balance/);
 assert.match(app, /updatePhaseTracker/);
 assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
 
-console.log('Werewolf UI checks passed: separate moderator dashboard, minimal player actions, manual phase control, responsive UI, and private role assets.');
+console.log('Werewolf UI checks passed: moderator-led flow, automatic phase timers, private Seer reveal, responsive UI, and private role assets.');
 
 
 assert.match(app, /function renderPlayerRoleReminder/);
