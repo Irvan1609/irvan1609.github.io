@@ -761,10 +761,12 @@ export class WerewolfRoom {
         eliminatedPlayers: (Array.isArray(room.lastResult.eliminations) ? room.lastResult.eliminations : [])
           .map(item => ({
             name: String(item.name || 'Pemain'),
-            cause: item.cause === 'vote' ? 'Voting'
-              : item.cause === 'left_room' ? 'Keluar dari permainan'
-                : item.cause === 'hunter' ? 'Tembakan Hunter'
-                  : 'Aksi malam'
+            cause: ({
+              vote: 'Voting', left_room: 'Keluar dari permainan', hunter: 'Tembakan Hunter',
+              werewolf_attack: 'Gigitan Werewolf', witch_poison: 'Racun Witch',
+              vigilante_shot: 'Tembakan Vigilante', bodyguard_sacrifice: 'Pengorbanan Bodyguard',
+              cupid_bond: 'Ikatan Cupid'
+            })[item.cause] || 'Aksi malam'
           })),
         revivedPlayers: (Array.isArray(room.lastResult.revivedPlayers) ? room.lastResult.revivedPlayers : [])
           .map(item => ({ name: String(item.name || 'Pemain') }))
@@ -871,14 +873,25 @@ export class WerewolfRoom {
         hasDrawn: Boolean(self.hasDrawn),
         hasActed: Boolean(room.nightActions && room.nightActions[self.id]),
         nightActionType: room.nightActions?.[self.id]?.type || null,
+        nightActionTargetId: room.nightActions?.[self.id]?.targetId || null,
+        nightActionPartnerId: room.nightActions?.[self.id]?.partnerId || null,
+        nightMathChoiceIndex: Number.isSafeInteger(room.nightActions?.[self.id]?.choiceIndex)
+          ? room.nightActions[self.id].choiceIndex : null,
         nightActionMode: room.phase === 'night' && !hasSpecialNightAction(room, self) ? 'math' : 'special',
         wolfTargetName: canSeeWolfRoom && room.nightActions?.[self.id]?.type === 'wolf_vote'
           ? room.players.find(item => item.id === room.nightActions[self.id].targetId)?.name || null
           : null,
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)),
+        voteTargetId: room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)
+          ? room.votes[self.id] || null : null,
+        voteAbstain: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)
+          && room.votes[self.id] === null),
         seerResult: !isModerator && ['seer', 'detective'].includes(self.role) && room.seerResults
           ? room.seerResults[self.id] || null
           : null,
+        inspectionHistory: !isModerator && ['seer', 'detective'].includes(self.role)
+          ? (Array.isArray(room.seerHistory?.[self.id]) ? room.seerHistory[self.id] : [])
+          : [],
         witchAttack: witchAttack ? {
           ready: witchAttack.ready,
           targetName: witchAttack.targetId
@@ -891,6 +904,7 @@ export class WerewolfRoom {
         reviverUsed: Boolean(self.reviverUsed),
         hasDawnAction: Boolean(room.dawnActions?.[self.id]),
         dawnActionType: room.dawnActions?.[self.id]?.type || null,
+        dawnActionTargetId: room.dawnActions?.[self.id]?.targetId || null,
         priestUsed: Boolean(self.priestUsed),
         vigilanteUsed: Boolean(self.vigilanteUsed),
         masonNames: !isModerator && self.role === 'mason'
@@ -1547,45 +1561,26 @@ export class WerewolfRoom {
     let safety = room.players.length + 1;
     while (safety-- > 0) {
       this.refreshDawnEligible(room);
-      const actor = this.dawnActors(room).find(item => (item.isBot || item.isBotControlled) && !room.dawnActions?.[item.id]);
+      const actor = this.dawnActors(room).find(item =>
+        (item.isBot || item.isBotControlled) && !room.dawnActions?.[item.id]
+      );
       if (!actor) break;
       if (actor.role === 'hunter') {
         const alive = room.players.filter(item => item.alive);
         const wolves = alive.filter(item => isWolf(item.role));
         const candidates = wolves.length ? wolves : alive;
         const selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
-        actor.hunterUsed = true;
         room.dawnActions[actor.id] = { type: 'hunter_shot', targetId: selected?.id || null };
-        if (selected) {
-          const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
-          room.lastResult.eliminations = [...(room.lastResult.eliminations || []), ...outcome.details];
-          room.lastResult.eliminatedIds = [...(room.lastResult.eliminatedIds || []), ...outcome.players.map(item => item.id)];
-          room.lastResult.eliminatedId ||= selected.id;
-          room.lastResult.message = (room.lastResult.message || '') + ' Hunter menembak ' + outcome.players.map(item => item.name).join(' dan ') + '.';
-          this.appendDawnReport(room, actor, 'Hunter', 'Menembak ' + selected.name, 'Target tereliminasi.');
-        } else this.appendDawnReport(room, actor, 'Hunter', 'Melewatkan tembakan', 'Tidak ada target hidup.');
       } else if (actor.role === 'reviver') {
         const dead = room.players.filter(item => !item.alive);
-        const villageDead = dead.filter(item => !isWolf(item.role));
-        const candidates = villageDead.length ? villageDead : dead;
+        const claimed = new Set(Object.values(room.dawnActions)
+          .filter(action => action?.type === 'revive_player' && action.targetId)
+          .map(action => action.targetId));
+        const villageDead = dead.filter(item => !isWolf(item.role) && !claimed.has(item.id));
+        const candidates = villageDead.length ? villageDead : dead.filter(item => !claimed.has(item.id));
         const selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
         room.dawnActions[actor.id] = { type: 'revive_player', targetId: selected?.id || null };
-        if (selected) {
-          selected.alive = true;
-          actor.reviverUsed = true;
-          if (room.winner === 'jester' && selected.role === 'jester') room.winner = null;
-          room.lastResult.revivedPlayers = [...(room.lastResult.revivedPlayers || []), {
-            id: selected.id, name: selected.name, role: selected.role
-          }];
-          room.lastResult.message = (room.lastResult.message || '') + ' ' + selected.name + ' dihidupkan kembali.';
-          this.appendDawnReport(room, actor, 'Reviver', 'Menghidupkan kembali ' + selected.name, 'Pemain kembali hidup.');
-        } else this.appendDawnReport(room, actor, 'Reviver', 'Tidak menggunakan kemampuan', 'Tidak ada pemain yang dapat dihidupkan.');
       }
-      this.recordGameEvent(room, {
-        kind: 'dawn_action', phase: 'dawn', title: 'Aksi Subuh',
-        message: room.lastResult.events?.slice(-1)[0] || 'Kemampuan pemicu dijalankan.',
-        at: Date.now(), round: room.round
-      });
     }
   }
 
@@ -1601,27 +1596,72 @@ export class WerewolfRoom {
     room.votingEndsAt = null;
     room.resultEndsAt = null;
     this.recordGameEvent(room, {
-      kind: 'dawn_started', phase: 'dawn', title: 'Fase Subuh',
-      message: 'Kemampuan yang terpicu oleh eliminasi dapat digunakan.', at: now, round: room.round
+      kind: 'dawn_started', phase: 'dawn', title: 'Subuh',
+      message: 'Langit belum terang. Kesempatan terakhir para pemilik kemampuan pemicu telah terbuka.',
+      at: now, round: room.round
     });
     this.runBotDawnActions(room);
-    this.resolveSystemDawnIfReady(room, now);
   }
 
   resolveSystemDawnIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'dawn') return;
-    const progress = this.dawnProgress(room);
-    if (progress.required > 0 && progress.submitted >= progress.required) this.advanceDawn(room, now);
+    // Semua pilihan tetap dapat diubah sampai durasi Subuh berakhir.
+    if (Number(room.dawnEndsAt) > 0 && room.dawnEndsAt <= now) this.advanceDawn(room, now);
   }
 
   advanceDawn(room, now) {
-    if (room.phase !== 'dawn') return;
-    const pendingHunters = this.dawnActors(room).filter(item => item.role === 'hunter' && !room.dawnActions?.[item.id]);
-    for (const hunter of pendingHunters) {
+    if (room.phase !== 'dawn' || Number(room.dawnEndsAt) > now) return;
+    room.lastResult = room.lastResult || { kind: 'night', message: 'Malam telah berlalu.', events: [], eliminations: [] };
+    room.lastResult.events = Array.isArray(room.lastResult.events) ? room.lastResult.events : [];
+    room.lastResult.eliminations = Array.isArray(room.lastResult.eliminations) ? room.lastResult.eliminations : [];
+    room.lastResult.eliminatedIds = Array.isArray(room.lastResult.eliminatedIds) ? room.lastResult.eliminatedIds : [];
+    room.lastResult.revivedPlayers = Array.isArray(room.lastResult.revivedPlayers) ? room.lastResult.revivedPlayers : [];
+    const eligibleIds = new Set(this.refreshDawnEligible(room));
+    const actors = room.players.filter(item => eligibleIds.has(item.id));
+
+    // Hunter resolves first. Reviver then sees every player who remains dead.
+    for (const hunter of actors.filter(item => item.role === 'hunter')) {
+      if (hunter.hunterUsed) continue;
+      const action = room.dawnActions?.[hunter.id];
+      const selected = action?.type === 'hunter_shot'
+        ? room.players.find(item => item.id === action.targetId && item.alive)
+        : null;
       hunter.hunterUsed = true;
-      room.dawnActions[hunter.id] = { type: 'hunter_expired' };
-      this.appendDawnReport(room, hunter, 'Hunter', 'Tidak menggunakan tembakan', 'Kesempatan menembak telah berakhir.');
+      if (selected) {
+        const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
+        room.lastResult.eliminations.push(...outcome.details);
+        room.lastResult.eliminatedIds.push(...outcome.players.map(item => item.id));
+        room.lastResult.eliminatedId ||= selected.id;
+        const names = outcome.players.map(item => item.name).join(' dan ');
+        room.lastResult.message = (room.lastResult.message || '') + ' Hunter menembak ' + names + '.';
+        this.appendDawnReport(room, hunter, 'Hunter', 'Menembak ' + selected.name, names + ' tereliminasi.');
+      } else {
+        this.appendDawnReport(room, hunter, 'Hunter', 'Tidak menggunakan tembakan', 'Kesempatan menembak berakhir.');
+      }
     }
+
+    for (const reviver of actors.filter(item => item.role === 'reviver' && item.alive)) {
+      if (reviver.reviverUsed) continue;
+      const action = room.dawnActions?.[reviver.id];
+      const selected = action?.type === 'revive_player'
+        ? room.players.find(item => item.id === action.targetId && !item.alive)
+        : null;
+      if (!selected) {
+        if (action?.type === 'revive_player') {
+          this.appendDawnReport(room, reviver, 'Reviver', 'Mencoba menghidupkan pemain', 'Target sudah tidak dapat dihidupkan.');
+        } else {
+          this.appendDawnReport(room, reviver, 'Reviver', 'Tidak menggunakan kemampuan', 'Tidak ada pilihan yang dikirim.');
+        }
+        continue;
+      }
+      selected.alive = true;
+      reviver.reviverUsed = true;
+      if (room.winner === 'jester' && selected.role === 'jester') room.winner = null;
+      room.lastResult.revivedPlayers.push({ id: selected.id, name: selected.name, role: selected.role });
+      room.lastResult.message = (room.lastResult.message || '') + ' ' + selected.name + ' kembali hidup.';
+      this.appendDawnReport(room, reviver, 'Reviver', 'Menghidupkan kembali ' + selected.name, 'Pemain kembali hidup.');
+    }
+
     const returnPhase = room.dawnReturnPhase || 'morning';
     room.dawnEndsAt = null;
     room.dawnReturnPhase = null;
@@ -1642,7 +1682,10 @@ export class WerewolfRoom {
     }
     this.recordGameEvent(room, {
       kind: 'dawn_finished', phase: room.phase, title: 'Subuh berakhir',
-      message: room.lastResult?.message || 'Kemampuan pemicu telah diselesaikan.', at: now, round: room.round
+      message: room.lastResult?.message || 'Fajar mulai menyentuh desa.',
+      events: room.lastResult.events, eliminations: room.lastResult.eliminations,
+      revivedPlayers: room.lastResult.revivedPlayers, actionReport: room.lastResult.actionReport,
+      at: now, round: room.round
     });
     this.recordGameFinished(room, now);
   }
@@ -1650,18 +1693,26 @@ export class WerewolfRoom {
   prepareNightReveal(room, now) {
     if (room.phase !== 'night' || Number(room.nightRevealEndsAt) > now) return;
     room.seerResults = room.seerResults || {};
+    room.seerHistory = room.seerHistory || {};
     for (const actor of room.players.filter(item => item.alive)) {
       const action = room.nightActions?.[actor.id];
       if (!['seer_inspect', 'detective_inspect'].includes(action?.type)) continue;
       const inspected = room.players.find(item => item.id === action.targetId);
       const wolf = inspected && isWolf(inspected.role);
-      room.seerResults[actor.id] = {
+      const result = {
         round: room.round,
+        playerId: inspected?.id || null,
         playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
+        role: action.type === 'seer_inspect' ? inspected?.role || null : null,
         result: action.type === 'detective_inspect'
           ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
           : (wolf ? 'wolf' : 'not_wolf')
       };
+      room.seerResults[actor.id] = result;
+      room.seerHistory[actor.id] = [
+        ...(Array.isArray(room.seerHistory[actor.id]) ? room.seerHistory[actor.id] : []),
+        result
+      ];
     }
     room.nightEndsAt = null;
     room.nightRevealEndsAt = now + 10000;
@@ -1669,6 +1720,7 @@ export class WerewolfRoom {
 
   async resolveSystemNightIfReady(room, now) {
     if (room.phase !== 'night') return;
+    if (this.isSystemModerator(room) && Number(room.nightEndsAt) > now) return;
     const alive = room.players.filter(item => item.alive);
     const skipped = new Set(room.nightSkippedPlayerIds || []);
     if (alive.every(item => Boolean(room.nightActions?.[item.id]) || skipped.has(item.id))) this.prepareNightReveal(room, now);
@@ -1676,9 +1728,7 @@ export class WerewolfRoom {
 
   resolveSystemVoteIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'voting') return;
-    const alive = room.players.filter(item => item.alive);
-    const allVoted = alive.every(item => Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
-    if (allVoted || (Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now)) this.finishVote(room, now);
+    if (Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) this.finishVote(room, now);
   }
 
   async applyAction(room, player, body) {
