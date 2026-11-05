@@ -749,3 +749,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Penyesuaian label kontrol moderator:** label tombol lewati aksi malam dibuat eksplisit “Lewati pemain yang belum beraksi” agar sesuai dengan istilah status pada dashboard.
+
+
+- **Perbaikan integrasi test:** nama variabel pada tes tambahan diisolasi agar tidak bentrok dengan fixture bot dan voting yang sudah ada pada suite Werewolf.

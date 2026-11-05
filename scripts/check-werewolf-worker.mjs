@@ -1915,8 +1915,8 @@ console.log('Werewolf Priest, Vigilante, and Mason role regressions passed.');
 
 
 // Strict majority includes abstentions and non-submitted ballots.
-const thresholdRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const makeVoteState = votes => ({
+const onlineThresholdRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const onlineMakeVoteState = votes => ({
   phase: 'voting', round: 1, winner: null, additionalWinners: [], lovers: [],
   players: [
     { id: 'w', name: 'Wolf', role: 'wolf', alive: true },
@@ -1929,91 +1929,91 @@ const makeVoteState = votes => ({
   gameId: 'threshold-test', gameStartedAt: Date.now(), votingEndsAt: Date.now() + 15000,
   nightActions: {}, seerResults: {}, witchPotions: {}, bodyguardTargets: {}, villagerPrompts: {}
 });
-const exactlyHalf = makeVoteState({ w: 't', b: 't', g: null });
-thresholdRoom.finishVote(exactlyHalf, Date.now());
-assert.equal(exactlyHalf.players.find(player => player.id === 't').alive, true);
-assert.match(exactlyHalf.lastResult.message, /lebih dari 50%/);
-assert.equal(exactlyHalf.lastResult.voteTotalWeight, 4);
-assert.equal(exactlyHalf.lastResult.abstainCount, 2);
-const clearMajority = makeVoteState({ w: 't', b: 't', g: 't' });
-thresholdRoom.finishVote(clearMajority, Date.now());
-assert.equal(clearMajority.players.find(player => player.id === 't').alive, false);
+const onlineExactlyHalf = onlineMakeVoteState({ w: 't', b: 't', g: null });
+onlineThresholdRoom.finishVote(onlineExactlyHalf, Date.now());
+assert.equal(onlineExactlyHalf.players.find(player => player.id === 't').alive, true);
+assert.match(onlineExactlyHalf.lastResult.message, /lebih dari 50%/);
+assert.equal(onlineExactlyHalf.lastResult.voteTotalWeight, 4);
+assert.equal(onlineExactlyHalf.lastResult.abstainCount, 2);
+const onlineClearMajority = onlineMakeVoteState({ w: 't', b: 't', g: 't' });
+onlineThresholdRoom.finishVote(onlineClearMajority, Date.now());
+assert.equal(onlineClearMajority.players.find(player => player.id === 't').alive, false);
 
-const botRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const botCreated = await payload(await botRoom.fetch(makeRequest('/internal/create', 'POST', {
+const handoffBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const handoffBotCreated = await payload(await handoffBotRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'BOTC24', name: 'Bot Host', settings: roleSettings
 })), 201);
-const botTokens = [];
+const handoffBotTokens = [];
 for (const name of ['Bot Wolf', 'Bot Seer', 'Bot Doctor', 'Bot Village', 'Bot Idle']) {
-  botTokens.push(await payload(await botRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+  handoffBotTokens.push(await payload(await handoffBotRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
 }
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, botCreated.token)));
-let botState = await botRoom.loadRoom();
-const botRoles = ['wolf', 'seer', 'doctor', 'villager', 'villager'];
-botState.players.forEach((player, index) => { player.role = botRoles[index]; player.hasDrawn = false; });
-const temporaryBotId = botState.players[4].id;
-await botRoom.saveRoom(botState);
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'replace_with_bot', playerId: temporaryBotId
-}, botCreated.token)));
-botState = await botRoom.loadRoom();
-assert.equal(botState.players.find(player => player.id === temporaryBotId).isBotControlled, true);
-assert.equal(botState.players.find(player => player.id === temporaryBotId).hasDrawn, true);
-const controlledView = (await payload(await botRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, botTokens[4].token)
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, handoffBotCreated.token)));
+let handoffBotState = await handoffBotRoom.loadRoom();
+const handoffBotRoleSet = ['wolf', 'seer', 'doctor', 'villager', 'villager'];
+handoffBotState.players.forEach((player, index) => { player.role = handoffBotRoleSet[index]; player.hasDrawn = false; });
+const handoffBotPlayerId = handoffBotState.players[4].id;
+await handoffBotRoom.saveRoom(handoffBotState);
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'replace_with_bot', playerId: handoffBotPlayerId
+}, handoffBotCreated.token)));
+handoffBotState = await handoffBotRoom.loadRoom();
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBotControlled, true);
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).hasDrawn, true);
+const controlledView = (await payload(await handoffBotRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, handoffBotTokens[4].token)
 ))).state;
 assert.equal(controlledView.self.isBotControlled, true);
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, botTokens[4].token)), 403);
-for (let index = 0; index < botTokens.length - 1; index += 1) {
-  await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, botTokens[index].token)));
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, handoffBotTokens[4].token)), 403);
+for (let index = 0; index < handoffBotTokens.length - 1; index += 1) {
+  await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'draw_card' }, handoffBotTokens[index].token)));
 }
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, botCreated.token)));
-botState = await botRoom.loadRoom();
-assert.ok(botState.nightActions[temporaryBotId]);
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', {
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, handoffBotCreated.token)));
+handoffBotState = await handoffBotRoom.loadRoom();
+assert.ok(handoffBotState.nightActions[handoffBotPlayerId]);
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', mode: 'villager_math', promptId: 'not-allowed', choiceIndex: 0
-}, botTokens[4].token)), 403);
-await payload(await botRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'restore_player_control', playerId: temporaryBotId
-}, botCreated.token)));
-botState = await botRoom.loadRoom();
-assert.equal(botState.players.find(player => player.id === temporaryBotId).isBotControlled, false);
-assert.equal(botState.players.find(player => player.id === temporaryBotId).isBot, false);
+}, handoffBotTokens[4].token)), 403);
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'restore_player_control', playerId: handoffBotPlayerId
+}, handoffBotCreated.token)));
+handoffBotState = await handoffBotRoom.loadRoom();
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBotControlled, false);
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBot, false);
 
-const skipRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const skipCreated = await payload(await skipRoom.fetch(makeRequest('/internal/create', 'POST', {
+const skipPhaseRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const skipPhaseCreated = await payload(await skipPhaseRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'SKIP24', name: 'Skip Host', settings: roleSettings
 })), 201);
-const skipTokens = [];
+const skipPhaseTokens = [];
 for (const name of ['Skip Wolf', 'Skip Seer', 'Skip Doctor', 'Skip Village', 'Skip Idle']) {
-  skipTokens.push(await payload(await skipRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
+  skipPhaseTokens.push(await payload(await skipPhaseRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
 }
-await payload(await skipRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, skipCreated.token)));
-let skipState = await skipRoom.loadRoom();
-const skipRoles = ['wolf', 'seer', 'doctor', 'villager', 'villager'];
-skipState.players.forEach((player, index) => { player.role = skipRoles[index]; player.hasDrawn = true; });
-const skipTargetId = skipState.players[3].id;
-await skipRoom.saveRoom(skipState);
-await payload(await skipRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, skipCreated.token)));
-await payload(await skipRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: skipTargetId
-}, skipTokens[0].token)));
-await payload(await skipRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: skipState.players[0].id
-}, skipTokens[1].token)));
-await payload(await skipRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'skip_missing_night' }, skipCreated.token)));
-skipState = await skipRoom.loadRoom();
-assert.equal(skipState.nightSkippedPlayerIds.length, 3);
-assert.ok(skipState.nightRevealEndsAt > Date.now());
-const skipSeerView = (await payload(await skipRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, skipTokens[1].token)
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, skipPhaseCreated.token)));
+let skipPhaseState = await skipPhaseRoom.loadRoom();
+const skipPhaseRoleSet = ['wolf', 'seer', 'doctor', 'villager', 'villager'];
+skipPhaseState.players.forEach((player, index) => { player.role = skipPhaseRoleSet[index]; player.hasDrawn = true; });
+const skipPhaseTargetId = skipPhaseState.players[3].id;
+await skipPhaseRoom.saveRoom(skipPhaseState);
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, skipPhaseCreated.token)));
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: skipPhaseTargetId
+}, skipPhaseTokens[0].token)));
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: skipPhaseState.players[0].id
+}, skipPhaseTokens[1].token)));
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'skip_missing_night' }, skipPhaseCreated.token)));
+skipPhaseState = await skipPhaseRoom.loadRoom();
+assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 3);
+assert.ok(skipPhaseState.nightRevealEndsAt > Date.now());
+const skipPhaseSeerView = (await payload(await skipPhaseRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, skipPhaseTokens[1].token)
 ))).state;
-assert.equal(skipSeerView.self.seerResult.result, 'wolf');
-const realNowForSkip = Date.now;
-try { Date.now = () => skipState.nightRevealEndsAt + 1; await skipRoom.alarm(); }
-finally { Date.now = realNowForSkip; }
-skipState = await skipRoom.loadRoom();
-assert.equal(skipState.phase, 'morning');
-assert.ok(skipState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
-assert.equal(skipState.nightSkippedPlayerIds.length, 0);
+assert.equal(skipPhaseSeerView.self.seerResult.result, 'wolf');
+const realNowForSkipPhase = Date.now;
+try { Date.now = () => skipPhaseState.nightRevealEndsAt + 1; await skipPhaseRoom.alarm(); }
+finally { Date.now = realNowForSkipPhase; }
+skipPhaseState = await skipPhaseRoom.loadRoom();
+assert.equal(skipPhaseState.phase, 'morning');
+assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
+assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
 console.log('Werewolf online enhancements passed: strict majority, bot handoff and automatic morning after skipped actions.');
