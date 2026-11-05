@@ -484,7 +484,7 @@ export class WerewolfRoom {
     }
     for (const [key, fallback] of Object.entries({
       nightEndsAt: null, dawnEndsAt: null, resultEndsAt: null,
-      dawnActions: {}, seerHistory: {}, botNightReports: {}
+      dawnActions: {}, resultActions: {}, resultResolved: false, seerHistory: {}, botNightReports: {}
     })) {
       if (room[key] === undefined || room[key] === null && fallback && typeof fallback === 'object') {
         room[key] = fallback;
@@ -828,6 +828,7 @@ export class WerewolfRoom {
         dawnEndsAt: Number(room.dawnEndsAt) || null,
         votingEndsAt: Number(room.votingEndsAt) || null,
         resultEndsAt: Number(room.resultEndsAt) || null,
+        resultResolved: Boolean(room.resultResolved),
         villageName: String(room.villageName || 'Desa Waringin'),
         callUrl: '',
         nightActionsRequired: alive.length,
@@ -905,6 +906,7 @@ export class WerewolfRoom {
         hasVoted: Boolean(room.votes && Object.prototype.hasOwnProperty.call(room.votes, self.id)),
         voteTargetId: Object.prototype.hasOwnProperty.call(room.votes || {}, self.id) ? room.votes[self.id] : null,
         voteAbstain: Object.prototype.hasOwnProperty.call(room.votes || {}, self.id) && !room.votes[self.id],
+        resultActionTargetId: room.resultActions?.[self.id]?.targetId || null,
         seerResult: !isModerator && ['seer', 'detective'].includes(self.role) && room.seerResults
           ? room.seerResults[self.id] || null
           : null,
@@ -1307,6 +1309,8 @@ export class WerewolfRoom {
           votingEndsAt: null,
           resultEndsAt: null,
           dawnActions: {},
+          resultActions: {},
+          resultResolved: false,
           seerHistory: {},
           botNightReports: {},
           villageName: null,
@@ -1451,6 +1455,7 @@ export class WerewolfRoom {
       player.alive = false;
       if (room.nightActions) delete room.nightActions[player.id];
       if (room.dawnActions) delete room.dawnActions[player.id];
+      if (room.resultActions) delete room.resultActions[player.id];
       if (room.votes) delete room.votes[player.id];
       eliminated.push(player);
       details.push({
@@ -1536,7 +1541,12 @@ export class WerewolfRoom {
       majorityVotesRequired: Math.floor(totalVoteWeight / 2) + 1,
       at: now, round: room.round
     };
-    if (!room.winner) this.checkWinner(room);
+    const hunterTriggerPending = !room.winner && room.players.some(item =>
+      item.role === 'hunter' && !item.alive && !item.hunterUsed && eliminatedIds.includes(item.id)
+    );
+    if (!room.winner && !hunterTriggerPending) this.checkWinner(room);
+    room.resultActions = {};
+    room.resultResolved = !hunterTriggerPending;
     room.votingEndsAt = null;
     room.discussionEndsAt = null;
     room.resultEndsAt = room.winner ? null
@@ -1733,6 +1743,8 @@ export class WerewolfRoom {
       room.dawnEndsAt = null;
       room.resultEndsAt = null;
       room.dawnActions = {};
+      room.resultActions = {};
+      room.resultResolved = false;
       room.villageName = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
@@ -1773,6 +1785,8 @@ export class WerewolfRoom {
       room.votingEndsAt = null;
       room.resultEndsAt = null;
       room.dawnActions = {};
+      room.resultActions = {};
+      room.resultResolved = false;
       room.seerHistory = {};
       room.botNightReports = {};
       room.villageName = null;
@@ -1901,6 +1915,8 @@ export class WerewolfRoom {
       room.dawnEndsAt = null;
       room.resultEndsAt = null;
       room.dawnActions = {};
+      room.resultActions = {};
+      room.resultResolved = false;
       room.seerHistory = {};
       room.botNightReports = {};
       const villageNames = ['Desa Waringin', 'Desa Rembulan', 'Desa Kabut', 'Desa Lembah Sunyi', 'Desa Purnama'];
