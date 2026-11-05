@@ -462,8 +462,9 @@ function applyState(nextState, expectedSession = session) {
   if (phaseChanged && nextState.room.phase === 'role_draw') playGameStartBell();
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
-  const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round, nextState.room.lastResult?.at || ''].join(':');
-  if ((!previous || phaseChanged) && narrationKey !== lastNarrationKey) {
+  const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round,
+    nextState.room.lastResult?.at || nextState.room.publicResult?.at || ''].join(':');
+  if (narrationKey !== lastNarrationKey) {
     const narration = systemNarrationText(nextState.room);
     if (narration) speakSystemNarration(narration);
   }
@@ -1343,6 +1344,11 @@ function updatePhaseClock() {
     dawnButton.disabled = pending > 0 && seconds > 0;
     dawnButton.textContent = pending > 0 && seconds > 0 ? 'Menunggu aksi pemicu · ' + seconds + ' detik' : 'Lanjut ke Pagi';
   }
+  const resolveResultButton = $('resolveResultButton');
+  if (resolveResultButton) {
+    resolveResultButton.disabled = seconds > 0;
+    resolveResultButton.textContent = seconds > 0 ? 'Tembakan ditutup · ' + seconds + ' detik' : 'Proses aksi Hunter';
+  }
   const nextRoundButton = $('nextRoundButton');
   if (nextRoundButton) {
     nextRoundButton.disabled = seconds > 0;
@@ -1936,7 +1942,14 @@ function renderModeratorResult(parent) {
   addText(parent, 'p', 'hint', 'Tidak ada batas maksimal ronde. Permainan berlanjut sampai kondisi kemenangan terpenuhi.');
   appendPhaseCountdown(parent, 'RONDE BERIKUTNYA DALAM', roomState.room.resultEndsAt);
   if (systemModeratorEnabled()) {
-    addText(parent, 'div', 'notice success', 'Sistem akan memulai malam berikutnya secara otomatis setelah hasil dibacakan.');
+    addText(parent, 'div', 'notice success', roomState.room.resultResolved
+      ? 'Sistem akan memulai malam berikutnya setelah narasi hasil selesai.'
+      : 'Jika Hunter gugur, sistem memberi waktu untuk memilih tembakan sebelum melanjutkan permainan.');
+  } else if (!roomState.room.resultResolved) {
+    const resolve = button('Proses aksi Hunter', 'primary wide', () => sendAction('resolve_result'),
+      Boolean(roomState.room.resultEndsAt && roomState.room.resultEndsAt > Date.now()));
+    resolve.id = 'resolveResultButton';
+    parent.append(resolve);
   } else {
     const next = button('Lanjut ke Malam ' + (roomState.room.round + 1), 'primary wide', () => sendAction('next_round'),
       Boolean(roomState.room.resultEndsAt && roomState.room.resultEndsAt > Date.now()));
@@ -2276,8 +2289,8 @@ function renderSystemModeratorMorning(parent) {
 }
 
 function renderSystemModeratorVoteResult(parent) {
-  phaseHeader(parent, 'HASIL VOTING', 'Hasil voting diumumkan',
-    'Moderator sistem menghitung suara setelah seluruh pemain memberikan pilihan. Hasil eliminasi ditampilkan kepada semua pemain; pilihan suara tetap rahasia.');
+  phaseHeader(parent, 'HASIL SORE', 'Keputusan warga diumumkan',
+    'Suara telah ditutup. Jika Hunter gugur, ia masih punya kesempatan menentukan satu tembakan sebelum malam berikutnya.');
   const result = roomState.room.publicResult;
   renderPublicResult(parent);
   const card = node('div', 'result-card');
@@ -2286,7 +2299,7 @@ function renderSystemModeratorVoteResult(parent) {
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
   renderPrivateInspectionResult(parent);
-  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+  if (roomState.self.role === 'hunter' && !roomState.self.alive && !roomState.room.resultResolved) renderHunterShot(parent);
   appendPhaseCountdown(parent, 'MALAM BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
 
@@ -2355,16 +2368,19 @@ function renderHunterShot(parent) {
     addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter dinonaktifkan oleh moderator.');
     return;
   }
-  if (roomState.self.hunterUsed) {
-    addText(parent, 'div', 'notice', 'Kemampuan tembakan Hunter sudah digunakan.');
+  if (roomState.self.hunterUsed || roomState.room.resultResolved) {
+    addText(parent, 'div', 'notice', 'Waktu tembakan Hunter telah ditutup.');
     return;
   }
-  addText(parent, 'h3', '', 'Kemampuan terakhir Hunter');
-  addText(parent, 'p', 'hint', 'Pilih satu pemain hidup untuk ditembak.');
+  addText(parent, 'h3', '', 'Kesempatan terakhir Hunter');
+  addText(parent, 'p', 'hint', roomState.self.resultActionTargetId
+    ? 'Target tersimpan. Kamu masih dapat menggantinya sampai waktu hasil voting berakhir.'
+    : 'Pilih satu pemain hidup untuk ditembak. Pilihan dapat diganti sampai timer berakhir.');
   const grid = node('div', 'action-grid');
   for (const target of roomState.targets || []) {
-    grid.append(button('Tembak ' + target.name, 'action-button phase-timed-action', () =>
-      sendAction('hunter_shot', { targetId: target.id })
+    grid.append(button('Tembak · ' + target.name,
+      'action-button phase-timed-action' + (roomState.self.resultActionTargetId === target.id ? ' selected' : ''),
+      () => sendAction('hunter_shot', { targetId: target.id })
     ));
   }
   parent.append(grid);
@@ -2700,7 +2716,7 @@ function renderPlayerVoteResult(parent) {
   renderPublicResult(parent);
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
-  if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+  if (roomState.self.role === 'hunter' && !roomState.self.alive && !roomState.room.resultResolved) renderHunterShot(parent);
   appendPhaseCountdown(parent, 'MALAM BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
 
