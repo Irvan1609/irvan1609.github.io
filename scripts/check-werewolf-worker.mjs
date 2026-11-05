@@ -2102,4 +2102,168 @@ assert.equal(lateCardView.self.hasDrawn, true);
 assert.ok(lateCardView.self.role, 'A player may privately reveal their own card after the night has begun.');
 console.log('Werewolf role-card deadline passed: 20-second timeout, automatic night start and late private card reveal.');
 
+
+assert.equal(recommendedRoleCounts(18).reviver, 1,
+  'The recommended role mix should introduce one Reviver in larger rooms.');
+
+const botClaimRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const botClaimState = {
+  round: 2, botDiscussionRound: null, botReplyCursor: 0, chat: [],
+  players: [{ id: 'bot-doctor', name: 'Bot Dokter', role: 'doctor', alive: true, isBot: true, personality: 'calm' }],
+  seerResults: {},
+  lastResult: {
+    kind: 'night', eliminatedId: null,
+    actionReport: [{ order: 50, role: 'Doctor', actor: 'Bot Dokter',
+      action: 'Melindungi Citra', outcome: 'Target terlindungi dari serangan.' }]
+  }
+};
+botClaimRoom.seedBotDiscussion(botClaimState, Date.now());
+assert.equal(botClaimState.chat.length, 1);
+assert.match(botClaimState.chat[0].text, /Melindungi Citra/);
+assert.match(botClaimState.chat[0].text, /Target terlindungi/);
+
+const dawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const dawnCreated = await payload(await dawnRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'DAWN28', name: 'Dawn Host',
+  settings: {
+    gameMode: 'online', moderatorMode: 'system',
+    roleCounts: {
+      wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+      hunter: 1, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+      priest: 0, vigilante: 0, mason: 0, reviver: 1, jester: 0,
+      villager: 1, moderator: 0
+    },
+    timers: { roleDrawSeconds: 18, nightSeconds: 50, dawnSeconds: 12,
+      discussionSeconds: 35, votingSeconds: 16, resultSeconds: 6 }
+  }
+})), 201);
+const dawnTokens = [];
+for (const name of ['Hunter Player', 'Wolf Player', 'Village Player']) {
+  const joined = await payload(await dawnRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  dawnTokens.push(joined.token);
+}
+await payload(await dawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, dawnCreated.token)));
+let dawnState = await dawnRoom.loadRoom();
+assert.equal(dawnState.phase, 'role_draw');
+assert.ok(dawnState.roleDrawEndsAt >= Date.now() + 17000
+  && dawnState.roleDrawEndsAt <= Date.now() + 18000);
+assert.deepEqual(dawnState.settings.timers, {
+  roleDrawSeconds: 18, nightSeconds: 50, dawnSeconds: 12,
+  discussionSeconds: 35, votingSeconds: 16, resultSeconds: 6
+});
+const [reviverPlayer, hunterPlayer, wolfPlayer, villagePlayer] = dawnState.players;
+reviverPlayer.role = 'reviver'; reviverPlayer.alive = true; reviverPlayer.reviverUsed = false;
+hunterPlayer.role = 'hunter'; hunterPlayer.alive = false; hunterPlayer.hunterUsed = false;
+wolfPlayer.role = 'wolf'; wolfPlayer.alive = true;
+villagePlayer.role = 'villager'; villagePlayer.alive = false;
+dawnState.phase = 'dawn';
+dawnState.dawnEndsAt = Date.now() + 12000;
+dawnState.dawnReturnPhase = 'morning';
+dawnState.dawnActions = {};
+dawnState.dawnEligiblePlayerIds = [hunterPlayer.id, reviverPlayer.id];
+dawnState.lastResult = {
+  kind: 'night', message: 'Dua pemain gugur saat malam.',
+  eliminatedId: hunterPlayer.id, eliminatedIds: [hunterPlayer.id, villagePlayer.id],
+  eliminations: [
+    { id: hunterPlayer.id, name: hunterPlayer.name, cause: 'werewolf_attack' },
+    { id: villagePlayer.id, name: villagePlayer.name, cause: 'werewolf_attack' }
+  ],
+  events: [], actionReport: [], revivedPlayers: [], at: Date.now(), round: 1
+};
+await dawnRoom.saveRoom(dawnState);
+const reviverView = (await payload(await dawnRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, dawnCreated.token)
+))).state;
+assert.equal(reviverView.self.role, 'reviver');
+assert.equal(reviverView.reviveTargets.length, 2);
+assert.equal(reviverView.room.dawnActionsRequired, 2);
+await payload(await dawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'revive_player', targetId: villagePlayer.id
+}, dawnCreated.token)));
+dawnState = await dawnRoom.loadRoom();
+assert.equal(dawnState.players.find(item => item.id === villagePlayer.id).alive, true);
+assert.equal(dawnState.players.find(item => item.id === reviverPlayer.id).reviverUsed, true);
+assert.equal(dawnState.phase, 'dawn', 'Dawn remains open while the dead Hunter has a trigger action.');
+await payload(await dawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'hunter_shot', targetId: wolfPlayer.id
+}, dawnTokens[0])));
+dawnState = await dawnRoom.loadRoom();
+assert.equal(dawnState.phase, 'finished', 'Winner evaluation must happen after dawn trigger actions.');
+assert.equal(dawnState.winner, 'villagers');
+assert.equal(dawnState.players.find(item => item.id === villagePlayer.id).alive, true);
+assert.ok(dawnState.lastResult.revivedPlayers.some(item => item.id === villagePlayer.id));
+assert.ok(dawnState.lastResult.actionReport.some(item => item.role === 'Reviver'));
+assert.ok(dawnState.lastResult.actionReport.some(item => item.role === 'Hunter'));
+
+const autoRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const autoCreated = await payload(await autoRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'PHAS28', name: 'Automatic Host',
+  settings: {
+    gameMode: 'online', moderatorMode: 'system',
+    roleCounts: {
+      wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+      hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+      priest: 0, vigilante: 0, mason: 0, reviver: 0, jester: 0,
+      villager: 3, moderator: 0
+    },
+    timers: { roleDrawSeconds: 20, nightSeconds: 45, dawnSeconds: 15,
+      discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8 }
+  }
+})), 201);
+for (const name of ['Auto Two', 'Auto Three', 'Auto Four']) {
+  await payload(await autoRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+}
+await payload(await autoRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, autoCreated.token)));
+let autoState = await autoRoom.loadRoom();
+autoState.players[0].role = 'wolf';
+for (const player of autoState.players.slice(1)) player.role = 'villager';
+autoState.players.forEach(player => { player.alive = true; player.hasDrawn = true; });
+autoState.phase = 'night';
+autoState.nightEndsAt = Date.now() - 1;
+autoState.nightRevealEndsAt = null;
+autoState.nightActions = {};
+autoState.nightSkippedPlayerIds = [];
+autoState.seerResults = {};
+autoState.lastResult = { kind: 'phase', message: 'Tengah malam otomatis.', at: Date.now() };
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'night');
+assert.ok(autoState.nightRevealEndsAt > Date.now(), 'Missing night actions should be skipped automatically.');
+autoState.nightRevealEndsAt = Date.now() - 1;
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'dawn', 'Night results must transition into Subuh.');
+assert.ok(autoState.dawnEndsAt > Date.now());
+autoState.dawnEndsAt = Date.now() - 1;
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'morning', 'Subuh must transition into Pagi automatically.');
+assert.ok(autoState.discussionEndsAt > Date.now());
+autoState.discussionEndsAt = Date.now() - 1;
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'voting', 'Pagi must transition into Sore automatically.');
+assert.ok(autoState.votingEndsAt > Date.now());
+autoState.votingEndsAt = Date.now() - 1;
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'result', 'Sore voting must resolve automatically.');
+assert.ok(autoState.resultEndsAt > Date.now());
+autoState.resultEndsAt = Date.now() - 1;
+await autoRoom.saveRoom(autoState);
+await autoRoom.alarm();
+autoState = await autoRoom.loadRoom();
+assert.equal(autoState.phase, 'night', 'The next midnight must begin without host input.');
+assert.equal(autoState.round, 2);
+assert.ok(autoState.nightEndsAt > Date.now() + 44000
+  && autoState.nightEndsAt <= Date.now() + 45000);
+
+console.log('Werewolf four-phase automation passed: dawn triggers, Reviver, bot action claims, and timed system-only round cycle.');
 console.log('Werewolf online enhancements passed: strict majority, bot handoff and automatic morning after skipped actions.');
