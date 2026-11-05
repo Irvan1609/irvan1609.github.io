@@ -1069,7 +1069,9 @@ export class WerewolfRoom {
       bot.suspicionTargetId = suspected?.id || null;
 
       let text;
-      if (['seer', 'detective'].includes(bot.role) && clue) {
+      const actionReport = room.botNightReports?.[bot.id];
+      if (actionReport?.round === room.round) text = actionReport.text;
+      else if (['seer', 'detective'].includes(bot.role) && clue) {
         const faction = bot.role === 'detective'
           ? (clue.result === 'wolf_team' ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa')
           : (clue.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf');
@@ -1164,7 +1166,8 @@ export class WerewolfRoom {
         }
       } else if (bot.role === 'seer' || bot.role === 'detective') {
         type = bot.role === 'seer' ? 'seer_inspect' : 'detective_inspect';
-        const candidates = alive.filter(player => player.id !== bot.id);
+        const inspectedBefore = new Set((room.seerHistory?.[bot.id] || []).map(item => item.targetId));
+        const candidates = alive.filter(player => player.id !== bot.id && !inspectedBefore.has(player.id));
         selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
       } else if (bot.role === 'doctor' || bot.role === 'bodyguard') {
         type = bot.role === 'doctor' ? 'doctor_protect' : 'bodyguard_protect';
@@ -1182,12 +1185,12 @@ export class WerewolfRoom {
       } else if (bot.role === 'priest') {
         type = 'priest_protect';
         selected = alive[randomInt(alive.length)] || null;
-        if (selected) bot.priestUsed = true;
+
       } else if (bot.role === 'vigilante') {
         type = 'vigilante_shot';
         const candidates = alive.filter(player => player.id !== bot.id);
         selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
-        if (selected) bot.vigilanteUsed = true;
+
       } else if (bot.role === 'witch') {
         const potions = room.witchPotions?.[bot.id] || { heal: false, poison: false };
         const attack = wolfAttackSummary(room);
@@ -1220,6 +1223,30 @@ export class WerewolfRoom {
     }
   }
 
+
+  runBotDawnActions(room) {
+    const nightDeadIds = new Set(room.lastResult?.kind === 'night'
+      ? (room.lastResult.eliminations || []).map(item => item.id) : []);
+    if (!nightDeadIds.size) return;
+    room.dawnActions = room.dawnActions || {};
+    const deadTargets = room.players.filter(player => nightDeadIds.has(player.id) && !player.alive);
+    const livingTargets = room.players.filter(player => player.alive);
+    for (const bot of room.players.filter(player => player.isBot)) {
+      if (bot.role === 'reviver' && bot.alive && !bot.reviverUsed
+        && abilityEnabled(room, 'reviverOnce') && deadTargets.length) {
+        const preferred = deadTargets.filter(player => ['seer', 'doctor', 'detective'].includes(player.role));
+        const candidates = preferred.length ? preferred : deadTargets;
+        const selected = candidates[randomInt(candidates.length)];
+        room.dawnActions[bot.id] = { type: 'revive_player', targetId: selected.id };
+      } else if (bot.role === 'hunter' && !bot.alive && nightDeadIds.has(bot.id)
+        && !bot.hunterUsed && abilityEnabled(room, 'hunterShot')) {
+        const wolfTargets = livingTargets.filter(player => isWolf(player.role));
+        const candidates = wolfTargets.length ? wolfTargets : livingTargets;
+        const selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
+        if (selected) room.dawnActions[bot.id] = { type: 'hunter_shot', targetId: selected.id };
+      }
+    }
+  }
 
   runBotVotes(room, now) {
     const alive = room.players.filter(player => player.alive);
@@ -1423,6 +1450,7 @@ export class WerewolfRoom {
       if (!player) continue;
       player.alive = false;
       if (room.nightActions) delete room.nightActions[player.id];
+      if (room.dawnActions) delete room.dawnActions[player.id];
       if (room.votes) delete room.votes[player.id];
       eliminated.push(player);
       details.push({
@@ -1526,32 +1554,6 @@ export class WerewolfRoom {
     return mode ? mode === 'system' : Number(room.settings?.roleCounts?.moderator ?? 0) === 1;
   }
 
-  prepareNightReveal(room, now) {
-    if (room.phase !== 'night' || Number(room.nightRevealEndsAt) > now) return;
-    room.seerResults = room.seerResults || {};
-    for (const actor of room.players.filter(item => item.alive)) {
-      const action = room.nightActions?.[actor.id];
-      if (!['seer_inspect', 'detective_inspect'].includes(action?.type)) continue;
-      const inspected = room.players.find(item => item.id === action.targetId);
-      const wolf = inspected && isWolf(inspected.role);
-      room.seerResults[actor.id] = {
-        round: room.round,
-        playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
-        result: action.type === 'detective_inspect'
-          ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
-          : (wolf ? 'wolf' : 'not_wolf')
-      };
-    }
-    room.nightRevealEndsAt = now + 10000;
-  }
-
-  async resolveSystemNightIfReady(room, now) {
-    if (room.phase !== 'night') return;
-    const alive = room.players.filter(item => item.alive);
-    const skipped = new Set(room.nightSkippedPlayerIds || []);
-    if (alive.every(item => Boolean(room.nightActions?.[item.id]) || skipped.has(item.id))) this.prepareNightReveal(room, now);
-  }
-
   resolveSystemVoteIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'voting') return;
     if (Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) this.finishVote(room, now);
@@ -1601,6 +1603,13 @@ export class WerewolfRoom {
       room.seerResults = withoutPlayerReferences(room.seerResults, (seerId, result) =>
         seerId !== playerId && result?.playerName !== removed.name
       );
+      room.seerHistory = withoutPlayerReferences(room.seerHistory, (seerId, history) =>
+        seerId !== playerId && !(history || []).some(item => item.targetId === playerId)
+      );
+      room.dawnActions = withoutPlayerReferences(room.dawnActions, (actorId, action) =>
+        actorId !== playerId && action?.targetId !== playerId
+      );
+      room.botNightReports = withoutPlayerReferences(room.botNightReports, botId => botId !== playerId);
       room.villagerPrompts = withoutPlayerReferences(room.villagerPrompts, actorId => actorId !== playerId);
       room.witchPotions = withoutPlayerReferences(room.witchPotions, witchId => witchId !== playerId);
       room.guardianTargets = withoutPlayerReferences(room.guardianTargets, (guardianId, targetId) =>
@@ -1630,7 +1639,8 @@ export class WerewolfRoom {
           await this.applyAction(room, room.moderator, { type: 'start_night' });
         } else if (phaseBeforeKick === 'night') {
           this.runBotNightActions(room);
-          await this.resolveSystemNightIfReady(room, now);
+        } else if (phaseBeforeKick === 'dawn') {
+          this.runBotDawnActions(room);
         } else if (phaseBeforeKick === 'voting') {
           this.runBotVotes(room, now);
           this.resolveSystemVoteIfReady(room, now);
@@ -1642,7 +1652,9 @@ export class WerewolfRoom {
     if (type === 'replace_with_bot') {
       if (!isHost && !isModerator) throw new HttpError(403, 'Hanya host atau moderator yang dapat mengganti pemain dengan BOT.');
       if (room.phase === 'finished') throw new HttpError(409, 'Permainan sudah selesai.');
-      if (room.phase === 'night' && room.nightRevealEndsAt) throw new HttpError(409, 'Resolusi malam sudah dimulai.');
+      if (room.phase === 'night' && Number(room.nightEndsAt) > 0 && now >= Number(room.nightEndsAt)) {
+        throw new HttpError(409, 'Waktu tengah malam sudah berakhir.');
+      }
       const playerId = String(body.playerId || '').trim();
       const selected = room.players.find(item => item.id === playerId);
       if (!selected) throw new HttpError(404, 'Pemain tidak ditemukan di room.');
@@ -1661,7 +1673,8 @@ export class WerewolfRoom {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
       } else if (room.phase === 'night') {
         this.runBotNightActions(room);
-        await this.resolveSystemNightIfReady(room, now);
+      } else if (room.phase === 'dawn') {
+        this.runBotDawnActions(room);
       } else if (room.phase === 'voting') {
         this.runBotVotes(room, now);
       }
@@ -1715,6 +1728,12 @@ export class WerewolfRoom {
       room.round = 0;
       room.botDiscussionRound = null;
       room.nightRevealEndsAt = null;
+      room.roleDrawEndsAt = null;
+      room.nightEndsAt = null;
+      room.dawnEndsAt = null;
+      room.resultEndsAt = null;
+      room.dawnActions = {};
+      room.villageName = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
       room.activeModeratorMode = null;
@@ -1729,6 +1748,7 @@ export class WerewolfRoom {
         item.hasDrawn = false;
         item.suspicionTargetId = null;
         item.hunterUsed = false;
+        item.reviverUsed = false;
         item.priestUsed = false;
         item.vigilanteUsed = false;
       }
@@ -1809,7 +1829,8 @@ export class WerewolfRoom {
       }
       else if (phaseBeforeLeave === 'role_draw' && this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
-      } else if (phaseBeforeLeave === 'night') await this.resolveSystemNightIfReady(room, now);
+      } else if (phaseBeforeLeave === 'night') this.runBotNightActions(room);
+      else if (phaseBeforeLeave === 'dawn') this.runBotDawnActions(room);
       else if (phaseBeforeLeave === 'voting') this.resolveSystemVoteIfReady(room, now);
       return;
     }
@@ -1896,6 +1917,7 @@ export class WerewolfRoom {
       room.additionalWinners = [];
       room.players.forEach(item => {
         item.hunterUsed = false;
+        item.reviverUsed = false;
         item.priestUsed = false;
         item.vigilanteUsed = false;
         if (item.role === 'witch') room.witchPotions[item.id] = {
@@ -2540,9 +2562,6 @@ export class WerewolfRoom {
       if (room.votingEndsAt && now >= room.votingEndsAt) {
         this.finishVote(room, now);
         return;
-      }
-      if (Object.prototype.hasOwnProperty.call(room.votes, player.id)) {
-        throw new HttpError(409, 'Suara sudah dikirim.');
       }
       if (body.abstain === true || body.targetId === 'abstain') room.votes[player.id] = null;
       else {
