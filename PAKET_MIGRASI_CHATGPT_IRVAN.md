@@ -729,3 +729,61 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - Frontend mengenali `irvan1609.github.io` dan `www.irvan1609.github.io` sebagai host produksi agar room realtime tidak tersambung ke staging.
 - File: `public/werewolf/app.js`, `scripts/check-werewolf.mjs`, `PAKET_MIGRASI_CHATGPT_IRVAN.md`.
 - Verifikasi lokal: UI/backend Werewolf checks dan syntax check lulus.
+
+
+### 2026-11-06 — Mode online/offline, voice lintas fase, dan anti-stall Werewolf
+
+- **Permintaan:** host memilih mode Online atau Offline saat membuat room; mode Online menyediakan voice chat di lobby serta semua fase; mode Offline menonaktifkan voice chat. Chat teks tersedia sepanjang permainan. Fase malam tidak boleh tertahan oleh pemain yang tidak merespons; moderator dapat memantau status kartu/aksi/voting, mengeluarkan pemain, atau mengambil alih sementara dengan BOT. Voting menyediakan abstain dan eliminasi mensyaratkan lebih dari 50% suara.
+- **Implementasi frontend:** pilihan mode ditambahkan pada form Buat Room; mode disimpan dalam settings room. Panel chat dirender pada semua fase, termasuk lobby. Voice chat otomatis dicoba pada mode Online; browser tetap meminta izin mikrofon dan menyediakan kontrol Aktifkan Audio bila autoplay diblokir. Pemain yang dikendalikan BOT melihat status penonton dan tidak dapat mengirim aksi/chat.
+- **Implementasi backend:** mode room divalidasi dan disimpan server-side. Voice WebRTC dibatasi ke room Online tetapi tersedia di lobby, semua fase, dan layar selesai; pemain tereliminasi tidak ikut voice selama game aktif. Chat teks tersedia lintas fase dan riwayatnya tidak dihapus saat berganti fase.
+- **Anti-stall:** snapshot moderator/host menampilkan status kartu dibuka, aksi malam, aksi yang dilewati, voting, abstain, koneksi, dan BOT. Host/moderator dapat kick, mengganti pemain dengan BOT sementara, atau mengembalikan kendali. BOT otomatis menyelesaikan kartu/aksi malam/voting sesuai fase. Moderator juga dapat melewati aksi malam yang tertunda; hasil Seer diproses dan pagi terbuka otomatis 10 detik kemudian tanpa tombol moderator.
+- **Voting:** abstain disimpan sebagai ballot yang sah. Ambang eliminasi dihitung terhadap total bobot suara seluruh pemain hidup (termasuk abstain dan pemain yang tidak mengirim suara); kandidat harus mendapat lebih dari 50%. Mayor tetap memiliki bobot suara ganda.
+- **Verifikasi awal:** pemeriksaan statis dan integrasi ditambahkan untuk chat lobby lintas fase, voice lobby/voting, mode Offline, abstain, mayoritas ketat, penggantian BOT, pemulihan pemain, skip aksi malam, dan transisi otomatis 10 detik. Hasil workflow dan health check staging akan dicatat setelah selesai.
+- **Deployment:** perubahan diarahkan ke branch development dan Worker staging. Produksi master tidak diubah.
+
+
+- **Perbaikan validasi awal, 6 November 2026:** run GitHub Actions pertama menemukan sisa operator ternary pada snapshot chat setelah batas fase dihapus; diperbaiki sebelum staging deployment. Tampilan pemain yang sementara digantikan BOT juga tetap diarahkan ke layar pemenang saat game selesai.
+
+
+- **Koreksi kontrak UI:** tombol moderator kini memakai aksi server `skip_missing_night`, bukan `resolve_night` dengan force. Pemeriksaan statis diselaraskan dengan kontrak baru.
+
+
+- **Penyesuaian label kontrol moderator:** label tombol lewati aksi malam dibuat eksplisit “Lewati pemain yang belum beraksi” agar sesuai dengan istilah status pada dashboard.
+
+
+- **Perbaikan integrasi test:** nama variabel pada tes tambahan diisolasi agar tidak bentrok dengan fixture bot dan voting yang sudah ada pada suite Werewolf.
+
+
+- **Perbaikan persistensi chat:** riwayat chat lobby kini dipertahankan ketika host memulai permainan; riwayat baru dibersihkan saat room dikembalikan ke lobby untuk game berikutnya.
+
+
+### 2026-11-06 — Verifikasi dan deployment staging Werewolf Online/Offline
+
+- **Tujuan:** menyelesaikan implementasi mode Online/Offline, voice chat lintas fase, chat semua fase, status aktivitas pemain, kick/BOT takeover, transisi malam otomatis 10 detik, dan abstain dengan ambang eliminasi ketat >50%.
+- **Perbaikan backend:** riwayat chat lobby tidak lagi dihapus saat game dimulai; relay sinyal WebRTC kini diizinkan pada semua fase room Online (lobby, role_draw, night, morning, discussion, voting, result, finished), tetap ditolak pada mode Offline; komentar BOT dibuat idempoten per ronde agar tidak terduplikasi ketika fase morning berlanjut ke discussion.
+- **Perbaikan pengujian:** tes integrasi diperluas untuk menguji relay voice pada seluruh fase; fixture chat BOT diselaraskan dengan riwayat chat yang dipertahankan; kode room uji yang tidak sesuai alfabet room diperbaiki.
+- **File yang diubah pada rangkaian ini:** `cloudflare/werewolf-worker/src/index.js`, `scripts/check-werewolf-worker.mjs`, dan dokumen ini.
+- **Commit branch development:** `77ab69c842f71e7fff8b7793ff8c34c69bb8587a`.
+- **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42074900356` sukses; `Deploy Werewolf Room API` run `42074900324` sukses. Langkah validasi Worker, deploy Durable Object Worker, dan health check semuanya sukses. Health check mengembalikan `ok: true`, `realtime: true`, dan `storage: durable-objects`; smoke-check halaman staging, stylesheet, bundle aplikasi, dan ilustrasi juga sukses.
+- **URL staging aktif:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
+- **Produksi:** branch `master` dan URL produksi `https://irvan1609.github.io/werewolf/` tidak diubah dalam rangkaian ini.
+- **Batas verifikasi:** pengujian otomatis dan deployment staging lulus, tetapi sesi bermain manual dari beberapa HP/browser, izin mikrofon, kualitas audio, dan koneksi WebRTC lintas jaringan belum diuji. Browser dapat meminta izin mikrofon dan dapat memerlukan tindakan pengguna untuk mengaktifkan audio; konfigurasi STUN saja juga tidak menjamin koneksi suara pada semua jenis NAT.
+- **Langkah berikutnya:** uji satu room Online dari minimal dua perangkat/jaringan berbeda, lalu uji room Offline untuk memastikan voice tidak aktif. Jika hasil stabil, baru pertimbangkan promosi ke produksi.
+
+
+- **Penyempurnaan akhir voice takeover, 6 November 2026:** pemain yang sedang dikendalikan BOT sementara dikeluarkan dari daftar voice peer; server juga menolak sinyal suara dari maupun ke pemain tersebut. Tes integrasi mencakup kedua arah ini.
+- **Commit kode terverifikasi:** `e401ef9c5d262061cd8b456e833f6544e40b586b`. GitHub Actions `Validate Statistical Web` run `42075410139` sukses dan `Deploy Werewolf Room API` run `42075410009` sukses. Worker staging kembali lolos health check (`ok: true`, `realtime: true`, `storage: durable-objects`) dan smoke-check halaman publik.
+- **Status akhir:** semua perubahan Werewolf pada rangkaian ini berada di branch `development` dan Worker staging. Branch produksi `master` tetap pada commit `72f172fcef314e2a1d7d2fff3bb0fdcc70cd0d4d`; tidak ada promosi ke produksi.
+
+
+### 2026-11-06 — Host sebagai pemain dan panduan kekuatan role di lobby
+
+- **Host pada mode moderator Sistem:** UI kini memberi penanda bahwa host tetap bermain sebagai pemain. Panel khusus menampilkan role pribadi host dan menyediakan detail kekuatan serta aturan pakai role setelah kartu dibuka. Host tetap mendapat dashboard progres umum, daftar status pemain, dan kontrol fase siang.
+- **Privasi:** snapshot server memastikan host hanya menerima role miliknya sendiri. Daftar pemain untuk host tidak memuat role pemain lain atau target aksi malam rahasia. Host tetap menjalankan aksi malam, diskusi, dan voting berdasarkan role sendiri seperti pemain lain.
+- **Konfigurasi role lobby:** setiap role pemain kini memiliki detail yang dapat dibuka/tutup, berisi bagian KEKUATAN dan ATURAN PAKAI. Informasi moderator juga tersedia terpisah dari jumlah role pemain.
+- **Responsif:** rincian kemampuan dibuat ringkas dan dapat dibuka saat diperlukan agar daftar role tidak terlalu panjang di layar HP.
+- **File:** `public/werewolf/app.js`, `public/werewolf/style.css`, `scripts/check-werewolf.mjs`, dan `scripts/check-werewolf-worker.mjs`.
+- **Commit kode:** `c375b69da7cb81b2ee3e3942915d9f489d6d93bc`.
+- **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42076337869` sukses; `Deploy Werewolf Room API` run `42076337832` sukses. Tes UI, backend, aturan role, privasi, build, health check, dan smoke-check asset staging lulus.
+- **URL staging:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
+- **Produksi:** branch `master` tidak diubah.
