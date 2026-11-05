@@ -131,7 +131,7 @@ assert.match(worker, /lobbyPlayers/);
 
 assert.match(worker, /publicResult,/);
 assert.match(worker, /finalPlayers,/);
-assert.match(worker, /winner: isModerator \\|\\| room\\.phase === 'finished' \\? room\\.winner : null/);
+assert.match(worker, /winner: isModerator \|\| room\.phase === 'finished' \? room\.winner : null/);
 assert.match(worker, /room\.phase = hasWinner \? 'finished' : 'morning'/);
 assert.match(worker, /eliminatedPlayers:/);
 assert.match(worker, /winReason: bonusWinner/);
