@@ -1811,13 +1811,15 @@ function systemNarrationText(room) {
       return 'Waktunya memilih. Siapa yang kalian curigai?';
     case 'result':
       return 'Suara telah dihitung. ' + (resultMessage || 'Tak ada keputusan.');
-    case 'finished':
-      return 'Permainan usai. ' + ({
+    case 'finished': {
+      const ending = ({
         wolves: 'Werewolf menguasai desa.',
         villagers: 'Desa berhasil diselamatkan.',
         jester: 'Jester berhasil memperdaya semua orang.',
         lovers: 'Cinta memenangkan permainan.'
-      })[room.winner] + '';
+      })[room.winner] || 'Malam kembali menyelimuti desa.';
+      return 'Permainan usai. ' + ending;
+    }
     default:
       return '';
   }
