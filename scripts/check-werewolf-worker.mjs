@@ -1946,7 +1946,7 @@ assert.equal(onlineClearMajority.players.find(player => player.id === 't').alive
 
 const handoffBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const handoffBotCreated = await payload(await handoffBotRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'BOTC24', name: 'Bot Host', settings: roleSettings
+  code: 'BRTC24', name: 'Bot Host', settings: roleSettings
 })), 201);
 const handoffBotTokens = [];
 for (const name of ['Bot Wolf', 'Bot Seer', 'Bot Doctor', 'Bot Village', 'Bot Idle']) {
