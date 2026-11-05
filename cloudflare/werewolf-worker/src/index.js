@@ -1396,10 +1396,7 @@ export class WerewolfRoom {
 
   resolveSystemVoteIfReady(room, now) {
     if (!this.isSystemModerator(room) || room.phase !== 'voting') return;
-    const alive = room.players.filter(item => item.alive);
-    if (alive.every(item => Object.prototype.hasOwnProperty.call(room.votes || {}, item.id))) {
-      this.finishVote(room, now);
-    }
+    if (Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) this.finishVote(room, now);
   }
 
   async applyAction(room, player, body) {
