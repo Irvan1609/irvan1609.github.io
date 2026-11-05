@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-results1">
+  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-production1">
 </head>
 <body>
   <header class="subweb-header">
@@ -61,7 +61,7 @@
       <div class="panel room-panel">
         <div class="room-top">
           <div id="roomIdentity"><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button><button id="showInviteQr" class="icon-button invite-qr-button" type="button">Undang via QR</button></div></div>
-          <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="resetRoom" class="text-button restart-button" type="button">Restart Permainan</button><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
+          <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="reconnectButton" class="text-button reconnect-button hidden" type="button">Hubungkan ulang</button><button id="resetRoom" class="text-button restart-button" type="button">Restart Permainan</button><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
         </div>
         <p id="roomMessage" class="message-line" role="status" aria-live="polite"></p>
         <div id="roomMeta" class="room-meta"><span id="phaseLabel">Menunggu pemain</span><span id="roundLabel">Lobby</span></div>
@@ -99,6 +99,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261105-werewolf-results1"></script>
+  <script type="module" src="./app.js?v=20261105-werewolf-production1"></script>
 </body>
 </html>

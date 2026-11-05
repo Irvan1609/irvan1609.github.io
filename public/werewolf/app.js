@@ -146,12 +146,20 @@ function showMessage(message, isError = false) {
   }
 }
 
-function setConnection(connected) {
+function setConnection(connected, statusText = '') {
   const target = $('connectionStatus');
   if (!target) return;
-  target.textContent = connected ? 'Realtime terhubung' : 'Menyambungkan ulang';
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  target.textContent = connected ? 'Realtime aktif'
+    : statusText || (offline ? 'Internet terputus' : 'Menyambungkan ulang');
   target.classList.toggle('muted', !connected);
   target.classList.toggle('offline', !connected);
+  const retry = $('reconnectButton');
+  if (retry) {
+    retry.classList.toggle('hidden', Boolean(connected || !session));
+    retry.disabled = offline;
+    retry.textContent = offline ? 'Menunggu internet' : 'Hubungkan ulang';
+  }
 }
 
 async function request(path, options = {}) {
@@ -288,6 +296,8 @@ async function connectRealtime() {
       }
       reconnectDelay = 1200;
       setConnection(true);
+      // Refresh the authoritative snapshot after reconnecting to recover missed events.
+      refreshState().catch(() => {});
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(() => {
         if (socket === nextSocket && nextSocket.readyState === WebSocket.OPEN) {
@@ -343,6 +353,33 @@ function scheduleReconnect(generation = realtimeGeneration) {
     if (generation === realtimeGeneration) connectRealtime();
   }, reconnectDelay);
   reconnectDelay = Math.min(reconnectDelay * 1.7, 12000);
+}
+
+async function reconnectNow() {
+  const activeSession = session;
+  if (!activeSession) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setConnection(false, 'Internet terputus');
+    return;
+  }
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  reconnectDelay = 1200;
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+  if (socket) {
+    socket.onclose = null;
+    socket.onerror = null;
+    try { socket.close(); } catch {}
+  }
+  socket = null;
+  setConnection(false, 'Menghubungkan...');
+  try {
+    await refreshState();
+  } catch (error) {
+    if (session === activeSession) showMessage('Koneksi belum pulih. Sistem akan mencoba kembali: ' + error.message, true);
+  }
+  if (session === activeSession) connectRealtime();
 }
 
 async function sendAction(type, payload = {}) {
@@ -619,6 +656,59 @@ function readRoleSettings(container) {
   const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
   if (!['host', 'system', 'random'].includes(moderatorMode)) throw new Error('Mode moderator tidak valid.');
   return { roleCounts, moderatorMode };
+}
+
+function renderModeratorDashboard(parent) {
+  const room = roomState.room;
+  const players = roomState.players || [];
+  const total = Number(room.roleCardsRequired) || players.length;
+  const alive = Number(room.playersAliveCount ?? players.filter(player => player.alive).length);
+  const online = Number(room.playersOnlineCount ?? players.filter(player => player.connected).length);
+  let task = '';
+  let done = 0;
+  let required = 0;
+  if (room.phase === 'role_draw') {
+    task = 'Kartu dibuka';
+    done = Number(room.roleCardsDrawn) || players.filter(player => player.hasDrawn).length;
+    required = Number(room.roleCardsRequired) || total;
+  } else if (room.phase === 'night') {
+    task = 'Aksi malam';
+    done = Number(room.nightActionsSubmitted) || 0;
+    required = Number(room.nightActionsRequired) || alive;
+  } else if (room.phase === 'voting') {
+    task = 'Voting';
+    done = Number(room.votesSubmitted) || 0;
+    required = Number(room.votesRequired) || alive;
+  }
+  const panel = node('section', 'moderator-dashboard');
+  const stats = node('div', 'moderator-dashboard-stats');
+  for (const [label, value, tone] of [
+    ['Pemain', total, ''], ['Online', online, 'online'], ['Hidup', alive, 'alive']
+  ]) {
+    const item = node('div', 'moderator-dashboard-stat');
+    addText(item, 'span', 'moderator-dashboard-label', label);
+    addText(item, 'b', 'moderator-dashboard-value ' + tone, String(value));
+    stats.append(item);
+  }
+  panel.append(stats);
+  if (task && required > 0) {
+    const progress = node('div', 'moderator-dashboard-progress');
+    const heading = node('div', 'moderator-dashboard-progress-heading');
+    addText(heading, 'b', '', task);
+    addText(heading, 'span', '', done + ' / ' + required + ' selesai');
+    const track = node('div', 'moderator-progress-track');
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-valuemin', '0');
+    track.setAttribute('aria-valuemax', String(required));
+    track.setAttribute('aria-valuenow', String(Math.min(done, required)));
+    const fill = node('span', 'moderator-progress-fill');
+    fill.style.width = Math.min(100, Math.round(done / required * 100)) + '%';
+    track.append(fill);
+    addText(progress, 'div', 'moderator-dashboard-waiting', Math.max(0, required - done) + ' pemain menunggu');
+    progress.prepend(heading, track);
+    panel.append(progress);
+  }
+  parent.prepend(panel);
 }
 
 function renderPlayers() {
@@ -998,6 +1088,7 @@ function eliminationCauseLabel(cause) {
 }
 
 function renderModeratorPhase(parent) {
+  renderModeratorDashboard(parent);
   switch (roomState.room.phase) {
     case 'lobby': renderModeratorLobby(parent); break;
     case 'role_draw': renderModeratorRoleDraw(parent); break;
@@ -1013,6 +1104,7 @@ function renderModeratorPhase(parent) {
 }
 
 function renderPlayerPhase(parent) {
+  if (systemModeratorEnabled() && isHost()) renderModeratorDashboard(parent);
   const loverNames = roomState.self?.loverNames || [];
   if (loverNames.length === 2) {
     const message = roomState.self.role === 'cupid'
@@ -1150,6 +1242,7 @@ function renderModeratorLobby(parent) {
     } catch (error) { showMessage(error.message, true); }
   }, !canStart));
   addText(parent, 'p', 'hint', 'Kartu dibagikan secara privat. Setiap pemain membukanya sendiri pada perangkat masing-masing.');
+  renderReplayArchive(parent);
 }
 
 function renderModeratorRoleDraw(parent) {
@@ -1489,6 +1582,113 @@ function factionLabel(faction) {
   })[faction] || 'KUBU TIDAK DIKETAHUI';
 }
 
+function renderReplayEvents(parent, events, truncated = 0) {
+  const items = Array.isArray(events) ? events : [];
+  if (truncated > 0) addText(parent, 'p', 'replay-truncated-note',
+    truncated + ' kejadian paling lama tidak ditampilkan agar replay tetap ringan.');
+  const timeline = node('div', 'replay-timeline');
+  for (const event of items) {
+    const card = node('article', 'replay-event');
+    const heading = node('div', 'replay-event-heading');
+    addText(heading, 'span', 'replay-event-round', event.round ? 'RONDE ' + event.round : 'AWAL GAME');
+    addText(heading, 'b', 'replay-event-title', event.title || 'Peristiwa permainan');
+    if (event.at) addText(heading, 'time', 'replay-event-time',
+      new Date(event.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    card.append(heading);
+    if (event.message) addText(card, 'p', 'replay-event-message', event.message);
+    if (Array.isArray(event.events) && event.events.length) {
+      const notes = node('ul', 'replay-event-notes');
+      for (const note of event.events) addText(notes, 'li', '', note);
+      card.append(notes);
+      if ((event.eventsTotal || 0) > event.events.length) addText(card, 'p', 'replay-truncated-note',
+        'Menampilkan ' + event.events.length + ' dari ' + event.eventsTotal + ' catatan.');
+    }
+    if (Array.isArray(event.eliminations) && event.eliminations.length) {
+      const deaths = node('div', 'replay-eliminations');
+      for (const item of event.eliminations) {
+        const line = node('div', 'replay-elimination');
+        addText(line, 'b', '', item.name || 'Pemain');
+        addText(line, 'span', '', roleLabel(item.role) + ' · ' + eliminationCauseLabel(item.cause));
+        deaths.append(line);
+      }
+      card.append(deaths);
+    }
+    if (Array.isArray(event.voteTally) && event.voteTally.length) {
+      const tally = node('div', 'replay-vote-tally');
+      addText(tally, 'b', 'replay-subheading', 'Perolehan suara');
+      for (const item of event.voteTally) {
+        const line = node('div', 'replay-vote-row');
+        addText(line, 'span', '', item.name);
+        addText(line, 'b', '', String(item.votes) + ' suara');
+        tally.append(line);
+      }
+      card.append(tally);
+      if ((event.voteTallyTotal || 0) > event.voteTally.length) addText(card, 'p', 'replay-truncated-note',
+        'Menampilkan ' + event.voteTally.length + ' dari ' + event.voteTallyTotal + ' target.');
+    }
+    if (Array.isArray(event.actionReport) && event.actionReport.length) {
+      const details = node('details', 'replay-action-details');
+      addText(details, 'summary', '', 'Lihat ' + event.actionReport.length + ' rincian aksi');
+      const report = node('div', 'replay-action-list');
+      for (const action of event.actionReport) {
+        const row = node('article', 'replay-action-item');
+        addText(row, 'b', 'replay-action-role', [action.role, action.actor].filter(Boolean).join(' · '));
+        addText(row, 'span', 'replay-action-action', action.action || 'Aksi tidak tercatat.');
+        addText(row, 'span', 'replay-action-outcome', action.outcome || 'Hasil tidak tercatat.');
+        report.append(row);
+      }
+      if ((event.actionReportTotal || 0) > event.actionReport.length) addText(report, 'p', 'replay-truncated-note',
+        'Menampilkan ' + event.actionReport.length + ' dari ' + event.actionReportTotal + ' aksi.');
+      details.append(report);
+      card.append(details);
+    }
+    timeline.append(card);
+  }
+  parent.append(timeline);
+}
+
+function renderReplayTimeline(parent, events, title = 'Replay permainan', truncated = 0) {
+  if (!Array.isArray(events) || !events.length) return;
+  const details = node('details', 'replay-panel');
+  const summary = node('summary', 'replay-summary');
+  addText(summary, 'b', '', title);
+  addText(summary, 'span', '', events.length + ' kejadian');
+  details.append(summary);
+  renderReplayEvents(details, events, truncated);
+  parent.append(details);
+}
+
+function renderReplayArchive(parent) {
+  const archives = Array.isArray(roomState.room.gameArchive) ? roomState.room.gameArchive : [];
+  if (!archives.length) return;
+  const section = node('section', 'replay-archive');
+  addText(section, 'div', 'eyebrow-small', 'ARSIP PERMAINAN');
+  addText(section, 'h3', '', 'Replay sebelumnya');
+  for (const archive of archives) {
+    const details = node('details', 'replay-archive-item');
+    const summary = node('summary', 'replay-archive-summary');
+    const meta = node('span', 'replay-archive-meta');
+    addText(meta, 'b', '', winnerLabel(archive.winner));
+    addText(meta, 'span', '', (archive.round || 0) + ' ronde · ' + (archive.events?.length || 0) + ' kejadian');
+    addText(summary, 'span', 'replay-archive-date',
+      archive.completedAt ? new Date(archive.completedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'Riwayat permainan');
+    summary.append(meta);
+    details.append(summary);
+    const roster = node('div', 'replay-archive-roster');
+    addText(roster, 'b', 'replay-subheading', 'Daftar role');
+    for (const player of archive.players || []) {
+      const row = node('div', 'replay-archive-player faction-' + (player.faction || 'neutral'));
+      addText(row, 'span', '', player.name);
+      addText(row, 'span', '', roleLabel(player.role) + (player.isWinner ? ' · Menang' : ''));
+      roster.append(row);
+    }
+    details.append(roster);
+    renderReplayEvents(details, archive.events, archive.truncated);
+    section.append(details);
+  }
+  parent.append(section);
+}
+
 function winnerLabel(winner) {
   return ({
     wolves: 'KUBU WEREWOLF MENANG',
@@ -1549,6 +1749,7 @@ function renderVictoryScreen(parent, moderatorView = false) {
     roster.append(row);
   }
   screen.append(roster);
+  renderReplayTimeline(screen, room.gameHistory, 'Replay permainan', room.gameHistoryTruncated);
   parent.append(screen);
 
   if (moderatorView) {
@@ -1929,6 +2130,14 @@ async function checkApi() {
 }
 
 document.addEventListener('pointerdown', unlockGameAudio, { once: true });
+$('reconnectButton')?.addEventListener('click', reconnectNow);
+window.addEventListener('online', reconnectNow);
+window.addEventListener('offline', () => setConnection(false, 'Internet terputus'));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !session) return;
+  refreshState().catch(() => {});
+  if (!socket || socket.readyState === WebSocket.CLOSED) connectRealtime();
+});
 prefillPlayerName();
 checkApi();
 restoreSession();

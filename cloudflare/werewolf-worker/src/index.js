@@ -409,6 +409,10 @@ export class WerewolfRoom {
       room.players = [];
       migrated = true;
     }
+    if (!Array.isArray(room.gameHistory)) { room.gameHistory = []; migrated = true; }
+    if (!Array.isArray(room.gameArchive)) { room.gameArchive = []; migrated = true; }
+    if (!Number.isSafeInteger(room.gameHistoryTruncated)) { room.gameHistoryTruncated = 0; migrated = true; }
+    if (typeof room.gameFinishedRecorded !== 'boolean') { room.gameFinishedRecorded = false; migrated = true; }
     if (!room.hostAccount && room.moderator && room.hostId) {
       room.hostAccount = {
         id: room.hostId,
@@ -452,6 +456,106 @@ export class WerewolfRoom {
     room.expiresAt = Date.now() + ROOM_TTL_MS;
     await this.state.storage.put('room', room);
     if (this.state.storage.setAlarm) await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+  }
+
+  recordGameEvent(room, event = {}) {
+    const clean = (value, max = 320) => String(value ?? '').slice(0, max);
+    const entry = {
+      id: crypto.randomUUID(),
+      at: Number(event.at) || Date.now(),
+      round: Number(event.round ?? room.round) || 0,
+      phase: clean(event.phase || room.phase || 'unknown', 24),
+      kind: clean(event.kind || 'event', 32),
+      title: clean(event.title || 'Peristiwa permainan', 100),
+      message: clean(event.message || '', 700)
+    };
+    if (Array.isArray(event.events) && event.events.length) {
+      entry.events = event.events.slice(0, 40).map(item => clean(item, 320));
+      entry.eventsTotal = event.events.length;
+    }
+    if (Array.isArray(event.eliminations) && event.eliminations.length) {
+      entry.eliminations = event.eliminations.slice(0, 80).map(item => ({
+        name: clean(item.name || 'Pemain', 40),
+        role: clean(item.role || 'unknown', 32),
+        cause: clean(item.cause || 'unknown', 32)
+      }));
+      entry.eliminationsTotal = event.eliminations.length;
+    }
+    if (Array.isArray(event.actionReport) && event.actionReport.length) {
+      entry.actionReport = event.actionReport.slice(0, 120).map(item => ({
+        order: Number(item.order) || 0,
+        role: clean(item.role || 'Role', 32),
+        actor: clean(item.actor || 'Pemain', 100),
+        action: clean(item.action || '', 240),
+        outcome: clean(item.outcome || '', 240)
+      }));
+      entry.actionReportTotal = event.actionReport.length;
+    }
+    if (Array.isArray(event.voteTally) && event.voteTally.length) {
+      entry.voteTally = event.voteTally.slice(0, 100).map(item => ({
+        name: clean(item.name || 'Pemain', 40),
+        votes: Math.max(0, Number(item.votes) || 0)
+      }));
+      entry.voteTallyTotal = event.voteTally.length;
+    }
+    const history = Array.isArray(room.gameHistory) ? room.gameHistory : [];
+    history.push(entry);
+    if (history.length > 120) {
+      const removed = history.length - 120;
+      history.splice(0, removed);
+      room.gameHistoryTruncated = (Number(room.gameHistoryTruncated) || 0) + removed;
+    }
+    room.gameHistory = history;
+    return entry;
+  }
+
+  recordGameFinished(room, now = Date.now()) {
+    if (!room.winner || room.gameFinishedRecorded) return;
+    const labels = {
+      wolves: 'Kubu Werewolf menang',
+      villagers: 'Kubu Desa menang',
+      jester: 'Jester menang sendiri',
+      lovers: 'Pasangan Lovers menang'
+    };
+    room.gameFinishedRecorded = true;
+    this.recordGameEvent(room, {
+      kind: 'game_over', phase: 'finished', title: 'Pemenang ditentukan',
+      message: labels[room.winner] || 'Permainan selesai.', at: now, round: room.round
+    });
+  }
+
+  archiveCompletedGame(room, now = Date.now()) {
+    if (room.phase !== 'finished' || !room.winner || !Array.isArray(room.gameHistory) || !room.gameHistory.length) return;
+    const lovers = Array.isArray(room.lovers) ? room.lovers : [];
+    const bonusWinners = Array.isArray(room.additionalWinners) ? room.additionalWinners : [];
+    const players = room.players.map(player => {
+      const faction = isWolf(player.role) ? 'wolves'
+        : NEUTRAL_ROLES.has(player.role) ? 'neutral' : 'village';
+      const mainWinner = room.winner === 'wolves' && faction === 'wolves'
+        || room.winner === 'villagers' && faction === 'village'
+        || room.winner === 'jester' && player.role === 'jester'
+        || room.winner === 'lovers' && lovers.includes(player.id);
+      const bonusWinner = bonusWinners.includes(player.id);
+      return {
+        id: player.id, name: player.name, role: player.role, faction,
+        alive: Boolean(player.alive), isWinner: Boolean(mainWinner || bonusWinner),
+        winReason: bonusWinner ? 'Pemenang bonus Guardian Angel' : mainWinner ? 'Pemenang utama' : null
+      };
+    });
+    const archive = {
+      id: room.gameId || crypto.randomUUID(),
+      startedAt: Number(room.gameStartedAt) || room.createdAt || now,
+      completedAt: now,
+      round: Number(room.round) || 0,
+      winner: room.winner,
+      moderatorName: room.moderator?.name || 'Moderator',
+      players,
+      events: JSON.parse(JSON.stringify(room.gameHistory.slice(-120))),
+      truncated: Number(room.gameHistoryTruncated) || 0
+    };
+    const archives = Array.isArray(room.gameArchive) ? room.gameArchive : [];
+    archives.unshift(archive);
+    room.gameArchive = archives.slice(0, 3);
   }
 
   async authenticate(request, room) {
@@ -505,6 +609,8 @@ export class WerewolfRoom {
     const targets = !isModerator && self
       ? alive.map(player => ({ id: player.id, name: player.name }))
       : [];
+    const canSeeCurrentHistory = isModerator || room.phase === 'finished';
+    const canSeeGameArchive = isModerator || (room.phase === 'lobby' && actorId === room.hostId);
     const status = !self || isModerator ? 'moderator'
       : room.phase === 'morning'
         ? (room.lastResult?.eliminatedId === self.id ? 'eliminated' : self.alive ? 'survived' : 'eliminated')
@@ -585,6 +691,13 @@ export class WerewolfRoom {
         nightActionsSubmitted,
         votesRequired: alive.length,
         votesSubmitted,
+        playersAliveCount: alive.length,
+        playersOnlineCount: room.players.filter(player => player.connected).length,
+        roleCardsDrawn: room.players.filter(player => player.hasDrawn).length,
+        roleCardsRequired: room.players.length,
+        gameHistory: canSeeCurrentHistory ? (room.gameHistory || []) : [],
+        gameHistoryTruncated: canSeeCurrentHistory ? (Number(room.gameHistoryTruncated) || 0) : 0,
+        gameArchive: canSeeGameArchive ? (room.gameArchive || []).slice(0, 3) : [],
         lastResult: isModerator ? room.lastResult : null,
         publicResult,
         winner: isModerator || room.phase === 'finished' ? room.winner : null,
@@ -994,6 +1107,12 @@ export class WerewolfRoom {
           wolfChat: [],
           lastResult: null,
           winner: null,
+          gameId: null,
+          gameStartedAt: null,
+          gameHistory: [],
+          gameHistoryTruncated: 0,
+          gameFinishedRecorded: false,
+          gameArchive: [],
           createdAt: Date.now(),
           expiresAt: Date.now() + ROOM_TTL_MS
         };
@@ -1181,9 +1300,20 @@ export class WerewolfRoom {
     } else {
       events.push('Voting seri atau tidak menghasilkan pilihan yang sah.');
     }
-    room.lastResult = { kind: 'vote', message, eliminatedId, eliminatedIds, eliminations, events, at: now, round: room.round };
+    const voteTally = Object.entries(tally)
+      .map(([playerId, votes]) => ({
+        name: room.players.find(item => item.id === playerId)?.name || 'Pemain',
+        votes
+      }))
+      .sort((left, right) => right.votes - left.votes || left.name.localeCompare(right.name, 'id'));
+    room.lastResult = { kind: 'vote', message, eliminatedId, eliminatedIds, eliminations, events, voteTally, at: now, round: room.round };
     if (!room.winner) this.checkWinner(room);
     room.phase = room.winner ? 'finished' : 'result';
+    this.recordGameEvent(room, {
+      kind: 'vote_result', phase: room.phase, title: 'Hasil voting ronde ' + room.round,
+      message, events, eliminations, voteTally, at: now, round: room.round
+    });
+    this.recordGameFinished(room, now);
   }
 
 
@@ -1284,8 +1414,16 @@ export class WerewolfRoom {
       room.wolfChat = (room.wolfChat || []).filter(message => message.playerId !== playerId);
 
       if (phaseBeforeKick !== 'lobby' && phaseBeforeKick !== 'finished') {
-        if (checkWinner()) room.phase = 'finished';
-        else if (phaseBeforeKick === 'role_draw' && this.isSystemModerator(room)
+        this.recordGameEvent(room, {
+          kind: 'player_removed', phase: phaseBeforeKick, title: 'Pemain dikeluarkan',
+          message: removed.name + ' dikeluarkan dari permainan oleh moderator.',
+          eliminations: [{ name: removed.name, role: removed.role, cause: 'kick' }],
+          at: now, round: room.round
+        });
+        if (checkWinner()) {
+          room.phase = 'finished';
+          this.recordGameFinished(room, now);
+        } else if (phaseBeforeKick === 'role_draw' && this.isSystemModerator(room)
           && room.players.every(item => item.hasDrawn)) {
           await this.applyAction(room, room.moderator, { type: 'start_night' });
         } else if (phaseBeforeKick === 'night') {
@@ -1309,6 +1447,7 @@ export class WerewolfRoom {
     if (type === 'reset_to_lobby') {
       if (!isModerator && !isHost) throw new HttpError(403, 'Hanya host atau moderator yang dapat memulai ulang permainan.');
       if (room.phase === 'lobby') return;
+      this.archiveCompletedGame(room, now);
       if (room.activeModeratorId && room.moderator
         && !room.players.some(item => item.id === room.activeModeratorId)) {
         const restored = { ...room.moderator };
@@ -1353,6 +1492,11 @@ export class WerewolfRoom {
       room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
+      room.gameId = null;
+      room.gameStartedAt = null;
+      room.gameHistory = [];
+      room.gameHistoryTruncated = 0;
+      room.gameFinishedRecorded = false;
       return;
     }
 
@@ -1385,7 +1529,15 @@ export class WerewolfRoom {
         eliminations: outcome.details,
         events: [leavingPlayer.name + ' keluar dari room.'], at: now, round: room.round
       };
-      if (checkWinner()) room.phase = 'finished';
+      this.recordGameEvent(room, {
+        kind: 'player_left', phase: phaseBeforeLeave, title: 'Pemain keluar',
+        message: room.lastResult.message, events: room.lastResult.events,
+        eliminations: room.lastResult.eliminations, at: now, round: room.round
+      });
+      if (checkWinner()) {
+        room.phase = 'finished';
+        this.recordGameFinished(room, now);
+      }
       else if (phaseBeforeLeave === 'role_draw' && this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
       } else if (phaseBeforeLeave === 'night') await this.resolveSystemNightIfReady(room, now);
@@ -1464,6 +1616,16 @@ export class WerewolfRoom {
       room.wolfChat = [];
       room.lastResult = null;
       room.winner = null;
+      room.gameId = crypto.randomUUID();
+      room.gameStartedAt = now;
+      room.gameHistory = [];
+      room.gameHistoryTruncated = 0;
+      room.gameFinishedRecorded = false;
+      this.recordGameEvent(room, {
+        kind: 'game_started', phase: 'role_draw', title: 'Permainan dimulai',
+        message: 'Kartu dibagikan kepada ' + room.players.length + ' pemain.',
+        at: now, round: room.round
+      });
       if (this.isSystemModerator(room) && room.players.every(item => item.hasDrawn)) {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
       }
@@ -1493,6 +1655,10 @@ export class WerewolfRoom {
       this.prepareVillagerPrompts(room);
       room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
+      this.recordGameEvent(room, {
+        kind: 'night_started', phase: 'night', title: 'Malam ' + room.round + ' dimulai',
+        message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
+      });
       this.runBotNightActions(room);
       await this.resolveSystemNightIfReady(room, now);
       return;
@@ -1861,6 +2027,13 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.callUrl = '';
       room.chat = [];
+      this.recordGameEvent(room, {
+        kind: 'night_result', phase: room.phase, title: 'Hasil malam ' + room.round,
+        message: room.lastResult.message, events: room.lastResult.events,
+        eliminations: room.lastResult.eliminations, actionReport: room.lastResult.actionReport,
+        at: now, round: room.round
+      });
+      this.recordGameFinished(room, now);
       return;
     }
 
@@ -1877,6 +2050,10 @@ export class WerewolfRoom {
       room.callUrl = '';
       room.chat = [];
       this.seedBotDiscussion(room, now);
+      this.recordGameEvent(room, {
+        kind: 'discussion_started', phase: 'discussion', title: 'Diskusi ronde ' + room.round,
+        message: 'Fase diskusi dimulai.', at: now, round: room.round
+      });
       return;
     }
 
@@ -1901,6 +2078,11 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.phase = 'voting';
       room.votes = {};
+      this.recordGameEvent(room, {
+        kind: 'voting_started', phase: 'voting', title: 'Voting ronde ' + room.round,
+        message: 'Voting dimulai. Pilihan setiap pemain tetap rahasia.',
+        at: now, round: room.round
+      });
       this.runBotVotes(room, now);
       this.resolveSystemVoteIfReady(room, now);
       return;
@@ -1927,6 +2109,12 @@ export class WerewolfRoom {
         at: now,
         round: room.round
       };
+      this.recordGameEvent(room, {
+        kind: 'hunter_result', phase: room.phase, title: 'Tembakan Hunter',
+        message: room.lastResult.message, events: room.lastResult.events,
+        eliminations: room.lastResult.eliminations, at: now, round: room.round
+      });
+      this.recordGameFinished(room, now);
       return;
     }
 

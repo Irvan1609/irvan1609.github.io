@@ -14,7 +14,7 @@ const sw = read('public/sw.js');
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
-  'phaseContent', 'roomMessage', 'phasePanel'
+  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton'
 ]) {
   assert.match(html, new RegExp('id="' + id + '"'), 'Missing UI element ' + id);
 }
@@ -37,6 +37,21 @@ for (const text of [
   'Kamu bertahan.', 'Kamu tereliminasi.'
 ]) assert.ok(app.includes(text), 'Missing moderator-led UI text: ' + text);
 
+assert.match(app, /function renderModeratorDashboard/);
+assert.match(app, /function renderReplayTimeline/);
+assert.match(app, /function renderReplayArchive/);
+assert.match(app, /function reconnectNow/);
+assert.match(app, /window\.addEventListener\('online', reconnectNow\)/);
+assert.match(app, /window\.addEventListener\('offline'/);
+assert.match(app, /document\.addEventListener\('visibilitychange'/);
+assert.match(css, /\.moderator-dashboard/);
+assert.match(css, /\.replay-panel/);
+assert.match(css, /\.reconnect-button/);
+assert.match(worker, /gameHistory:/);
+assert.match(worker, /gameArchive:/);
+assert.match(worker, /recordGameEvent\(room/);
+assert.match(worker, /archiveCompletedGame\(room, now\)/);
+assert.match(html, /id="reconnectButton"/);
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerDiscussion/);
 assert.match(app, /Diskusi offline/);
@@ -46,7 +61,7 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261105-werewolf-results1/);
+assert.match(html, /20261105-werewolf-production1/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -70,13 +85,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261105-werewolf-results1/);
+assert.match(html, /app\.js\?v=20261105-werewolf-production1/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /app\.js\?v=20261105-werewolf-results1/);
+assert.match(html, /app\.js\?v=20261105-werewolf-production1/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -243,7 +258,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261105-werewolf-results1/);
+assert.match(sw, /20261105-werewolf-production1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
@@ -299,8 +314,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261105-werewolf-results1/);
-assert.match(sw, /20261105-werewolf-results1/);
+assert.match(html, /20261105-werewolf-production1/);
+assert.match(sw, /20261105-werewolf-production1/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
