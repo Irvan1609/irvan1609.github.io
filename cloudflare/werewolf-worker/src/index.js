@@ -1854,7 +1854,9 @@ export class WerewolfRoom {
       requireModerator();
       requirePhase('night');
       const actors = room.players.filter(item => item.alive);
-      const missing = actors.filter(item => !room.nightActions[item.id]);
+      // Preserve submitted actions for the public moderator report even if an actor dies this night.
+      const resolvedNightActions = { ...(room.nightActions || {}) };
+      const missing = actors.filter(item => !resolvedNightActions[item.id]);
       if (missing.length && body.force !== true) {
         throw new HttpError(409, 'Belum semua pemain yang hidup menyelesaikan aksi malam.');
       }
@@ -1984,7 +1986,7 @@ export class WerewolfRoom {
       };
 
       // Moderator narration follows the game's night-call order.
-      const cupidActor = actors.find(actor => room.nightActions[actor.id]?.type === 'cupid_link');
+      const cupidActor = actors.find(actor => resolvedNightActions[actor.id]?.type === 'cupid_link');
       if (cupidActor && room.lovers?.length === 2) {
         const linkedNames = room.lovers.map(reportTargetName);
         addActionReport(10, 'Cupid', cupidActor.name,
@@ -1992,13 +1994,13 @@ export class WerewolfRoom {
       }
 
       const wolfActors = actors
-        .filter(actor => room.nightActions[actor.id]?.type === 'wolf_vote')
+        .filter(actor => resolvedNightActions[actor.id]?.type === 'wolf_vote')
         .sort((left, right) =>
-          (Number(room.nightActions[left.id].submittedAt) || 0)
-          - (Number(room.nightActions[right.id].submittedAt) || 0)
+          (Number(resolvedNightActions[left.id].submittedAt) || 0)
+          - (Number(resolvedNightActions[right.id].submittedAt) || 0)
         );
       const wolfChoices = wolfActors.map(actor => {
-        const action = room.nightActions[actor.id];
+        const action = resolvedNightActions[actor.id];
         const weight = actor.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
         return actor.name + ' → ' + reportTargetName(action.targetId) + (weight > 1 ? ' (' + weight + ' suara)' : '');
       });
@@ -2012,7 +2014,7 @@ export class WerewolfRoom {
       );
 
       for (const actor of actors) {
-        const action = room.nightActions[actor.id];
+        const action = resolvedNightActions[actor.id];
         if (!action) continue;
         const targetName = action.targetId ? reportTargetName(action.targetId) : '';
         if (action.type === 'seer_inspect') {
@@ -2060,7 +2062,7 @@ export class WerewolfRoom {
         }
       }
 
-      const passedActors = actors.filter(actor => room.nightActions[actor.id]?.type === 'pass');
+      const passedActors = actors.filter(actor => resolvedNightActions[actor.id]?.type === 'pass');
       if (passedActors.length) {
         addActionReport(100, 'Aksi dilewati',
           passedActors.map(actor => actor.name + ' (' + reportRoleName(actor.role) + ')').join(', '),
