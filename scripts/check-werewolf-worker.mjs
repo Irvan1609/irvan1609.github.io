@@ -1987,7 +1987,7 @@ assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlay
 
 const skipPhaseRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const skipPhaseCreated = await payload(await skipPhaseRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'SKIP24', name: 'Skip Host', settings: roleSettings
+  code: 'SKAP24', name: 'Skip Host', settings: roleSettings
 })), 201);
 const skipPhaseTokens = [];
 for (const name of ['Skip Wolf', 'Skip Seer', 'Skip Doctor', 'Skip Village', 'Skip Idle']) {
