@@ -740,3 +740,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Voting:** abstain disimpan sebagai ballot yang sah. Ambang eliminasi dihitung terhadap total bobot suara seluruh pemain hidup (termasuk abstain dan pemain yang tidak mengirim suara); kandidat harus mendapat lebih dari 50%. Mayor tetap memiliki bobot suara ganda.
 - **Verifikasi awal:** pemeriksaan statis dan integrasi ditambahkan untuk chat lobby lintas fase, voice lobby/voting, mode Offline, abstain, mayoritas ketat, penggantian BOT, pemulihan pemain, skip aksi malam, dan transisi otomatis 10 detik. Hasil workflow dan health check staging akan dicatat setelah selesai.
 - **Deployment:** perubahan diarahkan ke branch development dan Worker staging. Produksi master tidak diubah.
+
+
+- **Perbaikan validasi awal, 6 November 2026:** run GitHub Actions pertama menemukan sisa operator ternary pada snapshot chat setelah batas fase dihapus; diperbaiki sebelum staging deployment. Tampilan pemain yang sementara digantikan BOT juga tetap diarahkan ke layar pemenang saat game selesai.

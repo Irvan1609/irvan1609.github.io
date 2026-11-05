@@ -1578,7 +1578,8 @@ function renderPlayerPhase(parent) {
   if (roomState.self?.isBotControlled) {
     addText(parent, 'div', 'notice warning',
       'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
-    if (roomState.room.phase !== 'finished') return;
+    if (roomState.room.phase === 'finished') renderVictoryScreen(parent, false);
+    return;
   }
   switch (roomState.room.phase) {
     case 'lobby': {
