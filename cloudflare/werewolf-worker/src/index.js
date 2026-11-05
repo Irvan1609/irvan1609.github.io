@@ -687,6 +687,7 @@ export class WerewolfRoom {
         hasDrawn: Boolean(player.hasDrawn),
         hasActed: Boolean(nightAction) && !skippedNightIds.has(player.id),
         actionSkipped: skippedNightIds.has(player.id),
+        hasDawnAction: Boolean(room.dawnActions?.[player.id]),
         hasVoted: voteSubmitted, voteAbstain: voteSubmitted && !voteTargetId
       };
       return isModerator ? {
@@ -706,8 +707,7 @@ export class WerewolfRoom {
     const canSeeGameArchive = isModerator || (room.phase === 'lobby' && actorId === room.hostId);
     const status = !self || isModerator ? 'moderator'
       : ['dawn', 'morning', 'result'].includes(room.phase)
-        ? (room.lastResult?.eliminatedIds?.includes(self.id) || room.lastResult?.eliminatedId === self.id
-          ? 'eliminated' : self.alive ? 'survived' : 'eliminated')
+        ? (self.alive ? 'survived' : 'eliminated')
         : self.alive ? 'alive' : 'eliminated';
     const witchAttack = !isModerator && self?.role === 'witch' && room.phase === 'night'
       ? wolfAttackSummary(room)
