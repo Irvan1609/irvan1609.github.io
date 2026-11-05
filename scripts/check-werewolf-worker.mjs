@@ -1843,16 +1843,12 @@ await submitVillagerMath(mathRoom, mathTokens[4]);
 mathState = await mathRoom.loadRoom();
 assert.equal(mathState.nightActions[mathState.players[2].id].type, 'villager_math');
 assert.equal(mathState.nightActions[mathState.players[3].id].type, 'villager_math');
-assert.ok(mathState.nightRevealEndsAt, 'Night reveal begins after special actions and calculation challenges are all submitted.');
-const mathDeadline = mathState.nightRevealEndsAt;
-const realNowForMath = Date.now;
-try {
-  Date.now = () => mathDeadline + 1;
-  await mathRoom.alarm();
-} finally {
-  Date.now = realNowForMath;
-}
+assert.ok(mathState.nightEndsAt, 'The night timer remains active after all choices are submitted so players can revise them.');
+await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night'
+}, mathCreated.token)));
 mathState = await mathRoom.loadRoom();
+assert.equal(mathState.phase, 'morning');
 const mathReport = mathState.lastResult.actionReport;
 for (const role of ['Hunter', 'Mayor', 'Warga Desa']) {
   assert.ok(mathReport.some(item => item.role === role), 'Moderator report must list the calculation action for ' + role + '.');
@@ -1916,16 +1912,12 @@ for (const token of [newRoleTokens[4], newRoleTokens[5], newRoleTokens[6], newRo
 newRoleState = await newRoleRoom.loadRoom();
 assert.equal(newRoleState.nightActions[newRoleState.players[2].id].type, 'priest_protect');
 assert.equal(newRoleState.nightActions[newRoleState.players[3].id].type, 'vigilante_shot');
-assert.ok(newRoleState.nightRevealEndsAt);
-const newRoleDeadline = newRoleState.nightRevealEndsAt;
-const realNowForNewRoles = Date.now;
-try {
-  Date.now = () => newRoleDeadline + 1;
-  await newRoleRoom.alarm();
-} finally {
-  Date.now = realNowForNewRoles;
-}
+assert.ok(newRoleState.nightEndsAt);
+await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night', force: true
+}, newRoleCreated.token)));
 newRoleState = await newRoleRoom.loadRoom();
+assert.equal(newRoleState.phase, 'morning');
 assert.equal(newRoleState.players[4].alive, true, 'Priest must protect its selected player from the wolf attack.');
 assert.equal(newRoleState.players[6].alive, false, 'Vigilante must eliminate its selected target.');
 assert.equal(newRoleState.players[2].priestUsed, true);
@@ -1936,7 +1928,7 @@ assert.ok(newRoleState.lastResult.actionReport.some(item => item.role === 'Mason
 newRoleState.phase = 'night';
 newRoleState.round = 2;
 newRoleState.nightActions = {};
-newRoleState.nightRevealEndsAt = null;
+newRoleState.nightEndsAt = Date.now() + 60000;
 newRoleRoom.prepareVillagerPrompts(newRoleState);
 await newRoleRoom.saveRoom(newRoleState);
 for (const token of [newRoleTokens[2], newRoleTokens[3]]) {
@@ -2042,14 +2034,14 @@ await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', 
 await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'skip_missing_night' }, skipPhaseCreated.token)));
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 3);
-assert.ok(skipPhaseState.nightRevealEndsAt > Date.now());
+assert.ok(skipPhaseState.nightEndsAt > Date.now());
 const skipPhaseSeerView = (await payload(await skipPhaseRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, skipPhaseTokens[1].token)
 ))).state;
-assert.equal(skipPhaseSeerView.self.seerResult.result, 'wolf');
-const realNowForSkipPhase = Date.now;
-try { Date.now = () => skipPhaseState.nightRevealEndsAt + 1; await skipPhaseRoom.alarm(); }
-finally { Date.now = realNowForSkipPhase; }
+assert.equal(skipPhaseSeerView.self.seerResult, null, 'Skipped players do not trigger early private reveal.');
+await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'resolve_night', force: true
+}, skipPhaseCreated.token)));
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
