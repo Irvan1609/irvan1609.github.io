@@ -162,6 +162,14 @@ function playRoosterCrow() {
   });
 }
 
+function playGameStartBell() {
+  withGameAudio(context => {
+    playAudioCurve(context, [1046, 1318, 1568, 1318], 0.34, 0, 'sine', 0.11, 3200);
+    playAudioCurve(context, [1318, 1568, 2093, 1760], 0.42, 0.38, 'triangle', 0.095, 3600);
+    playAudioCurve(context, [1568, 2093, 2349, 2093, 1760], 0.62, 0.86, 'sine', 0.1, 3800);
+  });
+}
+
 function showMessage(message, isError = false) {
   for (const id of ['entryMessage', 'roomMessage']) {
     const target = $(id);
@@ -449,6 +457,7 @@ function applyState(nextState, expectedSession = session) {
   if (sameRoom && previous.room.phase !== 'lobby' && nextState.room.phase === 'lobby') roleDraft = null;
   if (!sameRoom || (phaseChanged && nextState.room.phase !== 'night')) wolfChatDraft = '';
   if (roleDraft && roleDraft.code !== nextState.room.code) roleDraft = null;
+  if (phaseChanged && nextState.room.phase === 'role_draw') playGameStartBell();
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
   const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round, nextState.room.lastResult?.at || ''].join(':');
@@ -1268,6 +1277,11 @@ function updatePhaseClock() {
     votingButton.disabled = seconds > 0;
     votingButton.textContent = seconds > 0 ? 'Diskusi · ' + seconds + ' detik' : 'Voting';
   }
+  const startNightButton = $('startNightAfterDrawButton');
+  if (startNightButton) {
+    const cardsComplete = roomState?.room?.roleCardsDrawn >= roomState?.room?.roleCardsRequired;
+    startNightButton.disabled = !cardsComplete && seconds > 0;
+  }
 }
 
 function startPhaseClock() {
@@ -1328,7 +1342,15 @@ function renderRoleCard(parent, role, eyebrow = 'KARTU RAHASIA KAMU') {
 
 function renderPlayerRoleReminder(parent) {
   const role = roomState.self?.role;
-  if (!role || !roomState.self.hasDrawn) return;
+  if (!role) return;
+  if (!roomState.self.hasDrawn) {
+    const pending = node('section', 'pending-role-card');
+    addText(pending, 'div', 'eyebrow-small', 'KARTU RAHASIA BELUM DIBUKA');
+    addText(pending, 'p', 'pending-role-copy', 'Permainan sudah berjalan. Buka kartu untuk melihat role dan mengikuti aksi.');
+    pending.append(button('Buka kartu saya sekarang', 'primary wide', () => sendAction('draw_card')));
+    parent.append(pending);
+    return;
+  }
   const info = ROLE_INFO[role] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
   const card = node('button', 'role-flip-card');
   card.type = 'button';
@@ -1607,7 +1629,7 @@ function renderPlayerPhase(parent) {
       : 'Kamu terikat sebagai pasangan dengan ' + loverNames.filter(name => name !== roomState.self.name).join(' & ') + '. Jika salah satu tereliminasi, pasangannya ikut tereliminasi. Role pasangan tetap rahasia.';
     addText(parent, 'div', 'notice success', message);
   }
-  if (!['lobby', 'role_draw'].includes(roomState.room.phase)) renderPlayerRoleReminder(parent);
+  if (roomState.room.phase !== 'lobby') renderPlayerRoleReminder(parent);
   if (roomState.self?.isBotControlled) {
     addText(parent, 'div', 'notice warning',
       'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
@@ -1764,14 +1786,19 @@ function renderModeratorLobby(parent) {
 }
 
 function renderModeratorRoleDraw(parent) {
-  phaseHeader(parent, 'PEMBAGIAN KARTU', 'Tunggu semua pemain membuka kartu', 'Setiap pemain membuka kartu pada perangkatnya sendiri. Moderator tidak melihat kartu pemain melalui layar pemain, tetapi dapat memantau status pembukaan di sini.');
+  phaseHeader(parent, 'PEMBAGIAN KARTU', 'Waktu membuka kartu · 20 detik', 'Dering khusus sudah dikirim saat permainan dimulai. Pemain yang terlambat tetap dapat membuka kartu setelah malam dimulai.');
   const opened = roomState.players.filter(player => player.hasDrawn).length;
   addText(parent, 'div', 'notice', opened + ' / ' + roomState.players.length + ' pemain sudah membuka kartu.');
+  appendPhaseCountdown(parent, 'MALAM DIMULAI DALAM', roomState.room.roleDrawEndsAt);
   const complete = roomState.players.length > 0 && opened === roomState.players.length;
   if (systemModeratorEnabled()) {
-    addText(parent, 'div', 'notice success', 'Sistem akan memulai malam secara otomatis setelah semua pemain membuka kartu.');
+    addText(parent, 'div', 'notice success', 'Sistem memulai malam setelah semua kartu dibuka atau waktu 20 detik habis.');
   } else {
-    parent.append(button('Lanjut ke Malam 1', 'primary wide', () => sendAction('start_night'), !complete));
+    const next = button('Lanjut ke Malam 1', 'primary wide', () => sendAction('start_night'),
+      !complete && Number(roomState.room.roleDrawEndsAt) > Date.now());
+    next.id = 'startNightAfterDrawButton';
+    parent.append(next);
+    addText(parent, 'p', 'hint', 'Jika masih ada kartu tertutup, malam dimulai otomatis saat hitung mundur selesai.');
   }
 }
 
@@ -1857,6 +1884,7 @@ function renderPlayerRoleDraw(parent) {
     renderRoleCard(parent, roomState.self.role);
     addText(parent, 'div', 'notice success', 'Kartu sudah dibuka. Rahasiakan peranmu.');
   }
+  appendPhaseCountdown(parent, 'MALAM DIMULAI DALAM', roomState.room.roleDrawEndsAt);
 }
 
 function renderNightMath(parent, title = 'Perhitungan malam') {
