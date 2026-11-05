@@ -351,7 +351,7 @@ assert.match(worker, /nightEndsAt/);
 assert.match(worker, /votingEndsAt/);
 assert.match(worker, /discussionSeconds/);
 assert.match(worker, /Durable Object timed phase alarm|scheduleRoomAlarm/);
-assert.match(app, /Tidak ada batas maksimal ronde malam/);
+assert.match(app, /Tidak ada batas maksimal ronde/);
 assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
 assert.match(app, /role-balance/);
