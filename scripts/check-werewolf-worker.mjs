@@ -670,7 +670,7 @@ assert.deepEqual(villagerNightPrivateView.wolfTeam, []);
 assert.deepEqual(villagerNightPrivateView.players, []);
 
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night'
+  type: 'resolve_night', force: true
 }, cupidNightCreated.token)));
 cupidNightState = await cupidNightRoom.loadRoom();
 assert.equal(cupidNightState.phase, 'morning');
