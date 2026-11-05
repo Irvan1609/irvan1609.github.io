@@ -2359,11 +2359,9 @@ export class WerewolfRoom {
           .some(item => item !== socket && item.deserializeAttachment()?.actorId === attachment.actorId);
         if (!otherSocket) {
           const player = room.players.find(item => item.id === attachment.actorId);
-          if (player && player.connected) {
-            player.connected = false;
-            await this.saveRoom(room);
-            await this.broadcast(room);
-          }
+          if (player && player.connected) player.connected = false;
+          await this.saveRoom(room);
+          await this.broadcast(room);
         }
       });
     } catch { /* A disconnected client must not block room cleanup. */ }
