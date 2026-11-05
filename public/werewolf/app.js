@@ -826,7 +826,7 @@ function recommendedRoleCounts(playerCount) {
   const roleSchedule = [
     ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 7],
     ['hunter', 9], ['cupid', 10], ['detective', 11], ['mayor', 13],
-    ['guardian_angel', 14], ['jester', 17]
+    ['guardian_angel', 14], ['jester', 17], ['reviver', 18]
   ];
   let assignedSpecials = 0;
   for (const [role, minimumPlayers] of roleSchedule) {
@@ -965,7 +965,7 @@ function renderRoleConfigEditor(container, settings) {
   moderatorField.append(moderatorSelect);
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
-  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam, diskusi, dan voting berjalan otomatis sesuai durasi. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
+  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator. Sistem: host tetap menjadi pemain dan seluruh fase berjalan otomatis sesuai durasi. Acak: satu pemain manusia dipilih sebagai moderator.');
   const moderatorInfo = node('details', 'role-config-info-disclosure moderator-info-disclosure');
   moderatorInfo.append(node('summary', '', 'Kekuatan & aturan moderator'));
   appendRoleDetails(moderatorInfo, ROLE_INFO.moderator, 'role-config-info');
@@ -1306,7 +1306,9 @@ function updatePhaseClock() {
   const votingButton = $('startVotingButton');
   if (votingButton) {
     votingButton.disabled = seconds > 0;
-    votingButton.textContent = seconds > 0 ? 'Diskusi · ' + seconds + ' detik' : 'Voting';
+    votingButton.textContent = seconds > 0
+      ? (roomState?.room?.phase === 'morning' ? 'Pagi · ' : 'Diskusi · ') + seconds + ' detik'
+      : 'Masuk ke Sore · Voting';
   }
   const startNightButton = $('startNightAfterDrawButton');
   if (startNightButton) {
@@ -2283,6 +2285,7 @@ function renderPlayerDawn(parent) {
   const self = roomState.self;
   phaseHeader(parent, 'SUBUH · RONDE ' + roomState.room.round, 'Kemampuan pemicu', 'Kemampuan yang aktif setelah pemain tereliminasi dijalankan pada fase ini.');
   renderPublicResult(parent);
+  renderPrivateInspectionResult(parent);
   if (self.hasDawnAction) {
     addText(parent, 'div', 'notice success', 'Aksi Subuh sudah dikirim. Tunggu fase Pagi.');
   } else if (self.role === 'hunter' && !self.alive && !self.hunterUsed) {
@@ -2292,6 +2295,7 @@ function renderPlayerDawn(parent) {
     if (!targets.length) addText(parent, 'div', 'notice', 'Belum ada pemain yang dapat dihidupkan kembali.');
     else {
       addText(parent, 'h3', '', 'Pilih pemain untuk dihidupkan');
+      addText(parent, 'p', 'hint', 'Kemampuan ini hanya dapat digunakan sekali selama permainan.');
       const grid = node('div', 'action-grid');
       for (const target of targets) {
         grid.append(button('Hidupkan · ' + target.name, 'action-button', () => {
