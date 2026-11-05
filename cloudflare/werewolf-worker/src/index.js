@@ -983,6 +983,8 @@ export class WerewolfRoom {
   }
 
   seedBotDiscussion(room, now) {
+    if (Number(room.botDiscussionRound) === Number(room.round)) return;
+    room.botDiscussionRound = Number(room.round) || 0;
     const alive = room.players.filter(player => player.alive);
     const speakers = alive.filter(player => player.isBot)
       .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'))
@@ -1634,6 +1636,7 @@ export class WerewolfRoom {
       room.activeModeratorRosterIndex = null;
       room.phase = 'lobby';
       room.round = 0;
+      room.botDiscussionRound = null;
       room.nightRevealEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
@@ -1777,6 +1780,7 @@ export class WerewolfRoom {
         item.suspicionTargetId = null;
       });
       room.round = 1;
+      room.botDiscussionRound = null;
       room.nightSkippedPlayerIds = [];
       room.phase = 'role_draw';
       room.nightActions = {};
