@@ -1,4 +1,4 @@
-const VERSION='20261106-werewolf-four-phase-dawn3';
+const VERSION='20261106-werewolf-story-ui5';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
