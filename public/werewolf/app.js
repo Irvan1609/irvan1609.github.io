@@ -1310,7 +1310,15 @@ function updatePhaseClock() {
   if (!timer) return;
   const deadline = Number(timer.dataset.deadline) || 0;
   const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-  timer.textContent = '00:' + String(seconds).padStart(2, '0');
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  timer.textContent = String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+  const activePhase = roomState?.room?.phase;
+  if (seconds === 0 && ['night', 'dawn', 'voting', 'result'].includes(activePhase)) {
+    for (const control of document.querySelectorAll('#phaseContent .action-button, #phaseContent .phase-timed-action')) {
+      control.disabled = true;
+    }
+  }
   const votingButton = $('startVotingButton');
   if (votingButton) {
     votingButton.disabled = seconds > 0;
@@ -1913,8 +1921,8 @@ function renderModeratorVoting(parent) {
   addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
   addText(parent, 'div', 'notice success', systemModeratorEnabled()
-    ? 'Sistem menghitung hasil saat semua suara masuk atau waktu habis.'
-    : 'Voting ditutup otomatis setelah waktu habis. Host tidak perlu menekan tombol hasil.');
+    ? 'Sistem menutup voting saat timer habis. Pilihan tetap dapat diganti sampai detik terakhir.'
+    : 'Voting ditutup otomatis setelah waktu habis. Pilihan pemain tetap dapat diganti sebelum timer selesai.');
 }
 
 function renderModeratorResult(parent) {
@@ -2279,6 +2287,7 @@ function renderSystemModeratorVoteResult(parent) {
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
   renderPrivateInspectionResult(parent);
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+  appendPhaseCountdown(parent, 'MALAM BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
 
 function renderPlayerDawn(parent) {
@@ -2692,6 +2701,7 @@ function renderPlayerVoteResult(parent) {
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
+  appendPhaseCountdown(parent, 'MALAM BERIKUTNYA DALAM', roomState.room.resultEndsAt);
 }
 
 
