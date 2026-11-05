@@ -1696,7 +1696,7 @@ await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
 }));
 const relayedSignal = voiceTwoSocket.messages.map(message => {
   try { return JSON.parse(message); } catch { return null; }
-}).find(message => message?.type === 'voice_signal');
+}).find(message => message?.type === 'voice_signal' && message.payload?.sdp === 'test-sdp');
 assert.ok(relayedSignal, 'A valid discussion voice offer must be relayed to its intended peer.');
 assert.equal(relayedSignal.fromId, voicePlayers[0].playerId);
 assert.equal(relayedSignal.signalKind, 'offer');
