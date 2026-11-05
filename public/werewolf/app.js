@@ -2182,42 +2182,25 @@ function renderDiscussionTools(parent) {
   const canSpeak = !self.isBotControlled
     && Boolean(self.isModerator || self.alive || phase === 'lobby' || phase === 'finished');
   const section = node('section', 'discussion-tools');
-  if (onlineMode) {
-    const voice = node('div', 'discussion-voice-panel');
-    addText(voice, 'div', 'eyebrow-small', 'VOICE CHAT · SEMUA FASE');
-    addText(voice, 'h3', '', 'Voice room');
-    const status = addText(voice, 'p', 'voice-status', voiceStatus);
-    status.id = 'voiceStatus';
-    const count = addText(voice, 'span', 'voice-peer-count', '0 pemain terhubung');
-    count.id = 'voicePeerCount';
-    const controls = node('div', 'voice-controls');
-    if (canSpeak) {
-      const mic = button(
-        voiceLocalStream ? (voiceMuted ? 'Nyalakan Mikrofon' : 'Matikan Mikrofon') : 'Aktifkan Mikrofon',
-        'secondary', toggleVoiceMic, Boolean(voiceStartPromise)
-      );
-      mic.id = 'voiceMicToggle';
-      controls.append(mic);
-      const audio = button('Aktifkan Audio', 'secondary', unlockRemoteAudio, !voiceNeedsAudioGesture);
-      audio.id = 'voiceAudioUnlock';
-      if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
-      controls.append(audio);
-    } else {
-      addText(voice, 'p', 'hint', self.isBotControlled
-        ? 'BOT sementara mengambil alih pemain ini. Mikrofon dinonaktifkan.'
-        : 'Voice chat tersedia untuk pemain hidup, moderator, dan seluruh pemain setelah permainan selesai.');
-    }
-    voice.append(controls);
-    section.append(voice);
-  }
   const chat = node('section', 'discussion-chat-panel');
-  addText(chat, 'div', 'eyebrow-small', 'CHAT DISKUSI · SEMUA FASE');
+  const heading = node('div', 'discussion-chat-heading');
+  addText(heading, 'div', 'eyebrow-small', 'CHAT DESA · DISKUSI');
+  if (onlineMode) {
+    const voiceMeta = node('div', 'discussion-voice-meta');
+    const status = addText(voiceMeta, 'span', 'voice-status', voiceStatus);
+    status.id = 'voiceStatus';
+    const count = addText(voiceMeta, 'span', 'voice-peer-count', '0 pemain terhubung');
+    count.id = 'voicePeerCount';
+    heading.append(voiceMeta);
+  }
+  chat.append(heading);
+
   const list = node('div', 'chat-list discussion-chat-list');
   list.id = 'discussionChatList';
   list.setAttribute('role', 'log');
   list.setAttribute('aria-live', 'polite');
   const messages = Array.isArray(roomState.chat) ? roomState.chat : [];
-  if (!messages.length) addText(list, 'p', 'hint', 'Belum ada pesan. Chat tersedia sepanjang permainan.');
+  if (!messages.length) addText(list, 'p', 'hint', 'Belum ada pesan. Cerita desa akan berlangsung di sini.');
   for (const message of messages) {
     const item = node('article', 'chat-message');
     const author = node('b', '', message.name || 'Pemain');
@@ -2230,6 +2213,7 @@ function renderDiscussionTools(parent) {
     list.append(item);
   }
   chat.append(list);
+
   if (canSpeak) {
     const form = node('form', 'chat-form discussion-chat-form');
     form.id = 'discussionChatForm';
@@ -2238,11 +2222,37 @@ function renderDiscussionTools(parent) {
     input.type = 'text';
     input.maxLength = 280;
     input.autocomplete = 'off';
-    input.placeholder = 'Tulis pesan…';
-    input.setAttribute('aria-label', 'Pesan chat room');
-    const submit = node('button', 'primary', 'Kirim');
+    input.placeholder = 'Tulis pendapat atau petunjuk…';
+    input.setAttribute('aria-label', 'Pesan chat desa');
+    form.append(input);
+
+    if (onlineMode) {
+      const mic = button(
+        voiceLocalStream ? (voiceMuted ? 'Nyalakan Mic' : 'Matikan Mic')
+          : voiceStartPromise ? 'Menghubungkan…' : 'Gabung Voice',
+        'voice-inline-button', toggleVoiceMic, Boolean(voiceStartPromise)
+      );
+      mic.id = 'voiceMicToggle';
+      mic.setAttribute('aria-label', 'Gabung atau atur mikrofon voice chat');
+      form.append(mic);
+      const audio = button('Audio', 'voice-audio-button', unlockRemoteAudio, !voiceNeedsAudioGesture);
+      audio.id = 'voiceAudioUnlock';
+      audio.setAttribute('aria-label', 'Aktifkan suara pemain lain');
+      if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
+      form.append(audio);
+    }
+
+    if (systemModeratorEnabled()) {
+      const replay = button('Narasi', 'narration-replay-button',
+        () => speakSystemNarration(systemNarrationText(roomState.room)));
+      replay.setAttribute('title', 'Ulangi narasi desa');
+      replay.setAttribute('aria-label', 'Ulangi narasi desa');
+      form.append(replay);
+    }
+
+    const submit = node('button', 'primary chat-send-button', 'Kirim');
     submit.type = 'submit';
-    form.append(input, submit);
+    form.append(submit);
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const text = input.value.trim();
@@ -2257,8 +2267,9 @@ function renderDiscussionTools(parent) {
   } else {
     addText(chat, 'p', 'hint', self.isBotControlled
       ? 'Chat dinonaktifkan selama BOT mengambil alih.'
-      : 'Kamu sudah tereliminasi. Chat hanya dapat dibaca sampai permainan selesai.');
+      : 'Kamu sudah gugur. Chat hanya dapat dibaca sampai permainan selesai.');
   }
+
   section.append(chat);
   parent.append(section);
   list.scrollTop = list.scrollHeight;
@@ -2588,31 +2599,111 @@ function renderVictoryScreen(parent, moderatorView = false) {
 }
 
 
+function narrationVariant(room, key, options) {
+  const seed = [room.code || '', room.round || 0, room.phase || '', key,
+    room.publicResult?.message || room.lastResult?.message || ''].join('|');
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return options[hash % options.length];
+}
+
 function systemNarrationText(room) {
-  const resultMessage = String(room.lastResult?.message || '').trim();
+  const result = room.publicResult || room.lastResult || {};
+  const eliminated = Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers
+    : Array.isArray(result.eliminations) ? result.eliminations : [];
+  const revived = Array.isArray(result.revivedPlayers) ? result.revivedPlayers : [];
+  const victimStory = eliminated.map(item => {
+    const name = String(item.name || 'seorang warga');
+    const cause = String(item.cause || '');
+    if (/gigitan|werewolf_attack|serangan werewolf/i.test(cause)) {
+      return 'Di depan rumah ' + name + ', warga menemukan tubuh yang penuh bekas gigitan tajam.';
+    }
+    if (/tembakan|hunter|vigilante/i.test(cause)) {
+      return 'Suara tembakan semalam meninggalkan jejaknya. ' + name + ' ditemukan tak bernyawa dengan luka peluru.';
+    }
+    if (/racun|witch_poison/i.test(cause)) {
+      return name + ' ditemukan terbaring pucat. Ada sesuatu yang mencurigakan pada sisa minuman di dekatnya.';
+    }
+    if (/bodyguard|pengorbanan/i.test(cause)) {
+      return name + ' ditemukan gugur setelah melindungi seseorang dari serangan yang mengerikan.';
+    }
+    if (/cupid|ikatan/i.test(cause)) {
+      return 'Ikatan yang tak terlihat menyeret ' + name + ' menuju nasib yang sama.';
+    }
+    return 'Warga menemukan ' + name + ' telah gugur ketika malam masih gelap.';
+  }).join(' ');
+
   switch (room.phase) {
     case 'role_draw':
-      return 'Kartu telah dibagikan. Buka dan rahasiakan role kalian.';
+      return narrationVariant(room, 'opening', [
+        'Di balik hutan yang rapat, berdiri sebuah desa kecil yang tampak damai. Namun, di antara wajah-wajah yang saling mengenal, ada rahasia yang belum terungkap. Malam pertama segera tiba.',
+        'Kita telah tiba di sebuah desa yang jauh dari keramaian. Asap mengepul dari cerobong rumah, lonceng tua berdentang, dan penduduk mulai menyadari bahwa tidak semua orang di sini dapat dipercaya.',
+        'Desa itu terlihat tenang saat kita datang. Tetapi di balik pintu-pintu yang tertutup, sesuatu sedang menunggu malam untuk bangkit.'
+      ]);
     case 'night':
-      return 'Tengah malam. Jalankan kemampuan kalian.';
+      return narrationVariant(room, 'night', [
+        'Malam turun perlahan. Jendela-jendela ditutup, lampu dipadamkan, dan langkah asing mulai bergerak di antara rumah warga.',
+        'Lonceng tengah malam berdentang. Desa terlelap, sementara beberapa bayangan keluar dari persembunyiannya.',
+        'Kabut menyelimuti jalan desa. Tak ada yang berani membuka pintu ketika suara langkah terdengar di luar rumah.'
+      ]);
     case 'dawn':
-      return 'Subuh tiba. Kemampuan terakhir dipersilakan.';
-    case 'morning':
-      return 'Pagi menyingsing. ' + (resultMessage || 'Desa mulai terbangun.') + ' Diskusikan sebelum Sore.';
+      return narrationVariant(room, 'dawn', [
+        'Langit masih kelabu. Sebelum matahari muncul, mereka yang terikat pada kematian mendapat satu kesempatan terakhir.',
+        'Ayam jantan belum berkokok. Di antara gelap dan terang, sebuah keputusan terakhir masih dapat mengubah nasib desa.',
+        'Udara subuh terasa dingin. Ada langkah tergesa di antara rumah-rumah, seolah kematian belum selesai memilih korbannya.'
+      ]);
+    case 'morning': {
+      if (victimStory) {
+        const opening = narrationVariant(room, 'morning-victims', [
+          'Pagi menyingsing. Pintu-pintu rumah terbuka satu demi satu, lalu teriakan memecah keheningan.',
+          'Cahaya matahari menyentuh jalan desa. Namun, pagi ini tidak semua warga keluar untuk menyambut hari.',
+          'Ketika lonceng pagi berbunyi, penduduk berkumpul. Wajah mereka berubah pucat saat melihat apa yang tertinggal semalam.'
+        ]);
+        const returnStory = revived.length
+          ? ' Di tengah kepanikan, ' + revived.map(item => item.name).join(' dan ') + ' kembali membuka mata. Desa belum selesai menyimpan rahasia.'
+          : '';
+        return opening + ' ' + victimStory + returnStory + ' Kini seluruh desa harus mencari tahu siapa yang bersembunyi di balik kejadian itu.';
+      }
+      if (revived.length) {
+        return 'Pagi datang dengan kabar yang sulit dipercaya. ' + revived.map(item => item.name).join(' dan ')
+          + ' kembali hidup. Warga saling pandang; tidak ada yang tahu apakah keajaiban itu membawa keselamatan atau bahaya baru.';
+      }
+      return narrationVariant(room, 'morning-safe', [
+        'Pagi menyingsing. Pintu-pintu terbuka, tetapi tak seorang pun ditemukan gugur. Keheningan desa justru membuat semua orang semakin waspada.',
+        'Matahari terbit di balik bukit. Tidak ada tubuh yang ditemukan pagi ini, namun warga tahu ancaman itu belum pergi.',
+        'Ayam jantan berkokok. Desa selamat melewati malam, tetapi tak satu pun penduduk berani merasa aman.'
+      ]);
+    }
     case 'discussion':
-      return 'Diskusi dimulai. Sampaikan petunjuk kalian.';
+      return 'Di balai desa, semua mata saling mencari. Setiap cerita diperiksa, setiap jeda terasa mencurigakan. Sore akan segera tiba.';
     case 'voting':
-      return 'Sore tiba. Tentukan siapa yang akan dieksekusi.';
-    case 'result':
-      return 'Hasil voting. ' + (resultMessage || 'Ronde berikutnya segera dimulai.');
+      return narrationVariant(room, 'voting', [
+        'Sore merunduk di atas desa. Warga berkumpul mengelilingi tiang eksekusi. Satu nama harus disebut sebelum matahari tenggelam.',
+        'Bayangan memanjang di jalan desa. Penduduk berdiri di depan tiang eksekusi, menunggu suara terakhir dijatuhkan.',
+        'Senja tiba. Tak ada lagi tempat untuk bersembunyi; warga harus menentukan siapa yang akan menghadapi hukuman.'
+      ]);
+    case 'result': {
+      const voted = eliminated.filter(item => /voting/i.test(String(item.cause || '')));
+      if (voted.length) {
+        return 'Keputusan warga telah dijatuhkan. ' + voted.map(item => item.name).join(' dan ')
+          + ' digiring menuju tiang eksekusi. Tali ditarik, lonceng berbunyi, dan desa menahan napas.';
+      }
+      return narrationVariant(room, 'vote-no-execution', [
+        'Suara warga terpecah. Tiang eksekusi tetap kosong, dan malam berikutnya akan membawa pertanyaan yang lebih sulit.',
+        'Tak ada keputusan yang benar-benar bulat. Warga membubarkan diri dengan kecurigaan yang semakin besar.',
+        'Sore berakhir tanpa hukuman. Di balik jendela, bayangan kembali bergerak.'
+      ]);
+    }
     case 'finished': {
       const ending = ({
-        wolves: 'Werewolf menguasai desa.',
-        villagers: 'Desa berhasil diselamatkan.',
-        jester: 'Jester berhasil memperdaya semua orang.',
-        lovers: 'Cinta memenangkan permainan.'
-      })[room.winner] || 'Malam kembali menyelimuti desa.';
-      return 'Permainan usai. ' + ending;
+        wolves: 'Ketika kabut terangkat, hanya lolongan Werewolf yang terdengar di antara rumah-rumah kosong. Desa telah jatuh ke tangan mereka.',
+        villagers: 'Warga akhirnya melihat matahari terbit tanpa rasa takut. Ancaman dari hutan telah berakhir, dan desa kembali menjadi rumah.',
+        jester: 'Tawa menggema di dekat tiang eksekusi. Jester berhasil memperdaya seluruh desa dan meninggalkan kekacauan di belakangnya.',
+        lovers: 'Di tengah kehancuran, dua hati tetap bertahan. Cinta menjadi satu-satunya kisah yang selamat dari malam panjang.'
+      })[room.winner] || 'Malam panjang telah usai. Desa menyimpan kisah yang akan terus diceritakan.';
+      return ending;
     }
     default:
       return '';
