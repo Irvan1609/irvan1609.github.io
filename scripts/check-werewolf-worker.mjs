@@ -1587,6 +1587,7 @@ for (const name of ['Voice One', 'Voice Two']) {
 let voiceState = await voiceRoom.loadRoom();
 voiceState.phase = 'morning';
 voiceState.activeModeratorId = voiceState.hostId;
+voiceState.players = voiceState.players.filter(player => player.id !== voiceState.hostId);
 voiceState.players.forEach(player => { player.alive = true; });
 await voiceRoom.saveRoom(voiceState);
 const voiceHostSocket = new FakeSocket(voiceState.hostId, 'moderator');
