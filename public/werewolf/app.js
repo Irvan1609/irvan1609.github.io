@@ -1,3 +1,4 @@
+import { qrMatrix, qrSvg } from './qr.js';
 const $ = id => document.getElementById(id);
 const API_BASE = location.hostname === 'irvan1609.github.io'
   ? 'https://werewolf-room-api.andyirvan1609.workers.dev'
@@ -1640,15 +1641,115 @@ $('joinCode').addEventListener('input', event => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
 });
 
-$('copyInvite').addEventListener('click', async () => {
-  if (!session) return;
+function buildInviteUrl() {
+  if (!session?.code) throw new Error('Room belum tersedia.');
   const invite = new URL(location.href);
+  invite.search = '';
+  invite.hash = '';
   invite.searchParams.set('room', session.code);
+  return invite.href;
+}
+
+async function copyInviteLink() {
+  const inviteUrl = buildInviteUrl();
   try {
-    await navigator.clipboard.writeText(invite.href);
+    await navigator.clipboard.writeText(inviteUrl);
     showMessage('Tautan undangan berhasil disalin.');
   } catch {
-    window.prompt('Salin tautan undangan ini:', invite.href);
+    window.prompt('Salin tautan undangan ini:', inviteUrl);
+  }
+}
+
+function openInviteDialog() {
+  if (!session?.code) return;
+  const dialog = $('inviteDialog');
+  $('inviteQrCode').textContent = session.code;
+  $('inviteQrImage').innerHTML = qrSvg(buildInviteUrl(), {
+    moduleSize: 6,
+    margin: 4,
+    title: 'QR undangan Werewolf room ' + session.code
+  });
+  const svg = $('inviteQrImage').querySelector('svg');
+  if (svg) {
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.setAttribute('focusable', 'false');
+  }
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+}
+
+async function createInviteQrPng() {
+  const matrix = qrMatrix(buildInviteUrl());
+  const moduleSize = 8;
+  const margin = 4;
+  const total = (matrix.length + margin * 2) * moduleSize;
+  const canvas = document.createElement('canvas');
+  canvas.width = total;
+  canvas.height = total;
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) throw new Error('Browser tidak mendukung pembuatan gambar QR.');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, total, total);
+  context.fillStyle = '#000000';
+  for (let row = 0; row < matrix.length; row += 1) {
+    for (let col = 0; col < matrix.length; col += 1) {
+      if (matrix[row][col]) context.fillRect((col + margin) * moduleSize, (row + margin) * moduleSize, moduleSize, moduleSize);
+    }
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Gambar QR gagal dibuat.')), 'image/png');
+  });
+}
+
+$('copyInvite').addEventListener('click', copyInviteLink);
+$('showInviteQr').addEventListener('click', openInviteDialog);
+$('closeInviteDialog').addEventListener('click', () => {
+  const dialog = $('inviteDialog');
+  if (typeof dialog.close === 'function') dialog.close();
+  else dialog.removeAttribute('open');
+});
+$('inviteDialog').addEventListener('click', event => {
+  if (event.target !== $('inviteDialog')) return;
+  const dialog = $('inviteDialog');
+  if (typeof dialog.close === 'function') dialog.close();
+  else dialog.removeAttribute('open');
+});
+$('copyInviteFromQr').addEventListener('click', copyInviteLink);
+$('saveInviteQr').addEventListener('click', async () => {
+  if (!session) return;
+  try {
+    const blob = await createInviteQrPng();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = 'undangan-werewolf-' + session.code + '.png';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+    showMessage('QR undangan berhasil disimpan.');
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+});
+$('shareInviteQr').addEventListener('click', async () => {
+  if (!session) return;
+  const code = session.code;
+  try {
+    const inviteUrl = buildInviteUrl();
+    const blob = await createInviteQrPng();
+    const file = new File([blob], 'undangan-werewolf-' + code + '.png', { type: 'image/png' });
+    const shareText = 'Scan QR ini untuk bergabung ke room Werewolf ' + code + '. Tautan: ' + inviteUrl;
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ title: 'Undangan Werewolf ' + code, text: shareText, files: [file] });
+    } else if (navigator.share) {
+      await navigator.share({ title: 'Undangan Werewolf ' + code, text: shareText, url: inviteUrl });
+    } else {
+      await copyInviteLink();
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') showMessage(error.message || 'Undangan tidak dapat dibagikan.', true);
   }
 });
 
@@ -1694,11 +1795,15 @@ function rememberPlayerName(name) {
 
 async function restoreSession() {
   const params = new URLSearchParams(location.search);
-  const code = (params.get('room') || localStorage.getItem('werewolf.lastRoom') || '').toUpperCase();
+  const inviteCode = (params.get('room') || '').toUpperCase();
+  const code = (inviteCode || localStorage.getItem('werewolf.lastRoom') || '').toUpperCase();
   if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) return;
   $('joinCode').value = code;
   const saved = localStorage.getItem(SESSION_PREFIX + code);
-  if (!saved) return;
+  if (!saved) {
+    if (inviteCode) showMessage('Undangan room ' + code + ' ditemukan. Masukkan nama untuk bergabung.');
+    return;
+  }
   try {
     const stored = JSON.parse(saved);
     if (!stored.token || stored.code !== code) return;

@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-nightreport1">
+  <link rel="stylesheet" href="./style.css?v=20261105-werewolf-qr1">
 </head>
 <body>
   <header class="subweb-header">
@@ -60,7 +60,7 @@
     <section id="roomPanel" class="hidden">
       <div class="panel room-panel">
         <div class="room-top">
-          <div id="roomIdentity"><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button></div></div>
+          <div id="roomIdentity"><small>ROOM KAMU</small><div class="room-code-row"><strong id="roomCodeLabel">------</strong><button id="copyInvite" class="icon-button" type="button">Salin undangan</button><button id="showInviteQr" class="icon-button invite-qr-button" type="button">Undang via QR</button></div></div>
           <div class="room-top-actions"><span id="connectionStatus" class="status-pill muted">Menghubungkan</span><button id="resetRoom" class="text-button restart-button" type="button">Restart Permainan</button><button id="leaveRoom" class="text-button" type="button">Keluar</button></div>
         </div>
         <p id="roomMessage" class="message-line" role="status" aria-live="polite"></p>
@@ -82,6 +82,23 @@
     <footer>Werewolf · Pilih moderator host, sistem, atau acak. Diskusi hanya offline; efek suara malam dan pagi aktif otomatis.</footer>
   </main>
 
-  <script type="module" src="./app.js?v=20261105-werewolf-nightreport1"></script>
+  <dialog id="inviteDialog" class="invite-dialog" aria-labelledby="inviteDialogTitle">
+    <div class="invite-dialog-content">
+      <div class="invite-dialog-heading">
+        <div><small>UNDANG PEMAIN</small><h2 id="inviteDialogTitle">Scan untuk bergabung</h2></div>
+        <button id="closeInviteDialog" class="invite-dialog-close" type="button" aria-label="Tutup">×</button>
+      </div>
+      <div id="inviteQrImage" class="invite-qr-image"></div>
+      <strong id="inviteQrCode" class="invite-qr-code">------</strong>
+      <p>Scan QR, masukkan nama, lalu gabung ke room.</p>
+      <div class="invite-dialog-actions">
+        <button id="copyInviteFromQr" class="secondary" type="button">Salin tautan</button>
+        <button id="saveInviteQr" class="secondary" type="button">Simpan QR</button>
+        <button id="shareInviteQr" class="primary wide" type="button">Bagikan undangan</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js?v=20261105-werewolf-qr1"></script>
 </body>
 </html>

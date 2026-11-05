@@ -431,3 +431,28 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
   .moderator-event-detail{font-size:9px;padding-left:30px}
   .moderator-event-number{flex-basis:21px;width:21px;height:21px}
 }
+
+
+/* Compact room invitation QR dialog. */
+.room-code-row{flex-wrap:wrap}
+.invite-qr-button{border-color:#806943;color:#f0d6a6}
+.invite-dialog{width:min(92vw,420px);max-width:none;max-height:92dvh;margin:auto;padding:0;overflow:auto;border:1px solid #52627a;border-radius:18px;background:#101a29;color:#e7edf5;box-shadow:0 24px 80px #0009}
+.invite-dialog::backdrop{background:rgba(3,7,13,.78);backdrop-filter:blur(4px)}
+.invite-dialog-content{padding:20px;text-align:center}
+.invite-dialog-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;text-align:left}
+.invite-dialog-heading small{color:#d6ae70;font-size:9px;font-weight:900;letter-spacing:.16em}
+.invite-dialog-heading h2{margin:5px 0 0;color:#f0d6a6;font:600 22px var(--serif)}
+.invite-dialog-close{width:34px;height:34px;flex:0 0 34px;border:1px solid #40516a;border-radius:9px;background:#1c2a3d;color:#fff;font-size:23px;line-height:1}
+.invite-qr-image{display:grid;place-items:center;width:min(76vw,290px);aspect-ratio:1;margin:0 auto 12px;padding:12px;border-radius:14px;background:#fff}
+.invite-qr-image svg{display:block;width:100%;height:100%;shape-rendering:crispEdges}
+.invite-qr-code{display:block;color:#f0d6a6;font-size:21px;letter-spacing:.18em}
+.invite-dialog-content>p{margin:7px 0 15px;color:#aebbc9;font-size:11px;line-height:1.5}
+.invite-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.invite-dialog-actions button{min-height:40px;font-size:11px}
+.invite-dialog-actions .wide{grid-column:1/-1}
+@media(max-width:620px){
+  .room-code-row{gap:6px}
+  .room-code-row .icon-button{min-height:34px;padding:6px 8px;font-size:9px}
+  .invite-dialog-content{padding:15px}
+  .invite-dialog-heading h2{font-size:19px}
+}
