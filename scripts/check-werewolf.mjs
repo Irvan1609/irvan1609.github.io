@@ -220,8 +220,19 @@ assert.match(app, /Pasangan yang kamu hubungkan/);
 assert.match(worker, /wolfAttackSummary/);
 assert.match(worker, /loverNames/);
 assert.match(app, /player-avatar/);
-assert.doesNotMatch(app, /updateDiscussionClock|send_chat/);
+assert.doesNotMatch(app, /updateDiscussionClock/);
 assert.doesNotMatch(app, /setInterval\(\(\) => updateDiscussionClock/);
+assert.match(worker, /roleAssignments/);
+assert.match(worker, /send_discussion_chat/);
+assert.match(worker, /voicePeers/);
+assert.match(worker, /signalKind/);
+assert.match(app, /send_discussion_chat/);
+assert.match(app, /RTCPeerConnection/);
+assert.match(app, /getUserMedia/);
+assert.match(app, /renderDiscussionTools/);
+assert.match(css, /\.discussion-voice-panel/);
+assert.match(css, /\.discussion-chat-list/);
+assert.match(html, /voice chat otomatis/i);
 
 for (const file of [
   'hero-night.svg', 'card-back.svg', 'role-wolf.svg',
