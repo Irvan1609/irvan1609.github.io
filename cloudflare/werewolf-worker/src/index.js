@@ -2680,31 +2680,16 @@ export class WerewolfRoom {
 
     if (type === 'hunter_shot') {
       requirePlayer();
-      if (!['morning', 'discussion', 'result'].includes(room.phase)) throw new HttpError(409, 'Hunter hanya dapat menembak setelah tereliminasi.');
-      if (player.role !== 'hunter' || player.alive || player.hunterUsed || !abilityEnabled(room, 'hunterShot')) throw new HttpError(403, 'Kemampuan Hunter tidak tersedia.');
+      requirePhase('result');
+      if (room.resultResolved || Number(room.resultEndsAt) > 0 && now >= Number(room.resultEndsAt)) {
+        throw new HttpError(409, 'Waktu tembakan Hunter sudah berakhir.');
+      }
+      if (player.role !== 'hunter' || player.alive || player.hunterUsed || !abilityEnabled(room, 'hunterShot')) {
+        throw new HttpError(403, 'Kemampuan Hunter tidak tersedia.');
+      }
       const selected = target(body.targetId);
       if (!selected || selected.id === player.id) throw new HttpError(400, 'Pilih target yang masih hidup.');
-      player.hunterUsed = true;
-      const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
-      const eliminated = outcome.players;
-      this.checkWinner(room);
-      if (room.winner) room.phase = 'finished';
-      room.lastResult = {
-        kind: 'hunter',
-        message: 'Hunter menembak ' + eliminated.map(item => item.name).join(' dan ') + '.',
-        eliminatedId: selected.id,
-        eliminatedIds: eliminated.map(item => item.id),
-        eliminations: outcome.details,
-        events: ['Hunter menembak ' + selected.name + '.'],
-        at: now,
-        round: room.round
-      };
-      this.recordGameEvent(room, {
-        kind: 'hunter_result', phase: room.phase, title: 'Tembakan Hunter',
-        message: room.lastResult.message, events: room.lastResult.events,
-        eliminations: room.lastResult.eliminations, at: now, round: room.round
-      });
-      this.recordGameFinished(room, now);
+      room.resultActions[player.id] = { type: 'hunter_shot', targetId: selected.id };
       return;
     }
 
@@ -2738,9 +2723,77 @@ export class WerewolfRoom {
       return;
     }
 
+    if (type === 'resolve_result') {
+      requireModerator();
+      requirePhase('result');
+      if (room.resultResolved) return;
+      if (Number(room.resultEndsAt) > 0 && now < Number(room.resultEndsAt) && body.force !== true) {
+        throw new HttpError(409, 'Tunggu waktu hasil voting selesai sebelum menutup aksi Hunter.');
+      }
+      const events = [];
+      const eliminations = [];
+      const actionReport = [];
+      for (const actor of room.players.filter(item => item.role === 'hunter' && !item.alive)) {
+        const action = room.resultActions?.[actor.id];
+        if (action?.type !== 'hunter_shot' || actor.hunterUsed || !abilityEnabled(room, 'hunterShot')) continue;
+        const selected = room.players.find(item => item.id === action.targetId && item.alive);
+        if (!selected) continue;
+        actor.hunterUsed = true;
+        const outcome = this.eliminatePlayer(room, selected.id, 'hunter');
+        eliminations.push(...outcome.details);
+        events.push('Hunter ' + actor.name + ' melepaskan tembakan ke arah ' + selected.name + '.');
+        actionReport.push({
+          order: 130, role: 'Hunter', actor: actor.name,
+          action: 'Menembak ' + selected.name,
+          outcome: outcome.players.map(item => item.name).join(' dan ') + ' gugur.'
+        });
+      }
+      room.resultActions = {};
+      room.resultResolved = true;
+      room.resultEndsAt = now + 5000;
+      if (room.lastResult) {
+        const current = room.lastResult.eliminations || [];
+        const allEliminations = [...current, ...eliminations];
+        room.lastResult.eliminations = allEliminations;
+        room.lastResult.eliminatedIds = [...new Set(allEliminations.map(item => item.id))];
+        room.lastResult.eliminatedId = room.lastResult.eliminatedIds[0] || null;
+        room.lastResult.events = [...(room.lastResult.events || []), ...events];
+        room.lastResult.actionReport = [...(room.lastResult.actionReport || []), ...actionReport];
+        if (eliminations.length) {
+          room.lastResult.message = room.lastResult.message + ' Tembakan Hunter menyusul; '
+            + eliminations.map(item => item.name).join(' dan ') + ' turut gugur.';
+        }
+        room.lastResult.at = now;
+      }
+      if (!room.winner) this.checkWinner(room);
+      if (room.winner) {
+        room.phase = 'finished';
+        room.resultEndsAt = null;
+      }
+      this.recordGameEvent(room, {
+        kind: 'hunter_result', phase: room.phase, title: 'Aksi pemicu setelah voting',
+        message: room.lastResult?.message || 'Aksi Hunter telah ditutup.', events,
+        eliminations: room.lastResult?.eliminations || [], actionReport,
+        at: now, round: room.round
+      });
+      this.recordGameFinished(room, now);
+      return;
+    }
+
     if (type === 'next_round') {
       requireModerator();
       requirePhase('result');
+      if (!room.resultResolved) throw new HttpError(409, 'Selesaikan dahulu aksi Hunter pada hasil voting.');
+      if (Number(room.resultEndsAt) > 0 && now < Number(room.resultEndsAt)) {
+        throw new HttpError(409, 'Tunggu narasi hasil voting selesai sebelum ronde berikutnya.');
+      }
+      if (!room.winner) this.checkWinner(room);
+      if (room.winner) {
+        room.phase = 'finished';
+        room.resultEndsAt = null;
+        this.recordGameFinished(room, now);
+        return;
+      }
       // No fixed night-round cap: the game ends only when a win condition is reached.
       room.round += 1;
       room.phase = 'night';
@@ -2751,6 +2804,8 @@ export class WerewolfRoom {
       room.nightEndsAt = now + Number(room.settings?.timers?.nightSeconds ?? 60) * 1000;
       room.dawnEndsAt = null;
       room.dawnActions = {};
+      room.resultActions = {};
+      room.resultResolved = false;
       room.resultEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
@@ -2891,7 +2946,8 @@ export class WerewolfRoom {
         changed = true;
       } else if (room.phase === 'result' && this.isSystemModerator(room)
         && Number(room.resultEndsAt) > 0 && room.resultEndsAt <= now) {
-        await this.applyAction(room, room.moderator, { type: 'next_round' });
+        await this.applyAction(room, room.moderator, room.resultResolved
+          ? { type: 'next_round' } : { type: 'resolve_result', force: true });
         changed = true;
       }
 
