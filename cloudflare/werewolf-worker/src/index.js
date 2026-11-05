@@ -2157,6 +2157,9 @@ export class WerewolfRoom {
     if (type === 'resolve_night') {
       requireModerator();
       requirePhase('night');
+      if (Number(room.nightEndsAt) > 0 && now < Number(room.nightEndsAt)) {
+        throw new HttpError(409, 'Tunggu timer tengah malam berakhir sebelum melanjutkan.');
+      }
       const actors = room.players.filter(item => item.alive);
       const resolvedNightActions = { ...(room.nightActions || {}) };
       const skipped = new Set(room.nightSkippedPlayerIds || []);
@@ -2504,6 +2507,9 @@ export class WerewolfRoom {
     if (type === 'resolve_dawn') {
       requireModerator();
       requirePhase('dawn');
+      if (Number(room.dawnEndsAt) > 0 && now < Number(room.dawnEndsAt)) {
+        throw new HttpError(409, 'Tunggu timer subuh berakhir sebelum melanjutkan.');
+      }
       const nightDeadIds = new Set(room.lastResult?.kind === 'night'
         ? (room.lastResult.eliminations || []).map(item => item.id) : []);
       const eligible = room.players.filter(item =>
@@ -2749,7 +2755,7 @@ export class WerewolfRoom {
       requireModerator();
       requirePhase('result');
       if (room.resultResolved) return;
-      if (Number(room.resultEndsAt) > 0 && now < Number(room.resultEndsAt) && body.force !== true) {
+      if (Number(room.resultEndsAt) > 0 && now < Number(room.resultEndsAt)) {
         throw new HttpError(409, 'Tunggu waktu hasil voting selesai sebelum menutup aksi Hunter.');
       }
       const events = [];
