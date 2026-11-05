@@ -2001,116 +2001,141 @@ function renderMasonCircle(parent) {
 }
 
 function renderPlayerNight(parent) {
-  const self = roomState.self;
-  phaseHeader(parent, 'TENGAH MALAM · RONDE ' + roomState.room.round, 'Aksi malam', 'Lakukan kemampuan role sebelum waktu tengah malam habis.');
+  const self = roomState.self || {};
+  const room = roomState.room;
+  const nightOpen = !room.nightEndsAt || Date.now() < Number(room.nightEndsAt);
+  phaseHeader(parent, 'TENGAH MALAM · RONDE ' + room.round, 'Aksi malam',
+    'Pilihan dapat diubah sampai hitung mundur tengah malam berakhir.');
+
   if (!self.alive) {
-    addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi. Tunggu fase berikutnya.');
-    appendPhaseCountdown(parent, 'SUBUH DALAM', roomState.room.nightRevealEndsAt || roomState.room.nightEndsAt);
+    addText(parent, 'div', 'notice warning', 'Kamu sudah gugur. Dengarkan perkembangan desa dari chat.');
+    appendPhaseCountdown(parent, 'SUBUH DALAM', room.nightRevealEndsAt || room.nightEndsAt);
     return;
   }
-  if (roomState.room.nightRevealEndsAt) {
-    addText(parent, 'div', 'notice success', 'Semua aksi malam selesai. Hasil penerawangan dikirim secara privat.');
-    renderPrivateInspectionResult(parent);
-    appendPhaseCountdown(parent, 'SUBUH DALAM', roomState.room.nightRevealEndsAt);
+  if (room.nightRevealEndsAt) {
+    addText(parent, 'div', 'notice success', 'Malam telah ditutup. Hasil penerawangan hanya terlihat oleh pemilik kemampuan.');
+    appendPhaseCountdown(parent, 'SUBUH DALAM', room.nightRevealEndsAt);
     return;
   }
-  appendPhaseCountdown(parent, 'TENGAH MALAM TERSISA', roomState.room.nightEndsAt);
-  addText(parent, 'p', 'hint', 'Jika waktu habis, aksi yang belum dikirim akan dilewati otomatis pada mode Sistem.');
+  appendPhaseCountdown(parent, 'TENGAH MALAM TERSISA', room.nightEndsAt);
   if (!self.role) {
-    addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Hubungi moderator.');
+    addText(parent, 'div', 'notice warning', 'Kartu belum dibuka. Tunggu kartu pribadimu.');
     return;
   }
+
+  const currentTargetId = self.nightActionTargetId || '';
+  const selectedNotice = self.nightActionType === 'villager_math'
+    ? 'Jawaban perhitungan tersimpan. Kamu masih dapat menggantinya.'
+    : currentTargetId
+      ? 'Pilihan saat ini tersimpan. Kamu masih dapat menggantinya sebelum tengah malam berakhir.'
+      : 'Belum ada pilihan. Pilih aksi sebelum waktu habis.';
+  addText(parent, 'p', 'hint', selectedNotice);
+
   if (['wolf', 'alpha_wolf'].includes(self.role)) {
     renderWolfNightRoom(parent);
-    if (self.hasActed) {
-      addText(parent, 'div', 'notice success', 'Pilihan seranganmu sudah dikirim. Kamu masih dapat berkoordinasi melalui chat kawanan sampai moderator melanjutkan ke pagi.');
-      return;
-    }
-    addText(parent, 'h3', '', 'Pilih target serangan');
-    addText(parent, 'p', 'hint', 'Pilih satu target. Kawanan dapat melihat pilihan ini secara realtime dan mendiskusikannya di chat privat.');
+    addText(parent, 'h3', '', 'Pilih sasaran kawanan');
+    addText(parent, 'p', 'hint', 'Pilihan kawanan terlihat realtime oleh sesama Werewolf dan dapat diganti selama fase ini.');
     const teamNames = new Set(roomState.wolfTeam || []);
-    const wolfTargets = (roomState.targets || []).filter(target => target.id !== self.id && !teamNames.has(target.name));
-    const wolfGrid = node('div', 'action-grid');
-    for (const target of wolfTargets) {
-      wolfGrid.append(button('Serang · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+    const targets = (roomState.targets || []).filter(target =>
+      target.id !== self.id && !teamNames.has(target.name)
+    );
+    const grid = node('div', 'action-grid');
+    for (const target of targets) {
+      const selected = currentTargetId === target.id;
+      grid.append(button((selected ? '✓ Dipilih · ' : 'Serang · ') + target.name,
+        selected ? 'action-button selected' : 'action-button',
+        () => sendAction('night_action', { targetId: target.id }), !nightOpen));
     }
-    if (!wolfTargets.length) addText(parent, 'div', 'notice warning', 'Tidak ada target serangan yang tersedia.');
-    else parent.append(wolfGrid);
+    if (!targets.length) addText(parent, 'div', 'notice warning', 'Tidak ada target serangan yang tersedia.');
+    else parent.append(grid);
     return;
   }
-  if (self.hasActed) {
-    addText(parent, 'div', 'notice success', self.nightActionType === 'villager_math'
-      ? 'Perhitungan malam sudah dikirim. Tunggu moderator.'
-      : 'Aksi khususmu sudah dikirim. Tunggu moderator.');
-    renderPrivateInspectionResult(parent);
-    return;
-  }
-  if (self.nightActionMode === 'math') {
+
+  if (self.nightActionMode === 'math' && !['witch', 'priest', 'vigilante'].includes(self.role)) {
     renderNightMath(parent);
     return;
   }
+
   const targets = (roomState.targets || []).filter(target => {
     if (target.id === self.id && !['doctor', 'priest'].includes(self.role)) return false;
-    if (['wolf', 'alpha_wolf'].includes(self.role) && (roomState.wolfTeam || []).includes(target.name)) return false;
     return true;
   });
-  if (['wolf', 'alpha_wolf'].includes(self.role)) {
-    addText(parent, 'h3', '', 'Pilih target serangan');
-    addText(parent, 'p', 'hint', 'Pilih satu nama untuk mengirim serangan kawanan. Nama anggota Werewolf tidak tersedia sebagai target.');
-    const grid = node('div', 'action-grid');
-    for (const target of targets) grid.append(button('Serang · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
-    parent.append(grid);
-  } else if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'].includes(self.role)) {
+  const inspectionHistory = Array.isArray(self.inspectionHistory) ? self.inspectionHistory : [];
+  const inspectedById = new Map(inspectionHistory.map(item => [item.playerId, item]));
+
+  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'].includes(self.role)) {
     const titles = {
-      seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
-      bodyguard: 'Jaga pemain',
+      seer: 'Terawang identitas pemain', detective: 'Periksa kubu pemain',
+      doctor: 'Lindungi pemain', bodyguard: 'Jaga pemain',
       guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan',
-      priest: 'Gunakan satu berkah perlindungan',
-      vigilante: 'Gunakan satu tembakan'
+      priest: 'Berkah perlindungan', vigilante: 'Tembakan Vigilante'
     };
     addText(parent, 'h3', '', titles[self.role]);
-    addText(parent, 'p', 'hint', 'Pilih satu nama. Priest boleh melindungi diri sendiri; Vigilante harus memilih pemain lain.');
     const actionVerb = self.role === 'seer' || self.role === 'detective' ? 'Periksa'
       : self.role === 'doctor' || self.role === 'priest' ? 'Lindungi'
         : self.role === 'bodyguard' ? 'Jaga'
           : self.role === 'vigilante' ? 'Tembak' : 'Pilih';
     const grid = node('div', 'action-grid');
-    for (const target of targets) grid.append(button(actionVerb + ' · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id })));
+    for (const target of targets) {
+      const inspected = ['seer', 'detective'].includes(self.role) ? inspectedById.get(target.id) : null;
+      const selected = currentTargetId === target.id;
+      const label = inspected
+        ? target.name + ' · Sudah diperiksa'
+        : (selected ? '✓ ' : actionVerb + ' · ') + target.name;
+      let className = selected ? 'action-button selected' : 'action-button';
+      if (inspected) {
+        const faction = self.role === 'seer' ? factionForRole(inspected.role)
+          : inspected.result === 'wolf_team' ? 'wolves'
+            : inspected.result === 'neutral' ? 'neutral' : 'village';
+        className += ' inspected-target inspected-' + faction;
+      }
+      grid.append(button(label, className,
+        () => sendAction('night_action', { targetId: target.id }), !nightOpen || Boolean(inspected)));
+    }
     parent.append(grid);
-    if (self.role === 'guardian_angel' && self.guardianTargetName) addText(parent, 'p', 'hint', 'Target pilihan terakhir: ' + self.guardianTargetName);
+    if (self.role === 'guardian_angel' && self.guardianTargetName) {
+      addText(parent, 'p', 'hint', 'Target perlindungan saat ini: ' + self.guardianTargetName);
+    }
     if (['priest', 'vigilante'].includes(self.role) && self.villagerPrompt) {
-      renderNightMath(parent, 'Simpan kemampuan · jawab perhitungan');
+      renderNightMath(parent, 'Atau pilih perhitungan malam');
     }
   } else if (self.role === 'witch') {
     const potions = self.witchPotions || { heal: false, poison: false };
     const attack = self.witchAttack || { ready: false, targetName: null, tied: false };
     addText(parent, 'h3', '', 'Pilih ramuan');
     if (!attack.ready) {
-      addText(parent, 'div', 'notice', 'Menunggu seluruh Werewolf menyelesaikan pilihan serangan. Target hanya terlihat oleh Witch.');
+      addText(parent, 'div', 'notice', 'Menunggu pilihan seluruh Werewolf. Target serangan hanya terlihat oleh Witch.');
     } else if (attack.targetName) {
-      addText(parent, 'div', 'notice warning', 'Target serangan Werewolf: ' + attack.targetName + (attack.tied ? '. Suara seri; sistem memakai pilihan yang masuk lebih dahulu sebagai pemecah seri.' : '. Gunakan ramuan penyembuh untuk menyelamatkannya.'));
+      addText(parent, 'div', 'notice warning', 'Sasaran serangan: ' + attack.targetName + '. Ramuan penyembuh akan mengikuti sasaran akhir kawanan.');
     } else {
-      addText(parent, 'div', 'notice', attack.tied ? 'Suara Werewolf seri. Tidak ada target untuk diselamatkan.' : 'Tidak ada target serangan Werewolf yang dapat diselamatkan.');
+      addText(parent, 'div', 'notice', 'Belum ada sasaran serangan Werewolf yang dapat diselamatkan.');
     }
     if (potions.heal) {
-      parent.append(button('Gunakan ramuan penyembuh', 'secondary wide',
-        () => sendAction('night_action', { mode: 'heal' }), !attack.ready || !attack.targetName));
+      const healSelected = self.nightActionType === 'witch_heal';
+      parent.append(button(healSelected ? '✓ Ramuan penyembuh dipilih' : 'Gunakan ramuan penyembuh',
+        healSelected ? 'action-button selected' : 'secondary wide',
+        () => sendAction('night_action', { mode: 'heal' }), !nightOpen || !attack.ready || !attack.targetName));
     }
     if (potions.poison) {
-      addText(parent, 'p', 'hint', 'Pilih satu target untuk mengirim ramuan racun:');
+      addText(parent, 'p', 'hint', 'Atau pilih sasaran ramuan racun:');
       const grid = node('div', 'action-grid');
-      for (const target of targets) grid.append(button('Racun · ' + target.name, 'action-button', () => sendAction('night_action', { targetId: target.id, mode: 'poison' })));
+      for (const target of targets.filter(item => item.id !== self.id)) {
+        const selected = self.nightActionType === 'witch_poison' && currentTargetId === target.id;
+        grid.append(button((selected ? '✓ Racun · ' : 'Racun · ') + target.name,
+          selected ? 'action-button selected' : 'action-button',
+          () => sendAction('night_action', { targetId: target.id, mode: 'poison' }), !nightOpen));
+      }
       parent.append(grid);
     }
-    if (self.villagerPrompt) renderNightMath(parent, 'Tidak memakai ramuan · jawab perhitungan');
-  } else if (self.role === 'cupid' && roomState.room.round === 1) {
+    if (self.villagerPrompt) renderNightMath(parent, 'Atau jawab perhitungan malam');
+  } else if (self.role === 'cupid' && room.round === 1 && !self.cupidUsed) {
     addText(parent, 'h3', '', 'Hubungkan dua pemain');
-    addText(parent, 'p', 'hint', 'Tekan dua nama yang berbeda. Cupid tidak dapat memilih dirinya sendiri; role kedua pemain tetap rahasia.');
-    let firstId = '';
-    let secondId = '';
-    const summary = node('div', 'cupid-selection-summary', 'Pilih pemain pertama dan kedua.');
+    addText(parent, 'p', 'hint', 'Pilih dua nama berbeda. Pilihan yang sudah disimpan tetap dapat diganti sebelum tengah malam berakhir.');
+    let firstId = self.nightActionType === 'cupid_link' ? currentTargetId : '';
+    let secondId = self.nightActionType === 'cupid_link' ? (self.nightActionPartnerId || '') : '';
+    const summary = node('div', 'cupid-selection-summary');
     const grid = node('div', 'action-grid');
-    const confirmLink = button('Hubungkan pasangan', 'primary wide', () => {
+    const save = button('Simpan pasangan', 'primary wide', () => {
       if (firstId && secondId && firstId !== secondId) {
         sendAction('night_action', { targetId: firstId, partnerId: secondId });
       }
@@ -2118,27 +2143,29 @@ function renderPlayerNight(parent) {
     const refreshChoices = () => {
       const first = targets.find(item => item.id === firstId);
       const second = targets.find(item => item.id === secondId);
-      summary.textContent = 'Pemain 1: ' + (first?.name || 'belum dipilih') + ' · Pemain 2: ' + (second?.name || 'belum dipilih');
-      confirmLink.disabled = !(firstId && secondId && firstId !== secondId);
+      summary.textContent = 'Pemain 1: ' + (first?.name || 'belum dipilih')
+        + ' · Pemain 2: ' + (second?.name || 'belum dipilih');
+      save.disabled = !nightOpen || !(firstId && secondId && firstId !== secondId);
       grid.replaceChildren();
-      for (const target of targets) {
+      for (const target of targets.filter(item => item.id !== self.id)) {
         const index = target.id === firstId ? '1' : target.id === secondId ? '2' : '';
-        const label = index ? index + ' · ' + target.name : target.name;
-        grid.append(button(label, index ? 'action-button selected' : 'action-button', () => {
-          if (target.id === firstId) firstId = '';
-          else if (target.id === secondId) secondId = '';
-          else if (!firstId) firstId = target.id;
-          else if (!secondId) secondId = target.id;
-          else {
-            firstId = secondId;
-            secondId = target.id;
-          }
-          refreshChoices();
-        }));
+        grid.append(button((index ? index + ' · ' : '') + target.name,
+          index ? 'action-button selected' : 'action-button', () => {
+            if (target.id === firstId) firstId = '';
+            else if (target.id === secondId) secondId = '';
+            else if (!firstId) firstId = target.id;
+            else if (!secondId) secondId = target.id;
+            else { firstId = secondId; secondId = target.id; }
+            refreshChoices();
+          }, !nightOpen));
       }
     };
-    parent.append(summary, grid, confirmLink);
+    parent.append(summary, grid, save);
     refreshChoices();
+  } else if (self.role === 'cupid' && self.cupidUsed) {
+    addText(parent, 'div', 'notice', 'Ikatan Cupid sudah terbentuk.');
+  } else {
+    renderNightMath(parent);
   }
 }
 
