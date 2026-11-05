@@ -329,7 +329,7 @@ assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
 assert.match(app, /role-balance/);
 assert.match(app, /updatePhaseTracker/);
-assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel'\]\.includes\(self\.role\)/);
+assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: moderator-led flow, automatic phase timers, private Seer reveal, responsive UI, and private role assets.');
 
