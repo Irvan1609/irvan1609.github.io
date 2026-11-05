@@ -2054,4 +2054,49 @@ skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
+const roleDrawTimeoutRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const roleDrawTimeoutCreated = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'CARD20', name: 'Card Timeout Host',
+  settings: { moderatorMode: 'host', roleCounts: {
+    wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+    hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+    priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 1, moderator: 0
+  } }
+})), 201);
+const roleDrawTimeoutPlayer = await payload(await roleDrawTimeoutRoom.fetch(
+  makeRequest('/internal/join', 'POST', { name: 'Late Card Player' })
+), 201);
+await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, roleDrawTimeoutCreated.token)));
+let roleDrawTimeoutState = await roleDrawTimeoutRoom.loadRoom();
+assert.equal(roleDrawTimeoutState.phase, 'role_draw');
+assert.ok(roleDrawTimeoutState.roleDrawEndsAt >= Date.now() + 19000
+  && roleDrawTimeoutState.roleDrawEndsAt <= Date.now() + 20000,
+  'Role cards must have a 20-second reveal window.');
+const privateUnopenedCard = (await payload(await roleDrawTimeoutRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, roleDrawTimeoutPlayer.token)
+))).state;
+assert.equal(privateUnopenedCard.self.hasRole, true);
+assert.equal(privateUnopenedCard.self.hasDrawn, false);
+assert.equal(privateUnopenedCard.self.role, null, 'An unopened card must remain private.');
+roleDrawTimeoutState.roleDrawEndsAt = Date.now() - 1;
+await roleDrawTimeoutRoom.saveRoom(roleDrawTimeoutState);
+const realNowForRoleDraw = Date.now;
+try { Date.now = () => roleDrawTimeoutState.roleDrawEndsAt + 1; await roleDrawTimeoutRoom.alarm(); }
+finally { Date.now = realNowForRoleDraw; }
+roleDrawTimeoutState = await roleDrawTimeoutRoom.loadRoom();
+assert.equal(roleDrawTimeoutState.phase, 'night',
+  'The game must automatically enter night after the 20-second role reveal deadline.');
+assert.equal(roleDrawTimeoutState.roleDrawEndsAt, null);
+const lateCardOpened = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'draw_card'
+}, roleDrawTimeoutPlayer.token)));
+const lateCardView = (await payload(await roleDrawTimeoutRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, roleDrawTimeoutPlayer.token)
+))).state;
+assert.equal(lateCardView.self.hasDrawn, true);
+assert.ok(lateCardView.self.role, 'A player may privately reveal their own card after the night has begun.');
+console.log('Werewolf role-card deadline passed: 20-second timeout, automatic night start and late private card reveal.');
+
 console.log('Werewolf online enhancements passed: strict majority, bot handoff and automatic morning after skipped actions.');
