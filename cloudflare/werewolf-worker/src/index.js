@@ -1511,6 +1511,8 @@ export class WerewolfRoom {
     if (!room.winner) this.checkWinner(room);
     room.votingEndsAt = null;
     room.discussionEndsAt = null;
+    room.resultEndsAt = room.winner ? null
+      : now + Number(room.settings?.timers?.resultSeconds ?? 8) * 1000;
     room.phase = room.winner ? 'finished' : 'result';
     this.recordGameEvent(room, {
       kind: 'vote_result', phase: room.phase, title: 'Hasil voting ronde ' + room.round,
@@ -1734,6 +1736,8 @@ export class WerewolfRoom {
       room.nightSkippedPlayerIds = [];
       room.votes = {};
       room.seerResults = {};
+      room.seerHistory = {};
+      room.botNightReports = {};
       room.villagerPrompts = {};
       room.witchPotions = {};
       room.guardianTargets = {};
@@ -1743,6 +1747,15 @@ export class WerewolfRoom {
       room.additionalWinners = [];
       room.discussionMode = null;
       room.discussionEndsAt = null;
+      room.roleDrawEndsAt = null;
+      room.nightEndsAt = null;
+      room.dawnEndsAt = null;
+      room.votingEndsAt = null;
+      room.resultEndsAt = null;
+      room.dawnActions = {};
+      room.seerHistory = {};
+      room.botNightReports = {};
+      room.villageName = null;
       room.callUrl = '';
       room.chatRateLimit = {};
       room.wolfChat = [];
@@ -1853,12 +1866,24 @@ export class WerewolfRoom {
         item.alive = true;
         item.hasDrawn = Boolean(item.isBot);
         item.suspicionTargetId = null;
+        item.hunterUsed = false;
+        item.reviverUsed = false;
+        item.priestUsed = false;
+        item.vigilanteUsed = false;
       });
       room.round = 1;
       room.botDiscussionRound = null;
       room.nightSkippedPlayerIds = [];
       room.phase = 'role_draw';
-      room.roleDrawEndsAt = now + 20000;
+      room.roleDrawEndsAt = now + Number(room.settings?.timers?.roleDrawSeconds ?? 20) * 1000;
+      room.nightEndsAt = null;
+      room.dawnEndsAt = null;
+      room.resultEndsAt = null;
+      room.dawnActions = {};
+      room.seerHistory = {};
+      room.botNightReports = {};
+      const villageNames = ['Desa Waringin', 'Desa Rembulan', 'Desa Kabut', 'Desa Lembah Sunyi', 'Desa Purnama'];
+      room.villageName = villageNames[randomInt(villageNames.length)];
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
       room.votes = {};
@@ -1925,9 +1950,13 @@ export class WerewolfRoom {
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
       room.seerResults = {};
+      room.nightEndsAt = now + Number(room.settings?.timers?.nightSeconds ?? 60) * 1000;
+      room.dawnEndsAt = null;
+      room.dawnActions = {};
       room.nightRevealEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
+      room.resultEndsAt = null;
       room.wolfChat = [];
       this.prepareVillagerPrompts(room);
       room.bodyguardTargets = {};
@@ -1937,7 +1966,6 @@ export class WerewolfRoom {
         message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
       });
       this.runBotNightActions(room);
-      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -1968,10 +1996,12 @@ export class WerewolfRoom {
       requirePlayer();
       requirePhase('night');
       if (!player.alive) throw new HttpError(403, 'Pemain yang tereliminasi tidak dapat melakukan aksi.');
-      if (room.nightRevealEndsAt || (room.nightSkippedPlayerIds || []).includes(player.id)) {
-        throw new HttpError(409, 'Aksi malam sudah ditutup. Pagi akan terbuka otomatis.');
+      if (Number(room.nightEndsAt) > 0 && now >= Number(room.nightEndsAt)) {
+        throw new HttpError(409, 'Waktu aksi tengah malam sudah berakhir.');
       }
-      if (room.nightActions[player.id]) throw new HttpError(409, 'Aksi malam sudah dikirim.');
+      if ((room.nightSkippedPlayerIds || []).includes(player.id)) {
+        throw new HttpError(409, 'Aksi pemain ini telah dilewati moderator.');
+      }
       if (body.mode === 'villager_math') {
         if (!canAnswerNightMath(room, player)) {
           throw new HttpError(403, 'Selesaikan kemampuan khusus role terlebih dahulu.');
@@ -2004,6 +2034,9 @@ export class WerewolfRoom {
         const ability = player.role === 'seer' ? 'seerInspection' : 'detectiveInspection';
         if (!abilityEnabled(room, ability)) throw new HttpError(403, 'Kemampuan pemeriksaan dinonaktifkan.');
         if (selected.id === player.id) throw new HttpError(400, 'Tidak dapat memeriksa diri sendiri.');
+        if ((room.seerHistory?.[player.id] || []).some(item => item.targetId === selected.id)) {
+          throw new HttpError(409, 'Pemain ini sudah pernah kamu periksa. Pilih pemain lain.');
+        }
         room.nightActions[player.id] = { type: player.role === 'seer' ? 'seer_inspect' : 'detective_inspect', targetId: selected.id };
       } else if (player.role === 'bodyguard') {
         if (!abilityEnabled(room, 'bodyguardSacrifice')) throw new HttpError(403, 'Kemampuan Bodyguard dinonaktifkan.');
@@ -2021,14 +2054,12 @@ export class WerewolfRoom {
           throw new HttpError(403, 'Berkah Priest sudah digunakan atau dinonaktifkan.');
         }
         room.nightActions[player.id] = { type: 'priest_protect', targetId: selected.id };
-        player.priestUsed = true;
       } else if (player.role === 'vigilante') {
         if (!abilityEnabled(room, 'vigilanteShot') || player.vigilanteUsed) {
           throw new HttpError(403, 'Tembakan Vigilante sudah digunakan atau dinonaktifkan.');
         }
         if (selected.id === player.id) throw new HttpError(400, 'Vigilante harus memilih pemain lain.');
         room.nightActions[player.id] = { type: 'vigilante_shot', targetId: selected.id };
-        player.vigilanteUsed = true;
       } else if (player.role === 'witch') {
         const mode = String(body.mode || '');
         const potions = room.witchPotions?.[player.id] || { heal: true, poison: true };
@@ -2050,7 +2081,6 @@ export class WerewolfRoom {
         throw new HttpError(403, 'Peran ini tidak memiliki aksi malam.');
       }
       this.runBotNightActions(room);
-      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -2063,13 +2093,14 @@ export class WerewolfRoom {
     if (type === 'skip_missing_night') {
       requireModerator();
       requirePhase('night');
-      if (room.nightRevealEndsAt) throw new HttpError(409, 'Hitung mundur menuju pagi sudah berjalan.');
+      if (Number(room.nightEndsAt) > 0 && now >= Number(room.nightEndsAt)) {
+        throw new HttpError(409, 'Waktu tengah malam sudah berakhir.');
+      }
       const skipped = new Set(room.nightSkippedPlayerIds || []);
       const missing = room.players.filter(item => item.alive
         && !room.nightActions?.[item.id] && !skipped.has(item.id));
       if (!missing.length) throw new HttpError(409, 'Semua pemain sudah menyelesaikan aksi malam.');
       room.nightSkippedPlayerIds = [...skipped, ...missing.map(item => item.id)];
-      this.prepareNightReveal(room, now);
       return;
     }
 
@@ -2083,9 +2114,6 @@ export class WerewolfRoom {
       const pending = actors.filter(item => !resolvedNightActions[item.id] && !skipped.has(item.id));
       if (pending.length && body.force !== true) {
         throw new HttpError(409, 'Belum semua pemain yang hidup menyelesaikan aksi malam.');
-      }
-      if (room.nightRevealEndsAt && now < room.nightRevealEndsAt && body.force !== true) {
-        throw new HttpError(409, 'Hasil penerawangan sedang ditampilkan. Pagi akan terbuka otomatis setelah 10 detik.');
       }
       const wolfVotes = {};
       const protectedIds = new Set();
@@ -2112,7 +2140,11 @@ export class WerewolfRoom {
           potions.heal = false;
           room.witchPotions[actor.id] = potions;
         }
-        if (action.type === 'vigilante_shot') vigilanteTargets.push(action.targetId);
+        if (action.type === 'vigilante_shot') {
+          vigilanteTargets.push(action.targetId);
+          actor.vigilanteUsed = true;
+        }
+        if (action.type === 'priest_protect') actor.priestUsed = true;
         if (action.type === 'witch_poison') {
           poisonTargets.push(action.targetId);
           const potions = room.witchPotions[actor.id] || { heal: true, poison: true };
@@ -2122,13 +2154,20 @@ export class WerewolfRoom {
         if (action.type === 'seer_inspect' || action.type === 'detective_inspect') {
           const inspected = room.players.find(item => item.id === action.targetId);
           const wolf = inspected && isWolf(inspected.role);
-          room.seerResults[actor.id] = {
+          const inspection = {
             round: room.round,
+            targetId: inspected?.id || action.targetId,
             playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
             result: action.type === 'detective_inspect'
               ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
               : (wolf ? 'wolf' : 'not_wolf')
           };
+          room.seerResults[actor.id] = inspection;
+          room.seerHistory = room.seerHistory || {};
+          room.seerHistory[actor.id] = Array.isArray(room.seerHistory[actor.id]) ? room.seerHistory[actor.id] : [];
+          if (!room.seerHistory[actor.id].some(item => item.targetId === inspection.targetId)) {
+            room.seerHistory[actor.id].push(inspection);
+          }
         }
         if (action.type === 'cupid_link' && room.round === 1 && !room.cupidUsed) {
           room.lovers = [action.targetId, action.partnerId];
@@ -2214,7 +2253,7 @@ export class WerewolfRoom {
         wolf: 'Werewolf', alpha_wolf: 'Alpha Wolf', seer: 'Seer', doctor: 'Doctor',
         bodyguard: 'Bodyguard', witch: 'Witch', hunter: 'Hunter', cupid: 'Cupid',
         guardian_angel: 'Guardian Angel', detective: 'Detective', mayor: 'Mayor',
-        priest: 'Priest', vigilante: 'Vigilante', mason: 'Mason',
+        priest: 'Priest', vigilante: 'Vigilante', mason: 'Mason', reviver: 'Reviver',
         jester: 'Jester', villager: 'Warga Desa'
       })[role] || 'Role';
       const addActionReport = (order, role, actor, action, outcome) => {
@@ -2330,25 +2369,51 @@ export class WerewolfRoom {
         at: now,
         round: room.round
       };
+      room.botNightReports = {};
+      const reportName = id => room.players.find(item => item.id === id)?.name || 'pemain';
+      for (const bot of room.players.filter(item => item.isBot)) {
+        const action = resolvedNightActions[bot.id];
+        const targetName = action?.targetId ? reportName(action.targetId) : '';
+        let text = 'Aku menyelesaikan perhitungan malam tadi; belum ada petunjuk khusus yang bisa kubagikan.';
+        if (action?.type === 'wolf_vote') text = 'Aku ikut menentukan sasaran malam tadi: ' + targetName + '. Menurutku kita perlu membahas mengapa dia menjadi sasaran.';
+        else if (action?.type === 'seer_inspect') {
+          const clue = room.seerResults?.[bot.id];
+          text = 'Aku memeriksa ' + (clue?.playerName || targetName) + ' tadi malam. Hasilnya: '
+            + (clue?.result === 'wolf' ? 'dia terdeteksi sebagai Werewolf.' : 'dia bukan Werewolf.');
+        } else if (action?.type === 'detective_inspect') {
+          const clue = room.seerResults?.[bot.id];
+          const verdict = clue?.result === 'wolf_team' ? 'kubu Werewolf' : clue?.result === 'neutral' ? 'kubu Netral' : 'kubu Desa';
+          text = 'Aku menyelidiki ' + (clue?.playerName || targetName) + ' tadi malam. Dia berada di ' + verdict + '.';
+        } else if (action?.type === 'doctor_protect') text = 'Aku melindungi ' + targetName + ' tadi malam. Semoga perlindungan itu berguna.';
+        else if (action?.type === 'bodyguard_protect') text = 'Aku berjaga untuk ' + targetName + ' tadi malam.';
+        else if (action?.type === 'guardian_protect') text = 'Aku memilih menjaga ' + targetName + ' tadi malam.';
+        else if (action?.type === 'priest_protect') text = 'Aku memberikan berkah perlindungan kepada ' + targetName + ' tadi malam.';
+        else if (action?.type === 'vigilante_shot') text = 'Aku melepaskan tembakan ke arah ' + targetName + ' tadi malam.';
+        else if (action?.type === 'witch_heal') text = 'Aku menggunakan ramuan penyembuh untuk menyelamatkan ' + targetName + ' tadi malam.';
+        else if (action?.type === 'witch_poison') text = 'Aku menggunakan racun pada ' + targetName + ' tadi malam.';
+        else if (action?.type === 'cupid_link') text = 'Aku mengikat ' + targetName + ' dan ' + reportName(action.partnerId) + ' sebagai pasangan.';
+        room.botNightReports[bot.id] = { round: room.round, text };
+      }
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
       room.wolfChat = [];
       room.nightRevealEndsAt = null;
-      const hasWinner = checkWinner();
-      room.phase = hasWinner ? 'finished' : 'morning';
+      room.nightEndsAt = null;
+      room.dawnActions = {};
+      room.dawnEndsAt = now + Number(room.settings?.timers?.dawnSeconds ?? 20) * 1000;
+      room.resultEndsAt = null;
+      room.phase = 'dawn';
       room.discussionMode = null;
-      room.discussionEndsAt = hasWinner ? null
-        : now + Number(room.settings?.timers?.discussionSeconds ?? 30) * 1000;
+      room.discussionEndsAt = null;
       room.votingEndsAt = null;
       room.callUrl = '';
-      if (!hasWinner) this.seedBotDiscussion(room, now);
+      this.runBotDawnActions(room);
       this.recordGameEvent(room, {
-        kind: 'night_result', phase: room.phase, title: 'Hasil malam ' + room.round,
+        kind: 'night_result', phase: 'dawn', title: 'Subuh · Hasil malam ' + room.round,
         message: room.lastResult.message, events: room.lastResult.events,
         eliminations: room.lastResult.eliminations, actionReport: room.lastResult.actionReport,
         at: now, round: room.round
       });
-      this.recordGameFinished(room, now);
       return;
     }
 
@@ -2426,6 +2491,7 @@ export class WerewolfRoom {
       room.discussionEndsAt = null;
       room.phase = 'voting';
       room.votingEndsAt = now + Number(room.settings?.timers?.votingSeconds ?? 15) * 1000;
+      room.resultEndsAt = null;
       room.votes = {};
       this.recordGameEvent(room, {
         kind: 'voting_started', phase: 'voting', title: 'Voting ronde ' + room.round,
@@ -2510,6 +2576,10 @@ export class WerewolfRoom {
       room.nightSkippedPlayerIds = [];
       room.seerResults = {};
       room.nightRevealEndsAt = null;
+      room.nightEndsAt = now + Number(room.settings?.timers?.nightSeconds ?? 60) * 1000;
+      room.dawnEndsAt = null;
+      room.dawnActions = {};
+      room.resultEndsAt = null;
       room.discussionEndsAt = null;
       room.votingEndsAt = null;
       room.wolfChat = [];
@@ -2525,7 +2595,6 @@ export class WerewolfRoom {
         message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
       });
       this.runBotNightActions(room);
-      await this.resolveSystemNightIfReady(room, now);
       return;
     }
 
@@ -2633,8 +2702,13 @@ export class WerewolfRoom {
       if (room.phase === 'role_draw' && Number(room.roleDrawEndsAt) > 0 && room.roleDrawEndsAt <= now) {
         await this.applyAction(room, room.moderator, { type: 'start_night' });
         changed = true;
-      } else if (room.phase === 'night' && Number(room.nightRevealEndsAt) > 0 && room.nightRevealEndsAt <= now) {
-        await this.applyAction(room, room.moderator, { type: 'resolve_night' });
+      } else if (room.phase === 'night' && this.isSystemModerator(room)
+        && Number(room.nightEndsAt) > 0 && room.nightEndsAt <= now) {
+        await this.applyAction(room, room.moderator, { type: 'resolve_night', force: true });
+        changed = true;
+      } else if (room.phase === 'dawn' && this.isSystemModerator(room)
+        && Number(room.dawnEndsAt) > 0 && room.dawnEndsAt <= now) {
+        await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
         changed = true;
       } else if (room.phase === 'morning' && this.isSystemModerator(room)
         && Number(room.discussionEndsAt) > 0 && room.discussionEndsAt <= now) {
@@ -2642,6 +2716,10 @@ export class WerewolfRoom {
         changed = true;
       } else if (room.phase === 'voting' && Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) {
         this.finishVote(room, now);
+        changed = true;
+      } else if (room.phase === 'result' && this.isSystemModerator(room)
+        && Number(room.resultEndsAt) > 0 && room.resultEndsAt <= now) {
+        await this.applyAction(room, room.moderator, { type: 'next_round' });
         changed = true;
       }
 
