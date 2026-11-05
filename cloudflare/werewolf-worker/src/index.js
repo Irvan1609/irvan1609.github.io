@@ -1759,8 +1759,11 @@ export class WerewolfRoom {
               : 'Tidak terpicu malam ini.';
           addActionReport(60, 'Bodyguard', actor.name, 'Menjaga ' + targetName, outcome);
         } else if (action.type === 'guardian_protect') {
-          addActionReport(70, 'Guardian Angel', actor.name, 'Melindungi ' + targetName,
-            victimId === action.targetId ? 'Target terlindungi dari serangan.' : 'Target tidak terkena serangan.');
+          const canProtect = abilityEnabled(room, 'guardianProtection');
+          addActionReport(70, 'Guardian Angel', actor.name,
+            (canProtect ? 'Melindungi ' : 'Menetapkan target bonus kemenangan: ') + targetName,
+            !canProtect ? 'Perlindungan malam nonaktif.'
+              : victimId === action.targetId ? 'Target terlindungi dari serangan.' : 'Target tidak terkena serangan.');
         } else if (action.type === 'witch_heal') {
           addActionReport(80, 'Witch', actor.name, 'Memakai ramuan penyembuh pada ' + targetName,
             victimId === action.targetId ? 'Target serangan berhasil diselamatkan.' : 'Tidak ada serangan pada target.');
