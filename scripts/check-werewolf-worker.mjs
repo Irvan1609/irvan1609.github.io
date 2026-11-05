@@ -367,7 +367,8 @@ const soloModeratorView = (await payload(await soloRoom.fetch(
 assert.equal(soloModeratorView.chat.length, 3);
 assert.ok(soloModeratorView.chat.every(message => message.isBot));
 const soloPlayerView = soloRoom.snapshot(soloState, soloState.players[0].id, 'player');
-assert.deepEqual(soloPlayerView.chat, []);
+assert.equal(soloPlayerView.chat.length, 3);
+assert.ok(soloPlayerView.chat.every(message => message.isBot));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'set_discussion', mode: 'offline' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
 soloState = await soloRoom.loadRoom();
