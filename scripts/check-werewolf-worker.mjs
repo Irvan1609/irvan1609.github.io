@@ -1116,6 +1116,16 @@ replayState.winner = 'villagers';
 replayState.lastResult = { kind: 'vote', message: 'Game selesai.' };
 replayState.players.forEach(player => { player.role = 'villager'; player.alive = false; player.hasDrawn = true; });
 await replayRoom.saveRoom(replayState);
+const publicFinalView = (await payload(await replayRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, replayTokens[0])
+))).state;
+assert.equal(publicFinalView.room.winner, 'villagers', 'All players must receive the final winning team.');
+assert.equal(publicFinalView.room.publicResult.message, 'Game selesai.', 'All players must receive a public result summary.');
+assert.equal(publicFinalView.room.finalPlayers.length, 6, 'The final roster must be visible to every player after the game.');
+assert.ok(publicFinalView.room.finalPlayers.every(item =>
+  item.faction === 'village' && item.isWinner && item.winReason === 'Pemenang utama'
+), 'Every member of the winning Village faction must be marked as a winner.');
+assert.equal(publicFinalView.room.lastResult, null, 'Private moderator action details must remain hidden from players.');
 const originalIds = originalRoster.map(player => player.id);
 const originalHashes = originalRoster.map(player => player.tokenHash);
 await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'reset_to_lobby' }, replayCreated.token)));

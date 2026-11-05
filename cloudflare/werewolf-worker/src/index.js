@@ -587,9 +587,11 @@ export class WerewolfRoom {
         votesSubmitted,
         lastResult: isModerator ? room.lastResult : null,
         publicResult,
-        winner: room.phase === 'finished' ? room.winner : null,
-        additionalWinners: room.phase === 'finished' ? (room.additionalWinners || []) : [],
-        lovers: room.phase === 'finished' ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean) : [],
+        winner: isModerator || room.phase === 'finished' ? room.winner : null,
+        additionalWinners: isModerator || room.phase === 'finished' ? (room.additionalWinners || []) : [],
+        lovers: isModerator || room.phase === 'finished'
+          ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean)
+          : [],
         finalPlayers,
         gameOver: room.phase === 'finished'
       },
