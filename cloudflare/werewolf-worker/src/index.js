@@ -1624,6 +1624,7 @@ export class WerewolfRoom {
     const returnPhase = room.dawnReturnPhase || 'morning';
     room.dawnEndsAt = null;
     room.dawnReturnPhase = null;
+    room.dawnEligiblePlayerIds = [];
     if (!room.winner) this.checkWinner(room);
     if (room.winner) {
       room.phase = 'finished';
@@ -1836,6 +1837,7 @@ export class WerewolfRoom {
       room.phase = 'lobby';
       room.round = 0;
       room.botDiscussionRound = null;
+      room.roleDrawEndsAt = null;
       room.nightEndsAt = null;
       room.nightRevealEndsAt = null;
       room.dawnEndsAt = null;
@@ -2062,6 +2064,11 @@ export class WerewolfRoom {
       room.roleDrawEndsAt = null;
       room.phase = 'night';
       room.nightEndsAt = now + Number(room.settings?.timers?.nightSeconds ?? 45) * 1000;
+      room.dawnEndsAt = null;
+      room.dawnReturnPhase = null;
+      room.dawnActions = {};
+      room.dawnEligiblePlayerIds = [];
+      room.resultEndsAt = null;
       room.nightActions = {};
       room.nightSkippedPlayerIds = [];
       room.seerResults = {};
@@ -2073,7 +2080,7 @@ export class WerewolfRoom {
       room.bodyguardTargets = {};
       room.lastResult = { kind: 'phase', message: 'Tengah malam ' + room.round + ' dimulai.', at: now };
       this.recordGameEvent(room, {
-        kind: 'night_started', phase: 'night', title: 'Malam ' + room.round + ' dimulai',
+        kind: 'night_started', phase: 'night', title: 'Tengah Malam ' + room.round + ' dimulai',
         message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
       });
       this.runBotNightActions(room);
@@ -2722,7 +2729,7 @@ export class WerewolfRoom {
       room.callUrl = '';
       room.lastResult = { kind: 'phase', message: 'Tengah malam ' + room.round + ' dimulai.', at: now };
       this.recordGameEvent(room, {
-        kind: 'night_started', phase: 'night', title: 'Malam ' + room.round + ' dimulai',
+        kind: 'night_started', phase: 'night', title: 'Tengah Malam ' + room.round + ' dimulai',
         message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
       });
       this.runBotNightActions(room);
