@@ -1661,6 +1661,8 @@ function renderSystemModeratorVoteResult(parent) {
 }
 
 function renderPlayerMorning(parent) {
+  phaseHeader(parent, 'PAGI HARI · RONDE ' + roomState.room.round,
+    'Hasil kejadian malam', 'Diskusi berlangsung sebelum host membuka voting.');
   renderPublicResult(parent);
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
