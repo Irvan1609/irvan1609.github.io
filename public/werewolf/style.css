@@ -324,3 +324,85 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
   .role-flip-card{height:400px}
   .role-flip-art{width:96px;height:88px}
 }
+
+
+/* Mobile game layout: remove decoration, reduce scrolling, and enlarge touch targets. */
+@media(max-width:760px){
+  .app:has(#roomPanel:not(.hidden))>.hero,
+  .app:has(#roomPanel:not(.hidden))>footer{display:none!important}
+  .app:has(#roomPanel:not(.hidden)){width:calc(100% - 14px);margin:8px auto 20px}
+  .room-panel{margin:8px 0;padding:12px}
+  .room-top{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px}
+  .room-top #roomIdentity{flex:1 1 100%}
+  .room-top-actions{width:100%;justify-content:flex-start;gap:6px}
+  .room-top-actions .status-pill{margin-right:auto}
+  .room-top-actions .text-button{min-height:36px;padding:7px 10px}
+  .room-code-row{gap:8px;margin-top:3px}
+  .room-code-row strong{font-size:23px}
+  .room-meta{margin:8px 0;padding:7px 0;font-size:11px}
+  .phase-tracker{display:flex;gap:5px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 0 9px;padding:0 0 3px}
+  .phase-tracker::-webkit-scrollbar{display:none}
+  .phase-tracker li{flex:0 0 58px;min-height:42px;padding:6px 3px;scroll-snap-align:start;font-size:8px}
+  .players-section{margin-top:8px}
+  .section-heading.compact{display:flex;flex-direction:row;align-items:center;margin-bottom:7px}
+  .section-heading.compact h2{font-size:15px}
+  .section-heading.compact .hint-inline{display:none}
+  #playersList{max-height:118px;overflow-y:auto;overscroll-behavior:contain;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:0 2px 2px 0;align-content:start}
+  .player-chip{padding:6px 7px;gap:5px}
+  .player-avatar{width:24px;height:24px;flex-basis:24px}
+  .player-name{font-size:10px}
+  .player-meta{font-size:8px;line-height:1.25}
+  .kick-player-button{min-height:28px;padding:4px 6px;font-size:8px}
+  .phase-panel{min-height:0;margin:8px 0 12px;padding:13px}
+  .phase-title{display:block;margin-bottom:8px}
+  .phase-title h2{font-size:19px;margin:3px 0}
+  .phase-title p{display:none}
+  .phase-panel h3{font-size:16px;margin:9px 0 6px}
+  .phase-panel .hint{font-size:10px;line-height:1.4;margin:6px 0}
+  .notice{margin:8px 0;padding:9px 10px;font-size:11px;line-height:1.45}
+  .message-line{min-height:0;margin:5px 0;font-size:10px}
+  .action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:9px 0}
+  .action-button{min-height:50px;padding:9px 7px;font-size:11px;line-height:1.3;text-align:center;overflow-wrap:anywhere}
+  .action-button small{display:none}
+  .wide{min-height:48px}
+  .control-row{gap:7px;margin-top:10px}
+  .card-back{width:min(220px,82%);min-height:245px;margin:8px auto 12px}
+  .role-card{min-height:280px;margin:9px auto;padding:12px}
+  .role-art{width:96px;height:86px}
+  .role-card .role-name{font-size:26px}
+  .role-flip-card{width:min(275px,100%);height:310px;margin:8px auto 12px}
+  .role-flip-face{gap:5px;padding:11px}
+  .role-flip-art{width:78px;height:70px}
+  .role-flip-name{font-size:23px}
+  .role-flip-details{gap:5px}
+  .role-flip-detail{grid-template-columns:66px minmax(0,1fr);gap:6px;padding:6px 7px}
+  .role-flip-detail-label{font-size:7px}
+  .role-flip-detail-text{font-size:8px;line-height:1.3}
+  .role-card-details{gap:5px}
+  .role-card-detail{grid-template-columns:70px minmax(0,1fr);padding:6px 7px}
+  .role-card-detail-text{font-size:9px;line-height:1.3}
+  .chat-list{height:150px;padding:9px;gap:7px}
+  .wolf-night-room{margin:8px 0;padding:10px}
+  .wolf-private-chat{padding:9px}
+  .wolf-chat-messages{max-height:150px}
+  .system-narrator-panel{margin-top:10px;padding:12px}
+  .waiting-room-roster{max-height:145px;overflow:auto;margin:8px 0;padding:10px}
+  .waiting-room-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .waiting-room-player{padding:6px 7px;font-size:9px}
+  .role-config-editor{gap:7px;margin:8px 0}
+  .role-config-team{padding:8px}
+  .role-count-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .role-count-field{padding:6px;font-size:9px}
+  .role-count-input{width:40px;min-width:40px;min-height:32px}
+}
+@media(max-width:430px){
+  .app:has(#roomPanel:not(.hidden)){width:calc(100% - 10px)}
+  .room-top-actions .text-button{font-size:9px}
+  #playersList{max-height:105px}
+  .phase-panel{padding:11px}
+  .action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .action-button{min-height:48px;font-size:10px}
+  .role-flip-card{height:300px}
+  .role-flip-art{width:70px;height:64px}
+  .role-flip-detail-text{font-size:7.5px}
+}
