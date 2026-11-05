@@ -720,7 +720,7 @@ export class WerewolfRoom {
     const targets = !isModerator && self
       ? alive.map(player => ({ id: player.id, name: player.name }))
       : [];
-    const reviveTargets = !isModerator && self?.role === 'reviver' && room.phase === 'dawn'
+    const reviveTargets = !isModerator && self?.role === 'reviver' && self.alive && !self.reviverUsed && room.phase === 'dawn'
       ? (room.lastResult?.kind === 'night' ? (room.lastResult.eliminations || []) : [])
         .filter(item => room.players.some(player => player.id === item.id && !player.alive))
         .map(item => ({ id: item.id, name: item.name }))
@@ -1631,7 +1631,7 @@ export class WerewolfRoom {
           eliminations: [{ name: removed.name, role: removed.role, cause: 'kick' }],
           at: now, round: room.round
         });
-        if (checkWinner()) {
+        if (phaseBeforeKick !== 'dawn' && checkWinner()) {
           room.phase = 'finished';
           this.recordGameFinished(room, now);
         } else if (phaseBeforeKick === 'role_draw' && this.isSystemModerator(room)
@@ -1823,7 +1823,7 @@ export class WerewolfRoom {
         message: room.lastResult.message, events: room.lastResult.events,
         eliminations: room.lastResult.eliminations, at: now, round: room.round
       });
-      if (checkWinner()) {
+      if (phaseBeforeLeave !== 'dawn' && checkWinner()) {
         room.phase = 'finished';
         this.recordGameFinished(room, now);
       }
