@@ -81,7 +81,7 @@ assert.match(app, /function renderNightMath/);
 assert.match(app, /function renderMasonCircle/);
 const allCardRoles = [
   'wolf', 'alpha_wolf', 'villager', 'seer', 'doctor', 'bodyguard', 'witch',
-  'hunter', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
+  'hunter', 'reviver', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
   'priest', 'vigilante', 'mason', 'moderator'
 ];
 for (const role of allCardRoles) {
@@ -288,7 +288,7 @@ for (const file of [
   'hero-night.svg', 'card-back.svg', 'role-wolf.svg',
   'role-seer.svg', 'role-doctor.svg', 'role-villager.svg',
   'role-alpha_wolf.svg', 'role-bodyguard.svg', 'role-witch.svg',
-  'role-hunter.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
+  'role-hunter.svg', 'role-reviver.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
   'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
@@ -404,6 +404,26 @@ assert.match(html, /20261106-werewolf-story-dawn-2/);
 assert.match(sw, /20261106-werewolf-story-dawn-2/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
+
+assert.match(app, /function renderPlayerDawn/);
+assert.match(app, /function renderModeratorDawn/);
+assert.match(app, /role-count-stepper/);
+assert.match(app, /roleDrawSeconds/);
+assert.match(app, /nightSeconds/);
+assert.match(app, /dawnSeconds/);
+assert.match(app, /resultSeconds/);
+assert.match(app, /HASIL PENERAWANGAN PRIBADI/);
+assert.match(app, /Pilihan tersimpan\. Kamu masih bisa menggantinya/);
+assert.match(worker, /type === 'dawn_action'/);
+assert.match(worker, /type === 'resolve_dawn'/);
+assert.match(worker, /type === 'resolve_result'/);
+assert.match(worker, /resultActions/);
+assert.match(worker, /resultResolved/);
+assert.match(worker, /seerHistory/);
+assert.match(worker, /botNightReports/);
+assert.match(css, /\.role-count-stepper/);
+assert.match(css, /\.private-inspection-panel/);
+assert.match(css, /\.discussion-chat-form/);
 
 console.log('Werewolf private-card, moderator-report, role privacy, and wolf-team UI checks passed.');
 
