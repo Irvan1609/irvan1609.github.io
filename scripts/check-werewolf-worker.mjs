@@ -1544,7 +1544,7 @@ const seerDeathSettings = {
   roleCounts: { ...roleSettings.roleCounts, villager: 1 }
 };
 const seerDeathCreated = await payload(await seerDeathRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'SEER01', name: 'Seer Death Host', settings: seerDeathSettings
+  code: 'SEER23', name: 'Seer Death Host', settings: seerDeathSettings
 })), 201);
 const seerDeathTokens = [];
 for (const name of ['Alpha', 'Bima', 'Citra', 'Doni']) {
@@ -1601,7 +1601,7 @@ console.log('Werewolf Seer death regression passed: private reading remains visi
 const roleShuffleStorage = new MemoryStorage();
 const roleShuffleRoom = new WerewolfRoom({ storage: roleShuffleStorage, getWebSockets: () => [] }, {});
 const roleShuffleCreated = await payload(await roleShuffleRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'RND123', name: 'Shuffle Host', settings: roleSettings
+  code: 'RND234', name: 'Shuffle Host', settings: roleSettings
 })), 201);
 const roleShuffleToken = roleShuffleCreated.token;
 for (const name of ['Rani', 'Seno', 'Tika', 'Udin', 'Vera']) {
@@ -1630,7 +1630,7 @@ const voiceSockets = [];
 const voiceStorage = new MemoryStorage();
 const voiceRoom = new WerewolfRoom({ storage: voiceStorage, getWebSockets: () => voiceSockets }, {});
 const voiceCreated = await payload(await voiceRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'VOICE1', name: 'Voice Host'
+  code: 'VWXY23', name: 'Voice Host'
 })), 201);
 const voicePlayers = [];
 for (const name of ['Voice One', 'Voice Two']) {
