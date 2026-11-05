@@ -982,7 +982,7 @@ function renderRoleConfigEditor(container, settings) {
     const grid = node('div', 'role-count-grid');
     for (const [key, label] of group.roles) {
       const item = node('div', 'role-count-item');
-      const field = node('label', 'role-count-field');
+      const field = node('div', 'role-count-field');
       addText(field, 'span', '', label);
       const stepper = node('div', 'role-count-stepper');
       const minus = node('button', 'role-count-step', '−');
@@ -997,6 +997,7 @@ function renderRoleConfigEditor(container, settings) {
       input.inputMode = 'numeric';
       input.value = String(config.roleCounts[key] ?? 0);
       input.dataset.roleCount = key;
+      input.setAttribute('aria-label', label);
       const plus = node('button', 'role-count-step', '+');
       plus.type = 'button';
       plus.dataset.roleStep = '1';
