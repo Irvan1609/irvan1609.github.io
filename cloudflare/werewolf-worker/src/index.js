@@ -185,7 +185,10 @@ function recommendedRoleCounts(playerCount) {
 
   // Fill the remaining special slots with repeatable roles. Cupid and Jester
   // stay unique because Cupid's bond is room-wide and Jester is a solo-win role.
-  const scalableRoles = ['bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel', 'seer', 'doctor'];
+  const scalableRoles = [
+    'bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel',
+    'seer', 'doctor', 'priest', 'vigilante', 'mason'
+  ];
   let extraRoleIndex = 0;
   while (assignedSpecials < specialSlots) {
     const role = scalableRoles[extraRoleIndex % scalableRoles.length];
