@@ -900,12 +900,42 @@ function renderWolfNightRoom(parent) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function renderPublicResult(parent) {
+  const result = roomState.room.publicResult;
+  if (!result) return;
+  const titles = {
+    night: 'HASIL AKSI MALAM',
+    vote: 'HASIL VOTING',
+    hunter: 'HASIL AKSI HUNTER',
+    leave: 'PERUBAHAN PEMAIN'
+  };
+  const panel = node('section', 'public-result-card');
+  addText(panel, 'div', 'eyebrow-small', titles[result.kind] || 'HASIL PERMAINAN');
+  addText(panel, 'h3', '', result.message || 'Hasil aksi telah diproses.');
+  const eliminated = Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers : [];
+  if (eliminated.length) {
+    const list = node('div', 'public-result-list');
+    for (const item of eliminated) {
+      const row = node('div', 'public-result-player');
+      addText(row, 'b', '', item.name || 'Pemain');
+      addText(row, 'span', '', item.cause || 'Tereliminasi');
+      list.append(row);
+    }
+    panel.append(list);
+  } else {
+    addText(panel, 'p', 'public-result-empty',
+      result.kind === 'night' ? 'Tidak ada pemain yang tereliminasi malam ini.'
+        : 'Tidak ada pemain yang tereliminasi pada hasil ini.');
+  }
+  parent.append(panel);
+}
+
 function renderModeratorEventReport(parent, result) {
   if (!result) return;
   const actionReport = Array.isArray(result.actionReport) ? result.actionReport : [];
   if (actionReport.length) {
     const events = node('section', 'moderator-event-report');
-    addText(events, 'div', 'eyebrow-small', 'URUTAN AKSI MALAM');
+    addText(events, 'div', 'eyebrow-small', 'URUTAN AKSI DAN HASIL');
     actionReport.forEach((event, index) => {
       const row = node('article', 'moderator-event-item');
       const heading = node('div', 'moderator-event-heading');
@@ -913,10 +943,20 @@ function renderModeratorEventReport(parent, result) {
       addText(heading, 'b', 'moderator-event-title',
         [event.role, event.actor].filter(Boolean).join(' · ')
       );
-      addText(row, 'div', 'moderator-event-detail',
-        [event.action, event.outcome].filter(Boolean).join(' — ')
-      );
+      const action = node('div', 'moderator-event-action');
+      addText(action, 'span', 'moderator-event-action-label', 'AKSI');
+      addText(action, 'span', 'moderator-event-action-text', event.action || 'Aksi tidak tercatat.');
+      const outcomeText = String(event.outcome || 'Hasil belum tersedia.');
+      const normalized = outcomeText.toLowerCase();
+      const tone = /berhasil|selamat|benar|terhubung|diterima|mengorbankan diri/.test(normalized)
+        ? 'success'
+        : /gagal|tidak ada|belum|salah|dilewati|tidak terpicu|nonaktif/.test(normalized)
+          ? 'warning' : 'neutral';
+      const outcome = node('div', 'moderator-event-outcome outcome-' + tone);
+      addText(outcome, 'span', 'moderator-event-action-label', 'HASIL');
+      addText(outcome, 'span', 'moderator-event-action-text', outcomeText);
       row.prepend(heading);
+      row.append(action, outcome);
       events.append(row);
     });
     parent.append(events);
@@ -930,9 +970,9 @@ function renderModeratorEventReport(parent, result) {
   const eliminations = Array.isArray(result.eliminations) ? result.eliminations : [];
   if (eliminations.length) {
     const list = node('section', 'moderator-elimination-report');
-    addText(list, 'div', 'eyebrow-small', 'KORBAN MALAM');
+    addText(list, 'div', 'eyebrow-small', 'PEMAIN TERELIMINASI');
     for (const elimination of eliminations) {
-      const row = node('div', 'moderator-elimination-row');
+      const row = node('div', 'moderator-elimination-row faction-' + factionForRole(elimination.role));
       addText(row, 'b', '', (elimination.name || 'Pemain') + ' · ' + roleLabel(elimination.role));
       addText(row, 'span', '', eliminationCauseLabel(elimination.cause));
       list.append(row);
@@ -1005,7 +1045,7 @@ function renderPlayerPhase(parent) {
     case 'voting': renderPlayerVoting(parent); break;
     case 'result': renderPlayerVoteResult(parent); break;
     case 'finished':
-      addText(parent, 'div', 'notice success', 'Permainan selesai. Tunggu pengumuman moderator.');
+      renderVictoryScreen(parent, false);
       break;
     default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
   }
@@ -1143,8 +1183,9 @@ function renderModeratorNight(parent) {
 }
 
 function renderModeratorMorning(parent) {
-  phaseHeader(parent, 'PAGI HARI · RONDE ' + roomState.room.round, 'Hasil kejadian malam', 'Bacakan hasil ini kepada pemain. Layar pemain hanya menampilkan status pribadi: bertahan atau tereliminasi.');
+  phaseHeader(parent, 'PAGI HARI · RONDE ' + roomState.room.round, 'Hasil kejadian malam', 'Ringkasan kejadian ditampilkan kepada seluruh pemain; rincian aksi rahasia hanya terlihat oleh moderator.');
   const result = roomState.room.lastResult;
+  renderPublicResult(parent);
   const card = node('div', 'result-card');
   addText(card, 'h3', '', result?.message || 'Malam telah berlalu.');
   renderModeratorEventReport(card, result);
@@ -1209,8 +1250,9 @@ function renderModeratorVoting(parent) {
 }
 
 function renderModeratorResult(parent) {
-  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Moderator dapat melihat pemain yang tereliminasi beserta perannya. Pemain lain hanya melihat status pribadinya.');
+  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Hasil eliminasi dapat dilihat semua pemain. Rincian pilihan suara tetap rahasia.');
   const result = roomState.room.lastResult;
+  renderPublicResult(parent);
   const card = node('div', 'result-card');
   addText(card, 'h3', '', result?.message || 'Hasil voting tersedia.');
   renderModeratorEventReport(card, result);
@@ -1220,25 +1262,7 @@ function renderModeratorResult(parent) {
 }
 
 function renderModeratorFinished(parent) {
-  phaseHeader(parent, 'GAME OVER', 'Permainan selesai', 'Hasil akhir dan seluruh peran hanya ditampilkan pada panel moderator.');
-  addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
-  if (roomState.room.lovers?.length === 2) {
-    addText(parent, 'div', 'notice', 'Pasangan Cupid: ' + roomState.room.lovers.join(' & '));
-  }
-  if (roomState.room.additionalWinners?.length) {
-    const names = roomState.players.filter(player => roomState.room.additionalWinners.includes(player.id)).map(player => player.name);
-    addText(parent, 'div', 'notice success', 'Kemenangan tambahan Guardian Angel: ' + names.join(', '));
-  }
-  if (roomState.room.lastResult?.message) addText(parent, 'div', 'notice success', roomState.room.lastResult.message);
-  renderModeratorEventReport(parent, roomState.room.lastResult);
-  const card = node('div', 'result-card');
-  for (const player of roomState.players) {
-    card.append(node('p', '', player.name + ' — ' + roleLabel(player.role) + (player.alive ? ' · Hidup' : ' · Tereliminasi')));
-  }
-  parent.append(card);
-  parent.append(button('Main Lagi · Kembali ke Ruang Tunggu', 'primary wide', () => {
-    if (confirm('Kembalikan semua pemain ke ruang tunggu? Daftar pemain dan kode room tetap dipertahankan.')) sendAction('reset_to_lobby');
-  }));
+  renderVictoryScreen(parent, true);
 }
 
 function renderPlayerRoleDraw(parent) {
@@ -1407,6 +1431,7 @@ function renderPlayerNight(parent) {
 }
 
 function renderPlayerDiscussion(parent) {
+  renderPublicResult(parent);
   addText(parent, 'div', 'notice success', 'Diskusi tatap muka sedang berlangsung. Ikuti arahan moderator dan berdiskusilah bersama pemain lain.');
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);
 }
@@ -1423,6 +1448,7 @@ function renderPrivateInspectionResult(parent) {
 }
 
 function renderPlayerMorning(parent) {
+  renderPublicResult(parent);
   addText(parent, 'div', roomState.self.status === 'eliminated' ? 'notice warning' : 'notice success',
     roomState.self.status === 'eliminated' ? 'Kamu tereliminasi.' : 'Kamu bertahan.');
   renderPrivateInspectionResult(parent);
@@ -1449,13 +1475,87 @@ function renderHunterShot(parent) {
   parent.append(grid);
 }
 
+function factionForRole(role) {
+  if (['wolf', 'alpha_wolf'].includes(role)) return 'wolves';
+  if (['jester', 'guardian_angel'].includes(role)) return 'neutral';
+  return 'village';
+}
+
+function factionLabel(faction) {
+  return ({
+    wolves: 'KUBU WEREWOLF',
+    village: 'PENDUDUK DESA',
+    neutral: 'KUBU NETRAL'
+  })[faction] || 'KUBU TIDAK DIKETAHUI';
+}
+
 function winnerLabel(winner) {
   return ({
-    wolves: 'Kubu Werewolf menang',
-    villagers: 'Kubu Desa menang',
-    jester: 'Jester menang sendiri',
-    lovers: 'Pasangan Lovers menang'
-  })[winner] || 'Permainan selesai';
+    wolves: 'KUBU WEREWOLF MENANG',
+    villagers: 'KUBU DESA MENANG',
+    jester: 'JESTER MENANG SENDIRI',
+    lovers: 'PASANGAN LOVERS MENANG'
+  })[winner] || 'PERMAINAN SELESAI';
+}
+
+function renderVictoryScreen(parent, moderatorView = false) {
+  const room = roomState.room;
+  const theme = room.winner === 'wolves' ? 'wolves'
+    : room.winner === 'villagers' ? 'village' : 'neutral';
+  const screen = node('section', 'victory-screen victory-' + theme);
+  const confetti = node('div', 'victory-confetti');
+  confetti.setAttribute('aria-hidden', 'true');
+  screen.append(confetti);
+  addText(screen, 'div', 'victory-kicker', '✦ HASIL AKHIR PERMAINAN ✦');
+  addText(screen, 'div', 'victory-trophy', '🏆');
+  addText(screen, 'h2', 'victory-title', winnerLabel(room.winner));
+  addText(screen, 'p', 'victory-subtitle', 'Permainan telah berakhir. Seluruh pemain dapat melihat pemenang dan hasil akhir.');
+  const finalPlayers = Array.isArray(room.finalPlayers) ? room.finalPlayers : [];
+  const winners = finalPlayers.filter(player => player.isWinner);
+  const mainWinners = winners.filter(player => player.winReason === 'Pemenang utama');
+  const bonusWinners = winners.filter(player => player.winReason === 'Pemenang bonus Guardian Angel');
+  if (mainWinners.length) {
+    const winnerBox = node('div', 'victory-winner-box');
+    addText(winnerBox, 'div', 'victory-winner-label', room.winner === 'lovers' ? 'PASANGAN PEMENANG' : 'PEMENANG UTAMA');
+    addText(winnerBox, 'div', 'victory-winner-names', mainWinners.map(player => player.name).join(' · '));
+    screen.append(winnerBox);
+  }
+  if (bonusWinners.length) {
+    const bonus = node('div', 'victory-bonus-box');
+    addText(bonus, 'b', '', 'Kemenangan bonus Guardian Angel');
+    addText(bonus, 'p', '', bonusWinners.map(player => player.name).join(' · '));
+    screen.append(bonus);
+  }
+  if (room.lovers?.length === 2 && room.winner !== 'lovers') {
+    addText(screen, 'p', 'victory-special-note', 'Pasangan Cupid: ' + room.lovers.join(' & '));
+  }
+  if (room.publicResult) renderPublicResult(screen);
+  if (moderatorView && room.lastResult) renderModeratorEventReport(screen, room.lastResult);
+
+  const roster = node('section', 'final-roster');
+  addText(roster, 'div', 'final-roster-heading', 'DAFTAR PEMAIN DAN ROLE');
+  const ordered = [...finalPlayers].sort((a, b) => Number(b.isWinner) - Number(a.isWinner));
+  for (const player of ordered) {
+    const faction = player.faction || factionForRole(player.role);
+    const row = node('article', 'final-player-card faction-' + faction + (player.isWinner ? ' is-winner' : ''));
+    const main = node('div', 'final-player-main');
+    addText(main, 'b', 'final-player-name', player.name);
+    addText(main, 'span', 'final-faction-label', factionLabel(faction));
+    const detail = node('div', 'final-player-detail');
+    addText(detail, 'span', 'final-player-role', roleLabel(player.role));
+    addText(detail, 'span', player.isWinner ? 'final-player-status winner-status' : 'final-player-status',
+      player.winReason || (player.alive ? 'Bertahan' : 'Tereliminasi'));
+    row.append(main, detail);
+    roster.append(row);
+  }
+  screen.append(roster);
+  parent.append(screen);
+
+  if (moderatorView) {
+    parent.append(button('Main Lagi · Kembali ke Ruang Tunggu', 'primary wide', () => {
+      if (confirm('Kembalikan semua pemain ke ruang tunggu? Daftar pemain dan kode room tetap dipertahankan.')) sendAction('reset_to_lobby');
+    }));
+  }
 }
 
 
@@ -1532,6 +1632,7 @@ function renderPlayerVoting(parent) {
 }
 
 function renderPlayerVoteResult(parent) {
+  renderPublicResult(parent);
   addText(parent, 'div', roomState.self.alive ? 'notice success' : 'notice warning',
     roomState.self.alive ? 'Kamu bertahan.' : 'Kamu tereliminasi.');
   if (roomState.self.role === 'hunter' && !roomState.self.alive) renderHunterShot(parent);

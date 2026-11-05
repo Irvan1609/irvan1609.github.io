@@ -533,6 +533,42 @@ export class WerewolfRoom {
     const loverNames = canSeeLovers
       ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean)
       : [];
+    const publicResult = !['lobby', 'role_draw', 'night'].includes(room.phase)
+      && room.lastResult && room.lastResult.kind !== 'phase'
+      ? {
+        kind: room.lastResult.kind,
+        message: String(room.lastResult.message || ''),
+        round: Number(room.lastResult.round) || room.round,
+        eliminatedPlayers: (Array.isArray(room.lastResult.eliminations) ? room.lastResult.eliminations : [])
+          .map(item => ({
+            name: String(item.name || 'Pemain'),
+            cause: item.cause === 'vote' ? 'Voting'
+              : item.cause === 'left_room' ? 'Keluar dari permainan'
+                : 'Aksi malam'
+          }))
+      }
+      : null;
+    const finalPlayers = room.phase === 'finished'
+      ? room.players.map(player => {
+        const faction = isWolf(player.role) ? 'wolves'
+          : NEUTRAL_ROLES.has(player.role) ? 'neutral' : 'village';
+        const bonusWinner = (room.additionalWinners || []).includes(player.id);
+        const mainWinner = room.winner === 'wolves' && faction === 'wolves'
+          || room.winner === 'villagers' && faction === 'village'
+          || room.winner === 'jester' && player.role === 'jester'
+          || room.winner === 'lovers' && loverIds.includes(player.id);
+        return {
+          id: player.id,
+          name: player.name,
+          role: player.role,
+          faction,
+          alive: Boolean(player.alive),
+          isWinner: Boolean(mainWinner || bonusWinner),
+          winReason: bonusWinner ? 'Pemenang bonus Guardian Angel'
+            : mainWinner ? 'Pemenang utama' : null
+        };
+      })
+      : [];
     return {
       room: {
         code: room.code,
@@ -550,9 +586,11 @@ export class WerewolfRoom {
         votesRequired: alive.length,
         votesSubmitted,
         lastResult: isModerator ? room.lastResult : null,
-        winner: isModerator ? room.winner : null,
-        additionalWinners: isModerator ? (room.additionalWinners || []) : [],
-        lovers: isModerator ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean) : [],
+        publicResult,
+        winner: room.phase === 'finished' ? room.winner : null,
+        additionalWinners: room.phase === 'finished' ? (room.additionalWinners || []) : [],
+        lovers: room.phase === 'finished' ? loverIds.map(id => room.players.find(player => player.id === id)?.name).filter(Boolean) : [],
+        finalPlayers,
         gameOver: room.phase === 'finished'
       },
       lobbyPlayers: room.phase === 'lobby' ? room.players.map(player => ({
@@ -1815,8 +1853,8 @@ export class WerewolfRoom {
       };
       room.nightActions = {};
       room.wolfChat = [];
-      checkWinner();
-      room.phase = 'morning';
+      const hasWinner = checkWinner();
+      room.phase = hasWinner ? 'finished' : 'morning';
       room.discussionMode = null;
       room.discussionEndsAt = null;
       room.callUrl = '';
