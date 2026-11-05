@@ -252,8 +252,10 @@ function hasSpecialNightAction(room, player) {
     case 'wolf':
     case 'alpha_wolf':
       return alive.some(item => !isWolf(item.role));
-    case 'seer':
-      return abilityEnabled(room, 'seerInspection') && others.length > 0;
+    case 'seer': {
+      const inspected = new Set((room.seerHistory?.[player.id] || []).map(item => item.playerId));
+      return abilityEnabled(room, 'seerInspection') && others.some(item => !inspected.has(item.id));
+    }
     case 'doctor':
       return abilityEnabled(room, 'doctorProtection') && alive.length > 0;
     case 'bodyguard':
@@ -271,8 +273,10 @@ function hasSpecialNightAction(room, player) {
     case 'guardian_angel':
       return (abilityEnabled(room, 'guardianProtection') || abilityEnabled(room, 'guardianBonus'))
         && others.length > 0;
-    case 'detective':
-      return abilityEnabled(room, 'detectiveInspection') && others.length > 0;
+    case 'detective': {
+      const inspected = new Set((room.seerHistory?.[player.id] || []).map(item => item.playerId));
+      return abilityEnabled(room, 'detectiveInspection') && others.some(item => !inspected.has(item.id));
+    }
     case 'priest':
       return abilityEnabled(room, 'priestBlessing') && !player.priestUsed && others.length > 0;
     case 'vigilante':
