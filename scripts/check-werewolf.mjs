@@ -413,7 +413,7 @@ assert.match(app, /nightSeconds/);
 assert.match(app, /dawnSeconds/);
 assert.match(app, /resultSeconds/);
 assert.match(app, /HASIL PENERAWANGAN PRIBADI/);
-assert.match(app, /Pilihan tersimpan\. Kamu masih bisa menggantinya/);
+assert.match(app, /Pilihan tersimpan\\. Kamu masih dapat menggantinya/);
 assert.match(worker, /type === 'dawn_action'/);
 assert.match(worker, /type === 'resolve_dawn'/);
 assert.match(worker, /type === 'resolve_result'/);
