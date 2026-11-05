@@ -628,7 +628,7 @@ function renderRoleConfigEditor(container, settings) {
   moderatorField.append(moderatorSelect);
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
-  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam dan voting berjalan otomatis, sedangkan host melanjutkan fase siang. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
+  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam, diskusi, dan voting berjalan otomatis sesuai durasi. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
   const roleActions = node('div', 'role-config-actions');
   const clearRolesButton = button('Jadikan Semua Role 0', 'secondary role-zero-button', () => clearAllRoleCounts(container));
   clearRolesButton.dataset.clearAllRoles = 'true';
