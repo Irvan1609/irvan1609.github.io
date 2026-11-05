@@ -463,8 +463,7 @@ function applyState(nextState, expectedSession = session) {
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
   if (phaseChanged && nextState.room.phase === 'morning') playRoosterCrow();
   const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round, nextState.room.lastResult?.at || ''].join(':');
-  if (previous && (nextState.self?.isModerator || nextState.self?.isHost)
-    && systemModeratorEnabled(nextState) && narrationKey !== lastNarrationKey) {
+  if ((!previous || phaseChanged) && narrationKey !== lastNarrationKey) {
     const narration = systemNarrationText(nextState.room);
     if (narration) speakSystemNarration(narration);
   }
@@ -2558,29 +2557,87 @@ function renderVictoryScreen(parent, moderatorView = false) {
 }
 
 
+function narrationChoice(room, lines) {
+  const key = [room.code, room.round, room.phase, room.lastResult?.at || room.publicResult?.at || ''].join('|');
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  return lines[hash % lines.length];
+}
+
 function systemNarrationText(room) {
-  const resultMessage = String(room.lastResult?.message || '').trim();
+  const village = room.villageName || 'Desa Waringin';
+  const result = room.lastResult || room.publicResult || {};
+  const resultMessage = String(result.message || '').trim();
+  const victims = Array.isArray(result.eliminations) ? result.eliminations
+    : Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers : [];
+  const victimNames = victims.map(item => item.name || item.playerName).filter(Boolean);
+  const biteVictim = victims.find(item => item.cause === 'werewolf_attack' || item.cause === 'Serangan Werewolf');
+  const shotVictim = victims.find(item => ['hunter', 'vigilante_shot'].includes(item.cause) || item.cause === 'Tembakan');
+  const poisonVictim = victims.find(item => item.cause === 'witch_poison' || item.cause === 'Racun');
+
   switch (room.phase) {
     case 'role_draw':
-      return 'Takdir telah dibagikan. Buka kartu kalian. Simpan rahasia.';
+      return narrationChoice(room, [
+        'Kita berada di ' + village + ', desa kecil yang selama ini hidup tenang. Namun malam ini, sesuatu mengintai di balik jendela. Kartu telah dibagikan. Jaga rahasiamu.',
+        'Di antara hutan dan jalan berkabut, berdirilah ' + village + '. Malam panjang akan segera dimulai. Bukalah kartu kalian, dan jangan biarkan siapa pun membaca rahasiamu.',
+        'Selamat datang di ' + village + '. Desa ini tampak damai, tetapi satu di antara kita menyimpan niat gelap. Takdir setiap warga kini berada di balik kartu.'
+      ]);
     case 'night':
-      return 'Malam menyelimuti desa. Semua warga, pejamkan mata. Werewolf, bangun.';
-    case 'morning':
-      return 'Fajar menyingsing. ' + (resultMessage || 'Desa masih sunyi.');
+      return narrationChoice(room, [
+        'Malam turun di ' + village + '. Lentera dipadamkan, pintu-pintu dikunci. Di balik gelap, beberapa langkah mulai terdengar.',
+        'Kabut menelan jalanan ' + village + '. Warga memejamkan mata. Namun di luar sana, ada yang sedang memburu mangsanya.',
+        'Tengah malam tiba. Angin melewati jendela dan anjing-anjing menggonggong dari kejauhan. Biarkan desa tertidur, sementara rahasia bergerak.'
+      ]);
+    case 'dawn':
+      return narrationChoice(room, [
+        'Langit mulai memucat. Subuh datang, tetapi nasib mereka yang gugur belum sepenuhnya ditentukan. Masih ada satu kesempatan sebelum desa terbangun.',
+        'Ayam jantan belum berkokok. Di antara gelap dan terang, keputusan terakhir masih bisa mengubah nasib seseorang.',
+        'Cahaya pertama menyentuh atap rumah. Desa menahan napas; sebelum pagi tiba, masih ada urusan yang harus diselesaikan.'
+      ]);
+    case 'morning': {
+      if (!victimNames.length) return narrationChoice(room, [
+        'Pagi menyingsing di ' + village + '. Pintu-pintu terbuka satu demi satu. Aneh, tak seorang pun ditemukan gugur. Namun desa belum tentu aman.',
+        'Matahari muncul dari balik bukit. Tidak ada tubuh yang ditemukan pagi ini. Keheningan justru membuat warga semakin curiga.',
+        'Pagi datang tanpa kabar duka. Untuk sesaat desa bernapas lega, tetapi ancaman masih bersembunyi di antara warga.'
+      ]);
+      if (victimNames.length > 1) {
+        return 'Saat fajar tiba, warga menemukan ' + victimNames.join(' dan ') + ' telah gugur. Beberapa rumah masih terbuka, dan jejak malam tertinggal di sepanjang jalan. Desa kehilangan lebih dari satu nyawa.';
+      }
+      const name = victimNames[0];
+      if (biteVictim) return 'Matahari baru saja terbit ketika warga menemukan ' + name + ' tergeletak di depan rumah. Bekas gigitan terlihat jelas di lehernya. Ketakutan kembali menyelimuti ' + village + '.';
+      if (shotVictim) return 'Suara tembakan semalam masih terngiang. Pagi ini, ' + name + ' ditemukan tak bernyawa dengan luka tembak. Tak seorang pun berani mendekat.';
+      if (poisonVictim) return 'Di dekat tubuh ' + name + ', warga menemukan gelas pecah dan botol kecil. Racun telah merenggut satu nyawa sebelum fajar menyingsing.';
+      return 'Fajar menyibak kabut. Warga menemukan ' + name + ' tak lagi bernyawa. Tak ada yang tahu apa yang sebenarnya terjadi di balik gelap semalam.';
+    }
     case 'discussion':
-      return 'Desa terbangun. Bicaralah, sebelum suara menentukan nasib seseorang.';
+      return narrationChoice(room, [
+        'Warga berkumpul di alun-alun ' + village + '. Setiap tatapan menyimpan kecurigaan. Dengarkan cerita mereka, sebelum waktu memilih habis.',
+        'Kabar duka menyebar dari rumah ke rumah. Kini semua mata tertuju pada satu sama lain. Siapa yang menyembunyikan sesuatu?',
+        'Di tengah alun-alun, suara warga saling bersahutan. Kebenaran harus ditemukan sebelum sore membawa keputusan.'
+      ]);
     case 'voting':
-      return 'Waktunya memilih. Siapa yang kalian curigai?';
-    case 'result':
-      return 'Suara telah dihitung. ' + (resultMessage || 'Tak ada keputusan.');
+      return narrationChoice(room, [
+        'Sore tiba. Tiang eksekusi berdiri di tengah alun-alun. Warga harus menentukan satu nama sebelum matahari tenggelam.',
+        'Bayangan mulai memanjang di jalan desa. Waktunya memilih. Satu suara dapat menyelamatkan, atau mengakhiri, sebuah nyawa.',
+        'Perdebatan berhenti. Satu per satu suara dijatuhkan. Siapa yang akan dibawa ke tiang eksekusi sore ini?'
+      ]);
+    case 'result': {
+      const names = victimNames.length ? victimNames.join(' dan ') : '';
+      return names
+        ? 'Keputusan telah dijatuhkan. ' + names + ' dibawa ke tiang eksekusi. Warga menunggu apakah pilihan mereka menyelamatkan desa atau justru membuka jalan bagi kegelapan.'
+        : narrationChoice(room, [
+          'Suara telah dihitung, tetapi tak ada nama yang cukup kuat untuk dijatuhkan. Desa kembali menunggu malam.',
+          'Perhitungan suara berakhir tanpa eksekusi. Ketegangan belum berakhir; malam berikutnya akan membawa jawaban.'
+        ]);
+    }
     case 'finished': {
       const ending = ({
-        wolves: 'Werewolf menguasai desa.',
-        villagers: 'Desa berhasil diselamatkan.',
-        jester: 'Jester berhasil memperdaya semua orang.',
-        lovers: 'Cinta memenangkan permainan.'
-      })[room.winner] || 'Malam kembali menyelimuti desa.';
-      return 'Permainan usai. ' + ending;
+        wolves: 'Kawanan Werewolf akhirnya menguasai desa.',
+        villagers: 'Warga berhasil mengusir kegelapan dan menyelamatkan desa.',
+        jester: 'Jester tertawa paling akhir. Seluruh desa telah masuk ke dalam jebakannya.',
+        lovers: 'Dua hati bertahan melewati kekacauan dan memenangkan permainan.'
+      })[room.winner] || 'Malam panjang akhirnya berakhir.';
+      return 'Kisah ' + village + ' mencapai akhirnya. ' + ending;
     }
     default:
       return '';
@@ -2600,17 +2657,6 @@ function speakSystemNarration(message) {
     if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   } catch {}
-}
-
-function renderSystemNarrator(parent) {
-  const narration = systemNarrationText(roomState.room);
-  if (!narration) return;
-  const panel = node('section', 'system-narrator-panel');
-  addText(panel, 'div', 'eyebrow-small', 'SUARA DESA');
-  addText(panel, 'h3', '', 'Narator');
-  addText(panel, 'p', '', narration);
-  panel.append(button('Dengarkan lagi', 'secondary wide', () => speakSystemNarration(narration)));
-  parent.append(panel);
 }
 
 function renderPlayerVoting(parent) {
