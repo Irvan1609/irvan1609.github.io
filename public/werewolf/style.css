@@ -643,3 +643,59 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .scan-qr-content{padding:13px}
   .scan-qr-video-wrap{aspect-ratio:1/1}
 }
+
+
+/* Phase countdowns for the moderator-led day and voting flow. */
+.phase-countdown{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:13px 0;
+  padding:12px 14px;
+  border:1px solid #725d38;
+  border-radius:12px;
+  background:linear-gradient(135deg,#2b291f,#172337);
+}
+.phase-countdown-label{
+  color:#e5c985;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+.phase-countdown .timer{
+  margin:0;
+  font-size:clamp(24px,5vw,34px);
+  line-height:1;
+}
+.phase-duration-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.phase-duration-field{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:0;
+  padding:9px 10px;
+  border:1px solid #304158;
+  border-radius:9px;
+  background:#0d1725;
+  color:#dce4ee;
+  font-size:11px;
+}
+.phase-duration-input{
+  width:76px;
+  min-width:76px;
+  min-height:36px;
+  padding:5px 7px;
+  text-align:center;
+  font-weight:850;
+}
+@media(max-width:430px){
+  .phase-duration-grid{grid-template-columns:1fr}
+  .phase-duration-input{width:64px;min-width:64px}
+  .phase-countdown{padding:10px 11px}
+}
