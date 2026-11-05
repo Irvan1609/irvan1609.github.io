@@ -2140,42 +2140,27 @@ function renderDiscussionTools(parent) {
   const canSpeak = !self.isBotControlled
     && Boolean(self.isModerator || self.alive || phase === 'lobby' || phase === 'finished');
   const section = node('section', 'discussion-tools');
-  if (onlineMode) {
-    const voice = node('div', 'discussion-voice-panel');
-    addText(voice, 'div', 'eyebrow-small', 'VOICE CHAT · SEMUA FASE');
-    addText(voice, 'h3', '', 'Voice room');
-    const status = addText(voice, 'p', 'voice-status', voiceStatus);
-    status.id = 'voiceStatus';
-    const count = addText(voice, 'span', 'voice-peer-count', '0 pemain terhubung');
-    count.id = 'voicePeerCount';
-    const controls = node('div', 'voice-controls');
-    if (canSpeak) {
-      const mic = button(
-        voiceLocalStream ? (voiceMuted ? 'Nyalakan Mikrofon' : 'Matikan Mikrofon') : 'Aktifkan Mikrofon',
-        'secondary', toggleVoiceMic, Boolean(voiceStartPromise)
-      );
-      mic.id = 'voiceMicToggle';
-      controls.append(mic);
-      const audio = button('Aktifkan Audio', 'secondary', unlockRemoteAudio, !voiceNeedsAudioGesture);
-      audio.id = 'voiceAudioUnlock';
-      if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
-      controls.append(audio);
-    } else {
-      addText(voice, 'p', 'hint', self.isBotControlled
-        ? 'BOT sementara mengambil alih pemain ini. Mikrofon dinonaktifkan.'
-        : 'Voice chat tersedia untuk pemain hidup, moderator, dan seluruh pemain setelah permainan selesai.');
-    }
-    voice.append(controls);
-    section.append(voice);
-  }
   const chat = node('section', 'discussion-chat-panel');
-  addText(chat, 'div', 'eyebrow-small', 'CHAT DISKUSI · SEMUA FASE');
+  const heading = node('div', 'discussion-chat-heading');
+  addText(heading, 'div', 'eyebrow-small', 'CHAT DISKUSI');
+  if (onlineMode) {
+    const voiceMeta = node('div', 'chat-voice-meta');
+    const status = addText(voiceMeta, 'span', 'voice-status', voiceStatus);
+    status.id = 'voiceStatus';
+    const count = addText(voiceMeta, 'span', 'voice-peer-count', '0 pemain terhubung');
+    count.id = 'voicePeerCount';
+    heading.append(voiceMeta);
+  } else {
+    addText(heading, 'span', 'chat-mode-note', 'Mode teks');
+  }
+  chat.append(heading);
+
   const list = node('div', 'chat-list discussion-chat-list');
   list.id = 'discussionChatList';
   list.setAttribute('role', 'log');
   list.setAttribute('aria-live', 'polite');
   const messages = Array.isArray(roomState.chat) ? roomState.chat : [];
-  if (!messages.length) addText(list, 'p', 'hint', 'Belum ada pesan. Chat tersedia sepanjang permainan.');
+  if (!messages.length) addText(list, 'p', 'hint', 'Belum ada pesan. Gunakan chat untuk berdiskusi dengan pemain lain.');
   for (const message of messages) {
     const item = node('article', 'chat-message');
     const author = node('b', '', message.name || 'Pemain');
@@ -2198,9 +2183,32 @@ function renderDiscussionTools(parent) {
     input.autocomplete = 'off';
     input.placeholder = 'Tulis pesan…';
     input.setAttribute('aria-label', 'Pesan chat room');
+    form.append(input);
+
+    if (onlineMode) {
+      const mic = button(
+        voiceLocalStream ? (voiceMuted ? 'Nyalakan Mic' : 'Matikan Mic') : 'Mic',
+        'secondary voice-inline-control', toggleVoiceMic, Boolean(voiceStartPromise)
+      );
+      mic.id = 'voiceMicToggle';
+      form.append(mic);
+      const audio = button('Audio', 'secondary voice-inline-control', unlockRemoteAudio, !voiceNeedsAudioGesture);
+      audio.id = 'voiceAudioUnlock';
+      if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
+      form.append(audio);
+    }
+
     const submit = node('button', 'primary', 'Kirim');
     submit.type = 'submit';
-    form.append(input, submit);
+    form.append(submit);
+    if (phase !== 'lobby') {
+      const repeat = button('Ulangi narasi', 'secondary repeat-narration-button', () => {
+        const narration = systemNarrationText(roomState.room);
+        if (narration) speakSystemNarration(narration);
+      });
+      repeat.setAttribute('aria-label', 'Ulangi narasi desa');
+      form.append(repeat);
+    }
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const text = input.value.trim();
