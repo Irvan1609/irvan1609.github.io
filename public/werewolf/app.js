@@ -757,7 +757,6 @@ function phaseHeader(parent, kicker, title, description) {
   const left = node('div');
   addText(left, 'div', 'eyebrow-small', kicker);
   addText(left, 'h2', '', title);
-  if (description) addText(left, 'p', '', description);
   head.append(left);
   parent.append(head);
 }
@@ -902,16 +901,35 @@ function renderWolfNightRoom(parent) {
 
 function renderModeratorEventReport(parent, result) {
   if (!result) return;
-  if (Array.isArray(result.events) && result.events.length) {
+  const actionReport = Array.isArray(result.actionReport) ? result.actionReport : [];
+  if (actionReport.length) {
+    const events = node('section', 'moderator-event-report');
+    addText(events, 'div', 'eyebrow-small', 'URUTAN AKSI MALAM');
+    actionReport.forEach((event, index) => {
+      const row = node('article', 'moderator-event-item');
+      const heading = node('div', 'moderator-event-heading');
+      addText(heading, 'span', 'moderator-event-number', String(index + 1).padStart(2, '0'));
+      addText(heading, 'b', 'moderator-event-title',
+        [event.role, event.actor].filter(Boolean).join(' · ')
+      );
+      addText(row, 'div', 'moderator-event-detail',
+        [event.action, event.outcome].filter(Boolean).join(' — ')
+      );
+      row.prepend(heading);
+      events.append(row);
+    });
+    parent.append(events);
+  } else if (Array.isArray(result.events) && result.events.length) {
     const events = node('section', 'moderator-event-report');
     addText(events, 'div', 'eyebrow-small', 'RINGKASAN KEJADIAN');
     for (const event of result.events) addText(events, 'p', 'moderator-event-item', event);
     parent.append(events);
   }
+
   const eliminations = Array.isArray(result.eliminations) ? result.eliminations : [];
   if (eliminations.length) {
     const list = node('section', 'moderator-elimination-report');
-    addText(list, 'div', 'eyebrow-small', 'PEMAIN TERELIMINASI');
+    addText(list, 'div', 'eyebrow-small', 'KORBAN MALAM');
     for (const elimination of eliminations) {
       const row = node('div', 'moderator-elimination-row');
       addText(row, 'b', '', (elimination.name || 'Pemain') + ' · ' + roleLabel(elimination.role));
@@ -921,9 +939,9 @@ function renderModeratorEventReport(parent, result) {
     parent.append(list);
   } else if (result.eliminatedId) {
     const player = roomState.players.find(item => item.id === result.eliminatedId);
-    if (player) addText(parent, 'p', 'hint', player.name + ' · ' + roleLabel(player.role));
-  } else if (result.kind === 'night' || result.kind === 'vote') {
-    addText(parent, 'p', 'hint', 'Tidak ada pemain yang tereliminasi.');
+    if (player) addText(parent, 'div', 'notice warning', player.name + ' · ' + roleLabel(player.role));
+  } else if ((result.kind === 'night' || result.kind === 'vote') && !actionReport.length) {
+    addText(parent, 'div', 'notice success', 'Tidak ada pemain yang tereliminasi.');
   }
 }
 
@@ -1130,9 +1148,6 @@ function renderModeratorMorning(parent) {
   addText(card, 'h3', '', result?.message || 'Malam telah berlalu.');
   renderModeratorEventReport(card, result);
   parent.append(card);
-  if (roomState.room.lovers?.length === 2) {
-    addText(parent, 'div', 'notice', 'Pasangan Cupid: ' + roomState.room.lovers.join(' & '));
-  }
   if (roomState.room.winner) {
     addText(parent, 'div', 'winner', winnerLabel(roomState.room.winner));
     parent.append(button('Umumkan pemenang', 'primary wide', () => sendAction('start_discussion')));

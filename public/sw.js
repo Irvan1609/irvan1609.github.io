@@ -1,4 +1,4 @@
-const VERSION='20261105-werewolf-mobile1';
+const VERSION='20261105-werewolf-nightreport1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;

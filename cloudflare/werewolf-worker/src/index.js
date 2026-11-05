@@ -1691,6 +1691,114 @@ export class WerewolfRoom {
       } else if (!events.length) {
         events.push('Tidak ada aksi malam yang menyebabkan perubahan pada pemain.');
       }
+      const actionReport = [];
+      const reportTargetName = id => room.players.find(item => item.id === id)?.name || 'Pemain';
+      const reportRoleName = role => ({
+        wolf: 'Werewolf', alpha_wolf: 'Alpha Wolf', seer: 'Seer', doctor: 'Doctor',
+        bodyguard: 'Bodyguard', witch: 'Witch', hunter: 'Hunter', cupid: 'Cupid',
+        guardian_angel: 'Guardian Angel', detective: 'Detective', mayor: 'Mayor',
+        jester: 'Jester', villager: 'Warga Desa'
+      })[role] || 'Role';
+      const addActionReport = (order, role, actor, action, outcome) => {
+        actionReport.push({ order, role, actor, action, outcome });
+      };
+
+      // Moderator narration follows the game's night-call order.
+      const cupidActor = actors.find(actor => room.nightActions[actor.id]?.type === 'cupid_link');
+      if (cupidActor && room.lovers?.length === 2) {
+        const linkedNames = room.lovers.map(reportTargetName);
+        addActionReport(10, 'Cupid', cupidActor.name,
+          'Mengikat ' + linkedNames.join(' dan '), 'Pasangan berhasil terhubung.');
+      }
+
+      const wolfActors = actors
+        .filter(actor => room.nightActions[actor.id]?.type === 'wolf_vote')
+        .sort((left, right) =>
+          (Number(room.nightActions[left.id].submittedAt) || 0)
+          - (Number(room.nightActions[right.id].submittedAt) || 0)
+        );
+      const wolfChoices = wolfActors.map(actor => {
+        const action = room.nightActions[actor.id];
+        const weight = actor.role === 'alpha_wolf' && abilityEnabled(room, 'alphaDoubleVote') ? 2 : 1;
+        return actor.name + ' → ' + reportTargetName(action.targetId) + (weight > 1 ? ' (' + weight + ' suara)' : '');
+      });
+      let wolfOutcome = victimId
+        ? 'Target akhir: ' + reportTargetName(victimId) + ' (' + (wolfVotes[victimId] || 0) + ' suara).'
+        : 'Tidak ada target serangan yang sah.';
+      if (wolfAttack.tied) wolfOutcome += ' Suara seri; dipilih berdasarkan suara pertama.';
+      addActionReport(20, 'Werewolf', wolfActors.map(actor => actor.name).join(', ') || 'Kawanan',
+        wolfChoices.length ? 'Pilihan: ' + wolfChoices.join('; ') : 'Tidak ada pilihan serangan yang masuk.',
+        wolfOutcome
+      );
+
+      for (const actor of actors) {
+        const action = room.nightActions[actor.id];
+        if (!action) continue;
+        const targetName = action.targetId ? reportTargetName(action.targetId) : '';
+        if (action.type === 'seer_inspect') {
+          const result = room.seerResults?.[actor.id];
+          const verdict = result?.result === 'wolf' ? 'Werewolf'
+            : result?.result === 'not_wolf' ? 'bukan Werewolf' : 'belum diketahui';
+          addActionReport(30, 'Seer', actor.name, 'Memeriksa ' + (result?.playerName || targetName),
+            'Hasil: ' + verdict + '.');
+        } else if (action.type === 'detective_inspect') {
+          const result = room.seerResults?.[actor.id];
+          const verdict = result?.result === 'wolf_team' ? 'kubu Werewolf'
+            : result?.result === 'neutral' ? 'kubu Netral'
+              : result?.result === 'village' ? 'kubu Desa' : 'belum diketahui';
+          addActionReport(40, 'Detective', actor.name, 'Memeriksa ' + (result?.playerName || targetName),
+            'Hasil: ' + verdict + '.');
+        } else if (action.type === 'doctor_protect') {
+          addActionReport(50, 'Doctor', actor.name, 'Melindungi ' + targetName,
+            victimId === action.targetId ? 'Perlindungan berhasil; target selamat.' : 'Target tidak terkena serangan.');
+        } else if (action.type === 'bodyguard_protect') {
+          const outcome = bodyguardInterception === actor.id
+            ? 'Bodyguard mengorbankan diri; target selamat.'
+            : victimId === action.targetId && (protectedIds.has(action.targetId) || doctorHeal)
+              ? 'Target selamat oleh perlindungan lain.'
+              : 'Tidak terpicu malam ini.';
+          addActionReport(60, 'Bodyguard', actor.name, 'Menjaga ' + targetName, outcome);
+        } else if (action.type === 'guardian_protect') {
+          addActionReport(70, 'Guardian Angel', actor.name, 'Melindungi ' + targetName,
+            victimId === action.targetId ? 'Target terlindungi dari serangan.' : 'Target tidak terkena serangan.');
+        } else if (action.type === 'witch_heal') {
+          addActionReport(80, 'Witch', actor.name, 'Memakai ramuan penyembuh pada ' + targetName,
+            victimId === action.targetId ? 'Target serangan berhasil diselamatkan.' : 'Tidak ada serangan pada target.');
+        } else if (action.type === 'witch_poison') {
+          const poisoned = eliminated.some(item => item.id === action.targetId);
+          addActionReport(81, 'Witch', actor.name, 'Memakai racun pada ' + targetName,
+            poisoned ? 'Target tereliminasi.' : 'Target tidak tereliminasi.');
+        } else if (action.type === 'villager_math') {
+          const prompt = room.villagerPrompts?.[actor.id];
+          addActionReport(90, 'Warga Desa', actor.name,
+            'Menjawab soal ' + (prompt?.question || 'penjumlahan'),
+            action.correct === true ? 'Jawaban benar.' : action.correct === false ? 'Jawaban salah.' : 'Jawaban diterima.'
+          );
+        }
+      }
+
+      const passedActors = actors.filter(actor => room.nightActions[actor.id]?.type === 'pass');
+      if (passedActors.length) {
+        addActionReport(100, 'Aksi dilewati',
+          passedActors.map(actor => actor.name + ' (' + reportRoleName(actor.role) + ')').join(', '),
+          'Tidak menggunakan kemampuan malam.', passedActors.length + ' pemain melewati aksi.'
+        );
+      }
+      if (missing.length) {
+        addActionReport(105, 'Aksi belum masuk',
+          missing.map(actor => actor.name + ' (' + reportRoleName(actor.role) + ')').join(', '),
+          'Belum mengirim aksi.', 'Dilewati saat moderator memaksa pagi.'
+        );
+      }
+      addActionReport(110, 'Hasil akhir', 'Moderator', 'Resolusi malam',
+        eliminated.length
+          ? 'Tereliminasi: ' + eliminated.map(item => item.name).join(', ') + '.'
+          : 'Tidak ada korban malam ini.'
+      );
+      actionReport.sort((left, right) =>
+        left.order - right.order || left.actor.localeCompare(right.actor, 'id')
+      );
+
       room.lastResult = {
         kind: 'night',
         message,
@@ -1698,6 +1806,7 @@ export class WerewolfRoom {
         eliminatedIds: eliminated.map(item => item.id),
         eliminations,
         events,
+        actionReport,
         at: now,
         round: room.round
       };

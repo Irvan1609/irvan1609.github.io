@@ -406,3 +406,28 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
   .role-flip-art{width:70px;height:64px}
   .role-flip-detail-text{font-size:7.5px}
 }
+
+
+/* Cleaner gameplay copy and a numbered, easy-to-read moderator night report. */
+.players-section .hint-inline,
+.phase-panel .phase-title p,
+.phase-panel .hint,
+.phase-panel .hint-inline{display:none!important}
+.phase-panel .notice{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.4;padding:9px 11px;margin:8px 0}
+.phase-panel .role-flip-detail-text,
+.phase-panel .role-card-detail-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.moderator-event-report{gap:6px}
+.moderator-event-report>.eyebrow-small{margin:2px 0 4px}
+.moderator-event-item{display:grid;gap:4px;margin:0;padding:9px 10px;border:1px solid #34475e;border-left:3px solid #c7a66d;border-radius:8px;background:#17263a;color:#e1e8f0}
+.moderator-event-heading{display:flex;align-items:center;gap:8px;min-width:0}
+.moderator-event-number{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;border-radius:6px;background:#3a3022;color:#f0d6a6;font-size:9px;font-weight:900}
+.moderator-event-title{min-width:0;color:#f0d6a6;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.moderator-event-detail{padding-left:31px;color:#d4deeb;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.moderator-elimination-report{gap:6px}
+.moderator-elimination-report>.eyebrow-small{margin:2px 0 4px}
+@media(max-width:620px){
+  .moderator-event-item{padding:8px}
+  .moderator-event-title{font-size:10px}
+  .moderator-event-detail{font-size:9px;padding-left:30px}
+  .moderator-event-number{flex-basis:21px;width:21px;height:21px}
+}

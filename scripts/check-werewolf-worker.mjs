@@ -171,11 +171,24 @@ const morningModerator = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, moderatorToken)
 ))).state;
 assert.match(morningModerator.room.lastResult.message, /perlindungan/);
+const nightActionReport = morningModerator.room.lastResult.actionReport;
+assert.ok(Array.isArray(nightActionReport));
+assert.deepEqual(nightActionReport.map(item => item.role), [
+  'Werewolf', 'Seer', 'Doctor', 'Warga Desa', 'Hasil akhir'
+]);
+assert.match(nightActionReport[0].outcome, /Doni/);
+assert.match(nightActionReport.find(item => item.role === 'Seer').outcome, /Werewolf/);
+assert.match(nightActionReport.find(item => item.role === 'Doctor').outcome, /selamat/);
+assert.match(nightActionReport.find(item => item.role === 'Warga Desa').outcome, /Jawaban (benar|salah)/);
+assert.deepEqual(nightActionReport.map(item => item.order),
+  [...nightActionReport].map(item => item.order).sort((left, right) => left - right));
+
 assert.equal(morningModerator.players[0].role, 'wolf');
 const morningPlayer = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
 ))).state;
 assert.equal(morningPlayer.room.lastResult, null);
+assert.equal(morningPlayer.room.lastResult?.actionReport, undefined);
 assert.equal(morningPlayer.players.length, 0);
 assert.equal(morningPlayer.self.status, 'survived');
 assert.ok(morningPlayer.targets.every(target => target.name && target.id));
