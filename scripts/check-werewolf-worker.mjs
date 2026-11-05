@@ -359,6 +359,8 @@ soloState.lastResult = {
   at: Date.now(),
   round: 1
 };
+soloState.chat = [];
+soloState.botDiscussionRound = null;
 await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
 soloState = await soloRoom.loadRoom();
