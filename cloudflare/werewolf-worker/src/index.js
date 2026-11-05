@@ -2464,6 +2464,15 @@ export class WerewolfRoom {
         eliminations: room.lastResult.eliminations, actionReport: room.lastResult.actionReport,
         at: now, round: room.round
       });
+      const dawnEligible = room.players.filter(item =>
+        item.role === 'hunter' && !item.alive && (room.lastResult.eliminations || []).some(dead => dead.id === item.id)
+          && !item.hunterUsed && abilityEnabled(room, 'hunterShot')
+        || item.role === 'reviver' && item.alive && !item.reviverUsed
+          && abilityEnabled(room, 'reviverOnce') && (room.lastResult.eliminations || []).some(dead => dead.id !== item.id)
+      );
+      if (!dawnEligible.length) {
+        await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
+      }
       return;
     }
 
