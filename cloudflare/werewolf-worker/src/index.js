@@ -1666,7 +1666,6 @@ export class WerewolfRoom {
       room.discussionMode = null;
       room.discussionEndsAt = null;
       room.callUrl = '';
-      room.chat = [];
       room.chatRateLimit = {};
       room.wolfChat = [];
       room.lastResult = null;

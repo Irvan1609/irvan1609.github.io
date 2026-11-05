@@ -752,3 +752,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Perbaikan integrasi test:** nama variabel pada tes tambahan diisolasi agar tidak bentrok dengan fixture bot dan voting yang sudah ada pada suite Werewolf.
+
+
+- **Perbaikan persistensi chat:** riwayat chat lobby kini dipertahankan ketika host memulai permainan; riwayat baru dibersihkan saat room dikembalikan ke lobby untuk game berikutnya.
