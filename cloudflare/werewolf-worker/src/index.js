@@ -1547,7 +1547,7 @@ export class WerewolfRoom {
     let safety = room.players.length + 1;
     while (safety-- > 0) {
       this.refreshDawnEligible(room);
-      const actor = this.dawnActors(room).find(item => item.isBot && !room.dawnActions?.[item.id]);
+      const actor = this.dawnActors(room).find(item => (item.isBot || item.isBotControlled) && !room.dawnActions?.[item.id]);
       if (!actor) break;
       if (actor.role === 'hunter') {
         const alive = room.players.filter(item => item.alive);
@@ -1573,6 +1573,7 @@ export class WerewolfRoom {
         if (selected) {
           selected.alive = true;
           actor.reviverUsed = true;
+          if (room.winner === 'jester' && selected.role === 'jester') room.winner = null;
           room.lastResult.revivedPlayers = [...(room.lastResult.revivedPlayers || []), {
             id: selected.id, name: selected.name, role: selected.role
           }];
@@ -2641,6 +2642,7 @@ export class WerewolfRoom {
       if (!selected) throw new HttpError(400, 'Pilih pemain yang sudah tereliminasi.');
       selected.alive = true;
       player.reviverUsed = true;
+      if (room.winner === 'jester' && selected.role === 'jester') room.winner = null;
       room.dawnActions = room.dawnActions || {};
       room.dawnActions[player.id] = { type: 'revive_player', targetId: selected.id };
       room.lastResult.revivedPlayers = [...(room.lastResult.revivedPlayers || []), {
