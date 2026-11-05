@@ -955,8 +955,9 @@ assert.equal(auto50State.players.length, 50);
 assert.equal(auto50State.players.filter(player => ['wolf', 'alpha_wolf'].includes(player.role)).length, 12);
 assert.equal(auto50State.players.filter(player => player.role === 'villager').length, 10);
 const expected50RoleCounts = {
-  seer: 3, doctor: 3, bodyguard: 4, witch: 4, hunter: 3,
-  cupid: 1, detective: 3, mayor: 3, guardian_angel: 3, jester: 1
+  seer: 3, doctor: 2, bodyguard: 3, witch: 3, hunter: 3,
+  cupid: 1, detective: 3, mayor: 3, guardian_angel: 3, jester: 1,
+  priest: 1, vigilante: 1, mason: 1
 };
 for (const [role, expected] of Object.entries(expected50RoleCounts)) {
   assert.equal(auto50State.players.filter(player => player.role === role).length, expected, `50-player role mix should include ${expected} ${role} role(s).`);
