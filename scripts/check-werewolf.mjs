@@ -51,6 +51,8 @@ assert.match(worker, /gameHistory:/);
 assert.match(worker, /gameArchive:/);
 assert.match(worker, /recordGameEvent\(room/);
 assert.match(worker, /archiveCompletedGame\(room, now\)/);
+assert.ok((worker.match(/kind: 'night_started'/g) || []).length >= 2,
+  'Initial and subsequent rounds must both be recorded in replay history.');
 assert.match(html, /id="reconnectButton"/);
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerDiscussion/);

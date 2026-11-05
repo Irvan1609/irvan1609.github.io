@@ -2160,6 +2160,10 @@ export class WerewolfRoom {
       room.callUrl = '';
       room.chat = [];
       room.lastResult = { kind: 'phase', message: 'Malam ' + room.round + ' dimulai.', at: now };
+      this.recordGameEvent(room, {
+        kind: 'night_started', phase: 'night', title: 'Malam ' + room.round + ' dimulai',
+        message: 'Pemain menjalankan kemampuan malam.', at: now, round: room.round
+      });
       this.runBotNightActions(room);
       await this.resolveSystemNightIfReady(room, now);
       return;
