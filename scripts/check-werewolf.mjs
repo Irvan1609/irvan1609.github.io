@@ -63,7 +63,7 @@ assert.match(app, /roomState\.chat/);
 assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: isModerator/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261105-werewolf-production1/);
+assert.match(html, /20261105-werewolf-production2/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -275,7 +275,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261105-werewolf-production1/);
+assert.match(sw, /20261105-werewolf-production2/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /location\.hostname === 'irvan1609\.github\.io'/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
@@ -331,8 +331,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261105-werewolf-production1/);
-assert.match(sw, /20261105-werewolf-production1/);
+assert.match(html, /20261105-werewolf-production2/);
+assert.match(sw, /20261105-werewolf-production2/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
