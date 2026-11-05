@@ -832,3 +832,203 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .role-count-field{grid-template-columns:minmax(0,1fr) auto;align-items:center}
   .role-count-control{width:auto}
 }
+
+
+/* Role rules open as a compact overlay, so neighboring role cards never expand. */
+.role-config-team,
+.role-count-grid,
+.role-count-item,
+.role-config-lobby {
+  overflow: visible !important;
+}
+.role-count-item {
+  position: relative;
+  z-index: 1;
+}
+.role-config-info-disclosure {
+  position: relative;
+  overflow: visible !important;
+  z-index: 2;
+}
+.role-config-info-disclosure[open] {
+  z-index: 80;
+}
+.role-config-info-details {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: grid;
+  max-height: min(46vh, 300px);
+  overflow: auto !important;
+  padding: 9px;
+  border: 1px solid #607b9b;
+  border-radius: 10px;
+  background: #101c2b;
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+}
+.role-config-info-detail {
+  grid-template-columns: 58px minmax(0,1fr);
+}
+
+/* Chat is the main social surface; voice and narrator controls live beside Send. */
+.discussion-chat-panel {
+  width: 100%;
+  min-width: 0;
+}
+.discussion-chat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.discussion-voice-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: #aebed0;
+  font-size: 10px;
+}
+.discussion-voice-meta .voice-status {
+  min-width: 0;
+  max-width: 38vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.discussion-chat-list {
+  height: 310px;
+  max-height: 46vh;
+  min-height: 210px;
+  padding: 12px;
+}
+.discussion-chat-form {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto auto auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.discussion-chat-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.discussion-chat-form button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.discussion-chat-form .voice-inline-button,
+.discussion-chat-form .voice-audio-button,
+.discussion-chat-form .narration-replay-button {
+  border: 1px solid #526782;
+  background: #243950;
+  color: #e5edf6;
+}
+.discussion-chat-form .narration-replay-button {
+  border-color: #806b42;
+  background: #3b301f;
+  color: #f2dfb9;
+}
+.discussion-chat-form .chat-send-button {
+  min-width: 58px;
+}
+.private-inspection-panel {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+.inspection-history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.inspection-history-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid #526782;
+  border-radius: 8px;
+  background: #1b2a3d;
+  color: #e5edf6;
+  font-size: 10px;
+}
+.inspection-history-chip small {
+  color: #c0ccda;
+  font-size: 9px;
+}
+.inspected-wolves,
+.inspection-history-chip.inspected-wolves {
+  border-color: #a74b52 !important;
+  background: #3b1d25 !important;
+  color: #ffe4e5 !important;
+}
+.inspected-village,
+.inspection-history-chip.inspected-village {
+  border-color: #477cb5 !important;
+  background: #1b3048 !important;
+  color: #e0efff !important;
+}
+.inspected-neutral,
+.inspection-history-chip.inspected-neutral {
+  border-color: #8792a0 !important;
+  background: #303844 !important;
+  color: #f0f3f6 !important;
+}
+.inspected-target {
+  opacity: .9;
+  cursor: not-allowed;
+}
+.system-narrator-panel,
+.discussion-voice-panel {
+  display: none !important;
+}
+
+@media (max-width: 620px) {
+  .discussion-chat-list {
+    height: 265px;
+    max-height: 43vh;
+    min-height: 190px;
+  }
+  .discussion-chat-form {
+    grid-template-columns: minmax(0,1fr) auto auto auto auto;
+    gap: 4px;
+  }
+  .discussion-chat-form input {
+    min-height: 42px;
+    padding: 8px;
+    font-size: 13px;
+  }
+  .discussion-chat-form button {
+    min-height: 42px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+  .discussion-chat-form .chat-send-button {
+    min-width: 48px;
+  }
+  .discussion-voice-meta {
+    font-size: 9px;
+  }
+  .discussion-voice-meta .voice-status {
+    max-width: 52vw;
+  }
+  .role-count-item {
+    overflow: visible !important;
+  }
+}
+@media (max-width: 370px) {
+  .discussion-chat-form {
+    grid-template-columns: minmax(0,1fr) auto auto auto auto;
+    gap: 3px;
+  }
+  .discussion-chat-form button {
+    padding: 0 5px;
+    font-size: 9px;
+  }
+}
