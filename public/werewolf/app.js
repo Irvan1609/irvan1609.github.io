@@ -14,7 +14,8 @@ const ROLE_INFO = {
   doctor: ['Doctor', 'Mencegah target tewas oleh serangan Werewolf.', 'Setiap malam lindungi 1 pemain hidup; boleh diri sendiri. Tidak menahan racun Witch.'],
   bodyguard: ['Bodyguard', 'Mengalihkan serangan dari target kepadamu.', 'Setiap malam jaga 1 pemain lain; jika diserang Werewolf, kamu gugur menggantikannya.'],
   witch: ['Witch', 'Memiliki 1 ramuan penyembuh dan 1 racun.', 'Heal: selamatkan target serangan. Poison: racuni 1 pemain lain. Tiap ramuan sekali; 1 aksi per malam. Jika tidak memakai ramuan atau keduanya habis, jawab perhitungan malam.'],
-  hunter: ['Hunter', 'Mendapat 1 tembakan setelah gugur.', 'Saat masih hidup, jawab perhitungan malam. Setelah tereliminasi, tembak 1 pemain hidup. Sekali per game.'],
+  hunter: ['Hunter', 'Mendapat 1 tembakan setelah gugur.', 'Jika gugur pada malam hari, pilih 1 pemain hidup saat subuh. Sekali per game. Jika gugur saat voting, tembakan tersedia pada hasil voting.'],
+  reviver: ['Reviver', 'Menghidupkan kembali satu korban malam.', 'Saat subuh, pilih 1 pemain yang gugur pada malam itu. Hanya sekali per game; tidak dapat membangkitkan korban voting.'],
   cupid: ['Cupid', 'Mengikat dua pemain sebagai Lovers.', 'Malam 1 pilih 2 pemain berbeda selain dirimu. Malam berikutnya jawab perhitungan. Jika satu pasangan gugur, pasangannya ikut gugur.'],
   guardian_angel: ['Guardian Angel', 'Melindungi target dan berpeluang menang bonus.', 'Setiap malam pilih 1 pemain lain. Bonus jika kamu hidup dan target terakhir tetap hidup saat game berakhir.'],
   detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
@@ -30,6 +31,7 @@ const EXTRA_ROLE_OPTIONS = [
   ['bodyguard', 'Bodyguard', 'Mengorbankan diri untuk menyelamatkan target dari serangan.'],
   ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
+  ['reviver', 'Reviver', 'Membangkitkan satu korban malam saat subuh; sekali per game.'],
   ['cupid', 'Cupid', 'Menghubungkan dua pemain pada malam pertama.'],
   ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
@@ -45,7 +47,7 @@ const ROLE_CONFIG_GROUPS = [
   ]},
   { key: 'village', label: 'KUBU DESA', roles: [
     ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
-    ['witch', 'Witch'], ['hunter', 'Hunter'], ['cupid', 'Cupid'],
+    ['witch', 'Witch'], ['hunter', 'Hunter'], ['reviver', 'Reviver'], ['cupid', 'Cupid'],
     ['detective', 'Detective'], ['mayor', 'Mayor'], ['priest', 'Priest'],
     ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['villager', 'Warga Desa']
   ]},
@@ -55,7 +57,7 @@ const ROLE_CONFIG_GROUPS = [
 ];
 const ROLE_COUNT_DEFAULTS = {
   wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
-  hunter: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+  hunter: 0, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
   priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
   moderator: 0
 };
@@ -852,7 +854,7 @@ function roleSettingsForUI(settings = {}) {
   if (draft) return {
     roleCounts: { ...ROLE_COUNT_DEFAULTS, ...draft.roleCounts },
     moderatorMode: draft.moderatorMode,
-    timers: { discussionSeconds: 30, votingSeconds: 15, ...(draft.timers || {}) }
+    timers: { roleDrawSeconds: 20, nightSeconds: 60, dawnSeconds: 20, discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8, ...(draft.timers || {}) }
   };
   return {
     roleCounts: settings.roleCounts
@@ -860,8 +862,12 @@ function roleSettingsForUI(settings = {}) {
       : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode,
     timers: {
+      roleDrawSeconds: Number(settings.timers?.roleDrawSeconds ?? 20),
+      nightSeconds: Number(settings.timers?.nightSeconds ?? 60),
+      dawnSeconds: Number(settings.timers?.dawnSeconds ?? 20),
       discussionSeconds: Number(settings.timers?.discussionSeconds ?? 30),
-      votingSeconds: Number(settings.timers?.votingSeconds ?? 15)
+      votingSeconds: Number(settings.timers?.votingSeconds ?? 15),
+      resultSeconds: Number(settings.timers?.resultSeconds ?? 8)
     }
   };
 }
@@ -913,7 +919,7 @@ function captureRoleDraft(container, event) {
   }
   const timers = {};
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
-    timers[input.dataset.phaseDuration] = Math.max(5, Number(input.value) || 5);
+    timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
   roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
   updateRoleConfigSummary(container);
@@ -928,7 +934,7 @@ function clearAllRoleCounts(container) {
   const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
   const timers = {};
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
-    timers[input.dataset.phaseDuration] = Math.max(5, Number(input.value) || 5);
+    timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
   roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
   updateRoleConfigSummary(container);
@@ -978,6 +984,12 @@ function renderRoleConfigEditor(container, settings) {
       const item = node('div', 'role-count-item');
       const field = node('label', 'role-count-field');
       addText(field, 'span', '', label);
+      const stepper = node('div', 'role-count-stepper');
+      const minus = node('button', 'role-count-step', '−');
+      minus.type = 'button';
+      minus.dataset.roleStep = '-1';
+      minus.dataset.roleKey = key;
+      minus.setAttribute('aria-label', 'Kurangi ' + label);
       const input = node('input', 'role-count-input');
       input.type = 'number';
       input.min = '0';
@@ -985,7 +997,13 @@ function renderRoleConfigEditor(container, settings) {
       input.inputMode = 'numeric';
       input.value = String(config.roleCounts[key] ?? 0);
       input.dataset.roleCount = key;
-      field.append(input);
+      const plus = node('button', 'role-count-step', '+');
+      plus.type = 'button';
+      plus.dataset.roleStep = '1';
+      plus.dataset.roleKey = key;
+      plus.setAttribute('aria-label', 'Tambah ' + label);
+      stepper.append(minus, input, plus);
+      field.append(stepper);
       item.append(field);
       const info = ROLE_INFO[key] || ['Peran', 'Belum ada kemampuan.', 'Ikuti arahan moderator.'];
       const disclosure = node('details', 'role-config-info-disclosure');
@@ -1001,8 +1019,12 @@ function renderRoleConfigEditor(container, settings) {
   addText(timerSection, 'div', 'role-section-label', 'DURASI PERMAINAN');
   const timerGrid = node('div', 'phase-duration-grid');
   for (const [key, label, min, max] of [
-    ['discussionSeconds', 'Diskusi (detik)', 5, 300],
-    ['votingSeconds', 'Voting (detik)', 5, 180]
+    ['roleDrawSeconds', 'Buka kartu (detik)', 5, 60],
+    ['nightSeconds', 'Tengah malam (detik)', 10, 300],
+    ['dawnSeconds', 'Subuh (detik)', 5, 120],
+    ['discussionSeconds', 'Diskusi pagi (detik)', 5, 300],
+    ['votingSeconds', 'Voting sore (detik)', 5, 180],
+    ['resultSeconds', 'Hasil voting (detik)', 3, 60]
   ]) {
     const field = node('label', 'phase-duration-field');
     addText(field, 'span', '', label);
@@ -1018,7 +1040,7 @@ function renderRoleConfigEditor(container, settings) {
     timerGrid.append(field);
   }
   timerSection.append(timerGrid);
-  addText(timerSection, 'p', 'hint', 'Diskusi default 30 detik dan voting 15 detik. Atur sesuai kebutuhan sebelum permainan dimulai.');
+  addText(timerSection, 'p', 'hint', 'Durasi berlaku otomatis pada mode moderator Sistem. Pilihan aksi dan suara tetap dapat diubah sampai timer fase terkait berakhir.');
   container.append(timerSection);
 
   const summary = node('div', 'role-config-summary');
@@ -1026,6 +1048,14 @@ function renderRoleConfigEditor(container, settings) {
   container.append(summary);
   container.addEventListener('input', event => captureRoleDraft(container, event));
   container.addEventListener('change', event => captureRoleDraft(container, event));
+  container.addEventListener('click', event => {
+    const control = event.target.closest('[data-role-step]');
+    if (!control) return;
+    const input = container.querySelector('[data-role-count="' + control.dataset.roleKey + '"]');
+    if (!input) return;
+    input.value = String(Math.max(0, (Number(input.value) || 0) + Number(control.dataset.roleStep)));
+    captureRoleDraft(container, { target: input });
+  });
   updateRoleConfigSummary(container);
 }
 
@@ -1039,11 +1069,15 @@ function readRoleSettings(container) {
   const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || 'host';
   if (!['host', 'system', 'random'].includes(moderatorMode)) throw new Error('Mode moderator tidak valid.');
   const timers = {};
+  const timerLimits = {
+    roleDrawSeconds: [5, 60], nightSeconds: [10, 300], dawnSeconds: [5, 120],
+    discussionSeconds: [5, 300], votingSeconds: [5, 180], resultSeconds: [3, 60]
+  };
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     const seconds = Number(input.value);
-    const maximum = input.dataset.phaseDuration === 'discussionSeconds' ? 300 : 180;
-    if (!Number.isSafeInteger(seconds) || seconds < 5 || seconds > maximum) {
-      throw new Error('Durasi harus berupa bilangan bulat 5–' + maximum + ' detik.');
+    const [minimum, maximum] = timerLimits[input.dataset.phaseDuration] || [5, 300];
+    if (!Number.isSafeInteger(seconds) || seconds < minimum || seconds > maximum) {
+      throw new Error('Durasi harus berupa bilangan bulat ' + minimum + '–' + maximum + ' detik.');
     }
     timers[input.dataset.phaseDuration] = seconds;
   }
@@ -1173,8 +1207,9 @@ async function restorePlayerControl(player) {
 function updatePhaseTracker(phase) {
   const tracker = $('phaseTracker');
   if (!tracker) return;
-  const steps = ['lobby', 'role_draw', 'night', 'morning', 'discussion', 'voting', 'result'];
-  const activeIndex = phase === 'finished' ? steps.length : Math.max(0, steps.indexOf(phase));
+  const steps = ['role_draw', 'night', 'dawn', 'morning', 'voting'];
+  const mappedPhase = phase === 'discussion' ? 'morning' : phase === 'result' ? 'voting' : phase;
+  const activeIndex = phase === 'finished' ? steps.length : phase === 'lobby' ? -1 : Math.max(0, steps.indexOf(mappedPhase));
   for (const item of tracker.querySelectorAll('[data-step]')) {
     const index = steps.indexOf(item.dataset.step);
     item.classList.toggle('active', index === activeIndex);
@@ -1189,12 +1224,13 @@ function renderRoom() {
   const host = isHost();
   const labels = {
     lobby: 'Lobby · Menunggu pemain',
-    role_draw: 'Pembagian kartu',
-    night: 'Malam ' + room.round,
+    role_draw: 'Buka kartu',
+    night: 'Tengah Malam · Ronde ' + room.round,
+    dawn: 'Subuh',
     morning: 'Pagi · Diskusi',
-    discussion: 'Diskusi',
-    voting: 'Voting',
-    result: 'Hasil voting',
+    discussion: 'Pagi · Diskusi',
+    voting: 'Sore · Voting',
+    result: 'Sore · Hasil',
     finished: 'Permainan selesai'
   };
   $('phaseLabel').textContent = moderator ? (labels[room.phase] || room.phase) : '';
