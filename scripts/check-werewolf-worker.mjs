@@ -824,8 +824,8 @@ await disabledRoom.saveRoom(disabledState);
 await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, disabledCreated.token)));
 await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: disabledState.players[0].id
-}, disabledTokens[1])), 403);
-await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, disabledTokens[1])));
+}, disabledTokens[1])), 409);
+await payload(await disabledRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'night_pass' }, disabledTokens[1])), 409);
 assert.equal((await disabledRoom.loadRoom()).nightActions[disabledState.players[1].id].type, 'pass');
 console.log('Werewolf configurable-role checks passed: role counts are validated and disabled abilities cannot be used.');
 
