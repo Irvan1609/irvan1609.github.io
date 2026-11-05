@@ -722,3 +722,10 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Status:** fitur lobby sederhana sudah live di produksi `https://irvan1609.github.io/werewolf/`; backend realtime produksi juga berhasil dideploy dan lolos health check. Preview staging tetap tersedia di `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`. Branch `stable` belum dipindahkan; tunggu konfirmasi pengguna bahwa produksi stabil.
 - **Batas verifikasi:** CI, security checks, deployment Pages, pemeriksaan URL publik, dan health check Worker lulus. Sesi permainan manual lintas perangkat oleh pengguna belum dilakukan.
 - **Langkah berikutnya:** pengguna menguji buat room sebagai host, join dari perangkat lain, mengatur komposisi role di lobby, lalu membagikan kartu dan menjalankan satu siklus permainan. Jika stabil, baru pindahkan snapshot ke branch `stable` sesuai `UPDATE_POLICY.md`.
+
+
+### 2026-11-05 — Perbaikan pemilihan API Werewolf untuk domain www
+
+- Frontend mengenali `irvan1609.github.io` dan `www.irvan1609.github.io` sebagai host produksi agar room realtime tidak tersambung ke staging.
+- File: `public/werewolf/app.js`, `scripts/check-werewolf.mjs`, `PAKET_MIGRASI_CHATGPT_IRVAN.md`.
+- Verifikasi lokal: UI/backend Werewolf checks dan syntax check lulus.
