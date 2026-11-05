@@ -343,7 +343,7 @@ assert.match(app, /www\.irvan1609\.github\.io/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
 assert.match(app, /Mode latihan vs bot/);
 assert.match(app, /Lanjut ke Subuh/);
-assert.match(app, /Pilihan tetap dapat diubah sampai waktu tengah malam berakhir/);
+assert.match(app, /Semua pilihan tetap dapat diubah sampai waktu tengah malam/);
 assert.match(app, /appendPhaseCountdown/);
 assert.match(app, /startPhaseClock/);
 assert.match(app, /data-phase-duration/);
