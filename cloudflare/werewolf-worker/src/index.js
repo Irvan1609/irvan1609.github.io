@@ -1059,10 +1059,18 @@ export class WerewolfRoom {
         String(item.actor || '').split(/,\s*/).includes(bot.name)
       );
       if (['seer', 'detective'].includes(bot.role) && clue) {
-        const faction = bot.role === 'detective'
-          ? (clue.result === 'wolf_team' ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa')
-          : (clue.result === 'wolf' ? 'Werewolf' : 'bukan Werewolf');
-        text = 'Tadi malam aku memeriksa ' + clue.playerName + '. Hasilnya ' + faction + '. Kita perlu membahas temuan ini.';
+        const faction = clue.result === 'wolf' || clue.result === 'wolf_team'
+          ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa';
+        const exactRole = ({
+          wolf: 'Werewolf', alpha_wolf: 'Alpha Wolf', villager: 'Warga Desa',
+          seer: 'Seer', doctor: 'Doctor', bodyguard: 'Bodyguard', witch: 'Witch',
+          hunter: 'Hunter', cupid: 'Cupid', guardian_angel: 'Guardian Angel',
+          detective: 'Detective', mayor: 'Mayor', jester: 'Jester',
+          priest: 'Priest', vigilante: 'Vigilante', mason: 'Mason', reviver: 'Reviver'
+        })[clue.role] || faction;
+        text = bot.role === 'seer'
+          ? 'Tadi malam aku memeriksa ' + clue.playerName + '. Hasil penerawanganku menunjukkan bahwa dia adalah ' + exactRole + '.'
+          : 'Tadi malam aku memeriksa ' + clue.playerName + '. Hasilnya menunjukkan ' + faction + '. Kita perlu membahas temuan ini.';
       } else if (ownAction) {
         let actionText = String(ownAction.action || 'menjalankan kemampuan').replace(/^Pilihan:\s*/, '');
         if (ownAction.role === 'Werewolf') {
@@ -2324,14 +2332,25 @@ export class WerewolfRoom {
         }
         if (action.type === 'seer_inspect' || action.type === 'detective_inspect') {
           const inspected = room.players.find(item => item.id === action.targetId);
-          const wolf = inspected && isWolf(inspected.role);
-          room.seerResults[actor.id] = {
-            round: room.round,
-            playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
-            result: action.type === 'detective_inspect'
-              ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
-              : (wolf ? 'wolf' : 'not_wolf')
-          };
+          const existing = room.seerResults?.[actor.id];
+          if (!existing || existing.round !== room.round) {
+            const wolf = inspected && isWolf(inspected.role);
+            const result = {
+              round: room.round,
+              playerId: inspected?.id || null,
+              playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
+              role: action.type === 'seer_inspect' ? inspected?.role || null : null,
+              result: action.type === 'detective_inspect'
+                ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
+                : (wolf ? 'wolf' : 'not_wolf')
+            };
+            room.seerResults[actor.id] = result;
+            room.seerHistory = room.seerHistory || {};
+            const history = Array.isArray(room.seerHistory[actor.id]) ? room.seerHistory[actor.id] : [];
+            if (!history.some(item => item.round === room.round && item.playerId === result.playerId)) {
+              room.seerHistory[actor.id] = [...history, result];
+            }
+          }
         }
         if (action.type === 'cupid_link' && room.round === 1 && !room.cupidUsed) {
           room.lovers = [action.targetId, action.partnerId];
