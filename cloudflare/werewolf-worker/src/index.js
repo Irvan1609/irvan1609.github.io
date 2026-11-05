@@ -1023,7 +1023,7 @@ export class WerewolfRoom {
     if (Number(room.botDiscussionRound) === Number(room.round)) return;
     room.botDiscussionRound = Number(room.round) || 0;
     const alive = room.players.filter(player => player.alive);
-    const speakers = alive.filter(player => player.isBot)
+    const speakers = alive.filter(player => player.isBot || player.isBotControlled)
       .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'))
       .slice(0, 5);
     room.botReplyCursor = 0;
