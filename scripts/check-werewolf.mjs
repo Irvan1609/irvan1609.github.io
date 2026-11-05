@@ -183,6 +183,14 @@ assert.match(app, /function rolePlayerCount/);
 assert.match(app, /function renderSystemHostControls/);
 assert.match(app, /Pemain yang menerima role/);
 assert.match(html, /Nama host/);
+assert.match(app, /function renderSystemHostPlayerContext/);
+assert.match(app, /HOST JUGA PEMAIN/);
+assert.match(app, /Role kamu:/);
+assert.match(app, /Kekuatan & aturan pakai/);
+assert.match(app, /appendRoleDetails\(disclosure, info, 'role-config-info'\)/);
+assert.match(app, /ROLE_INFO\[key\]/);
+assert.match(css, /\.role-config-info-disclosure/);
+assert.match(css, /\.system-host-player-context/);
 
 assert.match(worker, /moderatorMode/);
 assert.match(worker, /villagerPrompts/);
