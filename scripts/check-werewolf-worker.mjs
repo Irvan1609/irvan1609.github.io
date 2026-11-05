@@ -1383,65 +1383,65 @@ console.log('Werewolf moderator kick regression passed: an active non-host moder
 
 
 // Replay is private during play, public after victory, and retained in the room archive after restart.
-const replayRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const replayCreated = await payload(await replayRoom.fetch(makeRequest('/internal/create', 'POST', {
+const productionReplayRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const productionReplayCreated = await payload(await productionReplayRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'RPLY26', name: 'Replay Host'
 })), 201);
-const replayWolf = await payload(await replayRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Replay Wolf' })), 201);
-const replayVillager = await payload(await replayRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Replay Villager' })), 201);
-const replaySettings = {
+const replayWolf = await payload(await productionReplayRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Replay Wolf' })), 201);
+const replayVillager = await payload(await productionReplayRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Replay Villager' })), 201);
+const productionReplaySettings = {
   ...roleSettings,
   moderatorMode: 'host',
   roleCounts: { ...roleSettings.roleCounts, seer: 0, doctor: 0, villager: 1, moderator: 0 }
 };
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'update_settings', settings: replaySettings
-}, replayCreated.token)));
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, replayCreated.token)));
-let replayState = await replayRoom.loadRoom();
-const replayWolfPlayer = replayState.players.find(player => player.name === 'Replay Wolf');
-const replayVillagerPlayer = replayState.players.find(player => player.name === 'Replay Villager');
-assert.ok(replayWolfPlayer && replayVillagerPlayer);
-replayWolfPlayer.role = 'wolf';
-replayVillagerPlayer.role = 'villager';
-replayWolfPlayer.hasDrawn = true;
-replayVillagerPlayer.hasDrawn = true;
-await replayRoom.saveRoom(replayState);
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, replayCreated.token)));
-const hiddenReplay = (await payload(await replayRoom.fetch(
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'update_settings', settings: productionReplaySettings
+}, productionReplayCreated.token)));
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, productionReplayCreated.token)));
+let productionReplayState = await productionReplayRoom.loadRoom();
+const productionReplayWolfPlayer = productionReplayState.players.find(player => player.name === 'Replay Wolf');
+const productionReplayVillagerPlayer = productionReplayState.players.find(player => player.name === 'Replay Villager');
+assert.ok(productionReplayWolfPlayer && productionReplayVillagerPlayer);
+productionReplayWolfPlayer.role = 'wolf';
+productionReplayVillagerPlayer.role = 'villager';
+productionReplayWolfPlayer.hasDrawn = true;
+productionReplayVillagerPlayer.hasDrawn = true;
+await productionReplayRoom.saveRoom(productionReplayState);
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, productionReplayCreated.token)));
+const productionHiddenReplay = (await payload(await productionReplayRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, replayWolf.token)
 ))).state;
-assert.equal(hiddenReplay.room.gameHistory.length, 0, 'Private action history must remain hidden from players during the game.');
-assert.equal(hiddenReplay.room.lastResult, null, 'Moderator-only results must remain private during the game.');
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: replayVillagerPlayer.id
+assert.equal(productionHiddenReplay.room.gameHistory.length, 0, 'Private action history must remain hidden from players during the game.');
+assert.equal(productionHiddenReplay.room.lastResult, null, 'Moderator-only results must remain private during the game.');
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: productionReplayVillagerPlayer.id
 }, replayWolf.token)));
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', {
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'resolve_night', force: true
-}, replayCreated.token)));
-replayState = await replayRoom.loadRoom();
-assert.equal(replayState.phase, 'finished');
-assert.equal(replayState.winner, 'wolves');
-const publicReplay = (await payload(await replayRoom.fetch(
+}, productionReplayCreated.token)));
+productionReplayState = await productionReplayRoom.loadRoom();
+assert.equal(productionReplayState.phase, 'finished');
+assert.equal(productionReplayState.winner, 'wolves');
+const productionPublicReplay = (await payload(await productionReplayRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, replayVillager.token)
 ))).state;
-assert.ok(publicReplay.room.gameHistory.some(event => event.kind === 'night_result'));
-assert.ok(publicReplay.room.gameHistory.some(event => event.kind === 'game_over'));
-assert.equal(publicReplay.room.finalPlayers.length, 2);
-assert.ok(publicReplay.room.finalPlayers.find(player => player.role === 'wolf').isWinner);
-assert.equal(publicReplay.room.lastResult, null, 'Private live result object must not be sent to a player even after the game.');
-await payload(await replayRoom.fetch(makeRequest('/internal/action', 'POST', {
+assert.ok(productionPublicReplay.room.gameHistory.some(event => event.kind === 'night_result'));
+assert.ok(productionPublicReplay.room.gameHistory.some(event => event.kind === 'game_over'));
+assert.equal(productionPublicReplay.room.finalPlayers.length, 2);
+assert.ok(productionPublicReplay.room.finalPlayers.find(player => player.role === 'wolf').isWinner);
+assert.equal(productionPublicReplay.room.lastResult, null, 'Private live result object must not be sent to a player even after the game.');
+await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'reset_to_lobby'
-}, replayCreated.token)));
-const archivedReplay = (await payload(await replayRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, replayCreated.token)
+}, productionReplayCreated.token)));
+const productionArchivedReplay = (await payload(await productionReplayRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, productionReplayCreated.token)
 ))).state;
-assert.equal(archivedReplay.room.gameArchive.length, 1);
-assert.equal(archivedReplay.room.gameArchive[0].winner, 'wolves');
-assert.ok(archivedReplay.room.gameArchive[0].events.some(event => event.kind === 'night_result'));
-assert.equal(archivedReplay.room.gameHistory.length, 0, 'A new lobby must not show the previous game as the current replay.');
-const hiddenArchive = (await payload(await replayRoom.fetch(
+assert.equal(productionArchivedReplay.room.gameArchive.length, 1);
+assert.equal(productionArchivedReplay.room.gameArchive[0].winner, 'wolves');
+assert.ok(productionArchivedReplay.room.gameArchive[0].events.some(event => event.kind === 'night_result'));
+assert.equal(productionArchivedReplay.room.gameHistory.length, 0, 'A new lobby must not show the previous game as the current replay.');
+const productionHiddenArchive = (await payload(await productionReplayRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, replayWolf.token)
 ))).state;
-assert.equal(hiddenArchive.room.gameArchive.length, 0, 'Archived private game history is visible only to the moderator in the lobby.');
+assert.equal(productionHiddenArchive.room.gameArchive.length, 0, 'Archived private game history is visible only to the moderator in the lobby.');
 console.log('Werewolf replay regression passed: action history stays private during play, is shared after victory, and is archived across restarts.');
