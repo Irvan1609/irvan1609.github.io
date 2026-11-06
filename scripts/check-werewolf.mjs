@@ -483,3 +483,7 @@ const playerPhaseMarkup = app.slice(playerPhaseStart, playerPhaseEnd);
 assert.ok(playerPhaseMarkup.indexOf('renderPlayerRoleReminder') < playerPhaseMarkup.indexOf('renderLivingPlayers'));
 assert.ok(app.indexOf('renderDiscussionTools(content)') > app.indexOf('renderPlayerPhase(content)'));
 console.log('Werewolf gameplay UX checks passed: timed actions, private inspections, integrated voice/chat, custom confirmations and story narration.');
+
+assert.ok(app.includes("seer: ['Seer', 'Mengungkap role asli pemain yang diperiksa.'"));
+assert.ok(app.includes("inspected.targetRole ? roleLabel(inspected.targetRole)"));
+assert.ok(worker.includes("targetRole: inspected.role"));
