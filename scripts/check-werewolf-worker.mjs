@@ -2705,6 +2705,9 @@ publicBoardState.settings.revealRoleOnDeath = false;
 const hiddenDeathRoleBoard = publicBoardRoom.snapshot(publicBoardState, 'pub-wolf');
 assert.equal(hiddenDeathRoleBoard.publicPlayers.find(item => item.id === 'pub-dead').revealedRole, null);
 assert.deepEqual(hiddenDeathRoleBoard.publicRoles.find(item => item.role === 'seer').deceasedNames, []);
+assert.equal(hiddenDeathRoleBoard.publicRoles.find(item => item.role === 'seer').deceasedCount, 1,
+  'Role counts must retain the number of deceased players even when their identities are hidden.');
+assert.equal(publicBoard.publicRoles.find(item => item.role === 'seer').deceasedCount, 1);
 console.log('Werewolf public board regression passed: role composition, death reveal option, and public ballots.');
 
 // The BOT takes over when a player misses the card reveal or night action deadline.
