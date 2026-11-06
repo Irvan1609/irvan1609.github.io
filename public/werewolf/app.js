@@ -2049,6 +2049,12 @@ function renderPlayerPhase(parent) {
   }
   if (roomState.room.paused && !['lobby', 'finished'].includes(phase)) {
     phaseHeader(parent, 'PERMAINAN DIJEDA', 'Menunggu permainan dilanjutkan', 'Moderator menghentikan sementara fase ini. Semua pilihan permainan dikunci.');
+    if (systemModeratorEnabled() && isHost()) {
+      const emergency = node('details', 'moderator-emergency-disclosure');
+      emergency.append(node('summary', '', 'Kontrol darurat'));
+      renderEmergencyControls(emergency);
+      parent.append(emergency);
+    }
     if (roomState.room.publicResult) renderPublicResult(parent);
     return;
   }
