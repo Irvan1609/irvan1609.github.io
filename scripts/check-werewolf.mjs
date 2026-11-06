@@ -411,7 +411,7 @@ assert.match(app, /echoCancellation: \{ ideal: 'all' \}/);
 assert.match(app, /noiseSuppression: \{ ideal: true \}/);
 assert.match(app, /autoGainControl: \{ ideal: false \}/);
 assert.match(app, /function updateRemoteVoiceVolume/);
-assert.match(app, /voiceLocalStream && !voiceMuted \? 0\.26 : 0\.38/);
+assert.match(app, /voiceLocalStream && !voiceMuted \? 0\.22 : 0\.34/);
 assert.match(css, /\.public-role-card\.faction-wolves/);
 assert.match(css, /\.public-role-card\.faction-village/);
 assert.match(css, /\.public-role-card\.faction-neutral/);
