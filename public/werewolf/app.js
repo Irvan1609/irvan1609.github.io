@@ -3323,8 +3323,10 @@ async function speakSystemNarration(message, options = {}) {
   stopNarratorAudio();
   window.speechSynthesis?.cancel();
   const playbackSequence = narratorPlaybackSequence;
+  let nextSentenceIndex = 0;
   try {
-    for (const sentence of sentences) {
+    for (let index = 0; index < sentences.length; index += 1) {
+      const sentence = sentences[index];
       if (playbackSequence !== narratorPlaybackSequence) return;
       const headers = { 'Content-Type': 'application/json' };
       const body = { text: sentence };
@@ -3345,11 +3347,12 @@ async function speakSystemNarration(message, options = {}) {
       if (playbackSequence !== narratorPlaybackSequence) return;
       await playNarratorAudioBlob(audioBlob, playbackSequence);
       if (playbackSequence !== narratorPlaybackSequence) return;
+      nextSentenceIndex = index + 1;
       if (sentences.length > 1) await new Promise(resolve => setTimeout(resolve, 140));
     }
   } catch {
     if (playbackSequence === narratorPlaybackSequence) {
-      await speakBrowserNarration(sentences, playbackSequence);
+      await speakBrowserNarration(sentences.slice(nextSentenceIndex), playbackSequence);
     }
   }
 }
