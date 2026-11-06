@@ -2035,7 +2035,7 @@ function renderSpectatorPhase(parent) {
     parent.append(roster);
   } else if (phase === 'finished') {
     renderVictoryScreen(parent, false);
-  } else if (roomState.room.publicResult) {
+  } else if (['morning', 'discussion', 'voting', 'result'].includes(phase) && roomState.room.publicResult) {
     renderPublicResult(parent);
   }
 }
