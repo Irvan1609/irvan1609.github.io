@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-live-activity-12">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-complete-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -40,7 +40,13 @@
           <label>Kode room
             <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
           </label>
-          <label>Mode bergabung
+          <label>Tipe masuk
+            <select id="joinEntryMode">
+              <option value="player" selected>Pemain · ikut permainan</option>
+              <option value="spectator">Penonton · hanya melihat</option>
+            </select>
+          </label>
+          <label id="joinVoiceModeLabel">Mode suara
             <select id="joinVoiceMode">
               <option value="online" selected>Online · mikrofon otomatis aktif</option>
               <option value="offline">Offline · mikrofon mati, tetap mendengar</option>
@@ -75,6 +81,13 @@
         <ol id="phaseTracker" class="phase-tracker" aria-label="Tahapan permainan">
           <li data-step="role_draw">Buka Kartu</li><li data-step="night">Tengah Malam</li><li data-step="dawn">Subuh</li><li data-step="morning">Pagi · Diskusi</li><li data-step="voting">Sore · Voting</li>
         </ol>
+        <details id="audioSettings" class="audio-settings">
+          <summary>Pengaturan Audio</summary>
+          <div class="audio-settings-grid">
+            <label>Efek game <input id="gameSoundVolume" type="range" min="0" max="100" value="65"></label>
+            <label>Suara pemain <input id="voicePlaybackVolume" type="range" min="0" max="100" value="20"></label>
+          </div>
+        </details>
         <div id="playersSection" class="players-section">
           <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Moderator dapat melihat status dan peran pemain. Host dapat mengeluarkan pemain.</span></div>
           <div id="playersList" class="players-list"></div>
@@ -86,7 +99,7 @@
       </section>
     </section>
 
-    <footer>Werewolf · Pilih mode suara saat bergabung. Pemain yang masuk saat permainan berjalan menunggu ronde berikutnya.</footer>
+    <footer>Werewolf · Pemain dapat ikut bermain atau masuk sebagai penonton.</footer>
   </main>
 
   <dialog id="inviteDialog" class="invite-dialog" aria-labelledby="inviteDialogTitle">
@@ -146,6 +159,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-live-activity-12"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-complete-1"></script>
 </body>
 </html>

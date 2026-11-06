@@ -2918,3 +2918,182 @@ console.log('Werewolf system-mode takeover regression passed: missed night actio
 
 
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');
+
+// Every recommended composition from 4–25 players must exactly fill its roster.
+for (let playerCount = 4; playerCount <= 25; playerCount += 1) {
+  const counts = recommendedRoleCounts(playerCount);
+  const total = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0);
+  const wolves = Number(counts.wolf || 0) + Number(counts.alpha_wolf || 0) + Number(counts.wolf_seer || 0);
+  const village = ['seer', 'doctor', 'bodyguard', 'trapper', 'witch', 'hunter', 'reviver', 'cupid',
+    'detective', 'mayor', 'priest', 'vigilante', 'mason', 'jester', 'villager']
+    .reduce((sum, key) => sum + Number(counts[key] || 0), 0);
+  assert.equal(total, playerCount, 'Recommended role deck must match ' + playerCount + ' players.');
+  assert.ok(wolves >= 1, 'Every recommended deck needs a Werewolf.');
+  assert.ok(village >= 1, 'Every recommended deck needs a Village member.');
+  assert.ok((counts.cupid || 0) <= 1 && (counts.jester || 0) <= 1 && (counts.serial_killer || 0) <= 1,
+    'Unique roles must not be duplicated in the recommended deck.');
+}
+console.log('Werewolf composition matrix passed: all recommended player counts from 4 through 25 are balanced.');
+
+// Two Werewolves must not win while three non-Werewolf players remain.
+const parityEngine = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const parityFixture = {
+  players: [
+    { id: 'wolf-a', role: 'wolf', alive: true },
+    { id: 'wolf-b', role: 'wolf', alive: true },
+    { id: 'village-a', role: 'villager', alive: true },
+    { id: 'village-b', role: 'villager', alive: true },
+    { id: 'angel-a', role: 'guardian_angel', alive: true }
+  ],
+  settings: { abilities: { guardianBonus: true } }, lovers: null
+};
+assert.equal(parityEngine.checkWinner(parityFixture), undefined);
+
+// Serial Killer wins only when it is the sole survivor.
+const serialWinnerFixture = {
+  players: [{ id: 'serial-last', role: 'serial_killer', alive: true }],
+  settings: { abilities: { serialKillerKill: true } }, lovers: null
+};
+assert.equal(parityEngine.checkWinner(serialWinnerFixture), 'serial_killer');
+
+// Spectators receive public state but never role cards, targets, or action permissions.
+const spectatorRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+await payload(await spectatorRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SPEC26', name: 'Spectator Host'
+})), 201);
+const spectatorJoin = await payload(await spectatorRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Observer', spectator: true
+})), 201);
+assert.equal(spectatorJoin.isSpectator, true);
+assert.equal(spectatorJoin.isWaiting, false);
+const spectatorView = (await payload(await spectatorRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, spectatorJoin.token)
+))).state;
+assert.equal(spectatorView.self.isSpectator, true);
+assert.equal(spectatorView.self.role, null);
+assert.equal(spectatorView.self.hasRole, false);
+assert.deepEqual(spectatorView.targets, []);
+assert.equal(spectatorView.spectators.length, 1);
+
+// During an active night, spectators must not receive the wolf pack, private wolf chat,
+// Seer results, or living players' hidden role assignments.
+let spectatorPrivateRoom = await spectatorRoom.loadRoom();
+spectatorPrivateRoom.phase = 'night';
+spectatorPrivateRoom.round = 1;
+spectatorPrivateRoom.players = [
+  { id: 'private-wolf', name: 'Hidden Wolf', role: 'wolf', alive: true, hasDrawn: true, connected: false, voiceMode: 'online', tokenHash: 'wolf-private-token' },
+  { id: 'private-seer', name: 'Hidden Seer', role: 'seer', alive: true, hasDrawn: true, connected: false, voiceMode: 'online', tokenHash: 'seer-private-token' }
+];
+spectatorPrivateRoom.wolfChat = [{ id: 'wolf-secret', name: 'Hidden Wolf', text: 'pesan rahasia pack', at: Date.now() }];
+spectatorPrivateRoom.seerResults = { 'private-seer': { targetId: 'private-wolf', playerName: 'Hidden Wolf', result: 'wolf' } };
+spectatorPrivateRoom.nightActions = { 'private-wolf': { type: 'wolf_vote', targetId: 'private-seer' } };
+await spectatorRoom.saveRoom(spectatorPrivateRoom);
+const spectatorNightView = (await payload(await spectatorRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, spectatorJoin.token)
+))).state;
+assert.equal(spectatorNightView.self.role, null);
+assert.deepEqual(spectatorNightView.targets, []);
+assert.deepEqual(spectatorNightView.wolfTeam, []);
+assert.deepEqual(spectatorNightView.wolfChat, []);
+assert.equal(spectatorNightView.publicPlayers.find(player => player.id === 'private-wolf').revealedRole, null);
+assert.equal(JSON.stringify(spectatorNightView).includes('pesan rahasia pack'), false);
+assert.equal(JSON.stringify(spectatorNightView).includes('Hidden Wolf'), true,
+  'The public living-player list may show names, but must not disclose the hidden role or private chat.');
+await payload(await spectatorRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: 'not-a-target'
+}, spectatorJoin.token)), 403);
+await payload(await spectatorRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'leave_room'
+}, spectatorJoin.token)));
+await payload(await spectatorRoom.fetch(makeRequest('/internal/state', 'GET', undefined, spectatorJoin.token)), 401);
+console.log('Werewolf spectator privacy passed: read-only state, no targets, no actions, and clean leave.');
+
+// Pause freezes the current phase timer; resume restores its remaining time and restart clears pending choices.
+const pauseRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const pauseHost = await payload(await pauseRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'PAUS26', name: 'Pause Host',
+  settings: {
+    moderatorMode: 'system',
+    roleCounts: { wolf: 1, seer: 1, villager: 1 },
+    timers: { roleDrawSeconds: 5, nightSeconds: 10 }
+  }
+})), 201);
+const pauseTokens = [];
+for (const name of ['Pause Seer', 'Pause Villager']) {
+  pauseTokens.push((await payload(await pauseRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, pauseHost.token)));
+let pauseState = await pauseRoom.loadRoom();
+pauseState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await pauseRoom.saveRoom(pauseState);
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, pauseHost.token)));
+pauseState = await pauseRoom.loadRoom();
+const originalNightDeadline = pauseState.nightEndsAt;
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'pause_game' }, pauseHost.token)));
+pauseState = await pauseRoom.loadRoom();
+assert.equal(pauseState.paused, true);
+assert.ok(pauseState.pausedRemainingMs > 0);
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: pauseState.players[2].id
+}, pauseTokens[0])), 409);
+const realNowForPause = Date.now;
+try {
+  Date.now = () => originalNightDeadline + 1000;
+  await pauseRoom.alarm();
+} finally {
+  Date.now = realNowForPause;
+}
+pauseState = await pauseRoom.loadRoom();
+assert.equal(pauseState.phase, 'night', 'A paused room must not advance when its old deadline passes.');
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resume_game' }, pauseHost.token)));
+pauseState = await pauseRoom.loadRoom();
+assert.equal(pauseState.paused, false);
+assert.ok(pauseState.nightEndsAt > Date.now(), 'Resuming must restore the remaining timer.');
+await payload(await pauseRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'restart_phase' }, pauseHost.token)));
+pauseState = await pauseRoom.loadRoom();
+assert.equal(pauseState.phase, 'night');
+assert.deepEqual(pauseState.nightActions, {});
+assert.ok(pauseState.nightEndsAt > Date.now());
+console.log('Werewolf emergency controls passed: pause, timer freeze, resume, and safe phase restart.');
+
+// Serial Killer night action is validated and resolved independently from the Werewolf attack.
+const serialActionRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const serialActionHost = await payload(await serialActionRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SKL226', name: 'Serial Action Host',
+  settings: {
+    moderatorMode: 'system',
+    roleCounts: { wolf: 1, serial_killer: 1, villager: 2 },
+    timers: { roleDrawSeconds: 5, nightSeconds: 10, dawnSeconds: 5 }
+  }
+})), 201);
+const serialActionTokens = [];
+for (const name of ['Serial Killer', 'Village A', 'Village B']) {
+  serialActionTokens.push((await payload(await serialActionRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await serialActionRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_game' }, serialActionHost.token)));
+let serialActionState = await serialActionRoom.loadRoom();
+serialActionState.players.forEach((player, index) => {
+  player.role = ['wolf', 'serial_killer', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await serialActionRoom.saveRoom(serialActionState);
+await payload(await serialActionRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, serialActionHost.token)));
+serialActionState = await serialActionRoom.loadRoom();
+await payload(await serialActionRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: serialActionState.players[3].id
+}, serialActionHost.token)));
+await payload(await serialActionRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: serialActionState.players[2].id
+}, serialActionTokens[0])));
+await actionAfterDeadline(serialActionRoom, serialActionHost.token, 'resolve_night');
+serialActionState = await serialActionRoom.loadRoom();
+assert.equal(serialActionState.players[2].alive, false);
+assert.ok(serialActionState.lastResult.eliminations.some(item =>
+  item.id === serialActionState.players[2].id && item.cause === 'serial_killer_kill'
+));
+console.log('Werewolf Serial Killer role passed: independent night kill and neutral solo-win condition.');

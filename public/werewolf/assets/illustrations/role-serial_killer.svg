@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Serial Killer role portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#263244"/><stop offset="1" stop-color="#0b111b"/></linearGradient>
+    <linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e5e7eb"/><stop offset="1" stop-color="#8b96a8"/></linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#8ba0b8"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="64" fill="url(#bg)"/>
+  <circle cx="256" cy="194" r="143" fill="#aab6c7" opacity=".12"/>
+  <path d="M104 464c12-110 64-171 152-171s140 61 152 171" fill="url(#cloak)" stroke="#d9e0ea" stroke-width="12"/>
+  <path d="M181 187c0-68 33-110 75-110s75 42 75 110v58c0 52-34 91-75 91s-75-39-75-91z" fill="#d6dbe4" stroke="#f5f7fa" stroke-width="10"/>
+  <path d="M181 198c16-68 46-105 75-105 31 0 62 38 75 105-34-17-112-17-150 0" fill="#202a38"/>
+  <path d="M214 214h24m36 0h24" stroke="#263244" stroke-width="12" stroke-linecap="round"/>
+  <path d="M235 264c13 9 29 9 42 0" fill="none" stroke="#5d6674" stroke-width="8" stroke-linecap="round"/>
+  <path d="M113 380c48-51 96-72 143-72s95 21 143 72l-37 84H150z" fill="#151d2a" opacity=".88"/>
+  <path d="M356 154l92-87 17 18-82 98-27-29z" fill="url(#blade)" stroke="#e6edf5" stroke-width="7"/>
+  <path d="M347 166l-25 27m41-9l-25 27" stroke="#d6ae70" stroke-width="12" stroke-linecap="round"/>
+  <path d="M95 95l18-22 18 22-18 22zM388 328l14-17 14 17-14 17z" fill="#d6ae70" opacity=".8"/>
+</svg>

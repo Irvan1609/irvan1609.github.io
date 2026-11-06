@@ -19,6 +19,7 @@ const ROLE_INFO = {
   reviver: ['Reviver', 'Menghidupkan kembali satu korban malam.', 'Saat subuh, pilih 1 pemain yang gugur pada malam itu. Hanya sekali per game; tidak dapat membangkitkan korban voting.'],
   cupid: ['Cupid', 'Mengikat dua pemain sebagai Lovers.', 'Malam 1 pilih 2 pemain berbeda selain dirimu. Malam berikutnya jawab perhitungan. Jika satu pasangan gugur, pasangannya ikut gugur.'],
   guardian_angel: ['Guardian Angel', 'Melindungi target dan berpeluang menang bonus.', 'Setiap malam pilih 1 pemain lain. Bonus jika kamu hidup dan target terakhir tetap hidup saat game berakhir.'],
+  serial_killer: ['Serial Killer', 'Kubu Netral yang berburu sendiri dan menang sebagai satu-satunya pemain hidup.', 'Setiap malam pilih 1 pemain lain untuk dieliminasi. Tidak bergabung dengan Werewolf atau Desa. Menang hanya jika menjadi satu-satunya pemain yang masih hidup.'],
   detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
   mayor: ['Mayor', 'Suara voting bernilai 2.', 'Malam: jawab perhitungan seperti Warga Desa. Voting: suaramu bernilai 2.'],
   jester: ['Penduduk Aneh (Jester)', 'Berada di kubu Desa, tetapi menang sendiri jika dipilih melalui voting.', 'Malam: jawab perhitungan seperti Warga Desa. Jika memperoleh mayoritas mutlak dan tereliminasi melalui voting, Penduduk Aneh langsung menang sendiri. Tidak menang jika gugur karena serangan malam atau tembakan.'],
@@ -38,6 +39,7 @@ const EXTRA_ROLE_OPTIONS = [
   ['reviver', 'Reviver', 'Membangkitkan satu korban malam saat subuh; sekali per game.'],
   ['cupid', 'Cupid', 'Menghubungkan dua pemain pada malam pertama.'],
   ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
+  ['serialKiller', 'Serial Killer', 'Kubu netral yang mengeliminasi satu pemain setiap malam dan menang jika menjadi satu-satunya yang hidup.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
   ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
   ['jester', 'Penduduk Aneh', 'Berada di kubu Desa dan menang sendiri jika tereliminasi melalui voting.'],
@@ -56,12 +58,12 @@ const ROLE_CONFIG_GROUPS = [
     ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['jester', 'Penduduk Aneh'], ['villager', 'Warga Desa']
   ]},
   { key: 'neutral', label: 'KUBU NETRAL', roles: [
-    ['guardian_angel', 'Guardian Angel']
+    ['guardian_angel', 'Guardian Angel'], ['serial_killer', 'Serial Killer']
   ]}
 ];
 const ROLE_COUNT_DEFAULTS = {
   wolf: 1, alpha_wolf: 0, wolf_seer: 0, seer: 1, doctor: 1, bodyguard: 0, trapper: 0, witch: 0,
-  hunter: 0, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
+  hunter: 0, reviver: 0, cupid: 0, guardian_angel: 0, serial_killer: 0, detective: 0, mayor: 0,
   priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
   moderator: 0
 };
@@ -97,6 +99,8 @@ let voiceAutoAttemptKey = '';
 let voiceStatus = 'Voice chat otomatis aktif di semua fase pada mode online.';
 let voiceMuted = false;
 let voiceNeedsAudioGesture = false;
+let gameSoundVolume = 0.65;
+let voicePlaybackVolume = 0.2;
 let voiceOutbox = [];
 
 function node(tag, className, text) {
@@ -146,7 +150,7 @@ function playAudioCurve(context, frequencies, duration, delay, wave, volume, cut
   filter.frequency.setValueAtTime(cutoff, start);
   filter.Q.setValueAtTime(0.7, start);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.linearRampToValueAtTime(volume, start + Math.min(0.045, duration / 4));
+  gain.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, volume * gameSoundVolume)), start + Math.min(0.045, duration / 4));
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   oscillator.connect(filter);
   filter.connect(gain);
@@ -510,7 +514,7 @@ function applyState(nextState, expectedSession = session) {
 }
 
 function discussionVoiceListeningAllowed(state = roomState) {
-  return Boolean(state?.room && !state.self?.isWaiting && !state.self?.isBotControlled
+  return Boolean(state?.room && !state.self?.isSpectator && !state.self?.isWaiting && !state.self?.isBotControlled
     && (state.room.phase === 'lobby' || state.room.phase === 'finished'
       || state.self?.isModerator || state.self?.alive));
 }
@@ -540,7 +544,7 @@ function refreshVoiceUI() {
 }
 
 function updateRemoteVoiceVolume() {
-  const volume = voiceLocalStream && !voiceMuted ? 0.14 : 0.2;
+  const volume = voicePlaybackVolume * (voiceLocalStream && !voiceMuted ? 0.7 : 1);
   for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
 }
 
@@ -927,7 +931,7 @@ function recommendedRoleCounts(playerCount) {
 
   // Fill the remaining special slots with repeatable roles. Cupid and Jester
   // stay unique because Cupid's bond is room-wide and Jester is a solo-win role.
-  const scalableRoles = ['bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel', 'seer', 'doctor'];
+  const scalableRoles = ['bodyguard', 'witch', 'hunter', 'detective', 'mayor', 'guardian_angel', 'seer', 'doctor', 'priest', 'vigilante', 'mason'];
   let extraRoleIndex = 0;
   while (assignedSpecials < specialSlots) {
     const role = scalableRoles[extraRoleIndex % scalableRoles.length];
@@ -947,6 +951,7 @@ function roleSettingsForUI(settings = {}) {
   if (draft) return {
     roleCounts: { ...ROLE_COUNT_DEFAULTS, ...draft.roleCounts },
     moderatorMode: draft.moderatorMode,
+    botDifficulty: draft.botDifficulty || 'normal',
     revealRoleOnDeath: draft.revealRoleOnDeath !== false,
     timers: { roleDrawSeconds: 20, nightSeconds: 60, dawnSeconds: 20, discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8, ...(draft.timers || {}) }
   };
@@ -955,6 +960,7 @@ function roleSettingsForUI(settings = {}) {
       ? { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts }
       : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode,
+    botDifficulty: ['easy', 'normal', 'hard', 'expert'].includes(settings.botDifficulty) ? settings.botDifficulty : 'normal',
     revealRoleOnDeath: settings.revealRoleOnDeath !== false,
     timers: {
       roleDrawSeconds: Number(settings.timers?.roleDrawSeconds ?? 20),
@@ -973,7 +979,7 @@ function roleConfigTotals(roleCounts = {}) {
     total: sum(ROLE_CONFIG_GROUPS.flatMap(group => group.roles.map(([key]) => key))),
     wolves: sum(['wolf', 'alpha_wolf', 'wolf_seer']),
     village: sum(ROLE_CONFIG_GROUPS.find(group => group.key === 'village').roles.map(([key]) => key)),
-    neutral: sum(['guardian_angel'])
+    neutral: sum(['guardian_angel', 'serial_killer'])
   };
 }
 
@@ -1032,6 +1038,7 @@ function captureRoleDraft(container, event) {
   }
   roleDraft = {
     code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    botDifficulty: container.querySelector('[data-bot-difficulty]')?.value || 'normal',
     revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
   };
   updateRoleConfigSummary(container);
@@ -1050,6 +1057,7 @@ function clearAllRoleCounts(container) {
   }
   roleDraft = {
     code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    botDifficulty: container.querySelector('[data-bot-difficulty]')?.value || 'normal',
     revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
   };
   updateRoleConfigSummary(container);
@@ -1103,6 +1111,21 @@ function renderRoleConfigEditor(container, settings) {
   revealLabel.prepend(revealInput);
   informationSection.append(revealLabel);
   addText(informationSection, 'p', 'hint', 'Aktif secara default. Jika dimatikan, nama role tetap terlihat sebagai komposisi permainan, tetapi role pemain yang mati tidak dibuka.');
+  const botDifficultyField = node('label', 'bot-difficulty-field');
+  addText(botDifficultyField, 'span', '', 'Tingkat kesulitan BOT');
+  const botDifficultySelect = node('select', 'bot-difficulty-select');
+  botDifficultySelect.dataset.botDifficulty = 'true';
+  for (const [value, label] of [
+    ['easy', 'Easy · Acak'], ['normal', 'Normal · Petunjuk dasar'],
+    ['hard', 'Hard · Riwayat voting'], ['expert', 'Expert · Analisis bukti publik']
+  ]) {
+    const option = node('option', '', label);
+    option.value = value;
+    botDifficultySelect.append(option);
+  }
+  botDifficultySelect.value = config.botDifficulty || 'normal';
+  botDifficultyField.append(botDifficultySelect);
+  informationSection.append(botDifficultyField);
   container.append(informationSection);
 
   for (const group of ROLE_CONFIG_GROUPS) {
@@ -1213,8 +1236,27 @@ function readRoleSettings(container) {
   }
   return {
     roleCounts, moderatorMode, timers,
+    botDifficulty: container.querySelector('[data-bot-difficulty]')?.value || 'normal',
     revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
   };
+}
+
+function renderEmergencyControls(parent) {
+  const room = roomState.room;
+  if (!room || ['lobby', 'finished'].includes(room.phase)) return;
+  const controls = node('div', 'moderator-emergency-controls');
+  controls.append(button(room.paused ? 'Lanjutkan Permainan' : 'Jeda Permainan',
+    room.paused ? 'primary' : 'secondary',
+    () => sendAction(room.paused ? 'resume_game' : 'pause_game')));
+  controls.append(button('Ulangi Fase', 'secondary', async () => {
+    const accepted = await askConfirmation({
+      title: 'Ulangi fase ini?',
+      message: 'Pilihan pada fase yang sedang berlangsung akan direset. Peristiwa yang sudah selesai tidak dibatalkan.',
+      confirmLabel: 'Ulangi fase'
+    });
+    if (accepted) sendAction('restart_phase');
+  }));
+  parent.append(controls);
 }
 
 function renderModeratorDashboard(parent) {
@@ -1254,6 +1296,7 @@ function renderModeratorDashboard(parent) {
     stats.append(item);
   }
   panel.append(stats);
+  if (room.paused) addText(panel, 'div', 'notice warning', 'Permainan sedang dijeda. Timer berhenti sampai dilanjutkan.');
   if (task && required > 0) {
     const progress = node('div', 'moderator-dashboard-progress');
     const heading = node('div', 'moderator-dashboard-progress-heading');
@@ -1271,6 +1314,7 @@ function renderModeratorDashboard(parent) {
     progress.prepend(heading, track);
     panel.append(progress);
   }
+  renderEmergencyControls(panel);
   parent.prepend(panel);
 }
 
@@ -1283,8 +1327,10 @@ function renderPlayers() {
   const canMonitor = moderator || host;
   const phase = roomState.room.phase;
   const waitingPlayers = roomState.waitingPlayers || [];
+  const spectatorCount = (roomState.spectators || []).length;
   $('playerCount').textContent = players.length + ' pemain'
-    + (waitingPlayers.length ? ' · ' + waitingPlayers.length + ' menunggu ronde berikutnya' : '');
+    + (waitingPlayers.length ? ' · ' + waitingPlayers.length + ' menunggu ronde berikutnya' : '')
+    + (spectatorCount ? ' · ' + spectatorCount + ' penonton' : '');
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
     const identity = node('div', 'player-identity');
@@ -1397,11 +1443,29 @@ function syncBotTakeoverDialog() {
   }
 }
 
+function renderSpectatorRoster() {
+  const spectators = roomState.spectators || [];
+  if (!spectators.length) return;
+  const section = node('section', 'spectator-roster');
+  addText(section, 'div', 'waiting-room-count', spectators.length + ' penonton');
+  const roster = node('div', 'waiting-room-list');
+  for (const spectator of spectators) {
+    const item = node('div', 'waiting-room-player');
+    addText(item, 'b', '', spectator.name);
+    addText(item, 'span', spectator.connected ? 'online' : 'offline', spectator.connected ? 'Menonton' : 'Terputus');
+    if (isRoomModerator() || isHost()) item.append(button('Kick', 'kick-player-button', () => kickPlayer(spectator)));
+    roster.append(item);
+  }
+  section.append(roster);
+  $('playersList').append(section);
+}
+
 function renderRoom() {
   if (!roomState) return;
   const room = roomState.room;
   const moderator = isRoomModerator();
   const host = isHost();
+  const spectator = Boolean(roomState.self?.isSpectator);
   const labels = {
     lobby: 'Lobby · Menunggu pemain',
     role_draw: 'Buka kartu',
@@ -1413,10 +1477,10 @@ function renderRoom() {
     result: 'Sore · Hasil',
     finished: 'Permainan selesai'
   };
-  $('phaseLabel').textContent = moderator ? (labels[room.phase] || room.phase) : '';
-  $('roundLabel').textContent = moderator ? (room.round ? 'Ronde ' + room.round : 'Lobby') : '';
+  $('phaseLabel').textContent = moderator || spectator ? (labels[room.phase] || room.phase) : '';
+  $('roundLabel').textContent = moderator || spectator ? (room.round ? 'Ronde ' + room.round : 'Lobby') : '';
   $('roomCodeLabel').textContent = room.code;
-  $('phaseTracker').classList.toggle('hidden', !moderator);
+  $('phaseTracker').classList.toggle('hidden', !moderator && !spectator);
   const resetButton = $('resetRoom');
   if (resetButton) {
     // Keep the control visible at all times; only the host can activate it.
@@ -1441,14 +1505,16 @@ function renderRoom() {
   const canManagePlayers = moderator || host;
   $('playersSection').classList.toggle('hidden', !canManagePlayers);
   $('roomIdentity').classList.toggle('hidden', !moderator && !host);
-  $('roomMeta').classList.toggle('hidden', !moderator);
+  $('roomMeta').classList.toggle('hidden', !moderator && !spectator);
   const playersHint = $('playersSection').querySelector('.hint-inline');
   if (playersHint) playersHint.textContent = moderator
     ? 'Moderator dapat melihat status dan peran pemain.'
     : 'Host dapat mengeluarkan pemain tanpa melihat role mereka.';
-  if (moderator) updatePhaseTracker(room.phase);
-  if (canManagePlayers) renderPlayers();
-  else $('playersList').replaceChildren();
+  if (moderator || spectator) updatePhaseTracker(room.phase);
+  if (canManagePlayers) {
+    renderPlayers();
+    renderSpectatorRoster();
+  } else $('playersList').replaceChildren();
   const activeElement = document.activeElement;
   const activeId = activeElement && activeElement.id ? activeElement.id : '';
   const activeValue = activeElement && 'value' in activeElement ? activeElement.value : undefined;
@@ -1458,6 +1524,11 @@ function renderRoom() {
   content.replaceChildren();
   if (moderator) renderModeratorPhase(content);
   else renderPlayerPhase(content);
+  if (moderator && room.paused) {
+    for (const control of content.querySelectorAll('button, input, select, textarea')) {
+      if (!control.closest('.moderator-emergency-controls')) control.disabled = true;
+    }
+  }
   if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
   renderDiscussionTools(content);
   syncBotTakeoverDialog();
@@ -1475,61 +1546,70 @@ function renderRoom() {
 }
 
 function appendPhaseCountdown(parent, label, deadline) {
-  if (!Number(deadline)) return;
-  const panel = node('div', 'phase-countdown');
-  addText(panel, 'span', 'phase-countdown-label', label);
+  const paused = Boolean(roomState?.room?.paused);
+  const remaining = roomState?.room?.pausedRemainingMs;
+  const hasPausedRemaining = remaining !== null && remaining !== undefined && Number.isFinite(Number(remaining));
+  if (!Number(deadline) && !(paused && hasPausedRemaining)) return;
+  const panel = node('div', 'phase-countdown' + (paused ? ' is-paused' : ''));
+  addText(panel, 'span', 'phase-countdown-label', paused ? 'PERMAINAN DIJEDA' : label);
   const timer = addText(panel, 'strong', 'timer', '00:00');
   timer.id = 'phaseCountdown';
-  timer.dataset.deadline = String(deadline);
+  timer.dataset.deadline = String(deadline || 0);
+  timer.dataset.pausedRemaining = paused && remaining !== null ? String(Math.max(0, Number(remaining) || 0)) : '';
   parent.append(panel);
 }
 
 function updatePhaseClock() {
   const timer = $('phaseCountdown');
   if (!timer) return;
+  const paused = Boolean(roomState?.room?.paused);
   const deadline = Number(timer.dataset.deadline) || 0;
-  const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  const pausedRemaining = Number(timer.dataset.pausedRemaining);
+  const remainingMs = paused && timer.dataset.pausedRemaining !== ''
+    ? pausedRemaining : deadline - Date.now();
+  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
-  timer.textContent = String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+  timer.textContent = (paused ? 'DIJEDA · ' : '') + String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+  timer.classList.toggle('is-paused', paused);
   const activePhase = roomState?.room?.phase;
-  if (seconds === 0 && ['night', 'dawn', 'voting', 'result'].includes(activePhase)) {
+  if (!paused && seconds === 0 && ['night', 'dawn', 'voting', 'result'].includes(activePhase)) {
     for (const control of document.querySelectorAll('#phaseContent .action-button, #phaseContent .phase-timed-action')) {
       control.disabled = true;
     }
   }
   const votingButton = $('startVotingButton');
   if (votingButton) {
-    votingButton.disabled = seconds > 0;
+    votingButton.disabled = paused || seconds > 0;
     votingButton.textContent = seconds > 0 ? 'Diskusi · ' + seconds + ' detik' : 'Voting';
   }
   const startNightButton = $('startNightAfterDrawButton');
   if (startNightButton) {
     const cardsComplete = roomState?.room?.roleCardsDrawn >= roomState?.room?.roleCardsRequired;
-    startNightButton.disabled = !cardsComplete && seconds > 0;
+    startNightButton.disabled = paused || !cardsComplete && seconds > 0;
   }
   const nightButton = $('advanceNightButton');
   if (nightButton) {
     const room = roomState?.room || {};
     const pending = Math.max(0, Number(room.nightActionsRequired) - Number(room.nightActionsSubmitted));
-    nightButton.disabled = pending > 0 && seconds > 0;
+    nightButton.disabled = paused || pending > 0 && seconds > 0;
     nightButton.textContent = pending > 0 && seconds > 0 ? 'Menunggu aksi · ' + seconds + ' detik' : 'Lanjut ke Subuh';
   }
   const dawnButton = $('advanceDawnButton');
   if (dawnButton) {
     const room = roomState?.room || {};
     const pending = Math.max(0, Number(room.dawnActionsRequired) - Number(room.dawnActionsSubmitted));
-    dawnButton.disabled = pending > 0 && seconds > 0;
+    dawnButton.disabled = paused || pending > 0 && seconds > 0;
     dawnButton.textContent = pending > 0 && seconds > 0 ? 'Menunggu aksi pemicu · ' + seconds + ' detik' : 'Lanjut ke Pagi';
   }
   const resolveResultButton = $('resolveResultButton');
   if (resolveResultButton) {
-    resolveResultButton.disabled = seconds > 0;
+    resolveResultButton.disabled = paused || seconds > 0;
     resolveResultButton.textContent = seconds > 0 ? 'Tembakan ditutup · ' + seconds + ' detik' : 'Proses aksi Hunter';
   }
   const nextRoundButton = $('nextRoundButton');
   if (nextRoundButton) {
-    nextRoundButton.disabled = seconds > 0;
+    nextRoundButton.disabled = paused || seconds > 0;
     nextRoundButton.textContent = seconds > 0 ? 'Ronde berikutnya · ' + seconds + ' detik' : 'Lanjut ke Malam ' + ((roomState?.room?.round || 0) + 1);
   }
 }
@@ -1935,9 +2015,55 @@ function renderSystemHostPlayerContext(parent) {
   parent.append(panel);
 }
 
+function renderSpectatorPhase(parent) {
+  const phase = roomState.room.phase;
+  const labels = {
+    lobby: 'Ruang tunggu', role_draw: 'Pembukaan kartu', night: 'Tengah malam',
+    dawn: 'Subuh', morning: 'Pagi · Diskusi', discussion: 'Diskusi',
+    voting: 'Sore · Voting', result: 'Hasil voting', finished: 'Permainan selesai'
+  };
+  phaseHeader(parent, 'MODE PENONTON', labels[phase] || phase, 'Kamu hanya melihat informasi publik. Kartu, aksi rahasia, dan komunikasi privat tidak tersedia.');
+  if (roomState.room.paused) addText(parent, 'div', 'notice warning', 'Permainan sedang dijeda oleh moderator.');
+  else if (phase === 'night' || phase === 'dawn') addText(parent, 'div', 'notice', 'Aksi rahasia sedang berlangsung. Hasil akan terlihat setelah fase selesai.');
+  else if (phase === 'role_draw') addText(parent, 'div', 'notice', 'Pemain sedang membuka kartu masing-masing.');
+  if (phase === 'lobby') {
+    const roster = node('div', 'waiting-room-roster');
+    const players = roomState.lobbyPlayers || [];
+    addText(roster, 'div', 'waiting-room-count', players.length + ' pemain di ruang tunggu');
+    const list = node('div', 'waiting-room-list');
+    for (const player of players) {
+      const item = node('div', 'waiting-room-player');
+      addText(item, 'b', '', player.name);
+      addText(item, 'span', player.connected ? 'online' : 'offline', player.connected ? 'Online' : 'Menunggu');
+      list.append(item);
+    }
+    roster.append(list);
+    parent.append(roster);
+  } else if (phase === 'finished') {
+    renderVictoryScreen(parent, false);
+  } else if (['morning', 'discussion', 'voting', 'result'].includes(phase) && roomState.room.publicResult) {
+    renderPublicResult(parent);
+  }
+}
+
 function renderPlayerPhase(parent) {
   const phase = roomState.room.phase;
   const self = roomState.self || {};
+  if (self.isSpectator) {
+    renderSpectatorPhase(parent);
+    return;
+  }
+  if (roomState.room.paused && !['lobby', 'finished'].includes(phase)) {
+    phaseHeader(parent, 'PERMAINAN DIJEDA', 'Menunggu permainan dilanjutkan', 'Moderator menghentikan sementara fase ini. Semua pilihan permainan dikunci.');
+    if (systemModeratorEnabled() && isHost()) {
+      const emergency = node('details', 'moderator-emergency-disclosure');
+      emergency.append(node('summary', '', 'Kontrol darurat'));
+      renderEmergencyControls(emergency);
+      parent.append(emergency);
+    }
+    if (['morning', 'discussion', 'voting', 'result'].includes(phase) && roomState.room.publicResult) renderPublicResult(parent);
+    return;
+  }
   if (self.isWaiting) {
     phaseHeader(parent, 'DAFTAR TUNGGU', 'Kamu masuk saat permainan berlangsung',
       'Kamu sudah terdaftar untuk permainan berikutnya. Permainan saat ini tetap berjalan tanpa melibatkanmu.');
@@ -1978,6 +2104,10 @@ function renderPlayerPhase(parent) {
   if (!(phase === 'role_draw' && !self.hasDrawn)) renderPlayerRoleReminder(parent);
   if (systemModeratorEnabled() && isHost()) {
     addText(parent, 'div', 'notice', 'Sistem mengatur semua fase otomatis. Host tetap bermain sesuai role kartunya.');
+    const emergency = node('details', 'moderator-emergency-disclosure');
+    emergency.append(node('summary', '', 'Kontrol darurat'));
+    renderEmergencyControls(emergency);
+    parent.append(emergency);
   }
   renderMasonCircle(parent);
   const loverNames = self.loverNames || [];
@@ -2305,13 +2435,13 @@ function renderPlayerNight(parent) {
     return true;
   });
 
-  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper'].includes(self.role)) {
+  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper', 'serial_killer'].includes(self.role)) {
     const titles = {
       seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
       bodyguard: 'Jaga pemain',
       guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan',
       priest: 'Gunakan berkah perlindungan', vigilante: 'Gunakan tembakan',
-      trapper: 'Pasang perangkap'
+      trapper: 'Pasang perangkap', serial_killer: 'Pilih target pembunuhan'
     };
     addText(parent, 'h3', '', titles[self.role]);
     addText(parent, 'p', 'hint', self.role === 'seer' || self.role === 'detective'
@@ -2321,7 +2451,8 @@ function renderPlayerNight(parent) {
       : self.role === 'doctor' || self.role === 'priest' ? 'Lindungi'
         : self.role === 'bodyguard' ? 'Jaga'
           : self.role === 'vigilante' ? 'Tembak'
-            : self.role === 'trapper' ? 'Perangkap' : 'Pilih';
+            : self.role === 'trapper' ? 'Perangkap'
+              : self.role === 'serial_killer' ? 'Bunuh' : 'Pilih';
     const grid = node('div', 'action-grid');
     for (const target of targets) {
       grid.append(button(actionVerb + ' · ' + target.name,
@@ -2425,7 +2556,7 @@ function renderDiscussionTools(parent) {
   const phase = roomState.room.phase;
   const voiceListen = discussionVoiceListeningAllowed();
   const onlineMode = discussionVoiceAllowed();
-  const canSpeak = !self.isWaiting && !self.isBotControlled
+  const canSpeak = !self.isSpectator && !self.isWaiting && !self.isBotControlled
     && Boolean(self.isModerator || self.alive || phase === 'lobby' || phase === 'finished');
   const section = node('section', 'discussion-tools');
   const chat = node('section', 'discussion-chat-panel');
@@ -2523,11 +2654,13 @@ function renderDiscussionTools(parent) {
     });
     chat.append(form);
   } else {
-    addText(chat, 'p', 'hint', self.isWaiting
-      ? 'Chat dan voice permainan tersedia setelah kamu masuk pada ronde berikutnya.'
-      : self.isBotControlled
-        ? 'Chat dinonaktifkan selama BOT mengambil alih.'
-        : 'Kamu sudah tereliminasi. Chat hanya dapat dibaca sampai permainan selesai.');
+    addText(chat, 'p', 'hint', self.isSpectator
+      ? 'Mode penonton: chat dan voice dinonaktifkan.'
+      : self.isWaiting
+        ? 'Chat dan voice permainan tersedia setelah kamu masuk pada ronde berikutnya.'
+        : self.isBotControlled
+          ? 'Chat dinonaktifkan selama BOT mengambil alih.'
+          : 'Kamu sudah tereliminasi. Chat hanya dapat dibaca sampai permainan selesai.');
   }
   section.append(chat);
   parent.append(section);
@@ -2669,7 +2802,7 @@ function renderHunterShot(parent) {
 function factionForRole(role) {
   if (role === 'moderator') return 'moderator';
   if (['wolf', 'alpha_wolf', 'wolf_seer'].includes(role)) return 'wolves';
-  if (role === 'guardian_angel') return 'neutral';
+  if (['guardian_angel', 'serial_killer'].includes(role)) return 'neutral';
   return 'village';
 }
 
@@ -2794,6 +2927,7 @@ function winnerLabel(winner) {
     wolves: 'KUBU WEREWOLF MENANG',
     villagers: 'KUBU DESA MENANG',
     jester: 'PENDUDUK ANEH MENANG SENDIRI',
+    serial_killer: 'SERIAL KILLER MENANG SENDIRI',
     lovers: 'PASANGAN LOVERS MENANG'
   })[winner] || 'PERMAINAN SELESAI';
 }
@@ -3126,12 +3260,14 @@ $('joinForm').addEventListener('submit', async event => {
       auth: false,
       body: {
         name: $('joinName').value.trim(),
-        voiceMode: $('joinVoiceMode').value === 'offline' ? 'offline' : 'online'
+        voiceMode: $('joinEntryMode').value === 'spectator' ? 'offline' : $('joinVoiceMode').value === 'offline' ? 'offline' : 'online',
+        spectator: $('joinEntryMode').value === 'spectator'
       }
     });
     rememberPlayerName($('joinName').value);
     await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('joinName').value.trim() });
-    if (result.isWaiting) showMessage('Kamu masuk daftar tunggu. Kamu otomatis bergabung saat permainan berikutnya dimulai.');
+    if (result.isSpectator) showMessage('Kamu masuk sebagai penonton. Kartu dan aksi rahasia tidak dapat dilihat.');
+    else if (result.isWaiting) showMessage('Kamu masuk daftar tunggu. Kamu otomatis bergabung saat permainan berikutnya dimulai.');
   } catch (error) {
     showMessage(error.message, true);
   } finally {
@@ -3139,6 +3275,9 @@ $('joinForm').addEventListener('submit', async event => {
   }
 });
 
+$('joinEntryMode').addEventListener('change', () => {
+  $('joinVoiceModeLabel').classList.toggle('hidden', $('joinEntryMode').value === 'spectator');
+});
 $('joinCode').addEventListener('input', event => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
 });
@@ -3442,6 +3581,32 @@ $('confirmDialog').addEventListener('click', event => {
   if (event.target === $('confirmDialog')) closeConfirmation(false);
 });
 
+function initializeAudioSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('werewolf.audio.settings') || '{}');
+    if (Number.isFinite(Number(saved.game))) gameSoundVolume = Math.max(0, Math.min(1, Number(saved.game)));
+    if (Number.isFinite(Number(saved.voice))) voicePlaybackVolume = Math.max(0, Math.min(1, Number(saved.voice)));
+  } catch {}
+  const gameSlider = $('gameSoundVolume');
+  const voiceSlider = $('voicePlaybackVolume');
+  if (gameSlider) gameSlider.value = String(Math.round(gameSoundVolume * 100));
+  if (voiceSlider) voiceSlider.value = String(Math.round(voicePlaybackVolume * 100));
+  const persist = () => {
+    try {
+      localStorage.setItem('werewolf.audio.settings', JSON.stringify({ game: gameSoundVolume, voice: voicePlaybackVolume }));
+    } catch {}
+    updateRemoteVoiceVolume();
+  };
+  gameSlider?.addEventListener('input', () => {
+    gameSoundVolume = Math.max(0, Math.min(1, Number(gameSlider.value) / 100));
+    persist();
+  });
+  voiceSlider?.addEventListener('input', () => {
+    voicePlaybackVolume = Math.max(0, Math.min(1, Number(voiceSlider.value) / 100));
+    persist();
+  });
+}
+
 function prefillPlayerName() {
   const savedName = localStorage.getItem(PLAYER_NAME_KEY) || '';
   if (savedName) {
@@ -3504,6 +3669,7 @@ document.addEventListener('visibilitychange', () => {
   refreshState().catch(() => {});
   if (!socket || socket.readyState === WebSocket.CLOSED) connectRealtime();
 });
+initializeAudioSettings();
 prefillPlayerName();
 checkApi();
 restoreSession();

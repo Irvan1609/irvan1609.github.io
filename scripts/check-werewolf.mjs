@@ -1,3 +1,4 @@
+// Regression coverage follows the production asset-version contract.
 import { qrMatrix, qrSvg } from '../public/werewolf/qr.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -87,7 +88,7 @@ assert.match(app, /function renderMasonCircle/);
 const allCardRoles = [
   'wolf', 'alpha_wolf', 'wolf_seer', 'villager', 'seer', 'doctor', 'bodyguard', 'trapper', 'witch',
   'hunter', 'reviver', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
-  'priest', 'vigilante', 'mason', 'moderator'
+  'priest', 'vigilante', 'mason', 'serial_killer', 'moderator'
 ];
 for (const role of allCardRoles) {
   assert.match(app, new RegExp(role + ': \\['));
@@ -101,7 +102,18 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261106-werewolf-live-activity-12/);
+assert.match(html, /20261106-werewolf-complete-1/);
+assert.match(html, /id="joinEntryMode"/);
+assert.match(html, /id="audioSettings"/);
+assert.match(html, /id="gameSoundVolume"/);
+assert.match(html, /id="voicePlaybackVolume"/);
+assert.match(app, /function renderSpectatorPhase/);
+assert.match(app, /function renderEmergencyControls/);
+assert.match(worker, /selectBotSuspect/);
+assert.match(worker, /serial_killer_kill/);
+assert.match(worker, /type === 'pause_game'/);
+assert.match(worker, /type === 'resume_game'/);
+assert.match(worker, /type === 'restart_phase'/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -125,13 +137,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261106-werewolf-live-activity-12/);
+assert.match(html, /app\.js\?v=20261106-werewolf-complete-1/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261106-werewolf-live-activity-12/);
+assert.match(html, /style\.css\?v=20261106-werewolf-complete-1/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -355,7 +367,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261106-werewolf-live-activity-12/);
+assert.match(sw, /20261106-werewolf-complete-1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
@@ -375,7 +387,7 @@ assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
 assert.match(app, /role-team-summary/);
 assert.match(app, /updatePhaseTracker/);
-assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper'\]\.includes\(self\.role\)/);
+assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper', 'serial_killer'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: moderator-led flow, automatic phase timers, private Seer reveal, responsive UI, and private role assets.');
 
@@ -457,8 +469,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261106-werewolf-live-activity-12/);
-assert.match(sw, /20261106-werewolf-live-activity-12/);
+assert.match(html, /20261106-werewolf-complete-1/);
+assert.match(sw, /20261106-werewolf-complete-1/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-wolf_seer.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-trapper.svg'));
