@@ -3819,12 +3819,20 @@ async function requestDeveloperNarratorAssertion() {
   return data.assertion;
 }
 
+function updateDeveloperNarratorSelection() {
+  const select = $('narratorClipSelect');
+  const text = $('narratorClipText');
+  const testButton = $('testNarratorClip');
+  const selected = NARRATOR_CLIPS.find(item => item.id === select?.value) || NARRATOR_CLIPS[0];
+  if (text) text.textContent = selected?.text || '';
+  if (testButton) testButton.disabled = !selected || !narratorUploadedClipIds.has(selected.id);
+}
+
 async function loadDeveloperNarratorStatus() {
   const status = $('developerNarratorStatus');
-  const testButton = $('testNarratorVoice');
+  const select = $('narratorClipSelect');
   if (!status) return;
-  status.textContent = 'Memeriksa status suara…';
-  if (testButton) testButton.disabled = true;
+  status.textContent = 'Memuat daftar rekaman…';
   try {
     const assertion = await requestDeveloperNarratorAssertion();
     const response = await fetch(API_BASE + '/developer/narrator/status', {
@@ -3832,17 +3840,21 @@ async function loadDeveloperNarratorStatus() {
       cache: 'no-store'
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Status suara narator tidak dapat dibaca.');
-    if (!data.configured) {
-      status.textContent = 'Belum ada suara narator. Unggah sampel suara developer untuk memulai.';
-    } else if (data.requiresVerification) {
-      status.textContent = 'Suara ' + data.voiceName + ' dibuat, tetapi masih menunggu verifikasi ElevenLabs.';
-    } else {
-      status.textContent = 'Suara aktif: ' + data.voiceName + '. Narator akan menggunakannya pada semua fase.';
-      if (testButton) testButton.disabled = false;
+    if (!response.ok) throw new Error(data.error || 'Daftar rekaman tidak dapat dibaca.');
+    narratorUploadedClipIds = new Set((data.clips || []).map(item => item.id));
+    if (select && !select.options.length) {
+      for (const clip of NARRATOR_CLIPS) {
+        const option = document.createElement('option');
+        option.value = clip.id;
+        option.textContent = clip.phase + ' · ' + clip.text;
+        select.append(option);
+      }
     }
+    updateDeveloperNarratorSelection();
+    status.textContent = 'Rekaman tersimpan: ' + narratorUploadedClipIds.size + ' dari ' + NARRATOR_CLIPS.length
+      + '. Pilih satu kalimat, lalu unggah file audionya.';
   } catch (error) {
-    status.textContent = error.message || 'Tidak dapat memeriksa suara narator.';
+    status.textContent = error.message || 'Tidak dapat memeriksa rekaman narator.';
   }
 }
 
@@ -3861,55 +3873,66 @@ function initializeDeveloperNarrator() {
       .catch(() => applyAccess(null));
   }
 
-  $('cloneNarratorVoice')?.addEventListener('click', async () => {
-    const button = $('cloneNarratorVoice');
-    const fileInput = $('narratorVoiceFiles');
-    const consent = $('narratorVoiceConsent');
+  $('narratorClipSelect')?.addEventListener('change', updateDeveloperNarratorSelection);
+
+  $('saveNarratorClip')?.addEventListener('click', async () => {
+    const button = $('saveNarratorClip');
+    const fileInput = $('narratorClipFile');
+    const consent = $('narratorClipConsent');
     const status = $('developerNarratorStatus');
-    const files = Array.from(fileInput?.files || []);
-    if (!files.length) {
-      status.textContent = 'Pilih minimal satu file rekaman suara.';
+    const id = $('narratorClipSelect')?.value;
+    const file = fileInput?.files?.[0];
+    if (!id || !file) {
+      status.textContent = 'Pilih satu kalimat dan satu file rekaman.';
       return;
     }
     if (!consent?.checked) {
-      status.textContent = 'Centang konfirmasi bahwa suara ini milik developer atau digunakan dengan izin.';
+      status.textContent = 'Pastikan pemilik suara telah memberi izin penggunaan rekaman.';
       return;
     }
-    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    if (totalBytes > 20 * 1024 * 1024) {
-      status.textContent = 'Total ukuran rekaman maksimal 20 MB.';
+    if (file.size > 3 * 1024 * 1024) {
+      status.textContent = 'Ukuran satu file rekaman maksimal 3 MB.';
       return;
     }
     button.disabled = true;
-    status.textContent = 'Mengunggah sampel dan membuat suara AI…';
+    status.textContent = 'Menyimpan rekaman kalimat…';
     try {
       const assertion = await requestDeveloperNarratorAssertion();
       const payload = new FormData();
-      payload.append('name', $('narratorVoiceName')?.value.trim() || 'The Village After Dark Narrator');
-      payload.append('consent', 'true');
-      for (const file of files) payload.append('files[]', file, file.name);
-      const response = await fetch(API_BASE + '/developer/narrator/voice', {
+      payload.append('file', file, file.name);
+      const response = await fetch(API_BASE + '/developer/narrator/clips/' + encodeURIComponent(id), {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + assertion },
         body: payload
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Pembuatan suara narator gagal.');
+      if (!response.ok) throw new Error(data.error || 'Rekaman gagal disimpan.');
       fileInput.value = '';
       consent.checked = false;
-      status.textContent = data.requiresVerification
-        ? 'Suara berhasil dibuat dan menunggu verifikasi ElevenLabs.'
-        : 'Suara ' + data.voiceName + ' berhasil dibuat.';
+      status.textContent = 'Rekaman untuk kalimat ini berhasil disimpan.';
       await loadDeveloperNarratorStatus();
     } catch (error) {
-      status.textContent = error.message || 'Gagal mengunggah sampel suara.';
+      status.textContent = error.message || 'Gagal menyimpan rekaman.';
     } finally {
       button.disabled = false;
     }
   });
 
-  $('testNarratorVoice')?.addEventListener('click', () => {
-    speakSystemNarration('Selamat datang di The Village After Dark. Malam ini, tidak semua orang akan bertahan.', { developerTest: true });
+  $('testNarratorClip')?.addEventListener('click', async () => {
+    const id = $('narratorClipSelect')?.value;
+    const status = $('developerNarratorStatus');
+    if (!id || !narratorUploadedClipIds.has(id)) return;
+    const button = $('testNarratorClip');
+    button.disabled = true;
+    status.textContent = 'Memutar rekaman…';
+    try {
+      await playNarratorClip(id, { developerTest: true });
+      status.textContent = 'Uji rekaman selesai.';
+    } catch (error) {
+      status.textContent = error.message || 'Rekaman tidak dapat diputar.';
+    } finally {
+      updateDeveloperNarratorSelection();
+    }
   });
 }
 
