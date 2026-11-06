@@ -2129,7 +2129,7 @@ console.log('Werewolf role-card deadline passed: 20-second timeout, automatic ni
 // Dawn trigger regressions: Hunter can revise a last shot; Reviver can restore a night victim.
 const hunterDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const hunterDawnCreated = await payload(await hunterDawnRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'HUNTD1', name: 'Hunter Dawn Host',
+  code: 'HUNTD2', name: 'Hunter Dawn Host',
   settings: { moderatorMode: 'host', roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
     hunter: 1, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
@@ -2182,7 +2182,7 @@ assert.equal(hunterDawnState.players[3].alive, false,
 
 const reviverDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const reviverDawnCreated = await payload(await reviverDawnRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'REVIVE', name: 'Reviver Dawn Host',
+  code: 'REVV23', name: 'Reviver Dawn Host',
   settings: { moderatorMode: 'host', roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
     hunter: 0, reviver: 1, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
