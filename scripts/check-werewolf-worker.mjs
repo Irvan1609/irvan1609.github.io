@@ -2626,6 +2626,23 @@ assert.deepEqual(wolfMatePrivateView.self.seerHistory, []);
 assert.ok(wolfSeerState.lastResult.actionReport.some(item => item.role === 'Wolf Seer'));
 console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact private inspection, and role secrecy.');
 
+const soloWolfSeerRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const soloWolfSeerCreated = await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WSOL23', name: 'Solo Wolf Seer Host',
+  settings: { roleCounts: { wolf_seer: 1, villager: 3 } }
+})), 201);
+for (const name of ['Solo Seer', 'Village A', 'Village B', 'Village C']) {
+  await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+}
+await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, soloWolfSeerCreated.token)));
+const soloWolfSeerState = await soloWolfSeerRoom.loadRoom();
+assert.equal(soloWolfSeerState.phase, 'role_draw');
+assert.equal(soloWolfSeerState.players.filter(player => player.role === 'wolf_seer').length, 1,
+  'Wolf Seer alone must satisfy the minimum Werewolf faction requirement.');
+
+
 // Bots must perform the new roles' special actions rather than fall back to arithmetic.
 const newRoleBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const botWolfSeer = newRoleBotRoom.makeBot({ players: [] });
