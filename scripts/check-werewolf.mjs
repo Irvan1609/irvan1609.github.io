@@ -227,6 +227,9 @@ const appNarratorClipIds = app.split('\n').flatMap(line => line.includes('{ id:'
 const workerNarratorClipBlock = worker.split('const NARRATOR_CLIP_IDS = new Set([')[1]?.split(']);')[0] || '';
 const workerNarratorClipIds = [...workerNarratorClipBlock.matchAll(/'([^']+)'/g)].map(match => match[1]).sort();
 assert.deepEqual(appNarratorClipIds, workerNarratorClipIds, 'Client and Worker narrator clip catalogs must match.');
+const narratorClipTexts = app.split('\\n').filter(line => line.includes('{ id:')).map(line => line.split("text: '")[1]?.split("' }")[0] || '');
+assert.equal(narratorClipTexts.length, 40, 'Every narrator sentence must have one manual audio slot.');
+assert.ok(narratorClipTexts.every(text => (text.match(/[.!?]/g) || []).length === 1), 'Each audio slot must contain exactly one sentence.');
 
 assert.match(worker, /requireNarratorDeveloper/);
 assert.match(worker, /NARRATOR_DEVELOPER_EMAILS/);
