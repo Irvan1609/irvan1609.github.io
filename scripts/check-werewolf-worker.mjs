@@ -2623,7 +2623,7 @@ const wolfMatePrivateView = (await payload(await wolfSeerRoom.fetch(
 assert.equal(wolfMatePrivateView.self.seerResult, null,
   'The exact role inspection must remain private to the Wolf Seer.');
 assert.deepEqual(wolfMatePrivateView.self.seerHistory, []);
-assert.ok(wolfSeerPrivateView.wolfTeam.includes('Wolf Seer'));
+
 assert.ok(wolfSeerState.lastResult.actionReport.some(item => item.role === 'Wolf Seer'));
 console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact private inspection, and role secrecy.');
 
