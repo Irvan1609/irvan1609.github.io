@@ -841,7 +841,7 @@ export class WerewolfRoom {
     );
     const showPublicBallots = room.phase === 'voting'
       || (['result', 'finished'].includes(room.phase) && room.lastResult?.kind === 'vote');
-    const publicVotes = showPublicBallots ? alive.map(voter => {
+    const livePublicVotes = alive.map(voter => {
       const hasVoted = Object.prototype.hasOwnProperty.call(room.votes || {}, voter.id);
       const targetId = hasVoted ? room.votes[voter.id] : null;
       const targetPlayer = targetId ? room.players.find(item => item.id === targetId) : null;
@@ -851,7 +851,9 @@ export class WerewolfRoom {
         abstain: hasVoted && !targetId,
         status: !hasVoted ? 'Belum memilih' : targetPlayer ? 'Memilih ' + targetPlayer.name : 'Golput'
       };
-    }) : [];
+    });
+    const publicVotes = room.phase === 'voting' ? livePublicVotes
+      : showPublicBallots ? (room.lastResult?.publicVotes || livePublicVotes) : [];
     const publicResult = !['lobby', 'role_draw', 'night', 'dawn'].includes(room.phase)
       && room.lastResult && room.lastResult.kind !== 'phase'
       ? {
@@ -1671,6 +1673,17 @@ export class WerewolfRoom {
     const missingVoters = alive.filter(item => !Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
     this.takeOverInactivePlayers(room, missingVoters, 'voting', now);
     this.runBotVotes(room, now);
+    const publicVotes = alive.map(voter => {
+      const hasVoted = Object.prototype.hasOwnProperty.call(room.votes || {}, voter.id);
+      const targetId = hasVoted ? room.votes[voter.id] : null;
+      const targetPlayer = targetId ? room.players.find(item => item.id === targetId) : null;
+      return {
+        voterId: voter.id, voterName: voter.name, hasVoted,
+        targetId: targetPlayer?.id || null, targetName: targetPlayer?.name || null,
+        abstain: hasVoted && !targetId,
+        status: !hasVoted ? 'Belum memilih' : targetPlayer ? 'Memilih ' + targetPlayer.name : 'Golput'
+      };
+    });
     const totalVoteWeight = alive.reduce((total, voter) =>
       total + (voter.role === 'mayor' && abilityEnabled(room, 'mayorDoubleVote') ? 2 : 1), 0);
     let abstainCount = 0;
@@ -1712,7 +1725,7 @@ export class WerewolfRoom {
     })).sort((left, right) => right.votes - left.votes || left.name.localeCompare(right.name, 'id'));
     room.lastResult = {
       kind: 'vote', message, eliminatedId, eliminatedIds, eliminations, events, voteTally,
-      voteTotalWeight: totalVoteWeight, abstainCount,
+      voteTotalWeight: totalVoteWeight, abstainCount, publicVotes,
       majorityVotesRequired: Math.floor(totalVoteWeight / 2) + 1,
       at: now, round: room.round
     };
@@ -1889,9 +1902,9 @@ export class WerewolfRoom {
       selected.isBot = false;
       selected.isBotControlled = false;
       delete selected.botControlledAt;
-      if (room.phase === 'night') delete room.nightActions?.[selected.id];
-      if (room.phase === 'dawn') delete room.dawnActions?.[selected.id];
-      if (room.phase === 'voting') delete room.votes?.[selected.id];
+      if (room.phase === 'night' && (!room.nightEndsAt || room.nightEndsAt > now)) delete room.nightActions?.[selected.id];
+      if (room.phase === 'dawn' && (!room.dawnEndsAt || room.dawnEndsAt > now)) delete room.dawnActions?.[selected.id];
+      if (room.phase === 'voting' && (!room.votingEndsAt || room.votingEndsAt > now)) delete room.votes?.[selected.id];
       this.recordGameEvent(room, {
         kind: 'player_control_restored', phase: room.phase, title: 'Kendali pemain dikembalikan',
         message: 'Kendali ' + selected.name + ' dikembalikan kepada pemain.', at: now, round: room.round
@@ -2021,6 +2034,9 @@ export class WerewolfRoom {
       requirePlayer();
       const leavingPlayer = room.players.find(item => item.id === player.id);
       if (!leavingPlayer) throw new HttpError(404, 'Pemain tidak ditemukan di room.');
+      if (player.id === room.hostId && room.phase === 'lobby') {
+        throw new HttpError(403, 'Host room tidak dapat keluar sendiri. Gunakan Bubarkan Room untuk menutup room.');
+      }
       if (player.id === room.hostId && room.phase !== 'lobby') {
         const successor = room.players.find(item => item.id !== player.id && !item.isBot && item.tokenHash)
           || room.players.find(item => item.id !== player.id && !item.isBot);
@@ -2404,7 +2420,12 @@ export class WerewolfRoom {
         throw new HttpError(409, 'Tunggu timer tengah malam berakhir sebelum melanjutkan.');
       }
       if (body.force === true || Number(room.nightEndsAt) > 0 && room.nightEndsAt <= now) {
-        const missingActors = room.players.filter(item => item.alive && !room.nightActions?.[item.id]);
+        const skippedIds = new Set(room.nightSkippedPlayerIds || []);
+        const missingActors = room.players.filter(item => item.alive
+          && (!room.nightActions?.[item.id] || skippedIds.has(item.id)));
+        for (const item of missingActors) delete room.nightActions?.[item.id];
+        room.nightSkippedPlayerIds = (room.nightSkippedPlayerIds || []).filter(id =>
+          !missingActors.some(item => item.id === id));
         this.takeOverInactivePlayers(room, missingActors, 'night', now);
         this.runBotNightActions(room);
       }
