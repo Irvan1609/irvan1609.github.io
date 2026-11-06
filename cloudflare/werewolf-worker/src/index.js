@@ -3315,7 +3315,12 @@ export class WerewolfRoom {
           await this.applyAction(room, room.moderator, { type: 'resolve_night', force: true });
           changed = true;
         } else {
-          const missingActors = room.players.filter(item => item.alive && !room.nightActions?.[item.id]);
+          const skippedIds = new Set(room.nightSkippedPlayerIds || []);
+          const missingActors = room.players.filter(item => item.alive
+            && (!room.nightActions?.[item.id] || skippedIds.has(item.id)));
+          for (const item of missingActors) delete room.nightActions?.[item.id];
+          room.nightSkippedPlayerIds = (room.nightSkippedPlayerIds || []).filter(id =>
+            !missingActors.some(item => item.id === id));
           const taken = this.takeOverInactivePlayers(room, missingActors, 'night', now);
           if (taken.length) this.runBotNightActions(room);
           changed = taken.length > 0;
