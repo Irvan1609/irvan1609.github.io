@@ -849,7 +849,10 @@ export class WerewolfRoom {
         voterId: voter.id, voterName: voter.name, hasVoted,
         targetId: targetPlayer?.id || null, targetName: targetPlayer?.name || null,
         abstain: hasVoted && !targetId,
-        status: !hasVoted ? 'Belum memilih' : targetPlayer ? 'Memilih ' + targetPlayer.name : 'Golput'
+        botControlled: Boolean(voter.isBotControlled),
+        status: !hasVoted ? 'Belum memilih'
+          : targetPlayer ? (voter.isBotControlled ? 'BOT memilih ' : 'Memilih ') + targetPlayer.name
+            : voter.isBotControlled ? 'BOT · Golput' : 'Golput'
       };
     });
     const publicVotes = room.phase === 'voting' ? livePublicVotes
@@ -1671,6 +1674,7 @@ export class WerewolfRoom {
     const tally = {};
     const alive = room.players.filter(item => item.alive);
     const missingVoters = alive.filter(item => !Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
+    const missingVoterIds = new Set(missingVoters.map(item => item.id));
     this.takeOverInactivePlayers(room, missingVoters, 'voting', now);
     this.runBotVotes(room, now);
     const publicVotes = alive.map(voter => {
@@ -1681,7 +1685,11 @@ export class WerewolfRoom {
         voterId: voter.id, voterName: voter.name, hasVoted,
         targetId: targetPlayer?.id || null, targetName: targetPlayer?.name || null,
         abstain: hasVoted && !targetId,
-        status: !hasVoted ? 'Belum memilih' : targetPlayer ? 'Memilih ' + targetPlayer.name : 'Golput'
+        botControlled: Boolean(voter.isBotControlled),
+        botTookOver: missingVoterIds.has(voter.id),
+        status: missingVoterIds.has(voter.id)
+          ? targetPlayer ? 'Tidak vote · BOT memilih ' + targetPlayer.name : 'Tidak vote · BOT tidak memilih target'
+          : !hasVoted ? 'Belum memilih' : targetPlayer ? 'Memilih ' + targetPlayer.name : 'Golput'
       };
     });
     const totalVoteWeight = alive.reduce((total, voter) =>
