@@ -730,7 +730,7 @@ async function startDiscussionVoice(manual = false) {
         audio: {
           echoCancellation: { ideal: 'all' },
           noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: true },
+          autoGainControl: { ideal: false },
           channelCount: { ideal: 1 },
           sampleRate: { ideal: 48000 }
         },
