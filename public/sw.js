@@ -1,4 +1,4 @@
-const VERSION='20261107-werewolf-speaking-compact-1';
+const VERSION='20261107-werewolf-narrator-voice-1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -12,6 +12,10 @@ const CORE_URLS=[
   '/manifest.webmanifest',
   '/icons/agrotik.svg',
   '/werewolf/',
+  '/account.css',
+  '/account.js',
+  '/account-config.js',
+  '/resilience.js',
   '/werewolf/style.css',
   '/werewolf/app.js',
   '/werewolf/qr.js',
