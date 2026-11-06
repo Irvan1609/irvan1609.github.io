@@ -949,6 +949,7 @@ export class WerewolfRoom {
           at: message.at,
           isBot: Boolean(message.isBot
             || room.players.some(player => player.id === message.playerId && player.isBot)),
+          isNightReport: Boolean(message.isNightReport),
           isModerator: Boolean(message.isModerator)
         }))
     };
@@ -1055,9 +1056,16 @@ export class WerewolfRoom {
     if (Number(room.botDiscussionRound) === Number(room.round)) return;
     room.botDiscussionRound = Number(room.round) || 0;
     const alive = room.players.filter(player => player.alive);
-    const speakers = alive.filter(player => player.isBot)
-      .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'))
-      .slice(0, 3);
+    const botCandidates = alive.filter(player => player.isBot)
+      .sort((left, right) => Number(right.role === 'seer') - Number(left.role === 'seer'));
+    const actionSpeakers = botCandidates.filter(bot =>
+      room.botNightReports?.[bot.id]?.round === room.round
+    );
+    const actionSpeakerIds = new Set(actionSpeakers.map(bot => bot.id));
+    const speakers = [
+      ...actionSpeakers,
+      ...botCandidates.filter(bot => !actionSpeakerIds.has(bot.id)).slice(0, 3)
+    ];
     room.botReplyCursor = 0;
     for (const [index, bot] of speakers.entries()) {
       const clue = room.seerResults?.[bot.id];
@@ -1073,7 +1081,8 @@ export class WerewolfRoom {
 
       let text;
       const actionReport = room.botNightReports?.[bot.id];
-      if (actionReport?.round === room.round) text = actionReport.text;
+      const isNightReport = actionReport?.round === room.round;
+      if (isNightReport) text = actionReport.text;
       else if (['seer', 'detective'].includes(bot.role) && clue) {
         const faction = bot.role === 'detective'
           ? (clue.result === 'wolf_team' ? 'kubu Werewolf' : clue.result === 'neutral' ? 'kubu Netral' : 'kubu Desa')
@@ -1095,7 +1104,10 @@ export class WerewolfRoom {
       } else {
         text = 'Aku belum punya petunjuk yang cukup. Mari dengarkan pendapat semua pemain.';
       }
-      room.chat.push({ id: crypto.randomUUID(), playerId: bot.id, name: bot.name, text, at: now + index });
+      room.chat.push({
+        id: crypto.randomUUID(), playerId: bot.id, name: bot.name, text,
+        at: now + index, isBot: true, isNightReport
+      });
     }
     if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.splice(0, room.chat.length - MAX_CHAT_MESSAGES);
   }
