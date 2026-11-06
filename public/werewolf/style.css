@@ -868,3 +868,76 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .private-inspection-item{grid-template-columns:32px minmax(0,1fr);gap:5px}
   .private-inspection-result{grid-column:2}
 }
+
+
+/* Keep expanded role rules above the lobby grid without resizing adjacent role cards. */
+.role-count-grid,
+.role-count-grid .role-count-item {
+  overflow: visible;
+}
+.role-count-grid .role-count-item {
+  position: relative;
+}
+.role-count-grid .role-config-info-disclosure[open] {
+  position: relative;
+  z-index: 40;
+}
+.role-count-grid .role-config-info-disclosure[open] .role-config-info-details {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  z-index: 41;
+  width: min(320px, calc(100vw - 28px));
+  max-height: min(42vh, 280px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid #61738a;
+  border-radius: 10px;
+  background: #0d1928;
+  box-shadow: 0 14px 34px #0009;
+  transform: translateX(-50%);
+}
+@media(max-width:620px) {
+  .role-count-grid { gap: 7px; }
+  .role-count-field {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 110px;
+    align-items: center;
+    gap: 6px;
+  }
+  .role-count-field > span {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+  .role-count-stepper {
+    grid-template-columns: 30px minmax(0,1fr) 30px;
+    gap: 3px;
+  }
+  .role-count-step { min-height: 34px; font-size: 19px; }
+  .role-count-stepper .role-count-input {
+    min-height: 34px;
+    padding: 3px;
+    font-size: 14px;
+  }
+}
+@media(max-width:370px) {
+  .role-count-field { grid-template-columns: minmax(0,1fr) 124px; }
+  .role-count-stepper { grid-template-columns: 34px minmax(0,1fr) 34px; }
+}
+
+/* Bot messages that disclose their previous-night action are identified in chat. */
+.chat-night-report-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 2px 6px;
+  border: 1px solid #8a7047;
+  border-radius: 999px;
+  background: #342a1d;
+  color: #f0d6a6;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  vertical-align: middle;
+}
