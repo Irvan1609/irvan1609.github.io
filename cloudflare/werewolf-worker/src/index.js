@@ -942,7 +942,7 @@ export class WerewolfRoom {
         resultEndsAt: Number(room.resultEndsAt) || null,
         resultResolved: Boolean(room.resultResolved),
         paused: Boolean(room.paused),
-        pausedRemainingMs: room.paused ? (Number.isFinite(Number(room.pausedRemainingMs)) ? Math.max(0, Number(room.pausedRemainingMs)) : null) : null,
+        pausedRemainingMs: room.paused && room.pausedRemainingMs !== null && room.pausedRemainingMs !== undefined && Number.isFinite(Number(room.pausedRemainingMs)) ? Math.max(0, Number(room.pausedRemainingMs)) : null,
         spectatorsCount: (room.spectators || []).length,
         villageName: String(room.villageName || 'Desa Waringin'),
         callUrl: '',
