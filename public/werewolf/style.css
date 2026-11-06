@@ -1107,7 +1107,6 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .public-player-row .public-player-status.status-dead{color:#8993a0;opacity:.65;text-decoration:line-through}
 .public-player-row.is-dead{opacity:.58}
 .public-player-row.is-dead .public-player-identity{text-decoration:line-through}
-.voice-status:after{content:" · Gunakan headset untuk mencegah suara mikrofon berputar";display:block;color:#899bb1;font-size:9px;margin-top:3px}
 @media(max-width:620px){.public-role-alive-count{font-size:9px}.public-role-deceased-name{font-size:9px}}
 
 .public-player-row.is-alive .public-player-identity>b{color:#8be0aa}
