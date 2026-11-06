@@ -2150,10 +2150,20 @@ await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST',
 }, handoffBotTokens[4].token)), 403);
 await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'restore_player_control', playerId: handoffBotPlayerId
-}, handoffBotCreated.token)));
+}, handoffBotTokens[4].token)));
 handoffBotState = await handoffBotRoom.loadRoom();
 assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBotControlled, false);
 assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBot, false);
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'replace_with_bot', playerId: handoffBotPlayerId
+}, handoffBotCreated.token)));
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'leave_room'
+}, handoffBotTokens[4].token)));
+handoffBotState = await handoffBotRoom.loadRoom();
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).alive, false,
+  'A player whose seat is controlled by BOT must still be able to leave from the takeover dialog.');
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).connected, false);
 
 const skipPhaseRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const skipPhaseCreated = await payload(await skipPhaseRoom.fetch(makeRequest('/internal/create', 'POST', {
@@ -2730,6 +2740,50 @@ inactivityRoom.takeOverInactivePlayers(nightTakeoverState, [inactiveNightPlayer]
 inactivityRoom.runBotNightActions(nightTakeoverState);
 assert.equal(nightTakeoverState.nightActions['inactive-night'].type, 'villager_math');
 console.log('Werewolf inactivity regression passed: BOT takes over missed card reveals and night actions.');
+
+// Manual moderator rooms also run the inactivity handoff alarm without advancing the phase.
+const manualTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const manualTakeoverCreated = await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'MANU23', name: 'Manual Host',
+  settings: { moderatorMode: 'host', roleCounts: { wolf: 1, villager: 2 }, timers: { nightSeconds: 10 } }
+})), 201);
+const manualTakeoverTokens = [];
+for (const name of ['Manual Wolf', 'Manual Blue A', 'Manual Blue B']) {
+  manualTakeoverTokens.push((await payload(await manualTakeoverRoom.fetch(
+    makeRequest('/internal/join', 'POST', { name })
+  ), 201)).token);
+}
+await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, manualTakeoverCreated.token)));
+let manualTakeoverState = await manualTakeoverRoom.loadRoom();
+manualTakeoverState.players.forEach((player, index) => {
+  player.role = ['wolf', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await manualTakeoverRoom.saveRoom(manualTakeoverState);
+await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, manualTakeoverCreated.token)));
+manualTakeoverState = await manualTakeoverRoom.loadRoom();
+manualTakeoverState.nightEndsAt = Date.now() - 1;
+await manualTakeoverRoom.saveRoom(manualTakeoverState);
+const realNowForManualTakeover = Date.now;
+try {
+  Date.now = () => manualTakeoverState.nightEndsAt + 1;
+  await manualTakeoverRoom.alarm();
+} finally {
+  Date.now = realNowForManualTakeover;
+}
+manualTakeoverState = await manualTakeoverRoom.loadRoom();
+assert.equal(manualTakeoverState.phase, 'night',
+  'Manual moderator mode keeps control of phase progression after the deadline.');
+assert.ok(manualTakeoverState.players.every(player => player.isBotControlled),
+  'Every player who missed the night deadline must be handed to BOT.');
+assert.ok(manualTakeoverState.players.every(player => manualTakeoverState.nightActions[player.id]),
+  'BOT must complete every missed night action before the moderator advances.');
+console.log('Werewolf manual-mode takeover regression passed: timer handoff runs BOT actions without advancing the moderator phase.');
 
 // The voting deadline automatically replaces non-voters and preserves every public ballot.
 const voteTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
