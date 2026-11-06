@@ -216,6 +216,37 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 }
 
 
+.developer-narrator-panel {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid rgba(214, 177, 111, .38);
+  border-radius: 13px;
+  background: rgba(10, 17, 28, .72);
+}
+.developer-narrator-panel > summary {
+  cursor: pointer;
+  color: var(--gold2, #f0d6a6);
+  font-weight: 800;
+  font-size: 12px;
+  list-style: none;
+}
+.developer-narrator-panel > summary::-webkit-details-marker { display: none; }
+.developer-narrator-panel > summary:after { content: "＋"; float: right; color: var(--gold, #d6ae70); }
+.developer-narrator-panel[open] > summary:after { content: "−"; }
+.developer-narrator-content { display: grid; gap: 10px; margin-top: 12px; }
+.developer-narrator-content > p { margin: 0; }
+.developer-narrator-content > label { display: grid; gap: 6px; color: #d8e0ea; font-size: 11px; }
+.developer-narrator-content input[type="file"] { width: 100%; padding: 9px; font-size: 10px; }
+.developer-narrator-consent { display: flex !important; grid-template-columns: 16px 1fr; align-items: start; gap: 8px !important; line-height: 1.5; }
+.developer-narrator-consent input { margin: 2px 0 0; }
+.developer-narrator-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.developer-narrator-actions button { flex: 1 1 150px; margin-top: 0; }
+.developer-narrator-status { min-height: 18px; color: #c7d1de; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+@media(max-width:430px) {
+  .developer-narrator-panel { padding: 11px; }
+  .developer-narrator-actions button { flex-basis: 100%; }
+}
+
 /* Compact role controls, persistent waiting room, and Villager night challenge. */
 .role-config-editor{gap:7px;margin:10px 0}
 .role-config-team{min-width:0;padding:9px}
