@@ -505,7 +505,7 @@ async function handleNarratorSpeech(request, env) {
     if (!result.success) throw new HttpError(429, 'Terlalu banyak permintaan suara narator. Coba lagi sebentar.');
   }
   const body = await readJson(request, 8192);
-  const text = String(body.text || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim();
+  const text = String(body.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!text) throw new HttpError(400, 'Teks narator kosong.');
   if (text.length > 1200) throw new HttpError(400, 'Teks narator maksimal 1.200 karakter.');
   if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'Layanan suara AI belum dikonfigurasi.');
@@ -513,7 +513,7 @@ async function handleNarratorSpeech(request, env) {
   if (!config?.voiceId) throw new HttpError(404, 'Suara narator belum diunggah developer.');
   if (config.requiresVerification) throw new HttpError(409, 'Suara narator menunggu verifikasi di ElevenLabs.');
   const cache = globalThis.caches?.default;
-  const cacheHash = await digest(config.voiceId + '\\n' + text);
+  const cacheHash = await digest(config.voiceId + '\n' + text);
   const cacheKey = new Request('https://narrator-cache.invalid/' + cacheHash);
   if (cache) {
     const cached = await cache.match(cacheKey);
