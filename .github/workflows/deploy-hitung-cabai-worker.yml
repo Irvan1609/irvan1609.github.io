@@ -8,6 +8,7 @@ on:
       - "cloudflare/hitung-cabai-worker/src/index.js"
       - "cloudflare/hitung-cabai-worker/schema.sql"
       - ".github/workflows/deploy-hitung-cabai-worker.yml"
+      - ".gitleaks.toml"
   workflow_dispatch:
 
 concurrency:
