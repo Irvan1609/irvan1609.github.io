@@ -642,6 +642,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
+      audio.volume = 0.38;
       audio.className = 'voice-audio';
       audio.dataset.peerId = peerId;
       document.body.append(audio);
@@ -721,7 +722,13 @@ async function startDiscussionVoice(manual = false) {
         throw new Error('Akses mikrofon tidak tersedia. Gunakan browser HTTPS yang mendukung mikrofon.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: {
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 48000 }
+        },
         video: false
       });
       if (generation !== voiceGeneration || !discussionVoiceAllowed()) {
@@ -812,7 +819,6 @@ async function unlockRemoteAudio() {
 
 async function handleVoiceSignal(message) {
   if (!discussionVoiceListeningAllowed() || !message?.fromId) return;
-  if (discussionVoiceAllowed() && !voiceLocalStream) await startDiscussionVoice(true);
   const peer = (roomState.voicePeers || []).find(item => item.id === message.fromId)
     || { id: message.fromId, name: message.fromName || 'Pemain' };
   let connection = voicePeerConnections.get(peer.id);
@@ -927,6 +933,7 @@ function roleSettingsForUI(settings = {}) {
   if (draft) return {
     roleCounts: { ...ROLE_COUNT_DEFAULTS, ...draft.roleCounts },
     moderatorMode: draft.moderatorMode,
+    revealRoleOnDeath: draft.revealRoleOnDeath !== false,
     timers: { roleDrawSeconds: 20, nightSeconds: 60, dawnSeconds: 20, discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8, ...(draft.timers || {}) }
   };
   return {
@@ -934,6 +941,7 @@ function roleSettingsForUI(settings = {}) {
       ? { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts }
       : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode,
+    revealRoleOnDeath: settings.revealRoleOnDeath !== false,
     timers: {
       roleDrawSeconds: Number(settings.timers?.roleDrawSeconds ?? 20),
       nightSeconds: Number(settings.timers?.nightSeconds ?? 60),
@@ -1008,7 +1016,10 @@ function captureRoleDraft(container, event) {
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
-  roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
+  roleDraft = {
+    code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
   updateRoleConfigSummary(container);
 }
 
@@ -1023,7 +1034,10 @@ function clearAllRoleCounts(container) {
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
-  roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
+  roleDraft = {
+    code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
   updateRoleConfigSummary(container);
 }
 
@@ -1063,6 +1077,20 @@ function renderRoleConfigEditor(container, settings) {
   addText(roleActions, 'p', 'hint', 'Kosongkan semua jumlah role pemain untuk menyusun komposisi secara manual. Mode moderator tidak berubah.');
   moderatorSection.append(roleActions);
   container.append(moderatorSection);
+
+  const informationSection = node('section', 'role-config-team role-information-config');
+  addText(informationSection, 'div', 'role-section-label', 'INFORMASI PERMAINAN');
+  const revealLabel = node('label', 'role-death-reveal-setting');
+  const revealInput = node('input');
+  revealInput.type = 'checkbox';
+  revealInput.checked = config.revealRoleOnDeath !== false;
+  revealInput.dataset.revealRoleOnDeath = 'true';
+  addText(revealLabel, 'span', '', 'Perlihatkan role pemain saat mati');
+  revealLabel.prepend(revealInput);
+  informationSection.append(revealLabel);
+  addText(informationSection, 'p', 'hint', 'Aktif secara default. Jika dimatikan, nama role tetap terlihat sebagai komposisi permainan, tetapi role pemain yang mati tidak dibuka.');
+  container.append(informationSection);
+
   for (const group of ROLE_CONFIG_GROUPS) {
     const section = node('section', 'role-config-team role-team-' + group.key);
     addText(section, 'div', 'role-section-label', group.label);
@@ -1169,7 +1197,10 @@ function readRoleSettings(container) {
     }
     timers[input.dataset.phaseDuration] = seconds;
   }
-  return { roleCounts, moderatorMode, timers };
+  return {
+    roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
 }
 
 function renderModeratorDashboard(parent) {
@@ -1395,6 +1426,8 @@ function renderRoom() {
   if (moderator) renderModeratorPhase(content);
   else renderPlayerPhase(content);
   renderDiscussionTools(content);
+  if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
+  syncBotTakeoverDialog();
   if (activeId) {
     const replacement = document.getElementById(activeId);
     if (replacement && activeValue !== undefined) {
@@ -1762,32 +1795,84 @@ function renderModeratorPhase(parent) {
 }
 
 function renderLivingPlayers(parent) {
-  const players = Array.isArray(roomState.livingPlayers) ? roomState.livingPlayers : [];
-  const panel = node('section', 'living-players-panel');
-  const heading = node('div', 'living-players-heading');
-  addText(heading, 'b', '', 'MASIH HIDUP');
-  addText(heading, 'span', '', players.length + ' pemain');
-  panel.append(heading);
-  const list = node('div', 'living-players-list');
+  const players = Array.isArray(roomState.publicPlayers) ? roomState.publicPlayers : [];
+  const roles = Array.isArray(roomState.publicRoles) ? roomState.publicRoles : [];
+  const panel = node('section', 'public-game-board');
+
+  const roleSection = node('section', 'public-role-board');
+  const roleHeading = node('div', 'public-board-heading');
+  addText(roleHeading, 'b', '', 'ROLE DALAM PERMAINAN');
+  addText(roleHeading, 'span', '', roles.length + ' jenis role');
+  roleSection.append(roleHeading);
+  const roleGrid = node('div', 'public-role-grid');
+  for (const entry of roles) {
+    const card = node('article', 'public-role-card faction-' + entry.faction);
+    const title = node('div', 'public-role-title');
+    addText(title, 'b', '', roleLabel(entry.role));
+    addText(title, 'span', '', '×' + entry.count);
+    card.append(title);
+    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
+      const deceased = node('div', 'public-role-deceased');
+      for (const name of entry.deceasedNames) addText(deceased, 'span', 'public-dead-name', '│ ' + name);
+      card.append(deceased);
+    }
+    roleGrid.append(card);
+  }
+  if (!roles.length) addText(roleGrid, 'span', 'hint', 'Komposisi role belum tersedia.');
+  roleSection.append(roleGrid);
+  panel.append(roleSection);
+
+  const playerSection = node('section', 'public-player-board');
+  const playerHeading = node('div', 'public-board-heading');
+  addText(playerHeading, 'b', '', 'PEMAIN & STATUS');
+  const living = players.filter(player => player.alive).length;
+  addText(playerHeading, 'span', '', living + ' / ' + players.length + ' hidup');
+  playerSection.append(playerHeading);
+  const playerGrid = node('div', 'public-player-grid');
   const history = new Map((roomState.self?.seerHistory || []).map(item => [item.targetId, item]));
   for (const player of players) {
-    const name = String(player.name || 'Pemain');
     const inspected = history.get(player.id);
     const result = inspected?.result;
     const isWolf = result === 'wolf' || result === 'wolf_team' || inspected?.targetFaction === 'wolves';
     const isNeutral = result === 'neutral' || inspected?.targetFaction === 'neutral';
-    const chip = node('span', 'living-player-chip' + (inspected ? ' seer-inspected ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe') : ''));
-    chip.append(node('span', 'living-player-dot'), document.createTextNode(name));
-    if (inspected) {
+    const row = node('article', 'public-player-row' + (player.alive ? ' is-alive' : ' is-dead'));
+    const identity = node('div', 'public-player-identity');
+    addText(identity, 'b', '', player.name);
+    if (player.revealedRole) addText(identity, 'small', 'public-player-revealed-role', roleLabel(player.revealedRole));
+    if (inspected && player.alive) {
       const label = roomState.self.role === 'detective'
         ? (isWolf ? 'Werewolf' : isNeutral ? 'Netral' : 'Desa')
         : (inspected.targetRole ? roleLabel(inspected.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
-      chip.append(node('small', 'seer-inspection-tag', label));
+      addText(identity, 'small', 'seer-inspection-tag', label);
     }
-    list.append(chip);
+    const statusText = player.isBotControlled
+      ? 'BOT · ' + (player.phaseStatus || 'Mengambil alih')
+      : player.phaseStatus || (player.alive ? 'Hidup' : 'Tereliminasi');
+    addText(row, 'span', 'public-player-status', statusText);
+    row.prepend(identity);
+    playerGrid.append(row);
   }
-  if (!players.length) addText(list, 'span', 'hint', 'Belum ada daftar pemain hidup.');
-  panel.append(list);
+  if (!players.length) addText(playerGrid, 'span', 'hint', 'Belum ada pemain.');
+  playerSection.append(playerGrid);
+  panel.append(playerSection);
+
+  if (Array.isArray(roomState.publicVotes) && roomState.publicVotes.length) {
+    const voting = node('section', 'public-vote-board');
+    const voteHeading = node('div', 'public-board-heading');
+    addText(voteHeading, 'b', '', 'VOTING TERBUKA');
+    addText(voteHeading, 'span', '', roomState.publicVotes.filter(item => item.hasVoted).length
+      + ' / ' + roomState.publicVotes.length + ' suara');
+    voting.append(voteHeading);
+    const voteList = node('div', 'public-vote-list');
+    for (const ballot of roomState.publicVotes) {
+      const row = node('div', 'public-vote-row' + (ballot.hasVoted ? ' vote-submitted' : ' vote-pending'));
+      addText(row, 'b', '', ballot.voterName);
+      addText(row, 'span', '', ballot.status || 'Belum memilih');
+      voteList.append(row);
+    }
+    voting.append(voteList);
+    panel.append(voting);
+  }
   parent.append(panel);
 }
 
@@ -1806,7 +1891,7 @@ function renderSystemHostPlayerContext(parent) {
     addText(panel, 'p', 'system-host-player-role', 'Kartu rahasia dan aksi pribadimu sama seperti pemain lain. Buka kartu saat diminta.');
   }
   addText(panel, 'p', 'system-host-player-note',
-    'Dashboard menampilkan progres umum. Role dan target rahasia pemain lain tetap tersembunyi.');
+    'Komposisi role dan status aksi pemain terlihat bersama. Role pemain yang masih hidup tetap rahasia.');
   parent.append(panel);
 }
 
@@ -1868,7 +1953,6 @@ function renderPlayerPhase(parent) {
     addText(parent, 'div', 'notice warning',
       'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
     if (phase === 'finished') renderVictoryScreen(parent, false);
-    renderLivingPlayers(parent);
     return;
   }
 
@@ -1886,7 +1970,6 @@ function renderPlayerPhase(parent) {
     case 'finished': renderVictoryScreen(parent, false); break;
     default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
   }
-  renderLivingPlayers(parent);
 }
 
 function renderModeratorLobby(parent) {
@@ -2024,7 +2107,7 @@ function renderModeratorDiscussion(parent) {
 }
 
 function renderModeratorVoting(parent) {
-  phaseHeader(parent, 'SORE · RONDE ' + roomState.room.round, 'Voting eksekusi', 'Pantau suara rahasia. Sistem mengumumkan hasil saat timer berakhir.');
+  phaseHeader(parent, 'SORE · RONDE ' + roomState.room.round, 'Voting eksekusi', 'Pantau pilihan setiap pemain secara terbuka. Sistem mengumumkan hasil saat timer berakhir.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
@@ -2875,7 +2958,7 @@ function renderPlayerVoting(parent) {
   const self = roomState.self || {};
   const room = roomState.room || {};
   phaseHeader(parent, 'SORE · RONDE ' + room.round, 'Voting eksekusi',
-    'Pilih pemain untuk eksekusi. Suara rahasia dan bisa diganti sampai timer habis.');
+    'Pilih pemain untuk eksekusi. Semua suara terlihat dan dapat diganti sampai timer habis.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
   if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
@@ -2886,7 +2969,7 @@ function renderPlayerVoting(parent) {
     return;
   }
   addText(parent, 'h3', '', 'Tentukan pilihanmu');
-  addText(parent, 'p', 'hint', 'Voting bersifat rahasia. Pilihan dapat diganti sampai timer habis.');
+  addText(parent, 'p', 'hint', 'Voting terbuka: semua pemain dapat melihat siapa memilih siapa, siapa yang abstain, dan siapa yang belum memilih. Pilihan dapat diganti sampai timer habis.');
   parent.append(button('Abstain · Tidak memilih siapa pun',
     'secondary wide phase-timed-action' + (self.voteAbstain ? ' selected' : ''),
     () => sendAction('cast_vote', { abstain: true })));
@@ -2909,7 +2992,7 @@ function renderPlayerVoteResult(parent) {
 
 
 async function leaveCurrentRoom() {
-  if (!session || isRoomModerator() || isHost()) return;
+  if (!session || isRoomModerator()) return;
   const activeSession = session;
   const wasWaiting = Boolean(roomState?.self?.isWaiting);
   try {
