@@ -2141,7 +2141,7 @@ function renderModeratorVoting(parent) {
 }
 
 function renderModeratorResult(parent) {
-  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Hasil eliminasi dapat dilihat semua pemain. Rincian pilihan suara tetap rahasia.');
+  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Hasil eliminasi dan rincian pilihan setiap pemain dapat dilihat semua pemain.');
   const result = roomState.room.lastResult;
   renderPublicResult(parent);
   const card = node('div', 'result-card');
