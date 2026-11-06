@@ -245,6 +245,7 @@ function hasSpecialNightAction(room, player) {
   switch (player.role) {
     case 'wolf':
     case 'alpha_wolf':
+    case 'wolf_seer':
       return alive.some(item => !isWolf(item.role));
     case 'seer':
       return abilityEnabled(room, 'seerInspection') && others.length > 0;
@@ -2393,13 +2394,30 @@ export class WerewolfRoom {
       let eliminatedId = null;
       const doctorHeal = actors.some(actor => room.nightActions[actor.id]?.type === 'witch_heal');
       let bodyguardInterception = null;
+      let trapperInterception = null;
       if (victimId && !protectedIds.has(victimId) && !doctorHeal) {
-        const guard = Object.entries(room.bodyguardTargets || {}).find(([guardId, targetId]) => targetId === victimId
-          && room.players.some(item => item.id === guardId && item.alive));
-        if (guard) bodyguardInterception = guard[0];
+        const trapper = actors.find(actor => actor.role === 'trapper'
+          && resolvedNightActions[actor.id]?.type === 'trapper_set'
+          && resolvedNightActions[actor.id]?.targetId === victimId);
+        if (trapper) {
+          const attackers = actors.filter(actor => isWolf(actor.role)
+            && resolvedNightActions[actor.id]?.type === 'wolf_vote'
+            && resolvedNightActions[actor.id]?.targetId === victimId)
+            .sort((left, right) =>
+              (Number(resolvedNightActions[left.id].submittedAt) || 0)
+              - (Number(resolvedNightActions[right.id].submittedAt) || 0)
+            );
+          trapperInterception = attackers[0]?.id || null;
+        }
+        if (!trapperInterception) {
+          const guard = Object.entries(room.bodyguardTargets || {}).find(([guardId, targetId]) => targetId === victimId
+            && room.players.some(item => item.id === guardId && item.alive));
+          if (guard) bodyguardInterception = guard[0];
+        }
       }
       const deaths = [];
-      if (victimId && !protectedIds.has(victimId) && !doctorHeal) {
+      if (trapperInterception) deaths.push({ id: trapperInterception, cause: 'trapper_capture' });
+      else if (victimId && !protectedIds.has(victimId) && !doctorHeal) {
         if (bodyguardInterception) deaths.push({ id: bodyguardInterception, cause: 'bodyguard_sacrifice' });
         else deaths.push({ id: victimId, cause: 'werewolf_attack' });
       }
@@ -2419,7 +2437,10 @@ export class WerewolfRoom {
       }
 
       const attackedPlayer = victimId ? room.players.find(item => item.id === victimId) : null;
-      if (victimId && (protectedIds.has(victimId) || doctorHeal)) {
+      if (trapperInterception) {
+        const caughtWolf = room.players.find(item => item.id === trapperInterception);
+        events.push('Perangkap Trapper menangkap ' + (caughtWolf?.name || 'Werewolf') + '. Target serangan ' + (attackedPlayer?.name || 'pemain') + ' selamat.');
+      } else if (victimId && (protectedIds.has(victimId) || doctorHeal)) {
         events.push('Target serangan Werewolf: ' + (attackedPlayer?.name || 'tidak diketahui') + '; serangan berhasil digagalkan oleh perlindungan.');
       } else if (bodyguardInterception) {
         const guard = room.players.find(item => item.id === bodyguardInterception);
@@ -2436,7 +2457,12 @@ export class WerewolfRoom {
         events.push('Witch menggunakan racun kepada ' + (poisoned?.name || 'target tidak diketahui') + '.');
       }
 
-      if (eliminated.length) {
+      if (trapperInterception) {
+        eliminatedId = trapperInterception;
+        const caughtWolf = room.players.find(item => item.id === trapperInterception);
+        message = 'Perangkap Trapper menangkap ' + (caughtWolf?.name || 'satu Werewolf') + '. Target serangan selamat.';
+        events.push('Korban akhir: ' + (caughtWolf?.name || 'Werewolf') + ' tertangkap perangkap.');
+      } else if (eliminated.length) {
         eliminatedId = eliminated[0].id;
         message = eliminated.map(item => item.name).join(' dan ') + ' tereliminasi pada malam hari.';
         events.push('Korban akhir: ' + eliminated.map(item => item.name).join(', ') + '.');
@@ -2451,11 +2477,12 @@ export class WerewolfRoom {
       const actionReport = [];
       const reportTargetName = id => room.players.find(item => item.id === id)?.name || 'Pemain';
       const reportRoleName = role => ({
-        wolf: 'Werewolf', alpha_wolf: 'Alpha Wolf', seer: 'Seer', doctor: 'Doctor',
-        bodyguard: 'Bodyguard', witch: 'Witch', hunter: 'Hunter', cupid: 'Cupid',
+        wolf: 'Werewolf', alpha_wolf: 'Alpha Wolf', wolf_seer: 'Wolf Seer',
+        seer: 'Seer', doctor: 'Doctor', bodyguard: 'Bodyguard', trapper: 'Trapper',
+        witch: 'Witch', hunter: 'Hunter', cupid: 'Cupid',
         guardian_angel: 'Guardian Angel', detective: 'Detective', mayor: 'Mayor',
         priest: 'Priest', vigilante: 'Vigilante', mason: 'Mason', reviver: 'Reviver',
-        jester: 'Jester', villager: 'Warga Desa'
+        jester: 'Penduduk Aneh', villager: 'Warga Desa'
       })[role] || 'Role';
       const addActionReport = (order, role, actor, action, outcome) => {
         actionReport.push({ order, role, actor, action, outcome });
@@ -2519,6 +2546,12 @@ export class WerewolfRoom {
               ? 'Target selamat oleh perlindungan lain.'
               : 'Tidak terpicu malam ini.';
           addActionReport(60, 'Bodyguard', actor.name, 'Menjaga ' + targetName, outcome);
+        } else if (action.type === 'trapper_set') {
+          const caughtWolf = room.players.find(item => item.id === trapperInterception);
+          const outcome = trapperInterception && action.targetId === victimId
+            ? 'Perangkap aktif; ' + (caughtWolf?.name || 'Werewolf') + ' tertangkap dan target selamat.'
+            : 'Tidak ada serangan Werewolf pada target perangkap.';
+          addActionReport(65, 'Trapper', actor.name, 'Memasang perangkap pada ' + targetName, outcome);
         } else if (action.type === 'guardian_protect') {
           const canProtect = abilityEnabled(room, 'guardianProtection');
           addActionReport(70, 'Guardian Angel', actor.name,
@@ -2576,7 +2609,13 @@ export class WerewolfRoom {
         const action = resolvedNightActions[bot.id];
         const targetName = action?.targetId ? reportName(action.targetId) : '';
         let text = 'Aku menyelesaikan perhitungan malam tadi; belum ada petunjuk khusus yang bisa kubagikan.';
-        if (action?.type === 'wolf_vote') text = 'Aku ikut menentukan sasaran malam tadi: ' + targetName + '. Menurutku kita perlu membahas mengapa dia menjadi sasaran.';
+        if (action?.type === 'wolf_vote' && bot.role === 'wolf_seer') {
+          text = 'Aku ikut menentukan sasaran serangan dan melakukan pengintaian malam tadi. Ada informasi tambahan yang perlu dipertimbangkan kawanan.';
+        } else if (action?.type === 'wolf_vote') {
+          text = 'Aku ikut menentukan sasaran malam tadi: ' + targetName + '. Menurutku kita perlu membahas mengapa dia menjadi sasaran.';
+        } else if (action?.type === 'trapper_set') {
+          text = 'Aku memasang perangkap pada ' + targetName + ' tadi malam. Kita lihat apakah ada yang tertangkap.';
+        }
         else if (action?.type === 'seer_inspect') {
           const clue = room.seerResults?.[bot.id];
           text = 'Aku memeriksa ' + (clue?.playerName || targetName) + ' tadi malam. Hasilnya: '
