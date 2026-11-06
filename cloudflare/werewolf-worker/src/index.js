@@ -7,10 +7,18 @@ const BOT_PERSONALITIES = ['calm', 'analytical', 'assertive', 'cautious'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const NARRATOR_DEVELOPER_EMAILS = new Set(['irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
 const ACCOUNT_API_BASE = 'https://hitung-cabai-api.andyirvan1609.workers.dev';
-const NARRATOR_CONFIG_ID = 'global-narrator-config';
-const MAX_NARRATOR_UPLOAD_BYTES = 20 * 1024 * 1024;
-const narratorSpeechInFlight = new Map();
-const narratorSpeechMemoryCache = new Map();
+const NARRATOR_STORAGE_ID = 'global-narrator-audio-clips';
+const MAX_NARRATOR_CLIP_BYTES = 3 * 1024 * 1024;
+const MAX_NARRATOR_TOTAL_BYTES = 48 * 1024 * 1024;
+const NARRATOR_CLIP_IDS = new Set([
+  'test_welcome', 'role_cards', 'role_secret', 'night_arrival', 'night_hunters',
+  'dawn_first', 'dawn_last', 'morning_clear', 'morning_safe', 'morning_many',
+  'morning_wolf', 'morning_shot', 'morning_poison', 'morning_guard', 'morning_lovers',
+  'morning_other', 'discussion_gather', 'discussion_suspicion', 'discussion_truth',
+  'voting_pole', 'voting_choice', 'voting_last', 'result_execution', 'result_no_execution',
+  'finished_open', 'finished_wolves', 'finished_villagers', 'finished_jester',
+  'finished_lovers', 'finished_default'
+]);
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -404,117 +412,76 @@ async function requireNarratorDeveloper(request) {
   return data.user;
 }
 
-async function narratorConfigRequest(env, method, config) {
-  if (!env.ROOMS) throw new HttpError(503, 'Penyimpanan suara narator belum dikonfigurasi.');
-  const stub = env.ROOMS.get(env.ROOMS.idFromName(NARRATOR_CONFIG_ID));
-  const init = { method };
-  if (config !== undefined) {
-    init.headers = { 'Content-Type': 'application/json' };
-    init.body = JSON.stringify({ config });
-  }
-  const response = await stub.fetch(new Request('https://room.internal/internal/narrator-config', init));
-  if (!response.ok) throw new HttpError(503, 'Penyimpanan suara narator tidak merespons.');
-  return response.json();
-}
-
-async function getNarratorConfig(env) {
-  const data = await narratorConfigRequest(env, 'GET');
-  return data.config || null;
-}
-
-async function setNarratorConfig(env, config) {
-  await narratorConfigRequest(env, 'PUT', config);
+async function narratorStorageRequest(env, path, init = {}) {
+  if (!env.ROOMS) throw new HttpError(503, 'Penyimpanan rekaman narator belum dikonfigurasi.');
+  const stub = env.ROOMS.get(env.ROOMS.idFromName(NARRATOR_STORAGE_ID));
+  return stub.fetch(new Request('https://room.internal' + path, init));
 }
 
 async function handleNarratorStatus(request, env) {
   await requireNarratorDeveloper(request);
-  const config = await getNarratorConfig(env);
-  return json({
-    configured: Boolean(config?.voiceId),
-    voiceName: config?.voiceName || '',
-    createdAt: config?.createdAt || null,
-    requiresVerification: Boolean(config?.requiresVerification)
-  });
+  const response = await narratorStorageRequest(env, '/internal/narrator-clips');
+  if (!response.ok) throw new HttpError(503, 'Daftar rekaman narator tidak dapat dibaca.');
+  const data = await response.json().catch(() => ({}));
+  const clips = Object.entries(data.clips || {}).map(([id, meta]) => ({
+    id,
+    size: Number(meta?.size || 0),
+    updatedAt: meta?.updatedAt || null,
+    fileName: meta?.fileName || ''
+  }));
+  return json({ clips });
 }
 
-async function handleNarratorVoiceUpload(request, env) {
-  const developer = await requireNarratorDeveloper(request);
-  if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'API key ElevenLabs belum dipasang di Cloudflare Worker.');
+async function handleNarratorClipUpload(request, env, id) {
+  await requireNarratorDeveloper(request);
+  if (!NARRATOR_CLIP_IDS.has(id)) throw new HttpError(404, 'Kalimat narator tidak ditemukan.');
   const contentLength = Number(request.headers.get('Content-Length') || 0);
-  if (contentLength > MAX_NARRATOR_UPLOAD_BYTES + 256 * 1024) throw new HttpError(413, 'Total rekaman maksimal 20 MB.');
-  const form = await request.formData();
-  if (String(form.get('consent') || '') !== 'true') {
-    throw new HttpError(400, 'Konfirmasi kepemilikan atau izin penggunaan suara diperlukan.');
+  if (contentLength > MAX_NARRATOR_CLIP_BYTES + 128 * 1024) {
+    throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
   }
-  const name = String(form.get('name') || 'The Village After Dark Narrator').trim().slice(0, 80);
-  const files = form.getAll('files[]').filter(file =>
-    file && typeof file.arrayBuffer === 'function' && Number(file.size) > 0
-  );
-  if (!files.length) throw new HttpError(400, 'Pilih minimal satu rekaman suara.');
-  const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
-  if (totalBytes > MAX_NARRATOR_UPLOAD_BYTES) throw new HttpError(413, 'Total rekaman maksimal 20 MB.');
+  const form = await request.formData();
+  const file = form.get('file');
+  if (!file || typeof file.arrayBuffer !== 'function' || !Number(file.size)) {
+    throw new HttpError(400, 'Pilih satu file rekaman audio.');
+  }
+  if (Number(file.size) > MAX_NARRATOR_CLIP_BYTES) {
+    throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
+  }
+  const extension = String(file.name || '').split('.').pop().toLowerCase();
   const allowedTypes = new Set([
     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
     'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/aac'
   ]);
-  const allowedExtensions = new Set(['mp3', 'wav', 'm4a', 'mp4', 'webm', 'ogg', 'aac']);
-  for (const file of files) {
-    const extension = String(file.name || '').split('.').pop().toLowerCase();
-    if (!allowedTypes.has(String(file.type || '').toLowerCase()) && !allowedExtensions.has(extension)) {
-      throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, WEBM, OGG, atau AAC.');
-    }
-  }
-
-  const payload = new FormData();
-  payload.append('name', name || 'The Village After Dark Narrator');
-  payload.append('description', 'Voice clone for narration in The Village After Dark.');
-  payload.append('labels', JSON.stringify({ language: 'id', use_case: 'game_narration' }));
-  for (const file of files) payload.append('files[]', file, file.name || 'narrator-sample');
-  let cloneResponse;
-  try {
-    cloneResponse = await fetch('https://api.elevenlabs.io/v1/voices/add', {
-      method: 'POST',
-      headers: { 'xi-api-key': env.ELEVENLABS_API_KEY },
-      body: payload
-    });
-  } catch {
-    throw new HttpError(502, 'Layanan pembuatan suara AI tidak dapat dihubungi.');
-  }
-  const cloneData = await cloneResponse.json().catch(() => ({}));
-  if (!cloneResponse.ok || !cloneData.voice_id) {
-    throw new HttpError(502, 'ElevenLabs gagal membuat suara. Periksa kualitas rekaman dan akses akun ElevenLabs.');
-  }
-  const config = {
-    voiceId: String(cloneData.voice_id),
-    voiceName: name || 'The Village After Dark Narrator',
-    createdAt: new Date().toISOString(),
-    requiresVerification: Boolean(cloneData.requires_verification),
-    ownerEmail: String(developer.email || '').trim().toLowerCase()
+  const extensionTypes = {
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', mp4: 'audio/mp4',
+    webm: 'audio/webm', ogg: 'audio/ogg', aac: 'audio/aac'
   };
-  await setNarratorConfig(env, config);
-  return json({
-    ok: true,
-    voiceName: config.voiceName,
-    createdAt: config.createdAt,
-    requiresVerification: config.requiresVerification
-  }, 201);
+  const contentType = String(file.type || '').toLowerCase() || extensionTypes[extension] || '';
+  if (!allowedTypes.has(contentType) && !extensionTypes[extension]) {
+    throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
+  }
+  const safeName = String(file.name || ('narrator-' + id)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+  const response = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType || extensionTypes[extension] || 'application/octet-stream',
+      'X-File-Name': safeName
+    },
+    body: await file.arrayBuffer()
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new HttpError(response.status, data.error || 'Rekaman gagal disimpan.');
+  return json({ ok: true, id, size: Number(file.size), fileName: safeName, updatedAt: data.updatedAt }, 201);
 }
 
-async function handleNarratorSpeech(request, env) {
-  const limiter = env.NARRATOR_TTS_LIMITER;
-  if (limiter?.limit) {
-    const result = await limiter.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
-    if (!result.success) throw new HttpError(429, 'Terlalu banyak permintaan suara narator. Coba lagi sebentar.');
-  }
-  const body = await readJson(request, 8192);
-  const text = String(body.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!text) throw new HttpError(400, 'Teks narator kosong.');
-  if (text.length > 1200) throw new HttpError(400, 'Teks narator maksimal 1.200 karakter.');
+async function handleNarratorClipPlayback(request, env, id) {
+  if (!NARRATOR_CLIP_IDS.has(id)) throw new HttpError(404, 'Kalimat narator tidak ditemukan.');
   if (bearer(request)) {
     await requireNarratorDeveloper(request);
   } else {
-    const roomCode = String(body.roomCode || '').toUpperCase();
-    const playerToken = String(body.playerToken || '');
+    const url = new URL(request.url);
+    const roomCode = String(url.searchParams.get('roomCode') || '').toUpperCase();
+    const playerToken = request.headers.get('X-Player-Token') || '';
     if (!validCode(roomCode) || !playerToken) throw new HttpError(401, 'Sesi permainan tidak valid.');
     const roomState = await callRoom(env, roomCode, '/internal/state', new Request('https://room.internal/internal/state', {
       method: 'GET',
@@ -522,62 +489,16 @@ async function handleNarratorSpeech(request, env) {
     }));
     if (!roomState.ok) throw new HttpError(401, 'Sesi permainan sudah berakhir. Masuk kembali ke room.');
   }
-  if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'Layanan suara AI belum dikonfigurasi.');
-  const config = await getNarratorConfig(env);
-  if (!config?.voiceId) throw new HttpError(404, 'Suara narator belum diunggah developer.');
-  if (config.requiresVerification) throw new HttpError(409, 'Suara narator menunggu verifikasi di ElevenLabs.');
-  const cache = globalThis.caches?.default;
-  const cacheHash = await digest(config.voiceId + '\n' + text);
-  const cacheKey = new Request('https://narrator-cache.invalid/' + cacheHash);
-  const audioHeaders = {
-    'Content-Type': 'audio/mpeg',
-    'Cache-Control': 'public, max-age=3600',
-    'X-Content-Type-Options': 'nosniff'
-  };
-  if (cache) {
-    const cached = await cache.match(cacheKey);
-    if (cached) return cached;
+  const response = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id));
+  if (!response.ok) {
+    if (response.status === 404) throw new HttpError(404, 'Rekaman untuk kalimat ini belum diunggah.');
+    throw new HttpError(503, 'Rekaman narator tidak dapat dimuat.');
   }
-  const memoryAudio = narratorSpeechMemoryCache.get(cacheHash);
-  if (memoryAudio) return new Response(memoryAudio.slice(0), { headers: audioHeaders });
-  const pending = narratorSpeechInFlight.get(cacheHash);
-  if (pending) return (await pending).clone();
-
-  const generation = (async () => {
-    let speech;
-    try {
-      speech = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(config.voiceId)
-        + '?output_format=mp3_44100_128', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': env.ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: { stability: 0.52, similarity_boost: 0.82, style: 0.18, use_speaker_boost: true }
-        })
-      });
-    } catch {
-      throw new HttpError(502, 'Layanan text-to-speech tidak dapat dihubungi.');
-    }
-    if (!speech.ok) throw new HttpError(502, 'ElevenLabs gagal menghasilkan suara narator.');
-    const bytes = new Uint8Array(await speech.arrayBuffer());
-    const audio = new Response(bytes, { headers: audioHeaders });
-    narratorSpeechMemoryCache.set(cacheHash, bytes);
-    while (narratorSpeechMemoryCache.size > 24) {
-      narratorSpeechMemoryCache.delete(narratorSpeechMemoryCache.keys().next().value);
-    }
-    if (cache) await cache.put(cacheKey, audio.clone()).catch(() => {});
-    return audio;
-  })();
-  narratorSpeechInFlight.set(cacheHash, generation);
-  try {
-    return (await generation).clone();
-  } finally {
-    narratorSpeechInFlight.delete(cacheHash);
-  }
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'private, max-age=60');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Content-Disposition', 'inline');
+  return new Response(response.body, { status: 200, headers });
 }
 
 export default {
