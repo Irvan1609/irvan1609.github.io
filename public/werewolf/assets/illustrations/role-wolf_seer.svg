@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
+<title id="title">Wolf Seer</title><desc id="desc">Potret Wolf Seer, pengintai rahasia dari kubu Werewolf.</desc>
+<defs><linearGradient id="cloak" x2="1" y2="1"><stop stop-color="#8e343d"/><stop offset="1" stop-color="#321c2b"/></linearGradient><linearGradient id="fur" x2="0" y2="1"><stop stop-color="#b7a6a0"/><stop offset="1" stop-color="#51434a"/></linearGradient><radialGradient id="eye"><stop stop-color="#fff4c2"/><stop offset=".35" stop-color="#ff6d56"/><stop offset="1" stop-color="#9b182d"/></radialGradient></defs>
+<circle cx="200" cy="190" r="154" fill="#291923"/><circle cx="200" cy="190" r="137" fill="none" stroke="#b94b4b" stroke-opacity=".65" stroke-width="4"/>
+<path d="M69 354q10-105 83-137l48 19 48-19q73 32 83 137z" fill="url(#cloak)" stroke="#d06a65" stroke-width="5"/>
+<path d="M116 177 91 73l81 46q28-17 56 0l81-46-25 104q-8 103-84 128-76-25-84-128z" fill="url(#fur)" stroke="#e0c2b6" stroke-width="6" stroke-linejoin="round"/>
+<path d="m121 158 48-29 31 24 31-24 48 29-24 83-55 43-55-43z" fill="#342a32" stroke="#d5aaa1" stroke-width="5"/>
+<path d="m154 180 42 8-22 18-22-5zm92 0-42 8 22 18 22-5z" fill="#1c1821"/>
+<path d="M159 186q16-13 31 0" fill="none" stroke="url(#eye)" stroke-width="9" stroke-linecap="round"/><path d="M210 186q16-13 31 0" fill="none" stroke="#d3b6a8" stroke-width="8" stroke-linecap="round"/>
+<path d="m190 226 10-8 10 8-10 12z" fill="#e0c5b8"/><path d="M174 245q26 20 52 0" fill="none" stroke="#201920" stroke-width="7" stroke-linecap="round"/>
+<path d="M200 45v38m-18-19h36" stroke="#e3b37a" stroke-width="7" stroke-linecap="round"/><circle cx="200" cy="64" r="21" fill="none" stroke="#e3b37a" stroke-width="4"/>
+<path d="M100 319q100-40 200 0" fill="none" stroke="#d69a83" stroke-width="4" stroke-linecap="round"/>
+</svg>

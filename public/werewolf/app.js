@@ -9,6 +9,7 @@ const PLAYER_NAME_KEY = 'werewolf.lastPlayerName';
 const ROLE_INFO = {
   wolf: ['Werewolf', 'Menentukan korban bersama kawanan.', 'Setiap malam pilih 1 pemain hidup di luar kubu Werewolf.'],
   alpha_wolf: ['Alpha Wolf', 'Suara serangan bernilai 2.', 'Setiap malam pilih 1 target bersama kawanan; tidak bisa memilih Werewolf.'],
+  wolf_seer: ['Wolf Seer', 'Membaca role pemain sambil tetap ikut serangan kawanan.', 'Setiap malam pilih target serangan Werewolf dan intai satu pemain. Hasil role hanya terlihat olehmu. Kamu tetap ikut memilih target serangan.'],
   villager: ['Warga Desa', 'Mengandalkan deduksi dan voting untuk menang bersama Desa.', 'Malam: jawab soal penjumlahan. Siang: diskusi dan pilih 1 pemain.'],
   seer: ['Seer', 'Mengungkap role asli pemain yang diperiksa.', 'Setiap malam periksa 1 pemain lain; role target tampil privat dan target diberi tanda warna.'],
   doctor: ['Doctor', 'Mencegah target tewas oleh serangan Werewolf.', 'Setiap malam lindungi 1 pemain hidup; boleh diri sendiri. Tidak menahan racun Witch.'],
@@ -20,7 +21,8 @@ const ROLE_INFO = {
   guardian_angel: ['Guardian Angel', 'Melindungi target dan berpeluang menang bonus.', 'Setiap malam pilih 1 pemain lain. Bonus jika kamu hidup dan target terakhir tetap hidup saat game berakhir.'],
   detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
   mayor: ['Mayor', 'Suara voting bernilai 2.', 'Malam: jawab perhitungan seperti Warga Desa. Voting: suaramu bernilai 2.'],
-  jester: ['Jester', 'Menang sendiri jika dieliminasi melalui voting.', 'Malam: jawab perhitungan seperti Warga Desa. Menang jika gugur melalui voting, bukan serangan malam atau tembakan.'],
+  jester: ['Penduduk Aneh (Jester)', 'Berada di kubu Desa, tetapi menang sendiri jika dipilih melalui voting.', 'Malam: jawab perhitungan seperti Warga Desa. Jika memperoleh mayoritas mutlak dan tereliminasi melalui voting, Penduduk Aneh langsung menang sendiri. Tidak menang jika gugur karena serangan malam atau tembakan.'],
+  trapper: ['Trapper', 'Memasang perangkap untuk menangkap penyerang Werewolf.', 'Setiap malam pilih satu pemain lain. Jika Werewolf menyerang target itu, target selamat dan satu Werewolf yang ikut menyerang tereliminasi. Perangkap diperbarui setiap malam.'],
   priest: ['Priest', 'Memiliki satu berkah perlindungan untuk satu pemain.', 'Sekali per game, lindungi satu pemain dari serangan Werewolf. Boleh melindungi diri sendiri. Jika berkah sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   vigilante: ['Vigilante', 'Memiliki satu tembakan untuk mengeliminasi pemain lain.', 'Sekali per game, tembak satu pemain hidup pada malam hari. Tidak dapat menargetkan diri sendiri. Jika tembakan sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   mason: ['Mason', 'Mengenali anggota Mason lain yang masih hidup.', 'Mason dapat melihat nama sesama Mason. Tidak memiliki aksi khusus malam; jawab perhitungan seperti Warga Desa.'],
@@ -28,6 +30,8 @@ const ROLE_INFO = {
 };
 const EXTRA_ROLE_OPTIONS = [
   ['alphaWolf', 'Alpha Wolf', 'Role Werewolf khusus; kemampuan suara serangan ganda dapat diatur moderator.'],
+  ['wolfSeer', 'Wolf Seer', 'Menyelidiki role pemain sambil tetap ikut memilih serangan kawanan.'],
+  ['trapper', 'Trapper', 'Menangkap satu Werewolf jika target perangkap diserang kawanan.'],
   ['bodyguard', 'Bodyguard', 'Mengorbankan diri untuk menyelamatkan target dari serangan.'],
   ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
@@ -36,27 +40,27 @@ const EXTRA_ROLE_OPTIONS = [
   ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
   ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
-  ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.'],
+  ['jester', 'Penduduk Aneh', 'Berada di kubu Desa dan menang sendiri jika tereliminasi melalui voting.'],
   ['priest', 'Priest', 'Sekali per game melindungi satu pemain dari serangan Werewolf.'],
   ['vigilante', 'Vigilante', 'Sekali per game menembak satu pemain pada malam hari.'],
   ['mason', 'Mason', 'Mengenali sesama Mason; malam tanpa aksi khusus diisi perhitungan.']
 ];
 const ROLE_CONFIG_GROUPS = [
   { key: 'wolves', label: 'KUBU WEREWOLF', roles: [
-    ['wolf', 'Werewolf'], ['alpha_wolf', 'Alpha Wolf']
+    ['wolf', 'Werewolf'], ['alpha_wolf', 'Alpha Wolf'], ['wolf_seer', 'Wolf Seer']
   ]},
   { key: 'village', label: 'KUBU DESA', roles: [
-    ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
+    ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'], ['trapper', 'Trapper'],
     ['witch', 'Witch'], ['hunter', 'Hunter'], ['reviver', 'Reviver'], ['cupid', 'Cupid'],
     ['detective', 'Detective'], ['mayor', 'Mayor'], ['priest', 'Priest'],
-    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['villager', 'Warga Desa']
+    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['jester', 'Penduduk Aneh'], ['villager', 'Warga Desa']
   ]},
   { key: 'neutral', label: 'KUBU NETRAL', roles: [
-    ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
+    ['guardian_angel', 'Guardian Angel']
   ]}
 ];
 const ROLE_COUNT_DEFAULTS = {
-  wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
+  wolf: 1, alpha_wolf: 0, wolf_seer: 0, seer: 1, doctor: 1, bodyguard: 0, trapper: 0, witch: 0,
   hunter: 0, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
   priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
   moderator: 0
@@ -535,6 +539,11 @@ function refreshVoiceUI() {
   if (audio) audio.classList.toggle('hidden', !voiceNeedsAudioGesture);
 }
 
+function updateRemoteVoiceVolume() {
+  const volume = voiceLocalStream && !voiceMuted ? 0.14 : 0.2;
+  for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
+}
+
 function closeVoicePeer(peerId) {
   const connection = voicePeerConnections.get(peerId);
   if (connection) {
@@ -638,6 +647,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
+      audio.volume = voiceLocalStream && !voiceMuted ? 0.14 : 0.2;
       audio.className = 'voice-audio';
       audio.dataset.peerId = peerId;
       document.body.append(audio);
@@ -717,7 +727,14 @@ async function startDiscussionVoice(manual = false) {
         throw new Error('Akses mikrofon tidak tersedia. Gunakan browser HTTPS yang mendukung mikrofon.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: {
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 48000 },
+          latency: { ideal: 0.04 }
+        },
         video: false
       });
       if (generation !== voiceGeneration || !discussionVoiceAllowed()) {
@@ -727,6 +744,7 @@ async function startDiscussionVoice(manual = false) {
       voiceLocalStream = stream;
       voiceMuted = false;
       for (const track of stream.getAudioTracks()) track.enabled = true;
+      updateRemoteVoiceVolume();
       voiceStatus = 'Mikrofon aktif · menghubungkan pemain diskusi…';
       refreshVoiceUI();
       for (const peerId of [...voicePeerConnections.keys()]) closeVoicePeer(peerId);
@@ -792,6 +810,7 @@ function toggleVoiceMic() {
   }
   voiceMuted = !voiceMuted;
   for (const track of voiceLocalStream.getAudioTracks()) track.enabled = !voiceMuted;
+  updateRemoteVoiceVolume();
   voiceStatus = voiceMuted ? 'Mikrofon dimatikan.' : 'Mikrofon aktif.';
   refreshVoiceUI();
 }
@@ -808,7 +827,6 @@ async function unlockRemoteAudio() {
 
 async function handleVoiceSignal(message) {
   if (!discussionVoiceListeningAllowed() || !message?.fromId) return;
-  if (discussionVoiceAllowed() && !voiceLocalStream) await startDiscussionVoice(true);
   const peer = (roomState.voicePeers || []).find(item => item.id === message.fromId)
     || { id: message.fromId, name: message.fromName || 'Pemain' };
   let connection = voicePeerConnections.get(peer.id);
@@ -816,12 +834,18 @@ async function handleVoiceSignal(message) {
   if (!connection) return;
 
   if (message.signalKind === 'offer') {
+    if (connection.signalingState !== 'stable') {
+      const polite = String(roomState.self.id).localeCompare(String(peer.id)) > 0;
+      if (!polite) return;
+      await connection.setLocalDescription({ type: 'rollback' });
+    }
     await connection.setRemoteDescription(message.payload);
     await flushVoiceCandidates(peer.id, connection);
     const answer = await connection.createAnswer();
     await connection.setLocalDescription(answer);
     sendVoiceSignal(peer.id, 'answer', connection.localDescription);
   } else if (message.signalKind === 'answer') {
+    if (connection.signalingState !== 'have-local-offer') return;
     await connection.setRemoteDescription(message.payload);
     await flushVoiceCandidates(peer.id, connection);
   } else if (message.signalKind === 'candidate') {
@@ -923,6 +947,7 @@ function roleSettingsForUI(settings = {}) {
   if (draft) return {
     roleCounts: { ...ROLE_COUNT_DEFAULTS, ...draft.roleCounts },
     moderatorMode: draft.moderatorMode,
+    revealRoleOnDeath: draft.revealRoleOnDeath !== false,
     timers: { roleDrawSeconds: 20, nightSeconds: 60, dawnSeconds: 20, discussionSeconds: 30, votingSeconds: 15, resultSeconds: 8, ...(draft.timers || {}) }
   };
   return {
@@ -930,6 +955,7 @@ function roleSettingsForUI(settings = {}) {
       ? { ...ROLE_COUNT_DEFAULTS, ...settings.roleCounts }
       : recommendedRoleCounts(Math.max(0, (roomState?.players?.length || 0) - (storedMode === 'system' ? 0 : 1))),
     moderatorMode: storedMode,
+    revealRoleOnDeath: settings.revealRoleOnDeath !== false,
     timers: {
       roleDrawSeconds: Number(settings.timers?.roleDrawSeconds ?? 20),
       nightSeconds: Number(settings.timers?.nightSeconds ?? 60),
@@ -945,9 +971,9 @@ function roleConfigTotals(roleCounts = {}) {
   const sum = keys => keys.reduce((total, key) => total + Number(roleCounts[key] || 0), 0);
   return {
     total: sum(ROLE_CONFIG_GROUPS.flatMap(group => group.roles.map(([key]) => key))),
-    wolves: sum(['wolf', 'alpha_wolf']),
+    wolves: sum(['wolf', 'alpha_wolf', 'wolf_seer']),
     village: sum(ROLE_CONFIG_GROUPS.find(group => group.key === 'village').roles.map(([key]) => key)),
-    neutral: sum(['guardian_angel', 'jester'])
+    neutral: sum(['guardian_angel'])
   };
 }
 
@@ -957,11 +983,16 @@ function updateRoleConfigSummary(container) {
   const roleCounts = {};
   for (const input of container.querySelectorAll('[data-role-count]')) roleCounts[input.dataset.roleCount] = Math.max(0, Number(input.value) || 0);
   const totals = roleConfigTotals(roleCounts);
+  const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || roleDraft?.moderatorMode || 'host';
+  const activePlayers = rolePlayerCount(moderatorMode);
+  const exact = totals.total === activePlayers;
+  const ready = activePlayers >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
   summary.replaceChildren();
+  addText(summary, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
   const grid = node('div', 'role-team-summary');
   for (const [label, value] of [
-    ['Total role', totals.total], ['Werewolf', totals.wolves],
-    ['Desa', totals.village], ['Netral', totals.neutral]
+    ['Werewolf', totals.wolves], ['Desa', totals.village],
+    ['Netral', totals.neutral], ['Total role', totals.total + ' / ' + activePlayers]
   ]) {
     const item = node('div', 'role-team-summary-item');
     addText(item, 'b', '', String(value));
@@ -969,6 +1000,15 @@ function updateRoleConfigSummary(container) {
     grid.append(item);
   }
   summary.append(grid);
+  addText(summary, 'p', ready ? 'hint' : 'notice warning',
+    activePlayers < 2 ? 'Minimal 2 pemain aktif diperlukan.'
+      : !exact ? 'Komposisi kurang ' + Math.max(0, activePlayers - totals.total)
+        + ' atau kelebihan ' + Math.max(0, totals.total - activePlayers) + ' role.'
+        : totals.wolves < 1 || totals.village < 1
+          ? 'Harus ada minimal satu Werewolf dan satu anggota Desa.'
+          : 'Komposisi tepat. Permainan siap dimulai.');
+  const startButton = $('startGameButton');
+  if (startButton) startButton.disabled = !ready;
 }
 
 function captureRoleDraft(container, event) {
@@ -990,7 +1030,10 @@ function captureRoleDraft(container, event) {
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
-  roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
+  roleDraft = {
+    code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
   updateRoleConfigSummary(container);
 }
 
@@ -1005,7 +1048,10 @@ function clearAllRoleCounts(container) {
   for (const input of container.querySelectorAll('[data-phase-duration]')) {
     timers[input.dataset.phaseDuration] = Math.max(3, Number(input.value) || 3);
   }
-  roleDraft = { code: roomState?.room?.code, roleCounts, moderatorMode, timers };
+  roleDraft = {
+    code: roomState?.room?.code, roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
   updateRoleConfigSummary(container);
 }
 
@@ -1045,6 +1091,20 @@ function renderRoleConfigEditor(container, settings) {
   addText(roleActions, 'p', 'hint', 'Kosongkan semua jumlah role pemain untuk menyusun komposisi secara manual. Mode moderator tidak berubah.');
   moderatorSection.append(roleActions);
   container.append(moderatorSection);
+
+  const informationSection = node('section', 'role-config-team role-information-config');
+  addText(informationSection, 'div', 'role-section-label', 'INFORMASI PERMAINAN');
+  const revealLabel = node('label', 'role-death-reveal-setting');
+  const revealInput = node('input');
+  revealInput.type = 'checkbox';
+  revealInput.checked = config.revealRoleOnDeath !== false;
+  revealInput.dataset.revealRoleOnDeath = 'true';
+  addText(revealLabel, 'span', '', 'Perlihatkan role pemain saat mati');
+  revealLabel.prepend(revealInput);
+  informationSection.append(revealLabel);
+  addText(informationSection, 'p', 'hint', 'Aktif secara default. Jika dimatikan, nama role tetap terlihat sebagai komposisi permainan, tetapi role pemain yang mati tidak dibuka.');
+  container.append(informationSection);
+
   for (const group of ROLE_CONFIG_GROUPS) {
     const section = node('section', 'role-config-team role-team-' + group.key);
     addText(section, 'div', 'role-section-label', group.label);
@@ -1151,7 +1211,10 @@ function readRoleSettings(container) {
     }
     timers[input.dataset.phaseDuration] = seconds;
   }
-  return { roleCounts, moderatorMode, timers };
+  return {
+    roleCounts, moderatorMode, timers,
+    revealRoleOnDeath: container.querySelector('[data-reveal-role-on-death]')?.checked !== false
+  };
 }
 
 function renderModeratorDashboard(parent) {
@@ -1315,6 +1378,25 @@ function updatePhaseTracker(phase) {
   }
 }
 
+function syncBotTakeoverDialog() {
+  const dialog = $('botTakeoverDialog');
+  if (!dialog) return;
+  const controlled = Boolean(roomState?.self?.isBotControlled && !roomState?.self?.isWaiting);
+  const message = $('botTakeoverMessage');
+  if (message && controlled) {
+    const phaseLabels = { role_draw: 'membuka kartu', night: 'melakukan aksi malam', dawn: 'melakukan aksi subuh', voting: 'memberikan suara' };
+    message.textContent = 'Kamu melewatkan batas waktu ' + (phaseLabels[roomState.room.phase] || 'aksi')
+      + '. BOT sementara mengambil alih agar permainan tetap berjalan. Kamu dapat kembali bermain atau keluar dari room.';
+  }
+  if (controlled && !dialog.open) {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  } else if (!controlled && dialog.open) {
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+  }
+}
+
 function renderRoom() {
   if (!roomState) return;
   const room = roomState.room;
@@ -1376,7 +1458,9 @@ function renderRoom() {
   content.replaceChildren();
   if (moderator) renderModeratorPhase(content);
   else renderPlayerPhase(content);
+  if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
   renderDiscussionTools(content);
+  syncBotTakeoverDialog();
   if (activeId) {
     const replacement = document.getElementById(activeId);
     if (replacement && activeValue !== undefined) {
@@ -1744,32 +1828,91 @@ function renderModeratorPhase(parent) {
 }
 
 function renderLivingPlayers(parent) {
-  const players = Array.isArray(roomState.livingPlayers) ? roomState.livingPlayers : [];
-  const panel = node('section', 'living-players-panel');
-  const heading = node('div', 'living-players-heading');
-  addText(heading, 'b', '', 'MASIH HIDUP');
-  addText(heading, 'span', '', players.length + ' pemain');
-  panel.append(heading);
-  const list = node('div', 'living-players-list');
+  const players = Array.isArray(roomState.publicPlayers) ? roomState.publicPlayers : [];
+  const roles = Array.isArray(roomState.publicRoles) ? roomState.publicRoles : [];
+  const panel = node('section', 'public-game-board');
+
+  const roleSection = node('section', 'public-role-board');
+  const roleHeading = node('div', 'public-board-heading');
+  addText(roleHeading, 'b', '', 'ROLE DALAM PERMAINAN');
+  addText(roleHeading, 'span', '', roles.length + ' jenis role');
+  roleSection.append(roleHeading);
+  const roleGrid = node('div', 'public-role-grid');
+  for (const entry of roles) {
+    const card = node('article', 'public-role-card faction-' + entry.faction);
+    const title = node('div', 'public-role-title');
+    addText(title, 'b', '', roleLabel(entry.role));
+    addText(title, 'span', '', '×' + entry.count);
+    card.append(title);
+    const aliveCount = Math.max(0, Number(entry.count || 0) - Number(entry.deceasedCount || 0));
+    addText(card, 'div', 'public-role-alive-count', aliveCount + ' pemain hidup · role dirahasiakan');
+    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
+      const deceased = node('div', 'public-role-deceased-list');
+      for (const name of entry.deceasedNames) {
+        const deadName = node('span', 'public-role-deceased-name', '| ' + name);
+        deceased.append(deadName);
+      }
+      card.append(deceased);
+    }
+    roleGrid.append(card);
+  }
+  if (!roles.length) addText(roleGrid, 'span', 'hint', 'Komposisi role belum tersedia.');
+  roleSection.append(roleGrid);
+  panel.append(roleSection);
+
+  const playerSection = node('section', 'public-player-board');
+  const playerHeading = node('div', 'public-board-heading');
+  addText(playerHeading, 'b', '', 'PEMAIN & STATUS');
+  const living = players.filter(player => player.alive).length;
+  addText(playerHeading, 'span', '', living + ' / ' + players.length + ' hidup');
+  playerSection.append(playerHeading);
+  const playerGrid = node('div', 'public-player-grid');
   const history = new Map((roomState.self?.seerHistory || []).map(item => [item.targetId, item]));
   for (const player of players) {
-    const name = String(player.name || 'Pemain');
     const inspected = history.get(player.id);
     const result = inspected?.result;
     const isWolf = result === 'wolf' || result === 'wolf_team' || inspected?.targetFaction === 'wolves';
     const isNeutral = result === 'neutral' || inspected?.targetFaction === 'neutral';
-    const chip = node('span', 'living-player-chip' + (inspected ? ' seer-inspected ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe') : ''));
-    chip.append(node('span', 'living-player-dot'), document.createTextNode(name));
-    if (inspected) {
+    const row = node('article', 'public-player-row' + (player.alive ? ' is-alive' : ' is-dead'));
+    const identity = node('div', 'public-player-identity');
+    addText(identity, 'b', '', player.name);
+    if (player.revealedRole) addText(identity, 'small', 'public-player-revealed-role', roleLabel(player.revealedRole));
+    if (inspected && player.alive) {
       const label = roomState.self.role === 'detective'
         ? (isWolf ? 'Werewolf' : isNeutral ? 'Netral' : 'Desa')
         : (inspected.targetRole ? roleLabel(inspected.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
-      chip.append(node('small', 'seer-inspection-tag', label));
+      addText(identity, 'small', 'seer-inspection-tag', label);
     }
-    list.append(chip);
+    const statusText = player.isBotControlled
+      ? 'BOT · ' + (player.phaseStatus || 'Mengambil alih')
+      : player.phaseStatus || (player.alive ? 'Hidup' : 'Tereliminasi');
+    const status = node('span', 'public-player-status' + (player.alive ? ' status-alive' : ' status-dead'));
+    status.textContent = statusText;
+    row.append(status);
+    row.prepend(identity);
+    playerGrid.append(row);
   }
-  if (!players.length) addText(list, 'span', 'hint', 'Belum ada daftar pemain hidup.');
-  panel.append(list);
+  if (!players.length) addText(playerGrid, 'span', 'hint', 'Belum ada pemain.');
+  playerSection.append(playerGrid);
+  panel.append(playerSection);
+
+  if (Array.isArray(roomState.publicVotes) && roomState.publicVotes.length) {
+    const voting = node('section', 'public-vote-board');
+    const voteHeading = node('div', 'public-board-heading');
+    addText(voteHeading, 'b', '', 'VOTING TERBUKA');
+    addText(voteHeading, 'span', '', roomState.publicVotes.filter(item => item.hasVoted).length
+      + ' / ' + roomState.publicVotes.length + ' suara');
+    voting.append(voteHeading);
+    const voteList = node('div', 'public-vote-list');
+    for (const ballot of roomState.publicVotes) {
+      const row = node('div', 'public-vote-row' + (ballot.hasVoted ? ' vote-submitted' : ' vote-pending'));
+      addText(row, 'b', '', ballot.voterName);
+      addText(row, 'span', '', ballot.status || 'Belum memilih');
+      voteList.append(row);
+    }
+    voting.append(voteList);
+    panel.append(voting);
+  }
   parent.append(panel);
 }
 
@@ -1788,7 +1931,7 @@ function renderSystemHostPlayerContext(parent) {
     addText(panel, 'p', 'system-host-player-role', 'Kartu rahasia dan aksi pribadimu sama seperti pemain lain. Buka kartu saat diminta.');
   }
   addText(panel, 'p', 'system-host-player-note',
-    'Dashboard menampilkan progres umum. Role dan target rahasia pemain lain tetap tersembunyi.');
+    'Komposisi role dan status aksi pemain terlihat bersama. Role pemain yang masih hidup tetap rahasia.');
   parent.append(panel);
 }
 
@@ -1848,9 +1991,8 @@ function renderPlayerPhase(parent) {
 
   if (self.isBotControlled) {
     addText(parent, 'div', 'notice warning',
-      'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
+      'BOT sementara menjalankan role dan aksimu. Pilih Kembali Bermain untuk mengambil kendali lagi atau Keluar Room untuk meninggalkan permainan.');
     if (phase === 'finished') renderVictoryScreen(parent, false);
-    renderLivingPlayers(parent);
     return;
   }
 
@@ -1868,7 +2010,6 @@ function renderPlayerPhase(parent) {
     case 'finished': renderVictoryScreen(parent, false); break;
     default: addText(parent, 'p', 'notice', 'Menunggu moderator.');
   }
-  renderLivingPlayers(parent);
 }
 
 function renderModeratorLobby(parent) {
@@ -1892,39 +2033,6 @@ function renderModeratorLobby(parent) {
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
-  parent.append(button('Simpan pengaturan role', 'secondary wide', async () => {
-    try {
-      const saved = await sendAction('update_settings', { settings: readRoleSettings(configEditor) });
-      if (saved) {
-        roleDraft = null;
-        renderRoom();
-        showMessage('Pengaturan role berhasil disimpan. Pilihan host akan dipertahankan.');
-      }
-    } catch (error) { showMessage(error.message, true); }
-  }));
-
-  const config = roleSettingsForUI(settings);
-  const totals = roleConfigTotals(config.roleCounts);
-  const activePlayerCount = rolePlayerCount(config.moderatorMode);
-  const exact = totals.total === activePlayerCount;
-  const balance = node('div', 'role-balance');
-  addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
-  const balanceGrid = node('div', 'role-balance-grid');
-  for (const [label, count] of [
-    ['Werewolf', totals.wolves], ['Desa', totals.village], ['Netral', totals.neutral], ['Total role', totals.total]
-  ]) {
-    const item = node('div', 'role-balance-item');
-    addText(item, 'b', '', String(count));
-    addText(item, 'span', '', label);
-    balanceGrid.append(item);
-  }
-  balance.append(balanceGrid);
-  if (activePlayerCount < 2) addText(balance, 'p', 'hint', 'Minimal 2 pemain aktif diperlukan setelah moderator dipilih.');
-  else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + activePlayerCount + ' pemain aktif. Sesuaikan angka role lalu simpan.');
-  else if (totals.wolves < 1 || totals.village < 1) addText(balance, 'p', 'notice warning', 'Harus ada minimal satu anggota kubu Werewolf dan satu anggota kubu Desa.');
-  else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain aktif.');
-  parent.append(balance);
-
   const maxBotsPerBatch = 500;
   const botBox = node('div', 'bot-setup');
   addText(botBox, 'h3', '', 'Mode latihan vs bot');
@@ -1952,16 +2060,18 @@ function renderModeratorLobby(parent) {
   addText(botBox, 'p', 'hint', 'Maksimal 500 bot dalam satu penambahan. Untuk jumlah lebih besar, lakukan beberapa kali.');
   parent.append(botBox);
 
-  const canStart = activePlayerCount >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
-  parent.append(button('Mulai Permainan & Bagikan Kartu', 'primary wide', async () => {
+  const startButton = button('Mulai Permainan & Bagikan Kartu', 'primary wide', async () => {
     try {
       const saved = await sendAction('update_settings', { settings: readRoleSettings(configEditor) });
       if (!saved) return;
       roleDraft = null;
       await sendAction('start_game');
     } catch (error) { showMessage(error.message, true); }
-  }, !canStart));
-  addText(parent, 'p', 'hint', 'Kartu dibagikan secara privat. Setiap pemain membukanya sendiri pada perangkat masing-masing.');
+  });
+  startButton.id = 'startGameButton';
+  parent.append(startButton);
+  updateRoleConfigSummary(configEditor);
+  addText(parent, 'p', 'hint', 'Pengaturan role diterapkan otomatis saat permainan dimulai. Kartu dibagikan secara privat.');
   renderReplayArchive(parent);
 }
 
@@ -2037,7 +2147,7 @@ function renderModeratorDiscussion(parent) {
 }
 
 function renderModeratorVoting(parent) {
-  phaseHeader(parent, 'SORE · RONDE ' + roomState.room.round, 'Voting eksekusi', 'Pantau suara rahasia. Sistem mengumumkan hasil saat timer berakhir.');
+  phaseHeader(parent, 'SORE · RONDE ' + roomState.room.round, 'Voting eksekusi', 'Pantau pilihan setiap pemain secara terbuka. Sistem mengumumkan hasil saat timer berakhir.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
@@ -2047,7 +2157,7 @@ function renderModeratorVoting(parent) {
 }
 
 function renderModeratorResult(parent) {
-  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Hasil eliminasi dapat dilihat semua pemain. Rincian pilihan suara tetap rahasia.');
+  phaseHeader(parent, 'HASIL VOTING', 'Bacakan hasil voting', 'Hasil eliminasi dan rincian pilihan setiap pemain dapat dilihat semua pemain.');
   const result = roomState.room.lastResult;
   renderPublicResult(parent);
   const card = node('div', 'result-card');
@@ -2144,7 +2254,7 @@ function renderPlayerNight(parent) {
     addText(parent, 'div', 'notice', 'Waktu aksi tengah malam berakhir. Pilihan sedang dikunci untuk diproses.');
     return;
   }
-  if (['wolf', 'alpha_wolf'].includes(self.role)) {
+  if (['wolf', 'alpha_wolf', 'wolf_seer'].includes(self.role)) {
     renderWolfNightRoom(parent);
     addText(parent, 'h3', '', 'Pilih target serangan');
     addText(parent, 'p', 'hint', 'Pilihan kawanan diperbarui realtime. Kamu dapat mengganti target kapan saja sebelum tengah malam berakhir.');
@@ -2154,10 +2264,32 @@ function renderPlayerNight(parent) {
     for (const target of wolfTargets) {
       wolfGrid.append(button('Serang · ' + target.name,
         'action-button' + (self.nightActionTargetId === target.id ? ' selected' : ''),
-        () => sendAction('night_action', { targetId: target.id })));
+        () => sendAction('night_action', {
+          targetId: target.id,
+          ...(self.role === 'wolf_seer' && self.wolfSeerInspectTargetId
+            ? { inspectTargetId: self.wolfSeerInspectTargetId } : {})
+        })));
     }
     if (!wolfTargets.length) addText(parent, 'div', 'notice warning', 'Tidak ada target serangan yang tersedia.');
     else parent.append(wolfGrid);
+    if (self.role === 'wolf_seer' && abilityOn('wolfSeerInspection')) {
+      const inspectedIds = new Set((self.seerHistory || []).map(item => item.targetId));
+      const inspectTargets = (roomState.targets || []).filter(target =>
+        target.id !== self.id && !inspectedIds.has(target.id));
+      addText(parent, 'h3', '', 'Intai role pemain');
+      addText(parent, 'p', 'hint', 'Pilih satu pemain untuk mengetahui role aslinya. Hasil hanya terlihat oleh Wolf Seer. Pilihan dapat diganti sampai tengah malam berakhir.');
+      const inspectGrid = node('div', 'action-grid');
+      for (const target of inspectTargets) {
+        inspectGrid.append(button('Intai · ' + target.name,
+          'action-button' + (self.wolfSeerInspectTargetId === target.id ? ' selected' : ''),
+          () => sendAction('night_action', {
+            ...(self.nightActionTargetId ? { targetId: self.nightActionTargetId } : {}),
+            inspectTargetId: target.id
+          })));
+      }
+      if (!inspectTargets.length) addText(parent, 'div', 'notice', 'Semua pemain hidup sudah pernah kamu intai.');
+      else parent.append(inspectGrid);
+    }
     return;
   }
 
@@ -2173,12 +2305,13 @@ function renderPlayerNight(parent) {
     return true;
   });
 
-  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'].includes(self.role)) {
+  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper'].includes(self.role)) {
     const titles = {
       seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
       bodyguard: 'Jaga pemain',
       guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan',
-      priest: 'Gunakan berkah perlindungan', vigilante: 'Gunakan tembakan'
+      priest: 'Gunakan berkah perlindungan', vigilante: 'Gunakan tembakan',
+      trapper: 'Pasang perangkap'
     };
     addText(parent, 'h3', '', titles[self.role]);
     addText(parent, 'p', 'hint', self.role === 'seer' || self.role === 'detective'
@@ -2187,7 +2320,8 @@ function renderPlayerNight(parent) {
     const actionVerb = self.role === 'seer' || self.role === 'detective' ? 'Periksa'
       : self.role === 'doctor' || self.role === 'priest' ? 'Lindungi'
         : self.role === 'bodyguard' ? 'Jaga'
-          : self.role === 'vigilante' ? 'Tembak' : 'Pilih';
+          : self.role === 'vigilante' ? 'Tembak'
+            : self.role === 'trapper' ? 'Perangkap' : 'Pilih';
     const grid = node('div', 'action-grid');
     for (const target of targets) {
       grid.append(button(actionVerb + ' · ' + target.name,
@@ -2306,6 +2440,8 @@ function renderDiscussionTools(parent) {
     status.id = 'voiceStatus';
     const count = addText(voiceMeta, 'span', 'voice-peer-count', '0 pemain terhubung');
     count.id = 'voicePeerCount';
+    addText(voiceMeta, 'small', 'voice-feedback-note',
+      'Jika beberapa pemain satu ruangan, gunakan headset. Peredam gema aktif otomatis.');
     heading.append(voiceMeta);
   } else {
     addText(heading, 'span', 'chat-mode-note', 'Voice tidak aktif');
@@ -2402,23 +2538,27 @@ function renderDiscussionTools(parent) {
 function renderPrivateInspectionResult(parent) {
   const self = roomState.self || {};
   const history = Array.isArray(self.seerHistory) ? self.seerHistory : [];
-  if (!['seer', 'detective'].includes(self.role) || !history.length) return;
+  if (!['seer', 'detective', 'wolf_seer'].includes(self.role) || !history.length) return;
   const panel = node('section', 'private-inspection-panel');
-  addText(panel, 'div', 'eyebrow-small', 'HASIL PENERAWANGAN PRIBADI');
+  addText(panel, 'div', 'eyebrow-small', self.role === 'wolf_seer' ? 'INTEL KAWANAN · RAHASIA' : 'HASIL PENERAWANGAN PRIBADI');
   for (const result of history.slice().sort((a, b) => a.round - b.round)) {
     const isWolf = result.result === 'wolf' || result.result === 'wolf_team'
       || result.targetFaction === 'wolves';
     const isNeutral = result.result === 'neutral' || result.targetFaction === 'neutral';
     const faction = self.role === 'detective'
       ? (isWolf ? 'Kubu Werewolf' : isNeutral ? 'Kubu Netral' : 'Kubu Desa')
-      : (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
+      : self.role === 'wolf_seer'
+        ? (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf')
+        : (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
     const row = node('div', 'private-inspection-item ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe'));
     addText(row, 'span', 'private-inspection-round', 'R' + result.round);
     addText(row, 'b', '', result.playerName || 'Pemain');
     addText(row, 'span', 'private-inspection-result', faction);
     panel.append(row);
   }
-  addText(panel, 'p', 'hint', 'Pemain yang sudah diperiksa diberi tanda pada daftar pemain hidup. Hasil ini hanya terlihat olehmu.');
+  addText(panel, 'p', 'hint', self.role === 'wolf_seer'
+    ? 'Informasi role ini hanya terlihat oleh Wolf Seer. Gunakan untuk koordinasi kawanan.'
+    : 'Pemain yang sudah diperiksa diberi tanda pada daftar pemain hidup. Hasil ini hanya terlihat olehmu.');
   parent.append(panel);
 }
 
@@ -2528,8 +2668,8 @@ function renderHunterShot(parent) {
 
 function factionForRole(role) {
   if (role === 'moderator') return 'moderator';
-  if (['wolf', 'alpha_wolf'].includes(role)) return 'wolves';
-  if (['jester', 'guardian_angel'].includes(role)) return 'neutral';
+  if (['wolf', 'alpha_wolf', 'wolf_seer'].includes(role)) return 'wolves';
+  if (role === 'guardian_angel') return 'neutral';
   return 'village';
 }
 
@@ -2653,7 +2793,7 @@ function winnerLabel(winner) {
   return ({
     wolves: 'KUBU WEREWOLF MENANG',
     villagers: 'KUBU DESA MENANG',
-    jester: 'JESTER MENANG SENDIRI',
+    jester: 'PENDUDUK ANEH MENANG SENDIRI',
     lovers: 'PASANGAN LOVERS MENANG'
   })[winner] || 'PERMAINAN SELESAI';
 }
@@ -2661,7 +2801,7 @@ function winnerLabel(winner) {
 function renderVictoryScreen(parent, moderatorView = false) {
   const room = roomState.room;
   const theme = room.winner === 'wolves' ? 'wolves'
-    : room.winner === 'villagers' ? 'village' : 'neutral';
+    : ['villagers', 'jester'].includes(room.winner) ? 'village' : 'neutral';
   const screen = node('section', 'victory-screen victory-' + theme);
   const confetti = node('div', 'victory-confetti');
   confetti.setAttribute('aria-hidden', 'true');
@@ -2860,7 +3000,7 @@ function renderPlayerVoting(parent) {
   const self = roomState.self || {};
   const room = roomState.room || {};
   phaseHeader(parent, 'SORE · RONDE ' + room.round, 'Voting eksekusi',
-    'Pilih pemain untuk eksekusi. Suara rahasia dan bisa diganti sampai timer habis.');
+    'Pilih pemain untuk eksekusi. Semua suara terlihat dan dapat diganti sampai timer habis.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
   if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
@@ -2871,7 +3011,7 @@ function renderPlayerVoting(parent) {
     return;
   }
   addText(parent, 'h3', '', 'Tentukan pilihanmu');
-  addText(parent, 'p', 'hint', 'Voting bersifat rahasia. Pilihan dapat diganti sampai timer habis.');
+  addText(parent, 'p', 'hint', 'Voting terbuka: semua pemain dapat melihat siapa memilih siapa, siapa yang abstain, dan siapa yang belum memilih. Pilihan dapat diganti sampai timer habis.');
   parent.append(button('Abstain · Tidak memilih siapa pun',
     'secondary wide phase-timed-action' + (self.voteAbstain ? ' selected' : ''),
     () => sendAction('cast_vote', { abstain: true })));
@@ -2894,7 +3034,7 @@ function renderPlayerVoteResult(parent) {
 
 
 async function leaveCurrentRoom() {
-  if (!session || isRoomModerator() || isHost()) return;
+  if (!session || isRoomModerator()) return;
   const activeSession = session;
   const wasWaiting = Boolean(roomState?.self?.isWaiting);
   try {
@@ -2902,6 +3042,8 @@ async function leaveCurrentRoom() {
       method: 'POST', body: { type: 'leave_room' }, session: activeSession
     });
     if (session !== activeSession) return;
+    const takeoverDialog = $('botTakeoverDialog');
+    if (takeoverDialog?.open) takeoverDialog.close();
     stopRealtime();
     localStorage.removeItem(SESSION_PREFIX + activeSession.code);
     if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
@@ -3254,6 +3396,16 @@ $('resetRoom').addEventListener('click', async () => {
   });
   if (accepted) sendAction('reset_to_lobby');
 });
+
+
+$('botTakeoverReturn').addEventListener('click', async () => {
+  const restored = await sendAction('restore_player_control');
+  if (restored) showMessage('Kendali pemain kembali kepadamu.');
+});
+$('botTakeoverLeave').addEventListener('click', () => {
+  leaveCurrentRoom();
+});
+$('botTakeoverDialog').addEventListener('cancel', event => event.preventDefault());
 
 $('leaveRoom').addEventListener('click', async () => {
   if (isHost()) {

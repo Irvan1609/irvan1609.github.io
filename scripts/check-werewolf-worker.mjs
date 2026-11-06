@@ -2109,7 +2109,8 @@ onlineThresholdRoom.finishVote(onlineExactlyHalf, Date.now());
 assert.equal(onlineExactlyHalf.players.find(player => player.id === 't').alive, true);
 assert.match(onlineExactlyHalf.lastResult.message, /lebih dari 50%/);
 assert.equal(onlineExactlyHalf.lastResult.voteTotalWeight, 4);
-assert.equal(onlineExactlyHalf.lastResult.abstainCount, 2);
+assert.equal(onlineExactlyHalf.lastResult.abstainCount, 1,
+  'The missed voter is assigned to BOT before tally; only the explicit abstention remains.');
 const onlineClearMajority = onlineMakeVoteState({ w: 't', b: 't', g: 't' });
 onlineThresholdRoom.finishVote(onlineClearMajority, Date.now());
 assert.equal(onlineClearMajority.players.find(player => player.id === 't').alive, false);
@@ -2150,10 +2151,20 @@ await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST',
 }, handoffBotTokens[4].token)), 403);
 await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'restore_player_control', playerId: handoffBotPlayerId
-}, handoffBotCreated.token)));
+}, handoffBotTokens[4].token)));
 handoffBotState = await handoffBotRoom.loadRoom();
 assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBotControlled, false);
 assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).isBot, false);
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'replace_with_bot', playerId: handoffBotPlayerId
+}, handoffBotCreated.token)));
+await payload(await handoffBotRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'leave_room'
+}, handoffBotTokens[4].token)));
+handoffBotState = await handoffBotRoom.loadRoom();
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).alive, false,
+  'A player whose seat is controlled by BOT must still be able to leave from the takeover dialog.');
+assert.equal(handoffBotState.players.find(player => player.id === handoffBotPlayerId).connected, false);
 
 const skipPhaseRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const skipPhaseCreated = await payload(await skipPhaseRoom.fetch(makeRequest('/internal/create', 'POST', {
@@ -2187,7 +2198,8 @@ assert.equal(skipPhaseSeerView.self.seerResult, null, 'Skipped players do not tr
 await actionAfterDeadline(skipPhaseRoom, skipPhaseCreated.token, 'resolve_night', { force: true });
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
-assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
+assert.ok(skipPhaseState.players.slice(2).every(item => item.isBotControlled),
+  'Players who skipped a required night action must be handed to BOT before resolution.');
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
 const roleDrawTimeoutRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const roleDrawTimeoutCreated = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/create', 'POST', {
@@ -2227,15 +2239,19 @@ roleDrawTimeoutState = await roleDrawTimeoutRoom.loadRoom();
 assert.equal(roleDrawTimeoutState.phase, 'night',
   'The game must automatically enter night after the 20-second role reveal deadline.');
 assert.equal(roleDrawTimeoutState.roleDrawEndsAt, null);
-const lateCardOpened = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
+const blockedLateCard = await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'draw_card'
-}, roleDrawTimeoutPlayer.token)));
+}, roleDrawTimeoutPlayer.token));
+assert.equal(blockedLateCard.status, 403,
+  'A BOT-controlled player must not submit actions until control is restored.');
 const lateCardView = (await payload(await roleDrawTimeoutRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, roleDrawTimeoutPlayer.token)
 ))).state;
+assert.equal(lateCardView.self.isBotControlled, true,
+  'The player must be clearly marked as temporarily controlled by BOT after missing the card deadline.');
 assert.equal(lateCardView.self.hasDrawn, true);
-assert.ok(lateCardView.self.role, 'A player may privately reveal their own card after the night has begun.');
-console.log('Werewolf role-card deadline passed: 20-second timeout, automatic night start and late private card reveal.');
+assert.ok(lateCardView.self.role, 'The player can still see their private role while BOT controls their actions.');
+console.log('Werewolf role-card deadline passed: missed reveal triggers BOT takeover and keeps the private role visible.');
 
 // Dawn trigger regressions: Hunter can revise a last shot; Reviver can restore a night victim.
 const hunterDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
@@ -2382,9 +2398,9 @@ const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeReq
   settings: {
     moderatorMode: 'system',
     roleCounts: {
-      wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+      wolf: 3, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
       hunter: 1, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0,
-      mayor: 0, jester: 0, priest: 0, vigilante: 0, mason: 0, villager: 2, moderator: 0
+      mayor: 0, jester: 0, priest: 0, vigilante: 0, mason: 0, villager: 4, moderator: 0
     },
     timers: {
       roleDrawSeconds: 5, nightSeconds: 10, dawnSeconds: 5,
@@ -2393,7 +2409,7 @@ const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeReq
   }
 })), 201);
 const autoDawnCycleTokens = [autoDawnCycleCreated.token];
-for (const name of ['System Wolf', 'System Hunter', 'System Villager']) {
+for (const name of ['System Wolf', 'System Hunter', 'System Villager A', 'System Wolf Mate', 'System Wolf Third', 'System Villager B', 'System Villager C']) {
   const joined = await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
   autoDawnCycleTokens.push(joined.token);
 }
@@ -2402,7 +2418,7 @@ await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POS
 }, autoDawnCycleCreated.token)));
 let autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 autoDawnCycleState.players.forEach((player, index) => {
-  player.role = ['villager', 'wolf', 'hunter', 'villager'][index];
+  player.role = ['villager', 'wolf', 'hunter', 'villager', 'wolf', 'wolf', 'villager', 'villager'][index];
   player.alive = true;
   player.hasDrawn = false;
   player.hunterUsed = false;
@@ -2425,18 +2441,36 @@ finally { Date.now = realNowForAutoDawnCards; }
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 assert.equal(autoDawnCycleState.phase, 'night',
   'System moderator must start night automatically when the card timer expires.');
+let autoDawnHostView = (await payload(await autoDawnCycleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoDawnCycleTokens[0])
+))).state;
+assert.equal(autoDawnHostView.self.isBotControlled, true,
+  'The host who missed the card reveal must be taken over by BOT even in System mode.');
 await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'draw_card'
+  type: 'restore_player_control'
 }, autoDawnCycleTokens[0])));
+autoDawnHostView = (await payload(await autoDawnCycleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoDawnCycleTokens[0])
+))).state;
+assert.equal(autoDawnHostView.self.isBotControlled, false);
+assert.ok(autoDawnHostView.self.role, 'Returning host can see the role that BOT already opened.');
 
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 const autoDawnCycleHunterId = autoDawnCycleState.players[2].id;
 await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: autoDawnCycleHunterId
 }, autoDawnCycleTokens[1])));
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoDawnCycleHunterId
+}, autoDawnCycleTokens[4])));
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoDawnCycleHunterId
+}, autoDawnCycleTokens[5])));
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[0]);
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[2]);
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[3]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[6]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[7]);
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 const autoDawnCycleNightDeadline = autoDawnCycleState.nightEndsAt;
 const realNowForAutoDawnNight = Date.now;
@@ -2483,4 +2517,404 @@ autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 assert.equal(autoDawnCycleState.phase, 'night');
 assert.equal(autoDawnCycleState.round, 2,
   'System moderator must automatically start the next night after the result window.');
+
+  
+// Werewolf parity counts every living non-Werewolf, including neutral players.
+const parityRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const parityState = {
+  players: [
+    { id: 'parity-wolf-1', role: 'wolf', alive: true },
+    { id: 'parity-wolf-2', role: 'alpha_wolf', alive: true },
+    { id: 'parity-village-1', role: 'villager', alive: true },
+    { id: 'parity-village-2', role: 'jester', alive: true },
+    { id: 'parity-neutral', role: 'guardian_angel', alive: true }
+  ],
+  lovers: [], winner: null, settings: { abilities: {} }, guardianTargets: {}
+};
+assert.equal(parityRoom.checkWinner(parityState), null,
+  'Two Werewolves must not win while three non-Werewolf players remain, including a neutral player.');
+parityState.players.find(player => player.id === 'parity-village-2').alive = false;
+assert.equal(parityRoom.checkWinner(parityState), 'wolves',
+  'Werewolves win at parity once only two non-Werewolf players remain.');
+console.log('Werewolf parity regression passed: neutral players count toward the remaining opposition.');
+
+// Jester is a Village faction role but wins alone when voted out by an absolute majority.
+const jesterRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const jesterState = {
+  code: 'JEST23', phase: 'voting', round: 3,
+  players: [
+    { id: 'jester-wolf', name: 'Red Player', role: 'wolf', alive: true },
+    { id: 'jester-target', name: 'Odd Villager', role: 'jester', alive: true },
+    { id: 'jester-village', name: 'Blue Player', role: 'villager', alive: true }
+  ],
+  votes: { 'jester-wolf': 'jester-target', 'jester-target': 'jester-wolf', 'jester-village': 'jester-target' },
+  settings: { abilities: { jesterSoloWin: true }, timers: { resultSeconds: 8 } },
+  lovers: [], additionalWinners: [], guardianTargets: {}, nightActions: {}, dawnActions: {},
+  resultActions: {}, seerResults: {}, seerHistory: {}, gameHistory: [], gameArchive: [],
+  winner: null, gameFinishedRecorded: false, round: 3
+};
+jesterRoom.finishVote(jesterState, Date.now());
+assert.equal(jesterState.winner, 'jester');
+assert.equal(jesterState.phase, 'finished');
+assert.equal(jesterState.players.find(player => player.role === 'jester').alive, false);
+jesterRoom.archiveCompletedGame(jesterState, Date.now());
+const jesterArchivePlayer = jesterState.gameArchive[0].players.find(player => player.role === 'jester');
+assert.equal(jesterArchivePlayer.faction, 'village');
+assert.equal(jesterArchivePlayer.isWinner, true);
+assert.equal(jesterArchivePlayer.winReason, 'Pemenang utama');
+console.log('Werewolf Penduduk Aneh regression passed: Jester is Village-aligned and wins alone when voted out.');
+
+// Trapper saves the attacked target and catches one Werewolf attacker.
+const trapperRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const trapperCreated = await payload(await trapperRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'TRAP23', name: 'Trapper Moderator',
+  settings: { roleCounts: { wolf: 1, trapper: 1, villager: 2 } }
+})), 201);
+const trapperTokens = [];
+for (const name of ['Trapper Wolf', 'Village Trapper', 'Village One', 'Village Two']) {
+  trapperTokens.push((await payload(await trapperRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, trapperCreated.token)));
+let trapperState = await trapperRoom.loadRoom();
+trapperState.players.forEach((player, index) => {
+  player.role = ['wolf', 'trapper', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await trapperRoom.saveRoom(trapperState);
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, trapperCreated.token)));
+trapperState = await trapperRoom.loadRoom();
+const trapperTargetId = trapperState.players[2].id;
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: trapperTargetId
+}, trapperTokens[0])));
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: trapperTargetId
+}, trapperTokens[1])));
+await submitVillagerMath(trapperRoom, trapperTokens[2]);
+await submitVillagerMath(trapperRoom, trapperTokens[3]);
+await actionAfterDeadline(trapperRoom, trapperCreated.token, 'resolve_night', { force: true });
+trapperState = await trapperRoom.loadRoom();
+assert.equal(trapperState.players.find(player => player.role === 'wolf').alive, false,
+  'The Werewolf who selected the trapped target must be caught.');
+assert.equal(trapperState.players.find(player => player.role === 'villager' && player.id === trapperTargetId).alive, true,
+  'The trapped target must survive the pack attack.');
+assert.equal(trapperState.lastResult.eliminations.find(item => item.role === 'wolf')?.cause, 'trapper_capture');
+assert.ok(trapperState.lastResult.events.some(event => /Perangkap Trapper menangkap/.test(event)),
+  'The public night report must explain that the trap caught the attacker and saved the target.');
+assert.ok(trapperState.lastResult.actionReport.some(item => item.role === 'Trapper' && /Perangkap aktif/.test(item.outcome)));
+console.log('Werewolf Trapper regression passed: a successful trap saves the target and eliminates an attacker.');
+
+// Wolf Seer joins the pack attack and privately learns one target's exact role.
+const wolfSeerRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const wolfSeerCreated = await payload(await wolfSeerRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WSEA23', name: 'Wolf Seer Moderator',
+  settings: { roleCounts: { wolf: 1, wolf_seer: 1, villager: 2 } }
+})), 201);
+const wolfSeerTokens = [];
+for (const name of ['Wolf Seer', 'Wolf Mate', 'Attack Target', 'Intel Target']) {
+  wolfSeerTokens.push((await payload(await wolfSeerRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, wolfSeerCreated.token)));
+let wolfSeerState = await wolfSeerRoom.loadRoom();
+wolfSeerState.players.forEach((player, index) => {
+  player.role = ['wolf_seer', 'wolf', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await wolfSeerRoom.saveRoom(wolfSeerState);
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, wolfSeerCreated.token)));
+wolfSeerState = await wolfSeerRoom.loadRoom();
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action',
+  targetId: wolfSeerState.players[2].id,
+  inspectTargetId: wolfSeerState.players[3].id
+}, wolfSeerTokens[0])));
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: wolfSeerState.players[2].id
+}, wolfSeerTokens[1])));
+const wolfSeerNightView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[0])
+))).state;
+assert.equal(wolfSeerNightView.self.wolfSeerInspectTargetId, wolfSeerState.players[3].id,
+  'The Wolf Seer inspection choice must be visible to its owner while night actions remain open.');
+await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[2]);
+await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[3]);
+await actionAfterDeadline(wolfSeerRoom, wolfSeerCreated.token, 'resolve_night', { force: true });
+wolfSeerState = await wolfSeerRoom.loadRoom();
+const wolfSeerPrivateView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[0])
+))).state;
+assert.equal(wolfSeerPrivateView.self.seerResult.targetRole, 'villager');
+assert.equal(wolfSeerPrivateView.self.seerHistory.length, 1);
+const wolfMatePrivateView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[1])
+))).state;
+assert.equal(wolfMatePrivateView.self.seerResult, null,
+  'The exact role inspection must remain private to the Wolf Seer.');
+assert.deepEqual(wolfMatePrivateView.self.seerHistory, []);
+
+assert.ok(wolfSeerState.lastResult.actionReport.some(item => item.role === 'Wolf Seer'));
+console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact private inspection, and role secrecy.');
+
+const soloWolfSeerRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const soloWolfSeerCreated = await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WSXL23', name: 'Solo Wolf Seer Host',
+  settings: { roleCounts: { wolf_seer: 1, villager: 3 } }
+})), 201);
+for (const name of ['Solo Seer', 'Village A', 'Village B', 'Village C']) {
+  await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+}
+await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, soloWolfSeerCreated.token)));
+const soloWolfSeerState = await soloWolfSeerRoom.loadRoom();
+assert.equal(soloWolfSeerState.phase, 'role_draw');
+assert.equal(soloWolfSeerState.players.filter(player => player.role === 'wolf_seer').length, 1,
+  'Wolf Seer alone must satisfy the minimum Werewolf faction requirement.');
+
+
+// Bots must perform the new roles' special actions rather than fall back to arithmetic.
+const newRoleBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const botWolfSeer = newRoleBotRoom.makeBot({ players: [] });
+botWolfSeer.role = 'wolf_seer';
+const botTrapper = newRoleBotRoom.makeBot({ players: [botWolfSeer] });
+botTrapper.role = 'trapper';
+const botPracticeVillager = { id: 'bot-practice-villager', name: 'Practice Villager', role: 'villager', alive: true };
+const newRoleBotState = {
+  players: [botWolfSeer, botTrapper, botPracticeVillager],
+  nightActions: {}, seerHistory: {}, seerResults: {}, witchPotions: {},
+  guardianTargets: {}, villagerPrompts: {}, round: 1, settings: { abilities: {} }
+};
+newRoleBotRoom.runBotNightActions(newRoleBotState);
+assert.equal(newRoleBotState.nightActions[botWolfSeer.id].type, 'wolf_vote');
+assert.ok(newRoleBotState.nightActions[botWolfSeer.id].targetId);
+assert.ok(newRoleBotState.nightActions[botWolfSeer.id].inspectTargetId);
+assert.equal(newRoleBotState.nightActions[botTrapper.id].type, 'trapper_set');
+assert.ok(newRoleBotState.nightActions[botTrapper.id].targetId);
+console.log('Werewolf new-role bot regression passed: Wolf Seer and Trapper use their special abilities.');
+
+  
+// Public role board reveals deck composition and dead roles without exposing living identities.
+const publicBoardRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const publicBoardState = {
+  code: 'PUB123', phase: 'voting', round: 2, hostId: 'pub-wolf',
+  activeModeratorId: 'pub-mod', moderator: { id: 'pub-mod', name: 'Moderator' },
+  settings: { abilities: {}, timers: {}, revealRoleOnDeath: true, roleCounts: {} },
+  players: [
+    { id: 'pub-wolf', name: 'Red Player', role: 'wolf', alive: true, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' },
+    { id: 'pub-jester', name: 'Blue Player', role: 'jester', alive: true, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' },
+    { id: 'pub-dead', name: 'Fallen Seer', role: 'seer', alive: false, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' }
+  ],
+  waitingPlayers: [], votes: { 'pub-wolf': 'pub-jester', 'pub-jester': null },
+  nightActions: {}, dawnActions: {}, resultActions: {}, lovers: [], additionalWinners: [],
+  guardianTargets: {}, seerHistory: {}, seerResults: {}, gameHistory: [], gameArchive: [],
+  gameHistoryTruncated: 0, winner: null, lastResult: { kind: 'phase', message: 'Voting berjalan.' },
+  gameFinishedRecorded: false, expiresAt: Date.now() + 60000
+};
+const publicBoard = publicBoardRoom.snapshot(publicBoardState, 'pub-wolf');
+assert.equal(publicBoard.publicPlayers.find(item => item.id === 'pub-wolf').revealedRole, null);
+assert.equal(publicBoard.publicPlayers.find(item => item.id === 'pub-dead').revealedRole, 'seer');
+assert.equal(publicBoard.publicRoles.find(item => item.role === 'jester').faction, 'village');
+assert.deepEqual(publicBoard.publicVotes.map(item => item.status), ['Memilih Blue Player', 'Golput']);
+publicBoardState.settings.revealRoleOnDeath = false;
+const hiddenDeathRoleBoard = publicBoardRoom.snapshot(publicBoardState, 'pub-wolf');
+assert.equal(hiddenDeathRoleBoard.publicPlayers.find(item => item.id === 'pub-dead').revealedRole, null);
+assert.deepEqual(hiddenDeathRoleBoard.publicRoles.find(item => item.role === 'seer').deceasedNames, []);
+assert.equal(hiddenDeathRoleBoard.publicRoles.find(item => item.role === 'seer').deceasedCount, 1,
+  'Role counts must retain the number of deceased players even when their identities are hidden.');
+assert.equal(publicBoard.publicRoles.find(item => item.role === 'seer').deceasedCount, 1);
+console.log('Werewolf public board regression passed: role composition, death reveal option, and public ballots.');
+
+// The BOT takes over when a player misses the card reveal or night action deadline.
+const inactivityRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const inactivityNow = Date.now();
+const unopenedCardPlayer = {
+  id: 'inactive-card', name: 'Missed Card', role: 'villager', alive: true,
+  hasDrawn: false, isBot: false, isBotControlled: false
+};
+const cardTakeoverState = {
+  phase: 'role_draw', round: 1, players: [unopenedCardPlayer], gameHistory: [], gameHistoryTruncated: 0
+};
+inactivityRoom.takeOverInactivePlayers(cardTakeoverState, [unopenedCardPlayer], 'role_draw', inactivityNow);
+assert.equal(unopenedCardPlayer.isBot, true);
+assert.equal(unopenedCardPlayer.isBotControlled, true);
+assert.equal(unopenedCardPlayer.hasDrawn, true);
+const inactiveNightPlayer = {
+  id: 'inactive-night', name: 'Missed Night Action', role: 'villager', alive: true,
+  isBot: false, isBotControlled: false
+};
+const nightTakeoverState = {
+  phase: 'night', round: 1, players: [inactiveNightPlayer], nightActions: {},
+  villagerPrompts: { 'inactive-night': { id: 'math-1', options: [1, 2, 3, 4], answer: 3 } },
+  seerHistory: {}, seerResults: {}, witchPotions: {}, guardianTargets: {},
+  settings: { abilities: {} }, gameHistory: [], gameHistoryTruncated: 0
+};
+inactivityRoom.takeOverInactivePlayers(nightTakeoverState, [inactiveNightPlayer], 'night', inactivityNow);
+inactivityRoom.runBotNightActions(nightTakeoverState);
+assert.equal(nightTakeoverState.nightActions['inactive-night'].type, 'villager_math');
+console.log('Werewolf inactivity regression passed: BOT takes over missed card reveals and night actions.');
+
+// Voting deadline takeover creates a ballot and keeps the complete public vote record.
+const voteTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const voteTakeoverState = {
+  code: 'BOTV23', phase: 'voting', round: 1, hostId: 'vote-wolf',
+  players: [
+    { id: 'vote-wolf', name: 'Red Player', role: 'wolf', alive: true, isBot: false, isBotControlled: false },
+    { id: 'vote-village-a', name: 'Blue A', role: 'villager', alive: true, isBot: false, isBotControlled: false },
+    { id: 'vote-village-b', name: 'Blue B', role: 'villager', alive: true, isBot: false, isBotControlled: false },
+    { id: 'vote-village-c', name: 'Blue C', role: 'villager', alive: true, isBot: false, isBotControlled: false }
+  ],
+  votes: { 'vote-wolf': 'vote-village-a', 'vote-village-a': null, 'vote-village-c': null },
+  nightActions: {}, dawnActions: {}, resultActions: {}, lovers: [], additionalWinners: [],
+  guardianTargets: {}, seerResults: {}, seerHistory: {}, settings: { abilities: {}, timers: { resultSeconds: 8 } },
+  gameHistory: [], gameArchive: [], gameHistoryTruncated: 0, gameFinishedRecorded: false,
+  gameId: 'vote-takeover-test', expiresAt: Date.now() + 60000, winner: null
+};
+voteTakeoverRoom.finishVote(voteTakeoverState, inactivityNow);
+const botVoter = voteTakeoverState.players.find(item => item.id === 'vote-village-b');
+assert.equal(botVoter.isBotControlled, true);
+assert.equal(botVoter.isBot, true);
+assert.ok(Object.prototype.hasOwnProperty.call(voteTakeoverState.votes, botVoter.id));
+assert.equal(voteTakeoverState.lastResult.publicVotes.length, 4);
+assert.ok(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).hasVoted);
+assert.equal(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).botTookOver, true);
+assert.match(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).status, /Tidak vote · BOT memilih/);
+console.log('Werewolf voting takeover regression passed: missed voters are replaced and ballots stay public.');
+
+  
+// A player can choose "Kembali Bermain" and regain their own account without moderator intervention.
+const selfRestoreRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const selfRestoreCreated = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SELF23', name: 'Restore Host'
+})), 201);
+const selfRestoreOne = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Returning Player' })), 201);
+const selfRestoreTwo = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Other Player' })), 201);
+let selfRestoreState = await selfRestoreRoom.loadRoom();
+const returningPlayer = selfRestoreState.players.find(item => item.id === selfRestoreOne.playerId);
+const otherPlayer = selfRestoreState.players.find(item => item.id === selfRestoreTwo.playerId);
+returningPlayer.role = 'villager';
+returningPlayer.alive = true;
+returningPlayer.hasDrawn = true;
+returningPlayer.isBot = true;
+returningPlayer.isBotControlled = true;
+selfRestoreState.phase = 'voting';
+selfRestoreState.votingEndsAt = Date.now() + 30000;
+selfRestoreState.votes = { [returningPlayer.id]: otherPlayer.id };
+selfRestoreState.gameHistory = selfRestoreState.gameHistory || [];
+selfRestoreState.gameHistoryTruncated = Number(selfRestoreState.gameHistoryTruncated) || 0;
+await selfRestoreRoom.saveRoom(selfRestoreState);
+const returningToken = selfRestoreOne.token;
+await payload(await selfRestoreRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'restore_player_control'
+}, returningToken)), 200);
+selfRestoreState = await selfRestoreRoom.loadRoom();
+const restoredPlayer = selfRestoreState.players.find(item => item.id === returningPlayer.id);
+assert.equal(restoredPlayer.isBotControlled, false);
+assert.equal(restoredPlayer.isBot, false);
+assert.equal(Object.prototype.hasOwnProperty.call(selfRestoreState.votes, returningPlayer.id), false,
+  'A restored player must be allowed to replace the BOT vote before the voting deadline.');
+console.log('Werewolf player restore regression passed: self-service takeover recovery restores the player and removes the BOT ballot.');
+
+
+
+  
+// Manual moderator rooms also run the inactivity handoff alarm without advancing the phase.
+const manualTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const manualTakeoverCreated = await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'MANU23', name: 'Manual Host',
+  settings: { moderatorMode: 'host', roleCounts: { wolf: 1, villager: 2 }, timers: { nightSeconds: 10 } }
+})), 201);
+const manualTakeoverTokens = [];
+for (const name of ['Manual Wolf', 'Manual Blue A', 'Manual Blue B']) {
+  manualTakeoverTokens.push((await payload(await manualTakeoverRoom.fetch(
+    makeRequest('/internal/join', 'POST', { name })
+  ), 201)).token);
+}
+await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, manualTakeoverCreated.token)));
+let manualTakeoverState = await manualTakeoverRoom.loadRoom();
+manualTakeoverState.players.forEach((player, index) => {
+  player.role = ['wolf', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await manualTakeoverRoom.saveRoom(manualTakeoverState);
+await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, manualTakeoverCreated.token)));
+manualTakeoverState = await manualTakeoverRoom.loadRoom();
+manualTakeoverState.nightEndsAt = Date.now() - 1;
+await manualTakeoverRoom.saveRoom(manualTakeoverState);
+const realNowForManualTakeover = Date.now;
+try {
+  Date.now = () => manualTakeoverState.nightEndsAt + 1;
+  await manualTakeoverRoom.alarm();
+} finally {
+  Date.now = realNowForManualTakeover;
+}
+manualTakeoverState = await manualTakeoverRoom.loadRoom();
+assert.equal(manualTakeoverState.phase, 'night',
+  'Manual moderator mode keeps control of phase progression after the deadline.');
+assert.ok(manualTakeoverState.players.every(player => player.isBotControlled),
+  'Every player who missed the night deadline must be handed to BOT.');
+assert.ok(manualTakeoverState.players.every(player => manualTakeoverState.nightActions[player.id]),
+  'BOT must complete every missed night action before the moderator advances.');
+console.log('Werewolf manual-mode takeover regression passed: timer handoff runs BOT actions without advancing the moderator phase.');
+
+  
+// System mode must take over missed night actions before automatically resolving the phase.
+const systemNightTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const systemNightCreated = await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SYNT23', name: 'System Night Host',
+  settings: { moderatorMode: 'system', roleCounts: { wolf: 1, seer: 1, villager: 2 }, timers: { nightSeconds: 10 } }
+})), 201);
+const systemNightTokens = [];
+for (const name of ['System Seer', 'System Village A', 'System Village B']) {
+  systemNightTokens.push((await payload(await systemNightTakeoverRoom.fetch(
+    makeRequest('/internal/join', 'POST', { name })
+  ), 201)).token);
+}
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, systemNightCreated.token)));
+let systemNightState = await systemNightTakeoverRoom.loadRoom();
+systemNightState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await systemNightTakeoverRoom.saveRoom(systemNightState);
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, systemNightCreated.token)));
+systemNightState = await systemNightTakeoverRoom.loadRoom();
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: systemNightState.players[2].id
+}, systemNightCreated.token)));
+const missedSystemNightDeadline = systemNightState.nightEndsAt;
+const realNowForSystemNightTakeover = Date.now;
+try {
+  Date.now = () => missedSystemNightDeadline + 1;
+  await systemNightTakeoverRoom.alarm();
+} finally {
+  Date.now = realNowForSystemNightTakeover;
+}
+systemNightState = await systemNightTakeoverRoom.loadRoom();
+assert.equal(systemNightState.phase, 'morning',
+  'System mode must automatically resolve after handing over missed actions.');
+assert.ok(systemNightState.players.slice(1).every(player => player.isBotControlled),
+  'All players who missed their night action must be temporarily controlled by BOT.');
+console.log('Werewolf system-mode takeover regression passed: missed night actions are completed by BOT before the phase advances.');
+
+
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-labelledby="title desc">
+<title id="title">Trapper</title><desc id="desc">Potret Trapper desa yang menjaga warga dengan perangkap di hutan.</desc>
+<defs><linearGradient id="coat" x2="1" y2="1"><stop stop-color="#5f9e9a"/><stop offset="1" stop-color="#234e58"/></linearGradient><linearGradient id="skin" x2="0" y2="1"><stop stop-color="#e4b78f"/><stop offset="1" stop-color="#a76e52"/></linearGradient><linearGradient id="metal" x2="1" y2="1"><stop stop-color="#d8e0dc"/><stop offset="1" stop-color="#657c7a"/></linearGradient></defs>
+<circle cx="200" cy="190" r="154" fill="#19333a"/><circle cx="200" cy="190" r="137" fill="none" stroke="#82b7ad" stroke-opacity=".7" stroke-width="4"/>
+<path d="M65 355q14-110 135-145 121 35 135 145z" fill="url(#coat)" stroke="#9dc8b8" stroke-width="6"/>
+<path d="M127 167q5-93 73-104 68 11 73 104l-26 112H153z" fill="url(#skin)" stroke="#f0c9a5" stroke-width="5"/>
+<path d="M103 157q13-107 97-116 84 9 97 116l-26 20H129z" fill="#345b4e" stroke="#a9c5a6" stroke-width="6"/>
+<path d="M125 160q75-28 150 0" fill="none" stroke="#d2b27b" stroke-width="10" stroke-linecap="round"/>
+<path d="M157 205h16m54 0h16" stroke="#44362f" stroke-width="8" stroke-linecap="round"/>
+<path d="M177 250q23 15 46 0" fill="none" stroke="#805342" stroke-width="6" stroke-linecap="round"/>
+<path d="M90 278 56 313m254-35 34 35" stroke="#c4d2c7" stroke-width="9" stroke-linecap="round"/>
+<path d="M278 246q35 18 42 52l-20 21q-32-10-43-41z" fill="url(#metal)" stroke="#dce6de" stroke-width="5"/>
+<path d="M279 250q-15 24 0 48m21-37q-18 22 0 42m-43-27 63 2" fill="none" stroke="#49635f" stroke-width="6" stroke-linecap="round"/>
+<path d="M90 345h220" stroke="#9bc1b4" stroke-width="7" stroke-linecap="round"/>
+<path d="M200 42v24m-12-12h24" stroke="#d7bd87" stroke-width="6" stroke-linecap="round"/>
+</svg>

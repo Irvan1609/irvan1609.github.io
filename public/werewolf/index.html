@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b101b">
-  <meta name="description" content="Werewolf multiplayer dengan mode online/offline, voice chat, dan kontrol moderator realtime.">
+  <meta name="description" content="Werewolf multiplayer dengan pilihan voice per pemain, role unik, dan kontrol moderator realtime.">
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-player-voice-waitlist-6">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-live-activity-12">
 </head>
 <body>
   <header class="subweb-header">
@@ -121,6 +121,19 @@
     </div>
   </dialog>
 
+  <dialog id="botTakeoverDialog" class="bot-takeover-dialog" aria-labelledby="botTakeoverTitle" aria-describedby="botTakeoverMessage">
+    <div class="bot-takeover-content">
+      <div class="bot-takeover-kicker">KENDALI PEMAIN</div>
+      <div class="bot-takeover-icon" aria-hidden="true">BOT</div>
+      <h2 id="botTakeoverTitle">BOT mengambil alih</h2>
+      <p id="botTakeoverMessage">Kamu melewatkan aksi tepat waktu. BOT sementara menjalankan role dan pilihanmu agar permainan tetap berjalan.</p>
+      <div class="bot-takeover-actions">
+        <button id="botTakeoverLeave" class="secondary" type="button">Keluar Room</button>
+        <button id="botTakeoverReturn" class="primary" type="button">Kembali Bermain</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
     <div class="confirm-dialog-content">
       <div class="confirm-dialog-kicker">THE VILLAGE AFTER DARK</div>
@@ -133,6 +146,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-player-voice-waitlist-6"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-live-activity-12"></script>
 </body>
 </html>

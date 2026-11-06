@@ -76,7 +76,7 @@ assert.match(app, /function discussionVoiceListeningAllowed/);
 assert.match(app, /Kamu masuk saat permainan berlangsung/);
 assert.doesNotMatch(html, /id="createGameMode"/);
 assert.match(app, /function renderLivingPlayers/);
-assert.match(app, /MASIH HIDUP/);
+assert.match(app, /ROLE DALAM PERMAINAN/);
 assert.match(worker, /livingPlayers: alive\.map/);
 assert.match(worker, /hasSpecialNightAction/);
 assert.match(worker, /canAnswerNightMath/);
@@ -85,7 +85,7 @@ assert.match(app, /function renderFactionBadge/);
 assert.match(app, /function renderNightMath/);
 assert.match(app, /function renderMasonCircle/);
 const allCardRoles = [
-  'wolf', 'alpha_wolf', 'villager', 'seer', 'doctor', 'bodyguard', 'witch',
+  'wolf', 'alpha_wolf', 'wolf_seer', 'villager', 'seer', 'doctor', 'bodyguard', 'trapper', 'witch',
   'hunter', 'reviver', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
   'priest', 'vigilante', 'mason', 'moderator'
 ];
@@ -101,7 +101,7 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261106-werewolf-player-voice-waitlist-6/);
+assert.match(html, /20261106-werewolf-live-activity-12/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -125,13 +125,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261106-werewolf-player-voice-waitlist-6/);
+assert.match(html, /app\.js\?v=20261106-werewolf-live-activity-12/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261106-werewolf-player-voice-waitlist-6/);
+assert.match(html, /style\.css\?v=20261106-werewolf-live-activity-12/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -203,6 +203,20 @@ assert.match(app, /Role kamu:/);
 assert.match(app, /Kekuatan & aturan pakai/);
 assert.match(app, /appendRoleDetails\(disclosure, info, 'role-config-info'\)/);
 assert.match(app, /ROLE_INFO\[key\]/);
+assert.match(app, /wolf_seer: \['Wolf Seer'/);
+assert.match(app, /trapper: \['Trapper'/);
+assert.match(app, /Penduduk Aneh \(Jester\)/);
+assert.match(app, /startGameButton/);
+assert.match(app, /Komposisi tepat\. Permainan siap dimulai\./);
+assert.doesNotMatch(app, /Simpan pengaturan role/);
+assert.doesNotMatch(app, /role-balance/);
+assert.equal(app.split('KOMPOSISI KUBU').length - 1, 1, 'Lobby must show only one faction composition summary.');
+assert.match(worker, /nonWolfPlayers = alive\.length - wolves/);
+assert.match(worker, /trapperInterception/);
+assert.match(worker, /wolfSeerInspectTargetId/);
+assert.match(worker, /role === 'trapper'/);
+assert.match(worker, /role === 'wolf_seer'/);
+assert.doesNotMatch(worker, /NEUTRAL_ROLES = new Set\(\['jester'/);
 assert.match(css, /\.role-config-info-disclosure/);
 assert.match(css, /\.system-host-player-context/);
 
@@ -294,7 +308,7 @@ for (const file of [
   'role-seer.svg', 'role-doctor.svg', 'role-villager.svg',
   'role-alpha_wolf.svg', 'role-bodyguard.svg', 'role-witch.svg',
   'role-hunter.svg', 'role-reviver.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
-  'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
+  'role-detective.svg', 'role-mayor.svg', 'role-jester.svg', 'role-wolf_seer.svg', 'role-trapper.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
   assert.ok(sw.includes('/werewolf/assets/illustrations/' + file), 'Role illustration is not precached: ' + file);
@@ -310,7 +324,7 @@ assert.doesNotMatch(html, /createRoleConfig|soloMode|how-to-play/, 'Landing must
 assert.doesNotMatch(app, /createRoleConfig|soloMode/, 'Role and bot configuration must not be read from the landing form.');
 assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role configuration must remain in the moderator lobby.');
 assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
-assert.match(app, /activePlayerCount >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
+assert.match(app, /activePlayers >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
 assert.match(app, /recommendedRoleCounts/);
 assert.match(app, /\['witch', 7\]/);
 assert.match(app, /\['detective', 11\]/);
@@ -341,7 +355,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261106-werewolf-player-voice-waitlist-6/);
+assert.match(sw, /20261106-werewolf-live-activity-12/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
@@ -359,9 +373,9 @@ assert.match(worker, /Durable Object timed phase alarm|scheduleRoomAlarm/);
 assert.match(app, /Tidak ada batas maksimal ronde/);
 assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
-assert.match(app, /role-balance/);
+assert.match(app, /role-team-summary/);
 assert.match(app, /updatePhaseTracker/);
-assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'\]\.includes\(self\.role\)/);
+assert.match(app, /\['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper'\]\.includes\(self\.role\)/);
 
 console.log('Werewolf UI checks passed: moderator-led flow, automatic phase timers, private Seer reveal, responsive UI, and private role assets.');
 
@@ -377,8 +391,46 @@ assert.match(app, /wolfSelections/);
 assert.match(app, /Pilihan kawanan diperbarui realtime/);
 assert.doesNotMatch(app, /renderWolfTeamPanel\(parent\)/);
 assert.match(app, /roomState\.wolfTeam/);
-assert.match(app, /Voting bersifat rahasia/);
+assert.match(app, /Voting terbuka: semua pemain dapat melihat siapa memilih siapa/);
 assert.match(app, /function renderModeratorEventReport/);
+
+assert.match(app, /Perlihatkan role pemain saat mati/);
+assert.match(app, /data-reveal-role-on-death/);
+assert.match(app, /publicRoles/);
+assert.match(app, /publicVotes/);
+assert.match(app, /public-player-row/);
+assert.match(app, /public-role-deceased-name/);
+assert.match(app, /ROLE DALAM PERMAINAN/);
+assert.match(app, /PEMAIN & STATUS/);
+assert.match(app, /renderLivingPlayers\(content\);/);
+assert.match(app, /function syncBotTakeoverDialog/);
+assert.match(app, /if \(takeoverDialog\?\.open\) takeoverDialog\.close\(\)/);
+assert.match(app, /botTakeoverReturn/);
+assert.match(app, /botTakeoverLeave/);
+assert.match(app, /echoCancellation: \{ ideal: true \}/);
+assert.match(app, /noiseSuppression: \{ ideal: true \}/);
+assert.match(app, /autoGainControl: \{ ideal: true \}/);
+assert.match(app, /function updateRemoteVoiceVolume/);
+assert.match(app, /voiceLocalStream && !voiceMuted \? 0\.14 : 0\.2/);
+assert.match(css, /\.public-role-card\.faction-wolves/);
+assert.match(css, /\.public-role-card\.faction-village/);
+assert.match(css, /\.public-role-card\.faction-neutral/);
+assert.match(css, /\.bot-takeover-dialog/);
+assert.match(html, /id="botTakeoverDialog"/);
+assert.match(html, /id="botTakeoverReturn"/);
+assert.match(html, /id="botTakeoverLeave"/);
+assert.match(worker, /revealRoleOnDeath/);
+assert.match(worker, /room\.phase === 'night' && Number\(room\.nightEndsAt\) > 0\) deadlines\.push/);
+assert.match(worker, /room\.phase === 'dawn' && Number\(room\.dawnEndsAt\) > 0\) deadlines\.push/);
+const leaveRoomAction = worker.slice(worker.indexOf("if (type === 'leave_room')"), worker.indexOf("if (type === 'add_bots')"));
+assert.doesNotMatch(leaveRoomAction, /requirePlayer\(\)/);
+assert.match(worker, /takeOverInactivePlayers/);
+assert.match(worker, /publicVotes/);
+assert.match(worker, /publicRoles/);
+assert.match(worker, /type === 'restore_player_control'/);
+assert.match(worker, /voterName: voter\.name/);
+assert.match(worker, /room\.lastResult\?\.publicVotes/);
+
 assert.match(app, /ROLE MODERATOR · PENGATUR JALANNYA PERMAINAN/);
 assert.match(app, /moderator: \['Moderator'/);
 assert.match(app, /roleCounts\?\.moderator/);
@@ -405,9 +457,11 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261106-werewolf-player-voice-waitlist-6/);
-assert.match(sw, /20261106-werewolf-player-voice-waitlist-6/);
+assert.match(html, /20261106-werewolf-live-activity-12/);
+assert.match(sw, /20261106-werewolf-live-activity-12/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
+assert.ok(sw.includes('/werewolf/assets/illustrations/role-wolf_seer.svg'));
+assert.ok(sw.includes('/werewolf/assets/illustrations/role-trapper.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
 assert.match(app, /function renderPlayerDawn/);
@@ -480,12 +534,13 @@ assert.ok(app.includes('bekas gigitan di leher'));
 assert.ok(app.includes('luka tembak'));
 assert.ok(app.includes('botol kecil'));
 assert.ok(app.includes('function renderPrivateInspectionResult'));
-assert.ok(app.includes('seer-inspected'));
+assert.ok(app.includes('seer-inspection-tag'));
+assert.ok(app.includes('public-player-row'));
 assert.ok(app.includes('HASIL PENERAWANGAN PRIBADI'));
-const playerPhaseStart = app.indexOf('function renderPlayerPhase');
-const playerPhaseEnd = app.indexOf('function renderModeratorLobby', playerPhaseStart);
-const playerPhaseMarkup = app.slice(playerPhaseStart, playerPhaseEnd);
-assert.ok(playerPhaseMarkup.indexOf('renderPlayerRoleReminder') < playerPhaseMarkup.indexOf('renderLivingPlayers'));
+const renderRoomStart = app.indexOf('function renderRoom');
+const renderRoomEnd = app.indexOf('function renderPlayerPhase', renderRoomStart);
+const sharedRoomMarkup = app.slice(renderRoomStart, renderRoomEnd);
+assert.ok(sharedRoomMarkup.indexOf('renderPlayerPhase(content)') < sharedRoomMarkup.indexOf('renderLivingPlayers(content)'));
 assert.ok(app.indexOf('renderDiscussionTools(content)') > app.indexOf('renderPlayerPhase(content)'));
 console.log('Werewolf gameplay UX checks passed: timed actions, private inspections, integrated voice/chat, custom confirmations and story narration.');
 
