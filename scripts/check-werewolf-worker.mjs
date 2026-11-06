@@ -2761,6 +2761,41 @@ assert.equal(voteTakeoverState.lastResult.publicVotes.length, 4);
 assert.ok(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).hasVoted);
 console.log('Werewolf voting takeover regression passed: missed voters are replaced and ballots stay public.');
 
+  
+// A player can choose "Kembali Bermain" and regain their own account without moderator intervention.
+const selfRestoreRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const selfRestoreCreated = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SELF23', name: 'Restore Host'
+})), 201);
+const selfRestoreOne = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Returning Player' })), 201);
+const selfRestoreTwo = await payload(await selfRestoreRoom.fetch(makeRequest('/internal/join', 'POST', { name: 'Other Player' })), 201);
+let selfRestoreState = await selfRestoreRoom.loadRoom();
+const returningPlayer = selfRestoreState.players.find(item => item.tokenHash);
+const otherPlayer = selfRestoreState.players.find(item => item.id !== returningPlayer.id && item.tokenHash);
+returningPlayer.role = 'villager';
+returningPlayer.alive = true;
+returningPlayer.hasDrawn = true;
+returningPlayer.isBot = true;
+returningPlayer.isBotControlled = true;
+selfRestoreState.phase = 'voting';
+selfRestoreState.votingEndsAt = Date.now() + 30000;
+selfRestoreState.votes = { [returningPlayer.id]: otherPlayer.id };
+selfRestoreState.gameHistory = selfRestoreState.gameHistory || [];
+selfRestoreState.gameHistoryTruncated = Number(selfRestoreState.gameHistoryTruncated) || 0;
+await selfRestoreRoom.saveRoom(selfRestoreState);
+const returningToken = returningPlayer.id === selfRestoreOne.playerId ? selfRestoreOne.token : selfRestoreTwo.token;
+await payload(await selfRestoreRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'restore_player_control'
+}, returningToken)), 200);
+selfRestoreState = await selfRestoreRoom.loadRoom();
+const restoredPlayer = selfRestoreState.players.find(item => item.id === returningPlayer.id);
+assert.equal(restoredPlayer.isBotControlled, false);
+assert.equal(restoredPlayer.isBot, false);
+assert.equal(Object.prototype.hasOwnProperty.call(selfRestoreState.votes, returningPlayer.id), false,
+  'A restored player must be allowed to replace the BOT vote before the voting deadline.');
+console.log('Werewolf player restore regression passed: self-service takeover recovery restores the player and removes the BOT ballot.');
+
+
 
   
 // Public role board reveals the deck composition, but never a living player's assigned role.
