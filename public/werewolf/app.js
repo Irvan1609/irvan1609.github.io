@@ -497,7 +497,7 @@ function applyState(nextState, expectedSession = session) {
     nextState.room.lastResult?.at || nextState.room.publicResult?.at || ''].join(':');
   if (narrationKey !== lastNarrationKey) {
     const narration = systemNarrationText(nextState.room);
-    if (narration) speakSystemNarration(narration);
+    if (narration) speakSystemNarration(narration, nextState.room.phase);
   }
   lastNarrationKey = narrationKey;
   roomState = nextState;
@@ -2759,8 +2759,13 @@ function systemNarrationText(room) {
   }
 }
 
-function speakSystemNarration(message) {
-  if (!message || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+function speakSystemNarration(message, phase = roomState?.room?.phase) {
+  if (!message) return;
+  if (window.WerewolfVoiceStudio?.play?.(phase, message)) {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    return;
+  }
+  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
   try {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
