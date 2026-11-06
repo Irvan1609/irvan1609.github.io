@@ -748,6 +748,23 @@ assert.deepEqual(privateVillagerWolfView.wolfChat, []);
 await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
 }, cupidNightTokens[2])));
+let cupidDraftState = await cupidNightRoom.loadRoom();
+assert.equal(cupidDraftState.nightActions[cupidNightState.players[2].id].targetId, cupidNightState.players[0].id);
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[1].id, partnerId: cupidNightState.players[4].id
+}, cupidNightTokens[2])));
+cupidDraftState = await cupidNightRoom.loadRoom();
+assert.equal(cupidDraftState.nightActions[cupidNightState.players[2].id].targetId, cupidNightState.players[1].id,
+  'Cupid can replace a saved pair before the midnight deadline.');
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', mode: 'cupid_clear'
+}, cupidNightTokens[2])));
+cupidDraftState = await cupidNightRoom.loadRoom();
+assert.equal(cupidDraftState.nightActions[cupidNightState.players[2].id], undefined,
+  'Cupid can clear a saved pair while choosing a replacement.');
+await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: cupidNightState.players[0].id, partnerId: cupidNightState.players[3].id
+}, cupidNightTokens[2])));
 await submitVillagerMath(cupidNightRoom, cupidNightTokens[3]);
 await submitVillagerMath(cupidNightRoom, cupidNightTokens[4]);
 
