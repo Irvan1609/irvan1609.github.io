@@ -3356,8 +3356,6 @@ export class WerewolfRoom {
         await this.applyAction(room, room.moderator, { type: 'start_voting' });
         changed = true;
       } else if (room.phase === 'voting' && Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) {
-        const missingVoters = room.players.filter(item => item.alive
-          && !Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
         this.finishVote(room, now);
         changed = true;
       } else if (room.phase === 'result' && this.isSystemModerator(room)
