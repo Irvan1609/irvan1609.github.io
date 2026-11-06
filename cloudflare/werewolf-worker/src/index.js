@@ -807,10 +807,10 @@ export class WerewolfRoom {
       const dawnAction = room.dawnActions?.[player.id] || null;
       const isDawnEligible = dawnCandidates.some(item => item.id === player.id);
       let phaseStatus = !player.alive ? 'Tereliminasi' : 'Hidup';
-      if (room.phase === 'role_draw') phaseStatus = player.hasDrawn ? 'Kartu dibuka' : 'Belum buka kartu';
-      else if (room.phase === 'night') phaseStatus = hasActed ? 'Sudah beraksi' : 'Belum beraksi';
-      else if (room.phase === 'dawn') phaseStatus = isDawnEligible
-        ? (dawnAction ? 'Sudah beraksi' : 'Belum beraksi') : 'Tidak ada aksi khusus';
+      if (room.phase === 'role_draw' && player.alive) phaseStatus = player.hasDrawn ? 'Kartu dibuka' : 'Belum buka kartu';
+      else if (room.phase === 'night' && player.alive) phaseStatus = hasActed ? 'Sudah beraksi' : 'Belum beraksi';
+      else if (room.phase === 'dawn' && player.alive && isDawnEligible) phaseStatus = dawnAction ? 'Sudah beraksi' : 'Belum beraksi';
+      else if (room.phase === 'dawn' && player.alive) phaseStatus = 'Tidak ada aksi khusus';
       else if (room.phase === 'voting') phaseStatus = !player.alive ? 'Tidak ikut voting'
         : hasVoted ? (voteTarget ? 'Memilih ' + voteTarget.name : 'Golput') : 'Belum voting';
       return {
