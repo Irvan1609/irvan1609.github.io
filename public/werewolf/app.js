@@ -540,7 +540,7 @@ function refreshVoiceUI() {
 }
 
 function updateRemoteVoiceVolume() {
-  const volume = voiceLocalStream && !voiceMuted ? 0.26 : 0.38;
+  const volume = voiceLocalStream && !voiceMuted ? 0.22 : 0.34;
   for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
 }
 
@@ -647,7 +647,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
-      audio.volume = voiceLocalStream && !voiceMuted ? 0.26 : 0.38;
+      audio.volume = voiceLocalStream && !voiceMuted ? 0.22 : 0.34;
       audio.className = 'voice-audio';
       audio.dataset.peerId = peerId;
       document.body.append(audio);
@@ -730,7 +730,7 @@ async function startDiscussionVoice(manual = false) {
         audio: {
           echoCancellation: { ideal: 'all' },
           noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: false },
+          autoGainControl: { ideal: true },
           channelCount: { ideal: 1 },
           sampleRate: { ideal: 48000 }
         },
@@ -833,12 +833,18 @@ async function handleVoiceSignal(message) {
   if (!connection) return;
 
   if (message.signalKind === 'offer') {
+    if (connection.signalingState !== 'stable') {
+      const polite = String(roomState.self.id).localeCompare(String(peer.id)) > 0;
+      if (!polite) return;
+      await connection.setLocalDescription({ type: 'rollback' });
+    }
     await connection.setRemoteDescription(message.payload);
     await flushVoiceCandidates(peer.id, connection);
     const answer = await connection.createAnswer();
     await connection.setLocalDescription(answer);
     sendVoiceSignal(peer.id, 'answer', connection.localDescription);
   } else if (message.signalKind === 'answer') {
+    if (connection.signalingState !== 'have-local-offer') return;
     await connection.setRemoteDescription(message.payload);
     await flushVoiceCandidates(peer.id, connection);
   } else if (message.signalKind === 'candidate') {
