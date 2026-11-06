@@ -894,7 +894,8 @@ export class WerewolfRoom {
               : item.cause === 'werewolf_attack' ? 'Serangan Werewolf'
                 : ['hunter', 'vigilante_shot'].includes(item.cause) ? 'Tembakan'
                   : item.cause === 'witch_poison' ? 'Racun'
-                    : item.cause === 'bodyguard_sacrifice' ? 'Pengorbanan'
+                : item.cause === 'serial_killer_kill' ? 'Serangan Serial Killer'
+                  : item.cause === 'bodyguard_sacrifice' ? 'Pengorbanan'
                       : item.cause === 'cupid_bond' ? 'Ikatan pasangan'
                         : item.cause === 'left_room' ? 'Keluar dari permainan' : 'Aksi malam'
           }))
@@ -1734,10 +1735,10 @@ export class WerewolfRoom {
     const lovers = room.lovers || [];
     if (lovers.length === 2 && alive.length === 2 && lovers.every(id => alive.some(item => item.id === id))) {
       room.winner = 'lovers';
-    } else if (wolves === 0) {
-      room.winner = 'villagers';
     } else if (alive.length === 1 && alive[0].role === 'serial_killer') {
       room.winner = 'serial_killer';
+    } else if (wolves === 0) {
+      room.winner = 'villagers';
     } else if (wolves >= nonWolfPlayers) {
       room.winner = 'wolves';
     }

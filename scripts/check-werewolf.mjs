@@ -87,7 +87,7 @@ assert.match(app, /function renderMasonCircle/);
 const allCardRoles = [
   'wolf', 'alpha_wolf', 'wolf_seer', 'villager', 'seer', 'doctor', 'bodyguard', 'trapper', 'witch',
   'hunter', 'reviver', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
-  'priest', 'vigilante', 'mason', 'moderator'
+  'priest', 'vigilante', 'mason', 'serial_killer', 'moderator'
 ];
 for (const role of allCardRoles) {
   assert.match(app, new RegExp(role + ': \\['));
@@ -101,7 +101,18 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261106-werewolf-live-activity-12/);
+assert.match(html, /20261106-werewolf-complete-1/);
+assert.match(html, /id="joinEntryMode"/);
+assert.match(html, /id="audioSettings"/);
+assert.match(html, /id="gameSoundVolume"/);
+assert.match(html, /id="voicePlaybackVolume"/);
+assert.match(app, /function renderSpectatorPhase/);
+assert.match(app, /function renderEmergencyControls/);
+assert.match(worker, /selectBotSuspect/);
+assert.match(worker, /serial_killer_kill/);
+assert.match(worker, /type === 'pause_game'/);
+assert.match(worker, /type === 'resume_game'/);
+assert.match(worker, /type === 'restart_phase'/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -125,7 +136,7 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261106-werewolf-live-activity-12/);
+assert.match(html, /app\.js\?v=20261106-werewolf-complete-1/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);

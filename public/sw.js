@@ -1,4 +1,4 @@
-const VERSION='20261106-werewolf-live-activity-12';
+const VERSION='20261106-werewolf-complete-1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -29,6 +29,7 @@ const CORE_URLS=[
   '/werewolf/assets/illustrations/role-reviver.svg',
   '/werewolf/assets/illustrations/role-cupid.svg',
   '/werewolf/assets/illustrations/role-guardian_angel.svg',
+  '/werewolf/assets/illustrations/role-serial_killer.svg',
   '/werewolf/assets/illustrations/role-detective.svg',
   '/werewolf/assets/illustrations/role-mayor.svg',
   '/werewolf/assets/illustrations/role-jester.svg',
