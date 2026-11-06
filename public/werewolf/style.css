@@ -1097,3 +1097,15 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .role-death-reveal-setting{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #3b526c;border-radius:10px;background:#111e2e;color:#e3edf7;font-size:11px;font-weight:800}
 .role-death-reveal-setting input{width:18px;height:18px;accent-color:#4d9cdd}
 .voice-feedback-note{display:block;margin-top:6px;color:#d3b988;font-size:9px;line-height:1.45}
+
+/* Public role composition and transparent player activity */
+.public-role-card{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.public-role-alive-count{font-size:10px;color:#9db0c5}
+.public-role-deceased-list{display:flex;flex-wrap:wrap;gap:6px;padding-top:7px;border-top:1px solid #ffffff18}
+.public-role-deceased-name{display:inline-flex;padding:4px 7px;border-radius:6px;background:#ffffff0b;color:#8d99a8;font-size:10px;text-decoration:line-through;opacity:.68}
+.public-player-row .public-player-status.status-alive{color:#80d6a1}
+.public-player-row .public-player-status.status-dead{color:#8993a0;opacity:.65;text-decoration:line-through}
+.public-player-row.is-dead{opacity:.58}
+.public-player-row.is-dead .public-player-identity{text-decoration:line-through}
+.voice-status:after{content:" · Gunakan headset untuk mencegah suara mikrofon berputar";display:block;color:#899bb1;font-size:9px;margin-top:3px}
+@media(max-width:620px){.public-role-alive-count{font-size:9px}.public-role-deceased-name{font-size:9px}}
