@@ -2570,7 +2570,8 @@ assert.equal(trapperState.players.find(player => player.role === 'wolf').alive, 
 assert.equal(trapperState.players.find(player => player.role === 'villager' && player.id === trapperTargetId).alive, true,
   'The trapped target must survive the pack attack.');
 assert.equal(trapperState.lastResult.eliminations.find(item => item.role === 'wolf')?.cause, 'trapper_capture');
-assert.match(trapperState.lastResult.message, /Perangkap Trapper menangkap/);
+assert.ok(trapperState.lastResult.events.some(event => /Perangkap Trapper menangkap/.test(event)),
+  'The public night report must explain that the trap caught the attacker and saved the target.');
 assert.ok(trapperState.lastResult.actionReport.some(item => item.role === 'Trapper' && /Perangkap aktif/.test(item.outcome)));
 console.log('Werewolf Trapper regression passed: a successful trap saves the target and eliminates an attacker.');
 
