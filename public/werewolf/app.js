@@ -505,12 +505,15 @@ function applyState(nextState, expectedSession = session) {
   syncDiscussionVoice();
 }
 
-function discussionVoiceAllowed(state = roomState) {
-  return Boolean(state?.room
-    && state.room.settings?.gameMode === 'online'
-    && !state.self?.isBotControlled
+function discussionVoiceListeningAllowed(state = roomState) {
+  return Boolean(state?.room && !state.self?.isWaiting && !state.self?.isBotControlled
     && (state.room.phase === 'lobby' || state.room.phase === 'finished'
       || state.self?.isModerator || state.self?.alive));
+}
+
+function discussionVoiceAllowed(state = roomState) {
+  return Boolean(discussionVoiceListeningAllowed(state)
+    && (state.self?.voiceMode || 'online') === 'online');
 }
 
 function refreshVoiceUI() {
@@ -604,7 +607,7 @@ async function flushVoiceCandidates(peerId, connection) {
 
 async function createVoicePeer(peer, shouldOffer = false) {
   const peerId = peer.id;
-  if (!voiceLocalStream || !peerId || peerId === roomState?.self?.id) return null;
+  if (!discussionVoiceListeningAllowed() || !peerId || peerId === roomState?.self?.id) return null;
   const existing = voicePeerConnections.get(peerId);
   if (existing) return existing;
   if (typeof RTCPeerConnection !== 'function') {
@@ -619,7 +622,12 @@ async function createVoicePeer(peer, shouldOffer = false) {
     ]
   });
   voicePeerConnections.set(peerId, connection);
-  for (const track of voiceLocalStream.getAudioTracks()) connection.addTrack(track, voiceLocalStream);
+  const localAudioTracks = voiceLocalStream?.getAudioTracks() || [];
+  if (localAudioTracks.length) {
+    for (const track of localAudioTracks) connection.addTrack(track, voiceLocalStream);
+  } else {
+    connection.addTransceiver('audio', { direction: 'recvonly' });
+  }
   connection.onicecandidate = event => {
     if (event.candidate) sendVoiceSignal(peerId, 'candidate',
       typeof event.candidate.toJSON === 'function' ? event.candidate.toJSON() : event.candidate);
@@ -651,7 +659,15 @@ async function createVoicePeer(peer, shouldOffer = false) {
     } else {
       const connected = [...voicePeerConnections.values()]
         .filter(item => item.connectionState === 'connected').length;
-      if (connected) voiceStatus = 'Voice chat aktif · ' + connected + ' koneksi suara.';
+      if (connected) {
+        if (roomState?.self?.voiceMode === 'offline') {
+          voiceStatus = 'Audio pemain online tersambung · mikrofon tetap mati.';
+        } else if (!voiceLocalStream || voiceMuted) {
+          voiceStatus = 'Audio pemain lain tersambung · mikrofon ' + (voiceMuted ? 'dimatikan.' : 'belum aktif.');
+        } else {
+          voiceStatus = 'Voice chat aktif · ' + connected + ' koneksi suara.';
+        }
+      }
     }
     refreshVoiceUI();
   };
@@ -664,7 +680,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
 }
 
 async function reconcileVoiceConnections() {
-  if (!voiceLocalStream || !discussionVoiceAllowed()) return;
+  if (!discussionVoiceListeningAllowed()) return;
   const peers = (roomState.voicePeers || []).filter(item => item.id && item.id !== roomState.self.id);
   const allowedIds = new Set(peers.map(item => item.id));
   for (const peerId of [...voicePeerConnections.keys()]) {
@@ -672,7 +688,9 @@ async function reconcileVoiceConnections() {
   }
   for (const peer of peers) {
     if (voicePeerConnections.has(peer.id)) continue;
-    const shouldOffer = String(roomState.self.id).localeCompare(String(peer.id)) < 0;
+    const peerOnline = peer.isModerator || peer.voiceMode !== 'offline';
+    const shouldOffer = discussionVoiceAllowed()
+      && (!peerOnline || String(roomState.self.id).localeCompare(String(peer.id)) < 0);
     try { await createVoicePeer(peer, shouldOffer); } catch {
       closeVoicePeer(peer.id);
       voiceStatus = 'Tidak berhasil menghubungkan suara dengan ' + peer.name + '.';
@@ -711,6 +729,7 @@ async function startDiscussionVoice(manual = false) {
       for (const track of stream.getAudioTracks()) track.enabled = true;
       voiceStatus = 'Mikrofon aktif · menghubungkan pemain diskusi…';
       refreshVoiceUI();
+      for (const peerId of [...voicePeerConnections.keys()]) closeVoicePeer(peerId);
       await reconcileVoiceConnections();
       return true;
     } catch (error) {
@@ -729,19 +748,41 @@ async function startDiscussionVoice(manual = false) {
 }
 
 function syncDiscussionVoice() {
-  if (!discussionVoiceAllowed()) {
+  if (!discussionVoiceListeningAllowed()) {
     if (voiceLocalStream || voicePeerConnections.size || voiceStartPromise) stopDiscussionVoice();
     return;
   }
   const key = roomState.room.code + ':' + roomState.room.round;
-  if (voiceLocalStream) {
+  if (discussionVoiceAllowed()) {
+    if (voiceLocalStream) {
+      voiceAutoAttemptKey = key;
+      reconcileVoiceConnections().catch(() => {});
+      return;
+    }
+    if (voiceStartPromise || voiceAutoAttemptKey === key) return;
     voiceAutoAttemptKey = key;
-    reconcileVoiceConnections().catch(() => {});
+    startDiscussionVoice(false).then(active => {
+      if (!active && discussionVoiceListeningAllowed()) {
+        voiceStatus = 'Mikrofon belum diizinkan · ketuk Mic untuk mencoba lagi; kamu tetap dapat mendengar pemain online.';
+        reconcileVoiceConnections().catch(() => {});
+        refreshVoiceUI();
+      }
+    }).catch(() => {});
     return;
   }
-  if (voiceStartPromise || voiceAutoAttemptKey === key) return;
+
+  if (voiceLocalStream) {
+    for (const track of voiceLocalStream.getTracks()) {
+      try { track.stop(); } catch {}
+    }
+    voiceLocalStream = null;
+    for (const peerId of [...voicePeerConnections.keys()]) closeVoicePeer(peerId);
+  }
   voiceAutoAttemptKey = key;
-  startDiscussionVoice(false).catch(() => {});
+  voiceMuted = true;
+  voiceStatus = 'Mode offline · mikrofon mati, suara pemain online tetap terdengar.';
+  reconcileVoiceConnections().catch(() => {});
+  refreshVoiceUI();
 }
 
 function toggleVoiceMic() {
@@ -766,11 +807,8 @@ async function unlockRemoteAudio() {
 }
 
 async function handleVoiceSignal(message) {
-  if (!discussionVoiceAllowed() || !message?.fromId) return;
-  if (!voiceLocalStream) {
-    await startDiscussionVoice(true);
-    if (!voiceLocalStream) return;
-  }
+  if (!discussionVoiceListeningAllowed() || !message?.fromId) return;
+  if (discussionVoiceAllowed() && !voiceLocalStream) await startDiscussionVoice(true);
   const peer = (roomState.voicePeers || []).find(item => item.id === message.fromId)
     || { id: message.fromId, name: message.fromName || 'Pemain' };
   let connection = voicePeerConnections.get(peer.id);
@@ -1113,10 +1151,7 @@ function readRoleSettings(container) {
     }
     timers[input.dataset.phaseDuration] = seconds;
   }
-  return {
-    gameMode: roomState?.room?.settings?.gameMode === 'online' ? 'online' : 'offline',
-    roleCounts, moderatorMode, timers
-  };
+  return { roleCounts, moderatorMode, timers };
 }
 
 function renderModeratorDashboard(parent) {
@@ -1184,7 +1219,9 @@ function renderPlayers() {
   const host = isHost();
   const canMonitor = moderator || host;
   const phase = roomState.room.phase;
-  $('playerCount').textContent = players.length + ' pemain';
+  const waitingPlayers = roomState.waitingPlayers || [];
+  $('playerCount').textContent = players.length + ' pemain'
+    + (waitingPlayers.length ? ' · ' + waitingPlayers.length + ' menunggu ronde berikutnya' : '');
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
     const identity = node('div', 'player-identity');
@@ -1195,6 +1232,7 @@ function renderPlayers() {
     identity.append(avatar, name);
     const details = [];
     if (moderator && player.role) details.push(ROLE_INFO[player.role]?.[0] || player.role);
+    details.push(player.voiceMode === 'offline' ? 'Offline · hanya mendengar' : 'Online · mikrofon');
     if (moderator && player.nightActionPartner) details.push('Pasangan: ' + player.nightActionPartner);
     if (!player.alive) details.push('Tereliminasi');
     else if (canMonitor && phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
@@ -1218,6 +1256,20 @@ function renderPlayers() {
       chip.append(actions);
     }
     list.append(chip);
+  }
+  if (waitingPlayers.length) {
+    const queue = node('section', 'waiting-room-roster');
+    addText(queue, 'div', 'waiting-room-count', waitingPlayers.length + ' pemain menunggu ronde berikutnya');
+    const queueList = node('div', 'waiting-room-list');
+    for (const player of waitingPlayers) {
+      const item = node('div', 'waiting-room-player');
+      addText(item, 'b', '', player.name);
+      addText(item, 'span', 'player-meta', player.voiceMode === 'offline' ? 'Offline · dengar' : 'Online · mic');
+      item.append(button('Kick', 'kick-player-button', () => kickPlayer(player)));
+      queueList.append(item);
+    }
+    queue.append(queueList);
+    list.append(queue);
   }
 }
 
@@ -1743,6 +1795,25 @@ function renderSystemHostPlayerContext(parent) {
 function renderPlayerPhase(parent) {
   const phase = roomState.room.phase;
   const self = roomState.self || {};
+  if (self.isWaiting) {
+    phaseHeader(parent, 'DAFTAR TUNGGU', 'Kamu masuk saat permainan berlangsung',
+      'Kamu sudah terdaftar untuk permainan berikutnya. Permainan saat ini tetap berjalan tanpa melibatkanmu.');
+    addText(parent, 'div', 'notice success', 'Kartu role belum dibagikan. Kamu tidak ikut aksi malam, diskusi, voting, atau perhitungan ronde ini.');
+    addText(parent, 'div', 'notice', 'Host akan memasukkanmu otomatis ke ruang tunggu aktif saat permainan di-restart untuk ronde berikutnya.');
+    const queue = node('section', 'waiting-room-roster');
+    addText(queue, 'div', 'waiting-room-count', (roomState.waitingPlayers || []).length + ' pemain menunggu ronde berikutnya');
+    const queueList = node('div', 'waiting-room-list');
+    for (const player of (roomState.waitingPlayers || [])) {
+      const item = node('div', 'waiting-room-player');
+      addText(item, 'b', '', player.name);
+      addText(item, 'span', player.voiceMode === 'offline' ? 'offline' : 'online',
+        player.voiceMode === 'offline' ? 'Offline' : 'Online');
+      queueList.append(item);
+    }
+    queue.append(queueList);
+    parent.append(queue);
+    return;
+  }
   if (phase === 'lobby') {
     phaseHeader(parent, 'RUANG TUNGGU', 'Menunggu permainan dimulai',
       'Kamu sudah berada di room yang sama dengan pemain lainnya. Host akan memulai permainan setelah semua siap.');
@@ -1804,13 +1875,15 @@ function renderModeratorLobby(parent) {
   phaseHeader(parent, 'PANEL MODERATOR', 'Atur role setelah pemain bergabung', 'Tentukan role dan jumlahnya di sini. Pengaturan ini dapat diubah selama room masih berada di lobby.');
   const settings = roomState.room.settings || {};
   const mode = roleSettingsForUI(settings).moderatorMode;
-  const gameMode = settings.gameMode === 'online' ? 'online' : 'offline';
   const roleSlots = rolePlayerCount(mode);
-  addText(parent, 'div', gameMode === 'online' ? 'notice success' : 'notice',
-    gameMode === 'online'
-      ? 'Mode online aktif: voice chat dan chat tersedia di lobby serta semua fase permainan.'
-      : 'Mode offline/tatap muka: voice chat dimatikan; chat teks tetap tersedia. Room tetap membutuhkan internet untuk sinkronisasi antarperangkat.');
-  addText(parent, 'div', 'notice', 'Pemain terdaftar: ' + roomState.players.length + '. Pemain yang menerima role: ' + roleSlots + '. Moderator sementara tidak dihitung sebagai pemain aktif.');
+  const onlinePlayers = (roomState.players || []).filter(player => player.voiceMode !== 'offline' && !player.isBot).length;
+  const offlinePlayers = (roomState.players || []).filter(player => player.voiceMode === 'offline' && !player.isBot).length;
+  addText(parent, 'div', 'notice success',
+    'Voice pemain: ' + onlinePlayers + ' online (mikrofon aktif otomatis) · '
+      + offlinePlayers + ' offline (mikrofon mati, tetap mendengar).');
+  addText(parent, 'div', 'notice', 'Pemain aktif: ' + roomState.players.length + '. Menunggu ronde berikutnya: '
+    + (roomState.waitingPlayers || []).length + '. Pemain yang menerima role: ' + roleSlots
+    + '. Moderator sementara tidak dihitung sebagai pemain aktif.');
   addText(parent, 'div', mode === 'system' ? 'notice success' : 'notice', mode === 'system'
     ? 'Moderator sistem aktif. Seluruh fase berjalan otomatis sesuai durasi, tanpa host perlu menekan tombol perpindahan.'
     : mode === 'random' ? 'Mode acak aktif. Satu pemain manusia akan dipilih sebagai moderator dan sementara dikeluarkan dari daftar pemain aktif.'
@@ -2208,29 +2281,34 @@ function renderPlayerNight(parent) {
 
 function renderPlayerDiscussion(parent) {
   renderPublicResult(parent);
-  addText(parent, 'div', 'notice success', 'Diskusi berlangsung. Chat dan voice chat tersedia langsung di panel percakapan.');
+  addText(parent, 'div', 'notice success',
+    'Voice chat mengikuti pilihan saat bergabung: Online berbicara dengan mikrofon aktif, Offline mendengarkan tanpa mengaktifkan mikrofon.');
   appendPhaseCountdown(parent, 'DISKUSI TERSISA', roomState.room.discussionEndsAt);
 }
 
 function renderDiscussionTools(parent) {
   const self = roomState.self || {};
   const phase = roomState.room.phase;
-  const onlineMode = roomState.room.settings?.gameMode === 'online';
-  const canSpeak = !self.isBotControlled
+  const voiceListen = discussionVoiceListeningAllowed();
+  const onlineMode = discussionVoiceAllowed();
+  const canSpeak = !self.isWaiting && !self.isBotControlled
     && Boolean(self.isModerator || self.alive || phase === 'lobby' || phase === 'finished');
   const section = node('section', 'discussion-tools');
   const chat = node('section', 'discussion-chat-panel');
   const heading = node('div', 'discussion-chat-heading');
   addText(heading, 'div', 'eyebrow-small', 'CHAT DISKUSI');
-  if (onlineMode) {
+  if (voiceListen) {
     const voiceMeta = node('div', 'chat-voice-meta');
-    const status = addText(voiceMeta, 'span', 'voice-status', voiceStatus);
+    const statusText = self.voiceMode === 'offline'
+      ? 'Offline · mikrofon mati, tetap mendengar'
+      : voiceStatus;
+    const status = addText(voiceMeta, 'span', 'voice-status', statusText);
     status.id = 'voiceStatus';
     const count = addText(voiceMeta, 'span', 'voice-peer-count', '0 pemain terhubung');
     count.id = 'voicePeerCount';
     heading.append(voiceMeta);
   } else {
-    addText(heading, 'span', 'chat-mode-note', 'Mode teks');
+    addText(heading, 'span', 'chat-mode-note', 'Voice tidak aktif');
   }
   chat.append(heading);
 
@@ -2275,6 +2353,8 @@ function renderDiscussionTools(parent) {
       mic.setAttribute('aria-label', voiceLocalStream
         ? (voiceMuted ? 'Nyalakan mikrofon' : 'Matikan mikrofon') : 'Aktifkan mikrofon');
       actions.append(mic);
+    }
+    if (voiceListen) {
       const audio = button('Audio', 'secondary voice-inline-control', unlockRemoteAudio, !voiceNeedsAudioGesture);
       audio.id = 'voiceAudioUnlock';
       audio.setAttribute('aria-label', 'Aktifkan audio pemain lain');
@@ -2307,14 +2387,16 @@ function renderDiscussionTools(parent) {
     });
     chat.append(form);
   } else {
-    addText(chat, 'p', 'hint', self.isBotControlled
-      ? 'Chat dinonaktifkan selama BOT mengambil alih.'
-      : 'Kamu sudah tereliminasi. Chat hanya dapat dibaca sampai permainan selesai.');
+    addText(chat, 'p', 'hint', self.isWaiting
+      ? 'Chat dan voice permainan tersedia setelah kamu masuk pada ronde berikutnya.'
+      : self.isBotControlled
+        ? 'Chat dinonaktifkan selama BOT mengambil alih.'
+        : 'Kamu sudah tereliminasi. Chat hanya dapat dibaca sampai permainan selesai.');
   }
   section.append(chat);
   parent.append(section);
   list.scrollTop = list.scrollHeight;
-  if (onlineMode) refreshVoiceUI();
+  if (voiceListen) refreshVoiceUI();
 }
 
 function renderPrivateInspectionResult(parent) {
@@ -2814,6 +2896,7 @@ function renderPlayerVoteResult(parent) {
 async function leaveCurrentRoom() {
   if (!session || isRoomModerator() || isHost()) return;
   const activeSession = session;
+  const wasWaiting = Boolean(roomState?.self?.isWaiting);
   try {
     await request('/rooms/' + activeSession.code + '/action', {
       method: 'POST', body: { type: 'leave_room' }, session: activeSession
@@ -2830,7 +2913,9 @@ async function leaveCurrentRoom() {
     const url = new URL(location.href);
     url.searchParams.delete('room');
     history.replaceState({}, '', url);
-    showMessage('Kamu sudah keluar dari room. Jika permainan sedang berlangsung, karaktermu dihitung tereliminasi.');
+    showMessage(wasWaiting
+      ? 'Kamu keluar dari daftar tunggu.'
+      : 'Kamu sudah keluar dari room. Jika permainan sedang berlangsung, karaktermu dihitung tereliminasi.');
   } catch (error) {
     if (session === activeSession && (error.status === 401 || error.status === 404)) clearInvalidSession(activeSession);
     else if (session === activeSession) showMessage(error.message, true);
@@ -2867,10 +2952,7 @@ $('createForm').addEventListener('submit', async event => {
     const result = await request('/rooms', {
       method: 'POST',
       auth: false,
-      body: {
-        name: $('createName').value.trim(),
-        settings: { gameMode: $('createGameMode').value === 'online' ? 'online' : 'offline' }
-      }
+      body: { name: $('createName').value.trim() }
     });
     rememberPlayerName($('createName').value);
     await enterRoom({
@@ -2900,10 +2982,14 @@ $('joinForm').addEventListener('submit', async event => {
     const result = await request('/rooms/' + code + '/join', {
       method: 'POST',
       auth: false,
-      body: { name: $('joinName').value.trim() }
+      body: {
+        name: $('joinName').value.trim(),
+        voiceMode: $('joinVoiceMode').value === 'offline' ? 'offline' : 'online'
+      }
     });
     rememberPlayerName($('joinName').value);
     await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('joinName').value.trim() });
+    if (result.isWaiting) showMessage('Kamu masuk daftar tunggu. Kamu otomatis bergabung saat permainan berikutnya dimulai.');
   } catch (error) {
     showMessage(error.message, true);
   } finally {

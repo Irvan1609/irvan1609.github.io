@@ -72,7 +72,7 @@ const room = new WerewolfRoom({ storage, getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
 });
 const created = await payload(await room.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WALF23', name: 'Moderator', settings: { gameMode: 'online' }
+  code: 'WALF23', name: 'Moderator'
 })), 201);
 assert.ok(created.moderatorId);
 let saved = await room.loadRoom();
@@ -85,7 +85,8 @@ assert.equal(saved.settings.roleCounts, null);
 assert.equal(saved.settings.wolves, 1);
 assert.equal(saved.settings.seer, true);
 assert.equal(saved.settings.doctor, true);
-assert.equal(saved.settings.gameMode, 'online');
+assert.equal(saved.settings.gameMode, undefined, 'Rooms no longer have a global online/offline voice setting.');
+assert.equal(saved.players[0].voiceMode, 'online', 'The room creator defaults to online voice.');
 assert.equal(saved.hostId, created.moderatorId);
 assert.ok(saved.moderator.tokenHash);
 
@@ -114,7 +115,6 @@ assert.equal(moderatorBeforeStart.players.length, 6);
 assert.equal(moderatorBeforeStart.players.some(player => player.role), false);
 
 const roleSettings = {
-  gameMode: 'online',
   roleCounts: {
     wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0,
     witch: 0, hunter: 0, cupid: 0, guardian_angel: 0, detective: 0,
@@ -417,7 +417,7 @@ await soloRoom.saveRoom(soloState);
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_discussion' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'discussion');
-assert.equal(soloState.discussionMode, 'offline');
+assert.equal(soloState.discussionMode, 'voice');
 assert.equal(soloState.callUrl, '');
 assert.equal(soloState.chat.length, 5,
   'Every living bot that completed a night action must contribute to discussion.');
@@ -574,7 +574,7 @@ assert.deepEqual(
 );
 assert.equal(systemVoteView.room.lastResult, null,
   'Private moderator vote details must remain hidden from players in system mode.');
-console.log('Werewolf system moderator checks passed: automatic night start, passive-role passes, automatic night resolution, public result parity, offline discussion, and automatic vote tally.');
+console.log('Werewolf system moderator checks passed: automatic night start, passive-role passes, automatic night resolution, public result parity, discussion, and automatic vote tally.');
 
 const witchRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
@@ -1717,25 +1717,35 @@ assert.ok(roleShuffleSignatures.size > 1,
   'Repeated games with the same players and role counts must produce different player-to-role assignments.');
 console.log('Werewolf role randomization regression passed: every role count is preserved and player-role assignment changes across games.');
 
-// Online voice chat is available in the lobby and every game phase; offline rooms disable it.
+// Voice mode belongs to each player: online sends audio; offline receives audio only.
 const voiceSockets = [];
 const voiceStorage = new MemoryStorage();
 const voiceRoom = new WerewolfRoom({ storage: voiceStorage, getWebSockets: () => voiceSockets }, {});
 const voiceCreated = await payload(await voiceRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'VWXY23', name: 'Voice Host', settings: { gameMode: 'online' }
+  code: 'VWXY23', name: 'Voice Host'
 })), 201);
 const voicePlayers = [];
-for (const name of ['Voice One', 'Voice Two']) {
-  voicePlayers.push(await payload(await voiceRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201));
-}
+voicePlayers.push(await payload(await voiceRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Voice Online', voiceMode: 'online'
+})), 201));
+voicePlayers.push(await payload(await voiceRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Voice Offline', voiceMode: 'offline'
+})), 201));
+assert.equal(voicePlayers[0].voiceMode, 'online');
+assert.equal(voicePlayers[1].voiceMode, 'offline');
+assert.equal(voicePlayers[0].isWaiting, false);
 let voiceState = await voiceRoom.loadRoom();
-voiceState.players.forEach(player => { player.alive = true; });
+assert.equal(voiceState.players[1].voiceMode, 'online');
+assert.equal(voiceState.players[2].voiceMode, 'offline');
 const voiceHostSocket = new FakeSocket(voiceState.hostId, 'moderator');
 const voiceOneSocket = new FakeSocket(voicePlayers[0].playerId);
 const voiceTwoSocket = new FakeSocket(voicePlayers[1].playerId);
 voiceSockets.push(voiceHostSocket, voiceOneSocket, voiceTwoSocket);
 const lobbyVoiceSnapshot = voiceRoom.snapshot(voiceState, voicePlayers[0].playerId);
-assert.equal(lobbyVoiceSnapshot.voicePeers.length, 3, 'Online voice chat must be available in the lobby.');
+assert.equal(lobbyVoiceSnapshot.voicePeers.length, 3, 'Online and offline players both join the audio room.');
+assert.ok(lobbyVoiceSnapshot.voicePeers.some(peer =>
+  peer.id === voicePlayers[1].playerId && peer.voiceMode === 'offline'),
+  'Offline participants remain available as receive-only voice peers.');
 await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
   type: 'voice_signal', targetId: voicePlayers[1].playerId,
   signalKind: 'offer', payload: { type: 'offer', sdp: 'lobby-sdp' }
@@ -1743,7 +1753,35 @@ await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
 assert.ok(voiceTwoSocket.messages.map(message => {
   try { return JSON.parse(message); } catch { return null; }
 }).some(message => message?.type === 'voice_signal' && message.payload?.sdp === 'lobby-sdp'),
-  'Voice signalling must work in the lobby.');
+  'Online players may offer an audio connection to offline listeners.');
+const beforeOfflineOffer = voiceOneSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceTwoSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[0].playerId,
+  signalKind: 'offer', payload: { type: 'offer', sdp: 'offline-mic-must-not-offer' }
+}));
+assert.equal(voiceOneSocket.messages.length, beforeOfflineOffer,
+  'Offline players must not be allowed to publish an audio offer.');
+await voiceRoom.webSocketMessage(voiceTwoSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[0].playerId,
+  signalKind: 'answer', payload: {
+    type: 'answer',
+    sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=recvonly\r\n'
+  }
+}));
+assert.ok(voiceOneSocket.messages.map(message => {
+  try { return JSON.parse(message); } catch { return null; }
+}).some(message => message?.type === 'voice_signal' && /a=recvonly/.test(message.payload?.sdp || '')),
+  'Offline players may answer with receive-only SDP so they can hear online players.');
+const beforeOfflineSendAnswer = voiceOneSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceTwoSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[0].playerId,
+  signalKind: 'answer', payload: {
+    type: 'answer',
+    sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendonly\r\n'
+  }
+}));
+assert.equal(voiceOneSocket.messages.length, beforeOfflineSendAnswer,
+  'Offline players must not send microphone audio in an SDP answer.');
 voiceState.phase = 'morning';
 voiceState.activeModeratorId = voiceState.hostId;
 voiceState.players = voiceState.players.filter(player => player.id !== voiceState.hostId);
@@ -1751,7 +1789,7 @@ await voiceRoom.saveRoom(voiceState);
 const voiceSnapshot = voiceRoom.snapshot(voiceState, voicePlayers[0].playerId);
 assert.equal(voiceSnapshot.voicePeers.length, 3);
 assert.ok(voiceSnapshot.voicePeers.some(peer => peer.id === voiceState.hostId && peer.isModerator));
-assert.ok(voiceSnapshot.voicePeers.some(peer => peer.id === voicePlayers[1].playerId));
+assert.ok(voiceSnapshot.voicePeers.some(peer => peer.id === voicePlayers[1].playerId && peer.voiceMode === 'offline'));
 await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
   type: 'voice_signal',
   targetId: voicePlayers[1].playerId,
@@ -1761,7 +1799,7 @@ await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
 const relayedSignal = voiceTwoSocket.messages.map(message => {
   try { return JSON.parse(message); } catch { return null; }
 }).find(message => message?.type === 'voice_signal' && message.payload?.sdp === 'test-sdp');
-assert.ok(relayedSignal, 'A valid discussion voice offer must be relayed to its intended peer.');
+assert.ok(relayedSignal, 'A valid online voice offer must be relayed to an offline listener.');
 assert.equal(relayedSignal.fromId, voicePlayers[0].playerId);
 assert.equal(relayedSignal.signalKind, 'offer');
 assert.equal(relayedSignal.payload.sdp, 'test-sdp');
@@ -1785,12 +1823,11 @@ for (const phase of ['role_draw', 'night', 'discussion', 'voting', 'result', 'fi
     signalKind: 'offer', payload: { type: 'offer', sdp: phase + '-sdp' }
   }));
   assert.ok(voiceTwoSocket.messages.length > messageCountBeforePhase,
-    'Online voice signalling must remain available during ' + phase + '.');
+    'Voice signalling must remain available during ' + phase + '.');
   voiceState = await voiceRoom.loadRoom();
 }
 voiceState = await voiceRoom.loadRoom();
 voiceState.phase = 'discussion';
-voiceState.settings.gameMode = 'online';
 const voiceControlledPlayer = voiceState.players.find(player => player.id === voicePlayers[0].playerId);
 voiceControlledPlayer.isBotControlled = true;
 await voiceRoom.saveRoom(voiceState);
@@ -1816,24 +1853,78 @@ assert.equal(voiceTwoSocket.messages.length, beforeControlledTarget,
   'A BOT-controlled player must not receive voice signals.');
 voiceState = await voiceRoom.loadRoom();
 voiceState.players.forEach(player => { player.isBotControlled = false; });
-voiceState.settings.gameMode = 'offline';
 await voiceRoom.saveRoom(voiceState);
-const messageCountBeforeOffline = voiceTwoSocket.messages.length;
-await voiceRoom.webSocketMessage(voiceOneSocket, JSON.stringify({
-  type: 'voice_signal', targetId: voicePlayers[1].playerId,
-  signalKind: 'offer', payload: { type: 'offer', sdp: 'offline-must-not-relay' }
-}));
-assert.equal(voiceTwoSocket.messages.length, messageCountBeforeOffline,
-  'Offline rooms must reject voice signalling.');
 await payload(await voiceRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'send_discussion_chat', text: 'Chat teks tetap aktif.'
-}, voicePlayers[0].token)));
+  type: 'send_discussion_chat', text: 'Chat teks tetap aktif untuk mode offline.'
+}, voicePlayers[1].token)));
 const offlineChatView = (await payload(await voiceRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, voicePlayers[1].token)
 ))).state;
-assert.ok(offlineChatView.chat.some(message => message.text === 'Chat teks tetap aktif.'));
-console.log('Werewolf voice regression passed: online lobby/voting voice works; offline voice is disabled while text chat remains.');
+assert.ok(offlineChatView.chat.some(message => message.text === 'Chat teks tetap aktif untuk mode offline.'));
+console.log('Werewolf voice regression passed: online sends audio, offline receives audio without microphone, and both keep text chat.');
 
+// Joining an active game creates a waiting player, excluded from the current round.
+const waitlistStorage = new MemoryStorage();
+const waitlistSockets = [];
+const waitlistRoom = new WerewolfRoom({ storage: waitlistStorage, getWebSockets: () => waitlistSockets }, {});
+const waitlistCreated = await payload(await waitlistRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WQAT23', name: 'Wait Host'
+})), 201);
+await payload(await waitlistRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Active One', voiceMode: 'online'
+})), 201);
+await payload(await waitlistRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Active Two', voiceMode: 'offline'
+})), 201);
+let waitlistState = await waitlistRoom.loadRoom();
+waitlistState.phase = 'discussion';
+waitlistState.round = 2;
+waitlistState.activeModeratorId = waitlistState.hostId;
+waitlistState.players = waitlistState.players.filter(player => player.id !== waitlistState.hostId);
+await waitlistRoom.saveRoom(waitlistState);
+const lateJoin = await payload(await waitlistRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Late Player', voiceMode: 'offline'
+})), 201);
+assert.equal(lateJoin.isWaiting, true);
+assert.equal(lateJoin.voiceMode, 'offline');
+waitlistState = await waitlistRoom.loadRoom();
+assert.equal(waitlistState.players.length, 2, 'A late joiner must not increase the current game roster.');
+assert.equal(waitlistState.waitingPlayers.length, 1);
+const lateJoinSnapshot = (await payload(await waitlistRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, lateJoin.token)
+))).state;
+assert.equal(lateJoinSnapshot.self.isWaiting, true);
+assert.equal(lateJoinSnapshot.self.role, null);
+assert.equal(lateJoinSnapshot.self.alive, false);
+assert.deepEqual(lateJoinSnapshot.targets, []);
+assert.ok(!lateJoinSnapshot.voicePeers.some(peer => peer.id === lateJoin.playerId),
+  'A queued player does not enter the active game voice room.');
+await payload(await waitlistRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'send_discussion_chat', text: 'I am waiting.'
+}, lateJoin.token)), 403);
+await payload(await waitlistRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'leave_room'
+}, lateJoin.token)));
+assert.equal((await waitlistRoom.loadRoom()).waitingPlayers.length, 0,
+  'A queued player can leave without affecting active players.');
+const nextGameJoin = await payload(await waitlistRoom.fetch(makeRequest('/internal/join', 'POST', {
+  name: 'Next Game Player', voiceMode: 'online'
+})), 201);
+assert.equal(nextGameJoin.isWaiting, true);
+await payload(await waitlistRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'reset_to_lobby'
+}, waitlistCreated.token)));
+waitlistState = await waitlistRoom.loadRoom();
+assert.equal(waitlistState.phase, 'lobby');
+assert.equal(waitlistState.waitingPlayers.length, 0);
+assert.ok(waitlistState.players.some(player => player.id === nextGameJoin.playerId),
+  'Queued players are promoted into the next lobby when the host restarts the room.');
+const promotedSnapshot = (await payload(await waitlistRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, nextGameJoin.token)
+))).state;
+assert.equal(promotedSnapshot.self.isWaiting, false);
+assert.equal(promotedSnapshot.self.alive, true);
+assert.equal(promotedSnapshot.self.hasDrawn, false);
 // Living-player visibility and calculation challenges for roles without a night ability.
 const mathRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const mathSettings = {
@@ -2289,7 +2380,6 @@ const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeReq
   code: 'SYSDWN',
   name: 'System Dawn Host',
   settings: {
-    gameMode: 'online',
     moderatorMode: 'system',
     roleCounts: {
       wolf: 1, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
