@@ -1044,3 +1044,56 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .discussion-chat-actions .voice-inline-control { min-width: 38px; }
   .discussion-chat-actions .repeat-narration-button { min-width: 48px; }
 }
+
+
+/* Public faction and activity board. Living identities stay private; deaths can reveal role names. */
+.public-game-board{display:grid;gap:12px;margin:14px 0 0;padding:12px;border:1px solid #354a63;border-radius:14px;background:linear-gradient(145deg,#101d2d,#0c1522)}
+.public-role-board,.public-player-board,.public-vote-board{display:grid;gap:8px;min-width:0}
+.public-board-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.public-board-heading b{color:#d9e6f4;font-size:10px;font-weight:950;letter-spacing:.12em}
+.public-board-heading span{color:#9eafc2;font-size:10px;font-weight:800}
+.public-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.public-role-card{min-width:0;padding:8px;border:1px solid #52657a;border-radius:9px;background:#172438}
+.public-role-card.faction-wolves{border-color:#a74852;background:linear-gradient(145deg,#4a1e29,#251b29);color:#ffe5e7}
+.public-role-card.faction-village{border-color:#3c79b6;background:linear-gradient(145deg,#183c68,#17283f);color:#e4f1ff}
+.public-role-card.faction-neutral{border-color:#cbd2dc;background:linear-gradient(145deg,#eef2f6,#cbd3dd);color:#17202c}
+.public-role-title{display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:10px}
+.public-role-title b{overflow-wrap:anywhere}
+.public-role-title span{flex:0 0 auto;font-size:9px;font-weight:900;opacity:.85}
+.public-role-deceased{display:grid;gap:3px;margin-top:6px;padding-top:5px;border-top:1px solid currentColor}
+.public-dead-name{overflow:hidden;color:inherit;font-size:9px;opacity:.62;text-decoration:line-through;text-overflow:ellipsis;white-space:nowrap}
+.public-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.public-player-row{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0;padding:7px 8px;border:1px solid #355b4d;border-radius:8px;background:#16362f;color:#dff7e9}
+.public-player-row.is-dead{border-color:#394250;background:#202733;color:#8490a0;opacity:.66}
+.public-player-row.is-dead .public-player-identity>b{text-decoration:line-through}
+.public-player-identity{display:grid;gap:2px;min-width:0}
+.public-player-identity>b{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.public-player-revealed-role{color:#c6d0dd;font-size:8px}
+.public-player-status{flex:0 0 auto;max-width:52%;color:#a9d9bd;font-size:8px;font-weight:800;text-align:right}
+.public-player-row.is-dead .public-player-status{color:#9aa4b2}
+.public-vote-list{display:grid;gap:4px}
+.public-vote-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #3a4d63;border-radius:8px;background:#162437;color:#e2ebf4;font-size:10px}
+.public-vote-row.vote-submitted{border-color:#3c745f;background:#15342d}
+.public-vote-row.vote-pending{border-style:dashed;color:#aeb9c6}
+.public-vote-row span{text-align:right;font-weight:750}
+@media(max-width:520px){
+  .public-game-board{padding:9px;gap:10px}
+  .public-role-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .public-player-grid{grid-template-columns:1fr}
+  .public-player-row{padding:6px 8px}
+}
+
+/* Inactivity handoff is a blocking, explicit player decision. */
+.bot-takeover-dialog{width:min(92vw,460px);max-width:none;margin:auto;padding:0;border:1px solid #63748a;border-radius:20px;background:linear-gradient(150deg,#1d2c41,#0d1725 78%);color:#eef3f9;box-shadow:0 30px 100px #000c}
+.bot-takeover-dialog::backdrop{background:#020710d9;backdrop-filter:blur(8px)}
+.bot-takeover-content{display:grid;justify-items:center;gap:10px;padding:24px;text-align:center}
+.bot-takeover-kicker{color:#e0b977;font-size:9px;font-weight:950;letter-spacing:.2em}
+.bot-takeover-icon{display:grid;place-items:center;width:58px;height:58px;border:1px solid #d2a75f;border-radius:16px;background:linear-gradient(145deg,#4a3a24,#222a36);color:#f5dca9;font:900 15px var(--serif);letter-spacing:.08em;box-shadow:0 8px 25px #0005}
+.bot-takeover-content h2{margin:3px 0;color:#f0d6a6;font:600 25px var(--serif)}
+.bot-takeover-content p{max-width:360px;margin:0;color:#c3cedb;font-size:12px;line-height:1.65}
+.bot-takeover-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:8px}
+.bot-takeover-actions button{min-height:44px}
+@media(max-width:430px){.bot-takeover-content{padding:19px}.bot-takeover-content h2{font-size:22px}.bot-takeover-actions{grid-template-columns:1fr}}
+.role-death-reveal-setting{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #3b526c;border-radius:10px;background:#111e2e;color:#e3edf7;font-size:11px;font-weight:800}
+.role-death-reveal-setting input{width:18px;height:18px;accent-color:#4d9cdd}
+.voice-feedback-note{display:block;margin-top:6px;color:#d3b988;font-size:9px;line-height:1.45}
