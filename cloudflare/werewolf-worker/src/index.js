@@ -3000,7 +3000,18 @@ export class WerewolfRoom {
 
       const signalKind = String(data.signalKind || '');
       if (!['offer', 'answer', 'candidate'].includes(signalKind)) return;
-      if (!senderIsModerator && sender?.voiceMode === 'offline' && signalKind === 'offer') return;
+      if (!senderIsModerator && sender?.voiceMode === 'offline') {
+        if (signalKind === 'offer') return;
+        if (signalKind === 'answer') {
+          const sdp = String(data.payload?.sdp || '');
+          const audioSections = sdp.split(/(?=^m=)/m).filter(section => /^m=audio/m.test(section));
+          const receiveOnly = audioSections.length > 0 && audioSections.every(section =>
+            /(?:^|\r?\n)a=(?:recvonly|inactive)(?:\r?\n|$)/.test(section)
+            && !/(?:^|\r?\n)a=(?:sendonly|sendrecv)(?:\r?\n|$)/.test(section)
+          );
+          if (!receiveOnly) return;
+        }
+      }
       if (!data.payload || typeof data.payload !== 'object' || Array.isArray(data.payload)) return;
       let payloadText;
       try { payloadText = JSON.stringify(data.payload); } catch { return; }
