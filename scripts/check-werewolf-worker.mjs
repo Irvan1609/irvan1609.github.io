@@ -1763,12 +1763,25 @@ assert.equal(voiceOneSocket.messages.length, beforeOfflineOffer,
   'Offline players must not be allowed to publish an audio offer.');
 await voiceRoom.webSocketMessage(voiceTwoSocket, JSON.stringify({
   type: 'voice_signal', targetId: voicePlayers[0].playerId,
-  signalKind: 'answer', payload: { type: 'answer', sdp: 'offline-receive-only-answer' }
+  signalKind: 'answer', payload: {
+    type: 'answer',
+    sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=recvonly\r\n'
+  }
 }));
 assert.ok(voiceOneSocket.messages.map(message => {
   try { return JSON.parse(message); } catch { return null; }
-}).some(message => message?.type === 'voice_signal' && message.payload?.sdp === 'offline-receive-only-answer'),
-  'Offline players may answer an incoming audio offer so they can hear online players.');
+}).some(message => message?.type === 'voice_signal' && /a=recvonly/.test(message.payload?.sdp || '')),
+  'Offline players may answer with receive-only SDP so they can hear online players.');
+const beforeOfflineSendAnswer = voiceOneSocket.messages.length;
+await voiceRoom.webSocketMessage(voiceTwoSocket, JSON.stringify({
+  type: 'voice_signal', targetId: voicePlayers[0].playerId,
+  signalKind: 'answer', payload: {
+    type: 'answer',
+    sdp: 'v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendonly\r\n'
+  }
+}));
+assert.equal(voiceOneSocket.messages.length, beforeOfflineSendAnswer,
+  'Offline players must not send microphone audio in an SDP answer.');
 voiceState.phase = 'morning';
 voiceState.activeModeratorId = voiceState.hostId;
 voiceState.players = voiceState.players.filter(player => player.id !== voiceState.hostId);
