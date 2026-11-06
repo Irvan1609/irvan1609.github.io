@@ -237,6 +237,8 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .developer-narrator-content > p { margin: 0; }
 .developer-narrator-content > label { display: grid; gap: 6px; color: #d8e0ea; font-size: 11px; }
 .developer-narrator-content input[type="file"] { width: 100%; padding: 9px; font-size: 10px; }
+.developer-narrator-content select { width: 100%; min-width: 0; padding: 10px; border: 1px solid rgba(214,177,111,.35); border-radius: 9px; background: #101a29; color: #edf2f8; font: inherit; font-size: 11px; }
+.narrator-clip-text { padding: 10px 11px; border-left: 3px solid var(--gold, #d6ae70); border-radius: 7px; background: rgba(255,255,255,.045); color: #f1e5cf; font-size: 12px; line-height: 1.55; }
 .developer-narrator-consent { display: flex !important; grid-template-columns: 16px 1fr; align-items: start; gap: 8px !important; line-height: 1.5; }
 .developer-narrator-consent input { margin: 2px 0 0; }
 .developer-narrator-actions { display: flex; flex-wrap: wrap; gap: 8px; }
