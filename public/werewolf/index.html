@@ -74,22 +74,23 @@
     </section>
 
           <details id="developerNarratorPanel" class="developer-narrator-panel hidden">
-            <summary>Suara Narator · Developer</summary>
+            <summary>Rekaman Narator · Developer</summary>
             <div class="developer-narrator-content">
-              <p class="hint">Unggah suara sendiri atau suara teman yang sudah memberi izin. Gunakan rekaman bersih sekitar 1–2 menit, satu pembicara, tanpa musik, noise, atau gema. File sampel dikirim ke ElevenLabs untuk proses cloning; game hanya menyimpan ID suara, bukan file rekamannya. API key ElevenLabs harus sudah dipasang pada Cloudflare Worker.</p>
-              <label>Nama suara
-                <input id="narratorVoiceName" maxlength="80" value="The Village After Dark Narrator" autocomplete="off">
+              <p class="hint">Isi suara narator secara manual. Pilih satu kalimat, unggah satu rekaman, lalu lanjutkan ke kalimat berikutnya. Tidak memakai API Key atau AI Voice Cloning. Gunakan suara sendiri atau rekaman teman dengan izin pemilik suara.</p>
+              <label>Kalimat yang akan diisi
+                <select id="narratorClipSelect"></select>
               </label>
-              <label>Rekaman suara
-                <input id="narratorVoiceFiles" type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,audio/ogg,audio/aac,.mp3,.wav,.m4a,.webm,.ogg,.aac" multiple>
+              <p id="narratorClipText" class="narrator-clip-text"></p>
+              <label>File rekaman (MP3, WAV, M4A, OGG, atau WEBM · maks. 3 MB)
+                <input id="narratorClipFile" type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,audio/ogg,audio/aac,.mp3,.wav,.m4a,.webm,.ogg,.aac">
               </label>
               <label class="developer-narrator-consent">
-                <input id="narratorVoiceConsent" type="checkbox">
-                Saya pemilik suara ini atau telah memperoleh izin untuk mengkloningnya.
+                <input id="narratorClipConsent" type="checkbox">
+                Saya pemilik suara ini atau telah mendapat izin untuk menggunakan rekamannya.
               </label>
               <div class="developer-narrator-actions">
-                <button id="cloneNarratorVoice" class="primary" type="button">Unggah & Buat Suara AI</button>
-                <button id="testNarratorVoice" class="secondary" type="button" disabled>Uji Suara</button>
+                <button id="saveNarratorClip" class="primary" type="button">Simpan Rekaman</button>
+                <button id="testNarratorClip" class="secondary" type="button" disabled>Uji Rekaman</button>
               </div>
               <p id="developerNarratorStatus" class="developer-narrator-status" role="status" aria-live="polite">Memeriksa akses developer…</p>
             </div>
