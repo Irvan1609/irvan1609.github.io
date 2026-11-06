@@ -680,7 +680,9 @@ async function reconcileVoiceConnections() {
   }
   for (const peer of peers) {
     if (voicePeerConnections.has(peer.id)) continue;
-    const shouldOffer = String(roomState.self.id).localeCompare(String(peer.id)) < 0;
+    const peerOnline = peer.isModerator || peer.voiceMode !== 'offline';
+    const shouldOffer = discussionVoiceAllowed()
+      && (!peerOnline || String(roomState.self.id).localeCompare(String(peer.id)) < 0);
     try { await createVoicePeer(peer, shouldOffer); } catch {
       closeVoicePeer(peer.id);
       voiceStatus = 'Tidak berhasil menghubungkan suara dengan ' + peer.name + '.';
@@ -2886,6 +2888,7 @@ function renderPlayerVoteResult(parent) {
 async function leaveCurrentRoom() {
   if (!session || isRoomModerator() || isHost()) return;
   const activeSession = session;
+  const wasWaiting = Boolean(roomState?.self?.isWaiting);
   try {
     await request('/rooms/' + activeSession.code + '/action', {
       method: 'POST', body: { type: 'leave_room' }, session: activeSession
@@ -2896,7 +2899,6 @@ async function leaveCurrentRoom() {
     if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
     session = null;
     roomState = null;
-    const wasWaiting = Boolean(roomState?.self?.isWaiting);
     lastNarrationKey = '';
     $('roomPanel').classList.add('hidden');
     $('entryPanel').classList.remove('hidden');
