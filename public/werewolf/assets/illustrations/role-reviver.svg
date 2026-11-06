@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 520" role="img" aria-labelledby="title desc">
+  <title id="title">Reviver</title>
+  <desc id="desc">Penjaga fajar dengan jubah biru dan lentera kehidupan.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c3550"/><stop offset="1" stop-color="#0b1728"/></linearGradient>
+    <linearGradient id="robe" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4779a4"/><stop offset="1" stop-color="#172f4d"/></linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2bd"/><stop offset="1" stop-color="#e2ad55"/></linearGradient>
+  </defs>
+  <rect width="420" height="520" rx="28" fill="url(#bg)"/>
+  <circle cx="210" cy="168" r="112" fill="none" stroke="#e7c77e" stroke-opacity=".22" stroke-width="3"/>
+  <circle cx="210" cy="168" r="88" fill="#e7c77e" fill-opacity=".08"/>
+  <path d="M93 475c8-104 48-170 117-170s109 66 117 170H93Z" fill="url(#robe)" stroke="#8fb6d3" stroke-opacity=".6" stroke-width="4"/>
+  <path d="M129 176c4-77 43-124 81-124s77 47 81 124l-22 92c-18 34-40 51-59 51s-41-17-59-51l-22-92Z" fill="#14263b" stroke="#7e9db8" stroke-width="4"/>
+  <path d="M133 174c13-84 45-111 77-111s64 27 77 111c-25-18-51-28-77-28s-52 10-77 28Z" fill="#243f5c"/>
+  <path d="M171 180c9-7 19-10 39-10s30 3 39 10v45c-10 29-23 43-39 43s-29-14-39-43v-45Z" fill="#b98465"/>
+  <path d="M173 199c10-5 20-7 37-7s27 2 37 7" fill="none" stroke="#694b45" stroke-width="4" stroke-linecap="round"/>
+  <path d="M183 220h9m36 0h9" stroke="#273849" stroke-width="5" stroke-linecap="round"/>
+  <path d="M196 246c9 7 19 7 28 0" fill="none" stroke="#70483f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M159 167c12-30 28-47 51-47s39 17 51 47" fill="none" stroke="#e6c77e" stroke-width="5" stroke-linecap="round"/>
+  <path d="M207 116v-27m-13 13h26" stroke="#f0d79a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M145 335c24 25 44 37 65 37s41-12 65-37" fill="none" stroke="#d4b978" stroke-width="5"/>
+  <path d="M110 380c34 13 66 20 100 20s66-7 100-20" fill="none" stroke="#8fb6d3" stroke-opacity=".45" stroke-width="4"/>
+  <path d="M289 330c25-10 43 5 43 27v76h-63v-76c0-12 7-22 20-27Z" fill="#263b52" stroke="#d5b46c" stroke-width="4"/>
+  <path d="M279 352h43v53h-43z" fill="url(#light)" fill-opacity=".88"/>
+  <path d="M300 341c-12 16-12 27 0 36 12-9 12-20 0-36Z" fill="#fff7d9"/>
+  <path d="M291 433h18" stroke="#d5b46c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M210 397v51m-17-17 17 17 17-17" fill="none" stroke="#e8c879" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M80 460h260" stroke="#d4b978" stroke-opacity=".28" stroke-width="3"/>
+</svg>
