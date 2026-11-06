@@ -220,11 +220,11 @@ assert.match(worker, /handleNarratorClipPlayback/);
 assert.match(worker, /X-Player-Token/);
 assert.ok(worker.includes('/internal/narrator-clips'));
 assert.doesNotMatch(config, /ELEVENLABS_API_KEY|NARRATOR_TTS_LIMITER/);
-assert.doesNotMatch(app, /narrator\\/speak|speakBrowserNarration|SpeechSynthesisUtterance/);
+assert.ok(!app.includes('/narrator/speak') && !app.includes('speakBrowserNarration') && !app.includes('SpeechSynthesisUtterance'));
 assert.match(worker, /MAX_NARRATOR_TOTAL_BYTES/);
 assert.match(worker, /Access-Control-Allow-Headers.*X-Player-Token/);
-const appNarratorClipIds = [...app.matchAll(/\\{ id: '([^']+)'/g)].map(match => match[1]).sort();
-const workerNarratorClipBlock = worker.match(/const NARRATOR_CLIP_IDS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] || '';
+const appNarratorClipIds = app.split('\n').flatMap(line => line.includes('{ id:') ? [line.match(/id: '([^']+)'/)?.[1]].filter(Boolean) : []).sort();
+const workerNarratorClipBlock = worker.split('const NARRATOR_CLIP_IDS = new Set([')[1]?.split(']);')[0] || '';
 const workerNarratorClipIds = [...workerNarratorClipBlock.matchAll(/'([^']+)'/g)].map(match => match[1]).sort();
 assert.deepEqual(appNarratorClipIds, workerNarratorClipIds, 'Client and Worker narrator clip catalogs must match.');
 
