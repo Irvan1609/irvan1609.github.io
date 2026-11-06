@@ -2160,7 +2160,10 @@ for (const token of hunterDawnTokens.slice(1)) await submitVillagerMath(hunterDa
 await actionAfterDeadline(hunterDawnRoom, hunterDawnCreated.token, 'resolve_night');
 hunterDawnState = await hunterDawnRoom.loadRoom();
 assert.equal(hunterDawnState.phase, 'dawn', 'A Hunter killed at night must open the dawn trigger phase.');
-assert.equal(hunterDawnState.dawnActionsRequired, 1);
+const hunterDawnActionState = (await payload(await hunterDawnRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, hunterDawnTokens[1])
+))).state;
+assert.equal(hunterDawnActionState.room.dawnActionsRequired, 1);
 await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'dawn_action', targetId: hunterDawnState.players[2].id
 }, hunterDawnTokens[1])));
@@ -2212,7 +2215,10 @@ for (const token of reviverDawnTokens.slice(1)) await submitVillagerMath(reviver
 await actionAfterDeadline(reviverDawnRoom, reviverDawnCreated.token, 'resolve_night');
 reviverDawnState = await reviverDawnRoom.loadRoom();
 assert.equal(reviverDawnState.phase, 'dawn', 'A living Reviver with a night victim must receive a dawn action window.');
-assert.equal(reviverDawnState.dawnActionsRequired, 1);
+const reviverDawnActionState = (await payload(await reviverDawnRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, reviverDawnTokens[1])
+))).state;
+assert.equal(reviverDawnActionState.room.dawnActionsRequired, 1);
 await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'dawn_action', targetId: reviverDawnState.players[4].id
 }, reviverDawnTokens[1])));
