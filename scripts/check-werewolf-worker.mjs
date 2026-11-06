@@ -2851,4 +2851,52 @@ assert.ok(manualTakeoverState.players.every(player => manualTakeoverState.nightA
   'BOT must complete every missed night action before the moderator advances.');
 console.log('Werewolf manual-mode takeover regression passed: timer handoff runs BOT actions without advancing the moderator phase.');
 
+  
+// System mode must take over missed night actions before automatically resolving the phase.
+const systemNightTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const systemNightCreated = await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'SYNT23', name: 'System Night Host',
+  settings: { moderatorMode: 'system', roleCounts: { wolf: 1, seer: 1, villager: 2 }, timers: { nightSeconds: 3 } }
+})), 201);
+const systemNightTokens = [];
+for (const name of ['System Seer', 'System Village A', 'System Village B']) {
+  systemNightTokens.push((await payload(await systemNightTakeoverRoom.fetch(
+    makeRequest('/internal/join', 'POST', { name })
+  ), 201)).token);
+}
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, systemNightCreated.token)));
+let systemNightState = await systemNightTakeoverRoom.loadRoom();
+systemNightState.players.forEach((player, index) => {
+  player.role = ['wolf', 'seer', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await systemNightTakeoverRoom.saveRoom(systemNightState);
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, systemNightCreated.token)));
+systemNightState = await systemNightTakeoverRoom.loadRoom();
+await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: systemNightState.players[2].id
+}, systemNightState.players[0].token)));
+const systemNightDeadline = systemNightState.nightEndsAt;
+const realNowForSystemNightTakeover = Date.now;
+try {
+  Date.now = () => systemNightDeadline + 1;
+  await systemNightTakeoverRoom.alarm();
+} finally {
+  Date.now = realNowForSystemNightTakeover;
+}
+systemNightState = await systemNightTakeoverRoom.loadRoom();
+assert.equal(systemNightState.phase, 'morning',
+  'System mode must automatically resolve after handing over missed actions.');
+assert.ok(systemNightState.players.slice(1).every(player => player.isBotControlled),
+  'All players who missed their night action must be temporarily controlled by BOT.');
+assert.ok(systemNightState.players.slice(1).every(player => systemNightState.nightActions[player.id]),
+  'BOT must complete each missed night action before automatic resolution.');
+console.log('Werewolf system-mode takeover regression passed: missed night actions are completed by BOT before the phase advances.');
+
+
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');
