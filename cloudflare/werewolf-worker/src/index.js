@@ -9,6 +9,8 @@ const NARRATOR_DEVELOPER_EMAIL = 'irvan1609@gmail.com';
 const ACCOUNT_API_BASE = 'https://hitung-cabai-api.andyirvan1609.workers.dev';
 const NARRATOR_CONFIG_ID = 'global-narrator-config';
 const MAX_NARRATOR_UPLOAD_BYTES = 20 * 1024 * 1024;
+const narratorSpeechInFlight = new Map();
+const narratorSpeechMemoryCache = new Map();
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -439,7 +441,7 @@ async function handleNarratorVoiceUpload(request, env) {
   await requireNarratorDeveloper(request);
   if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'API key ElevenLabs belum dipasang di Cloudflare Worker.');
   const contentLength = Number(request.headers.get('Content-Length') || 0);
-  if (contentLength > MAX_NARRATOR_UPLOAD_BYTES) throw new HttpError(413, 'Total rekaman maksimal 20 MB.');
+  if (contentLength > MAX_NARRATOR_UPLOAD_BYTES + 256 * 1024) throw new HttpError(413, 'Total rekaman maksimal 20 MB.');
   const form = await request.formData();
   if (String(form.get('consent') || '') !== 'true') {
     throw new HttpError(400, 'Konfirmasi kepemilikan atau izin penggunaan suara diperlukan.');
@@ -508,6 +510,18 @@ async function handleNarratorSpeech(request, env) {
   const text = String(body.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!text) throw new HttpError(400, 'Teks narator kosong.');
   if (text.length > 1200) throw new HttpError(400, 'Teks narator maksimal 1.200 karakter.');
+  if (bearer(request)) {
+    await requireNarratorDeveloper(request);
+  } else {
+    const roomCode = String(body.roomCode || '').toUpperCase();
+    const playerToken = String(body.playerToken || '');
+    if (!validCode(roomCode) || !playerToken) throw new HttpError(401, 'Sesi permainan tidak valid.');
+    const roomState = await callRoom(env, roomCode, '/internal/state', new Request('https://room.internal/internal/state', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer ' + playerToken }
+    }));
+    if (!roomState.ok) throw new HttpError(401, 'Sesi permainan sudah berakhir. Masuk kembali ke room.');
+  }
   if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'Layanan suara AI belum dikonfigurasi.');
   const config = await getNarratorConfig(env);
   if (!config?.voiceId) throw new HttpError(404, 'Suara narator belum diunggah developer.');
@@ -515,38 +529,55 @@ async function handleNarratorSpeech(request, env) {
   const cache = globalThis.caches?.default;
   const cacheHash = await digest(config.voiceId + '\n' + text);
   const cacheKey = new Request('https://narrator-cache.invalid/' + cacheHash);
+  const audioHeaders = {
+    'Content-Type': 'audio/mpeg',
+    'Cache-Control': 'public, max-age=3600',
+    'X-Content-Type-Options': 'nosniff'
+  };
   if (cache) {
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
   }
-  let speech;
-  try {
-    speech = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(config.voiceId)
-      + '?output_format=mp3_44100_128', {
-      method: 'POST',
-      headers: {
-        'xi-api-key': env.ELEVENLABS_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.52, similarity_boost: 0.82, style: 0.18, use_speaker_boost: true }
-      })
-    });
-  } catch {
-    throw new HttpError(502, 'Layanan text-to-speech tidak dapat dihubungi.');
-  }
-  if (!speech.ok) throw new HttpError(502, 'ElevenLabs gagal menghasilkan suara narator.');
-  const audio = new Response(speech.body, {
-    headers: {
-      'Content-Type': 'audio/mpeg',
-      'Cache-Control': 'public, max-age=3600',
-      'X-Content-Type-Options': 'nosniff'
+  const memoryAudio = narratorSpeechMemoryCache.get(cacheHash);
+  if (memoryAudio) return new Response(memoryAudio.slice(0), { headers: audioHeaders });
+  const pending = narratorSpeechInFlight.get(cacheHash);
+  if (pending) return (await pending).clone();
+
+  const generation = (async () => {
+    let speech;
+    try {
+      speech = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(config.voiceId)
+        + '?output_format=mp3_44100_128', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': env.ELEVENLABS_API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.52, similarity_boost: 0.82, style: 0.18, use_speaker_boost: true }
+        })
+      });
+    } catch {
+      throw new HttpError(502, 'Layanan text-to-speech tidak dapat dihubungi.');
     }
-  });
-  if (cache) await cache.put(cacheKey, audio.clone()).catch(() => {});
-  return audio;
+    if (!speech.ok) throw new HttpError(502, 'ElevenLabs gagal menghasilkan suara narator.');
+    const bytes = new Uint8Array(await speech.arrayBuffer());
+    const audio = new Response(bytes, { headers: audioHeaders });
+    narratorSpeechMemoryCache.set(cacheHash, bytes);
+    while (narratorSpeechMemoryCache.size > 24) {
+      narratorSpeechMemoryCache.delete(narratorSpeechMemoryCache.keys().next().value);
+    }
+    if (cache) await cache.put(cacheKey, audio.clone()).catch(() => {});
+    return audio;
+  })();
+  narratorSpeechInFlight.set(cacheHash, generation);
+  try {
+    return (await generation).clone();
+  } finally {
+    narratorSpeechInFlight.delete(cacheHash);
+  }
 }
 
 export default {
