@@ -587,6 +587,16 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request, env) });
 
     const url = new URL(request.url);
+    if (['/account.js', '/account.css', '/account-config.js', '/resilience.js'].includes(url.pathname)) {
+      try {
+        const sharedAsset = await fetch('https://irvan1609.github.io' + url.pathname);
+        const headers = new Headers(sharedAsset.headers);
+        headers.set('Cache-Control', 'public, max-age=300');
+        return new Response(sharedAsset.body, { status: sharedAsset.status, headers });
+      } catch {
+        return withCors(json({ error: 'Aset akun tidak dapat dimuat.' }, 502), request, env);
+      }
+    }
     if (url.pathname === '/health' && request.method === 'GET') {
       return withCors(json({ ok: true, service: 'werewolf-room-api', realtime: true, storage: 'durable-objects' }), request, env);
     }
