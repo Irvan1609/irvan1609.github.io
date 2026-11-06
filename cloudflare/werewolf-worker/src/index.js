@@ -186,7 +186,7 @@ function recommendedRoleCounts(playerCount) {
   const roleSchedule = [
     ['seer', 3], ['doctor', 4], ['bodyguard', 6], ['witch', 7],
     ['hunter', 9], ['cupid', 10], ['detective', 11], ['mayor', 13],
-    ['guardian_angel', 14], ['jester', 17], ['serial_killer', 20]
+    ['guardian_angel', 14], ['jester', 17]
   ];
   let assignedSpecials = 0;
   for (const [role, minimumPlayers] of roleSchedule) {
