@@ -1868,7 +1868,7 @@ const waitlistStorage = new MemoryStorage();
 const waitlistSockets = [];
 const waitlistRoom = new WerewolfRoom({ storage: waitlistStorage, getWebSockets: () => waitlistSockets }, {});
 const waitlistCreated = await payload(await waitlistRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WAIT23', name: 'Wait Host'
+  code: 'WQAT23', name: 'Wait Host'
 })), 201);
 await payload(await waitlistRoom.fetch(makeRequest('/internal/join', 'POST', {
   name: 'Active One', voiceMode: 'online'
