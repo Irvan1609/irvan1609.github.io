@@ -215,11 +215,17 @@ async function toggleRecording(phase, row) {
   }
 }
 
+function syncDeveloperPanel() {
+  if (isDeveloper()) renderPanel();
+  else document.getElementById('developerVoicePanel')?.remove();
+}
+
 async function init() {
   await readClips();
+  document.addEventListener('accountchange', syncDeveloperPanel);
   if (!window.IrvanAccount?.ready) return;
   await window.IrvanAccount.ready();
-  renderPanel();
+  syncDeveloperPanel();
 }
 
 window.WerewolfVoiceStudio = {
