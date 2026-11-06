@@ -46,6 +46,27 @@ async function submitVillagerMath(room, token) {
   }, token)));
 }
 
+async function actionAfterDeadline(room, token, type, body = {}) {
+  const deadlineField = ({
+    resolve_night: 'nightEndsAt',
+    resolve_dawn: 'dawnEndsAt',
+    start_voting: 'discussionEndsAt',
+    resolve_result: 'resultEndsAt',
+    next_round: 'resultEndsAt'
+  })[type];
+  const state = await room.loadRoom();
+  const deadline = Number(deadlineField ? state?.[deadlineField] : 0) || 0;
+  const realNow = Date.now;
+  try {
+    if (deadline > realNow()) Date.now = () => deadline + 1;
+    return await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+      ...body, type
+    }, token)));
+  } finally {
+    Date.now = realNow;
+  }
+}
+
 const storage = new MemoryStorage();
 const room = new WerewolfRoom({ storage, getWebSockets: () => [] }, {
   ALLOWED_ORIGINS: 'https://irvan1609.github.io'
@@ -359,7 +380,7 @@ assert.ok(soloState.players.every(player => player.hasDrawn));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_night' }, soloToken)));
 soloState = await soloRoom.loadRoom();
 assert.equal(Object.keys(soloState.nightActions).length, 5);
-await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, soloToken)));
+await actionAfterDeadline(soloRoom, soloToken, 'resolve_night', { force: true });
 assert.equal((await soloRoom.loadRoom()).phase, 'morning');
 soloState = await soloRoom.loadRoom();
 soloState.phase = 'morning';
@@ -623,7 +644,7 @@ await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', {
 }, witchTokens[1])));
 await submitVillagerMath(witchRoom, witchTokens[3]);
 await submitVillagerMath(witchRoom, witchTokens[4]);
-await payload(await witchRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, witchCreated.token)));
+await actionAfterDeadline(witchRoom, witchCreated.token, 'resolve_night', { force: true });
 witchState = await witchRoom.loadRoom();
 assert.equal(witchState.phase, 'morning');
 assert.equal(witchState.players[3].alive, true);
@@ -740,9 +761,7 @@ const villagerNightPrivateView = (await payload(await cupidNightRoom.fetch(
 assert.deepEqual(villagerNightPrivateView.wolfTeam, []);
 assert.deepEqual(villagerNightPrivateView.players, []);
 
-await payload(await cupidNightRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night', force: true
-}, cupidNightCreated.token)));
+await actionAfterDeadline(cupidNightRoom, cupidNightCreated.token, 'resolve_night', { force: true });
 cupidNightState = await cupidNightRoom.loadRoom();
 assert.equal(cupidNightState.phase, 'morning');
 assert.deepEqual(cupidNightState.wolfChat, []);
@@ -1083,7 +1102,7 @@ await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', {
 for (let index = 2; index < 5; index += 1) {
   await submitVillagerMath(tieRoom, tieTokens[index]);
 }
-await payload(await tieRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night', force: true }, tieCreated.token)));
+await actionAfterDeadline(tieRoom, tieCreated.token, 'resolve_night', { force: true });
 tieState = await tieRoom.loadRoom();
 assert.equal(tieState.phase, 'finished', 'The winning faction must be announced immediately after night resolution.');
 assert.equal(tieState.winner, 'wolves');
@@ -1331,9 +1350,7 @@ await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST'
 await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'resolve_night'
 }, partialWolfCreated.token)), 409);
-await payload(await partialWolfRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night', force: true
-}, partialWolfCreated.token)));
+await actionAfterDeadline(partialWolfRoom, partialWolfCreated.token, 'resolve_night', { force: true });
 partialWolfState = await partialWolfRoom.loadRoom();
 assert.equal(partialWolfState.phase, 'finished', 'The game must finish immediately when the resolved attack leaves Werewolf at parity.');
 assert.equal(partialWolfState.winner, 'wolves');
@@ -1563,9 +1580,7 @@ assert.equal(productionHiddenReplay.room.lastResult, null, 'Moderator-only resul
 await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: productionReplayVillagerPlayer.id
 }, replayWolf.token)));
-await payload(await productionReplayRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night', force: true
-}, productionReplayCreated.token)));
+await actionAfterDeadline(productionReplayRoom, productionReplayCreated.token, 'resolve_night', { force: true });
 productionReplayState = await productionReplayRoom.loadRoom();
 assert.equal(productionReplayState.phase, 'finished');
 assert.equal(productionReplayState.winner, 'wolves');
@@ -1635,9 +1650,7 @@ await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', 
 await submitVillagerMath(seerDeathRoom, seerDeathTokens[3]);
 seerDeathState = await seerDeathRoom.loadRoom();
 assert.ok(seerDeathState.nightEndsAt);
-await payload(await seerDeathRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night'
-}, seerDeathCreated.token)));
+await actionAfterDeadline(seerDeathRoom, seerDeathCreated.token, 'resolve_night');
 seerDeathState = await seerDeathRoom.loadRoom();
 assert.equal(seerDeathState.phase, 'morning');
 assert.equal(seerDeathState.players[1].alive, false);
@@ -1863,9 +1876,7 @@ mathState = await mathRoom.loadRoom();
 assert.equal(mathState.nightActions[mathState.players[2].id].type, 'villager_math');
 assert.equal(mathState.nightActions[mathState.players[3].id].type, 'villager_math');
 assert.ok(mathState.nightEndsAt, 'The night timer remains active after all choices are submitted so players can revise them.');
-await payload(await mathRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night'
-}, mathCreated.token)));
+await actionAfterDeadline(mathRoom, mathCreated.token, 'resolve_night');
 mathState = await mathRoom.loadRoom();
 assert.equal(mathState.phase, 'morning');
 const mathReport = mathState.lastResult.actionReport;
@@ -1932,9 +1943,7 @@ newRoleState = await newRoleRoom.loadRoom();
 assert.equal(newRoleState.nightActions[newRoleState.players[2].id].type, 'priest_protect');
 assert.equal(newRoleState.nightActions[newRoleState.players[3].id].type, 'vigilante_shot');
 assert.ok(newRoleState.nightEndsAt);
-await payload(await newRoleRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night', force: true
-}, newRoleCreated.token)));
+await actionAfterDeadline(newRoleRoom, newRoleCreated.token, 'resolve_night', { force: true });
 newRoleState = await newRoleRoom.loadRoom();
 assert.equal(newRoleState.phase, 'morning');
 assert.equal(newRoleState.players[4].alive, true, 'Priest must protect its selected player from the wolf attack.');
@@ -2058,9 +2067,7 @@ const skipPhaseSeerView = (await payload(await skipPhaseRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, skipPhaseTokens[1].token)
 ))).state;
 assert.equal(skipPhaseSeerView.self.seerResult, null, 'Skipped players do not trigger early private reveal.');
-await payload(await skipPhaseRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night', force: true
-}, skipPhaseCreated.token)));
+await actionAfterDeadline(skipPhaseRoom, skipPhaseCreated.token, 'resolve_night', { force: true });
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
 assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
@@ -2144,7 +2151,7 @@ await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST',
   type: 'night_action', targetId: hunterDawnState.players[1].id
 }, hunterDawnTokens[0])));
 for (const token of hunterDawnTokens.slice(1)) await submitVillagerMath(hunterDawnRoom, token);
-await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, hunterDawnCreated.token)));
+await actionAfterDeadline(hunterDawnRoom, hunterDawnCreated.token, 'resolve_night');
 hunterDawnState = await hunterDawnRoom.loadRoom();
 assert.equal(hunterDawnState.phase, 'dawn', 'A Hunter killed at night must open the dawn trigger phase.');
 assert.equal(hunterDawnState.dawnActionsRequired, 1);
@@ -2159,9 +2166,7 @@ const hunterDawnView = (await payload(await hunterDawnRoom.fetch(
 ))).state;
 assert.equal(hunterDawnView.self.dawnActionTargetId, hunterDawnState.players[3].id,
   'Hunter must be able to replace a dawn shot before the phase timer expires.');
-await payload(await hunterDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_dawn'
-}, hunterDawnCreated.token)));
+await actionAfterDeadline(hunterDawnRoom, hunterDawnCreated.token, 'resolve_dawn');
 hunterDawnState = await hunterDawnRoom.loadRoom();
 assert.equal(hunterDawnState.phase, 'morning');
 assert.equal(hunterDawnState.players[1].hunterUsed, true);
@@ -2198,16 +2203,14 @@ await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST'
   type: 'night_action', targetId: reviverDawnState.players[4].id
 }, reviverDawnTokens[0])));
 for (const token of reviverDawnTokens.slice(1)) await submitVillagerMath(reviverDawnRoom, token);
-await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'resolve_night' }, reviverDawnCreated.token)));
+await actionAfterDeadline(reviverDawnRoom, reviverDawnCreated.token, 'resolve_night');
 reviverDawnState = await reviverDawnRoom.loadRoom();
 assert.equal(reviverDawnState.phase, 'dawn', 'A living Reviver with a night victim must receive a dawn action window.');
 assert.equal(reviverDawnState.dawnActionsRequired, 1);
 await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'dawn_action', targetId: reviverDawnState.players[4].id
 }, reviverDawnTokens[1])));
-await payload(await reviverDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_dawn'
-}, reviverDawnCreated.token)));
+await actionAfterDeadline(reviverDawnRoom, reviverDawnCreated.token, 'resolve_dawn');
 reviverDawnState = await reviverDawnRoom.loadRoom();
 assert.equal(reviverDawnState.phase, 'morning');
 assert.equal(reviverDawnState.players[4].alive, true, 'Reviver must restore a victim from the same night.');
