@@ -397,6 +397,10 @@ soloState.seerResults = {
     result: 'wolf'
   }
 };
+soloState.botNightReports[soloState.players[1].id] = {
+  round: 1,
+  text: 'Aku memeriksa ' + soloState.players[0].name + ' tadi malam. Hasilnya: dia terdeteksi sebagai Werewolf.'
+};
 soloState.lastResult = {
   kind: 'night',
   message: 'Malam berlalu tanpa korban.',
