@@ -412,7 +412,8 @@ soloState = await soloRoom.loadRoom();
 assert.equal(soloState.phase, 'discussion');
 assert.equal(soloState.discussionMode, 'offline');
 assert.equal(soloState.callUrl, '');
-assert.equal(soloState.chat.length, 3);
+assert.equal(soloState.chat.length, 5,
+  'Every living bot that completed a night action must contribute to discussion.');
 assert.ok(soloState.chat.every(message =>
   soloState.players.some(player => player.id === message.playerId && player.isBot)
 ));
@@ -420,10 +421,11 @@ assert.ok(soloState.chat[0].text.includes(soloState.players[0].name));
 const soloModeratorView = (await payload(await soloRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, soloToken)
 ))).state;
-assert.equal(soloModeratorView.chat.length, 3);
+assert.equal(soloModeratorView.chat.length, 5);
 assert.ok(soloModeratorView.chat.every(message => message.isBot));
+assert.ok(soloModeratorView.chat.filter(message => message.isNightReport).length >= 5);
 const soloPlayerView = soloRoom.snapshot(soloState, soloState.players[0].id, 'player');
-assert.equal(soloPlayerView.chat.length, 3);
+assert.equal(soloPlayerView.chat.length, 5);
 assert.ok(soloPlayerView.chat.every(message => message.isBot));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'set_discussion', mode: 'offline' }, soloToken)));
 await payload(await soloRoom.fetch(makeRequest('/internal/action', 'POST', { type: 'start_voting' }, soloToken)));
