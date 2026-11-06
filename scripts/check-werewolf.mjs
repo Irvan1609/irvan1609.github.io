@@ -20,8 +20,8 @@ for (const id of [
 }
 
 for (const token of [
-  'add_bots', 'draw_card', 'night_action', 'villager_math', 'skip_missing_night',
-  'start_discussion', 'start_voting', 'cast_vote', 'next_round',
+  'add_bots', 'draw_card', 'night_action', 'villager_math', 'resolve_night', 'resolve_dawn',
+  'start_voting', 'cast_vote', 'resolve_result', 'next_round',
   'hunter_shot', 'EXTRA_ROLE_OPTIONS', "mode: 'heal'", "mode: 'poison'", 'partnerId'
 ]) assert.ok(app.includes(token), 'Missing client action ' + token);
 
@@ -32,7 +32,7 @@ for (const token of [
 ]) assert.ok(worker.includes(token), 'Missing server game contract ' + token);
 
 for (const text of [
-  'Buka kartu saya', 'Lanjut ke Malam 1', 'Pagi tiba dalam 10 detik.',
+  'Buka kartu saya', 'Lanjut ke Malam ', 'TENGAH MALAM DIMULAI DALAM',
   'Voting', 'DISKUSI TERSISA', 'VOTING TERSISA',
   'Kamu bertahan.', 'Kamu tereliminasi.'
 ]) assert.ok(app.includes(text), 'Missing moderator-led UI text: ' + text);
@@ -57,13 +57,13 @@ assert.match(html, /id="reconnectButton"/);
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerDiscussion/);
 assert.match(app, /Diskusi pemain/);
-assert.match(app, /Chat dan voice chat aktif di semua fase mode online/);
+assert.match(app, /Chat dan voice chat tersedia langsung di panel percakapan/);
 assert.doesNotMatch(app, /Simpan diskusi online|discussionCallUrl|meet\\.google\\.com|Buka ruang diskusi online|Diskusi online/);
 assert.match(app, /renderDiscussionTools/);
-assert.match(app, /CHAT DISKUSI · SEMUA FASE/);
-assert.match(app, /Tidak memilih siapa pun · Abstain/);
+assert.match(app, /CHAT DISKUSI/);
+assert.match(app, /Abstain · Tidak memilih siapa pun/);
 assert.match(app, /Ganti BOT/);
-assert.match(app, /skip_missing_night/);
+assert.doesNotMatch(app, /skip_missing_night/);
 assert.match(worker, /type === 'replace_with_bot'/);
 assert.match(worker, /type === 'restore_player_control'/);
 assert.match(worker, /type === 'skip_missing_night'/);
@@ -81,7 +81,7 @@ assert.match(app, /function renderNightMath/);
 assert.match(app, /function renderMasonCircle/);
 const allCardRoles = [
   'wolf', 'alpha_wolf', 'villager', 'seer', 'doctor', 'bodyguard', 'witch',
-  'hunter', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
+  'hunter', 'reviver', 'cupid', 'guardian_angel', 'detective', 'mayor', 'jester',
   'priest', 'vigilante', 'mason', 'moderator'
 ];
 for (const role of allCardRoles) {
@@ -96,7 +96,7 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261106-werewolf-card-start-bell2/);
+assert.match(html, /20261106-werewolf-story-dawn-4/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -120,13 +120,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261106-werewolf-card-start-bell2/);
+assert.match(html, /app\.js\?v=20261106-werewolf-story-dawn-4/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261106-werewolf-card-start-bell2/);
+assert.match(html, /style\.css\?v=20261106-werewolf-story-dawn-4/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -136,13 +136,13 @@ assert.match(worker, /room\.discussionMode = 'offline'/);
 assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
 assert.match(css, /system-narrator-panel/);
 assert.match(app, /function systemNarrationText/);
-assert.match(app, /Takdir telah dibagikan\. Buka kartu kalian\. Simpan rahasia\./);
-assert.match(app, /Malam menyelimuti desa\. Semua warga, pejamkan mata\. Werewolf, bangun\./);
-assert.match(app, /Fajar menyingsing\./);
-assert.match(app, /Desa terbangun\. Bicaralah, sebelum suara menentukan nasib seseorang\./);
-assert.match(app, /Waktunya memilih\. Siapa yang kalian curigai\?/);
-assert.match(app, /Suara telah dihitung\./);
-assert.match(app, /Werewolf menguasai desa\./);
+assert.match(app, /Kita berada di ' \+ village/);
+assert.match(app, /Malam turun di ' \+ village/);
+assert.match(app, /Matahari baru saja terbit/);
+assert.match(app, /Warga berkumpul di alun-alun/);
+assert.match(app, /Sore tiba\. Tiang eksekusi berdiri/);
+assert.match(app, /Keputusan telah dijatuhkan/);
+assert.match(app, /Kawanan Werewolf akhirnya menguasai desa/);
 assert.match(app, /utterance\.rate = 0\.9/);
 assert.match(app, /utterance\.pitch = 0\.9/);
 assert.doesNotMatch(app, /Sistem akan mengumumkan pagi setelah semua aksi selesai/);
@@ -168,7 +168,7 @@ assert.match(app, /reset_to_lobby/);
 assert.match(app, /PLAYER_NAME_KEY/);
 assert.match(app, /villager_math/);
 assert.match(app, /waiting-room-roster/);
-assert.match(worker, /resolveSystemNightIfReady/);
+assert.match(worker, /runBotDawnActions/);
 assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
 assert.match(worker, /type === 'reset_to_lobby'/);
@@ -180,13 +180,13 @@ assert.match(worker, /hostAccount/);
 assert.match(worker, /selectedModerator = candidates\[randomInt\(candidates\.length\)\]/);
 assert.match(worker, /room\.players = activePlayers/);
 assert.match(app, /function rolePlayerCount/);
-assert.match(app, /function renderSystemHostControls/);
+assert.doesNotMatch(app, /function renderSystemHostControls/);
 assert.match(app, /Pemain yang menerima role/);
 assert.match(html, /Nama host/);
 assert.match(app, /function playGameStartBell/);
 assert.match(app, /phaseChanged && nextState\.room\.phase === 'role_draw'\) playGameStartBell\(\)/);
-assert.match(app, /Waktu membuka kartu · 20 detik/);
-assert.match(app, /MALAM DIMULAI DALAM/);
+assert.match(app, /roleDrawSeconds/);
+assert.match(app, /TENGAH MALAM DIMULAI DALAM/);
 assert.match(app, /Buka kartu saya sekarang/);
 assert.match(app, /roomState\.self\?\.hasRole/);
 assert.match(app, /pending-role-card/);
@@ -225,9 +225,9 @@ assert.match(css, /\.victory-neutral/);
 assert.match(css, /\.public-result-card/);
 assert.match(css, /\.moderator-event-outcome/);
 
-assert.match(app, /function renderSystemModeratorMorning/);
+assert.match(app, /function renderModeratorDawn/);
 assert.match(app, /function renderSystemModeratorVoteResult/);
-assert.match(app, /case 'morning':[\s\S]*?systemModeratorEnabled\(\)[\s\S]*?renderSystemModeratorMorning/);
+assert.match(app, /case 'morning': renderPlayerMorning\(parent\)/);
 assert.match(app, /case 'result':[\s\S]*?systemModeratorEnabled\(\)[\s\S]*?renderSystemModeratorVoteResult/);
 assert.match(app, /const canRestart = moderatorView \|\| \(systemModeratorEnabled\(\) && isHost\(\)\)/);
 assert.match(app, /function renderPlayerPhase/);
@@ -236,8 +236,8 @@ assert.match(app, /KEKUATAN/);
 assert.match(app, /ATURAN PAKAI/);
 assert.match(css, /role-card-detail-text/);
 assert.match(css, /role-flip-detail-text/);
-assert.match(app, /function renderPrivateInspectionResult/);
-assert.match(app, /Hasil penerawangan malam/);
+assert.match(app, /seerHistory/);
+assert.match(app, /HASIL PENERAWANGAN PRIBADI/);
 assert.match(app, /heartbeatTimer/);
 assert.match(app, /realtimeGeneration/);
 assert.match(app, /pollingSession/);
@@ -288,7 +288,7 @@ for (const file of [
   'hero-night.svg', 'card-back.svg', 'role-wolf.svg',
   'role-seer.svg', 'role-doctor.svg', 'role-villager.svg',
   'role-alpha_wolf.svg', 'role-bodyguard.svg', 'role-witch.svg',
-  'role-hunter.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
+  'role-hunter.svg', 'role-reviver.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
   'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
@@ -336,22 +336,22 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261106-werewolf-card-start-bell2/);
+assert.match(sw, /20261106-werewolf-story-dawn-4/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
 assert.match(html, /href="\.\/subweb-header\.css"/);
 assert.match(app, /Mode latihan vs bot/);
-assert.match(app, /Lewati pemain yang belum beraksi/);
-assert.match(app, /Malam tidak memakai batas waktu/);
+assert.match(app, /Lanjut ke Subuh/);
+assert.match(app, /Semua pilihan tetap dapat diubah sampai waktu tengah malam/);
 assert.match(app, /appendPhaseCountdown/);
 assert.match(app, /startPhaseClock/);
 assert.match(app, /data-phase-duration/);
-assert.match(worker, /nightRevealEndsAt/);
+assert.match(worker, /nightEndsAt/);
 assert.match(worker, /votingEndsAt/);
 assert.match(worker, /discussionSeconds/);
 assert.match(worker, /Durable Object timed phase alarm|scheduleRoomAlarm/);
-assert.match(app, /Tidak ada batas maksimal ronde malam/);
+assert.match(app, /Tidak ada batas maksimal ronde/);
 assert.match(worker, /No fixed night-round cap/);
 assert.match(worker, /wolfAttackSummary\(room, body\.force === true\)/);
 assert.match(app, /role-balance/);
@@ -369,7 +369,7 @@ assert.match(app, /wolf_chat/);
 assert.match(app, /wolfChatInput/);
 assert.match(app, /messages\.scrollTop = messages\.scrollHeight/);
 assert.match(app, /wolfSelections/);
-assert.match(app, /Pilihan seranganmu sudah dikirim/);
+assert.match(app, /Pilihan kawanan diperbarui realtime/);
 assert.doesNotMatch(app, /renderWolfTeamPanel\(parent\)/);
 assert.match(app, /roomState\.wolfTeam/);
 assert.match(app, /Voting bersifat rahasia/);
@@ -400,10 +400,32 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261106-werewolf-card-start-bell2/);
-assert.match(sw, /20261106-werewolf-card-start-bell2/);
+assert.match(html, /20261106-werewolf-story-dawn-4/);
+assert.match(sw, /20261106-werewolf-story-dawn-4/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
+
+assert.match(app, /function renderPlayerDawn/);
+assert.match(app, /function renderModeratorDawn/);
+assert.match(app, /role-count-stepper/);
+assert.match(app, /roleDrawSeconds/);
+assert.match(app, /nightSeconds/);
+assert.match(app, /dawnSeconds/);
+assert.match(app, /resultSeconds/);
+assert.match(app, /HASIL PENERAWANGAN PRIBADI/);
+assert.match(app, /Pilihan dapat diganti sampai timer habis/);
+assert.match(app, /self\.voteTargetId === target\.id/);
+assert.doesNotMatch(app, /Pilihan tersimpan/);
+assert.match(worker, /type === 'dawn_action'/);
+assert.match(worker, /type === 'resolve_dawn'/);
+assert.match(worker, /type === 'resolve_result'/);
+assert.match(worker, /resultActions/);
+assert.match(worker, /resultResolved/);
+assert.match(worker, /seerHistory/);
+assert.match(worker, /botNightReports/);
+assert.match(css, /\.role-count-stepper/);
+assert.match(css, /\.private-inspection-panel/);
+assert.match(css, /\.discussion-chat-form/);
 
 console.log('Werewolf private-card, moderator-report, role privacy, and wolf-team UI checks passed.');
 
@@ -422,3 +444,42 @@ assert.match(css, /\.scan-qr-dialog/);
 assert.match(css, /\.scan-qr-video/);
 assert.match(sw, /\/werewolf\/vendor\/jsQR\.js/);
 console.log('Werewolf lobby QR camera scanner checks passed.');
+
+
+assert.ok(html.includes('data-step="morning">Pagi · Diskusi'));
+assert.ok(html.includes('data-step="voting">Sore · Voting'));
+assert.ok(app.includes("phaseHeader(parent, 'BUKA KARTU'"));
+assert.ok(app.includes("phaseHeader(parent, 'TENGAH MALAM · RONDE ' + room.round, 'Aksi malam'"));
+assert.ok(app.includes("phaseHeader(parent, 'SORE · RONDE ' + room.round, 'Voting eksekusi'"));
+assert.ok(app.includes('Pagi · Diskusi (detik)'));
+assert.ok(app.includes('Sore · Voting (detik)'));
+assert.ok(app.includes('chat-night-report-badge'));
+assert.ok(worker.includes('actionSpeakers'));
+assert.ok(worker.includes('isNightReport: Boolean(message.isNightReport)'));
+assert.ok(css.includes('.role-count-grid .role-config-info-disclosure[open] .role-config-info-details'));
+assert.ok(css.includes('chat-night-report-badge'));
+
+
+// Timed choices remain editable without browser confirmation popups.
+assert.ok(html.includes('id="confirmDialog"'), 'Destructive room actions use the styled in-game dialog.');
+assert.ok(app.includes('function askConfirmation('));
+assert.doesNotMatch(app, /\bconfirm\s*\(/, 'No native browser confirmation is used.');
+assert.ok(app.includes("mode: 'cupid_clear'"), 'Cupid can clear a pending pair while revising it.');
+assert.ok(worker.includes("body.mode === 'cupid_clear'"));
+assert.ok(!app.includes('Simpan ikatan'), 'Cupid pair selection is saved automatically.');
+assert.ok(app.includes('discussion-chat-actions'));
+assert.ok(app.includes("button('Narasi ↻'"));
+assert.ok(css.includes('.confirm-dialog'));
+assert.ok(css.includes('.discussion-chat-actions'));
+assert.ok(app.includes('bekas gigitan di leher'));
+assert.ok(app.includes('luka tembak'));
+assert.ok(app.includes('botol kecil'));
+assert.ok(app.includes('function renderPrivateInspectionResult'));
+assert.ok(app.includes('seer-inspected'));
+assert.ok(app.includes('HASIL PENERAWANGAN PRIBADI'));
+const playerPhaseStart = app.indexOf('function renderPlayerPhase');
+const playerPhaseEnd = app.indexOf('function renderModeratorLobby', playerPhaseStart);
+const playerPhaseMarkup = app.slice(playerPhaseStart, playerPhaseEnd);
+assert.ok(playerPhaseMarkup.indexOf('renderPlayerRoleReminder') < playerPhaseMarkup.indexOf('renderLivingPlayers'));
+assert.ok(app.indexOf('renderDiscussionTools(content)') > app.indexOf('renderPlayerPhase(content)'));
+console.log('Werewolf gameplay UX checks passed: timed actions, private inspections, integrated voice/chat, custom confirmations and story narration.');
