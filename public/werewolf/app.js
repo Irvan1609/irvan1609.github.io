@@ -9,6 +9,7 @@ const PLAYER_NAME_KEY = 'werewolf.lastPlayerName';
 const ROLE_INFO = {
   wolf: ['Werewolf', 'Menentukan korban bersama kawanan.', 'Setiap malam pilih 1 pemain hidup di luar kubu Werewolf.'],
   alpha_wolf: ['Alpha Wolf', 'Suara serangan bernilai 2.', 'Setiap malam pilih 1 target bersama kawanan; tidak bisa memilih Werewolf.'],
+  wolf_seer: ['Wolf Seer', 'Membaca role pemain sambil tetap ikut serangan kawanan.', 'Setiap malam pilih target serangan Werewolf dan intai satu pemain. Hasil role hanya terlihat olehmu. Kamu tetap ikut memilih target serangan.'],
   villager: ['Warga Desa', 'Mengandalkan deduksi dan voting untuk menang bersama Desa.', 'Malam: jawab soal penjumlahan. Siang: diskusi dan pilih 1 pemain.'],
   seer: ['Seer', 'Mengungkap role asli pemain yang diperiksa.', 'Setiap malam periksa 1 pemain lain; role target tampil privat dan target diberi tanda warna.'],
   doctor: ['Doctor', 'Mencegah target tewas oleh serangan Werewolf.', 'Setiap malam lindungi 1 pemain hidup; boleh diri sendiri. Tidak menahan racun Witch.'],
@@ -20,7 +21,8 @@ const ROLE_INFO = {
   guardian_angel: ['Guardian Angel', 'Melindungi target dan berpeluang menang bonus.', 'Setiap malam pilih 1 pemain lain. Bonus jika kamu hidup dan target terakhir tetap hidup saat game berakhir.'],
   detective: ['Detective', 'Mengungkap kubu: Desa, Werewolf, atau Netral.', 'Setiap malam periksa 1 pemain lain; hasil muncul setelah aksi diproses.'],
   mayor: ['Mayor', 'Suara voting bernilai 2.', 'Malam: jawab perhitungan seperti Warga Desa. Voting: suaramu bernilai 2.'],
-  jester: ['Jester', 'Menang sendiri jika dieliminasi melalui voting.', 'Malam: jawab perhitungan seperti Warga Desa. Menang jika gugur melalui voting, bukan serangan malam atau tembakan.'],
+  jester: ['Penduduk Aneh (Jester)', 'Berada di kubu Desa, tetapi menang sendiri jika dipilih melalui voting.', 'Malam: jawab perhitungan seperti Warga Desa. Jika memperoleh mayoritas mutlak dan tereliminasi melalui voting, Penduduk Aneh langsung menang sendiri. Tidak menang jika gugur karena serangan malam atau tembakan.'],
+  trapper: ['Trapper', 'Memasang perangkap untuk menangkap penyerang Werewolf.', 'Setiap malam pilih satu pemain lain. Jika Werewolf menyerang target itu, target selamat dan satu Werewolf yang ikut menyerang tereliminasi. Perangkap diperbarui setiap malam.'],
   priest: ['Priest', 'Memiliki satu berkah perlindungan untuk satu pemain.', 'Sekali per game, lindungi satu pemain dari serangan Werewolf. Boleh melindungi diri sendiri. Jika berkah sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   vigilante: ['Vigilante', 'Memiliki satu tembakan untuk mengeliminasi pemain lain.', 'Sekali per game, tembak satu pemain hidup pada malam hari. Tidak dapat menargetkan diri sendiri. Jika tembakan sudah dipakai, jawab perhitungan pada malam berikutnya.'],
   mason: ['Mason', 'Mengenali anggota Mason lain yang masih hidup.', 'Mason dapat melihat nama sesama Mason. Tidak memiliki aksi khusus malam; jawab perhitungan seperti Warga Desa.'],
@@ -28,6 +30,8 @@ const ROLE_INFO = {
 };
 const EXTRA_ROLE_OPTIONS = [
   ['alphaWolf', 'Alpha Wolf', 'Role Werewolf khusus; kemampuan suara serangan ganda dapat diatur moderator.'],
+  ['wolfSeer', 'Wolf Seer', 'Menyelidiki role pemain sambil tetap ikut memilih serangan kawanan.'],
+  ['trapper', 'Trapper', 'Menangkap satu Werewolf jika target perangkap diserang kawanan.'],
   ['bodyguard', 'Bodyguard', 'Mengorbankan diri untuk menyelamatkan target dari serangan.'],
   ['witch', 'Witch', 'Satu ramuan penyembuh dan satu racun, masing-masing sekali.'],
   ['hunter', 'Hunter', 'Dapat menembak satu pemain setelah tereliminasi.'],
@@ -43,20 +47,20 @@ const EXTRA_ROLE_OPTIONS = [
 ];
 const ROLE_CONFIG_GROUPS = [
   { key: 'wolves', label: 'KUBU WEREWOLF', roles: [
-    ['wolf', 'Werewolf'], ['alpha_wolf', 'Alpha Wolf']
+    ['wolf', 'Werewolf'], ['alpha_wolf', 'Alpha Wolf'], ['wolf_seer', 'Wolf Seer']
   ]},
   { key: 'village', label: 'KUBU DESA', roles: [
-    ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'],
+    ['seer', 'Seer'], ['doctor', 'Doctor'], ['bodyguard', 'Bodyguard'], ['trapper', 'Trapper'],
     ['witch', 'Witch'], ['hunter', 'Hunter'], ['reviver', 'Reviver'], ['cupid', 'Cupid'],
     ['detective', 'Detective'], ['mayor', 'Mayor'], ['priest', 'Priest'],
-    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['villager', 'Warga Desa']
+    ['vigilante', 'Vigilante'], ['mason', 'Mason'], ['jester', 'Penduduk Aneh'], ['villager', 'Warga Desa']
   ]},
   { key: 'neutral', label: 'KUBU NETRAL', roles: [
-    ['guardian_angel', 'Guardian Angel'], ['jester', 'Jester']
+    ['guardian_angel', 'Guardian Angel']
   ]}
 ];
 const ROLE_COUNT_DEFAULTS = {
-  wolf: 1, alpha_wolf: 0, seer: 1, doctor: 1, bodyguard: 0, witch: 0,
+  wolf: 1, alpha_wolf: 0, wolf_seer: 0, seer: 1, doctor: 1, bodyguard: 0, trapper: 0, witch: 0,
   hunter: 0, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0, mayor: 0,
   priest: 0, vigilante: 0, mason: 0, jester: 0, villager: 2,
   moderator: 0
@@ -945,9 +949,9 @@ function roleConfigTotals(roleCounts = {}) {
   const sum = keys => keys.reduce((total, key) => total + Number(roleCounts[key] || 0), 0);
   return {
     total: sum(ROLE_CONFIG_GROUPS.flatMap(group => group.roles.map(([key]) => key))),
-    wolves: sum(['wolf', 'alpha_wolf']),
+    wolves: sum(['wolf', 'alpha_wolf', 'wolf_seer']),
     village: sum(ROLE_CONFIG_GROUPS.find(group => group.key === 'village').roles.map(([key]) => key)),
-    neutral: sum(['guardian_angel', 'jester'])
+    neutral: sum(['guardian_angel'])
   };
 }
 
@@ -957,11 +961,16 @@ function updateRoleConfigSummary(container) {
   const roleCounts = {};
   for (const input of container.querySelectorAll('[data-role-count]')) roleCounts[input.dataset.roleCount] = Math.max(0, Number(input.value) || 0);
   const totals = roleConfigTotals(roleCounts);
+  const moderatorMode = container.querySelector('[data-moderator-mode]')?.value || roleDraft?.moderatorMode || 'host';
+  const activePlayers = rolePlayerCount(moderatorMode);
+  const exact = totals.total === activePlayers;
+  const ready = activePlayers >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
   summary.replaceChildren();
+  addText(summary, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
   const grid = node('div', 'role-team-summary');
   for (const [label, value] of [
-    ['Total role', totals.total], ['Werewolf', totals.wolves],
-    ['Desa', totals.village], ['Netral', totals.neutral]
+    ['Werewolf', totals.wolves], ['Desa', totals.village],
+    ['Netral', totals.neutral], ['Total role', totals.total + ' / ' + activePlayers]
   ]) {
     const item = node('div', 'role-team-summary-item');
     addText(item, 'b', '', String(value));
@@ -969,6 +978,15 @@ function updateRoleConfigSummary(container) {
     grid.append(item);
   }
   summary.append(grid);
+  addText(summary, 'p', ready ? 'hint' : 'notice warning',
+    activePlayers < 2 ? 'Minimal 2 pemain aktif diperlukan.'
+      : !exact ? 'Komposisi kurang ' + Math.max(0, activePlayers - totals.total)
+        + ' atau kelebihan ' + Math.max(0, totals.total - activePlayers) + ' role.'
+        : totals.wolves < 1 || totals.village < 1
+          ? 'Harus ada minimal satu Werewolf dan satu anggota Desa.'
+          : 'Komposisi tepat. Permainan siap dimulai.');
+  const startButton = $('startGameButton');
+  if (startButton) startButton.disabled = !ready;
 }
 
 function captureRoleDraft(container, event) {
@@ -1892,38 +1910,7 @@ function renderModeratorLobby(parent) {
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
-  parent.append(button('Simpan pengaturan role', 'secondary wide', async () => {
-    try {
-      const saved = await sendAction('update_settings', { settings: readRoleSettings(configEditor) });
-      if (saved) {
-        roleDraft = null;
-        renderRoom();
-        showMessage('Pengaturan role berhasil disimpan. Pilihan host akan dipertahankan.');
-      }
-    } catch (error) { showMessage(error.message, true); }
-  }));
-
   const config = roleSettingsForUI(settings);
-  const totals = roleConfigTotals(config.roleCounts);
-  const activePlayerCount = rolePlayerCount(config.moderatorMode);
-  const exact = totals.total === activePlayerCount;
-  const balance = node('div', 'role-balance');
-  addText(balance, 'div', 'eyebrow-small', 'KOMPOSISI KUBU');
-  const balanceGrid = node('div', 'role-balance-grid');
-  for (const [label, count] of [
-    ['Werewolf', totals.wolves], ['Desa', totals.village], ['Netral', totals.neutral], ['Total role', totals.total]
-  ]) {
-    const item = node('div', 'role-balance-item');
-    addText(item, 'b', '', String(count));
-    addText(item, 'span', '', label);
-    balanceGrid.append(item);
-  }
-  balance.append(balanceGrid);
-  if (activePlayerCount < 2) addText(balance, 'p', 'hint', 'Minimal 2 pemain aktif diperlukan setelah moderator dipilih.');
-  else if (!exact) addText(balance, 'p', 'notice warning', 'Jumlah role ' + totals.total + ' belum sama dengan ' + activePlayerCount + ' pemain aktif. Sesuaikan angka role lalu simpan.');
-  else if (totals.wolves < 1 || totals.village < 1) addText(balance, 'p', 'notice warning', 'Harus ada minimal satu anggota kubu Werewolf dan satu anggota kubu Desa.');
-  else addText(balance, 'p', 'hint', 'Komposisi sudah sesuai dengan jumlah pemain aktif.');
-  parent.append(balance);
 
   const maxBotsPerBatch = 500;
   const botBox = node('div', 'bot-setup');
@@ -1952,16 +1939,18 @@ function renderModeratorLobby(parent) {
   addText(botBox, 'p', 'hint', 'Maksimal 500 bot dalam satu penambahan. Untuk jumlah lebih besar, lakukan beberapa kali.');
   parent.append(botBox);
 
-  const canStart = activePlayerCount >= 2 && exact && totals.wolves >= 1 && totals.village >= 1;
-  parent.append(button('Mulai Permainan & Bagikan Kartu', 'primary wide', async () => {
+  const startButton = button('Mulai Permainan & Bagikan Kartu', 'primary wide', async () => {
     try {
       const saved = await sendAction('update_settings', { settings: readRoleSettings(configEditor) });
       if (!saved) return;
       roleDraft = null;
       await sendAction('start_game');
     } catch (error) { showMessage(error.message, true); }
-  }, !canStart));
-  addText(parent, 'p', 'hint', 'Kartu dibagikan secara privat. Setiap pemain membukanya sendiri pada perangkat masing-masing.');
+  });
+  startButton.id = 'startGameButton';
+  parent.append(startButton);
+  updateRoleConfigSummary(configEditor);
+  addText(parent, 'p', 'hint', 'Pengaturan role diterapkan otomatis saat permainan dimulai. Kartu dibagikan secara privat.');
   renderReplayArchive(parent);
 }
 
@@ -2144,7 +2133,7 @@ function renderPlayerNight(parent) {
     addText(parent, 'div', 'notice', 'Waktu aksi tengah malam berakhir. Pilihan sedang dikunci untuk diproses.');
     return;
   }
-  if (['wolf', 'alpha_wolf'].includes(self.role)) {
+  if (['wolf', 'alpha_wolf', 'wolf_seer'].includes(self.role)) {
     renderWolfNightRoom(parent);
     addText(parent, 'h3', '', 'Pilih target serangan');
     addText(parent, 'p', 'hint', 'Pilihan kawanan diperbarui realtime. Kamu dapat mengganti target kapan saja sebelum tengah malam berakhir.');
@@ -2154,10 +2143,32 @@ function renderPlayerNight(parent) {
     for (const target of wolfTargets) {
       wolfGrid.append(button('Serang · ' + target.name,
         'action-button' + (self.nightActionTargetId === target.id ? ' selected' : ''),
-        () => sendAction('night_action', { targetId: target.id })));
+        () => sendAction('night_action', {
+          targetId: target.id,
+          ...(self.role === 'wolf_seer' && self.wolfSeerInspectTargetId
+            ? { inspectTargetId: self.wolfSeerInspectTargetId } : {})
+        })));
     }
     if (!wolfTargets.length) addText(parent, 'div', 'notice warning', 'Tidak ada target serangan yang tersedia.');
     else parent.append(wolfGrid);
+    if (self.role === 'wolf_seer' && abilityOn('wolfSeerInspection')) {
+      const inspectedIds = new Set((self.seerHistory || []).map(item => item.targetId));
+      const inspectTargets = (roomState.targets || []).filter(target =>
+        target.id !== self.id && !inspectedIds.has(target.id));
+      addText(parent, 'h3', '', 'Intai role pemain');
+      addText(parent, 'p', 'hint', 'Pilih satu pemain untuk mengetahui role aslinya. Hasil hanya terlihat oleh Wolf Seer. Pilihan dapat diganti sampai tengah malam berakhir.');
+      const inspectGrid = node('div', 'action-grid');
+      for (const target of inspectTargets) {
+        inspectGrid.append(button('Intai · ' + target.name,
+          'action-button' + (self.wolfSeerInspectTargetId === target.id ? ' selected' : ''),
+          () => sendAction('night_action', {
+            ...(self.nightActionTargetId ? { targetId: self.nightActionTargetId } : {}),
+            inspectTargetId: target.id
+          })));
+      }
+      if (!inspectTargets.length) addText(parent, 'div', 'notice', 'Semua pemain hidup sudah pernah kamu intai.');
+      else parent.append(inspectGrid);
+    }
     return;
   }
 
@@ -2173,12 +2184,13 @@ function renderPlayerNight(parent) {
     return true;
   });
 
-  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante'].includes(self.role)) {
+  if (['seer', 'detective', 'doctor', 'bodyguard', 'guardian_angel', 'priest', 'vigilante', 'trapper'].includes(self.role)) {
     const titles = {
       seer: 'Periksa identitas', detective: 'Periksa kubu', doctor: 'Lindungi pemain',
       bodyguard: 'Jaga pemain',
       guardian_angel: abilityOn('guardianProtection') ? 'Pilih target perlindungan' : 'Pilih target kemenangan tambahan',
-      priest: 'Gunakan berkah perlindungan', vigilante: 'Gunakan tembakan'
+      priest: 'Gunakan berkah perlindungan', vigilante: 'Gunakan tembakan',
+      trapper: 'Pasang perangkap'
     };
     addText(parent, 'h3', '', titles[self.role]);
     addText(parent, 'p', 'hint', self.role === 'seer' || self.role === 'detective'
@@ -2187,7 +2199,8 @@ function renderPlayerNight(parent) {
     const actionVerb = self.role === 'seer' || self.role === 'detective' ? 'Periksa'
       : self.role === 'doctor' || self.role === 'priest' ? 'Lindungi'
         : self.role === 'bodyguard' ? 'Jaga'
-          : self.role === 'vigilante' ? 'Tembak' : 'Pilih';
+          : self.role === 'vigilante' ? 'Tembak'
+            : self.role === 'trapper' ? 'Perangkap' : 'Pilih';
     const grid = node('div', 'action-grid');
     for (const target of targets) {
       grid.append(button(actionVerb + ' · ' + target.name,
@@ -2402,23 +2415,27 @@ function renderDiscussionTools(parent) {
 function renderPrivateInspectionResult(parent) {
   const self = roomState.self || {};
   const history = Array.isArray(self.seerHistory) ? self.seerHistory : [];
-  if (!['seer', 'detective'].includes(self.role) || !history.length) return;
+  if (!['seer', 'detective', 'wolf_seer'].includes(self.role) || !history.length) return;
   const panel = node('section', 'private-inspection-panel');
-  addText(panel, 'div', 'eyebrow-small', 'HASIL PENERAWANGAN PRIBADI');
+  addText(panel, 'div', 'eyebrow-small', self.role === 'wolf_seer' ? 'INTEL KAWANAN · RAHASIA' : 'HASIL PENERAWANGAN PRIBADI');
   for (const result of history.slice().sort((a, b) => a.round - b.round)) {
     const isWolf = result.result === 'wolf' || result.result === 'wolf_team'
       || result.targetFaction === 'wolves';
     const isNeutral = result.result === 'neutral' || result.targetFaction === 'neutral';
     const faction = self.role === 'detective'
       ? (isWolf ? 'Kubu Werewolf' : isNeutral ? 'Kubu Netral' : 'Kubu Desa')
-      : (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
+      : self.role === 'wolf_seer'
+        ? (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf')
+        : (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
     const row = node('div', 'private-inspection-item ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe'));
     addText(row, 'span', 'private-inspection-round', 'R' + result.round);
     addText(row, 'b', '', result.playerName || 'Pemain');
     addText(row, 'span', 'private-inspection-result', faction);
     panel.append(row);
   }
-  addText(panel, 'p', 'hint', 'Pemain yang sudah diperiksa diberi tanda pada daftar pemain hidup. Hasil ini hanya terlihat olehmu.');
+  addText(panel, 'p', 'hint', self.role === 'wolf_seer'
+    ? 'Informasi role ini hanya terlihat oleh Wolf Seer. Gunakan untuk koordinasi kawanan.'
+    : 'Pemain yang sudah diperiksa diberi tanda pada daftar pemain hidup. Hasil ini hanya terlihat olehmu.');
   parent.append(panel);
 }
 
@@ -2528,8 +2545,8 @@ function renderHunterShot(parent) {
 
 function factionForRole(role) {
   if (role === 'moderator') return 'moderator';
-  if (['wolf', 'alpha_wolf'].includes(role)) return 'wolves';
-  if (['jester', 'guardian_angel'].includes(role)) return 'neutral';
+  if (['wolf', 'alpha_wolf', 'wolf_seer'].includes(role)) return 'wolves';
+  if (role === 'guardian_angel') return 'neutral';
   return 'village';
 }
 
@@ -2653,7 +2670,7 @@ function winnerLabel(winner) {
   return ({
     wolves: 'KUBU WEREWOLF MENANG',
     villagers: 'KUBU DESA MENANG',
-    jester: 'JESTER MENANG SENDIRI',
+    jester: 'PENDUDUK ANEH MENANG SENDIRI',
     lovers: 'PASANGAN LOVERS MENANG'
   })[winner] || 'PERMAINAN SELESAI';
 }
@@ -2661,7 +2678,7 @@ function winnerLabel(winner) {
 function renderVictoryScreen(parent, moderatorView = false) {
   const room = roomState.room;
   const theme = room.winner === 'wolves' ? 'wolves'
-    : room.winner === 'villagers' ? 'village' : 'neutral';
+    : ['villagers', 'jester'].includes(room.winner) ? 'village' : 'neutral';
   const screen = node('section', 'victory-screen victory-' + theme);
   const confetti = node('div', 'victory-confetti');
   confetti.setAttribute('aria-hidden', 'true');
