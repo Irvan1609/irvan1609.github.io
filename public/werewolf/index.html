@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-role-balance-7">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-open-votes-bot-8">
 </head>
 <body>
   <header class="subweb-header">
@@ -121,6 +121,19 @@
     </div>
   </dialog>
 
+  <dialog id="botTakeoverDialog" class="bot-takeover-dialog" aria-labelledby="botTakeoverTitle" aria-describedby="botTakeoverMessage">
+    <div class="bot-takeover-content">
+      <div class="bot-takeover-kicker">KENDALI PEMAIN</div>
+      <div class="bot-takeover-icon" aria-hidden="true">BOT</div>
+      <h2 id="botTakeoverTitle">BOT mengambil alih</h2>
+      <p id="botTakeoverMessage">Kamu melewatkan aksi tepat waktu. BOT sementara menjalankan role dan pilihanmu agar permainan tetap berjalan.</p>
+      <div class="bot-takeover-actions">
+        <button id="botTakeoverLeave" class="secondary" type="button">Keluar Room</button>
+        <button id="botTakeoverReturn" class="primary" type="button">Kembali Bermain</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
     <div class="confirm-dialog-content">
       <div class="confirm-dialog-kicker">THE VILLAGE AFTER DARK</div>
@@ -133,6 +146,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-role-balance-7"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-open-votes-bot-8"></script>
 </body>
 </html>
