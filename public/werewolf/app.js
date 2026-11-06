@@ -3258,13 +3258,21 @@ function speakBrowserNarration(message) {
   } catch {}
 }
 
-async function speakSystemNarration(message) {
+async function speakSystemNarration(message, options = {}) {
   if (!message) return;
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const body = { text: message };
+    if (options.developerTest) {
+      headers.Authorization = 'Bearer ' + await requestDeveloperNarratorAssertion();
+    } else {
+      body.roomCode = session?.code || '';
+      body.playerToken = session?.token || '';
+    }
     const response = await fetch(API_BASE + '/narrator/speak', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: message })
+      headers,
+      body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error('Voice narrator unavailable');
     const audioBlob = await response.blob();
@@ -3889,7 +3897,7 @@ function initializeDeveloperNarrator() {
   });
 
   $('testNarratorVoice')?.addEventListener('click', () => {
-    speakSystemNarration('Selamat datang di The Village After Dark. Malam ini, tidak semua orang akan bertahan.');
+    speakSystemNarration('Selamat datang di The Village After Dark. Malam ini, tidak semua orang akan bertahan.', { developerTest: true });
   });
 }
 
