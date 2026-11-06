@@ -2555,7 +2555,9 @@ export class WerewolfRoom {
           const caughtWolf = room.players.find(item => item.id === trapperInterception);
           const outcome = trapperInterception && action.targetId === victimId
             ? 'Perangkap aktif; ' + (caughtWolf?.name || 'Werewolf') + ' tertangkap dan target selamat.'
-            : 'Tidak ada serangan Werewolf pada target perangkap.';
+            : victimId === action.targetId && (protectedIds.has(victimId) || doctorHeal)
+              ? 'Serangan pada target sudah ditahan perlindungan lain; perangkap tidak terpicu.'
+              : 'Tidak ada serangan Werewolf pada target perangkap.';
           addActionReport(65, 'Trapper', actor.name, 'Memasang perangkap pada ' + targetName, outcome);
         } else if (action.type === 'guardian_protect') {
           const canProtect = abilityEnabled(room, 'guardianProtection');
@@ -2619,7 +2621,15 @@ export class WerewolfRoom {
         } else if (action?.type === 'wolf_vote') {
           text = 'Aku ikut menentukan sasaran malam tadi: ' + targetName + '. Menurutku kita perlu membahas mengapa dia menjadi sasaran.';
         } else if (action?.type === 'trapper_set') {
-          text = 'Aku memasang perangkap pada ' + targetName + ' tadi malam. Kita lihat apakah ada yang tertangkap.';
+          const caughtWolf = room.players.find(item => item.id === trapperInterception);
+          if (trapperInterception && action.targetId === victimId) {
+            text = 'Perangkapku menangkap ' + (caughtWolf?.name || 'penyerang Werewolf')
+              + ' saat menyerang ' + targetName + '. Target berhasil selamat.';
+          } else if (victimId === action.targetId && (protectedIds.has(victimId) || doctorHeal)) {
+            text = 'Aku memasang perangkap pada ' + targetName + ', tetapi serangan ke sana sudah ditahan perlindungan lain.';
+          } else {
+            text = 'Aku memasang perangkap pada ' + targetName + ' tadi malam, tetapi tidak ada serangan Werewolf ke sana.';
+          }
         }
         else if (action?.type === 'seer_inspect') {
           const clue = room.seerResults?.[bot.id];
