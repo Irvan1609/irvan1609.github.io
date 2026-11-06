@@ -8,13 +8,15 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261107-werewolf-speaking-compact-1">
+  <link rel="stylesheet" href="../account.css">
+  <link rel="stylesheet" href="./style.css?v=20261107-werewolf-narrator-voice-1">
 </head>
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
       <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Werewolf</span></a>
       <nav class="subweb-nav"><a class="subweb-home-link" href="/">Beranda</a></nav>
+      <div id="accountMount"></div>
     </div>
   </header>
 
@@ -87,7 +89,29 @@
           <div class="audio-settings-grid">
             <label>Efek game <input id="gameSoundVolume" type="range" min="0" max="100" value="65"></label>
             <label>Suara pemain <input id="voicePlaybackVolume" type="range" min="0" max="100" value="20"></label>
+            <label>Suara narator <input id="narratorPlaybackVolume" type="range" min="0" max="100" value="90"></label>
           </div>
+          <details id="developerNarratorPanel" class="developer-narrator-panel hidden">
+            <summary>Suara Narator · Developer</summary>
+            <div class="developer-narrator-content">
+              <p class="hint">Unggah satu atau beberapa rekaman suara milik developer. Sampel akan dikirim ke ElevenLabs untuk membuat suara narator AI yang membacakan teks permainan secara otomatis.</p>
+              <label>Nama suara
+                <input id="narratorVoiceName" maxlength="80" value="The Village After Dark Narrator" autocomplete="off">
+              </label>
+              <label>Rekaman suara
+                <input id="narratorVoiceFiles" type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,audio/ogg,audio/aac,.mp3,.wav,.m4a,.webm,.ogg,.aac" multiple>
+              </label>
+              <label class="developer-narrator-consent">
+                <input id="narratorVoiceConsent" type="checkbox">
+                Saya pemilik suara ini atau telah memperoleh izin untuk mengkloningnya.
+              </label>
+              <div class="developer-narrator-actions">
+                <button id="cloneNarratorVoice" class="primary" type="button">Unggah & Buat Suara AI</button>
+                <button id="testNarratorVoice" class="secondary" type="button" disabled>Uji Suara</button>
+              </div>
+              <p id="developerNarratorStatus" class="developer-narrator-status" role="status" aria-live="polite">Memeriksa akses developer…</p>
+            </div>
+          </details>
         </details>
         <div id="playersSection" class="players-section">
           <div class="section-heading compact"><div><small>PEMAIN</small><h2 id="playerCount">0 pemain</h2></div><span class="hint-inline">Moderator dapat melihat status dan peran pemain. Host dapat mengeluarkan pemain.</span></div>
@@ -167,6 +191,7 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261107-werewolf-speaking-compact-1"></script>
+  <script type="module" src="../account.js"></script>
+  <script type="module" src="./app.js?v=20261107-werewolf-narrator-voice-1"></script>
 </body>
 </html>
