@@ -2198,7 +2198,10 @@ assert.equal(skipPhaseSeerView.self.seerResult, null, 'Skipped players do not tr
 await actionAfterDeadline(skipPhaseRoom, skipPhaseCreated.token, 'resolve_night', { force: true });
 skipPhaseState = await skipPhaseRoom.loadRoom();
 assert.equal(skipPhaseState.phase, 'morning');
-assert.ok(skipPhaseState.lastResult.actionReport.some(item => item.role === 'Aksi belum masuk'));
+assert.ok(skipPhaseState.players.slice(2).every(item => item.isBotControlled),
+  'Players who skipped a required night action must be handed to BOT before resolution.');
+assert.ok(skipPhaseState.players.slice(2).every(item => skipPhaseState.nightActions[item.id]),
+  'BOT must submit an action for every inactive player.');
 assert.equal(skipPhaseState.nightSkippedPlayerIds.length, 0);
 const roleDrawTimeoutRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const roleDrawTimeoutCreated = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/create', 'POST', {
