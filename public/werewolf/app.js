@@ -102,6 +102,9 @@ let voiceMuted = false;
 let voiceNeedsAudioGesture = false;
 let gameSoundVolume = 0.65;
 let voicePlaybackVolume = 0.2;
+let narratorPlaybackVolume = 0.9;
+let narratorAudioElement = null;
+let narratorAudioUrl = '';
 let voiceOutbox = [];
 let voiceMeterContext = null;
 let voiceMeterFrame = 0;
@@ -3228,19 +3231,60 @@ function systemNarrationText(room) {
   }
 }
 
-function speakSystemNarration(message) {
+function stopNarratorAudio() {
+  if (narratorAudioElement) {
+    try { narratorAudioElement.pause(); narratorAudioElement.currentTime = 0; } catch {}
+    narratorAudioElement = null;
+  }
+  if (narratorAudioUrl) {
+    try { URL.revokeObjectURL(narratorAudioUrl); } catch {}
+    narratorAudioUrl = '';
+  }
+}
+
+function speakBrowserNarration(message) {
   if (!message || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
   try {
+    stopNarratorAudio();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = 'id-ID';
     utterance.rate = 0.9;
     utterance.pitch = 0.9;
-    utterance.volume = 0.92;
+    utterance.volume = narratorPlaybackVolume;
     const voice = window.speechSynthesis.getVoices().find(item => /^id([_-]|$)/i.test(item.lang));
     if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   } catch {}
+}
+
+async function speakSystemNarration(message) {
+  if (!message) return;
+  try {
+    const response = await fetch(API_BASE + '/narrator/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: message })
+    });
+    if (!response.ok) throw new Error('Voice narrator unavailable');
+    const audioBlob = await response.blob();
+    if (!audioBlob.size) throw new Error('Empty narrator audio');
+    stopNarratorAudio();
+    window.speechSynthesis?.cancel();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    narratorAudioElement = audio;
+    narratorAudioUrl = audioUrl;
+    audio.volume = narratorPlaybackVolume;
+    audio.addEventListener('ended', () => {
+      if (narratorAudioElement === audio) narratorAudioElement = null;
+      if (narratorAudioUrl === audioUrl) narratorAudioUrl = '';
+      URL.revokeObjectURL(audioUrl);
+    }, { once: true });
+    await audio.play();
+  } catch {
+    speakBrowserNarration(message);
+  }
 }
 
 function renderPlayerVoting(parent) {
@@ -3708,14 +3752,19 @@ function initializeAudioSettings() {
     const saved = JSON.parse(localStorage.getItem('werewolf.audio.settings') || '{}');
     if (Number.isFinite(Number(saved.game))) gameSoundVolume = Math.max(0, Math.min(1, Number(saved.game)));
     if (Number.isFinite(Number(saved.voice))) voicePlaybackVolume = Math.max(0, Math.min(1, Number(saved.voice)));
+    if (Number.isFinite(Number(saved.narrator))) narratorPlaybackVolume = Math.max(0, Math.min(1, Number(saved.narrator)));
   } catch {}
   const gameSlider = $('gameSoundVolume');
   const voiceSlider = $('voicePlaybackVolume');
+  const narratorSlider = $('narratorPlaybackVolume');
   if (gameSlider) gameSlider.value = String(Math.round(gameSoundVolume * 100));
   if (voiceSlider) voiceSlider.value = String(Math.round(voicePlaybackVolume * 100));
+  if (narratorSlider) narratorSlider.value = String(Math.round(narratorPlaybackVolume * 100));
   const persist = () => {
     try {
-      localStorage.setItem('werewolf.audio.settings', JSON.stringify({ game: gameSoundVolume, voice: voicePlaybackVolume }));
+      localStorage.setItem('werewolf.audio.settings', JSON.stringify({
+        game: gameSoundVolume, voice: voicePlaybackVolume, narrator: narratorPlaybackVolume
+      }));
     } catch {}
     updateRemoteVoiceVolume();
   };
@@ -3726,6 +3775,121 @@ function initializeAudioSettings() {
   voiceSlider?.addEventListener('input', () => {
     voicePlaybackVolume = Math.max(0, Math.min(1, Number(voiceSlider.value) / 100));
     persist();
+  });
+  narratorSlider?.addEventListener('input', () => {
+    narratorPlaybackVolume = Math.max(0, Math.min(1, Number(narratorSlider.value) / 100));
+    if (narratorAudioElement) narratorAudioElement.volume = narratorPlaybackVolume;
+    persist();
+  });
+}
+
+async function requestDeveloperNarratorAssertion() {
+  const account = window.IrvanAccount;
+  if (!account?.authenticated || typeof account.request !== 'function') {
+    throw new Error('Masuk menggunakan akun Google developer terlebih dahulu.');
+  }
+  const response = await account.request('/v1/auth/developer-assertion', {
+    method: 'POST',
+    body: '{}'
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.assertion) {
+    throw new Error(data.message || data.error || 'Verifikasi akun developer gagal.');
+  }
+  return data.assertion;
+}
+
+async function loadDeveloperNarratorStatus() {
+  const status = $('developerNarratorStatus');
+  const testButton = $('testNarratorVoice');
+  if (!status) return;
+  status.textContent = 'Memeriksa status suara…';
+  if (testButton) testButton.disabled = true;
+  try {
+    const assertion = await requestDeveloperNarratorAssertion();
+    const response = await fetch(API_BASE + '/developer/narrator/status', {
+      headers: { Authorization: 'Bearer ' + assertion },
+      cache: 'no-store'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Status suara narator tidak dapat dibaca.');
+    if (!data.configured) {
+      status.textContent = 'Belum ada suara narator. Unggah sampel suara developer untuk memulai.';
+    } else if (data.requiresVerification) {
+      status.textContent = 'Suara ' + data.voiceName + ' dibuat, tetapi masih menunggu verifikasi ElevenLabs.';
+    } else {
+      status.textContent = 'Suara aktif: ' + data.voiceName + '. Narator akan menggunakannya pada semua fase.';
+      if (testButton) testButton.disabled = false;
+    }
+  } catch (error) {
+    status.textContent = error.message || 'Tidak dapat memeriksa suara narator.';
+  }
+}
+
+function initializeDeveloperNarrator() {
+  const panel = $('developerNarratorPanel');
+  if (!panel) return;
+  const applyAccess = user => {
+    const allowed = String(user?.email || '').trim().toLowerCase() === 'irvan1609@gmail.com';
+    panel.classList.toggle('hidden', !allowed);
+    if (allowed) void loadDeveloperNarratorStatus();
+  };
+  document.addEventListener('accountchange', event => applyAccess(event.detail?.user || null));
+  if (window.IrvanAccount?.ready) {
+    window.IrvanAccount.ready()
+      .then(() => applyAccess(window.IrvanAccount?.user || null))
+      .catch(() => applyAccess(null));
+  }
+
+  $('cloneNarratorVoice')?.addEventListener('click', async () => {
+    const button = $('cloneNarratorVoice');
+    const fileInput = $('narratorVoiceFiles');
+    const consent = $('narratorVoiceConsent');
+    const status = $('developerNarratorStatus');
+    const files = Array.from(fileInput?.files || []);
+    if (!files.length) {
+      status.textContent = 'Pilih minimal satu file rekaman suara.';
+      return;
+    }
+    if (!consent?.checked) {
+      status.textContent = 'Centang konfirmasi bahwa suara ini milik developer atau digunakan dengan izin.';
+      return;
+    }
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > 20 * 1024 * 1024) {
+      status.textContent = 'Total ukuran rekaman maksimal 20 MB.';
+      return;
+    }
+    button.disabled = true;
+    status.textContent = 'Mengunggah sampel dan membuat suara AI…';
+    try {
+      const assertion = await requestDeveloperNarratorAssertion();
+      const payload = new FormData();
+      payload.append('name', $('narratorVoiceName')?.value.trim() || 'The Village After Dark Narrator');
+      payload.append('consent', 'true');
+      for (const file of files) payload.append('files[]', file, file.name);
+      const response = await fetch(API_BASE + '/developer/narrator/voice', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + assertion },
+        body: payload
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Pembuatan suara narator gagal.');
+      fileInput.value = '';
+      consent.checked = false;
+      status.textContent = data.requiresVerification
+        ? 'Suara berhasil dibuat dan menunggu verifikasi ElevenLabs.'
+        : 'Suara ' + data.voiceName + ' berhasil dibuat.';
+      await loadDeveloperNarratorStatus();
+    } catch (error) {
+      status.textContent = error.message || 'Gagal mengunggah sampel suara.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $('testNarratorVoice')?.addEventListener('click', () => {
+    speakSystemNarration('Selamat datang di The Village After Dark. Malam ini, tidak semua orang akan bertahan.');
   });
 }
 
@@ -3792,6 +3956,7 @@ document.addEventListener('visibilitychange', () => {
   if (!socket || socket.readyState === WebSocket.CLOSED) connectRealtime();
 });
 initializeAudioSettings();
+initializeDeveloperNarrator();
 prefillPlayerName();
 checkApi();
 restoreSession();
