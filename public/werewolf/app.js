@@ -106,6 +106,7 @@ let narratorPlaybackVolume = 0.9;
 let narratorAudioElement = null;
 let narratorAudioUrl = '';
 let narratorAudioCancel = null;
+let narratorUploadedClipIds = new Set();
 let voiceOutbox = [];
 let voiceMeterContext = null;
 let voiceMeterFrame = 0;
@@ -513,7 +514,7 @@ function applyState(nextState, expectedSession = session) {
   const narrationKey = [nextState.room.code, nextState.room.phase, nextState.room.round,
     nextState.room.lastResult?.at || nextState.room.publicResult?.at || ''].join(':');
   if (narrationKey !== lastNarrationKey) {
-    const narration = systemNarrationText(nextState.room);
+    const narration = systemNarrationClipIds(nextState.room);
     if (narration) speakSystemNarration(narration);
   }
   lastNarrationKey = narrationKey;
@@ -2747,7 +2748,7 @@ function renderDiscussionTools(parent) {
     actions.append(submit);
     if (phase !== 'lobby') {
       const repeat = button('Narasi ↻', 'secondary repeat-narration-button', () => {
-        const narration = systemNarrationText(roomState.room);
+        const narration = systemNarrationClipIds(roomState.room);
         if (narration) speakSystemNarration(narration);
       });
       repeat.setAttribute('aria-label', 'Ulangi narasi desa');
@@ -3118,124 +3119,85 @@ function renderVictoryScreen(parent, moderatorView = false) {
 }
 
 
-function narrationChoice(room, lines) {
+const NARRATOR_CLIPS = [
+  { id: 'test_welcome', phase: 'Uji suara', text: 'Selamat datang di The Village After Dark.' },
+  { id: 'role_cards', phase: 'Pembukaan kartu', text: 'Kartu telah dibagikan. Simpan rahasiamu.' },
+  { id: 'role_secret', phase: 'Pembukaan kartu', text: 'Di antara kita, ada yang menyimpan niat gelap.' },
+  { id: 'night_arrival', phase: 'Tengah malam', text: 'Malam telah tiba. Semua warga, pejamkan mata.' },
+  { id: 'night_hunters', phase: 'Tengah malam', text: 'Para pemburu mulai bergerak dalam kegelapan.' },
+  { id: 'dawn_first', phase: 'Subuh', text: 'Subuh tiba. Saatnya menyelesaikan aksi terakhir.' },
+  { id: 'dawn_last', phase: 'Subuh', text: 'Fajar segera menyingsing. Desa menahan napas.' },
+  { id: 'morning_clear', phase: 'Pagi', text: 'Pagi telah tiba. Tidak ada warga yang gugur malam ini.' },
+  { id: 'morning_safe', phase: 'Pagi', text: 'Desa masih utuh, tetapi ancaman belum berakhir.' },
+  { id: 'morning_many', phase: 'Pagi', text: 'Lebih dari satu warga ditemukan gugur. Desa kembali diliputi ketakutan.' },
+  { id: 'morning_wolf', phase: 'Pagi', text: 'Seorang warga ditemukan dengan bekas serangan. Werewolf masih bersembunyi di antara kita.' },
+  { id: 'morning_shot', phase: 'Pagi', text: 'Suara tembakan terdengar semalam. Seorang warga ditemukan gugur.' },
+  { id: 'morning_poison', phase: 'Pagi', text: 'Seorang warga ditemukan tak bernyawa. Racun telah bekerja sebelum fajar.' },
+  { id: 'morning_guard', phase: 'Pagi', text: 'Seorang pelindung gugur setelah menghadang serangan.' },
+  { id: 'morning_lovers', phase: 'Pagi', text: 'Ikatan cinta membawa dua nyawa menuju akhir yang sama.' },
+  { id: 'morning_other', phase: 'Pagi', text: 'Seorang warga ditemukan gugur. Malam menyimpan rahasia tentang kematiannya.' },
+  { id: 'discussion_gather', phase: 'Diskusi', text: 'Warga berkumpul di alun-alun. Dengarkan setiap cerita.' },
+  { id: 'discussion_suspicion', phase: 'Diskusi', text: 'Setiap tatapan menyimpan kecurigaan. Siapa yang menyembunyikan sesuatu?' },
+  { id: 'discussion_truth', phase: 'Diskusi', text: 'Temukan kebenaran sebelum waktu diskusi berakhir.' },
+  { id: 'voting_pole', phase: 'Voting', text: 'Sore tiba. Saatnya menentukan siapa yang akan dieksekusi.' },
+  { id: 'voting_choice', phase: 'Voting', text: 'Satu suara dapat menyelamatkan, atau mengakhiri, sebuah nyawa.' },
+  { id: 'voting_last', phase: 'Voting', text: 'Tentukan pilihanmu. Waktu voting segera berakhir.' },
+  { id: 'result_execution', phase: 'Hasil voting', text: 'Keputusan telah dijatuhkan. Satu warga akan meninggalkan desa.' },
+  { id: 'result_no_execution', phase: 'Hasil voting', text: 'Suara telah dihitung. Tidak ada eksekusi hari ini.' },
+  { id: 'finished_open', phase: 'Akhir permainan', text: 'Kisah desa ini mencapai akhirnya.' },
+  { id: 'finished_wolves', phase: 'Akhir permainan', text: 'Kawanan Werewolf akhirnya menguasai desa.' },
+  { id: 'finished_villagers', phase: 'Akhir permainan', text: 'Warga berhasil mengusir kegelapan dan menyelamatkan desa.' },
+  { id: 'finished_jester', phase: 'Akhir permainan', text: 'Jester tertawa paling akhir. Seluruh desa masuk ke dalam jebakannya.' },
+  { id: 'finished_lovers', phase: 'Akhir permainan', text: 'Dua hati bertahan melewati kekacauan dan memenangkan permainan.' },
+  { id: 'finished_default', phase: 'Akhir permainan', text: 'Malam panjang akhirnya berakhir. Permainan selesai.' }
+];
+
+function narrationChoice(room, ids) {
   const key = [room.code, room.round, room.phase, room.lastResult?.at || room.publicResult?.at || ''].join('|');
   let hash = 0;
   for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
-  return lines[hash % lines.length];
+  return ids[hash % ids.length];
 }
 
-function systemNarrationText(room) {
-  const village = room.villageName || 'Desa Waringin';
+function systemNarrationClipIds(room) {
   const result = room.lastResult || room.publicResult || {};
   const victims = Array.isArray(result.eliminations) ? result.eliminations
     : Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers : [];
-  const victimNames = victims.map(item => item.name || item.playerName).filter(Boolean);
-  const biteVictim = victims.find(item => item.cause === 'werewolf_attack' || item.cause === 'Serangan Werewolf');
-  const shotVictim = victims.find(item => ['hunter', 'vigilante_shot'].includes(item.cause) || item.cause === 'Tembakan');
-  const poisonVictim = victims.find(item => item.cause === 'witch_poison' || item.cause === 'Racun');
-  const describeVictim = item => {
-    const name = String(item.name || item.playerName || 'Seorang warga');
-    const cause = String(item.cause || '');
-    if (cause === 'werewolf_attack' || cause === 'Serangan Werewolf') {
-      return name + ' ditemukan dengan bekas gigitan di leher. Jejak kaki besar menghilang ke arah hutan.';
-    }
-    if (['hunter', 'vigilante_shot', 'Tembakan'].includes(cause)) {
-      return name + ' ditemukan dengan luka tembak. Selongsong peluru masih tergeletak di tanah.';
-    }
-    if (cause === 'witch_poison' || cause === 'Racun') {
-      return name + ' tergeletak di dekat gelas pecah dan botol kecil. Racun telah bekerja sebelum fajar.';
-    }
-    if (cause === 'bodyguard_sacrifice') {
-      return name + ' ditemukan gugur setelah berdiri menghadang serangan demi melindungi orang lain.';
-    }
-    if (cause === 'cupid_bond') {
-      return name + ' ikut gugur karena ikatan cinta yang menghubungkannya dengan korban lain.';
-    }
-    return name + ' ditemukan tak bernyawa. Malam menyimpan rahasia tentang bagaimana ia gugur.';
-  };
-
+  const firstCause = String(victims[0]?.cause || '');
   switch (room.phase) {
     case 'role_draw':
-      return narrationChoice(room, [
-        'Kita berada di ' + village + ', desa kecil yang selama ini hidup tenang. Namun malam ini, sesuatu mengintai di balik jendela. Kartu telah dibagikan. Jaga rahasiamu.',
-        'Di antara hutan dan jalan berkabut, berdirilah ' + village + '. Malam panjang akan segera dimulai. Bukalah kartu kalian, dan jangan biarkan siapa pun membaca rahasiamu.',
-        'Selamat datang di ' + village + '. Desa ini tampak damai, tetapi satu di antara kita menyimpan niat gelap. Takdir setiap warga kini berada di balik kartu.',
-        'Di ujung jalan, lonceng tua berdentang menyambut kalian di ' + village + '. Mulai malam ini, jangan mudah percaya pada wajah yang paling dikenal.'
-      ]);
+      return ['role_cards', 'role_secret'];
     case 'night':
-      return narrationChoice(room, [
-        'Malam turun di ' + village + '. Lentera dipadamkan, pintu-pintu dikunci. Di balik gelap, beberapa langkah mulai terdengar.',
-        'Kabut menelan jalanan ' + village + '. Warga memejamkan mata. Namun di luar sana, ada yang sedang memburu mangsanya.',
-        'Tengah malam tiba. Angin melewati jendela dan anjing-anjing menggonggong dari kejauhan. Biarkan desa tertidur, sementara rahasia bergerak.',
-        'Jam tua berdentang dua belas kali. Di ' + village + ', ada pintu yang terbuka perlahan dan langkah yang tak seharusnya terdengar.'
-      ]);
+      return ['night_arrival', 'night_hunters'];
     case 'dawn':
-      return narrationChoice(room, [
-        'Langit mulai memucat. Subuh datang, tetapi nasib mereka yang gugur belum sepenuhnya ditentukan. Masih ada satu kesempatan sebelum desa terbangun.',
-        'Ayam jantan belum berkokok. Di antara gelap dan terang, keputusan terakhir masih bisa mengubah nasib seseorang.',
-        'Cahaya pertama menyentuh atap rumah. Desa menahan napas; sebelum pagi tiba, masih ada urusan yang harus diselesaikan.',
-        'Kabut tipis menggantung di atas sumur desa. Beberapa warga belum pulang, dan fajar membawa satu kesempatan terakhir.'
-      ]);
-    case 'morning': {
-      if (!victimNames.length) return narrationChoice(room, [
-        'Pagi menyingsing di ' + village + '. Pintu-pintu terbuka satu demi satu. Aneh, tak seorang pun ditemukan gugur. Namun desa belum tentu aman.',
-        'Matahari muncul dari balik bukit. Tidak ada tubuh yang ditemukan pagi ini. Keheningan justru membuat warga semakin curiga.',
-        'Pagi datang tanpa kabar duka. Untuk sesaat desa bernapas lega, tetapi ancaman masih bersembunyi di antara warga.'
-      ]);
-      if (victims.length > 1) {
-        const details = victims.map(describeVictim).join(' Sementara itu, ');
-        return 'Fajar menyingsing di ' + village + '. Pintu-pintu rumah terbuka, lalu warga menemukan lebih dari satu korban. '
-          + details + ' Alun-alun mendadak sunyi; tak seorang pun tahu siapa yang masih dapat dipercaya.';
-      }
-      const name = victimNames[0];
-      const detail = describeVictim(victims[0] || {});
-      if (biteVictim) return 'Matahari baru saja terbit di ' + village + '. ' + detail + ' Warga saling berpandangan, menyadari bahwa pemburu itu masih berada di antara mereka.';
-      if (shotVictim) return 'Suara tembakan semalam masih terngiang di telinga warga ' + village + '. ' + detail + ' Tak seorang pun berani mendekat.';
-      if (poisonVictim) return 'Pagi ini, warga menemukan ' + name + ' di sudut rumah. ' + detail + ' Siapa yang membawa racun ke desa?';
-      return 'Fajar menyibak kabut di ' + village + '. ' + detail + ' Tak ada yang tahu apa yang sebenarnya terjadi di balik gelap semalam.';
-    }
+      return ['dawn_first', 'dawn_last'];
+    case 'morning':
+      if (!victims.length) return ['morning_clear', 'morning_safe'];
+      if (victims.length > 1) return ['morning_many'];
+      if (['werewolf_attack', 'Serangan Werewolf'].includes(firstCause)) return ['morning_wolf'];
+      if (['hunter', 'vigilante_shot', 'Tembakan'].includes(firstCause)) return ['morning_shot'];
+      if (['witch_poison', 'Racun'].includes(firstCause)) return ['morning_poison'];
+      if (firstCause === 'bodyguard_sacrifice') return ['morning_guard'];
+      if (firstCause === 'cupid_bond') return ['morning_lovers'];
+      return ['morning_other'];
     case 'discussion':
-      return narrationChoice(room, [
-        'Warga berkumpul di alun-alun ' + village + '. Setiap tatapan menyimpan kecurigaan. Dengarkan cerita mereka, sebelum waktu memilih habis.',
-        'Kabar duka menyebar dari rumah ke rumah. Kini semua mata tertuju pada satu sama lain. Siapa yang menyembunyikan sesuatu?',
-        'Di tengah alun-alun, suara warga saling bersahutan. Kebenaran harus ditemukan sebelum sore membawa keputusan.',
-        'Tak ada yang berani berdiri terlalu dekat dengan siapa pun. Warga membentuk lingkaran di alun-alun, menunggu seseorang membuka suara.'
-      ]);
+      return ['discussion_gather', 'discussion_suspicion'];
     case 'voting':
-      return narrationChoice(room, [
-        'Sore tiba. Tiang eksekusi berdiri di tengah alun-alun. Warga harus menentukan satu nama sebelum matahari tenggelam.',
-        'Bayangan mulai memanjang di jalan desa. Waktunya memilih. Satu suara dapat menyelamatkan, atau mengakhiri, sebuah nyawa.',
-        'Perdebatan berhenti. Satu per satu suara dijatuhkan. Siapa yang akan dibawa ke tiang eksekusi sore ini?',
-        'Matahari menyentuh garis pepohonan. Penjaga tiang eksekusi menunggu keputusan terakhir dari warga.'
-      ]);
-    case 'result': {
-      const names = victimNames.length ? victimNames.join(' dan ') : '';
-      return names
-        ? 'Keputusan telah dijatuhkan. ' + names + ' dibawa ke tiang eksekusi. Warga menunggu apakah pilihan mereka menyelamatkan desa atau justru membuka jalan bagi kegelapan.'
-        : narrationChoice(room, [
-          'Suara telah dihitung, tetapi tak ada nama yang cukup kuat untuk dijatuhkan. Desa kembali menunggu malam.',
-          'Perhitungan suara berakhir tanpa eksekusi. Ketegangan belum berakhir; malam berikutnya akan membawa jawaban.'
-        ]);
-    }
+      return ['voting_pole', 'voting_choice'];
+    case 'result':
+      return victims.length ? ['result_execution'] : ['result_no_execution'];
     case 'finished': {
       const ending = ({
-        wolves: 'Kawanan Werewolf akhirnya menguasai desa.',
-        villagers: 'Warga berhasil mengusir kegelapan dan menyelamatkan desa.',
-        jester: 'Jester tertawa paling akhir. Seluruh desa telah masuk ke dalam jebakannya.',
-        lovers: 'Dua hati bertahan melewati kekacauan dan memenangkan permainan.'
-      })[room.winner] || 'Malam panjang akhirnya berakhir.';
-      return 'Kisah ' + village + ' mencapai akhirnya. ' + ending;
+        wolves: 'finished_wolves',
+        villagers: 'finished_villagers',
+        jester: 'finished_jester',
+        lovers: 'finished_lovers'
+      })[room.winner] || 'finished_default';
+      return ['finished_open', ending];
     }
     default:
-      return '';
+      return [];
   }
-}
-
-function splitNarrationSentences(message) {
-  return (String(message || '').match(/[^.!?]+[.!?]+|[^.!?]+$/gu) || [])
-    .map(sentence => sentence.trim())
-    .filter(Boolean);
 }
 
 let narratorPlaybackSequence = 0;
@@ -3288,7 +3250,7 @@ function playNarratorAudioBlob(audioBlob, playbackSequence) {
     }, { once: true });
     audio.addEventListener('error', () => {
       cleanup();
-      reject(new Error('Narrator audio playback failed'));
+      reject(new Error('Rekaman narator gagal diputar.'));
     }, { once: true });
     audio.play().catch(error => {
       cleanup();
@@ -3297,62 +3259,50 @@ function playNarratorAudioBlob(audioBlob, playbackSequence) {
   });
 }
 
-async function speakBrowserNarration(message, playbackSequence = narratorPlaybackSequence) {
-  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
-  const sentences = Array.isArray(message) ? message : splitNarrationSentences(message);
-  for (const sentence of sentences) {
-    if (playbackSequence !== narratorPlaybackSequence) return;
-    await new Promise(resolve => {
-      const utterance = new SpeechSynthesisUtterance(sentence);
-      utterance.lang = 'id-ID';
-      utterance.rate = 0.9;
-      utterance.pitch = 0.9;
-      utterance.volume = narratorPlaybackVolume;
-      const voice = window.speechSynthesis.getVoices().find(item => /^id([_-]|$)/i.test(item.lang));
-      if (voice) utterance.voice = voice;
-      utterance.onend = resolve;
-      utterance.onerror = resolve;
-      window.speechSynthesis.speak(utterance);
-    });
+async function requestNarratorClip(id, options = {}) {
+  const headers = {};
+  let url = API_BASE + '/narrator/clip/' + encodeURIComponent(id);
+  if (options.developerTest) {
+    headers.Authorization = 'Bearer ' + await requestDeveloperNarratorAssertion();
+  } else {
+    if (!session?.code || !session?.token) throw new Error('Sesi room tidak tersedia.');
+    url += '?roomCode=' + encodeURIComponent(session.code);
+    headers['X-Player-Token'] = session.token;
   }
+  const response = await fetch(url, { headers, cache: 'no-store' });
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Rekaman narator tidak dapat dimuat.');
+  }
+  return response.blob();
 }
 
-async function speakSystemNarration(message, options = {}) {
-  const sentences = splitNarrationSentences(message);
-  if (!sentences.length) return;
+async function playNarratorClip(id, options = {}) {
   stopNarratorAudio();
-  window.speechSynthesis?.cancel();
   const playbackSequence = narratorPlaybackSequence;
-  let nextSentenceIndex = 0;
-  try {
-    for (let index = 0; index < sentences.length; index += 1) {
-      const sentence = sentences[index];
+  const audioBlob = await requestNarratorClip(id, options);
+  if (!audioBlob) throw new Error('Rekaman untuk kalimat ini belum diunggah.');
+  if (playbackSequence !== narratorPlaybackSequence) return;
+  await playNarratorAudioBlob(audioBlob, playbackSequence);
+}
+
+async function speakSystemNarration(clipIds) {
+  const ids = Array.isArray(clipIds) ? clipIds : [];
+  if (!ids.length) return;
+  stopNarratorAudio();
+  const playbackSequence = narratorPlaybackSequence;
+  for (const id of ids) {
+    if (playbackSequence !== narratorPlaybackSequence) return;
+    try {
+      const audioBlob = await requestNarratorClip(id);
       if (playbackSequence !== narratorPlaybackSequence) return;
-      const headers = { 'Content-Type': 'application/json' };
-      const body = { text: sentence };
-      if (options.developerTest) {
-        headers.Authorization = 'Bearer ' + await requestDeveloperNarratorAssertion();
-      } else {
-        body.roomCode = session?.code || '';
-        body.playerToken = session?.token || '';
-      }
-      const response = await fetch(API_BASE + '/narrator/speak', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) throw new Error('Voice narrator unavailable');
-      const audioBlob = await response.blob();
-      if (!audioBlob.size) throw new Error('Empty narrator audio');
-      if (playbackSequence !== narratorPlaybackSequence) return;
+      if (!audioBlob) continue;
       await playNarratorAudioBlob(audioBlob, playbackSequence);
       if (playbackSequence !== narratorPlaybackSequence) return;
-      nextSentenceIndex = index + 1;
-      if (sentences.length > 1) await new Promise(resolve => setTimeout(resolve, 140));
-    }
-  } catch {
-    if (playbackSequence === narratorPlaybackSequence) {
-      await speakBrowserNarration(sentences.slice(nextSentenceIndex), playbackSequence);
+      if (ids.length > 1) await new Promise(resolve => setTimeout(resolve, 140));
+    } catch {
+      if (playbackSequence === narratorPlaybackSequence) return;
     }
   }
 }
