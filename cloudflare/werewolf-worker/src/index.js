@@ -515,7 +515,8 @@ export class WerewolfRoom {
       room.hostAccount = {
         id: room.hostId,
         name: room.moderator.name,
-        tokenHash: room.moderator.tokenHash
+        tokenHash: room.moderator.tokenHash,
+        voiceMode: 'online'
       };
       migrated = true;
     }
@@ -528,7 +529,8 @@ export class WerewolfRoom {
         connected: false,
         hasDrawn: false,
         joinedAt: room.createdAt || Date.now(),
-        isHost: true
+        isHost: true,
+        voiceMode: 'online'
       });
       migrated = true;
     } else if (room.phase !== 'lobby' && room.activeModeratorId === undefined) {
@@ -2998,6 +3000,7 @@ export class WerewolfRoom {
 
       const signalKind = String(data.signalKind || '');
       if (!['offer', 'answer', 'candidate'].includes(signalKind)) return;
+      if (!senderIsModerator && sender?.voiceMode === 'offline' && signalKind === 'offer') return;
       if (!data.payload || typeof data.payload !== 'object' || Array.isArray(data.payload)) return;
       let payloadText;
       try { payloadText = JSON.stringify(data.payload); } catch { return; }
