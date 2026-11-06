@@ -1208,6 +1208,17 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   .discussion-chat-actions .repeat-narration-button { display: none; }
 }
 
+.join-mode-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.join-mode-button { display: grid; gap: 3px; min-height: 58px; align-content: center; text-align: center; }
+.join-mode-button strong { font-size: 12px; }
+.join-mode-button small { font-size: 9px; opacity: .8; }
+@media (max-width: 430px) {
+  .join-mode-actions { gap: 6px; }
+  .join-mode-button { min-height: 54px; padding: 7px 4px; }
+  .join-mode-button strong { font-size: 10px; }
+  .join-mode-button small { font-size: 8px; }
+}
+
 /* Quick navigation and focus controls for one-handed mobile play. */
 .mobile-room-nav { display: none; }
 @media (max-width: 620px) {

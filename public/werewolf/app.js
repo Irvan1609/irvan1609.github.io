@@ -3274,9 +3274,10 @@ $('createForm').addEventListener('submit', async event => {
 
 $('joinForm').addEventListener('submit', async event => {
   event.preventDefault();
-  const buttonElement = $('joinButton');
-  buttonElement.disabled = true;
-  showMessage('Menggabungkan ke room...');
+  const buttonElements = [$('joinOnlineButton'), $('joinOfflineButton')].filter(Boolean);
+  buttonElements.forEach(buttonElement => { buttonElement.disabled = true; });
+  const voiceMode = event.submitter?.dataset?.voiceMode === 'offline' ? 'offline' : 'online';
+  showMessage('Menggabungkan secara ' + (voiceMode === 'offline' ? 'offline' : 'online') + '...');
   try {
     unlockGameAudio();
     const code = $('joinCode').value.trim().toUpperCase();
@@ -3285,7 +3286,7 @@ $('joinForm').addEventListener('submit', async event => {
       auth: false,
       body: {
         name: $('joinName').value.trim(),
-        voiceMode: $('joinEntryMode').value === 'spectator' ? 'offline' : $('joinVoiceMode').value === 'offline' ? 'offline' : 'online',
+        voiceMode: $('joinEntryMode').value === 'spectator' ? 'offline' : voiceMode,
         spectator: $('joinEntryMode').value === 'spectator'
       }
     });
@@ -3296,12 +3297,15 @@ $('joinForm').addEventListener('submit', async event => {
   } catch (error) {
     showMessage(error.message, true);
   } finally {
-    buttonElement.disabled = false;
+    buttonElements.forEach(buttonElement => { buttonElement.disabled = false; });
   }
 });
 
 $('joinEntryMode').addEventListener('change', () => {
-  $('joinVoiceModeLabel').classList.toggle('hidden', $('joinEntryMode').value === 'spectator');
+  const spectator = $('joinEntryMode').value === 'spectator';
+  for (const button of [$('joinOnlineButton'), $('joinOfflineButton')]) {
+    if (button) button.title = spectator ? 'Penonton tidak memakai mikrofon.' : '';
+  }
 });
 $('joinCode').addEventListener('input', event => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
@@ -3356,7 +3360,7 @@ function acceptScannedRoomQr(value) {
   closeQrScanner();
   $('joinCode').value = code;
   $('joinName').focus();
-  showMessage('QR berhasil dibaca. Masukkan nama, lalu tekan Gabung Room (' + code + ').');
+  showMessage('QR berhasil dibaca. Masukkan nama, lalu pilih Gabung Online atau Gabung Offline (' + code + ').');
   return true;
 }
 

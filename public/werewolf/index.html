@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-mobile-1">
+  <link rel="stylesheet" href="./style.css?v=20261107-werewolf-join-modes-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -46,14 +46,15 @@
               <option value="spectator">Penonton · hanya melihat</option>
             </select>
           </label>
-          <label id="joinVoiceModeLabel">Mode suara
-            <select id="joinVoiceMode">
-              <option value="online" selected>Online · mikrofon otomatis aktif</option>
-              <option value="offline">Offline · mikrofon mati, tetap mendengar</option>
-            </select>
-          </label>
           <button id="scanQrButton" class="secondary wide scan-qr-button" type="button">Scan QR Undangan</button>
-          <button class="secondary wide" id="joinButton" type="submit">Gabung Room</button>
+          <div class="join-mode-actions" aria-label="Pilih mode bergabung">
+            <button class="primary join-mode-button" id="joinOnlineButton" data-voice-mode="online" type="submit">
+              <strong>Gabung Online</strong><small>Voice aktif</small>
+            </button>
+            <button class="secondary join-mode-button" id="joinOfflineButton" data-voice-mode="offline" type="submit">
+              <strong>Gabung Offline</strong><small>Tanpa mikrofon</small>
+            </button>
+          </div>
           <p class="hint">Masukkan kode room yang dibagikan host.</p>
         </form>
 
@@ -166,6 +167,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-mobile-1"></script>
+  <script type="module" src="./app.js?v=20261107-werewolf-join-modes-1"></script>
 </body>
 </html>
