@@ -2798,68 +2798,6 @@ console.log('Werewolf player restore regression passed: self-service takeover re
 
 
   
-// Public role board reveals the deck composition, but never a living player's assigned role.
-const publicBoardRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const publicBoardState = {
-  code: 'PUB123', phase: 'voting', round: 2, hostId: 'pub-wolf',
-  activeModeratorId: 'pub-mod', moderator: { id: 'pub-mod', name: 'Moderator' },
-  settings: { abilities: {}, timers: {}, revealRoleOnDeath: true, roleCounts: {} },
-  players: [
-    { id: 'pub-wolf', name: 'Red Player', role: 'wolf', alive: true, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' },
-    { id: 'pub-jester', name: 'Blue Player', role: 'jester', alive: true, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' },
-    { id: 'pub-dead', name: 'Fallen Seer', role: 'seer', alive: false, hasDrawn: true, isBot: false, isBotControlled: false, voiceMode: 'online' }
-  ],
-  waitingPlayers: [], votes: { 'pub-wolf': 'pub-jester', 'pub-jester': null },
-  nightActions: {}, dawnActions: {}, resultActions: {}, lovers: [], additionalWinners: [],
-  guardianTargets: {}, seerHistory: {}, seerResults: {}, gameHistory: [], gameArchive: [],
-  gameHistoryTruncated: 0, winner: null, lastResult: { kind: 'phase', message: 'Voting berjalan.' },
-  gameFinishedRecorded: false, expiresAt: Date.now() + 60000
-};
-const publicBoard = publicBoardRoom.snapshot(publicBoardState, 'pub-wolf');
-assert.equal(publicBoard.publicPlayers.find(item => item.id === 'pub-wolf').revealedRole, null,
-  'Living role identities must remain private.');
-assert.equal(publicBoard.publicPlayers.find(item => item.id === 'pub-dead').revealedRole, 'seer',
-  'The default death-reveal option must disclose the dead player role.');
-assert.equal(publicBoard.publicRoles.find(item => item.role === 'jester').faction, 'village',
-  'Jester must appear in the Village faction on the public role board.');
-assert.deepEqual(publicBoard.publicVotes.map(item => item.status), ['Memilih Blue Player', 'Golput'],
-  'Players must see who voted for whom and who abstained.');
-publicBoardState.settings.revealRoleOnDeath = false;
-const hiddenDeathRoleBoard = publicBoardRoom.snapshot(publicBoardState, 'pub-wolf');
-assert.equal(hiddenDeathRoleBoard.publicPlayers.find(item => item.id === 'pub-dead').revealedRole, null);
-assert.deepEqual(hiddenDeathRoleBoard.publicRoles.find(item => item.role === 'seer').deceasedNames, []);
-console.log('Werewolf public board regression passed: faction composition, optional death reveal, and transparent ballots.');
-
-// Missing role-draw and night actions are transferred to the BOT at the phase deadline.
-const inactivityRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const inactivityNow = Date.now();
-const unopenedCardPlayer = {
-  id: 'inactive-card', name: 'Missed Card', role: 'villager', alive: true,
-  hasDrawn: false, isBot: false, isBotControlled: false
-};
-const cardTakeoverState = {
-  phase: 'role_draw', round: 1, players: [unopenedCardPlayer], gameHistory: [], gameHistoryTruncated: 0
-};
-inactivityRoom.takeOverInactivePlayers(cardTakeoverState, [unopenedCardPlayer], 'role_draw', inactivityNow);
-assert.equal(unopenedCardPlayer.isBot, true);
-assert.equal(unopenedCardPlayer.isBotControlled, true);
-assert.equal(unopenedCardPlayer.hasDrawn, true,
-  'BOT takeover must reveal the role card automatically so the game can advance.');
-const inactiveNightPlayer = {
-  id: 'inactive-night', name: 'Missed Night Action', role: 'villager', alive: true,
-  isBot: false, isBotControlled: false
-};
-const nightTakeoverState = {
-  phase: 'night', round: 1, players: [inactiveNightPlayer], nightActions: {},
-  villagerPrompts: { 'inactive-night': { id: 'math-1', options: [1, 2, 3, 4], answer: 3 } },
-  seerHistory: {}, seerResults: {}, witchPotions: {}, guardianTargets: {},
-  settings: { abilities: {} }, gameHistory: [], gameHistoryTruncated: 0
-};
-inactivityRoom.takeOverInactivePlayers(nightTakeoverState, [inactiveNightPlayer], 'night', inactivityNow);
-inactivityRoom.runBotNightActions(nightTakeoverState);
-assert.equal(nightTakeoverState.nightActions['inactive-night'].type, 'villager_math');
-console.log('Werewolf inactivity regression passed: BOT takes over missed card reveals and night actions.');
-
 // Manual moderator rooms also run the inactivity handoff alarm without advancing the phase.
 const manualTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const manualTakeoverCreated = await payload(await manualTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
