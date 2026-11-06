@@ -171,7 +171,7 @@ assert.match(app, /body\.roomCode/);
 assert.match(app, /body\.playerToken/);
 assert.match(app, /'\/narrator\/speak'/);
 assert.match(app, /function splitNarrationSentences/);
-assert.match(app, /for \(const sentence of sentences\)/);
+assert.match(app, /for \(let index = 0; index < sentences\.length; index \+= 1\)/);
 assert.match(app, /await playNarratorAudioBlob\(audioBlob, playbackSequence\)/);
 assert.match(app, /await speakBrowserNarration\(sentences\.slice\(nextSentenceIndex\), playbackSequence\)/);
 assert.match(app, /Kita berada di ' \+ village/);
