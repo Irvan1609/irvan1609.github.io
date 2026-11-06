@@ -1524,6 +1524,11 @@ function renderRoom() {
   content.replaceChildren();
   if (moderator) renderModeratorPhase(content);
   else renderPlayerPhase(content);
+  if (moderator && room.paused) {
+    for (const control of content.querySelectorAll('button, input, select, textarea')) {
+      if (!control.closest('.moderator-emergency-controls')) control.disabled = true;
+    }
+  }
   if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
   renderDiscussionTools(content);
   syncBotTakeoverDialog();
@@ -1543,7 +1548,8 @@ function renderRoom() {
 function appendPhaseCountdown(parent, label, deadline) {
   const paused = Boolean(roomState?.room?.paused);
   const remaining = roomState?.room?.pausedRemainingMs;
-  if (!Number(deadline) && !(paused && Number.isFinite(Number(remaining)))) return;
+  const hasPausedRemaining = remaining !== null && remaining !== undefined && Number.isFinite(Number(remaining));
+  if (!Number(deadline) && !(paused && hasPausedRemaining)) return;
   const panel = node('div', 'phase-countdown' + (paused ? ' is-paused' : ''));
   addText(panel, 'span', 'phase-countdown-label', paused ? 'PERMAINAN DIJEDA' : label);
   const timer = addText(panel, 'strong', 'timer', '00:00');
@@ -2055,7 +2061,7 @@ function renderPlayerPhase(parent) {
       renderEmergencyControls(emergency);
       parent.append(emergency);
     }
-    if (roomState.room.publicResult) renderPublicResult(parent);
+    if (['morning', 'discussion', 'voting', 'result'].includes(phase) && roomState.room.publicResult) renderPublicResult(parent);
     return;
   }
   if (self.isWaiting) {
