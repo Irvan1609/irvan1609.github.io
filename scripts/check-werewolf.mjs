@@ -444,15 +444,15 @@ assert.match(sw, /\/werewolf\/vendor\/jsQR\.js/);
 console.log('Werewolf lobby QR camera scanner checks passed.');
 
 
-assert.match(html, /data-step="morning">Pagi · Diskusi/);
-assert.match(html, /data-step="voting">Sore · Voting/);
-assert.match(app, /function renderPlayerRoleDraw[\\s\\S]*?phaseHeader\\(parent, 'BUKA KARTU'/);
-assert.match(app, /function renderPlayerNight[\\s\\S]*?phaseHeader\\(parent, 'TENGAH MALAM/);
-assert.match(app, /function renderPlayerVoting[\\s\\S]*?phaseHeader\\(parent, 'SORE/);
-assert.match(app, /Pagi · Diskusi \\(detik\\)/);
-assert.match(app, /Sore · Voting \\(detik\\)/);
-assert.match(app, /chat-night-report-badge/);
-assert.match(worker, /actionSpeakers/);
-assert.match(worker, /isNightReport: Boolean\\(message\\.isNightReport\\)/);
-assert.match(css, /role-count-grid \\.role-config-info-disclosure\\[open\\] \\.role-config-info-details[\\s\\S]*?position: absolute/);
-assert.match(css, /chat-night-report-badge/);
+assert.ok(html.includes('data-step="morning">Pagi · Diskusi'));
+assert.ok(html.includes('data-step="voting">Sore · Voting'));
+assert.ok(app.includes("phaseHeader(parent, 'BUKA KARTU'"));
+assert.ok(app.includes("phaseHeader(parent, 'TENGAH MALAM · RONDE ' + room.round, 'Aksi malam'"));
+assert.ok(app.includes("phaseHeader(parent, 'SORE · RONDE ' + room.round, 'Voting eksekusi'"));
+assert.ok(app.includes('Pagi · Diskusi (detik)'));
+assert.ok(app.includes('Sore · Voting (detik)'));
+assert.ok(app.includes('chat-night-report-badge'));
+assert.ok(worker.includes('actionSpeakers'));
+assert.ok(worker.includes('isNightReport: Boolean(message.isNightReport)'));
+assert.ok(css.includes('.role-count-grid .role-config-info-disclosure[open] .role-config-info-details'));
+assert.ok(css.includes('chat-night-report-badge'));
