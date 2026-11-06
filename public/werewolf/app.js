@@ -76,6 +76,8 @@ let gameAudioContext = null;
 let lastNarrationKey = '';
 let roleDraft = null;
 let wolfChatDraft = '';
+let cupidDraft = null;
+let pendingConfirmationResolver = null;
 let qrScannerStream = null;
 let qrScannerFrame = 0;
 let qrScannerActive = false;
@@ -181,6 +183,32 @@ function showMessage(message, isError = false) {
   }
 }
 
+function askConfirmation({ title, message, confirmLabel = 'Lanjutkan', danger = true }) {
+  const dialog = $('confirmDialog');
+  if (!dialog) return Promise.resolve(false);
+  if (pendingConfirmationResolver) closeConfirmation(false);
+  $('confirmDialogTitle').textContent = title;
+  $('confirmDialogMessage').textContent = message;
+  const accept = $('confirmDialogAccept');
+  accept.textContent = confirmLabel;
+  accept.classList.toggle('danger', Boolean(danger));
+  return new Promise(resolve => {
+    pendingConfirmationResolver = resolve;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    accept.focus({ preventScroll: true });
+  });
+}
+
+function closeConfirmation(accepted = false) {
+  const dialog = $('confirmDialog');
+  if (dialog?.open && typeof dialog.close === 'function') dialog.close();
+  else dialog?.removeAttribute('open');
+  const resolve = pendingConfirmationResolver;
+  pendingConfirmationResolver = null;
+  if (resolve) resolve(Boolean(accepted));
+}
+
 function setConnection(connected, statusText = '') {
   const target = $('connectionStatus');
   if (!target) return;
@@ -257,6 +285,7 @@ function clearInvalidSession(
   lastNarrationKey = '';
   roleDraft = null;
   wolfChatDraft = '';
+  cupidDraft = null;
   $('roomPanel').classList.add('hidden');
   $('entryPanel').classList.remove('hidden');
   const url = new URL(location.href);
@@ -270,6 +299,7 @@ async function enterRoom(nextSession) {
   session = nextSession;
   roomState = null;
   lastNarrationKey = '';
+  cupidDraft = null;
   saveSession();
   $('entryPanel').classList.add('hidden');
   $('roomPanel').classList.remove('hidden');
@@ -458,6 +488,7 @@ function applyState(nextState, expectedSession = session) {
   );
   if (sameRoom && previous.room.phase !== 'lobby' && nextState.room.phase === 'lobby') roleDraft = null;
   if (!sameRoom || (phaseChanged && nextState.room.phase !== 'night')) wolfChatDraft = '';
+  if (!sameRoom || (phaseChanged && (nextState.room.phase !== 'night' || previous.room.round !== nextState.room.round))) cupidDraft = null;
   if (roleDraft && roleDraft.code !== nextState.room.code) roleDraft = null;
   if (phaseChanged && nextState.room.phase === 'role_draw') playGameStartBell();
   if (phaseChanged && nextState.room.phase === 'night') playWolfHowl();
@@ -1193,14 +1224,24 @@ function renderPlayers() {
 async function kickPlayer(player) {
   if ((!isHost() && !isRoomModerator()) || !player?.id || player.isHost || player.id === roomState?.self?.id) return;
   const name = String(player.name || 'Pemain');
-  if (!confirm('Keluarkan ' + name + ' dari room? Sesi lamanya tidak dapat digunakan lagi.')) return;
+  const accepted = await askConfirmation({
+    title: 'Keluarkan pemain?',
+    message: name + ' akan dikeluarkan dari room dan sesi lamanya tidak dapat digunakan lagi.',
+    confirmLabel: 'Keluarkan pemain'
+  });
+  if (!accepted) return;
   if (await sendAction('kick_player', { playerId: player.id })) showMessage(name + ' berhasil dikeluarkan dari room.');
 }
 
 async function replacePlayerWithBot(player) {
   if ((!isHost() && !isRoomModerator()) || !player?.id || player.isHost || player.isBot) return;
   const name = String(player.name || 'Pemain');
-  if (!confirm('Gantikan ' + name + ' dengan BOT sementara? Bot akan mengambil alih role dan aksi pemain ini.')) return;
+  const accepted = await askConfirmation({
+    title: 'Alihkan ke BOT?',
+    message: 'BOT akan mengambil alih role dan aksi ' + name + ' sampai kendalinya dikembalikan.',
+    confirmLabel: 'Alihkan ke BOT'
+  });
+  if (!accepted) return;
   if (await sendAction('replace_with_bot', { playerId: player.id })) showMessage('BOT sementara mengambil alih ' + name + '.');
 }
 
@@ -2120,19 +2161,27 @@ function renderPlayerNight(parent) {
     if (self.villagerPrompt) renderNightMath(parent, 'Tidak memakai ramuan · jawab perhitungan');
   } else if (self.role === 'cupid' && room.round === 1) {
     addText(parent, 'h3', '', 'Hubungkan dua pemain');
-    addText(parent, 'p', 'hint', 'Pilih dua nama berbeda. Ikatan dapat diperbarui sampai tengah malam berakhir; role pasangan tetap rahasia.');
-    let firstId = self.nightActionTargetId || '';
-    let secondId = self.nightActionPartnerId || '';
+    addText(parent, 'p', 'hint', 'Pilih dua nama berbeda. Ikatan tersimpan otomatis dan masih dapat diubah sampai tengah malam berakhir.');
+    const draftKey = room.code + ':' + room.round;
+    if (!cupidDraft || cupidDraft.key !== draftKey) {
+      cupidDraft = {
+        key: draftKey,
+        firstId: self.nightActionTargetId || '',
+        secondId: self.nightActionPartnerId || '',
+        savedPair: self.nightActionTargetId && self.nightActionPartnerId
+          ? self.nightActionTargetId + ':' + self.nightActionPartnerId : ''
+      };
+    }
+    let { firstId, secondId } = cupidDraft;
     const summary = node('div', 'cupid-selection-summary');
     const grid = node('div', 'action-grid');
-    const confirmLink = button('Simpan ikatan', 'primary wide phase-timed-action', () => {
-      if (firstId && secondId && firstId !== secondId) sendAction('night_action', { targetId: firstId, partnerId: secondId });
-    }, true);
     const refreshChoices = () => {
+      cupidDraft.firstId = firstId;
+      cupidDraft.secondId = secondId;
       const first = targets.find(item => item.id === firstId);
       const second = targets.find(item => item.id === secondId);
-      summary.textContent = 'Pemain 1: ' + (first?.name || 'belum dipilih') + ' · Pemain 2: ' + (second?.name || 'belum dipilih');
-      confirmLink.disabled = !(firstId && secondId && firstId !== secondId);
+      summary.textContent = 'Pemain 1: ' + (first?.name || 'belum dipilih')
+        + ' · Pemain 2: ' + (second?.name || 'belum dipilih');
       grid.replaceChildren();
       for (const target of targets) {
         const index = target.id === firstId ? '1' : target.id === secondId ? '2' : '';
@@ -2146,8 +2195,17 @@ function renderPlayerNight(parent) {
             refreshChoices();
           }));
       }
+      const complete = Boolean(firstId && secondId && firstId !== secondId);
+      const pairKey = complete ? firstId + ':' + secondId : '';
+      if (complete && pairKey !== cupidDraft.savedPair) {
+        cupidDraft.savedPair = pairKey;
+        sendAction('night_action', { targetId: firstId, partnerId: secondId });
+      } else if (!complete && cupidDraft.savedPair) {
+        cupidDraft.savedPair = '';
+        sendAction('night_action', { mode: 'cupid_clear' });
+      }
     };
-    parent.append(summary, grid, confirmLink);
+    parent.append(summary, grid);
     refreshChoices();
   }
 }
@@ -2210,32 +2268,37 @@ function renderDiscussionTools(parent) {
     input.autocomplete = 'off';
     input.placeholder = 'Tulis pesan…';
     input.setAttribute('aria-label', 'Pesan chat room');
-    form.append(input);
 
+    const actions = node('div', 'discussion-chat-actions');
     if (onlineMode) {
       const mic = button(
-        voiceLocalStream ? (voiceMuted ? 'Nyalakan Mic' : 'Matikan Mic') : 'Mic',
+        voiceLocalStream ? (voiceMuted ? 'Mic Mati' : 'Mic Aktif') : 'Mic',
         'secondary voice-inline-control', toggleVoiceMic, Boolean(voiceStartPromise)
       );
       mic.id = 'voiceMicToggle';
-      form.append(mic);
+      mic.setAttribute('aria-label', voiceLocalStream
+        ? (voiceMuted ? 'Nyalakan mikrofon' : 'Matikan mikrofon') : 'Aktifkan mikrofon');
+      actions.append(mic);
       const audio = button('Audio', 'secondary voice-inline-control', unlockRemoteAudio, !voiceNeedsAudioGesture);
       audio.id = 'voiceAudioUnlock';
+      audio.setAttribute('aria-label', 'Aktifkan audio pemain lain');
       if (!voiceNeedsAudioGesture) audio.classList.add('hidden');
-      form.append(audio);
+      actions.append(audio);
     }
 
     const submit = node('button', 'primary', 'Kirim');
     submit.type = 'submit';
-    form.append(submit);
+    actions.append(submit);
     if (phase !== 'lobby') {
-      const repeat = button('Ulangi narasi', 'secondary repeat-narration-button', () => {
+      const repeat = button('Narasi ↻', 'secondary repeat-narration-button', () => {
         const narration = systemNarrationText(roomState.room);
         if (narration) speakSystemNarration(narration);
       });
       repeat.setAttribute('aria-label', 'Ulangi narasi desa');
-      form.append(repeat);
+      repeat.title = 'Ulangi narasi desa';
+      actions.append(repeat);
     }
+    form.append(input, actions);
     form.addEventListener('submit', async event => {
       event.preventDefault();
       const text = input.value.trim();
@@ -2581,8 +2644,13 @@ function renderVictoryScreen(parent, moderatorView = false) {
 
   const canRestart = moderatorView || (systemModeratorEnabled() && isHost());
   if (canRestart) {
-    parent.append(button('Main Lagi · Kembali ke Ruang Tunggu', 'primary wide', () => {
-      if (confirm('Kembalikan semua pemain ke ruang tunggu? Daftar pemain dan kode room tetap dipertahankan.')) sendAction('reset_to_lobby');
+    parent.append(button('Main Lagi · Kembali ke Ruang Tunggu', 'primary wide', async () => {
+      const accepted = await askConfirmation({
+        title: 'Mulai permainan baru?',
+        message: 'Semua pemain kembali ke ruang tunggu. Daftar pemain dan kode room tetap dipertahankan.',
+        confirmLabel: 'Mulai lagi'
+      });
+      if (accepted) sendAction('reset_to_lobby');
     }));
   }
 }
@@ -3070,7 +3138,7 @@ $('shareInviteQr').addEventListener('click', async () => {
   }
 });
 
-$('resetRoom').addEventListener('click', () => {
+$('resetRoom').addEventListener('click', async () => {
   if (!isHost()) {
     showMessage('Hanya host yang dapat memulai ulang permainan.', true);
     return;
@@ -3079,22 +3147,37 @@ $('resetRoom').addEventListener('click', () => {
     showMessage('Room sudah berada di lobby. Mulai permainan terlebih dahulu untuk menggunakan restart.');
     return;
   }
-  if (confirm('Mulai ulang permainan dan kembalikan semua pemain ke ruang tunggu? Kode room, nama, dan koneksi pemain tetap dipertahankan.')) sendAction('reset_to_lobby');
+  const accepted = await askConfirmation({
+    title: 'Restart permainan?',
+    message: 'Semua pemain kembali ke ruang tunggu. Kode room, nama, dan koneksi tetap dipertahankan.',
+    confirmLabel: 'Restart permainan'
+  });
+  if (accepted) sendAction('reset_to_lobby');
 });
 
-$('leaveRoom').addEventListener('click', () => {
+$('leaveRoom').addEventListener('click', async () => {
   if (isHost()) {
     const code = roomState.room.code;
-    if (confirm('Bubarkan room ' + code + '? Semua pemain akan dikeluarkan, koneksi ditutup, dan data room dihapus. Tindakan ini tidak dapat dibatalkan.')) {
-      disbandCurrentRoom();
-    }
+    const accepted = await askConfirmation({
+      title: 'Bubarkan room?',
+      message: 'Room ' + code + ' akan dihapus. Semua pemain dikeluarkan dan koneksi ditutup. Tindakan ini tidak dapat dibatalkan.',
+      confirmLabel: 'Bubarkan room'
+    });
+    if (accepted) disbandCurrentRoom();
     return;
   }
   if (isRoomModerator()) {
     showMessage('Kamu sedang bertugas sebagai moderator dan tidak dapat keluar dari room.');
     return;
   }
-  if (confirm('Keluar dari room? Di lobby namamu akan dihapus. Jika permainan sudah dimulai, karaktermu akan tereliminasi.')) leaveCurrentRoom();
+  const accepted = await askConfirmation({
+    title: 'Keluar dari room?',
+    message: roomState.room.phase === 'lobby'
+      ? 'Namamu akan dihapus dari daftar pemain.'
+      : 'Karaktermu akan dianggap tereliminasi dari permainan.',
+    confirmLabel: 'Keluar dari room'
+  });
+  if (accepted) leaveCurrentRoom();
 });
 
 function prefillPlayerName() {
