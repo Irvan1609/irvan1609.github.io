@@ -1,4 +1,4 @@
-const VERSION='20261106-werewolf-story-dawn-2';
+const VERSION='20261106-werewolf-story-dawn-3';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
