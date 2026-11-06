@@ -1,4 +1,4 @@
-const VERSION='20261106-werewolf-live-activity-10';
+const VERSION='20261106-werewolf-live-activity-11';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
