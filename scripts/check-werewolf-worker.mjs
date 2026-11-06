@@ -193,9 +193,16 @@ const nonSeerNightView = (await payload(await room.fetch(
   makeRequest('/internal/state', 'GET', undefined, playerTokens[3])
 ))).state;
 assert.equal(nonSeerNightView.self.seerResult, null, 'Seer inspection must stay private.');
-await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'resolve_night'
-}, moderatorToken)));
+const firstNightDeadline = (await room.loadRoom()).nightEndsAt;
+const realNowAfterFirstNight = Date.now;
+try {
+  Date.now = () => firstNightDeadline + 1;
+  await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
+    type: 'resolve_night'
+  }, moderatorToken)));
+} finally {
+  Date.now = realNowAfterFirstNight;
+}
 saved = await room.loadRoom();
 assert.equal(saved.phase, 'morning');
 assert.equal(saved.discussionEndsAt, saved.lastResult.at + 30000,
