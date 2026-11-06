@@ -2242,8 +2242,8 @@ assert.equal(botReportFixture.chat.length, 5,
 console.log('Werewolf bot discussion reports passed: every living bot action is disclosed once per round.');
 
 // Online System moderator must pass through a triggered dawn phase without any host phase controls.
-const systemDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const systemDawnCreated = await payload(await systemDawnRoom.fetch(makeRequest('/internal/create', 'POST', {
+const autoDawnCycleRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'SYSDWN',
   name: 'System Dawn Host',
   settings: {
@@ -2260,95 +2260,95 @@ const systemDawnCreated = await payload(await systemDawnRoom.fetch(makeRequest('
     }
   }
 })), 201);
-const systemDawnTokens = [systemDawnCreated.token];
+const autoDawnCycleTokens = [autoDawnCycleCreated.token];
 for (const name of ['System Wolf', 'System Hunter', 'System Villager']) {
-  const joined = await payload(await systemDawnRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
-  systemDawnTokens.push(joined.token);
+  const joined = await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
+  autoDawnCycleTokens.push(joined.token);
 }
-await payload(await systemDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'start_game'
-}, systemDawnCreated.token)));
-let systemDawnState = await systemDawnRoom.loadRoom();
-systemDawnState.players.forEach((player, index) => {
+}, autoDawnCycleCreated.token)));
+let autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+autoDawnCycleState.players.forEach((player, index) => {
   player.role = ['villager', 'wolf', 'hunter', 'villager'][index];
   player.alive = true;
   player.hasDrawn = false;
   player.hunterUsed = false;
   player.reviverUsed = false;
 });
-await systemDawnRoom.saveRoom(systemDawnState);
+await autoDawnCycleRoom.saveRoom(autoDawnCycleState);
 
 // Leave the host's card closed to verify that the server starts night at the card deadline.
-for (const token of systemDawnTokens.slice(1)) {
-  await payload(await systemDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+for (const token of autoDawnCycleTokens.slice(1)) {
+  await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
     type: 'draw_card'
   }, token)));
 }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'role_draw');
-const systemCardDeadline = systemDawnState.roleDrawEndsAt;
-const realNowForSystemCards = Date.now;
-try { Date.now = () => systemCardDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemCards; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'night',
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'role_draw');
+const autoDawnCycleCardDeadline = autoDawnCycleState.roleDrawEndsAt;
+const realNowForAutoDawnCards = Date.now;
+try { Date.now = () => autoDawnCycleCardDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnCards; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'night',
   'System moderator must start night automatically when the card timer expires.');
-await payload(await systemDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'draw_card'
-}, systemDawnTokens[0])));
+}, autoDawnCycleTokens[0])));
 
-systemDawnState = await systemDawnRoom.loadRoom();
-const systemHunterId = systemDawnState.players[2].id;
-await payload(await systemDawnRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'night_action', targetId: systemHunterId
-}, systemDawnTokens[1])));
-await submitVillagerMath(systemDawnRoom, systemDawnTokens[0]);
-await submitVillagerMath(systemDawnRoom, systemDawnTokens[2]);
-await submitVillagerMath(systemDawnRoom, systemDawnTokens[3]);
-systemDawnState = await systemDawnRoom.loadRoom();
-const systemNightDeadline = systemDawnState.nightEndsAt;
-const realNowForSystemNight = Date.now;
-try { Date.now = () => systemNightDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemNight; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'dawn',
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+const autoDawnCycleHunterId = autoDawnCycleState.players[2].id;
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoDawnCycleHunterId
+}, autoDawnCycleTokens[1])));
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[0]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[2]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[3]);
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+const autoDawnCycleNightDeadline = autoDawnCycleState.nightEndsAt;
+const realNowForAutoDawnNight = Date.now;
+try { Date.now = () => autoDawnCycleNightDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnNight; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'dawn',
   'A Hunter killed at night must open the dawn phase in System mode.');
-assert.equal(systemDawnState.players[2].alive, false);
-const systemDawnView = (await payload(await systemDawnRoom.fetch(
-  makeRequest('/internal/state', 'GET', undefined, systemDawnTokens[2])
+assert.equal(autoDawnCycleState.players[2].alive, false);
+const autoDawnCycleView = (await payload(await autoDawnCycleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoDawnCycleTokens[2])
 ))).state;
-assert.equal(systemDawnView.room.dawnActionsRequired, 1);
+assert.equal(autoDawnCycleView.room.dawnActionsRequired, 1);
 
-const systemDawnDeadline = systemDawnState.dawnEndsAt;
-const realNowForSystemDawn = Date.now;
-try { Date.now = () => systemDawnDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemDawn; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'morning',
+const autoDawnCycleDeadline = autoDawnCycleState.dawnEndsAt;
+const realNowForAutoDawnTrigger = Date.now;
+try { Date.now = () => autoDawnCycleDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnTrigger; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'morning',
   'System moderator must resolve the dawn trigger window automatically.');
 
-const systemDiscussionDeadline = systemDawnState.discussionEndsAt;
-const realNowForSystemMorning = Date.now;
-try { Date.now = () => systemDiscussionDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemMorning; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'voting',
+const autoDawnCycleDiscussionDeadline = autoDawnCycleState.discussionEndsAt;
+const realNowForAutoDawnMorning = Date.now;
+try { Date.now = () => autoDawnCycleDiscussionDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnMorning; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'voting',
   'System moderator must open afternoon voting automatically after morning discussion.');
 
-const systemVotingDeadline = systemDawnState.votingEndsAt;
-const realNowForSystemVoting = Date.now;
-try { Date.now = () => systemVotingDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemVoting; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'result',
+const autoDawnCycleVotingDeadline = autoDawnCycleState.votingEndsAt;
+const realNowForAutoDawnVoting = Date.now;
+try { Date.now = () => autoDawnCycleVotingDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnVoting; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'result',
   'System moderator must close voting and publish the result automatically.');
 
-const systemResultDeadline = systemDawnState.resultEndsAt;
-const realNowForSystemResult = Date.now;
-try { Date.now = () => systemResultDeadline + 1; await systemDawnRoom.alarm(); }
-finally { Date.now = realNowForSystemResult; }
-systemDawnState = await systemDawnRoom.loadRoom();
-assert.equal(systemDawnState.phase, 'night');
-assert.equal(systemDawnState.round, 2,
+const autoDawnCycleResultDeadline = autoDawnCycleState.resultEndsAt;
+const realNowForAutoDawnResult = Date.now;
+try { Date.now = () => autoDawnCycleResultDeadline + 1; await autoDawnCycleRoom.alarm(); }
+finally { Date.now = realNowForAutoDawnResult; }
+autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
+assert.equal(autoDawnCycleState.phase, 'night');
+assert.equal(autoDawnCycleState.round, 2,
   'System moderator must automatically start the next night after the result window.');
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');
