@@ -540,7 +540,7 @@ function refreshVoiceUI() {
 }
 
 function updateRemoteVoiceVolume() {
-  const volume = voiceLocalStream && !voiceMuted ? 0.22 : 0.34;
+  const volume = voiceLocalStream && !voiceMuted ? 0.14 : 0.2;
   for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
 }
 
@@ -647,7 +647,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
-      audio.volume = voiceLocalStream && !voiceMuted ? 0.22 : 0.34;
+      audio.volume = voiceLocalStream && !voiceMuted ? 0.14 : 0.2;
       audio.className = 'voice-audio';
       audio.dataset.peerId = peerId;
       document.body.append(audio);
@@ -728,11 +728,12 @@ async function startDiscussionVoice(manual = false) {
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: { ideal: 'all' },
+          echoCancellation: { ideal: true },
           noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: false },
+          autoGainControl: { ideal: true },
           channelCount: { ideal: 1 },
-          sampleRate: { ideal: 48000 }
+          sampleRate: { ideal: 48000 },
+          latency: { ideal: 0.04 }
         },
         video: false
       });
@@ -1381,6 +1382,12 @@ function syncBotTakeoverDialog() {
   const dialog = $('botTakeoverDialog');
   if (!dialog) return;
   const controlled = Boolean(roomState?.self?.isBotControlled && !roomState?.self?.isWaiting);
+  const message = $('botTakeoverMessage');
+  if (message && controlled) {
+    const phaseLabels = { role_draw: 'membuka kartu', night: 'melakukan aksi malam', dawn: 'melakukan aksi subuh', voting: 'memberikan suara' };
+    message.textContent = 'Kamu melewatkan batas waktu ' + (phaseLabels[roomState.room.phase] || 'aksi')
+      + '. BOT sementara mengambil alih agar permainan tetap berjalan. Kamu dapat kembali bermain atau keluar dari room.';
+  }
   if (controlled && !dialog.open) {
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
@@ -1840,6 +1847,16 @@ function renderLivingPlayers(parent) {
     }
     addText(title, 'span', '', '×' + entry.count);
     card.append(title);
+    const aliveCount = Math.max(0, Number(entry.count || 0) - (entry.deceasedNames || []).length);
+    addText(card, 'div', 'public-role-alive-count', aliveCount + ' pemain hidup · role dirahasiakan');
+    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
+      const deceased = node('div', 'public-role-deceased-list');
+      for (const name of entry.deceasedNames) {
+        const deadName = node('span', 'public-role-deceased-name', name);
+        deceased.append(deadName);
+      }
+      card.append(deceased);
+    }
     roleGrid.append(card);
   }
   if (!roles.length) addText(roleGrid, 'span', 'hint', 'Komposisi role belum tersedia.');
@@ -1872,7 +1889,9 @@ function renderLivingPlayers(parent) {
     const statusText = player.isBotControlled
       ? 'BOT · ' + (player.phaseStatus || 'Mengambil alih')
       : player.phaseStatus || (player.alive ? 'Hidup' : 'Tereliminasi');
-    addText(row, 'span', 'public-player-status', statusText);
+    const status = node('span', 'public-player-status' + (player.alive ? ' status-alive' : ' status-dead'));
+    status.textContent = statusText;
+    row.append(status);
     row.prepend(identity);
     playerGrid.append(row);
   }
