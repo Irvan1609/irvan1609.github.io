@@ -1424,6 +1424,24 @@ function updatePhaseTracker(phase) {
   }
 }
 
+function updateMobileRoomNav() {
+  const nav = $('mobileRoomNav');
+  if (!nav) return;
+  const players = $('playersSection');
+  const playersButton = nav.querySelector('[data-mobile-jump="playersSection"]');
+  if (playersButton) playersButton.hidden = Boolean(players?.classList.contains('hidden'));
+  for (const control of nav.querySelectorAll('[data-mobile-jump]')) {
+    control.onclick = () => {
+      const targetId = control.dataset.mobileJump;
+      const target = targetId === 'discussionChatAnchor'
+        ? document.querySelector('#phaseContent .chat-box, #phaseContent .discussion-tools')
+        : document.getElementById(targetId);
+      const fallback = document.getElementById('phasePanel');
+      (target || fallback)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
+}
+
 function syncBotTakeoverDialog() {
   const dialog = $('botTakeoverDialog');
   if (!dialog) return;
@@ -1531,6 +1549,9 @@ function renderRoom() {
   }
   if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
   renderDiscussionTools(content);
+  const chatAnchor = content.querySelector('.chat-box, .discussion-tools');
+  if (chatAnchor) chatAnchor.id = 'discussionChatAnchor';
+  updateMobileRoomNav();
   syncBotTakeoverDialog();
   if (activeId) {
     const replacement = document.getElementById(activeId);
@@ -2983,7 +3004,11 @@ function renderVictoryScreen(parent, moderatorView = false) {
     row.append(main, detail);
     roster.append(row);
   }
-  screen.append(roster);
+  const rosterDisclosure = node('details', 'final-roster-disclosure');
+  rosterDisclosure.open = true;
+  rosterDisclosure.append(node('summary', 'final-roster-summary', 'Daftar pemain dan role'));
+  rosterDisclosure.append(roster);
+  screen.append(rosterDisclosure);
   renderReplayTimeline(screen, room.gameHistory, 'Replay permainan', room.gameHistoryTruncated);
   parent.append(screen);
 

@@ -1126,4 +1126,147 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 .public-player-row.is-dead .public-player-identity{text-decoration:line-through}
 @media(max-width:620px){.public-role-alive-count{font-size:9px}.public-role-deceased-name{font-size:9px}}
 
+/* Mobile compact mode: keep the game readable without making players scroll through decoration. */
+@media (max-width: 620px) {
+  body { font-size: 13px; }
+  .app { width: calc(100% - 14px); margin: 7px auto 24px; }
+  .hero { margin: 5px 0 8px; padding: 16px 15px 17px; border-radius: 12px; }
+  .hero h1 { font-size: clamp(26px, 8vw, 36px); margin: 2px 0 0; }
+  .hero > p { display: none; }
+  .panel { padding: 11px; border-radius: 11px; box-shadow: 0 10px 26px #0004; }
+  .section-heading { gap: 6px; margin-bottom: 8px; }
+  .section-heading h2, .phase-title h2 { font-size: 16px; }
+  .section-heading p, .phase-title p { font-size: 9px; }
+  .entry-grid { gap: 8px; }
+  .entry-card { padding: 12px; border-radius: 10px; }
+  .entry-card h3 { font-size: 17px; margin: 2px 0 7px; }
+  label { gap: 4px; margin: 6px 0; font-size: 10px; }
+  input, select, textarea, button { min-height: 40px; }
+  button { padding: 8px 10px; font-size: 11px; }
+  .hint { font-size: 9px !important; line-height: 1.45 !important; }
+  p.hint { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .room-top { gap: 7px; padding-bottom: 8px; }
+  .room-code-row strong { font-size: 22px; }
+  .room-top-actions { gap: 5px; }
+  .room-top-actions button { min-height: 34px; padding: 6px 8px; font-size: 9px; }
+  .phase-tracker { margin-bottom: 9px; }
+  .phase-tracker li { padding: 6px 1px; font-size: 7px; }
+  .phase-tracker li:before { width: 5px; height: 5px; margin-bottom: 3px; }
+  .phase-panel { padding: 10px; }
+  .phase-title { gap: 4px; margin-bottom: 7px; }
+  .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .action-button { min-height: 43px; padding: 8px 6px; font-size: 10px; }
+  .players-list { gap: 5px; }
+  .player-chip { min-height: 43px; padding: 6px; }
+  .player-avatar { width: 25px; height: 25px; flex-basis: 25px; font-size: 10px; }
+  .player-name { font-size: 9px; }
+  .player-meta { font-size: 7px; }
+  .role-card { min-height: 230px; margin: 9px auto; padding: 14px; }
+  .role-art { width: 112px; height: 100px; }
+  .role-card .role-name { font-size: 25px; }
+  .role-card p { max-width: 280px; font-size: 9px; line-height: 1.45; }
+  .role-flip-card { height: 285px; margin: 10px auto; }
+  .role-flip-face { padding: 15px; gap: 6px; }
+  .role-flip-art { width: 105px; height: 92px; }
+  .role-flip-name { font-size: 25px; }
+  .role-flip-description { font-size: 9px; line-height: 1.4; }
+  .chat-list { height: 145px; }
+  .chat-message { padding: 6px 7px; font-size: 10px; }
+  .discussion-chat-form input { min-height: 38px; }
+  .discussion-chat-actions button { min-height: 38px; font-size: 9px; }
+  .public-game-board { margin-top: 8px; }
+  .public-board-heading b { font-size: 9px; }
+  .public-role-card { padding: 6px; gap: 5px; }
+  .public-role-title, .public-player-identity > b { font-size: 9px; }
+  .role-config-editor { gap: 7px; margin: 8px 0; }
+  .role-config-team, .ability-config { padding: 8px; border-radius: 9px; }
+  .role-count-grid { gap: 5px; }
+  .role-count-field { padding: 6px; }
+  .role-count-field > span { font-size: 8px; }
+  .role-config-info-disclosure { font-size: 9px; }
+  .role-config-info-details { font-size: 9px; line-height: 1.4; }
+  .role-team-summary { gap: 4px; }
+  .role-team-summary-item { padding: 6px 3px; }
+  .role-team-summary-item b { font-size: 17px; }
+  .role-team-summary-item span { font-size: 8px; }
+  .moderator-dashboard { gap: 8px; }
+  .moderator-event-report, .result-card, .notice { padding: 8px; }
+  .victory-screen { padding: 12px 8px; }
+  .victory-title { font-size: 27px; }
+  .final-roster { gap: 5px; }
+  .final-player-card { padding: 7px; }
+  footer { display: none; }
+}
+
+@media (max-width: 370px) {
+  .app { width: calc(100% - 10px); }
+  .panel { padding: 9px; }
+  .action-grid { gap: 4px; }
+  .action-button { min-height: 40px; font-size: 9px; }
+  .phase-tracker li { font-size: 6px; }
+  .room-top-actions button { padding-inline: 6px; }
+  .discussion-chat-actions .repeat-narration-button { display: none; }
+}
+
+/* Quick navigation and focus controls for one-handed mobile play. */
+.mobile-room-nav { display: none; }
+@media (max-width: 620px) {
+  #roomPanel { padding-bottom: 70px; }
+  .mobile-room-nav {
+    position: sticky;
+    bottom: 8px;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin: 7px 0;
+    padding: 5px;
+    border: 1px solid #586b81;
+    border-radius: 13px;
+    background: rgba(12, 22, 35, .94);
+    box-shadow: 0 10px 28px #0009;
+    backdrop-filter: blur(10px);
+  }
+  .mobile-room-nav button {
+    min-height: 38px;
+    padding: 6px 4px;
+    border: 1px solid #31465e;
+    border-radius: 9px;
+    background: #15253a;
+    color: #cbd8e8;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .mobile-room-nav button:active,
+  .mobile-room-nav button:focus-visible { border-color: var(--gold); color: var(--gold2); }
+  .room-panel, .phase-panel, #playersSection, #discussionChatAnchor { scroll-margin-top: 8px; }
+  #phaseContent > .primary.wide,
+  #phaseContent > button.primary.wide { position: sticky; bottom: 76px; z-index: 18; box-shadow: 0 8px 24px #000b; }
+  .moderator-emergency-disclosure { margin-top: 6px; }
+  .moderator-emergency-disclosure[open] { position: relative; z-index: 19; }
+  .phase-title p { display: none; }
+  .system-narrator-panel { max-height: 70px; overflow: auto; }
+  .system-narrator-panel p { font-size: 9px; line-height: 1.35; }
+  .role-config-team > .hint,
+  .bot-setup > .hint,
+  .role-balance > .hint,
+  .discussion-mode-panel > .hint { margin-block: 4px; }
+  .role-config-actions { display: grid; grid-template-columns: 1fr; gap: 5px; }
+  .role-config-actions .role-zero-button { min-height: 36px; }
+  .player-management-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .player-management-actions button { min-height: 30px; padding: 4px; font-size: 8px; }
+  .final-roster { margin-top: 8px; }
+  .final-roster-heading { font-size: 10px; }
+  .final-roster-disclosure { margin-top: 8px; border: 1px solid #354a63; border-radius: 10px; background: #101c2b; }
+  .final-roster-summary { padding: 10px; color: var(--gold2); font-size: 11px; font-weight: 900; cursor: pointer; }
+  .final-roster-disclosure .final-roster { margin: 0; padding: 0 8px 8px; }
+}
+
+@media (max-width: 370px) {
+  .mobile-room-nav { bottom: 4px; margin-inline: -2px; }
+  .mobile-room-nav button { min-height: 35px; font-size: 8px; }
+  #phaseContent > .primary.wide,
+  #phaseContent > button.primary.wide { bottom: 68px; }
+}
+
 .public-player-row.is-alive .public-player-identity>b{color:#8be0aa}

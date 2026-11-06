@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-complete-1">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-mobile-1">
 </head>
 <body>
   <header class="subweb-header">
@@ -94,6 +94,13 @@
         </div>
       </div>
 
+      <nav id="mobileRoomNav" class="mobile-room-nav" aria-label="Navigasi cepat room">
+        <button type="button" data-mobile-jump="roomIdentity" aria-label="Buka ringkasan room">Room</button>
+        <button type="button" data-mobile-jump="phasePanel" aria-label="Buka aksi permainan">Aksi</button>
+        <button type="button" data-mobile-jump="playersSection" aria-label="Buka daftar pemain">Pemain</button>
+        <button type="button" data-mobile-jump="discussionChatAnchor" aria-label="Buka chat">Chat</button>
+      </nav>
+
       <section id="phasePanel" class="panel phase-panel" data-phase="lobby">
         <div id="phaseContent"></div>
       </section>
@@ -159,6 +166,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-complete-1"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-mobile-1"></script>
 </body>
 </html>
