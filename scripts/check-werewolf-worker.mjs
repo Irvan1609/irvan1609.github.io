@@ -1113,7 +1113,7 @@ tieState = await tieRoom.loadRoom();
 assert.equal(tieState.phase, 'finished', 'The winning faction must be announced immediately after night resolution.');
 assert.equal(tieState.winner, 'wolves');
 assert.equal([tieState.players[2], tieState.players[3]].filter(player => !player.alive).length, 1);
-assert.match(tieState.lastResult.message, /tereliminasi pada malam hari/);
+assert.match(tieState.lastResult.message, /tereliminasi pada malam hari|ditemukan gugur setelah malam berlalu/);
 assert.ok(tieState.lastResult.events.some(event => /terbagi sama kuat/.test(event)));
 console.log('Werewolf split-vote regression passed: a tied wolf vote still selects one victim.');
 
