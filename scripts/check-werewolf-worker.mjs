@@ -2629,9 +2629,9 @@ console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact pri
 
 // Bots must perform the new roles' special actions rather than fall back to arithmetic.
 const newRoleBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const botWolfSeer = newRoleBotRoom.makeBot({ players: [] }).player;
+const botWolfSeer = newRoleBotRoom.makeBot({ players: [] });
 botWolfSeer.role = 'wolf_seer';
-const botTrapper = newRoleBotRoom.makeBot({ players: [botWolfSeer] }).player;
+const botTrapper = newRoleBotRoom.makeBot({ players: [botWolfSeer] });
 botTrapper.role = 'trapper';
 const botPracticeVillager = { id: 'bot-practice-villager', name: 'Practice Villager', role: 'villager', alive: true };
 const newRoleBotState = {
