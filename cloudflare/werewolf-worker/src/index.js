@@ -5,7 +5,7 @@ const MAX_WOLF_CHAT_MESSAGES = 60;
 const BOT_NAMES = ['Aruna', 'Bima', 'Citra', 'Damar', 'Elang', 'Farah', 'Genta', 'Hana', 'Indra', 'Jihan', 'Kirana', 'Laras', 'Mahesa', 'Nadia', 'Raka', 'Salsa', 'Tara', 'Umar', 'Vina'];
 const BOT_PERSONALITIES = ['calm', 'analytical', 'assertive', 'cautious'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const NARRATOR_DEVELOPER_EMAIL = 'irvan1609@gmail.com';
+const NARRATOR_DEVELOPER_EMAILS = new Set(['irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
 const ACCOUNT_API_BASE = 'https://hitung-cabai-api.andyirvan1609.workers.dev';
 const NARRATOR_CONFIG_ID = 'global-narrator-config';
 const MAX_NARRATOR_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -398,7 +398,7 @@ async function requireNarratorDeveloper(request) {
   }
   const data = await response.json().catch(() => ({}));
   const email = String(data.user?.email || '').trim().toLowerCase();
-  if (!response.ok || email !== NARRATOR_DEVELOPER_EMAIL) {
+  if (!response.ok || !NARRATOR_DEVELOPER_EMAILS.has(email)) {
     throw new HttpError(response.status === 401 ? 401 : 403, 'Akses hanya tersedia untuk akun developer.');
   }
   return data.user;
@@ -438,7 +438,7 @@ async function handleNarratorStatus(request, env) {
 }
 
 async function handleNarratorVoiceUpload(request, env) {
-  await requireNarratorDeveloper(request);
+  const developer = await requireNarratorDeveloper(request);
   if (!env.ELEVENLABS_API_KEY) throw new HttpError(503, 'API key ElevenLabs belum dipasang di Cloudflare Worker.');
   const contentLength = Number(request.headers.get('Content-Length') || 0);
   if (contentLength > MAX_NARRATOR_UPLOAD_BYTES + 256 * 1024) throw new HttpError(413, 'Total rekaman maksimal 20 MB.');
@@ -489,7 +489,7 @@ async function handleNarratorVoiceUpload(request, env) {
     voiceName: name || 'The Village After Dark Narrator',
     createdAt: new Date().toISOString(),
     requiresVerification: Boolean(cloneData.requires_verification),
-    ownerEmail: NARRATOR_DEVELOPER_EMAIL
+    ownerEmail: String(developer.email || '').trim().toLowerCase()
   };
   await setNarratorConfig(env, config);
   return json({
