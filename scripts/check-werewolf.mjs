@@ -12,7 +12,7 @@ const home = read('index.html');
 const sw = read('public/sw.js');
 
 for (const id of [
-  'createForm', 'joinForm', 'createName', 'createGameMode', 'joinName', 'joinCode',
+  'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'joinVoiceMode',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
   'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton'
 ]) {
@@ -57,7 +57,7 @@ assert.match(html, /id="reconnectButton"/);
 assert.match(app, /function renderModeratorPhase/);
 assert.match(app, /function renderPlayerDiscussion/);
 assert.match(app, /Diskusi pemain/);
-assert.match(app, /Chat dan voice chat tersedia langsung di panel percakapan/);
+assert.match(app, /Voice chat mengikuti pilihan saat bergabung/);
 assert.doesNotMatch(app, /Simpan diskusi online|discussionCallUrl|meet\\.google\\.com|Buka ruang diskusi online|Diskusi online/);
 assert.match(app, /renderDiscussionTools/);
 assert.match(app, /CHAT DISKUSI/);
@@ -69,7 +69,12 @@ assert.match(worker, /type === 'restore_player_control'/);
 assert.match(worker, /type === 'skip_missing_night'/);
 assert.match(worker, /highestVote > totalVoteWeight \/ 2/);
 assert.match(worker, /nightActionsSkipped/);
-assert.match(worker, /gameMode/);
+assert.match(worker, /voiceMode/);
+assert.match(worker, /waitingPlayers/);
+assert.match(worker, /signalKind === 'offer'/);
+assert.match(app, /function discussionVoiceListeningAllowed/);
+assert.match(app, /Kamu masuk saat permainan berlangsung/);
+assert.doesNotMatch(html, /id="createGameMode"/);
 assert.match(app, /function renderLivingPlayers/);
 assert.match(app, /MASIH HIDUP/);
 assert.match(worker, /livingPlayers: alive\.map/);
@@ -96,7 +101,7 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261106-werewolf-story-dawn-5/);
+assert.match(html, /20261106-werewolf-player-voice-waitlist-6/);
 assert.match(html, /id="showInviteQr"/);
 assert.match(html, /id="inviteDialog"/);
 assert.match(html, /id="inviteQrImage"/);
@@ -120,13 +125,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261106-werewolf-story-dawn-5/);
+assert.match(html, /app\.js\?v=20261106-werewolf-player-voice-waitlist-6/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261106-werewolf-story-dawn-5/);
+assert.match(html, /style\.css\?v=20261106-werewolf-player-voice-waitlist-6/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -282,7 +287,7 @@ assert.match(app, /getUserMedia/);
 assert.match(app, /renderDiscussionTools/);
 assert.match(css, /\.discussion-voice-panel/);
 assert.match(css, /\.discussion-chat-list/);
-assert.match(html, /voice chat otomatis/i);
+assert.match(html, /mikrofon otomatis aktif/i);
 
 for (const file of [
   'hero-night.svg', 'card-back.svg', 'role-wolf.svg',
@@ -336,7 +341,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261106-werewolf-story-dawn-5/);
+assert.match(sw, /20261106-werewolf-player-voice-waitlist-6/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
@@ -400,8 +405,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261106-werewolf-story-dawn-5/);
-assert.match(sw, /20261106-werewolf-story-dawn-5/);
+assert.match(html, /20261106-werewolf-player-voice-waitlist-6/);
+assert.match(sw, /20261106-werewolf-player-voice-waitlist-6/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.match(read('public/werewolf/assets/illustrations/role-moderator.svg'), /<svg/);
 
