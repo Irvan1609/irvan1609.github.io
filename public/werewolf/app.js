@@ -1849,7 +1849,7 @@ function renderLivingPlayers(parent) {
     if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
       const deceased = node('div', 'public-role-deceased-list');
       for (const name of entry.deceasedNames) {
-        const deadName = node('span', 'public-role-deceased-name', name);
+        const deadName = node('span', 'public-role-deceased-name', '| ' + name);
         deceased.append(deadName);
       }
       card.append(deceased);
