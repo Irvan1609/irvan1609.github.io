@@ -2876,7 +2876,7 @@ console.log('Werewolf manual-mode takeover regression passed: timer handoff runs
 const systemNightTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const systemNightCreated = await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/create', 'POST', {
   code: 'SYNT23', name: 'System Night Host',
-  settings: { moderatorMode: 'system', roleCounts: { wolf: 1, seer: 1, villager: 2 }, timers: { nightSeconds: 3 } }
+  settings: { moderatorMode: 'system', roleCounts: { wolf: 1, seer: 1, villager: 2 }, timers: { nightSeconds: 10 } }
 })), 201);
 const systemNightTokens = [];
 for (const name of ['System Seer', 'System Village A', 'System Village B']) {
