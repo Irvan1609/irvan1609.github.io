@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-story-dawn-3">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-story-dawn-4">
 </head>
 <body>
   <header class="subweb-header">
@@ -122,6 +122,18 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-story-dawn-3"></script>
+  <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+    <div class="confirm-dialog-content">
+      <div class="confirm-dialog-kicker">THE VILLAGE AFTER DARK</div>
+      <h2 id="confirmDialogTitle">Konfirmasi tindakan</h2>
+      <p id="confirmDialogMessage">Tindakan ini akan mengubah room.</p>
+      <div class="confirm-dialog-actions">
+        <button id="confirmDialogCancel" class="secondary" type="button">Batal</button>
+        <button id="confirmDialogAccept" class="confirm-dialog-accept danger" type="button">Lanjutkan</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js?v=20261106-werewolf-story-dawn-4"></script>
 </body>
 </html>
