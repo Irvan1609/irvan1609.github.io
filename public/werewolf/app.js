@@ -964,7 +964,7 @@ function renderRoleConfigEditor(container, settings) {
   moderatorField.append(moderatorSelect);
   moderatorRow.append(moderatorField);
   moderatorSection.append(moderatorRow);
-  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; malam, diskusi, dan voting berjalan otomatis sesuai durasi. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
+  addText(moderatorSection, 'p', 'hint', 'Host: host menjadi moderator dan tidak menerima kartu role. Sistem: host tetap menjadi pemain; buka kartu, tengah malam, subuh, pagi, sore, dan hasil berjalan otomatis di server sesuai durasi tanpa host menekan tombol lanjut. Acak: satu pemain manusia dipilih sebagai moderator dan sementara tidak menerima kartu role.');
   const moderatorInfo = node('details', 'role-config-info-disclosure moderator-info-disclosure');
   moderatorInfo.append(node('summary', '', 'Kekuatan & aturan moderator'));
   appendRoleDetails(moderatorInfo, ROLE_INFO.moderator, 'role-config-info');
@@ -1023,9 +1023,9 @@ function renderRoleConfigEditor(container, settings) {
     ['roleDrawSeconds', 'Buka kartu (detik)', 5, 60],
     ['nightSeconds', 'Tengah malam (detik)', 10, 300],
     ['dawnSeconds', 'Subuh (detik)', 5, 120],
-    ['discussionSeconds', 'Diskusi pagi (detik)', 5, 300],
-    ['votingSeconds', 'Voting sore (detik)', 5, 180],
-    ['resultSeconds', 'Hasil voting (detik)', 3, 60]
+    ['discussionSeconds', 'Pagi · Diskusi (detik)', 5, 300],
+    ['votingSeconds', 'Sore · Voting (detik)', 5, 180],
+    ['resultSeconds', 'Hasil voting / Hunter (detik)', 3, 60]
   ]) {
     const field = node('label', 'phase-duration-field');
     addText(field, 'span', '', label);
@@ -1041,7 +1041,7 @@ function renderRoleConfigEditor(container, settings) {
     timerGrid.append(field);
   }
   timerSection.append(timerGrid);
-  addText(timerSection, 'p', 'hint', 'Durasi berlaku otomatis pada mode moderator Sistem. Pilihan aksi dan suara tetap dapat diubah sampai timer fase terkait berakhir.');
+  addText(timerSection, 'p', 'hint', 'Moderator Sistem menjalankan semua perpindahan fase otomatis di server. Aksi dan suara tetap dapat diganti sampai timer masing-masing fase berakhir; host tidak perlu menekan tombol lanjut.');
   container.append(timerSection);
 
   const summary = node('div', 'role-config-summary');
@@ -1722,7 +1722,7 @@ function renderPlayerPhase(parent) {
 
   if (!(phase === 'role_draw' && !self.hasDrawn)) renderPlayerRoleReminder(parent);
   if (systemModeratorEnabled() && isHost()) {
-    addText(parent, 'div', 'notice', 'Moderator sistem menjalankan seluruh fase otomatis. Host tetap bermain sebagai warga desa sesuai kartu yang diterima.');
+    addText(parent, 'div', 'notice', 'Moderator sistem menjalankan seluruh fase otomatis. Host tetap menjadi pemain dan menjalankan role yang diterimanya.');
   }
   renderMasonCircle(parent);
   const loverNames = self.loverNames || [];
@@ -1923,7 +1923,7 @@ function renderModeratorDiscussion(parent) {
 }
 
 function renderModeratorVoting(parent) {
-  phaseHeader(parent, 'FASE VOTING', 'Pantau suara pemain', 'Pilihan setiap pemain hanya terlihat oleh moderator. Hasil voting diumumkan otomatis.');
+  phaseHeader(parent, 'SORE · RONDE ' + roomState.room.round, 'Voting eksekusi', 'Pantau suara rahasia pemain. Saat durasi berakhir, sistem menghitung hasil dan mengumumkan siapa yang digantung.');
   const room = roomState.room;
   addText(parent, 'div', 'notice', room.votesSubmitted + ' / ' + room.votesRequired + ' suara sudah masuk.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
@@ -1964,6 +1964,8 @@ function renderModeratorFinished(parent) {
 }
 
 function renderPlayerRoleDraw(parent) {
+  phaseHeader(parent, 'BUKA KARTU', 'Pembagian kartu rahasia',
+    'Buka kartu untuk melihat role kamu. Setelah waktunya habis, permainan otomatis berlanjut ke tengah malam.');
   if (!roomState.self.hasDrawn) {
     const card = node('div', 'card-back');
     const label = node('div');
@@ -2014,6 +2016,8 @@ function renderMasonCircle(parent) {
 function renderPlayerNight(parent) {
   const self = roomState.self || {};
   const room = roomState.room || {};
+  phaseHeader(parent, 'TENGAH MALAM · RONDE ' + room.round, 'Aksi malam',
+    'Jalankan kemampuan role atau jawab perhitungan. Pilihan dapat diganti sampai waktu tengah malam berakhir.');
   appendPhaseCountdown(parent, 'SUBUH DALAM', room.nightEndsAt);
   if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi. Menunggu hasil malam.');
@@ -2185,8 +2189,10 @@ function renderDiscussionTools(parent) {
   for (const message of messages) {
     const item = node('article', 'chat-message');
     const author = node('b', '', message.name || 'Pemain');
-    if (message.isBot) author.append(node('span', 'chat-bot-badge', 'BOT'));
-    else if (message.isModerator) author.append(node('span', 'chat-bot-badge moderator-chat-badge', 'MOD'));
+    if (message.isBot) {
+      author.append(node('span', 'chat-bot-badge', 'BOT'));
+      if (message.isNightReport) author.append(node('span', 'chat-night-report-badge', 'AKSI MALAM'));
+    } else if (message.isModerator) author.append(node('span', 'chat-bot-badge moderator-chat-badge', 'MOD'));
     item.append(author);
     item.append(node('time', '', message.at
       ? new Date(message.at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : ''));
@@ -2687,6 +2693,8 @@ function speakSystemNarration(message) {
 function renderPlayerVoting(parent) {
   const self = roomState.self || {};
   const room = roomState.room || {};
+  phaseHeader(parent, 'SORE · RONDE ' + room.round, 'Voting eksekusi',
+    'Pilih satu pemain untuk dibawa ke tiang eksekusi. Suara bersifat rahasia dan masih dapat diganti sampai waktu habis.');
   appendPhaseCountdown(parent, 'VOTING TERSISA', room.votingEndsAt);
   if (!self.alive) {
     addText(parent, 'div', 'notice warning', 'Kamu sudah tereliminasi dan tidak dapat memberikan suara.');
