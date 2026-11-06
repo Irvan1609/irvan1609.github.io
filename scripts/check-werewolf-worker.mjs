@@ -2109,7 +2109,8 @@ onlineThresholdRoom.finishVote(onlineExactlyHalf, Date.now());
 assert.equal(onlineExactlyHalf.players.find(player => player.id === 't').alive, true);
 assert.match(onlineExactlyHalf.lastResult.message, /lebih dari 50%/);
 assert.equal(onlineExactlyHalf.lastResult.voteTotalWeight, 4);
-assert.equal(onlineExactlyHalf.lastResult.abstainCount, 2);
+assert.equal(onlineExactlyHalf.lastResult.abstainCount, 1,
+  'The missed voter is assigned to BOT before tally; only the explicit abstention remains.');
 const onlineClearMajority = onlineMakeVoteState({ w: 't', b: 't', g: 't' });
 onlineThresholdRoom.finishVote(onlineClearMajority, Date.now());
 assert.equal(onlineClearMajority.players.find(player => player.id === 't').alive, false);
