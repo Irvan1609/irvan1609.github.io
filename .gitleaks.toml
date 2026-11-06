@@ -1,0 +1,17 @@
+title = "Repository Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known browser-side local-storage handoff namespace identifiers; these are not credentials."
+condition = "AND"
+paths = [
+  '''^public/hitung-cabai/app\.js$''',
+  '''^public/pengukur/app\.js$'''
+]
+regexTarget = "line"
+regexes = [
+  '''MEASURE_HANDOFF_KEY''',
+  '''CHILI_MEASURE_HANDOFF_KEY'''
+]
