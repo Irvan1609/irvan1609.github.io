@@ -12,6 +12,10 @@ const config = read('cloudflare/werewolf-worker/wrangler.toml');
 const home = read('index.html');
 const sw = read('public/sw.js');
 
+assert.match(html, /id="accountMount"/);
+assert.match(html, /\.\.\/account\.css/);
+assert.match(html, /\.\.\/account\.js/);
+
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'joinOnlineButton', 'joinOfflineButton',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
@@ -163,6 +167,8 @@ assert.match(css, /developer-narrator-panel/);
 assert.match(app, /function systemNarrationText/);
 assert.match(app, /function initializeDeveloperNarrator/);
 assert.match(app, /requestDeveloperNarratorAssertion/);
+assert.match(app, /body\.roomCode/);
+assert.match(app, /body\.playerToken/);
 assert.match(app, /'\/narrator\/speak'/);
 assert.match(app, /Kita berada di ' \+ village/);
 assert.match(app, /Malam turun di ' \+ village/);
@@ -203,6 +209,7 @@ assert.match(worker, /NARRATOR_TTS_LIMITER/);
 assert.match(worker, /global-narrator-config/);
 assert.match(worker, /internal\/narrator-config/);
 assert.match(worker, /requireNarratorDeveloper/);
+assert.match(worker, /\/internal\/state/);
 assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
 assert.match(worker, /type === 'reset_to_lobby'/);
