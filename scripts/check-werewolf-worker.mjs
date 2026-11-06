@@ -2441,9 +2441,19 @@ finally { Date.now = realNowForAutoDawnCards; }
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 assert.equal(autoDawnCycleState.phase, 'night',
   'System moderator must start night automatically when the card timer expires.');
+let autoDawnHostView = (await payload(await autoDawnCycleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoDawnCycleTokens[0])
+))).state;
+assert.equal(autoDawnHostView.self.isBotControlled, true,
+  'The host who missed the card reveal must be taken over by BOT even in System mode.');
 await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'draw_card'
+  type: 'restore_player_control'
 }, autoDawnCycleTokens[0])));
+autoDawnHostView = (await payload(await autoDawnCycleRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, autoDawnCycleTokens[0])
+))).state;
+assert.equal(autoDawnHostView.self.isBotControlled, false);
+assert.ok(autoDawnHostView.self.role, 'Returning host can see the role that BOT already opened.');
 
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 const autoDawnCycleHunterId = autoDawnCycleState.players[2].id;
