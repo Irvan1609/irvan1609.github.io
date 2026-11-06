@@ -1910,8 +1910,6 @@ function renderModeratorLobby(parent) {
   const configEditor = node('div', 'role-config-lobby');
   renderRoleConfigEditor(configEditor, settings);
   parent.append(configEditor);
-  const config = roleSettingsForUI(settings);
-
   const maxBotsPerBatch = 500;
   const botBox = node('div', 'bot-setup');
   addText(botBox, 'h3', '', 'Mode latihan vs bot');
