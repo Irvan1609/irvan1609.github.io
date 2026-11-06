@@ -456,8 +456,9 @@ async function handleNarratorClipUpload(request, env, id) {
     mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', mp4: 'audio/mp4',
     webm: 'audio/webm', ogg: 'audio/ogg', aac: 'audio/aac'
   };
-  const contentType = String(file.type || '').toLowerCase() || extensionTypes[extension] || '';
-  if (!allowedTypes.has(contentType) && !extensionTypes[extension]) {
+  const reportedType = String(file.type || '').toLowerCase();
+  const contentType = allowedTypes.has(reportedType) ? reportedType : (extensionTypes[extension] || '');
+  if (!contentType) {
     throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
   }
   const safeName = String(file.name || ('narrator-' + id)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
