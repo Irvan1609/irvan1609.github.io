@@ -3838,7 +3838,7 @@ function initializeDeveloperNarrator() {
   const panel = $('developerNarratorPanel');
   if (!panel) return;
   const applyAccess = user => {
-    const allowed = String(user?.email || '').trim().toLowerCase() === 'irvan1609@gmail.com';
+    const allowed = ['irvan1609@gmail.com', 'achmad.kautsar@gmail.com'].includes(String(user?.email || '').trim().toLowerCase());
     panel.classList.toggle('hidden', !allowed);
     if (allowed) void loadDeveloperNarratorStatus();
   };
