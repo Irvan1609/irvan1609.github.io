@@ -534,12 +534,13 @@ assert.ok(app.includes('bekas gigitan di leher'));
 assert.ok(app.includes('luka tembak'));
 assert.ok(app.includes('botol kecil'));
 assert.ok(app.includes('function renderPrivateInspectionResult'));
-assert.ok(app.includes('seer-inspected'));
+assert.ok(app.includes('seer-inspection-tag'));
+assert.ok(app.includes('public-player-row'));
 assert.ok(app.includes('HASIL PENERAWANGAN PRIBADI'));
-const playerPhaseStart = app.indexOf('function renderPlayerPhase');
-const playerPhaseEnd = app.indexOf('function renderModeratorLobby', playerPhaseStart);
-const playerPhaseMarkup = app.slice(playerPhaseStart, playerPhaseEnd);
-assert.ok(playerPhaseMarkup.indexOf('renderPlayerRoleReminder') < playerPhaseMarkup.indexOf('renderLivingPlayers'));
+const renderRoomStart = app.indexOf('function renderRoom');
+const renderRoomEnd = app.indexOf('function renderPlayerPhase', renderRoomStart);
+const sharedRoomMarkup = app.slice(renderRoomStart, renderRoomEnd);
+assert.ok(sharedRoomMarkup.indexOf('renderPlayerPhase(content)') < sharedRoomMarkup.indexOf('renderLivingPlayers(content)'));
 assert.ok(app.indexOf('renderDiscussionTools(content)') > app.indexOf('renderPlayerPhase(content)'));
 console.log('Werewolf gameplay UX checks passed: timed actions, private inspections, integrated voice/chat, custom confirmations and story narration.');
 
