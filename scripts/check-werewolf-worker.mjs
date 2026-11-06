@@ -2483,4 +2483,168 @@ autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 assert.equal(autoDawnCycleState.phase, 'night');
 assert.equal(autoDawnCycleState.round, 2,
   'System moderator must automatically start the next night after the result window.');
+
+  
+// Werewolf parity counts every living non-Werewolf, including neutral players.
+const parityRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const parityState = {
+  players: [
+    { id: 'parity-wolf-1', role: 'wolf', alive: true },
+    { id: 'parity-wolf-2', role: 'alpha_wolf', alive: true },
+    { id: 'parity-village-1', role: 'villager', alive: true },
+    { id: 'parity-village-2', role: 'jester', alive: true },
+    { id: 'parity-neutral', role: 'guardian_angel', alive: true }
+  ],
+  lovers: [], winner: null, settings: { abilities: {} }, guardianTargets: {}
+};
+assert.equal(parityRoom.checkWinner(parityState), null,
+  'Two Werewolves must not win while three non-Werewolf players remain, including a neutral player.');
+parityState.players.find(player => player.id === 'parity-village-2').alive = false;
+assert.equal(parityRoom.checkWinner(parityState), 'wolves',
+  'Werewolves win at parity once only two non-Werewolf players remain.');
+console.log('Werewolf parity regression passed: neutral players count toward the remaining opposition.');
+
+// Jester is a Village faction role but wins alone when voted out by an absolute majority.
+const jesterRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const jesterState = {
+  code: 'JEST23', phase: 'voting', round: 3,
+  players: [
+    { id: 'jester-wolf', name: 'Red Player', role: 'wolf', alive: true },
+    { id: 'jester-target', name: 'Odd Villager', role: 'jester', alive: true },
+    { id: 'jester-village', name: 'Blue Player', role: 'villager', alive: true }
+  ],
+  votes: { 'jester-wolf': 'jester-target', 'jester-target': 'jester-wolf', 'jester-village': 'jester-target' },
+  settings: { abilities: { jesterSoloWin: true }, timers: { resultSeconds: 8 } },
+  lovers: [], additionalWinners: [], guardianTargets: {}, nightActions: {}, dawnActions: {},
+  resultActions: {}, seerResults: {}, seerHistory: {}, gameHistory: [], gameArchive: [],
+  winner: null, gameFinishedRecorded: false, round: 3
+};
+jesterRoom.finishVote(jesterState, Date.now());
+assert.equal(jesterState.winner, 'jester');
+assert.equal(jesterState.phase, 'finished');
+assert.equal(jesterState.players.find(player => player.role === 'jester').alive, false);
+jesterRoom.archiveCompletedGame(jesterState, Date.now());
+const jesterArchivePlayer = jesterState.gameArchive[0].players.find(player => player.role === 'jester');
+assert.equal(jesterArchivePlayer.faction, 'village');
+assert.equal(jesterArchivePlayer.isWinner, true);
+assert.equal(jesterArchivePlayer.winReason, 'Pemenang utama');
+console.log('Werewolf Penduduk Aneh regression passed: Jester is Village-aligned and wins alone when voted out.');
+
+// Trapper saves the attacked target and catches one Werewolf attacker.
+const trapperRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const trapperCreated = await payload(await trapperRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'TRAP23', name: 'Trapper Moderator',
+  settings: { roleCounts: { wolf: 1, trapper: 1, villager: 2 } }
+})), 201);
+const trapperTokens = [];
+for (const name of ['Trapper Wolf', 'Village Trapper', 'Village One', 'Village Two']) {
+  trapperTokens.push((await payload(await trapperRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, trapperCreated.token)));
+let trapperState = await trapperRoom.loadRoom();
+trapperState.players.forEach((player, index) => {
+  player.role = ['wolf', 'trapper', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await trapperRoom.saveRoom(trapperState);
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, trapperCreated.token)));
+trapperState = await trapperRoom.loadRoom();
+const trapperTargetId = trapperState.players[2].id;
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: trapperTargetId
+}, trapperTokens[0])));
+await payload(await trapperRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: trapperTargetId
+}, trapperTokens[1])));
+await submitVillagerMath(trapperRoom, trapperTokens[2]);
+await submitVillagerMath(trapperRoom, trapperTokens[3]);
+await actionAfterDeadline(trapperRoom, trapperCreated.token, 'resolve_night', { force: true });
+trapperState = await trapperRoom.loadRoom();
+assert.equal(trapperState.players.find(player => player.role === 'wolf').alive, false,
+  'The Werewolf who selected the trapped target must be caught.');
+assert.equal(trapperState.players.find(player => player.role === 'villager' && player.id === trapperTargetId).alive, true,
+  'The trapped target must survive the pack attack.');
+assert.equal(trapperState.lastResult.eliminations.find(item => item.role === 'wolf')?.cause, 'trapper_capture');
+assert.match(trapperState.lastResult.message, /Perangkap Trapper menangkap/);
+assert.ok(trapperState.lastResult.actionReport.some(item => item.role === 'Trapper' && /Perangkap aktif/.test(item.outcome)));
+console.log('Werewolf Trapper regression passed: a successful trap saves the target and eliminates an attacker.');
+
+// Wolf Seer joins the pack attack and privately learns one target's exact role.
+const wolfSeerRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const wolfSeerCreated = await payload(await wolfSeerRoom.fetch(makeRequest('/internal/create', 'POST', {
+  code: 'WSEA23', name: 'Wolf Seer Moderator',
+  settings: { roleCounts: { wolf: 1, wolf_seer: 1, villager: 2 } }
+})), 201);
+const wolfSeerTokens = [];
+for (const name of ['Wolf Seer', 'Wolf Mate', 'Attack Target', 'Intel Target']) {
+  wolfSeerTokens.push((await payload(await wolfSeerRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201)).token);
+}
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_game'
+}, wolfSeerCreated.token)));
+let wolfSeerState = await wolfSeerRoom.loadRoom();
+wolfSeerState.players.forEach((player, index) => {
+  player.role = ['wolf_seer', 'wolf', 'villager', 'villager'][index];
+  player.alive = true;
+  player.hasDrawn = true;
+});
+await wolfSeerRoom.saveRoom(wolfSeerState);
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'start_night'
+}, wolfSeerCreated.token)));
+wolfSeerState = await wolfSeerRoom.loadRoom();
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action',
+  targetId: wolfSeerState.players[2].id,
+  inspectTargetId: wolfSeerState.players[3].id
+}, wolfSeerTokens[0])));
+await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: wolfSeerState.players[2].id
+}, wolfSeerTokens[1])));
+await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[2]);
+await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[3]);
+await actionAfterDeadline(wolfSeerRoom, wolfSeerCreated.token, 'resolve_night', { force: true });
+wolfSeerState = await wolfSeerRoom.loadRoom();
+const wolfSeerId = wolfSeerState.players.find(player => player.role === 'wolf_seer').id;
+const wolfSeerPrivateView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[0])
+))).state;
+assert.equal(wolfSeerPrivateView.self.seerResult.targetRole, 'villager');
+assert.equal(wolfSeerPrivateView.self.seerHistory.length, 1);
+assert.equal(wolfSeerPrivateView.self.wolfSeerInspectTargetId, wolfSeerState.players[3].id);
+const wolfMatePrivateView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[1])
+))).state;
+assert.equal(wolfMatePrivateView.self.seerResult, null,
+  'The exact role inspection must remain private to the Wolf Seer.');
+assert.deepEqual(wolfMatePrivateView.self.seerHistory, []);
+assert.ok(wolfSeerPrivateView.wolfTeam.includes('Wolf Seer'));
+assert.ok(wolfSeerState.lastResult.actionReport.some(item => item.role === 'Wolf Seer'));
+console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact private inspection, and role secrecy.');
+
+// Bots must perform the new roles' special actions rather than fall back to arithmetic.
+const newRoleBotRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
+const botWolfSeer = newRoleBotRoom.makeBot({ players: [] }).player;
+botWolfSeer.role = 'wolf_seer';
+const botTrapper = newRoleBotRoom.makeBot({ players: [botWolfSeer] }).player;
+botTrapper.role = 'trapper';
+const botPracticeVillager = { id: 'bot-practice-villager', name: 'Practice Villager', role: 'villager', alive: true };
+const newRoleBotState = {
+  players: [botWolfSeer, botTrapper, botPracticeVillager],
+  nightActions: {}, seerHistory: {}, seerResults: {}, witchPotions: {},
+  guardianTargets: {}, villagerPrompts: {}, round: 1, settings: { abilities: {} }
+};
+newRoleBotRoom.runBotNightActions(newRoleBotState);
+assert.equal(newRoleBotState.nightActions[botWolfSeer.id].type, 'wolf_vote');
+assert.ok(newRoleBotState.nightActions[botWolfSeer.id].targetId);
+assert.ok(newRoleBotState.nightActions[botWolfSeer.id].inspectTargetId);
+assert.equal(newRoleBotState.nightActions[botTrapper.id].type, 'trapper_set');
+assert.ok(newRoleBotState.nightActions[botTrapper.id].targetId);
+console.log('Werewolf new-role bot regression passed: Wolf Seer and Trapper use their special abilities.');
+
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');
