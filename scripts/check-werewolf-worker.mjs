@@ -2607,6 +2607,11 @@ await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
 await payload(await wolfSeerRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: wolfSeerState.players[2].id
 }, wolfSeerTokens[1])));
+const wolfSeerNightView = (await payload(await wolfSeerRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[0])
+))).state;
+assert.equal(wolfSeerNightView.self.wolfSeerInspectTargetId, wolfSeerState.players[3].id,
+  'The Wolf Seer inspection choice must be visible to its owner while night actions remain open.');
 await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[2]);
 await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[3]);
 await actionAfterDeadline(wolfSeerRoom, wolfSeerCreated.token, 'resolve_night', { force: true });
@@ -2616,7 +2621,6 @@ const wolfSeerPrivateView = (await payload(await wolfSeerRoom.fetch(
 ))).state;
 assert.equal(wolfSeerPrivateView.self.seerResult.targetRole, 'villager');
 assert.equal(wolfSeerPrivateView.self.seerHistory.length, 1);
-assert.equal(wolfSeerPrivateView.self.wolfSeerInspectTargetId, wolfSeerState.players[3].id);
 const wolfMatePrivateView = (await payload(await wolfSeerRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[1])
 ))).state;
