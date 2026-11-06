@@ -8,13 +8,14 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
+  <link rel="stylesheet" href="/account.css?v=20261107-werewolf-developer-voice">
   <link rel="stylesheet" href="./style.css?v=20261106-werewolf-story-dawn-5">
 </head>
 <body>
   <header class="subweb-header">
     <div class="subweb-header-inner">
       <a class="subweb-brand" href="/" aria-label="Kembali ke beranda"><span class="subweb-brand-arrow">←</span><span>Werewolf</span></a>
-      <nav class="subweb-nav"><a class="subweb-home-link" href="/">Beranda</a></nav>
+      <nav class="subweb-nav"><a class="subweb-home-link" href="/">Beranda</a><div id="accountMount" class="account-widget"></div></nav>
     </div>
   </header>
 
@@ -134,6 +135,8 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-story-dawn-5"></script>
+  <script type="module" src="/account.js?v=20261107-werewolf-developer-voice"></script>
+  <script type="module" src="./voice-studio.js?v=20261107-werewolf-developer-voice"></script>
+  <script type="module" src="./app.js?v=20261107-werewolf-developer-voice"></script>
 </body>
 </html>
