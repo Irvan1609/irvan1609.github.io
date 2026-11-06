@@ -220,6 +220,14 @@ assert.match(worker, /handleNarratorClipPlayback/);
 assert.match(worker, /X-Player-Token/);
 assert.ok(worker.includes('/internal/narrator-clips'));
 assert.doesNotMatch(config, /ELEVENLABS_API_KEY|NARRATOR_TTS_LIMITER/);
+assert.doesNotMatch(app, /narrator\\/speak|speakBrowserNarration|SpeechSynthesisUtterance/);
+assert.match(worker, /MAX_NARRATOR_TOTAL_BYTES/);
+assert.match(worker, /Access-Control-Allow-Headers.*X-Player-Token/);
+const appNarratorClipIds = [...app.matchAll(/\\{ id: '([^']+)'/g)].map(match => match[1]).sort();
+const workerNarratorClipBlock = worker.match(/const NARRATOR_CLIP_IDS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] || '';
+const workerNarratorClipIds = [...workerNarratorClipBlock.matchAll(/'([^']+)'/g)].map(match => match[1]).sort();
+assert.deepEqual(appNarratorClipIds, workerNarratorClipIds, 'Client and Worker narrator clip catalogs must match.');
+
 assert.match(worker, /requireNarratorDeveloper/);
 assert.match(worker, /NARRATOR_DEVELOPER_EMAILS/);
 assert.ok(worker.includes('achmad.kautsar@gmail.com'), 'Second developer must be authorized by the Worker.');
