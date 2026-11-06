@@ -12,10 +12,14 @@ const config = read('cloudflare/werewolf-worker/wrangler.toml');
 const home = read('index.html');
 const sw = read('public/sw.js');
 
+assert.match(html, /id="accountMount"/);
+assert.match(html, /\.\.\/account\.css/);
+assert.match(html, /\.\.\/account\.js/);
+
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'joinOnlineButton', 'joinOfflineButton',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
-  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton'
+  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton', 'developerNarratorPanel', 'narratorVoiceFiles', 'narratorVoiceConsent', 'cloneNarratorVoice', 'testNarratorVoice', 'narratorPlaybackVolume', 'developerNarratorStatus'
 ]) {
   assert.match(html, new RegExp('id="' + id + '"'), 'Missing UI element ' + id);
 }
@@ -109,7 +113,7 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261107-werewolf-speaking-compact-1/);
+assert.match(html, /20261107-werewolf-narrator-voice-1/);
 assert.match(html, /id="joinEntryMode"/);
 assert.match(html, /id="audioSettings"/);
 assert.match(html, /id="gameSoundVolume"/);
@@ -144,13 +148,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261107-werewolf-speaking-compact-1/);
+assert.match(html, /app\.js\?v=20261107-werewolf-narrator-voice-1/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261107-werewolf-speaking-compact-1/);
+assert.match(html, /style\.css\?v=20261107-werewolf-narrator-voice-1/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -159,7 +163,13 @@ assert.doesNotMatch(worker, /cleanCallUrl|Tautan diskusi online/);
 assert.match(worker, /room\.discussionMode = 'offline'/);
 assert.match(worker, /discussionMode: room\.phase === 'discussion'/);
 assert.match(css, /system-narrator-panel/);
+assert.match(css, /developer-narrator-panel/);
 assert.match(app, /function systemNarrationText/);
+assert.match(app, /function initializeDeveloperNarrator/);
+assert.match(app, /requestDeveloperNarratorAssertion/);
+assert.match(app, /body\.roomCode/);
+assert.match(app, /body\.playerToken/);
+assert.match(app, /'\/narrator\/speak'/);
 assert.match(app, /Kita berada di ' \+ village/);
 assert.match(app, /Malam turun di ' \+ village/);
 assert.match(app, /Matahari baru saja terbit/);
@@ -193,6 +203,18 @@ assert.match(app, /PLAYER_NAME_KEY/);
 assert.match(app, /villager_math/);
 assert.match(app, /waiting-room-roster/);
 assert.match(worker, /runBotDawnActions/);
+assert.match(worker, /\/developer\/narrator\/voice/);
+assert.match(worker, /ElevenLabs/);
+assert.match(worker, /NARRATOR_TTS_LIMITER/);
+assert.match(worker, /global-narrator-config/);
+assert.match(worker, /internal\/narrator-config/);
+assert.match(worker, /requireNarratorDeveloper/);
+assert.match(worker, /NARRATOR_DEVELOPER_EMAILS/);
+assert.ok(worker.includes('achmad.kautsar@gmail.com'), 'Second developer must be authorized by the Worker.');
+assert.ok(app.includes('achmad.kautsar@gmail.com'), 'Second developer must see narrator controls.');
+assert.match(worker, /\/account\.js/);
+assert.match(worker, /\/account-config\.js/);
+assert.match(worker, /\/internal\/state/);
 assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
 assert.match(worker, /type === 'reset_to_lobby'/);
@@ -375,7 +397,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261107-werewolf-speaking-compact-1/);
+assert.match(sw, /20261107-werewolf-narrator-voice-1/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
@@ -477,8 +499,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261107-werewolf-speaking-compact-1/);
-assert.match(sw, /20261107-werewolf-speaking-compact-1/);
+assert.match(html, /20261107-werewolf-narrator-voice-1/);
+assert.match(sw, /20261107-werewolf-narrator-voice-1/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-wolf_seer.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-trapper.svg'));

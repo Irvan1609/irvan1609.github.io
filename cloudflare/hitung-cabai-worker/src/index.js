@@ -31,6 +31,7 @@ let CLOUD_CONTROL_CACHE=null;
 let CLOUD_CONTROL_CACHE_AT=0;
 const CLOUD_CONTROL_CACHE_MS=60_000;
 const CLOUD_DEFAULT_FEATURES=Object.freeze({datasetSync:true,aiUpload:true,gameCloud:true,payments:true});
+const DEVELOPER_ASSERTION_EMAILS=new Set(['irvan1609@gmail.com','achmad.kautsar@gmail.com']);
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev').split(',').map(v=>v.trim()).filter(Boolean));
@@ -166,7 +167,7 @@ function constantTimeEqual(a,b){
 }
 function csrfProtectedPath(pathname){
   if(pathname==='/v1/membership/webhook'||pathname==='/v1/auth/exchange')return false;
-  return pathname==='/v1/auth/logout'||pathname.startsWith('/v1/account/')||pathname.startsWith('/v1/datasets')||
+  return pathname==='/v1/auth/logout'||pathname==='/v1/auth/developer-assertion'||pathname.startsWith('/v1/account/')||pathname.startsWith('/v1/datasets')||
     pathname.startsWith('/v1/membership/')||pathname.startsWith('/v1/develop/')||pathname.startsWith('/v1/game/');
 }
 async function csrfGuard(request,env,url){
@@ -244,6 +245,7 @@ async function cleanupCloudData(env){
     env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM developer_assertions WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM idempotent_operations WHERE created_at < ?').bind(isoDaysAgo(policy.idempotencyDays)),
     env.DB.prepare('DELETE FROM audit_logs WHERE created_at < ?').bind(isoDaysAgo(policy.auditDays)),
     env.DB.prepare('DELETE FROM user_datasets WHERE deleted_at IS NOT NULL AND deleted_at < ?').bind(isoDaysAgo(policy.deletedDatasetDays))
@@ -307,7 +309,17 @@ async function ensureAuthSchema(env){
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at)'),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS developer_assertions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_developer_assertions_expires_at ON developer_assertions(expires_at)')
   ]);
   const info=await env.DB.prepare('PRAGMA table_info(users)').all();
   const columns=new Set((info.results||[]).map(row=>row.name));
@@ -1182,6 +1194,31 @@ async function handleAuthProfile(request,env){
   const row=await userFromSession(request,env);
   if(!row)return json(request,env,{error:'Sesi tidak valid.'},401);
   return json(request,env,{user:publicUser(row)});
+}
+async function handleDeveloperAssertion(request,env){
+  const row=await userFromSession(request,env);
+  if(!row)return json(request,env,{error:'Sesi akun tidak valid. Silakan masuk kembali.'},401);
+  if(!DEVELOPER_ASSERTION_EMAILS.has(String(row.email||'').trim().toLowerCase())||!row.email_verified){
+    return json(request,env,{error:'Akses hanya tersedia untuk akun developer.'},403);
+  }
+  const assertion=randomToken(32);
+  const createdAt=new Date().toISOString();
+  const expiresAt=new Date(Date.now()+120000).toISOString();
+  await env.DB.prepare('INSERT INTO developer_assertions (token_hash,user_id,email,created_at,expires_at,used_at) VALUES (?,?,?,?,?,NULL)')
+    .bind(await sha256(assertion),row.id,row.email,createdAt,expiresAt).run();
+  return json(request,env,{assertion,expiresAt},200,{'Cache-Control':'no-store'});
+}
+async function handleDeveloperAssertionVerify(request,env){
+  const assertion=sessionCredential(request).token;
+  if(!assertion)return json(request,env,{error:'Developer assertion tidak tersedia.'},401);
+  const hash=await sha256(assertion),now=new Date().toISOString();
+  const row=await env.DB.prepare('SELECT user_id,email FROM developer_assertions WHERE token_hash=? AND expires_at>? AND used_at IS NULL LIMIT 1')
+    .bind(hash,now).first();
+  if(!row)return json(request,env,{error:'Developer assertion tidak valid atau sudah kedaluwarsa.'},401);
+  const claimed=await env.DB.prepare('UPDATE developer_assertions SET used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?')
+    .bind(now,hash,now).run();
+  if(Number(claimed.meta?.changes)!==1)return json(request,env,{error:'Developer assertion sudah digunakan.'},401);
+  return json(request,env,{user:{id:row.user_id,email:row.email}},200,{'Cache-Control':'no-store'});
 }
 async function handleMembershipPlans(request,env){
   await ensureMembershipSchema(env);
@@ -2331,6 +2368,8 @@ export default {
       if(request.method==='POST'&&url.pathname==='/v1/auth/exchange')return await handleAuthExchange(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/session')return await handleAuthSession(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/auth/profile')return await handleAuthProfile(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/auth/developer-assertion')return await handleDeveloperAssertion(request,env);
+      if(request.method==='POST'&&url.pathname==='/v1/auth/developer-assertion/verify')return await handleDeveloperAssertionVerify(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/auth/logout')return await handleAuthLogout(request,env);
       if(request.method==='GET'&&url.pathname==='/v1/membership/plans')return await handleMembershipPlans(request,env);
       if(request.method==='POST'&&url.pathname==='/v1/membership/payments'){

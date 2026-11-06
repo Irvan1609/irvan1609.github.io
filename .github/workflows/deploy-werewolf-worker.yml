@@ -53,7 +53,7 @@ jobs:
             workers_dev: true,
             vars: {
               ALLOWED_ORIGINS: production
-                ? 'https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
+                ? 'https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,https://werewolf-room-api-dev.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
                 : 'https://irvan1609.github.io,https://werewolf-room-api-dev.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173'
             },
             assets: {
@@ -70,7 +70,8 @@ jobs:
             }],
             ratelimits: [
               { name: 'ROOM_CREATE_LIMITER', namespace_id: '91609101', simple: { limit: 5, period: 60 } },
-              { name: 'ROOM_JOIN_LIMITER', namespace_id: '91609102', simple: { limit: 20, period: 60 } }
+              { name: 'ROOM_JOIN_LIMITER', namespace_id: '91609102', simple: { limit: 20, period: 60 } },
+              { name: 'NARRATOR_TTS_LIMITER', namespace_id: '91609103', simple: { limit: 120, period: 60 } }
             ]
           };
           fs.writeFileSync('wrangler.werewolf.json', JSON.stringify(config, null, 2));

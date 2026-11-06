@@ -128,7 +128,7 @@ jobs:
             keep_vars:true,
             vars:{
               MIDTRANS_ENV:'sandbox',
-              ALLOWED_ORIGINS:'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev',
+              ALLOWED_ORIGINS:'https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,https://werewolf-room-api-dev.andyirvan1609.workers.dev,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev',
               IDEMPOTENCY_RETENTION_DAYS:'14',
               AUDIT_RETENTION_DAYS:'90',
               DELETED_DATASET_RETENTION_DAYS:'30',

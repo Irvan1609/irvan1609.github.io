@@ -1,0 +1,41 @@
+name: Check Werewolf narrator voice
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "cloudflare/hitung-cabai-worker/**"
+      - "cloudflare/werewolf-worker/**"
+      - "public/werewolf/**"
+      - "public/sw.js"
+      - "scripts/check-account-auth.mjs"
+      - "scripts/check-werewolf.mjs"
+      - "scripts/check-werewolf-worker.mjs"
+      - ".github/workflows/check-werewolf-narrator.yml"
+  push:
+    branches: [feature/werewolf-developer-narrator-voice]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check cloudflare/hitung-cabai-worker/src/index.js
+          node --check cloudflare/werewolf-worker/src/index.js
+          node --check public/werewolf/app.js
+      - name: Run account and game regression checks
+        run: |
+          node scripts/check-account-auth.mjs
+          node scripts/check-werewolf.mjs
+          node scripts/check-werewolf-worker.mjs
