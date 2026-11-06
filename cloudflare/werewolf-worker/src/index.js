@@ -2065,6 +2065,15 @@ export class WerewolfRoom {
       if ((room.nightSkippedPlayerIds || []).includes(player.id)) {
         throw new HttpError(409, 'Aksi pemain ini telah dilewati moderator.');
       }
+      if (body.mode === 'cupid_clear') {
+        if (player.role !== 'cupid' || room.round !== 1 || room.cupidUsed
+          || !abilityEnabled(room, 'cupidBond')) {
+          throw new HttpError(403, 'Ikatan Cupid tidak dapat diubah pada fase ini.');
+        }
+        delete room.nightActions[player.id];
+        this.runBotNightActions(room);
+        return;
+      }
       if (body.mode === 'villager_math') {
         if (!canAnswerNightMath(room, player)) {
           throw new HttpError(403, 'Selesaikan kemampuan khusus role terlebih dahulu.');
