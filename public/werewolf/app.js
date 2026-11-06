@@ -1364,6 +1364,19 @@ function updatePhaseTracker(phase) {
   }
 }
 
+function syncBotTakeoverDialog() {
+  const dialog = $('botTakeoverDialog');
+  if (!dialog) return;
+  const controlled = Boolean(roomState?.self?.isBotControlled && !roomState?.self?.isWaiting);
+  if (controlled && !dialog.open) {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  } else if (!controlled && dialog.open) {
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+  }
+}
+
 function renderRoom() {
   if (!roomState) return;
   const room = roomState.room;
@@ -1951,7 +1964,7 @@ function renderPlayerPhase(parent) {
 
   if (self.isBotControlled) {
     addText(parent, 'div', 'notice warning',
-      'BOT sementara mengambil alih role dan aksi pemain ini. Kamu dapat memantau permainan sampai moderator mengembalikan kendali.');
+      'BOT sementara menjalankan role dan aksimu. Pilih Kembali Bermain untuk mengambil kendali lagi atau Keluar Room untuk meninggalkan permainan.');
     if (phase === 'finished') renderVictoryScreen(parent, false);
     return;
   }
@@ -3352,6 +3365,16 @@ $('resetRoom').addEventListener('click', async () => {
   });
   if (accepted) sendAction('reset_to_lobby');
 });
+
+
+$('botTakeoverReturn').addEventListener('click', async () => {
+  const restored = await sendAction('restore_player_control');
+  if (restored) showMessage('Kendali pemain kembali kepadamu.');
+});
+$('botTakeoverLeave').addEventListener('click', () => {
+  leaveCurrentRoom();
+});
+$('botTakeoverDialog').addEventListener('cancel', event => event.preventDefault());
 
 $('leaveRoom').addEventListener('click', async () => {
   if (isHost()) {
