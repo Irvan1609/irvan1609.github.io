@@ -1,3 +1,4 @@
+// Regression coverage follows the production asset-version contract.
 import { qrMatrix, qrSvg } from '../public/werewolf/qr.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
