@@ -2413,6 +2413,8 @@ function renderDiscussionTools(parent) {
     status.id = 'voiceStatus';
     const count = addText(voiceMeta, 'span', 'voice-peer-count', '0 pemain terhubung');
     count.id = 'voicePeerCount';
+    addText(voiceMeta, 'small', 'voice-feedback-note',
+      'Jika beberapa pemain satu ruangan, gunakan headset. Peredam gema aktif otomatis.');
     heading.append(voiceMeta);
   } else {
     addText(heading, 'span', 'chat-mode-note', 'Voice tidak aktif');
