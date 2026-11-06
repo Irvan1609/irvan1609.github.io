@@ -1209,7 +1209,7 @@ export class WerewolfRoom {
         candidates = candidates.filter(player => player.name !== clue.playerName);
       }
       const evidenceTarget = ['hard', 'expert'].includes(room.settings?.botDifficulty || 'normal')
-        ? this.selectBotSuspect(room, candidates) : null;
+        ? this.selectBotSuspect(room, candidates, room.settings?.botDifficulty || 'normal') : null;
       const suspected = wolfClue
         ? alive.find(player => player.name === clue.playerName && isWolf(player.role))
         : evidenceTarget || (candidates.length ? candidates[randomInt(candidates.length)] : null);
@@ -1239,6 +1239,11 @@ export class WerewolfRoom {
           : 'Untuk sementara aku memperhatikan ' + suspected.name + ', tetapi aku masih terbuka pada bukti lain.';
       } else {
         text = 'Aku belum punya petunjuk yang cukup. Mari dengarkan pendapat semua pemain.';
+      }
+      if (!isNightReport && text) {
+        if (bot.personality === 'analytical') text = 'Dari pola voting dan petunjuk publik, ' + text.charAt(0).toLowerCase() + text.slice(1);
+        else if (bot.personality === 'calm') text = 'Mari kita bahas dengan tenang. ' + text;
+        else if (bot.personality === 'cautious') text = 'Aku belum sepenuhnya yakin, tetapi ' + text.charAt(0).toLowerCase() + text.slice(1);
       }
       room.chat.push({
         id: crypto.randomUUID(), playerId: bot.id, name: bot.name, text,
@@ -1283,13 +1288,13 @@ export class WerewolfRoom {
   }
 
 // Bot decisions are constrained to public vote history and the bot's own role information.
-  selectBotSuspect(room, candidates) {
+  selectBotSuspect(room, candidates, difficulty = 'hard') {
     const eligible = Array.isArray(candidates) ? candidates : [];
     if (!eligible.length) return null;
-    const history = (room.botVoteHistory || []).slice(-3);
+    const history = (room.botVoteHistory || []).slice(difficulty === 'expert' ? -5 : -3);
     const scores = new Map();
     history.forEach((entry, index) => {
-      const weight = index + 1;
+      const weight = difficulty === 'expert' ? (index + 1) ** 2 : index + 1;
       for (const ballot of entry.publicVotes || []) {
         if (!ballot.targetId) continue;
         scores.set(ballot.targetId, (scores.get(ballot.targetId) || 0) + weight);
@@ -1308,7 +1313,7 @@ export class WerewolfRoom {
     const difficulty = room.settings?.botDifficulty || 'normal';
     const chooseTarget = candidates => {
       if (!candidates.length) return null;
-      return (['hard', 'expert'].includes(difficulty) ? this.selectBotSuspect(room, candidates) : null)
+      return (['hard', 'expert'].includes(difficulty) ? this.selectBotSuspect(room, candidates, difficulty) : null)
         || candidates[randomInt(candidates.length)];
     };
     const submitMath = bot => {
@@ -1500,7 +1505,7 @@ export class WerewolfRoom {
         }
       }
       const candidates = alive.filter(player => player.id !== bot.id && (!isWolf(bot.role) || !isWolf(player.role)));
-      if (!selected && ['hard', 'expert'].includes(difficulty)) selected = this.selectBotSuspect(room, candidates);
+      if (!selected && ['hard', 'expert'].includes(difficulty)) selected = this.selectBotSuspect(room, candidates, difficulty);
       if (!selected) selected = candidates.length ? candidates[randomInt(candidates.length)] : null;
       if (selected) room.votes[bot.id] = selected.id;
     }
