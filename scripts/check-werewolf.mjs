@@ -308,7 +308,7 @@ for (const file of [
   'role-seer.svg', 'role-doctor.svg', 'role-villager.svg',
   'role-alpha_wolf.svg', 'role-bodyguard.svg', 'role-witch.svg',
   'role-hunter.svg', 'role-reviver.svg', 'role-cupid.svg', 'role-guardian_angel.svg',
-  'role-detective.svg', 'role-mayor.svg', 'role-jester.svg'
+  'role-detective.svg', 'role-mayor.svg', 'role-jester.svg', 'role-wolf_seer.svg', 'role-trapper.svg'
 ]) {
   assert.match(read('public/werewolf/assets/illustrations/' + file), /<svg/, 'Missing SVG asset ' + file);
   assert.ok(sw.includes('/werewolf/assets/illustrations/' + file), 'Role illustration is not precached: ' + file);
@@ -324,7 +324,7 @@ assert.doesNotMatch(html, /createRoleConfig|soloMode|how-to-play/, 'Landing must
 assert.doesNotMatch(app, /createRoleConfig|soloMode/, 'Role and bot configuration must not be read from the landing form.');
 assert.match(app, /renderRoleConfigEditor\(configEditor, settings\)/, 'Role configuration must remain in the moderator lobby.');
 assert.match(app, /Mulai Permainan & Bagikan Kartu/, 'Moderator must have an explicit start-and-deal action.');
-assert.match(app, /activePlayerCount >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
+assert.match(app, /activePlayers >= 2 && exact/, 'Starting requires at least two active players and an exact role count after moderator selection.');
 assert.match(app, /recommendedRoleCounts/);
 assert.match(app, /\['witch', 7\]/);
 assert.match(app, /\['detective', 11\]/);
