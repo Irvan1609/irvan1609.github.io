@@ -3020,6 +3020,8 @@ async function leaveCurrentRoom() {
       method: 'POST', body: { type: 'leave_room' }, session: activeSession
     });
     if (session !== activeSession) return;
+    const takeoverDialog = $('botTakeoverDialog');
+    if (takeoverDialog?.open) takeoverDialog.close();
     stopRealtime();
     localStorage.removeItem(SESSION_PREFIX + activeSession.code);
     if (localStorage.getItem('werewolf.lastRoom') === activeSession.code) localStorage.removeItem('werewolf.lastRoom');
