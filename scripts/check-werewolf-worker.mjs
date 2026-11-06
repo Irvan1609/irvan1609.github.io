@@ -1886,9 +1886,9 @@ assert.equal(lateJoinSnapshot.self.alive, false);
 assert.deepEqual(lateJoinSnapshot.targets, []);
 assert.ok(!lateJoinSnapshot.voicePeers.some(peer => peer.id === lateJoin.playerId),
   'A queued player does not enter the active game voice room.');
-await expectStatus(waitlistRoom, 403, makeRequest('/internal/action', 'POST', {
+await payload(await waitlistRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'send_discussion_chat', text: 'I am waiting.'
-}, lateJoin.token));
+}, lateJoin.token)), 403);
 await payload(await waitlistRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'leave_room'
 }, lateJoin.token)));
