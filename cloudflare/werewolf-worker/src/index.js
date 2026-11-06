@@ -3319,44 +3319,44 @@ export class WerewolfRoom {
         changed = true;
       } else if (room.phase === 'night'
         && Number(room.nightEndsAt) > 0 && room.nightEndsAt <= now) {
+        const skippedIds = new Set(room.nightSkippedPlayerIds || []);
+        const missingActors = room.players.filter(item => item.alive
+          && (!room.nightActions?.[item.id] || skippedIds.has(item.id)));
+        for (const item of missingActors) delete room.nightActions?.[item.id];
+        room.nightSkippedPlayerIds = (room.nightSkippedPlayerIds || []).filter(id =>
+          !missingActors.some(item => item.id === id));
+        const taken = this.takeOverInactivePlayers(room, missingActors, 'night', now);
+        if (taken.length) this.runBotNightActions(room);
         if (this.isSystemModerator(room)) {
           await this.applyAction(room, room.moderator, { type: 'resolve_night', force: true });
           changed = true;
-        } else {
-          const skippedIds = new Set(room.nightSkippedPlayerIds || []);
-          const missingActors = room.players.filter(item => item.alive
-            && (!room.nightActions?.[item.id] || skippedIds.has(item.id)));
-          for (const item of missingActors) delete room.nightActions?.[item.id];
-          room.nightSkippedPlayerIds = (room.nightSkippedPlayerIds || []).filter(id =>
-            !missingActors.some(item => item.id === id));
-          const taken = this.takeOverInactivePlayers(room, missingActors, 'night', now);
-          if (taken.length) this.runBotNightActions(room);
-          changed = taken.length > 0;
-        }
+        } else changed = taken.length > 0;
       } else if (room.phase === 'dawn'
         && Number(room.dawnEndsAt) > 0 && room.dawnEndsAt <= now) {
+        const nightDeadIds = new Set(room.lastResult?.kind === 'night'
+          ? (room.lastResult.eliminations || []).map(item => item.id) : []);
+        const eligible = room.players.filter(item =>
+          item.role === 'hunter' && !item.alive && nightDeadIds.has(item.id)
+            && !item.hunterUsed && abilityEnabled(room, 'hunterShot')
+          || item.role === 'reviver' && item.alive && !item.reviverUsed
+            && abilityEnabled(room, 'reviverOnce') && nightDeadIds.size > 0
+        );
+        const pending = eligible.filter(item => !room.dawnActions?.[item.id]);
+        const taken = this.takeOverInactivePlayers(room, pending, 'dawn', now);
+        if (taken.length) this.runBotDawnActions(room);
         if (this.isSystemModerator(room)) {
           await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
           changed = true;
-        } else {
-          const nightDeadIds = new Set(room.lastResult?.kind === 'night'
-            ? (room.lastResult.eliminations || []).map(item => item.id) : []);
-          const eligible = room.players.filter(item =>
-            item.role === 'hunter' && !item.alive && nightDeadIds.has(item.id)
-              && !item.hunterUsed && abilityEnabled(room, 'hunterShot')
-            || item.role === 'reviver' && item.alive && !item.reviverUsed
-              && abilityEnabled(room, 'reviverOnce') && nightDeadIds.size > 0
-          );
-          const pending = eligible.filter(item => !room.dawnActions?.[item.id]);
-          const taken = this.takeOverInactivePlayers(room, pending, 'dawn', now);
-          if (taken.length) this.runBotDawnActions(room);
-          changed = taken.length > 0;
-        }
+        } else changed = taken.length > 0;
       } else if (room.phase === 'morning' && this.isSystemModerator(room)
         && Number(room.discussionEndsAt) > 0 && room.discussionEndsAt <= now) {
         await this.applyAction(room, room.moderator, { type: 'start_voting' });
         changed = true;
       } else if (room.phase === 'voting' && Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) {
+        const missingVoters = room.players.filter(item => item.alive
+          && !Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
+        const taken = this.takeOverInactivePlayers(room, missingVoters, 'voting', now);
+        if (taken.length) this.runBotVotes(room, now);
         this.finishVote(room, now);
         changed = true;
       } else if (room.phase === 'result' && this.isSystemModerator(room)
