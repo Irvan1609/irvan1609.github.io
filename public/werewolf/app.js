@@ -1842,12 +1842,9 @@ function renderLivingPlayers(parent) {
     const card = node('article', 'public-role-card faction-' + entry.faction);
     const title = node('div', 'public-role-title');
     addText(title, 'b', '', roleLabel(entry.role));
-    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
-      addText(title, 'span', 'public-dead-name', ' | ' + entry.deceasedNames.join(', '));
-    }
     addText(title, 'span', '', '×' + entry.count);
     card.append(title);
-    const aliveCount = Math.max(0, Number(entry.count || 0) - (entry.deceasedNames || []).length);
+    const aliveCount = Math.max(0, Number(entry.count || 0) - Number(entry.deceasedCount || 0));
     addText(card, 'div', 'public-role-alive-count', aliveCount + ' pemain hidup · role dirahasiakan');
     if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
       const deceased = node('div', 'public-role-deceased-list');
