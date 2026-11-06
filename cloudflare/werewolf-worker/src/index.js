@@ -829,11 +829,14 @@ export class WerewolfRoom {
       const faction = isWolf(player.role) ? 'wolves'
         : NEUTRAL_ROLES.has(player.role) ? 'neutral' : 'village';
       if (!publicRoleMap.has(player.role)) {
-        publicRoleMap.set(player.role, { role: player.role, faction, count: 0, deceasedNames: [] });
+        publicRoleMap.set(player.role, { role: player.role, faction, count: 0, deceasedCount: 0, deceasedNames: [] });
       }
       const entry = publicRoleMap.get(player.role);
       entry.count += 1;
-      if (!player.alive && revealRoleOnDeath) entry.deceasedNames.push(player.name);
+      if (!player.alive) {
+        entry.deceasedCount += 1;
+        if (revealRoleOnDeath) entry.deceasedNames.push(player.name);
+      }
     }
     const publicRoles = [...publicRoleMap.values()].sort((left, right) =>
       (left.faction === right.faction ? left.role.localeCompare(right.role) :
@@ -3355,8 +3358,6 @@ export class WerewolfRoom {
       } else if (room.phase === 'voting' && Number(room.votingEndsAt) > 0 && room.votingEndsAt <= now) {
         const missingVoters = room.players.filter(item => item.alive
           && !Object.prototype.hasOwnProperty.call(room.votes || {}, item.id));
-        const taken = this.takeOverInactivePlayers(room, missingVoters, 'voting', now);
-        if (taken.length) this.runBotVotes(room, now);
         this.finishVote(room, now);
         changed = true;
       } else if (room.phase === 'result' && this.isSystemModerator(room)
