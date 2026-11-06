@@ -76,7 +76,7 @@ assert.match(app, /function discussionVoiceListeningAllowed/);
 assert.match(app, /Kamu masuk saat permainan berlangsung/);
 assert.doesNotMatch(html, /id="createGameMode"/);
 assert.match(app, /function renderLivingPlayers/);
-assert.match(app, /MASIH HIDUP/);
+assert.match(app, /ROLE DALAM PERMAINAN/);
 assert.match(worker, /livingPlayers: alive\.map/);
 assert.match(worker, /hasSpecialNightAction/);
 assert.match(worker, /canAnswerNightMath/);
