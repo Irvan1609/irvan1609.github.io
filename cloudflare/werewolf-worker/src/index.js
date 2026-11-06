@@ -811,8 +811,8 @@ export class WerewolfRoom {
       else if (room.phase === 'night') phaseStatus = hasActed ? 'Sudah beraksi' : 'Belum beraksi';
       else if (room.phase === 'dawn') phaseStatus = isDawnEligible
         ? (dawnAction ? 'Sudah beraksi' : 'Belum beraksi') : 'Tidak ada aksi khusus';
-      else if (room.phase === 'voting') phaseStatus = hasVoted
-        ? (voteTarget ? 'Memilih ' + voteTarget.name : 'Golput') : 'Belum voting';
+      else if (room.phase === 'voting') phaseStatus = !player.alive ? 'Tidak ikut voting'
+        : hasVoted ? (voteTarget ? 'Memilih ' + voteTarget.name : 'Golput') : 'Belum voting';
       return {
         id: player.id, name: player.name, alive: Boolean(player.alive),
         hasDrawn: Boolean(player.hasDrawn), hasActed, hasVoted,
