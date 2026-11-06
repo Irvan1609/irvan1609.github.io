@@ -40,7 +40,7 @@ const EXTRA_ROLE_OPTIONS = [
   ['guardianAngel', 'Guardian Angel', 'Melindungi satu pemain setiap malam; mendapat kemenangan tambahan jika target selamat.'],
   ['detective', 'Detective', 'Memeriksa kubu pemain setiap malam.'],
   ['mayor', 'Mayor', 'Memiliki dua bobot suara dalam voting.'],
-  ['jester', 'Jester', 'Menang jika tereliminasi melalui voting.'],
+  ['jester', 'Penduduk Aneh', 'Berada di kubu Desa dan menang sendiri jika tereliminasi melalui voting.'],
   ['priest', 'Priest', 'Sekali per game melindungi satu pemain dari serangan Werewolf.'],
   ['vigilante', 'Vigilante', 'Sekali per game menembak satu pemain pada malam hari.'],
   ['mason', 'Mason', 'Mengenali sesama Mason; malam tanpa aksi khusus diisi perhitungan.']
