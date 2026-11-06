@@ -2486,6 +2486,9 @@ export class WerewolfRoom {
           && abilityEnabled(room, 'reviverOnce') && (room.lastResult.eliminations || []).some(dead => dead.id !== item.id)
       );
       if (!dawnEligible.length) {
+        // Skip the trigger window when no Hunter or Reviver can act this dawn.
+        // The normal deadline guard still applies whenever the phase is actually needed.
+        room.dawnEndsAt = now;
         await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
       }
       return;
