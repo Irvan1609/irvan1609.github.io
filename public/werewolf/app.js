@@ -1829,13 +1829,11 @@ function renderLivingPlayers(parent) {
     const card = node('article', 'public-role-card faction-' + entry.faction);
     const title = node('div', 'public-role-title');
     addText(title, 'b', '', roleLabel(entry.role));
+    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
+      addText(title, 'span', 'public-dead-name', ' | ' + entry.deceasedNames.join(', '));
+    }
     addText(title, 'span', '', '×' + entry.count);
     card.append(title);
-    if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
-      const deceased = node('div', 'public-role-deceased');
-      for (const name of entry.deceasedNames) addText(deceased, 'span', 'public-dead-name', '│ ' + name);
-      card.append(deceased);
-    }
     roleGrid.append(card);
   }
   if (!roles.length) addText(roleGrid, 'span', 'hint', 'Komposisi role belum tersedia.');
