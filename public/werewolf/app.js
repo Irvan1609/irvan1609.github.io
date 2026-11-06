@@ -105,6 +105,7 @@ let voicePlaybackVolume = 0.2;
 let narratorPlaybackVolume = 0.9;
 let narratorAudioElement = null;
 let narratorAudioUrl = '';
+let narratorAudioCancel = null;
 let voiceOutbox = [];
 let voiceMeterContext = null;
 let voiceMeterFrame = 0;
@@ -3241,6 +3242,11 @@ let narratorPlaybackSequence = 0;
 
 function stopNarratorAudio() {
   narratorPlaybackSequence += 1;
+  if (narratorAudioCancel) {
+    const cancel = narratorAudioCancel;
+    narratorAudioCancel = null;
+    cancel();
+  }
   if (narratorAudioElement) {
     try { narratorAudioElement.pause(); narratorAudioElement.currentTime = 0; } catch {}
     narratorAudioElement = null;
@@ -3265,8 +3271,14 @@ function playNarratorAudioBlob(audioBlob, playbackSequence) {
       finished = true;
       if (narratorAudioElement === audio) narratorAudioElement = null;
       if (narratorAudioUrl === audioUrl) narratorAudioUrl = '';
+      if (narratorAudioCancel === cancel) narratorAudioCancel = null;
       URL.revokeObjectURL(audioUrl);
     };
+    const cancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    narratorAudioCancel = cancel;
     narratorAudioElement = audio;
     narratorAudioUrl = audioUrl;
     audio.volume = narratorPlaybackVolume;
