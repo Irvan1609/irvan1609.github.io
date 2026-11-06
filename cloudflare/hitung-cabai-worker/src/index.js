@@ -245,6 +245,7 @@ async function cleanupCloudData(env){
     env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM auth_exchange_codes WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM sessions WHERE expires_at < ? OR revoked_at IS NOT NULL').bind(new Date(now).toISOString()),
+    env.DB.prepare('DELETE FROM developer_assertions WHERE expires_at < ? OR used_at IS NOT NULL').bind(new Date(now).toISOString()),
     env.DB.prepare('DELETE FROM idempotent_operations WHERE created_at < ?').bind(isoDaysAgo(policy.idempotencyDays)),
     env.DB.prepare('DELETE FROM audit_logs WHERE created_at < ?').bind(isoDaysAgo(policy.auditDays)),
     env.DB.prepare('DELETE FROM user_datasets WHERE deleted_at IS NOT NULL AND deleted_at < ?').bind(isoDaysAgo(policy.deletedDatasetDays))
