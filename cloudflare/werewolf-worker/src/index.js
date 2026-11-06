@@ -216,7 +216,7 @@ function roleDeck(settings, playerCount) {
     throw new HttpError(409, 'Minimal 2 pemain diperlukan agar kubu Werewolf dan Desa dapat bermain.');
   }
   const counts = settings.roleCounts || recommendedRoleCounts(playerCount, settings);
-  const total = ROLE_COUNT_KEYS.reduce((sum, key) => sum + counts[key], 0);
+  const total = ROLE_COUNT_KEYS.reduce((sum, key) => sum + Number(counts[key] || 0), 0);
   if (!Number.isSafeInteger(total)) throw new HttpError(400, 'Total jumlah role terlalu besar.');
   if (total !== playerCount) {
     throw new HttpError(409, 'Jumlah role (' + total + ') harus sama dengan jumlah pemain (' + playerCount + '). Sesuaikan komposisi role di lobby.');
@@ -225,7 +225,7 @@ function roleDeck(settings, playerCount) {
     throw new HttpError(409, 'Komposisi harus memiliki minimal satu Werewolf atau Alpha Wolf.');
   }
   const villageCount = ROLE_COUNT_KEYS.filter(key => VILLAGE_ROLES.has(key))
-    .reduce((sum, key) => sum + counts[key], 0);
+    .reduce((sum, key) => sum + Number(counts[key] || 0), 0);
   if (villageCount < 1) throw new HttpError(409, 'Komposisi harus memiliki minimal satu anggota kubu Desa.');
   const roles = [];
   for (const key of ROLE_COUNT_KEYS) {
