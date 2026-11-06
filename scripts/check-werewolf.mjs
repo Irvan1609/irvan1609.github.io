@@ -178,7 +178,7 @@ assert.match(app, /Kartu telah dibagikan/);
 assert.match(app, /Malam telah tiba/);
 assert.match(app, /Seorang warga ditemukan dengan bekas serangan/);
 assert.match(app, /Warga berkumpul di alun-alun/);
-assert.ok(app.includes('Sore tiba. Saatnya menentukan'));
+assert.ok(app.includes('Sore tiba.') && app.includes('Saatnya menentukan siapa yang akan dieksekusi.'));
 assert.match(app, /Keputusan telah dijatuhkan/);
 assert.match(app, /Kawanan Werewolf akhirnya menguasai desa/);
 
