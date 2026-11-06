@@ -899,6 +899,16 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   transform: translateX(-50%);
 }
 @media(max-width:620px) {
+  .role-count-grid .role-count-item:nth-child(odd) .role-config-info-disclosure[open] .role-config-info-details {
+    left: 0;
+    right: auto;
+    transform: none;
+  }
+  .role-count-grid .role-count-item:nth-child(even) .role-config-info-disclosure[open] .role-config-info-details {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
   .role-count-grid { gap: 7px; }
   .role-count-field {
     display: grid;
