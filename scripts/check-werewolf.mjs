@@ -207,7 +207,7 @@ assert.match(app, /PLAYER_NAME_KEY/);
 assert.match(app, /villager_math/);
 assert.match(app, /waiting-room-roster/);
 assert.match(worker, /runBotDawnActions/);
-assert.ok(worker.includes('/developer/narrator/clips/'));
+assert.match(worker, /developerClipMatch/);
 assert.doesNotMatch(worker, /ElevenLabs|ELEVENLABS_API_KEY|NARRATOR_TTS_LIMITER/);
 assert.match(worker, /MAX_NARRATOR_CLIP_BYTES/);
 assert.match(worker, /global-narrator-audio-clips/);
