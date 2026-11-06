@@ -11,7 +11,7 @@ const account=fs.readFileSync('public/account.js','utf8');
 const config=fs.readFileSync('public/account-config.js','utf8');
 const css=fs.readFileSync('public/account.css','utf8');
 
-for(const marker of ['/v1/auth/google/start','/v1/auth/google/callback','/v1/auth/exchange','/v1/auth/session','/v1/auth/profile','/v1/auth/developer-assertion','/v1/auth/developer-assertion/verify','/v1/auth/logout','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','openidconnect.googleapis.com/v1/userinfo','ensureAuthSchema','token_hash','__Host-agrotik_session','csrfGuard','rotateSessionIfNeeded','user_agent','ip_hash']){
+for(const marker of ['/v1/auth/google/start','/v1/auth/google/callback','/v1/auth/exchange','/v1/auth/session','/v1/auth/profile','/v1/auth/developer-assertion','/v1/auth/developer-assertion/verify','DEVELOPER_ASSERTION_EMAIL','irvan1609@gmail.com','/v1/auth/logout','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','openidconnect.googleapis.com/v1/userinfo','ensureAuthSchema','token_hash','__Host-agrotik_session','csrfGuard','rotateSessionIfNeeded','user_agent','ip_hash']){
   if(!worker.includes(marker))fail('Worker missing '+marker);
 }
 for(const table of ['users','oauth_states','auth_exchange_codes','sessions','developer_assertions']){
