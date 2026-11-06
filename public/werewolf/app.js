@@ -2039,7 +2039,6 @@ function renderNightMath(parent, title = 'Perhitungan malam') {
         sendAction('night_action', { mode: 'villager_math', promptId: prompt.id, choiceIndex: index })
     ));
   });
-  if (roomState.self?.hasActed) addText(parent, 'p', 'hint', 'Pilihan tersimpan. Kamu masih dapat menggantinya sampai waktu tengah malam berakhir.');
   parent.append(answers);
 }
 
@@ -2072,9 +2071,6 @@ function renderPlayerNight(parent) {
     addText(parent, 'div', 'notice', 'Waktu aksi tengah malam berakhir. Pilihan sedang dikunci untuk diproses.');
     return;
   }
-  if (self.hasActed) addText(parent, 'div', 'notice success',
-    'Pilihanmu tersimpan. Kamu masih bisa menggantinya sampai timer tengah malam berakhir.');
-
   if (['wolf', 'alpha_wolf'].includes(self.role)) {
     renderWolfNightRoom(parent);
     addText(parent, 'h3', '', 'Pilih target serangan');
@@ -2384,9 +2380,6 @@ function renderPlayerDawn(parent) {
   }
   if (self.role === 'hunter' && !self.alive && !self.hunterUsed) {
     addText(parent, 'div', 'notice warning', 'Kamu gugur saat malam. Sebelum pergi, kamu masih dapat melepaskan satu tembakan.');
-    if (self.dawnActionType === 'hunter_shot') {
-      addText(parent, 'div', 'notice success', 'Target tembakan tersimpan. Kamu masih bisa menggantinya sampai subuh berakhir.');
-    }
     const grid = node('div', 'action-grid');
     for (const target of roomState.targets || []) {
       grid.append(button('Tembak · ' + target.name,
@@ -2400,9 +2393,6 @@ function renderPlayerDawn(parent) {
     const targets = roomState.reviveTargets || [];
     addText(parent, 'h3', '', 'Pilih satu korban untuk dibangkitkan');
     addText(parent, 'p', 'hint', 'Hanya korban yang gugur pada malam ini yang dapat dihidupkan kembali. Kemampuan hanya dapat digunakan sekali.');
-    if (self.dawnActionType === 'revive_player') {
-      addText(parent, 'div', 'notice success', 'Pilihan kebangkitan tersimpan. Kamu masih bisa menggantinya sampai subuh berakhir.');
-    }
     const grid = node('div', 'action-grid');
     for (const target of targets) {
       grid.append(button('Bangkitkan · ' + target.name,
@@ -2442,9 +2432,7 @@ function renderHunterShot(parent) {
     return;
   }
   addText(parent, 'h3', '', 'Kesempatan terakhir Hunter');
-  addText(parent, 'p', 'hint', roomState.self.resultActionTargetId
-    ? 'Target tersimpan. Kamu masih dapat menggantinya sampai waktu hasil voting berakhir.'
-    : 'Pilih satu pemain hidup untuk ditembak. Pilihan dapat diganti sampai timer berakhir.');
+  addText(parent, 'p', 'hint', 'Pilih pemain hidup untuk ditembak. Ketuk nama lain untuk mengganti pilihan sebelum timer berakhir.');
   const grid = node('div', 'action-grid');
   for (const target of roomState.targets || []) {
     grid.append(button('Tembak · ' + target.name,
@@ -2773,9 +2761,7 @@ function renderPlayerVoting(parent) {
     return;
   }
   addText(parent, 'h3', '', 'Tentukan pilihanmu');
-  addText(parent, 'div', 'notice', self.hasVoted
-    ? 'Pilihan tersimpan. Kamu masih dapat menggantinya sampai waktu voting berakhir.'
-    : 'Voting bersifat rahasia. Role dan pilihan pemain lain tidak ditampilkan.');
+  addText(parent, 'p', 'hint', 'Voting bersifat rahasia. Pilihan dapat diganti sampai timer habis.');
   parent.append(button('Abstain · Tidak memilih siapa pun',
     'secondary wide phase-timed-action' + (self.voteAbstain ? ' selected' : ''),
     () => sendAction('cast_vote', { abstain: true })));
@@ -3178,6 +3164,16 @@ $('leaveRoom').addEventListener('click', async () => {
     confirmLabel: 'Keluar dari room'
   });
   if (accepted) leaveCurrentRoom();
+});
+
+$('confirmDialogCancel').addEventListener('click', () => closeConfirmation(false));
+$('confirmDialogAccept').addEventListener('click', () => closeConfirmation(true));
+$('confirmDialog').addEventListener('cancel', event => {
+  event.preventDefault();
+  closeConfirmation(false);
+});
+$('confirmDialog').addEventListener('click', event => {
+  if (event.target === $('confirmDialog')) closeConfirmation(false);
 });
 
 function prefillPlayerName() {
