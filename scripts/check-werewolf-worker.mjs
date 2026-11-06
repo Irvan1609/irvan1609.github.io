@@ -2633,7 +2633,7 @@ console.log('Werewolf Wolf Seer regression passed: combined pack vote, exact pri
 
 const soloWolfSeerRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
 const soloWolfSeerCreated = await payload(await soloWolfSeerRoom.fetch(makeRequest('/internal/create', 'POST', {
-  code: 'WSOL23', name: 'Solo Wolf Seer Host',
+  code: 'WSXL23', name: 'Solo Wolf Seer Host',
   settings: { roleCounts: { wolf_seer: 1, villager: 3 } }
 })), 201);
 for (const name of ['Solo Seer', 'Village A', 'Village B', 'Village C']) {
