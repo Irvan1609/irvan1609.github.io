@@ -399,7 +399,7 @@ assert.match(app, /data-reveal-role-on-death/);
 assert.match(app, /publicRoles/);
 assert.match(app, /publicVotes/);
 assert.match(app, /public-player-row/);
-assert.match(app, /public-dead-name/);
+assert.match(app, /public-role-deceased-name/);
 assert.match(app, /ROLE DALAM PERMAINAN/);
 assert.match(app, /PEMAIN & STATUS/);
 assert.match(app, /renderLivingPlayers\(content\);/);
