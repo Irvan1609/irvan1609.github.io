@@ -2654,32 +2654,54 @@ function narrationChoice(room, lines) {
 function systemNarrationText(room) {
   const village = room.villageName || 'Desa Waringin';
   const result = room.lastResult || room.publicResult || {};
-  const resultMessage = String(result.message || '').trim();
   const victims = Array.isArray(result.eliminations) ? result.eliminations
     : Array.isArray(result.eliminatedPlayers) ? result.eliminatedPlayers : [];
   const victimNames = victims.map(item => item.name || item.playerName).filter(Boolean);
   const biteVictim = victims.find(item => item.cause === 'werewolf_attack' || item.cause === 'Serangan Werewolf');
   const shotVictim = victims.find(item => ['hunter', 'vigilante_shot'].includes(item.cause) || item.cause === 'Tembakan');
   const poisonVictim = victims.find(item => item.cause === 'witch_poison' || item.cause === 'Racun');
+  const describeVictim = item => {
+    const name = String(item.name || item.playerName || 'Seorang warga');
+    const cause = String(item.cause || '');
+    if (cause === 'werewolf_attack' || cause === 'Serangan Werewolf') {
+      return name + ' ditemukan dengan bekas gigitan di leher. Jejak kaki besar menghilang ke arah hutan.';
+    }
+    if (['hunter', 'vigilante_shot', 'Tembakan'].includes(cause)) {
+      return name + ' ditemukan dengan luka tembak. Selongsong peluru masih tergeletak di tanah.';
+    }
+    if (cause === 'witch_poison' || cause === 'Racun') {
+      return name + ' tergeletak di dekat gelas pecah dan botol kecil. Racun telah bekerja sebelum fajar.';
+    }
+    if (cause === 'bodyguard_sacrifice') {
+      return name + ' ditemukan gugur setelah berdiri menghadang serangan demi melindungi orang lain.';
+    }
+    if (cause === 'cupid_bond') {
+      return name + ' ikut gugur karena ikatan cinta yang menghubungkannya dengan korban lain.';
+    }
+    return name + ' ditemukan tak bernyawa. Malam menyimpan rahasia tentang bagaimana ia gugur.';
+  };
 
   switch (room.phase) {
     case 'role_draw':
       return narrationChoice(room, [
         'Kita berada di ' + village + ', desa kecil yang selama ini hidup tenang. Namun malam ini, sesuatu mengintai di balik jendela. Kartu telah dibagikan. Jaga rahasiamu.',
         'Di antara hutan dan jalan berkabut, berdirilah ' + village + '. Malam panjang akan segera dimulai. Bukalah kartu kalian, dan jangan biarkan siapa pun membaca rahasiamu.',
-        'Selamat datang di ' + village + '. Desa ini tampak damai, tetapi satu di antara kita menyimpan niat gelap. Takdir setiap warga kini berada di balik kartu.'
+        'Selamat datang di ' + village + '. Desa ini tampak damai, tetapi satu di antara kita menyimpan niat gelap. Takdir setiap warga kini berada di balik kartu.',
+        'Di ujung jalan, lonceng tua berdentang menyambut kalian di ' + village + '. Mulai malam ini, jangan mudah percaya pada wajah yang paling dikenal.'
       ]);
     case 'night':
       return narrationChoice(room, [
         'Malam turun di ' + village + '. Lentera dipadamkan, pintu-pintu dikunci. Di balik gelap, beberapa langkah mulai terdengar.',
         'Kabut menelan jalanan ' + village + '. Warga memejamkan mata. Namun di luar sana, ada yang sedang memburu mangsanya.',
-        'Tengah malam tiba. Angin melewati jendela dan anjing-anjing menggonggong dari kejauhan. Biarkan desa tertidur, sementara rahasia bergerak.'
+        'Tengah malam tiba. Angin melewati jendela dan anjing-anjing menggonggong dari kejauhan. Biarkan desa tertidur, sementara rahasia bergerak.',
+        'Jam tua berdentang dua belas kali. Di ' + village + ', ada pintu yang terbuka perlahan dan langkah yang tak seharusnya terdengar.'
       ]);
     case 'dawn':
       return narrationChoice(room, [
         'Langit mulai memucat. Subuh datang, tetapi nasib mereka yang gugur belum sepenuhnya ditentukan. Masih ada satu kesempatan sebelum desa terbangun.',
         'Ayam jantan belum berkokok. Di antara gelap dan terang, keputusan terakhir masih bisa mengubah nasib seseorang.',
-        'Cahaya pertama menyentuh atap rumah. Desa menahan napas; sebelum pagi tiba, masih ada urusan yang harus diselesaikan.'
+        'Cahaya pertama menyentuh atap rumah. Desa menahan napas; sebelum pagi tiba, masih ada urusan yang harus diselesaikan.',
+        'Kabut tipis menggantung di atas sumur desa. Beberapa warga belum pulang, dan fajar membawa satu kesempatan terakhir.'
       ]);
     case 'morning': {
       if (!victimNames.length) return narrationChoice(room, [
@@ -2687,26 +2709,31 @@ function systemNarrationText(room) {
         'Matahari muncul dari balik bukit. Tidak ada tubuh yang ditemukan pagi ini. Keheningan justru membuat warga semakin curiga.',
         'Pagi datang tanpa kabar duka. Untuk sesaat desa bernapas lega, tetapi ancaman masih bersembunyi di antara warga.'
       ]);
-      if (victimNames.length > 1) {
-        return 'Saat fajar tiba, warga menemukan ' + victimNames.join(' dan ') + ' telah gugur. Beberapa rumah masih terbuka, dan jejak malam tertinggal di sepanjang jalan. Desa kehilangan lebih dari satu nyawa.';
+      if (victims.length > 1) {
+        const details = victims.map(describeVictim).join(' Sementara itu, ');
+        return 'Fajar menyingsing di ' + village + '. Pintu-pintu rumah terbuka, lalu warga menemukan lebih dari satu korban. '
+          + details + ' Alun-alun mendadak sunyi; tak seorang pun tahu siapa yang masih dapat dipercaya.';
       }
       const name = victimNames[0];
-      if (biteVictim) return 'Matahari baru saja terbit ketika warga menemukan ' + name + ' tergeletak di depan rumah. Bekas gigitan terlihat jelas di lehernya. Ketakutan kembali menyelimuti ' + village + '.';
-      if (shotVictim) return 'Suara tembakan semalam masih terngiang. Pagi ini, ' + name + ' ditemukan tak bernyawa dengan luka tembak. Tak seorang pun berani mendekat.';
-      if (poisonVictim) return 'Di dekat tubuh ' + name + ', warga menemukan gelas pecah dan botol kecil. Racun telah merenggut satu nyawa sebelum fajar menyingsing.';
-      return 'Fajar menyibak kabut. Warga menemukan ' + name + ' tak lagi bernyawa. Tak ada yang tahu apa yang sebenarnya terjadi di balik gelap semalam.';
+      const detail = describeVictim(victims[0] || {});
+      if (biteVictim) return 'Matahari baru saja terbit di ' + village + '. ' + detail + ' Warga saling berpandangan, menyadari bahwa pemburu itu masih berada di antara mereka.';
+      if (shotVictim) return 'Suara tembakan semalam masih terngiang di telinga warga ' + village + '. ' + detail + ' Tak seorang pun berani mendekat.';
+      if (poisonVictim) return 'Pagi ini, warga menemukan ' + name + ' di sudut rumah. ' + detail + ' Siapa yang membawa racun ke desa?';
+      return 'Fajar menyibak kabut di ' + village + '. ' + detail + ' Tak ada yang tahu apa yang sebenarnya terjadi di balik gelap semalam.';
     }
     case 'discussion':
       return narrationChoice(room, [
         'Warga berkumpul di alun-alun ' + village + '. Setiap tatapan menyimpan kecurigaan. Dengarkan cerita mereka, sebelum waktu memilih habis.',
         'Kabar duka menyebar dari rumah ke rumah. Kini semua mata tertuju pada satu sama lain. Siapa yang menyembunyikan sesuatu?',
-        'Di tengah alun-alun, suara warga saling bersahutan. Kebenaran harus ditemukan sebelum sore membawa keputusan.'
+        'Di tengah alun-alun, suara warga saling bersahutan. Kebenaran harus ditemukan sebelum sore membawa keputusan.',
+        'Tak ada yang berani berdiri terlalu dekat dengan siapa pun. Warga membentuk lingkaran di alun-alun, menunggu seseorang membuka suara.'
       ]);
     case 'voting':
       return narrationChoice(room, [
         'Sore tiba. Tiang eksekusi berdiri di tengah alun-alun. Warga harus menentukan satu nama sebelum matahari tenggelam.',
         'Bayangan mulai memanjang di jalan desa. Waktunya memilih. Satu suara dapat menyelamatkan, atau mengakhiri, sebuah nyawa.',
-        'Perdebatan berhenti. Satu per satu suara dijatuhkan. Siapa yang akan dibawa ke tiang eksekusi sore ini?'
+        'Perdebatan berhenti. Satu per satu suara dijatuhkan. Siapa yang akan dibawa ke tiang eksekusi sore ini?',
+        'Matahari menyentuh garis pepohonan. Penjaga tiang eksekusi menunggu keputusan terakhir dari warga.'
       ]);
     case 'result': {
       const names = victimNames.length ? victimNames.join(' dan ') : '';
