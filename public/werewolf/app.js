@@ -3121,43 +3121,46 @@ function renderVictoryScreen(parent, moderatorView = false) {
 
 const NARRATOR_CLIPS = [
   { id: 'test_welcome', phase: 'Uji suara', text: 'Selamat datang di The Village After Dark.' },
-  { id: 'role_cards', phase: 'Pembukaan kartu', text: 'Kartu telah dibagikan. Simpan rahasiamu.' },
-  { id: 'role_secret', phase: 'Pembukaan kartu', text: 'Di antara kita, ada yang menyimpan niat gelap.' },
-  { id: 'night_arrival', phase: 'Tengah malam', text: 'Malam telah tiba. Semua warga, pejamkan mata.' },
+  { id: 'role_cards', phase: 'Pembukaan kartu', text: 'Kartu telah dibagikan.' },
+  { id: 'role_secret', phase: 'Pembukaan kartu', text: 'Simpan rahasiamu.' },
+  { id: 'night_arrival', phase: 'Tengah malam', text: 'Malam telah tiba.' },
+  { id: 'night_sleep', phase: 'Tengah malam', text: 'Semua warga, pejamkan mata.' },
   { id: 'night_hunters', phase: 'Tengah malam', text: 'Para pemburu mulai bergerak dalam kegelapan.' },
-  { id: 'dawn_first', phase: 'Subuh', text: 'Subuh tiba. Saatnya menyelesaikan aksi terakhir.' },
-  { id: 'dawn_last', phase: 'Subuh', text: 'Fajar segera menyingsing. Desa menahan napas.' },
-  { id: 'morning_clear', phase: 'Pagi', text: 'Pagi telah tiba. Tidak ada warga yang gugur malam ini.' },
-  { id: 'morning_safe', phase: 'Pagi', text: 'Desa masih utuh, tetapi ancaman belum berakhir.' },
-  { id: 'morning_many', phase: 'Pagi', text: 'Lebih dari satu warga ditemukan gugur. Desa kembali diliputi ketakutan.' },
-  { id: 'morning_wolf', phase: 'Pagi', text: 'Seorang warga ditemukan dengan bekas serangan. Werewolf masih bersembunyi di antara kita.' },
-  { id: 'morning_shot', phase: 'Pagi', text: 'Suara tembakan terdengar semalam. Seorang warga ditemukan gugur.' },
-  { id: 'morning_poison', phase: 'Pagi', text: 'Seorang warga ditemukan tak bernyawa. Racun telah bekerja sebelum fajar.' },
+  { id: 'dawn_first', phase: 'Subuh', text: 'Subuh tiba.' },
+  { id: 'dawn_action', phase: 'Subuh', text: 'Saatnya menyelesaikan aksi terakhir.' },
+  { id: 'morning_clear', phase: 'Pagi', text: 'Pagi telah tiba.' },
+  { id: 'morning_no_death', phase: 'Pagi', text: 'Tidak ada warga yang gugur malam ini.' },
+  { id: 'morning_many', phase: 'Pagi', text: 'Lebih dari satu warga ditemukan gugur.' },
+  { id: 'morning_fear', phase: 'Pagi', text: 'Desa kembali diliputi ketakutan.' },
+  { id: 'morning_wolf', phase: 'Pagi', text: 'Seorang warga ditemukan dengan bekas serangan.' },
+  { id: 'morning_wolf2', phase: 'Pagi', text: 'Werewolf masih bersembunyi di antara kita.' },
+  { id: 'morning_shot', phase: 'Pagi', text: 'Suara tembakan terdengar semalam.' },
+  { id: 'morning_shot2', phase: 'Pagi', text: 'Seorang warga ditemukan gugur.' },
+  { id: 'morning_poison', phase: 'Pagi', text: 'Seorang warga ditemukan tak bernyawa.' },
+  { id: 'morning_poison2', phase: 'Pagi', text: 'Racun telah bekerja sebelum fajar.' },
   { id: 'morning_guard', phase: 'Pagi', text: 'Seorang pelindung gugur setelah menghadang serangan.' },
   { id: 'morning_lovers', phase: 'Pagi', text: 'Ikatan cinta membawa dua nyawa menuju akhir yang sama.' },
-  { id: 'morning_other', phase: 'Pagi', text: 'Seorang warga ditemukan gugur. Malam menyimpan rahasia tentang kematiannya.' },
-  { id: 'discussion_gather', phase: 'Diskusi', text: 'Warga berkumpul di alun-alun. Dengarkan setiap cerita.' },
-  { id: 'discussion_suspicion', phase: 'Diskusi', text: 'Setiap tatapan menyimpan kecurigaan. Siapa yang menyembunyikan sesuatu?' },
-  { id: 'discussion_truth', phase: 'Diskusi', text: 'Temukan kebenaran sebelum waktu diskusi berakhir.' },
-  { id: 'voting_pole', phase: 'Voting', text: 'Sore tiba. Saatnya menentukan siapa yang akan dieksekusi.' },
+  { id: 'morning_other', phase: 'Pagi', text: 'Seorang warga ditemukan gugur.' },
+  { id: 'morning_other2', phase: 'Pagi', text: 'Malam menyimpan rahasia tentang kematiannya.' },
+  { id: 'discussion_gather', phase: 'Diskusi', text: 'Warga berkumpul di alun-alun.' },
+  { id: 'discussion_suspicion', phase: 'Diskusi', text: 'Setiap tatapan menyimpan kecurigaan.' },
+  { id: 'discussion_question', phase: 'Diskusi', text: 'Siapa yang menyembunyikan sesuatu?' },
+  { id: 'voting_pole', phase: 'Voting', text: 'Sore tiba.' },
+  { id: 'voting_prompt', phase: 'Voting', text: 'Saatnya menentukan siapa yang akan dieksekusi.' },
   { id: 'voting_choice', phase: 'Voting', text: 'Satu suara dapat menyelamatkan, atau mengakhiri, sebuah nyawa.' },
-  { id: 'voting_last', phase: 'Voting', text: 'Tentukan pilihanmu. Waktu voting segera berakhir.' },
-  { id: 'result_execution', phase: 'Hasil voting', text: 'Keputusan telah dijatuhkan. Satu warga akan meninggalkan desa.' },
-  { id: 'result_no_execution', phase: 'Hasil voting', text: 'Suara telah dihitung. Tidak ada eksekusi hari ini.' },
+  { id: 'result_execution', phase: 'Hasil voting', text: 'Keputusan telah dijatuhkan.' },
+  { id: 'result_depart', phase: 'Hasil voting', text: 'Satu warga akan meninggalkan desa.' },
+  { id: 'result_no_execution', phase: 'Hasil voting', text: 'Suara telah dihitung.' },
+  { id: 'result_no_execution2', phase: 'Hasil voting', text: 'Tidak ada eksekusi hari ini.' },
   { id: 'finished_open', phase: 'Akhir permainan', text: 'Kisah desa ini mencapai akhirnya.' },
   { id: 'finished_wolves', phase: 'Akhir permainan', text: 'Kawanan Werewolf akhirnya menguasai desa.' },
   { id: 'finished_villagers', phase: 'Akhir permainan', text: 'Warga berhasil mengusir kegelapan dan menyelamatkan desa.' },
-  { id: 'finished_jester', phase: 'Akhir permainan', text: 'Jester tertawa paling akhir. Seluruh desa masuk ke dalam jebakannya.' },
+  { id: 'finished_jester', phase: 'Akhir permainan', text: 'Jester tertawa paling akhir.' },
+  { id: 'finished_jester2', phase: 'Akhir permainan', text: 'Seluruh desa masuk ke dalam jebakannya.' },
   { id: 'finished_lovers', phase: 'Akhir permainan', text: 'Dua hati bertahan melewati kekacauan dan memenangkan permainan.' },
-  { id: 'finished_default', phase: 'Akhir permainan', text: 'Malam panjang akhirnya berakhir. Permainan selesai.' }
+  { id: 'finished_default', phase: 'Akhir permainan', text: 'Malam panjang akhirnya berakhir.' },
+  { id: 'finished_end', phase: 'Akhir permainan', text: 'Permainan selesai.' }
 ];
-
-function narrationChoice(room, ids) {
-  const key = [room.code, room.round, room.phase, room.lastResult?.at || room.publicResult?.at || ''].join('|');
-  let hash = 0;
-  for (let index = 0; index < key.length; index += 1) hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
-  return ids[hash % ids.length];
-}
 
 function systemNarrationClipIds(room) {
   const result = room.lastResult || room.publicResult || {};
@@ -3168,32 +3171,32 @@ function systemNarrationClipIds(room) {
     case 'role_draw':
       return ['role_cards', 'role_secret'];
     case 'night':
-      return ['night_arrival', 'night_hunters'];
+      return ['night_arrival', 'night_sleep', 'night_hunters'];
     case 'dawn':
-      return ['dawn_first', 'dawn_last'];
+      return ['dawn_first', 'dawn_action'];
     case 'morning':
-      if (!victims.length) return ['morning_clear', 'morning_safe'];
-      if (victims.length > 1) return ['morning_many'];
-      if (['werewolf_attack', 'Serangan Werewolf'].includes(firstCause)) return ['morning_wolf'];
-      if (['hunter', 'vigilante_shot', 'Tembakan'].includes(firstCause)) return ['morning_shot'];
-      if (['witch_poison', 'Racun'].includes(firstCause)) return ['morning_poison'];
+      if (!victims.length) return ['morning_clear', 'morning_no_death'];
+      if (victims.length > 1) return ['morning_many', 'morning_fear'];
+      if (['werewolf_attack', 'Serangan Werewolf'].includes(firstCause)) return ['morning_wolf', 'morning_wolf2'];
+      if (['hunter', 'vigilante_shot', 'Tembakan'].includes(firstCause)) return ['morning_shot', 'morning_shot2'];
+      if (['witch_poison', 'Racun'].includes(firstCause)) return ['morning_poison', 'morning_poison2'];
       if (firstCause === 'bodyguard_sacrifice') return ['morning_guard'];
       if (firstCause === 'cupid_bond') return ['morning_lovers'];
-      return ['morning_other'];
+      return ['morning_other', 'morning_other2'];
     case 'discussion':
-      return ['discussion_gather', 'discussion_suspicion'];
+      return ['discussion_gather', 'discussion_suspicion', 'discussion_question'];
     case 'voting':
-      return ['voting_pole', 'voting_choice'];
+      return ['voting_pole', 'voting_prompt', 'voting_choice'];
     case 'result':
-      return victims.length ? ['result_execution'] : ['result_no_execution'];
+      return victims.length ? ['result_execution', 'result_depart'] : ['result_no_execution', 'result_no_execution2'];
     case 'finished': {
       const ending = ({
-        wolves: 'finished_wolves',
-        villagers: 'finished_villagers',
-        jester: 'finished_jester',
-        lovers: 'finished_lovers'
-      })[room.winner] || 'finished_default';
-      return ['finished_open', ending];
+        wolves: ['finished_wolves'],
+        villagers: ['finished_villagers'],
+        jester: ['finished_jester', 'finished_jester2'],
+        lovers: ['finished_lovers']
+      })[room.winner] || ['finished_default', 'finished_end'];
+      return ['finished_open', ...ending];
     }
     default:
       return [];
