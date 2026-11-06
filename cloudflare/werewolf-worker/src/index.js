@@ -2228,13 +2228,17 @@ export class WerewolfRoom {
         if (action.type === 'seer_inspect' || action.type === 'detective_inspect') {
           const inspected = room.players.find(item => item.id === action.targetId);
           const wolf = inspected && isWolf(inspected.role);
+          const targetFaction = wolf ? 'wolves'
+            : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village';
           const inspection = {
             round: room.round,
             targetId: inspected?.id || action.targetId,
             playerName: inspected ? inspected.name : 'Pemain tidak ditemukan',
             result: action.type === 'detective_inspect'
-              ? (wolf ? 'wolf_team' : NEUTRAL_ROLES.has(inspected?.role) ? 'neutral' : 'village')
-              : (wolf ? 'wolf' : 'not_wolf')
+              ? (wolf ? 'wolf_team' : targetFaction)
+              : (wolf ? 'wolf' : 'not_wolf'),
+            targetFaction,
+            ...(action.type === 'seer_inspect' && inspected ? { targetRole: inspected.role } : {})
           };
           room.seerResults[actor.id] = inspection;
           room.seerHistory = room.seerHistory || {};
