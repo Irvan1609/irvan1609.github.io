@@ -64,6 +64,18 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_active ON sessions(user_id,revoked_at,expires_at);
 
+CREATE TABLE IF NOT EXISTS developer_assertions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  email TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_developer_assertions_expires_at ON developer_assertions(expires_at);
+
 
 CREATE TABLE IF NOT EXISTS user_datasets (
   id TEXT PRIMARY KEY,
