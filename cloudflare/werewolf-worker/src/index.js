@@ -2520,7 +2520,12 @@ export class WerewolfRoom {
         const action = resolvedNightActions[actor.id];
         if (!action) continue;
         const targetName = action.targetId ? reportTargetName(action.targetId) : '';
-        if (action.type === 'seer_inspect') {
+        if (actor.role === 'wolf_seer' && action.type === 'wolf_vote' && action.inspectTargetId) {
+          const result = room.seerResults?.[actor.id];
+          addActionReport(35, 'Wolf Seer', actor.name,
+            'Mengintai ' + (result?.playerName || reportTargetName(action.inspectTargetId)),
+            'Role terdeteksi: ' + (result?.targetRole || 'tidak diketahui') + '. Hasil ini privat untuk Wolf Seer.');
+        } else if (action.type === 'seer_inspect') {
           const result = room.seerResults?.[actor.id];
           const verdict = result?.result === 'wolf' ? 'Werewolf'
             : result?.result === 'not_wolf' ? 'bukan Werewolf' : 'belum diketahui';
