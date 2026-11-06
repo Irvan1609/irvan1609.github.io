@@ -1281,3 +1281,38 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
 }
 
 .public-player-row.is-alive .public-player-identity>b{color:#8be0aa}
+
+/* Compact voice activity and player status indicators. */
+.speaking-indicator {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  color: #6c7888;
+  font-size: 11px;
+  opacity: .35;
+}
+.speaking-indicator[aria-hidden="false"],
+.is-speaking .speaking-indicator {
+  color: #70e29a;
+  opacity: 1;
+  text-shadow: 0 0 9px #70e29a;
+}
+.player-chip.is-speaking,
+.public-player-row.is-speaking {
+  border-color: #6ccf8c;
+  box-shadow: 0 0 0 1px #6ccf8c33, 0 0 15px #6ccf8c22;
+}
+.public-role-alive-count { display: flex; align-items: center; gap: 6px; }
+.public-role-dots { display: inline-flex; gap: 3px; }
+.player-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.player-dot.is-alive { background: #72d69a; box-shadow: 0 0 6px #72d69a; }
+.player-dot.is-dead { background: #7d8793; opacity: .45; }
+.compact-count-label { white-space: nowrap; }
+@media (max-width: 620px) {
+  .speaking-indicator { width: 10px; height: 10px; font-size: 9px; }
+  .public-role-alive-count { gap: 4px; font-size: 9px; }
+  .player-dot { width: 6px; height: 6px; }
+  .public-role-deceased-name { padding: 3px 5px; font-size: 8px; }
+}

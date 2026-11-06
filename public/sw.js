@@ -1,4 +1,4 @@
-const VERSION='20261107-werewolf-join-modes-1';
+const VERSION='20261107-werewolf-speaking-compact-1';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;

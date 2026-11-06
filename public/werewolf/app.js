@@ -6,6 +6,7 @@ const API_BASE = isProductionHost
   : 'https://werewolf-room-api-dev.andyirvan1609.workers.dev';
 const SESSION_PREFIX = 'werewolf.session.';
 const PLAYER_NAME_KEY = 'werewolf.lastPlayerName';
+const VOICE_MODE_PREFIX = 'werewolf.voiceMode.';
 const ROLE_INFO = {
   wolf: ['Werewolf', 'Menentukan korban bersama kawanan.', 'Setiap malam pilih 1 pemain hidup di luar kubu Werewolf.'],
   alpha_wolf: ['Alpha Wolf', 'Suara serangan bernilai 2.', 'Setiap malam pilih 1 target bersama kawanan; tidak bisa memilih Werewolf.'],
@@ -102,6 +103,10 @@ let voiceNeedsAudioGesture = false;
 let gameSoundVolume = 0.65;
 let voicePlaybackVolume = 0.2;
 let voiceOutbox = [];
+let voiceMeterContext = null;
+let voiceMeterFrame = 0;
+const voiceMeters = new Map();
+const speakingPlayerIds = new Set();
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -548,6 +553,78 @@ function updateRemoteVoiceVolume() {
   for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
 }
 
+function rememberVoiceMode(code, mode) {
+  if (!code) return;
+  try { localStorage.setItem(VOICE_MODE_PREFIX + String(code).toUpperCase(), mode === 'offline' ? 'offline' : 'online'); } catch {}
+}
+
+function rememberedVoiceMode(code) {
+  try {
+    return localStorage.getItem(VOICE_MODE_PREFIX + String(code || '').toUpperCase()) === 'offline' ? 'offline' : 'online';
+  } catch { return 'online'; }
+}
+
+function updateJoinModeButtons(mode = rememberedVoiceMode($('joinCode')?.value)) {
+  for (const control of [$('joinOnlineButton'), $('joinOfflineButton')]) {
+    if (!control) continue;
+    const selected = control.dataset.voiceMode === mode;
+    control.classList.toggle('selected', selected);
+    control.setAttribute('aria-pressed', String(selected));
+  }
+}
+
+function updateSpeakingIndicators() {
+  for (const item of document.querySelectorAll('[data-player-id]')) {
+    const speaking = speakingPlayerIds.has(item.dataset.playerId);
+    item.classList.toggle('is-speaking', speaking);
+    const indicator = item.querySelector('.speaking-indicator');
+    if (indicator) indicator.setAttribute('aria-hidden', String(!speaking));
+  }
+}
+
+function startVoiceMeterLoop() {
+  if (voiceMeterFrame || !voiceMeters.size) return;
+  const tick = () => {
+    voiceMeterFrame = 0;
+    if (!voiceMeters.size) return;
+    for (const [playerId, meter] of voiceMeters) {
+      meter.analyser.getByteTimeDomainData(meter.data);
+      let sum = 0;
+      for (const value of meter.data) { const centered = (value - 128) / 128; sum += centered * centered; }
+      const level = Math.sqrt(sum / meter.data.length);
+      const active = level > 0.055 && !(playerId === roomState?.self?.id && voiceMuted);
+      if (active) speakingPlayerIds.add(playerId); else speakingPlayerIds.delete(playerId);
+    }
+    updateSpeakingIndicators();
+    voiceMeterFrame = requestAnimationFrame(tick);
+  };
+  voiceMeterFrame = requestAnimationFrame(tick);
+}
+
+function attachVoiceMeter(playerId, stream) {
+  if (!playerId || !stream || voiceMeters.has(playerId)) return;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    voiceMeterContext ||= new AudioContextClass();
+    const source = voiceMeterContext.createMediaStreamSource(stream);
+    const analyser = voiceMeterContext.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    voiceMeters.set(playerId, { source, analyser, data: new Uint8Array(analyser.fftSize) });
+    startVoiceMeterLoop();
+  } catch {}
+}
+
+function detachVoiceMeter(playerId) {
+  const meter = voiceMeters.get(playerId);
+  if (!meter) return;
+  try { meter.source.disconnect(); } catch {}
+  voiceMeters.delete(playerId);
+  speakingPlayerIds.delete(playerId);
+  updateSpeakingIndicators();
+}
+
 function closeVoicePeer(peerId) {
   const connection = voicePeerConnections.get(peerId);
   if (connection) {
@@ -565,6 +642,7 @@ function closeVoicePeer(peerId) {
     voiceRemoteAudio.delete(peerId);
   }
   voicePendingCandidates.delete(peerId);
+  detachVoiceMeter(peerId);
 }
 
 function stopDiscussionVoice() {
@@ -588,6 +666,9 @@ function stopDiscussionVoice() {
   voiceAutoAttemptKey = '';
   voiceMuted = false;
   voiceNeedsAudioGesture = false;
+  for (const playerId of [...voiceMeters.keys()]) detachVoiceMeter(playerId);
+  if (voiceMeterFrame) cancelAnimationFrame(voiceMeterFrame);
+  voiceMeterFrame = 0;
   voiceStatus = 'Voice chat otomatis aktif di semua fase pada mode online.';
 }
 
@@ -658,6 +739,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       voiceRemoteAudio.set(peerId, audio);
     }
     audio.srcObject = event.streams?.[0] || new MediaStream([event.track]);
+    attachVoiceMeter(peerId, audio.srcObject);
     audio.play().then(() => {
       voiceNeedsAudioGesture = false;
       refreshVoiceUI();
@@ -746,6 +828,7 @@ async function startDiscussionVoice(manual = false) {
         return false;
       }
       voiceLocalStream = stream;
+      attachVoiceMeter(roomState?.self?.id, stream);
       voiceMuted = false;
       for (const track of stream.getAudioTracks()) track.enabled = true;
       updateRemoteVoiceVolume();
@@ -1333,29 +1416,21 @@ function renderPlayers() {
     + (spectatorCount ? ' · ' + spectatorCount + ' penonton' : '');
   for (const player of players) {
     const chip = node('div', 'player-chip' + (player.alive ? '' : ' dead') + (player.isBot ? ' bot' : ''));
+    chip.dataset.playerId = player.id;
     const identity = node('div', 'player-identity');
     const avatar = node('span', 'player-avatar', (player.name || '?').slice(0, 1).toUpperCase());
     const name = node('span', 'player-name', player.name);
-    if (player.isBotControlled) name.append(node('span', 'bot-mark', ' BOT SEMENTARA'));
+    if (player.isBotControlled) name.append(node('span', 'bot-mark', ' BOT'));
     else if (player.isBot) name.append(node('span', 'bot-mark', ' BOT'));
-    identity.append(avatar, name);
-    const details = [];
-    if (moderator && player.role) details.push(ROLE_INFO[player.role]?.[0] || player.role);
-    details.push(player.voiceMode === 'offline' ? 'Offline · hanya mendengar' : 'Online · mikrofon');
-    if (moderator && player.nightActionPartner) details.push('Pasangan: ' + player.nightActionPartner);
-    if (!player.alive) details.push('Tereliminasi');
-    else if (canMonitor && phase === 'role_draw') details.push(player.hasDrawn ? 'Kartu dibuka' : 'Belum membuka kartu');
-    else if (canMonitor && phase === 'night') {
-      details.push(player.actionSkipped ? 'Dilewati · belum beraksi'
-        : player.hasActed
-          ? (player.nightActionType === 'villager_math' ? 'Perhitungan selesai' : 'Aksi selesai')
-            + (moderator && player.nightActionTarget ? ' · ' + player.nightActionTarget : '')
-          : 'Belum melakukan aksi');
-    } else if (canMonitor && phase === 'voting') {
-      details.push(player.hasVoted
-        ? player.voteAbstain ? 'Abstain' : moderator && player.voteTarget ? 'Memilih ' + player.voteTarget : 'Sudah voting'
-        : 'Belum voting');
-    } else details.push(player.isBotControlled ? 'BOT mengambil alih' : player.connected ? 'Online' : 'Menunggu');
+    const speaking = node('span', 'speaking-indicator', '●');
+    speaking.setAttribute('aria-label', 'Sedang berbicara');
+    speaking.setAttribute('aria-hidden', String(!speakingPlayerIds.has(player.id)));
+    identity.append(avatar, name, speaking);
+    const details = [player.alive ? 'Hidup' : 'Mati'];
+    if (player.isBotControlled) details.push('BOT');
+    else if (canMonitor && phase === 'role_draw') details.push(player.hasDrawn ? 'Selesai' : 'Menunggu');
+    else if (canMonitor && phase === 'night') details.push(player.actionSkipped || !player.hasActed ? 'Menunggu' : 'Selesai');
+    else if (canMonitor && phase === 'voting') details.push(player.hasVoted ? 'Sudah memilih' : 'Menunggu');
     chip.append(identity, node('span', 'player-meta', details.join(' · ')));
     if (canMonitor && !player.isHost && player.id !== roomState.self?.id) {
       const actions = node('div', 'player-management-actions');
@@ -1946,13 +2021,24 @@ function renderLivingPlayers(parent) {
     addText(title, 'span', '', '×' + entry.count);
     card.append(title);
     const aliveCount = Math.max(0, Number(entry.count || 0) - Number(entry.deceasedCount || 0));
-    addText(card, 'div', 'public-role-alive-count', aliveCount + ' pemain hidup · role dirahasiakan');
+    const countLine = node('div', 'public-role-alive-count');
+    addText(countLine, 'span', 'compact-count-label', aliveCount + ' hidup · ' + Number(entry.deceasedCount || 0) + ' mati');
+    const dots = node('span', 'public-role-dots');
+    for (let index = 0; index < aliveCount; index += 1) {
+      const dot = node('span', 'player-dot is-alive');
+      dot.title = 'Hidup';
+      dots.append(dot);
+    }
+    for (let index = 0; index < Number(entry.deceasedCount || 0); index += 1) {
+      const dot = node('span', 'player-dot is-dead');
+      dot.title = 'Tereliminasi';
+      dots.append(dot);
+    }
+    countLine.append(dots);
+    card.append(countLine);
     if (Array.isArray(entry.deceasedNames) && entry.deceasedNames.length) {
       const deceased = node('div', 'public-role-deceased-list');
-      for (const name of entry.deceasedNames) {
-        const deadName = node('span', 'public-role-deceased-name', '| ' + name);
-        deceased.append(deadName);
-      }
+      for (const name of entry.deceasedNames) deceased.append(node('span', 'public-role-deceased-name', name));
       card.append(deceased);
     }
     roleGrid.append(card);
@@ -1975,18 +2061,20 @@ function renderLivingPlayers(parent) {
     const isWolf = result === 'wolf' || result === 'wolf_team' || inspected?.targetFaction === 'wolves';
     const isNeutral = result === 'neutral' || inspected?.targetFaction === 'neutral';
     const row = node('article', 'public-player-row' + (player.alive ? ' is-alive' : ' is-dead'));
+    row.dataset.playerId = player.id;
     const identity = node('div', 'public-player-identity');
     addText(identity, 'b', '', player.name);
-    if (player.revealedRole) addText(identity, 'small', 'public-player-revealed-role', roleLabel(player.revealedRole));
+    const speaking = node('span', 'speaking-indicator', '●');
+    speaking.setAttribute('aria-label', 'Sedang berbicara');
+    speaking.setAttribute('aria-hidden', String(!speakingPlayerIds.has(player.id)));
+    identity.append(speaking);
     if (inspected && player.alive) {
       const label = roomState.self.role === 'detective'
         ? (isWolf ? 'Werewolf' : isNeutral ? 'Netral' : 'Desa')
         : (inspected.targetRole ? roleLabel(inspected.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
       addText(identity, 'small', 'seer-inspection-tag', label);
     }
-    const statusText = player.isBotControlled
-      ? 'BOT · ' + (player.phaseStatus || 'Mengambil alih')
-      : player.phaseStatus || (player.alive ? 'Hidup' : 'Tereliminasi');
+    const statusText = player.isBotControlled ? 'BOT' : (player.alive ? 'Hidup' : 'Mati');
     const status = node('span', 'public-player-status' + (player.alive ? ' status-alive' : ' status-dead'));
     status.textContent = statusText;
     row.append(status);
@@ -3276,7 +3364,8 @@ $('joinForm').addEventListener('submit', async event => {
   event.preventDefault();
   const buttonElements = [$('joinOnlineButton'), $('joinOfflineButton')].filter(Boolean);
   buttonElements.forEach(buttonElement => { buttonElement.disabled = true; });
-  const voiceMode = event.submitter?.dataset?.voiceMode === 'offline' ? 'offline' : 'online';
+  const requestedVoiceMode = event.submitter?.dataset?.voiceMode || rememberedVoiceMode($('joinCode')?.value);
+  const voiceMode = requestedVoiceMode === 'offline' ? 'offline' : 'online';
   showMessage('Menggabungkan secara ' + (voiceMode === 'offline' ? 'offline' : 'online') + '...');
   try {
     unlockGameAudio();
@@ -3291,7 +3380,9 @@ $('joinForm').addEventListener('submit', async event => {
       }
     });
     rememberPlayerName($('joinName').value);
-    await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('joinName').value.trim() });
+    const actualVoiceMode = $('joinEntryMode').value === 'spectator' ? 'offline' : voiceMode;
+    rememberVoiceMode(result.code, actualVoiceMode);
+    await enterRoom({ code: result.code, token: result.token, playerId: result.playerId, name: $('joinName').value.trim(), voiceMode: actualVoiceMode });
     if (result.isSpectator) showMessage('Kamu masuk sebagai penonton. Kartu dan aksi rahasia tidak dapat dilihat.');
     else if (result.isWaiting) showMessage('Kamu masuk daftar tunggu. Kamu otomatis bergabung saat permainan berikutnya dimulai.');
   } catch (error) {
@@ -3309,7 +3400,9 @@ $('joinEntryMode').addEventListener('change', () => {
 });
 $('joinCode').addEventListener('input', event => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
+  updateJoinModeButtons();
 });
+updateJoinModeButtons();
 
 function stopQrScanner() {
   qrScannerActive = false;
