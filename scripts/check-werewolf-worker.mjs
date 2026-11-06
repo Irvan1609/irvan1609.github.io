@@ -2879,10 +2879,10 @@ systemNightState = await systemNightTakeoverRoom.loadRoom();
 await payload(await systemNightTakeoverRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: systemNightState.players[2].id
 }, systemNightState.players[0].token)));
-const systemNightDeadline = systemNightState.nightEndsAt;
+const missedSystemNightDeadline = systemNightState.nightEndsAt;
 const realNowForSystemNightTakeover = Date.now;
 try {
-  Date.now = () => systemNightDeadline + 1;
+  Date.now = () => missedSystemNightDeadline + 1;
   await systemNightTakeoverRoom.alarm();
 } finally {
   Date.now = realNowForSystemNightTakeover;
