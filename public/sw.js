@@ -1,4 +1,4 @@
-const VERSION='20261106-werewolf-card-start-bell2';
+const VERSION='20261106-werewolf-story-dawn-4';
 const CORE_CACHE='agrotik-core-'+VERSION;
 const RUNTIME_CACHE='agrotik-runtime-'+VERSION;
 const THIRD_PARTY_CACHE='agrotik-third-party-'+VERSION;
@@ -26,6 +26,7 @@ const CORE_URLS=[
   '/werewolf/assets/illustrations/role-bodyguard.svg',
   '/werewolf/assets/illustrations/role-witch.svg',
   '/werewolf/assets/illustrations/role-hunter.svg',
+  '/werewolf/assets/illustrations/role-reviver.svg',
   '/werewolf/assets/illustrations/role-cupid.svg',
   '/werewolf/assets/illustrations/role-guardian_angel.svg',
   '/werewolf/assets/illustrations/role-detective.svg',
