@@ -561,12 +561,12 @@ export class WerewolfRoom {
     const deadlines = [Number(room.expiresAt) || now + ROOM_TTL_MS];
     const system = this.isSystemModerator(room);
     if (room.phase === 'role_draw' && Number(room.roleDrawEndsAt) > 0) deadlines.push(Number(room.roleDrawEndsAt));
-    if (system && room.phase === 'night' && Number(room.nightEndsAt) > 0) deadlines.push(Number(room.nightEndsAt));
-    if (system && room.phase === 'dawn' && Number(room.dawnEndsAt) > 0) deadlines.push(Number(room.dawnEndsAt));
+    if (room.phase === 'night' && Number(room.nightEndsAt) > 0) deadlines.push(Number(room.nightEndsAt));
+    if (room.phase === 'dawn' && Number(room.dawnEndsAt) > 0) deadlines.push(Number(room.dawnEndsAt));
     if (system && room.phase === 'morning' && Number(room.discussionEndsAt) > 0) deadlines.push(Number(room.discussionEndsAt));
     if (room.phase === 'voting' && Number(room.votingEndsAt) > 0) deadlines.push(Number(room.votingEndsAt));
     if (system && room.phase === 'result' && Number(room.resultEndsAt) > 0) deadlines.push(Number(room.resultEndsAt));
-    const nextAlarm = Math.min(...deadlines.filter(value => Number.isFinite(value) && value > 0));
+    const nextAlarm = Math.min(...deadlines.filter(value => Number.isFinite(value) && value > now));
     await this.state.storage.setAlarm(Math.max(now + 50, nextAlarm));
   }
 
@@ -2031,7 +2031,7 @@ export class WerewolfRoom {
         room.waitingPlayers.splice(waitingIndex, 1);
         return;
       }
-      requirePlayer();
+      if (player.isWaiting) throw new HttpError(403, 'Kamu sedang menunggu permainan berikutnya.');
       const leavingPlayer = room.players.find(item => item.id === player.id);
       if (!leavingPlayer) throw new HttpError(404, 'Pemain tidak ditemukan di room.');
       if (player.id === room.hostId && room.phase === 'lobby') {
@@ -3037,7 +3037,7 @@ export class WerewolfRoom {
       room.votes = {};
       this.recordGameEvent(room, {
         kind: 'voting_started', phase: 'voting', title: 'Voting ronde ' + room.round,
-        message: 'Voting dimulai. Pilihan setiap pemain tetap rahasia.',
+        message: 'Voting dimulai. Semua pemain dapat melihat siapa memilih siapa, siapa belum memilih, dan siapa golput.',
         at: now, round: room.round
       });
       this.runBotVotes(room, now);
@@ -3309,14 +3309,36 @@ export class WerewolfRoom {
         this.takeOverInactivePlayers(room, room.players.filter(item => !item.hasDrawn), 'role_draw', now);
         await this.applyAction(room, room.moderator, { type: 'start_night' });
         changed = true;
-      } else if (room.phase === 'night' && this.isSystemModerator(room)
+      } else if (room.phase === 'night'
         && Number(room.nightEndsAt) > 0 && room.nightEndsAt <= now) {
-        await this.applyAction(room, room.moderator, { type: 'resolve_night', force: true });
-        changed = true;
-      } else if (room.phase === 'dawn' && this.isSystemModerator(room)
+        if (this.isSystemModerator(room)) {
+          await this.applyAction(room, room.moderator, { type: 'resolve_night', force: true });
+          changed = true;
+        } else {
+          const missingActors = room.players.filter(item => item.alive && !room.nightActions?.[item.id]);
+          const taken = this.takeOverInactivePlayers(room, missingActors, 'night', now);
+          if (taken.length) this.runBotNightActions(room);
+          changed = taken.length > 0;
+        }
+      } else if (room.phase === 'dawn'
         && Number(room.dawnEndsAt) > 0 && room.dawnEndsAt <= now) {
-        await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
-        changed = true;
+        if (this.isSystemModerator(room)) {
+          await this.applyAction(room, room.moderator, { type: 'resolve_dawn', force: true });
+          changed = true;
+        } else {
+          const nightDeadIds = new Set(room.lastResult?.kind === 'night'
+            ? (room.lastResult.eliminations || []).map(item => item.id) : []);
+          const eligible = room.players.filter(item =>
+            item.role === 'hunter' && !item.alive && nightDeadIds.has(item.id)
+              && !item.hunterUsed && abilityEnabled(room, 'hunterShot')
+            || item.role === 'reviver' && item.alive && !item.reviverUsed
+              && abilityEnabled(room, 'reviverOnce') && nightDeadIds.size > 0
+          );
+          const pending = eligible.filter(item => !room.dawnActions?.[item.id]);
+          const taken = this.takeOverInactivePlayers(room, pending, 'dawn', now);
+          if (taken.length) this.runBotDawnActions(room);
+          changed = taken.length > 0;
+        }
       } else if (room.phase === 'morning' && this.isSystemModerator(room)
         && Number(room.discussionEndsAt) > 0 && room.discussionEndsAt <= now) {
         await this.applyAction(room, room.moderator, { type: 'start_voting' });
