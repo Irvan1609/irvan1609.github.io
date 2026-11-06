@@ -526,11 +526,13 @@ export default {
       if (url.pathname === '/developer/narrator/status' && request.method === 'GET') {
         return withCors(await handleNarratorStatus(request, env), request, env);
       }
-      if (url.pathname === '/developer/narrator/voice' && request.method === 'POST') {
-        return withCors(await handleNarratorVoiceUpload(request, env), request, env);
+      const developerClipMatch = url.pathname.match(/^\\/developer\\/narrator\\/clips\\/([a-z0-9_-]+)$/);
+      if (developerClipMatch && request.method === 'POST') {
+        return withCors(await handleNarratorClipUpload(request, env, developerClipMatch[1]), request, env);
       }
-      if (url.pathname === '/narrator/speak' && request.method === 'POST') {
-        return withCors(await handleNarratorSpeech(request, env), request, env);
+      const narratorClipMatch = url.pathname.match(/^\\/narrator\\/clip\\/([a-z0-9_-]+)$/);
+      if (narratorClipMatch && request.method === 'GET') {
+        return withCors(await handleNarratorClipPlayback(request, env, narratorClipMatch[1]), request, env);
       }
       if (url.pathname === '/rooms' && request.method === 'POST') {
         const createLimiter = env.ROOM_CREATE_LIMITER;
@@ -1657,17 +1659,44 @@ export class WerewolfRoom {
   async fetch(request) {
     const url = new URL(request.url);
     try {
-      if (url.pathname === '/internal/narrator-config') {
+      if (url.pathname === '/internal/narrator-clips' && request.method === 'GET') {
+        return json({ clips: await this.state.storage.get('narratorClips') || {} });
+      }
+      if (url.pathname === '/internal/narrator-clip') {
+        const clipId = String(url.searchParams.get('id') || '');
+        if (!clipId) throw new HttpError(400, 'ID rekaman tidak valid.');
+        const audioKey = 'narratorClip:' + clipId;
+        const index = await this.state.storage.get('narratorClips') || {};
         if (request.method === 'GET') {
-          return json({ config: await this.state.storage.get('narratorVoiceConfig') || null });
+          const meta = index[clipId];
+          const audio = meta ? await this.state.storage.get(audioKey) : null;
+          if (!meta || !audio) throw new HttpError(404, 'Rekaman belum tersedia.');
+          return new Response(audio, {
+            headers: {
+              'Content-Type': meta.contentType || 'application/octet-stream',
+              'Content-Length': String(meta.size || audio.byteLength || 0),
+              'X-Content-Type-Options': 'nosniff',
+              'Cache-Control': 'no-store'
+            }
+          });
         }
         if (request.method === 'PUT') {
-          const body = await readJson(request, 4096);
-          if (!body.config || typeof body.config !== 'object' || Array.isArray(body.config)) {
-            throw new HttpError(400, 'Konfigurasi suara narator tidak valid.');
+          const audio = await request.arrayBuffer();
+          if (!audio.byteLength || audio.byteLength > MAX_NARRATOR_CLIP_BYTES) {
+            throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
           }
-          await this.state.storage.put('narratorVoiceConfig', body.config);
-          return json({ ok: true });
+          const currentSize = Object.values(index).reduce((sum, item) => sum + Number(item?.size || 0), 0);
+          const previousSize = Number(index[clipId]?.size || 0);
+          if (currentSize - previousSize + audio.byteLength > MAX_NARRATOR_TOTAL_BYTES) {
+            throw new HttpError(413, 'Total seluruh rekaman narator maksimal 48 MB.');
+          }
+          const updatedAt = new Date().toISOString();
+          const contentType = String(request.headers.get('Content-Type') || 'application/octet-stream').toLowerCase();
+          const fileName = String(request.headers.get('X-File-Name') || ('narrator-' + clipId)).slice(0, 100);
+          await this.state.storage.put(audioKey, audio);
+          index[clipId] = { size: audio.byteLength, contentType, fileName, updatedAt };
+          await this.state.storage.put('narratorClips', index);
+          return json({ ok: true, updatedAt });
         }
         return json({ error: 'Metode tidak didukung.' }, 405);
       }
