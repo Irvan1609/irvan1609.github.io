@@ -659,9 +659,15 @@ async function createVoicePeer(peer, shouldOffer = false) {
     } else {
       const connected = [...voicePeerConnections.values()]
         .filter(item => item.connectionState === 'connected').length;
-      if (connected) voiceStatus = roomState?.self?.voiceMode === 'offline'
-        ? 'Audio pemain online tersambung · mikrofon tetap mati.'
-        : 'Voice chat aktif · ' + connected + ' koneksi suara.';
+      if (connected) {
+        if (roomState?.self?.voiceMode === 'offline') {
+          voiceStatus = 'Audio pemain online tersambung · mikrofon tetap mati.';
+        } else if (!voiceLocalStream || voiceMuted) {
+          voiceStatus = 'Audio pemain lain tersambung · mikrofon ' + (voiceMuted ? 'dimatikan.' : 'belum aktif.');
+        } else {
+          voiceStatus = 'Voice chat aktif · ' + connected + ' koneksi suara.';
+        }
+      }
     }
     refreshVoiceUI();
   };
@@ -757,7 +763,7 @@ function syncDiscussionVoice() {
     voiceAutoAttemptKey = key;
     startDiscussionVoice(false).then(active => {
       if (!active && discussionVoiceListeningAllowed()) {
-        voiceStatus = 'Mikrofon belum aktif · kamu tetap dapat mendengar pemain online.';
+        voiceStatus = 'Mikrofon belum diizinkan · ketuk Mic untuk mencoba lagi; kamu tetap dapat mendengar pemain online.';
         reconcileVoiceConnections().catch(() => {});
         refreshVoiceUI();
       }
