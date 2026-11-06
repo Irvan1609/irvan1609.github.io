@@ -4,7 +4,6 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 
 [vars]
-# Set ELEVENLABS_API_KEY with: npx wrangler secret put ELEVENLABS_API_KEY
 ALLOWED_ORIGINS = "https://irvan1609.github.io,https://werewolf-room-api.andyirvan1609.workers.dev,https://werewolf-room-api-dev.andyirvan1609.workers.dev,http://localhost:5173,http://127.0.0.1:5173"
 
 [[durable_objects.bindings]]
@@ -29,12 +28,4 @@ namespace_id = "91609102"
 
 [ratelimits.simple]
 limit = 20
-period = 60
-
-[[ratelimits]]
-name = "NARRATOR_TTS_LIMITER"
-namespace_id = "91609103"
-
-[ratelimits.simple]
-limit = 120
 period = 60
