@@ -1282,6 +1282,7 @@ export class WerewolfRoom {
     }
   }
 
+// Bot decisions are constrained to public vote history and the bot's own role information.
   selectBotSuspect(room, candidates) {
     const eligible = Array.isArray(candidates) ? candidates : [];
     if (!eligible.length) return null;
