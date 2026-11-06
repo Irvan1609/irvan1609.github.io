@@ -3231,7 +3231,16 @@ function systemNarrationText(room) {
   }
 }
 
+function splitNarrationSentences(message) {
+  return (String(message || '').match(/[^.!?]+[.!?]+|[^.!?]+$/gu) || [])
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+}
+
+let narratorPlaybackSequence = 0;
+
 function stopNarratorAudio() {
+  narratorPlaybackSequence += 1;
   if (narratorAudioElement) {
     try { narratorAudioElement.pause(); narratorAudioElement.currentTime = 0; } catch {}
     narratorAudioElement = null;
@@ -3242,56 +3251,94 @@ function stopNarratorAudio() {
   }
 }
 
-function speakBrowserNarration(message) {
-  if (!message || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
-  try {
-    stopNarratorAudio();
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = 'id-ID';
-    utterance.rate = 0.9;
-    utterance.pitch = 0.9;
-    utterance.volume = narratorPlaybackVolume;
-    const voice = window.speechSynthesis.getVoices().find(item => /^id([_-]|$)/i.test(item.lang));
-    if (voice) utterance.voice = voice;
-    window.speechSynthesis.speak(utterance);
-  } catch {}
-}
-
-async function speakSystemNarration(message, options = {}) {
-  if (!message) return;
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    const body = { text: message };
-    if (options.developerTest) {
-      headers.Authorization = 'Bearer ' + await requestDeveloperNarratorAssertion();
-    } else {
-      body.roomCode = session?.code || '';
-      body.playerToken = session?.token || '';
+function playNarratorAudioBlob(audioBlob, playbackSequence) {
+  return new Promise((resolve, reject) => {
+    if (playbackSequence !== narratorPlaybackSequence) {
+      resolve(false);
+      return;
     }
-    const response = await fetch(API_BASE + '/narrator/speak', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-    if (!response.ok) throw new Error('Voice narrator unavailable');
-    const audioBlob = await response.blob();
-    if (!audioBlob.size) throw new Error('Empty narrator audio');
-    stopNarratorAudio();
-    window.speechSynthesis?.cancel();
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
+    let finished = false;
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      if (narratorAudioElement === audio) narratorAudioElement = null;
+      if (narratorAudioUrl === audioUrl) narratorAudioUrl = '';
+      URL.revokeObjectURL(audioUrl);
+    };
     narratorAudioElement = audio;
     narratorAudioUrl = audioUrl;
     audio.volume = narratorPlaybackVolume;
     audio.addEventListener('ended', () => {
-      if (narratorAudioElement === audio) narratorAudioElement = null;
-      if (narratorAudioUrl === audioUrl) narratorAudioUrl = '';
-      URL.revokeObjectURL(audioUrl);
+      cleanup();
+      resolve(true);
     }, { once: true });
-    await audio.play();
+    audio.addEventListener('error', () => {
+      cleanup();
+      reject(new Error('Narrator audio playback failed'));
+    }, { once: true });
+    audio.play().catch(error => {
+      cleanup();
+      reject(error);
+    });
+  });
+}
+
+async function speakBrowserNarration(message, playbackSequence = narratorPlaybackSequence) {
+  if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+  const sentences = Array.isArray(message) ? message : splitNarrationSentences(message);
+  for (const sentence of sentences) {
+    if (playbackSequence !== narratorPlaybackSequence) return;
+    await new Promise(resolve => {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = 'id-ID';
+      utterance.rate = 0.9;
+      utterance.pitch = 0.9;
+      utterance.volume = narratorPlaybackVolume;
+      const voice = window.speechSynthesis.getVoices().find(item => /^id([_-]|$)/i.test(item.lang));
+      if (voice) utterance.voice = voice;
+      utterance.onend = resolve;
+      utterance.onerror = resolve;
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+}
+
+async function speakSystemNarration(message, options = {}) {
+  const sentences = splitNarrationSentences(message);
+  if (!sentences.length) return;
+  stopNarratorAudio();
+  window.speechSynthesis?.cancel();
+  const playbackSequence = narratorPlaybackSequence;
+  try {
+    for (const sentence of sentences) {
+      if (playbackSequence !== narratorPlaybackSequence) return;
+      const headers = { 'Content-Type': 'application/json' };
+      const body = { text: sentence };
+      if (options.developerTest) {
+        headers.Authorization = 'Bearer ' + await requestDeveloperNarratorAssertion();
+      } else {
+        body.roomCode = session?.code || '';
+        body.playerToken = session?.token || '';
+      }
+      const response = await fetch(API_BASE + '/narrator/speak', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error('Voice narrator unavailable');
+      const audioBlob = await response.blob();
+      if (!audioBlob.size) throw new Error('Empty narrator audio');
+      if (playbackSequence !== narratorPlaybackSequence) return;
+      await playNarratorAudioBlob(audioBlob, playbackSequence);
+      if (playbackSequence !== narratorPlaybackSequence) return;
+      if (sentences.length > 1) await new Promise(resolve => setTimeout(resolve, 140));
+    }
   } catch {
-    speakBrowserNarration(message);
+    if (playbackSequence === narratorPlaybackSequence) {
+      await speakBrowserNarration(sentences, playbackSequence);
+    }
   }
 }
 
