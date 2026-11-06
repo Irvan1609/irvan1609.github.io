@@ -173,7 +173,7 @@ assert.match(app, /'\/narrator\/speak'/);
 assert.match(app, /function splitNarrationSentences/);
 assert.match(app, /for \(const sentence of sentences\)/);
 assert.match(app, /await playNarratorAudioBlob\(audioBlob, playbackSequence\)/);
-assert.match(app, /await speakBrowserNarration\(sentences, playbackSequence\)/);
+assert.match(app, /await speakBrowserNarration\(sentences\.slice\(nextSentenceIndex\), playbackSequence\)/);
 assert.match(app, /Kita berada di ' \+ village/);
 assert.match(app, /Malam turun di ' \+ village/);
 assert.match(app, /Matahari baru saja terbit/);
