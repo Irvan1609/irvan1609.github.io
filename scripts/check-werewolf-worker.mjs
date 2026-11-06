@@ -2245,8 +2245,8 @@ const blockedLateCard = await roleDrawTimeoutRoom.fetch(makeRequest('/internal/a
 assert.equal(blockedLateCard.status, 403,
   'A BOT-controlled player must not submit actions until control is restored.');
 await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
-  type: 'restore_player_control'
-}, roleDrawTimeoutPlayer.token)));
+  type: 'restore_player_control', playerId: roleDrawTimeoutPlayer.id
+}, roleDrawTimeoutCreated.token)));
 const lateCardView = (await payload(await roleDrawTimeoutRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, roleDrawTimeoutPlayer.token)
 ))).state;
