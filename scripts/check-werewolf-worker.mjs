@@ -2974,6 +2974,31 @@ assert.equal(spectatorView.self.role, null);
 assert.equal(spectatorView.self.hasRole, false);
 assert.deepEqual(spectatorView.targets, []);
 assert.equal(spectatorView.spectators.length, 1);
+
+// During an active night, spectators must not receive the wolf pack, private wolf chat,
+// Seer results, or living players' hidden role assignments.
+let spectatorPrivateRoom = await spectatorRoom.loadRoom();
+spectatorPrivateRoom.phase = 'night';
+spectatorPrivateRoom.round = 1;
+spectatorPrivateRoom.players = [
+  { id: 'private-wolf', name: 'Hidden Wolf', role: 'wolf', alive: true, hasDrawn: true, connected: false, voiceMode: 'online', tokenHash: 'wolf-private-token' },
+  { id: 'private-seer', name: 'Hidden Seer', role: 'seer', alive: true, hasDrawn: true, connected: false, voiceMode: 'online', tokenHash: 'seer-private-token' }
+];
+spectatorPrivateRoom.wolfChat = [{ id: 'wolf-secret', name: 'Hidden Wolf', text: 'pesan rahasia pack', at: Date.now() }];
+spectatorPrivateRoom.seerResults = { 'private-seer': { targetId: 'private-wolf', playerName: 'Hidden Wolf', result: 'wolf' } };
+spectatorPrivateRoom.nightActions = { 'private-wolf': { type: 'wolf_vote', targetId: 'private-seer' } };
+await spectatorRoom.saveRoom(spectatorPrivateRoom);
+const spectatorNightView = (await payload(await spectatorRoom.fetch(
+  makeRequest('/internal/state', 'GET', undefined, spectatorJoin.token)
+))).state;
+assert.equal(spectatorNightView.self.role, null);
+assert.deepEqual(spectatorNightView.targets, []);
+assert.deepEqual(spectatorNightView.wolfTeam, []);
+assert.deepEqual(spectatorNightView.wolfChat, []);
+assert.equal(spectatorNightView.publicPlayers.find(player => player.id === 'private-wolf').revealedRole, null);
+assert.equal(JSON.stringify(spectatorNightView).includes('pesan rahasia pack'), false);
+assert.equal(JSON.stringify(spectatorNightView).includes('Hidden Wolf'), true,
+  'The public living-player list may show names, but must not disclose the hidden role or private chat.');
 await payload(await spectatorRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: 'not-a-target'
 }, spectatorJoin.token)), 403);
