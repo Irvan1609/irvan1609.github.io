@@ -2398,9 +2398,9 @@ const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeReq
   settings: {
     moderatorMode: 'system',
     roleCounts: {
-      wolf: 2, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
+      wolf: 3, alpha_wolf: 0, seer: 0, doctor: 0, bodyguard: 0, witch: 0,
       hunter: 1, reviver: 0, cupid: 0, guardian_angel: 0, detective: 0,
-      mayor: 0, jester: 0, priest: 0, vigilante: 0, mason: 0, villager: 2, moderator: 0
+      mayor: 0, jester: 0, priest: 0, vigilante: 0, mason: 0, villager: 4, moderator: 0
     },
     timers: {
       roleDrawSeconds: 5, nightSeconds: 10, dawnSeconds: 5,
@@ -2409,7 +2409,7 @@ const autoDawnCycleCreated = await payload(await autoDawnCycleRoom.fetch(makeReq
   }
 })), 201);
 const autoDawnCycleTokens = [autoDawnCycleCreated.token];
-for (const name of ['System Wolf', 'System Hunter', 'System Villager', 'System Wolf Mate']) {
+for (const name of ['System Wolf', 'System Hunter', 'System Villager A', 'System Wolf Mate', 'System Wolf Third', 'System Villager B', 'System Villager C']) {
   const joined = await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/join', 'POST', { name })), 201);
   autoDawnCycleTokens.push(joined.token);
 }
@@ -2418,7 +2418,7 @@ await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POS
 }, autoDawnCycleCreated.token)));
 let autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 autoDawnCycleState.players.forEach((player, index) => {
-  player.role = ['villager', 'wolf', 'hunter', 'villager', 'wolf'][index];
+  player.role = ['villager', 'wolf', 'hunter', 'villager', 'wolf', 'wolf', 'villager', 'villager'][index];
   player.alive = true;
   player.hasDrawn = false;
   player.hunterUsed = false;
@@ -2463,9 +2463,14 @@ await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POS
 await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'night_action', targetId: autoDawnCycleHunterId
 }, autoDawnCycleTokens[4])));
+await payload(await autoDawnCycleRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'night_action', targetId: autoDawnCycleHunterId
+}, autoDawnCycleTokens[5])));
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[0]);
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[2]);
 await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[3]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[6]);
+await submitVillagerMath(autoDawnCycleRoom, autoDawnCycleTokens[7]);
 autoDawnCycleState = await autoDawnCycleRoom.loadRoom();
 const autoDawnCycleNightDeadline = autoDawnCycleState.nightEndsAt;
 const realNowForAutoDawnNight = Date.now;
