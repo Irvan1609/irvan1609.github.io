@@ -659,7 +659,9 @@ async function createVoicePeer(peer, shouldOffer = false) {
     } else {
       const connected = [...voicePeerConnections.values()]
         .filter(item => item.connectionState === 'connected').length;
-      if (connected) voiceStatus = 'Voice chat aktif · ' + connected + ' koneksi suara.';
+      if (connected) voiceStatus = roomState?.self?.voiceMode === 'offline'
+        ? 'Audio pemain online tersambung · mikrofon tetap mati.'
+        : 'Voice chat aktif · ' + connected + ' koneksi suara.';
     }
     refreshVoiceUI();
   };
