@@ -209,6 +209,8 @@ assert.match(worker, /NARRATOR_TTS_LIMITER/);
 assert.match(worker, /global-narrator-config/);
 assert.match(worker, /internal\/narrator-config/);
 assert.match(worker, /requireNarratorDeveloper/);
+assert.match(worker, /\/account\.js/);
+assert.match(worker, /\/account-config\.js/);
 assert.match(worker, /\/internal\/state/);
 assert.match(worker, /resolveSystemVoteIfReady/);
 assert.match(worker, /isSystemModerator/);
