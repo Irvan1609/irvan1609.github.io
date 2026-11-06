@@ -539,6 +539,11 @@ function refreshVoiceUI() {
   if (audio) audio.classList.toggle('hidden', !voiceNeedsAudioGesture);
 }
 
+function updateRemoteVoiceVolume() {
+  const volume = voiceLocalStream && !voiceMuted ? 0.26 : 0.38;
+  for (const audio of voiceRemoteAudio.values()) audio.volume = volume;
+}
+
 function closeVoicePeer(peerId) {
   const connection = voicePeerConnections.get(peerId);
   if (connection) {
@@ -642,7 +647,7 @@ async function createVoicePeer(peer, shouldOffer = false) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
-      audio.volume = 0.38;
+      audio.volume = voiceLocalStream && !voiceMuted ? 0.26 : 0.38;
       audio.className = 'voice-audio';
       audio.dataset.peerId = peerId;
       document.body.append(audio);
@@ -723,9 +728,9 @@ async function startDiscussionVoice(manual = false) {
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: { ideal: true },
+          echoCancellation: { ideal: 'all' },
           noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: true },
+          autoGainControl: { ideal: false },
           channelCount: { ideal: 1 },
           sampleRate: { ideal: 48000 }
         },
@@ -738,6 +743,7 @@ async function startDiscussionVoice(manual = false) {
       voiceLocalStream = stream;
       voiceMuted = false;
       for (const track of stream.getAudioTracks()) track.enabled = true;
+      updateRemoteVoiceVolume();
       voiceStatus = 'Mikrofon aktif · menghubungkan pemain diskusi…';
       refreshVoiceUI();
       for (const peerId of [...voicePeerConnections.keys()]) closeVoicePeer(peerId);
@@ -803,6 +809,7 @@ function toggleVoiceMic() {
   }
   voiceMuted = !voiceMuted;
   for (const track of voiceLocalStream.getAudioTracks()) track.enabled = !voiceMuted;
+  updateRemoteVoiceVolume();
   voiceStatus = voiceMuted ? 'Mikrofon dimatikan.' : 'Mikrofon aktif.';
   refreshVoiceUI();
 }
@@ -1438,8 +1445,8 @@ function renderRoom() {
   content.replaceChildren();
   if (moderator) renderModeratorPhase(content);
   else renderPlayerPhase(content);
-  renderDiscussionTools(content);
   if (!roomState.self?.isWaiting && room.phase !== 'lobby') renderLivingPlayers(content);
+  renderDiscussionTools(content);
   syncBotTakeoverDialog();
   if (activeId) {
     const replacement = document.getElementById(activeId);
