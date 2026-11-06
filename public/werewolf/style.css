@@ -951,3 +951,96 @@ details[open]>.replay-archive-summary::after,details[open]>.replay-summary::afte
   letter-spacing: .04em;
   vertical-align: middle;
 }
+
+
+/* Polished confirmation for destructive room management only. Timed game choices never open this dialog. */
+.confirm-dialog {
+  width: min(92vw, 420px);
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #65748a;
+  border-radius: 18px;
+  background: linear-gradient(155deg, #1c2b40, #0d1726 82%);
+  color: #edf2f8;
+  box-shadow: 0 28px 90px #000b;
+}
+.confirm-dialog::backdrop {
+  background: rgba(2, 7, 15, .78);
+  backdrop-filter: blur(7px);
+}
+.confirm-dialog-content { padding: 22px; }
+.confirm-dialog-kicker {
+  color: #d6ae70;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .19em;
+}
+.confirm-dialog-content h2 {
+  margin: 9px 0 7px;
+  color: #f0d6a6;
+  font: 600 24px var(--serif);
+}
+.confirm-dialog-content p {
+  margin: 0;
+  color: #c0ccda;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.confirm-dialog-actions button { min-height: 42px; padding: 9px 14px; }
+.confirm-dialog-accept.danger {
+  border: 1px solid #b45a64;
+  background: linear-gradient(125deg, #a83e4c, #702c3a);
+  color: #fff3f4;
+  box-shadow: 0 7px 18px #7c2e3b55;
+}
+.confirm-dialog-accept.danger:hover { border-color: #e18a91; filter: brightness(1.08); }
+
+/* Keep the chat input wide while placing voice, send, and narration controls beside it. */
+.discussion-chat-form {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 7px;
+}
+.discussion-chat-form input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+}
+.discussion-chat-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 5px;
+}
+.discussion-chat-actions button {
+  min-height: 44px;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+.discussion-chat-actions .voice-inline-control { min-width: 48px; }
+.discussion-chat-actions .repeat-narration-button { min-width: 58px; }
+@media(max-width:620px) {
+  .confirm-dialog-content { padding: 18px; }
+  .confirm-dialog-content h2 { font-size: 21px; }
+  .discussion-chat-form { flex-wrap: nowrap; gap: 5px; }
+  .discussion-chat-form input { flex: 1 1 auto; width: auto; min-width: 0; min-height: 42px; }
+  .discussion-chat-actions { flex: 0 0 auto; gap: 4px; }
+  .discussion-chat-actions button { min-height: 42px; padding: 7px 8px; font-size: 10px; }
+  .discussion-chat-actions .voice-inline-control { min-width: 42px; }
+  .discussion-chat-actions .repeat-narration-button { min-width: 52px; }
+}
+@media(max-width:370px) {
+  .discussion-chat-actions button { padding: 7px 6px; }
+  .discussion-chat-actions .voice-inline-control { min-width: 38px; }
+  .discussion-chat-actions .repeat-narration-button { min-width: 48px; }
+}
