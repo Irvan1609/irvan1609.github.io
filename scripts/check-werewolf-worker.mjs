@@ -2610,7 +2610,6 @@ await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[2]);
 await submitVillagerMath(wolfSeerRoom, wolfSeerTokens[3]);
 await actionAfterDeadline(wolfSeerRoom, wolfSeerCreated.token, 'resolve_night', { force: true });
 wolfSeerState = await wolfSeerRoom.loadRoom();
-const wolfSeerId = wolfSeerState.players.find(player => player.role === 'wolf_seer').id;
 const wolfSeerPrivateView = (await payload(await wolfSeerRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, wolfSeerTokens[0])
 ))).state;
