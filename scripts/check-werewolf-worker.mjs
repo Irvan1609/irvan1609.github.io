@@ -261,6 +261,9 @@ const seerMorning = (await payload(await room.fetch(
 assert.equal(seerMorning.self.alive, true);
 assert.equal(seerMorning.self.seerResult.playerName, 'Alya');
 assert.equal(seerMorning.self.seerResult.result, 'wolf');
+assert.equal(seerMorning.self.seerResult.targetRole, 'wolf',
+  'The Seer receives the exact inspected role in the private result.');
+assert.equal(seerMorning.self.seerResult.targetFaction, 'wolves');
 assert.equal(seerMorning.self.seerResult.round, 1);
 assert.ok(seerMorning.room.revision > 0);
 await payload(await room.fetch(makeRequest('/internal/action', 'POST', {
