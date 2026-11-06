@@ -8,7 +8,7 @@
   <title>Werewolf — The Village After Dark</title>
   <link rel="preload" as="image" href="./assets/illustrations/hero-night.svg">
   <link rel="stylesheet" href="./subweb-header.css">
-  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-story-dawn-5">
+  <link rel="stylesheet" href="./style.css?v=20261106-werewolf-player-voice-waitlist-6">
 </head>
 <body>
   <header class="subweb-header">
@@ -40,6 +40,12 @@
           <label>Kode room
             <input id="joinCode" maxlength="6" placeholder="Contoh: A7K2MP" autocapitalize="characters" autocomplete="off" required>
           </label>
+          <label>Mode bergabung
+            <select id="joinVoiceMode">
+              <option value="online" selected>Online · mikrofon otomatis aktif</option>
+              <option value="offline">Offline · mikrofon mati, tetap mendengar</option>
+            </select>
+          </label>
           <button id="scanQrButton" class="secondary wide scan-qr-button" type="button">Scan QR Undangan</button>
           <button class="secondary wide" id="joinButton" type="submit">Gabung Room</button>
           <p class="hint">Masukkan kode room yang dibagikan host.</p>
@@ -51,13 +57,6 @@
           <label>Nama host
             <input id="createName" maxlength="20" placeholder="Masukkan nama host" required>
           </label>
-          <label>Mode permainan
-            <select id="createGameMode">
-              <option value="online" selected>Online · voice chat dan chat</option>
-              <option value="offline">Offline/tatap muka · tanpa voice chat</option>
-            </select>
-          </label>
-          <p class="hint">Kedua mode tetap memakai internet untuk sinkronisasi room antarperangkat.</p>
           <button class="primary wide" id="createButton" type="submit">Buat Room</button>
           <p class="hint">Host otomatis masuk ke daftar pemain. Jika host atau pemain lain dipilih sebagai moderator, ia sementara tidak menerima kartu role.</p>
         </form>
@@ -87,7 +86,7 @@
       </section>
     </section>
 
-    <footer>Werewolf · Voice chat otomatis tersedia di semua fase mode online; chat tersedia sepanjang permainan.</footer>
+    <footer>Werewolf · Pilih mode suara saat bergabung. Pemain yang masuk saat permainan berjalan menunggu ronde berikutnya.</footer>
   </main>
 
   <dialog id="inviteDialog" class="invite-dialog" aria-labelledby="inviteDialogTitle">
@@ -134,6 +133,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20261106-werewolf-story-dawn-5"></script>
+  <script type="module" src="./app.js?v=20261106-werewolf-player-voice-waitlist-6"></script>
 </body>
 </html>
