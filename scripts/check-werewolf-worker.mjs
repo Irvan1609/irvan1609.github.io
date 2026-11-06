@@ -2759,6 +2759,8 @@ assert.equal(botVoter.isBot, true);
 assert.ok(Object.prototype.hasOwnProperty.call(voteTakeoverState.votes, botVoter.id));
 assert.equal(voteTakeoverState.lastResult.publicVotes.length, 4);
 assert.ok(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).hasVoted);
+assert.equal(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).botTookOver, true);
+assert.match(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).status, /Tidak vote · BOT memilih/);
 console.log('Werewolf voting takeover regression passed: missed voters are replaced and ballots stay public.');
 
   
@@ -2841,31 +2843,5 @@ assert.ok(manualTakeoverState.players.every(player => player.isBotControlled),
 assert.ok(manualTakeoverState.players.every(player => manualTakeoverState.nightActions[player.id]),
   'BOT must complete every missed night action before the moderator advances.');
 console.log('Werewolf manual-mode takeover regression passed: timer handoff runs BOT actions without advancing the moderator phase.');
-
-// The voting deadline automatically replaces non-voters and preserves every public ballot.
-const voteTakeoverRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
-const voteTakeoverState = {
-  code: 'BOTV23', phase: 'voting', round: 1, hostId: 'vote-wolf',
-  players: [
-    { id: 'vote-wolf', name: 'Red Player', role: 'wolf', alive: true, isBot: false, isBotControlled: false },
-    { id: 'vote-village-a', name: 'Blue A', role: 'villager', alive: true, isBot: false, isBotControlled: false },
-    { id: 'vote-village-b', name: 'Blue B', role: 'villager', alive: true, isBot: false, isBotControlled: false },
-    { id: 'vote-village-c', name: 'Blue C', role: 'villager', alive: true, isBot: false, isBotControlled: false }
-  ],
-  votes: { 'vote-wolf': 'vote-village-a', 'vote-village-a': null, 'vote-village-c': null },
-  nightActions: {}, dawnActions: {}, resultActions: {}, lovers: [], additionalWinners: [],
-  guardianTargets: {}, seerResults: {}, seerHistory: {}, settings: { abilities: {}, timers: { resultSeconds: 8 } },
-  gameHistory: [], gameArchive: [], gameHistoryTruncated: 0, gameFinishedRecorded: false,
-  gameId: 'vote-takeover-test', expiresAt: Date.now() + 60000, winner: null
-};
-voteTakeoverRoom.finishVote(voteTakeoverState, inactivityNow);
-const botVoter = voteTakeoverState.players.find(item => item.id === 'vote-village-b');
-assert.equal(botVoter.isBotControlled, true);
-assert.equal(botVoter.isBot, true);
-assert.ok(Object.prototype.hasOwnProperty.call(voteTakeoverState.votes, botVoter.id));
-assert.equal(voteTakeoverState.lastResult.publicVotes.length, 4);
-assert.ok(voteTakeoverState.lastResult.publicVotes.find(item => item.voterId === botVoter.id).hasVoted);
-console.log('Werewolf voting takeover regression passed: missed voters are replaced and their ballots remain visible.');
-
 
 console.log('Werewolf System automation passed: card reveal, night, triggered dawn, morning discussion, afternoon voting and next round.');
