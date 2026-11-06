@@ -526,11 +526,11 @@ export default {
       if (url.pathname === '/developer/narrator/status' && request.method === 'GET') {
         return withCors(await handleNarratorStatus(request, env), request, env);
       }
-      const developerClipMatch = url.pathname.match(/^\\/developer\\/narrator\\/clips\\/([a-z0-9_-]+)$/);
+      const developerClipMatch = url.pathname.match(/^\/developer\/narrator\/clips\/([a-z0-9_-]+)$/);
       if (developerClipMatch && request.method === 'POST') {
         return withCors(await handleNarratorClipUpload(request, env, developerClipMatch[1]), request, env);
       }
-      const narratorClipMatch = url.pathname.match(/^\\/narrator\\/clip\\/([a-z0-9_-]+)$/);
+      const narratorClipMatch = url.pathname.match(/^\/narrator\/clip\/([a-z0-9_-]+)$/);
       if (narratorClipMatch && request.method === 'GET') {
         return withCors(await handleNarratorClipPlayback(request, env, narratorClipMatch[1]), request, env);
       }
