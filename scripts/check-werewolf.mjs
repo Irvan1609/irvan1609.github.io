@@ -456,3 +456,28 @@ assert.ok(worker.includes('actionSpeakers'));
 assert.ok(worker.includes('isNightReport: Boolean(message.isNightReport)'));
 assert.ok(css.includes('.role-count-grid .role-config-info-disclosure[open] .role-config-info-details'));
 assert.ok(css.includes('chat-night-report-badge'));
+
+
+// Timed choices remain editable without browser confirmation popups.
+assert.ok(html.includes('id="confirmDialog"'), 'Destructive room actions use the styled in-game dialog.');
+assert.ok(app.includes('function askConfirmation('));
+assert.doesNotMatch(app, /\bconfirm\s*\(/, 'No native browser confirmation is used.');
+assert.ok(app.includes("mode: 'cupid_clear'"), 'Cupid can clear a pending pair while revising it.');
+assert.ok(worker.includes("body.mode === 'cupid_clear'"));
+assert.ok(!app.includes('Simpan ikatan'), 'Cupid pair selection is saved automatically.');
+assert.ok(app.includes('discussion-chat-actions'));
+assert.ok(app.includes("button('Narasi ↻'"));
+assert.ok(css.includes('.confirm-dialog'));
+assert.ok(css.includes('.discussion-chat-actions'));
+assert.ok(app.includes('bekas gigitan di leher'));
+assert.ok(app.includes('luka tembak'));
+assert.ok(app.includes('botol kecil'));
+assert.ok(app.includes('function renderPrivateInspectionResult'));
+assert.ok(app.includes('seer-inspected'));
+assert.ok(app.includes('HASIL PENERAWANGAN PRIBADI'));
+const playerPhaseStart = app.indexOf('function renderPlayerPhase');
+const playerPhaseEnd = app.indexOf('function renderModeratorLobby', playerPhaseStart);
+const playerPhaseMarkup = app.slice(playerPhaseStart, playerPhaseEnd);
+assert.ok(playerPhaseMarkup.indexOf('renderPlayerRoleReminder') < playerPhaseMarkup.indexOf('renderLivingPlayers'));
+assert.ok(app.indexOf('renderDiscussionTools(content)') > app.indexOf('renderPlayerPhase(content)'));
+console.log('Werewolf gameplay UX checks passed: timed actions, private inspections, integrated voice/chat, custom confirmations and story narration.');
