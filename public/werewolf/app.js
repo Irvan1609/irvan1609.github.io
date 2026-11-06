@@ -10,7 +10,7 @@ const ROLE_INFO = {
   wolf: ['Werewolf', 'Menentukan korban bersama kawanan.', 'Setiap malam pilih 1 pemain hidup di luar kubu Werewolf.'],
   alpha_wolf: ['Alpha Wolf', 'Suara serangan bernilai 2.', 'Setiap malam pilih 1 target bersama kawanan; tidak bisa memilih Werewolf.'],
   villager: ['Warga Desa', 'Mengandalkan deduksi dan voting untuk menang bersama Desa.', 'Malam: jawab soal penjumlahan. Siang: diskusi dan pilih 1 pemain.'],
-  seer: ['Seer', 'Mengungkap apakah target adalah Werewolf.', 'Setiap malam periksa 1 pemain lain; hasilnya Werewolf / bukan Werewolf.'],
+  seer: ['Seer', 'Mengungkap role asli pemain yang diperiksa.', 'Setiap malam periksa 1 pemain lain; role target tampil privat dan target diberi tanda warna.'],
   doctor: ['Doctor', 'Mencegah target tewas oleh serangan Werewolf.', 'Setiap malam lindungi 1 pemain hidup; boleh diri sendiri. Tidak menahan racun Witch.'],
   bodyguard: ['Bodyguard', 'Mengalihkan serangan dari target kepadamu.', 'Setiap malam jaga 1 pemain lain; jika diserang Werewolf, kamu gugur menggantikannya.'],
   witch: ['Witch', 'Memiliki 1 ramuan penyembuh dan 1 racun.', 'Heal: selamatkan target serangan. Poison: racuni 1 pemain lain. Tiap ramuan sekali; 1 aksi per malam. Jika tidak memakai ramuan atau keduanya habis, jawab perhitungan malam.'],
@@ -1704,14 +1704,14 @@ function renderLivingPlayers(parent) {
     const name = String(player.name || 'Pemain');
     const inspected = history.get(player.id);
     const result = inspected?.result;
-    const isWolf = result === 'wolf' || result === 'wolf_team';
-    const isNeutral = result === 'neutral';
+    const isWolf = result === 'wolf' || result === 'wolf_team' || inspected?.targetFaction === 'wolves';
+    const isNeutral = result === 'neutral' || inspected?.targetFaction === 'neutral';
     const chip = node('span', 'living-player-chip' + (inspected ? ' seer-inspected ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe') : ''));
     chip.append(node('span', 'living-player-dot'), document.createTextNode(name));
     if (inspected) {
       const label = roomState.self.role === 'detective'
         ? (isWolf ? 'Werewolf' : isNeutral ? 'Netral' : 'Desa')
-        : (isWolf ? 'Werewolf' : 'Bukan Werewolf');
+        : (inspected.targetRole ? roleLabel(inspected.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
       chip.append(node('small', 'seer-inspection-tag', label));
     }
     list.append(chip);
@@ -2324,11 +2324,12 @@ function renderPrivateInspectionResult(parent) {
   const panel = node('section', 'private-inspection-panel');
   addText(panel, 'div', 'eyebrow-small', 'HASIL PENERAWANGAN PRIBADI');
   for (const result of history.slice().sort((a, b) => a.round - b.round)) {
-    const isWolf = result.result === 'wolf' || result.result === 'wolf_team';
-    const isNeutral = result.result === 'neutral';
+    const isWolf = result.result === 'wolf' || result.result === 'wolf_team'
+      || result.targetFaction === 'wolves';
+    const isNeutral = result.result === 'neutral' || result.targetFaction === 'neutral';
     const faction = self.role === 'detective'
       ? (isWolf ? 'Kubu Werewolf' : isNeutral ? 'Kubu Netral' : 'Kubu Desa')
-      : (isWolf ? 'Werewolf' : 'Bukan Werewolf');
+      : (result.targetRole ? roleLabel(result.targetRole) : isWolf ? 'Werewolf' : 'Bukan Werewolf');
     const row = node('div', 'private-inspection-item ' + (isWolf ? 'seer-result-wolf' : isNeutral ? 'seer-result-neutral' : 'seer-result-safe'));
     addText(row, 'span', 'private-inspection-round', 'R' + result.round);
     addText(row, 'b', '', result.playerName || 'Pemain');
