@@ -2239,15 +2239,20 @@ roleDrawTimeoutState = await roleDrawTimeoutRoom.loadRoom();
 assert.equal(roleDrawTimeoutState.phase, 'night',
   'The game must automatically enter night after the 20-second role reveal deadline.');
 assert.equal(roleDrawTimeoutState.roleDrawEndsAt, null);
-const lateCardOpened = await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
+const blockedLateCard = await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
   type: 'draw_card'
+}, roleDrawTimeoutPlayer.token));
+assert.equal(blockedLateCard.status, 403,
+  'A BOT-controlled player must not submit actions until control is restored.');
+await payload(await roleDrawTimeoutRoom.fetch(makeRequest('/internal/action', 'POST', {
+  type: 'restore_player_control'
 }, roleDrawTimeoutPlayer.token)));
 const lateCardView = (await payload(await roleDrawTimeoutRoom.fetch(
   makeRequest('/internal/state', 'GET', undefined, roleDrawTimeoutPlayer.token)
 ))).state;
 assert.equal(lateCardView.self.hasDrawn, true);
-assert.ok(lateCardView.self.role, 'A player may privately reveal their own card after the night has begun.');
-console.log('Werewolf role-card deadline passed: 20-second timeout, automatic night start and late private card reveal.');
+assert.ok(lateCardView.self.role, 'The player can see their role after choosing to return to the game.');
+console.log('Werewolf role-card deadline passed: missed reveal triggers BOT takeover and returning players regain their private role.');
 
 // Dawn trigger regressions: Hunter can revise a last shot; Reviver can restore a night victim.
 const hunterDawnRoom = new WerewolfRoom({ storage: new MemoryStorage(), getWebSockets: () => [] }, {});
