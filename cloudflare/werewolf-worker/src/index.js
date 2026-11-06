@@ -221,7 +221,7 @@ function roleDeck(settings, playerCount) {
   if (total !== playerCount) {
     throw new HttpError(409, 'Jumlah role (' + total + ') harus sama dengan jumlah pemain (' + playerCount + '). Sesuaikan komposisi role di lobby.');
   }
-  if (counts.wolf + counts.alpha_wolf < 1) {
+  if (Number(counts.wolf || 0) + Number(counts.alpha_wolf || 0) + Number(counts.wolf_seer || 0) < 1) {
     throw new HttpError(409, 'Komposisi harus memiliki minimal satu Werewolf atau Alpha Wolf.');
   }
   const villageCount = ROLE_COUNT_KEYS.filter(key => VILLAGE_ROLES.has(key))
