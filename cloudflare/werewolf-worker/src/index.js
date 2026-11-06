@@ -11,13 +11,15 @@ const NARRATOR_STORAGE_ID = 'global-narrator-audio-clips';
 const MAX_NARRATOR_CLIP_BYTES = 3 * 1024 * 1024;
 const MAX_NARRATOR_TOTAL_BYTES = 48 * 1024 * 1024;
 const NARRATOR_CLIP_IDS = new Set([
-  'test_welcome', 'role_cards', 'role_secret', 'night_arrival', 'night_hunters',
-  'dawn_first', 'dawn_last', 'morning_clear', 'morning_safe', 'morning_many',
-  'morning_wolf', 'morning_shot', 'morning_poison', 'morning_guard', 'morning_lovers',
-  'morning_other', 'discussion_gather', 'discussion_suspicion', 'discussion_truth',
-  'voting_pole', 'voting_choice', 'voting_last', 'result_execution', 'result_no_execution',
-  'finished_open', 'finished_wolves', 'finished_villagers', 'finished_jester',
-  'finished_lovers', 'finished_default'
+  'test_welcome', 'role_cards', 'role_secret', 'night_arrival', 'night_sleep',
+  'night_hunters', 'dawn_first', 'dawn_action', 'morning_clear', 'morning_no_death',
+  'morning_many', 'morning_fear', 'morning_wolf', 'morning_wolf2', 'morning_shot',
+  'morning_shot2', 'morning_poison', 'morning_poison2', 'morning_guard', 'morning_lovers',
+  'morning_other', 'morning_other2', 'discussion_gather', 'discussion_suspicion',
+  'discussion_question', 'voting_pole', 'voting_prompt', 'voting_choice', 'result_execution',
+  'result_depart', 'result_no_execution', 'result_no_execution2', 'finished_open',
+  'finished_wolves', 'finished_villagers', 'finished_jester', 'finished_jester2',
+  'finished_lovers', 'finished_default', 'finished_end'
 ]);
 
 function json(data, status = 200, headers = {}) {
