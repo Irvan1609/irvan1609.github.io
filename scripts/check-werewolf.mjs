@@ -19,7 +19,7 @@ assert.match(html, /\.\.\/account\.js/);
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'joinOnlineButton', 'joinOfflineButton',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
-  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton', 'developerNarratorPanel', 'narratorClipSelect', 'narratorClipText', 'narratorClipFile', 'narratorClipConsent', 'saveNarratorClip', 'testNarratorClip', 'narratorPlaybackVolume', 'developerNarratorStatus'
+  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton', 'developerNarratorPanel', 'narratorClipList', 'narratorClipConsent', 'developerNarratorProgress', 'narratorPlaybackVolume', 'developerNarratorStatus'
 ]) {
   assert.match(html, new RegExp('id="' + id + '"'), 'Missing UI element ' + id);
 }
@@ -212,7 +212,19 @@ assert.doesNotMatch(worker, /ElevenLabs|ELEVENLABS_API_KEY|NARRATOR_TTS_LIMITER/
 assert.match(worker, /MAX_NARRATOR_CLIP_BYTES/);
 assert.match(worker, /global-narrator-audio-clips/);
 assert.ok(worker.includes('/internal/narrator-clip'));
-assert.match(app, /function updateDeveloperNarratorSelection/);
+assert.match(app, /function renderDeveloperNarratorClips/);
+assert.match(app, /async function startNarratorRecording/);
+assert.match(app, /async function uploadNarratorRecording/);
+assert.match(app, /function narratorClipFileName/);
+assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
+assert.match(app, /new MediaRecorder/);
+assert.match(app, /Selesai & Simpan/);
+assert.match(app, /Rekam ulang/);
+assert.match(app, /window\.IrvanAccount\?\.authenticated/);
+const createFormStart = html.indexOf('<form id="createForm"');
+const createFormEnd = html.indexOf('</form>', createFormStart);
+const narratorPanelPosition = html.indexOf('id="developerNarratorPanel"');
+assert.ok(narratorPanelPosition > html.indexOf('id="createButton"') && narratorPanelPosition < createFormEnd, 'Narrator studio must sit under Create Room inside its card.');
 assert.match(app, /narratorUploadedClipIds/);
 assert.match(worker, /NARRATOR_CLIP_IDS/);
 assert.match(worker, /handleNarratorClipUpload/);
