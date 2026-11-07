@@ -441,36 +441,60 @@ async function handleNarratorClipUpload(request, env, id) {
   if (contentLength > MAX_NARRATOR_CLIP_BYTES + 128 * 1024) {
     throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
   }
-  const form = await request.formData();
-  const file = form.get('file');
-  if (!file || typeof file.arrayBuffer !== 'function' || !Number(file.size)) {
-    throw new HttpError(400, 'Pilih satu file rekaman audio.');
+  const requestType = String(request.headers.get('Content-Type') || '').toLowerCase();
+  const isMultipart = requestType.startsWith('multipart/form-data');
+  let audio;
+  let fileName;
+  let contentType;
+  if (isMultipart) {
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file || typeof file.arrayBuffer !== 'function' || !Number(file.size)) {
+      throw new HttpError(400, 'Pilih satu file rekaman audio.');
+    }
+    if (Number(file.size) > MAX_NARRATOR_CLIP_BYTES) {
+      throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
+    }
+    fileName = file.name;
+    const extension = String(file.name || '').split('.').pop().toLowerCase();
+    const allowedTypes = new Set([
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
+      'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/aac'
+    ]);
+    const extensionTypes = {
+      mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', mp4: 'audio/mp4',
+      webm: 'audio/webm', ogg: 'audio/ogg', aac: 'audio/aac'
+    };
+    const reportedType = String(file.type || '').toLowerCase();
+    contentType = allowedTypes.has(reportedType) ? reportedType : (extensionTypes[extension] || '');
+    audio = await file.arrayBuffer();
+  } else {
+    fileName = request.headers.get('X-File-Name') || ('narrator-' + id + '.webm');
+    contentType = requestType.split(';')[0].trim();
+    const allowedTypes = new Set([
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
+      'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/aac'
+    ]);
+    if (!allowedTypes.has(contentType)) {
+      throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
+    }
+    audio = await request.arrayBuffer();
   }
-  if (Number(file.size) > MAX_NARRATOR_CLIP_BYTES) {
+  if (!audio?.byteLength) throw new HttpError(400, 'Pilih satu file rekaman audio.');
+  if (audio.byteLength > MAX_NARRATOR_CLIP_BYTES) {
     throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
   }
-  const extension = String(file.name || '').split('.').pop().toLowerCase();
-  const allowedTypes = new Set([
-    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
-    'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/aac'
-  ]);
-  const extensionTypes = {
-    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', mp4: 'audio/mp4',
-    webm: 'audio/webm', ogg: 'audio/ogg', aac: 'audio/aac'
-  };
-  const reportedType = String(file.type || '').toLowerCase();
-  const contentType = allowedTypes.has(reportedType) ? reportedType : (extensionTypes[extension] || '');
   if (!contentType) {
     throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
   }
-  const safeName = String(file.name || ('narrator-' + id)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+  const safeName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
   const response = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id), {
     method: 'PUT',
     headers: {
-      'Content-Type': contentType || extensionTypes[extension] || 'application/octet-stream',
+      'Content-Type': contentType,
       'X-File-Name': safeName
     },
-    body: await file.arrayBuffer()
+    body: audio
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new HttpError(response.status, data.error || 'Rekaman gagal disimpan.');
