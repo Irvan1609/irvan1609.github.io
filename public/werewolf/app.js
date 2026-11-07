@@ -106,6 +106,8 @@ let narratorPlaybackVolume = 0.9;
 let narratorAudioElement = null;
 let narratorAudioUrl = '';
 let narratorAudioCancel = null;
+let narratorAudioSource = null;
+const narratorLocalPreviewBlobs = new Map();
 let narratorUploadedClipIds = new Set();
 let narratorUploadedClipMeta = new Map();
 let activeNarratorRecording = null;
@@ -3214,6 +3216,10 @@ function stopNarratorAudio() {
     narratorAudioCancel = null;
     cancel();
   }
+  if (narratorAudioSource) {
+    try { narratorAudioSource.stop(); } catch {}
+    narratorAudioSource = null;
+  }
   if (narratorAudioElement) {
     try { narratorAudioElement.pause(); narratorAudioElement.currentTime = 0; } catch {}
     narratorAudioElement = null;
@@ -3224,7 +3230,66 @@ function stopNarratorAudio() {
   }
 }
 
-function playNarratorAudioBlob(audioBlob, playbackSequence) {
+async function playNarratorAudioBlob(audioBlob, playbackSequence) {
+  if (playbackSequence !== narratorPlaybackSequence) return false;
+
+  // Prefer Web Audio: the context is unlocked by the user's Create/Join/Play gesture,
+  // so playback remains reliable even when the clip has to be fetched first.
+  const context = gameAudioContext;
+  if (context && typeof context.decodeAudioData === 'function') {
+    try {
+      if (context.state === 'suspended') await context.resume();
+      if (context.state === 'running') {
+        const encoded = await audioBlob.arrayBuffer();
+        const decoded = await context.decodeAudioData(encoded.slice(0));
+        if (playbackSequence !== narratorPlaybackSequence) return false;
+        return await new Promise((resolve, reject) => {
+          const source = context.createBufferSource();
+          const gain = context.createGain();
+          let finished = false;
+          const cleanup = () => {
+            if (narratorAudioSource === source) narratorAudioSource = null;
+            if (narratorAudioCancel === cancel) narratorAudioCancel = null;
+          };
+          const cancel = () => {
+            if (finished) return;
+            finished = true;
+            source.onended = null;
+            try { source.stop(); } catch {}
+            cleanup();
+            resolve(false);
+          };
+          source.buffer = decoded;
+          gain.gain.setValueAtTime(
+            Math.max(0, Math.min(1, Number(narratorPlaybackVolume) || 0)),
+            context.currentTime
+          );
+          source.connect(gain);
+          gain.connect(context.destination);
+          narratorAudioSource = source;
+          narratorAudioCancel = cancel;
+          source.onended = () => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            resolve(true);
+          };
+          try {
+            source.start(0);
+          } catch (error) {
+            finished = true;
+            cleanup();
+            reject(error);
+          }
+        });
+      }
+    } catch (error) {
+      if (playbackSequence !== narratorPlaybackSequence) return false;
+      // Some browsers cannot decode a particular container through Web Audio.
+      // Fall back to their native media decoder below.
+    }
+  }
+
   return new Promise((resolve, reject) => {
     if (playbackSequence !== narratorPlaybackSequence) {
       resolve(false);
@@ -3248,6 +3313,8 @@ function playNarratorAudioBlob(audioBlob, playbackSequence) {
     narratorAudioCancel = cancel;
     narratorAudioElement = audio;
     narratorAudioUrl = audioUrl;
+    audio.preload = 'auto';
+    audio.playsInline = true;
     audio.volume = narratorPlaybackVolume;
     audio.addEventListener('ended', () => {
       cleanup();
@@ -3255,7 +3322,7 @@ function playNarratorAudioBlob(audioBlob, playbackSequence) {
     }, { once: true });
     audio.addEventListener('error', () => {
       cleanup();
-      reject(new Error('Rekaman narator gagal diputar.'));
+      reject(new Error('Format rekaman tidak didukung atau file audio rusak.'));
     }, { once: true });
     audio.play().catch(error => {
       cleanup();
@@ -3284,6 +3351,7 @@ async function requestNarratorClip(id, options = {}) {
 }
 
 async function playNarratorClip(id, options = {}) {
+  unlockGameAudio();
   stopNarratorAudio();
   const playbackSequence = narratorPlaybackSequence;
   const audioBlob = await requestNarratorClip(id, options);
@@ -3850,6 +3918,7 @@ function updateNarratorClipCard(id, state = 'empty', message = '') {
   const recordButton = card.querySelector('[data-narrator-action="record"]');
   const stopButton = card.querySelector('[data-narrator-action="stop"]');
   const playButton = card.querySelector('[data-narrator-action="play"]');
+  const previewButton = card.querySelector('[data-narrator-action="preview"]');
   const status = card.querySelector('.narrator-clip-status');
   const filename = card.querySelector('.narrator-clip-filename');
   const uploaded = narratorUploadedClipIds.has(id);
@@ -3861,6 +3930,7 @@ function updateNarratorClipCard(id, state = 'empty', message = '') {
     recordButton.disabled = busy || Boolean(anotherRecording);
   }
   if (stopButton) stopButton.hidden = state !== 'recording';
+  if (previewButton) previewButton.disabled = !narratorLocalPreviewBlobs.has(id) || state === 'recording';
   if (playButton) playButton.disabled = !uploaded || busy;
   if (status) status.textContent = message || (state === 'recording' ? 'Sedang merekam…' : state === 'uploading' ? 'Menyimpan ke server…' : uploaded ? 'Sudah tersimpan' : 'Belum direkam');
   if (filename) filename.textContent = narratorUploadedClipMeta.get(id)?.fileName || narratorClipFileName(id);
@@ -3929,6 +3999,14 @@ function renderDeveloperNarratorClips() {
     stop.textContent = 'Selesai & Simpan';
     stop.hidden = true;
 
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.className = 'secondary narrator-preview-button';
+    preview.dataset.narratorAction = 'preview';
+    preview.dataset.clipId = clip.id;
+    preview.textContent = 'Preview';
+    preview.disabled = true;
+
     const play = document.createElement('button');
     play.type = 'button';
     play.className = 'secondary narrator-play-button';
@@ -3936,7 +4014,7 @@ function renderDeveloperNarratorClips() {
     play.dataset.clipId = clip.id;
     play.textContent = 'Putar';
     play.disabled = true;
-    controls.append(record, stop, play);
+    controls.append(record, stop, preview, play);
 
     const status = document.createElement('p');
     status.className = 'narrator-clip-status';
@@ -3952,7 +4030,11 @@ function renderDeveloperNarratorClips() {
     const { narratorAction, clipId } = button.dataset;
     if (narratorAction === 'record') void startNarratorRecording(clipId);
     if (narratorAction === 'stop') stopNarratorRecording(clipId);
-    if (narratorAction === 'play') void testNarratorClip(clipId);
+    if (narratorAction === 'preview') void previewNarratorRecording(clipId);
+    if (narratorAction === 'play') {
+      unlockGameAudio();
+      void testNarratorClip(clipId);
+    }
   });
   NARRATOR_CLIPS.forEach(clip => updateNarratorClipCard(clip.id));
 }
@@ -4009,10 +4091,19 @@ async function handleNarratorRecordingStopped(recording) {
   updateNarratorRecordingControls();
   if (recording.cancelled) return;
   const blob = new Blob(recording.chunks, { type: recording.recorder.mimeType || 'audio/webm' });
+  if (!blob.size) {
+    updateNarratorClipCard(recording.id, 'empty', 'Tidak ada data audio yang terekam. Coba rekam kembali.');
+    const emptyStatus = $('developerNarratorStatus');
+    if (emptyStatus) emptyStatus.textContent = 'Rekaman kosong. Periksa mikrofon lalu coba lagi.';
+    return;
+  }
+  narratorLocalPreviewBlobs.set(recording.id, blob);
+  updateNarratorClipCard(recording.id, 'preview', 'Rekaman selesai · preview lokal siap diputar.');
   try {
     await uploadNarratorRecording(recording.id, blob);
   } catch (error) {
-    updateNarratorClipCard(recording.id, narratorUploadedClipIds.has(recording.id) ? 'saved' : 'empty', error.message || 'Rekaman gagal disimpan.');
+    const failedState = narratorUploadedClipIds.has(recording.id) ? 'saved' : 'preview';
+    updateNarratorClipCard(recording.id, failedState, error.message || 'Rekaman gagal disimpan.');
     const status = $('developerNarratorStatus');
     if (status) status.textContent = error.message || 'Rekaman gagal disimpan.';
   } finally {
@@ -4035,6 +4126,8 @@ async function startNarratorRecording(id) {
     if (status) status.textContent = 'Perekaman mikrofon tidak didukung browser ini. Gunakan Chrome atau Edge terbaru melalui HTTPS.';
     return;
   }
+  narratorLocalPreviewBlobs.delete(id);
+  updateNarratorClipCard(id, 'empty', 'Menyiapkan mikrofon…');
   let stream = null;
   let recording = null;
   try {
@@ -4082,14 +4175,33 @@ function stopNarratorRecording(id) {
   recording.recorder.stop();
 }
 
+async function previewNarratorRecording(id) {
+  const blob = narratorLocalPreviewBlobs.get(id);
+  if (!id || !blob) return;
+  unlockGameAudio();
+  stopNarratorAudio();
+  const playbackSequence = narratorPlaybackSequence;
+  const status = $('developerNarratorStatus');
+  updateNarratorClipCard(id, narratorUploadedClipIds.has(id) ? 'saved' : 'preview', 'Memutar preview lokal…');
+  try {
+    await playNarratorAudioBlob(blob, playbackSequence);
+    updateNarratorClipCard(id, narratorUploadedClipIds.has(id) ? 'saved' : 'preview', 'Preview rekaman selesai diputar.');
+    if (status) status.textContent = 'Preview rekaman selesai diputar.';
+  } catch (error) {
+    updateNarratorClipCard(id, narratorUploadedClipIds.has(id) ? 'saved' : 'preview', error.message || 'Preview tidak dapat diputar.');
+    if (status) status.textContent = error.message || 'Preview tidak dapat diputar.';
+  }
+}
+
 async function testNarratorClip(id) {
   if (!id || !narratorUploadedClipIds.has(id)) return;
+  unlockGameAudio();
   const status = $('developerNarratorStatus');
-  updateNarratorClipCard(id, 'saved', 'Memutar rekaman…');
+  updateNarratorClipCard(id, 'saved', 'Memuat rekaman dari server…');
   try {
     await playNarratorClip(id, { developerTest: true });
-    updateNarratorClipCard(id, 'saved', 'Rekaman tersimpan dan dapat diputar.');
-    if (status) status.textContent = 'Uji rekaman selesai.';
+    updateNarratorClipCard(id, 'saved', 'Rekaman server berhasil diputar.');
+    if (status) status.textContent = 'Uji pemutaran rekaman server selesai.';
   } catch (error) {
     updateNarratorClipCard(id, 'saved', error.message || 'Rekaman tidak dapat diputar.');
     if (status) status.textContent = error.message || 'Rekaman tidak dapat diputar.';
