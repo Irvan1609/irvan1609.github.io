@@ -787,3 +787,17 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Verifikasi:** GitHub Actions `Validate Statistical Web` run `42076337869` sukses; `Deploy Werewolf Room API` run `42076337832` sukses. Tes UI, backend, aturan role, privasi, build, health check, dan smoke-check asset staging lulus.
 - **URL staging:** `https://werewolf-room-api-dev.andyirvan1609.workers.dev/`.
 - **Produksi:** branch `master` tidak diubah.
+
+
+### 2026-11-07 — Developer Voice Studio Werewolf
+
+- **Tujuan pengguna:** menyediakan fitur pengisian suara narator untuk developer game Werewolf agar rekaman suara teman dapat dipakai menggantikan suara SpeechSynthesis bawaan browser.
+- **Akses developer:** studio ditampilkan setelah login Google untuk irvan1609@gmail.com dan achmad.kautsar@gmail.com.
+- **Perubahan:** menambahkan public/werewolf/voice-studio.js dengan upload audio per fase, perekaman melalui MediaRecorder, pemutaran ulang, penghapusan, dan penyimpanan IndexedDB.
+- **Integrasi narasi:** public/werewolf/app.js mencoba clip fase terkait terlebih dahulu, lalu memakai SpeechSynthesis sebagai fallback jika belum ada clip.
+- **UI:** public/werewolf/index.html memuat Account Center dan studio. public/werewolf/style.css memuat kontrol responsif untuk studio.
+- **Pengujian:** scripts/check-werewolf.mjs diperluas untuk memeriksa akun developer, IndexedDB, MediaRecorder, dan integrasi narasi. Uji lokal dan deployment belum dijalankan pada catatan ini.
+- **Batasan:** rekaman disimpan lokal di browser developer dan belum disinkronkan ke server atau otomatis dibagikan ke perangkat pemain lain.
+- **Status:** implementasi berada di branch development. Belum dipromosikan ke master.
+- **Langkah berikutnya:** jalankan syntax/UI/build checks, deploy staging bila lulus, lalu uji login Google, upload/rekam clip, dan pemutaran narasi pada beberapa browser.
+
