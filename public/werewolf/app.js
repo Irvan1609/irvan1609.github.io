@@ -4126,7 +4126,7 @@ function initializeDeveloperNarrator() {
   const panel = $('developerNarratorPanel');
   const accessHint = $('developerNarratorAccessHint');
   if (!panel) return;
-  const allowedEmails = new Set(['irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
+  const allowedEmails = new Set(['andyirvan1609@gmail.com', 'irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
   let lastAccessState = '';
   const applyAccess = user => {
     const email = String(user?.email || user?.googleEmail || user?.profile?.email || '').trim().toLowerCase();
@@ -4136,7 +4136,7 @@ function initializeDeveloperNarrator() {
     if (accessHint) {
       accessHint.classList.toggle('hidden', allowed);
       if (!user) {
-        accessHint.textContent = 'Studio rekaman hanya tersedia untuk developer. Login melalui menu akun di kanan atas menggunakan irvan1609@gmail.com atau achmad.kautsar@gmail.com.';
+        accessHint.textContent = 'Studio rekaman hanya tersedia untuk developer. Login melalui menu akun di kanan atas menggunakan andyirvan1609@gmail.com, irvan1609@gmail.com, atau achmad.kautsar@gmail.com.';
       } else if (!email) {
         accessHint.textContent = 'Akun sudah masuk, tetapi email belum terbaca. Keluar dari akun lalu login kembali.';
       } else {

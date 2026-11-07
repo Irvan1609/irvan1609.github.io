@@ -31,7 +31,7 @@ let CLOUD_CONTROL_CACHE=null;
 let CLOUD_CONTROL_CACHE_AT=0;
 const CLOUD_CONTROL_CACHE_MS=60_000;
 const CLOUD_DEFAULT_FEATURES=Object.freeze({datasetSync:true,aiUpload:true,gameCloud:true,payments:true});
-const DEVELOPER_ASSERTION_EMAILS=new Set(['irvan1609@gmail.com','achmad.kautsar@gmail.com']);
+const DEVELOPER_ASSERTION_EMAILS=new Set(['andyirvan1609@gmail.com','irvan1609@gmail.com','achmad.kautsar@gmail.com']);
 
 function allowedOrigins(env){
   return new Set(String(env.ALLOWED_ORIGINS||'https://irvan1609.github.io,https://agrotik.pages.dev,https://agrotik-irvan1609.pages.dev').split(',').map(v=>v.trim()).filter(Boolean));

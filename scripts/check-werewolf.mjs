@@ -166,6 +166,8 @@ assert.match(css, /system-narrator-panel/);
 assert.match(css, /developer-narrator-panel/);
 assert.match(app, /function systemNarrationClipIds/);
 assert.match(app, /function initializeDeveloperNarrator/);
+assert.match(app, /andyirvan1609@gmail\.com/);
+assert.match(worker, /andyirvan1609@gmail\.com/);
 assert.match(app, /requestDeveloperNarratorAssertion/);
 assert.match(app, /roomCode=/);
 assert.match(app, /X-Player-Token/);
