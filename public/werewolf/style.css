@@ -270,6 +270,7 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 .narrator-clip-controls button:disabled { opacity: .42; cursor: not-allowed; }
 .narrator-clip-status { min-height: 14px; margin: 7px 0 0 33px; color: #aeb9c8; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
 .narrator-clip-card[data-state="saved"] .narrator-clip-status { color: #9bd4b2; }
+.narrator-clip-card[data-state="preview"] .narrator-clip-status { color: #9bc8ef; }
 .narrator-clip-card[data-state="recording"] .narrator-clip-status { color: #f0ca83; }
 .narrator-clip-card[data-state="uploading"] .narrator-clip-status { color: #9bc8ef; }
 .developer-narrator-status { min-height: 18px; color: #c7d1de; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
