@@ -3962,7 +3962,8 @@ function updateNarratorRecordingControls() {
     const card = $('narratorClipList')?.querySelector('[data-narrator-card="' + clip.id + '"]');
     if (!card) return;
     const record = card.querySelector('[data-narrator-action="record"]');
-    if (record) record.disabled = Boolean(activeNarratorRecording && activeNarratorRecording.id !== clip.id);
+    const busy = card.dataset.state === 'recording' || card.dataset.state === 'uploading';
+    if (record) record.disabled = busy || Boolean(activeNarratorRecording && activeNarratorRecording.id !== clip.id);
   });
 }
 
@@ -4006,6 +4007,7 @@ async function handleNarratorRecordingStopped(recording) {
   recording.stream.getTracks().forEach(track => track.stop());
   if (activeNarratorRecording === recording) activeNarratorRecording = null;
   updateNarratorRecordingControls();
+  if (recording.cancelled) return;
   const blob = new Blob(recording.chunks, { type: recording.recorder.mimeType || 'audio/webm' });
   try {
     await uploadNarratorRecording(recording.id, blob);
@@ -4033,22 +4035,25 @@ async function startNarratorRecording(id) {
     if (status) status.textContent = 'Perekaman mikrofon tidak didukung browser ini. Gunakan Chrome atau Edge terbaru melalui HTTPS.';
     return;
   }
+  let stream = null;
+  let recording = null;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     const mimeCandidates = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'];
     const mimeType = mimeCandidates.find(type => MediaRecorder.isTypeSupported?.(type));
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    const recording = { id, stream, recorder, chunks: [] };
+    recording = { id, stream, recorder, chunks: [], cancelled: false };
     activeNarratorRecording = recording;
     recorder.addEventListener('dataavailable', event => {
       if (event.data?.size) recording.chunks.push(event.data);
     });
     recorder.addEventListener('stop', () => { void handleNarratorRecordingStopped(recording); }, { once: true });
     recorder.addEventListener('error', () => {
+      recording.cancelled = true;
       stream.getTracks().forEach(track => track.stop());
       if (activeNarratorRecording === recording) activeNarratorRecording = null;
       updateNarratorRecordingControls();
-      updateNarratorClipCard(id, 'empty', 'Perekaman gagal. Periksa mikrofon lalu coba lagi.');
+      updateNarratorClipCard(id, narratorUploadedClipIds.has(id) ? 'saved' : 'empty', 'Perekaman gagal. Periksa mikrofon lalu coba lagi.');
     }, { once: true });
     recorder.start(250);
     updateNarratorClipCard(id, 'recording', 'Sedang merekam… tekan Selesai & Simpan setelah kalimat selesai dibaca.');
@@ -4059,6 +4064,11 @@ async function startNarratorRecording(id) {
     updateNarratorRecordingControls();
     if (status) status.textContent = 'Mikrofon aktif. Bacakan kalimat dengan jelas, lalu simpan.';
   } catch (error) {
+    if (recording) recording.cancelled = true;
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (activeNarratorRecording === recording) activeNarratorRecording = null;
+    updateNarratorRecordingControls();
+    updateNarratorClipCard(id, narratorUploadedClipIds.has(id) ? 'saved' : 'empty', error.message || 'Mikrofon tidak dapat diakses.');
     if (status) status.textContent = error.name === 'NotAllowedError'
       ? 'Izin mikrofon ditolak. Izinkan akses mikrofon pada browser, lalu coba lagi.'
       : error.message || 'Mikrofon tidak dapat diakses.';
@@ -4123,8 +4133,10 @@ function initializeDeveloperNarrator() {
       renderDeveloperNarratorClips();
       void loadDeveloperNarratorStatus();
     } else if (activeNarratorRecording) {
-      try { activeNarratorRecording.recorder.stop(); } catch {}
-      activeNarratorRecording.stream.getTracks().forEach(track => track.stop());
+      const recording = activeNarratorRecording;
+      recording.cancelled = true;
+      try { recording.recorder.stop(); } catch {}
+      recording.stream.getTracks().forEach(track => track.stop());
       activeNarratorRecording = null;
     }
   };
