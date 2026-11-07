@@ -19,7 +19,7 @@ assert.match(html, /\.\.\/account\.js/);
 for (const id of [
   'createForm', 'joinForm', 'createName', 'joinName', 'joinCode', 'joinOnlineButton', 'joinOfflineButton',
   'roomPanel', 'roomIdentity', 'roomMeta', 'playersSection', 'playersList', 'resetRoom',
-  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton', 'developerNarratorPanel', 'narratorClipSelect', 'narratorClipText', 'narratorClipFile', 'narratorClipConsent', 'saveNarratorClip', 'testNarratorClip', 'narratorPlaybackVolume', 'developerNarratorStatus'
+  'phaseContent', 'roomMessage', 'phasePanel', 'reconnectButton', 'developerNarratorPanel', 'narratorClipList', 'narratorClipConsent', 'developerNarratorProgress', 'narratorPlaybackVolume', 'developerNarratorStatus'
 ]) {
   assert.match(html, new RegExp('id="' + id + '"'), 'Missing UI element ' + id);
 }
@@ -113,7 +113,7 @@ assert.match(worker, /this\.seedBotDiscussion\(room, now\)/);
 assert.match(worker, /chat: \(room\.chat \|\| \[\]\)\.slice/);
 assert.match(worker, /voicePeers/);
 assert.match(css, /bot-discussion-log/);
-assert.match(html, /20261107-werewolf-manual-narrator-1/);
+assert.match(html, /20261107-werewolf-narrator-studio-2/);
 assert.match(html, /id="joinEntryMode"/);
 assert.match(html, /id="audioSettings"/);
 assert.match(html, /id="gameSoundVolume"/);
@@ -148,13 +148,13 @@ assert.equal(inviteMatrix[1][1], false);
 assert.match(qrSvg(inviteExample), /<svg[^>]+viewBox=/);
 assert.match(sw, /\/werewolf\/qr\.js/);
 
-assert.match(html, /app\.js\?v=20261107-werewolf-manual-narrator-1/);
+assert.match(html, /app\.js\?v=20261107-werewolf-narrator-studio-2/);
 assert.match(app, /function isRoomModerator/);
 assert.match(app, /session\?\.isHost/);
 assert.match(app, /resetButton\.disabled = !host/);
 assert.match(html, /id="resetRoom" class="text-button restart-button"/);
 assert.match(css, /#resetRoom:disabled/);
-assert.match(html, /style\.css\?v=20261107-werewolf-manual-narrator-1/);
+assert.match(html, /style\.css\?v=20261107-werewolf-narrator-studio-2/);
 assert.match(app, /resetButton\.classList\.remove\('hidden'\)/);
 assert.doesNotMatch(app, /resetButton\.classList\.toggle\('hidden', !moderator \|\| room\.phase === 'lobby'\)/);
 assert.match(app, /Room sudah berada di lobby/);
@@ -212,7 +212,19 @@ assert.doesNotMatch(worker, /ElevenLabs|ELEVENLABS_API_KEY|NARRATOR_TTS_LIMITER/
 assert.match(worker, /MAX_NARRATOR_CLIP_BYTES/);
 assert.match(worker, /global-narrator-audio-clips/);
 assert.ok(worker.includes('/internal/narrator-clip'));
-assert.match(app, /function updateDeveloperNarratorSelection/);
+assert.match(app, /function renderDeveloperNarratorClips/);
+assert.match(app, /async function startNarratorRecording/);
+assert.match(app, /async function uploadNarratorRecording/);
+assert.match(app, /function narratorClipFileName/);
+assert.ok(app.includes('getUserMedia'), 'Developer studio must record directly from the microphone.');
+assert.match(app, /new MediaRecorder/);
+assert.match(app, /Selesai & Simpan/);
+assert.match(app, /Rekam ulang/);
+assert.match(app, /window\.IrvanAccount\?\.authenticated/);
+const createFormStart = html.indexOf('<form id="createForm"');
+const createFormEnd = html.indexOf('</form>', createFormStart);
+const narratorPanelPosition = html.indexOf('id="developerNarratorPanel"');
+assert.ok(narratorPanelPosition > html.indexOf('id="createButton"') && narratorPanelPosition < createFormEnd, 'Narrator studio must sit under Create Room inside its card.');
 assert.match(app, /narratorUploadedClipIds/);
 assert.match(worker, /NARRATOR_CLIP_IDS/);
 assert.match(worker, /handleNarratorClipUpload/);
@@ -420,7 +432,7 @@ assert.match(css, /@media\(max-width:760px\)/);
 assert.match(home, /href="\/werewolf\//);
 assert.match(config, /new_sqlite_classes = \["WerewolfRoom"\]/);
 assert.match(config, /ROOM_CREATE_LIMITER/);
-assert.match(sw, /20261107-werewolf-manual-narrator-1/);
+assert.match(sw, /20261107-werewolf-narrator-studio-2/);
 assert.match(sw, /\/werewolf\/assets\/illustrations\/hero-night\.svg/);
 assert.match(app, /isProductionHost/);
 assert.match(app, /www\.irvan1609\.github\.io/);
@@ -522,8 +534,8 @@ assert.match(css, /\.phase-tracker\{display:flex/, 'The phase tracker must scrol
 assert.match(css, /\.action-button\{min-height:50px/, 'Mobile action buttons must remain easy to tap.');
 assert.match(css, /\.role-flip-card\{width:min\(275px,100%\);height:310px/, 'Role reminder cards must fit phone screens.');
 assert.match(css, /\.phase-title p\{display:none/, 'Long phase descriptions are hidden on mobile.');
-assert.match(html, /20261107-werewolf-manual-narrator-1/);
-assert.match(sw, /20261107-werewolf-manual-narrator-1/);
+assert.match(html, /20261107-werewolf-narrator-studio-2/);
+assert.match(sw, /20261107-werewolf-narrator-studio-2/);
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-moderator.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-wolf_seer.svg'));
 assert.ok(sw.includes('/werewolf/assets/illustrations/role-trapper.svg'));
