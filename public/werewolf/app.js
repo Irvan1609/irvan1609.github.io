@@ -4063,13 +4063,17 @@ async function uploadNarratorRecording(id, blob) {
   const mimeType = normalizedNarratorMimeType(blob.type);
   const extensionName = narratorClipFileName(id, mimeType);
   const normalizedBlob = new Blob([blob], { type: mimeType });
-  const payload = new FormData();
-  payload.append('file', normalizedBlob, extensionName);
   const assertion = await requestDeveloperNarratorAssertion();
+  // Kirim audio sebagai body langsung. Multipart upload di beberapa browser/
+  // jaringan Cloudflare dapat selesai sebagai preview tetapi gagal diproses server.
   const response = await fetch(API_BASE + '/developer/narrator/clips/' + encodeURIComponent(id), {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + assertion },
-    body: payload
+    headers: {
+      Authorization: 'Bearer ' + assertion,
+      'Content-Type': mimeType,
+      'X-File-Name': extensionName
+    },
+    body: normalizedBlob
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'Rekaman gagal disimpan.');
