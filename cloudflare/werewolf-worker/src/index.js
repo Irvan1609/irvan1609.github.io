@@ -408,8 +408,12 @@ async function requireNarratorDeveloper(request) {
   }
   const data = await response.json().catch(() => ({}));
   const email = String(data.user?.email || '').trim().toLowerCase();
-  if (!response.ok || !NARRATOR_DEVELOPER_EMAILS.has(email)) {
-    throw new HttpError(response.status === 401 ? 401 : 403, 'Akses hanya tersedia untuk akun developer.');
+  if (!response.ok) {
+    throw new HttpError(response.status === 401 ? 401 : response.status === 403 ? 403 : 503,
+      data.message || data.error || ('Layanan akun menolak verifikasi developer (HTTP ' + response.status + ').'));
+  }
+  if (!NARRATOR_DEVELOPER_EMAILS.has(email)) {
+    throw new HttpError(403, 'Akun ' + (email || 'yang tidak dikenali') + ' tidak terdaftar sebagai developer Werewolf.');
   }
   return data.user;
 }
