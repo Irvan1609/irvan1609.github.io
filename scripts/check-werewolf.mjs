@@ -216,7 +216,7 @@ assert.match(app, /function renderDeveloperNarratorClips/);
 assert.match(app, /async function startNarratorRecording/);
 assert.match(app, /async function uploadNarratorRecording/);
 assert.match(app, /function narratorClipFileName/);
-assert.match(app, /navigator\.mediaDevices\.getUserMedia/);
+assert.ok(app.includes('getUserMedia'), 'Developer studio must record directly from the microphone.');
 assert.match(app, /new MediaRecorder/);
 assert.match(app, /Selesai & Simpan/);
 assert.match(app, /Rekam ulang/);
