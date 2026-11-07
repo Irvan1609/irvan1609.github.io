@@ -150,8 +150,8 @@ assert.doesNotMatch(app, /Sistem akan mengumumkan pagi setelah semua aksi selesa
 assert.match(app, /function playWolfHowl/);
 assert.match(app, /function playRoosterCrow/);
 assert.match(app, /speechSynthesis/);
-assert.match(html, /src="\\/account\\.js\\?v=20261107-werewolf-developer-voice"/);
-assert.match(html, /src="\\.\\/voice-studio\\.js\\?v=20261107-werewolf-developer-voice"/);
+assert.ok(html.includes('src="/account.js?v=20261107-werewolf-developer-voice"'));
+assert.ok(html.includes('src="./voice-studio.js?v=20261107-werewolf-developer-voice"'));
 assert.match(html, /id="accountMount"/);
 assert.match(app, /WerewolfVoiceStudio\\?\\.play/);
 assert.match(voiceStudio, /irvan1609@gmail\\.com/);
