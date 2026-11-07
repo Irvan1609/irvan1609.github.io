@@ -4160,7 +4160,8 @@ function initializeDeveloperNarrator() {
   document.addEventListener('accountchange', event => {
     applyAccess(window.IrvanAccount?.user || event.detail?.user || null);
   });
-  applyAccess(window.IrvanAccount?.user || null);
+  if (window.IrvanAccount?.authenticated) applyAccess(window.IrvanAccount.user);
+  else applyAccess(window.IrvanAccount?.user || null);
   if (typeof window.IrvanAccount?.ready === 'function') {
     window.IrvanAccount.ready()
       .then(() => applyAccess(window.IrvanAccount?.user || null))
