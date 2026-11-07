@@ -4124,14 +4124,30 @@ async function loadDeveloperNarratorStatus() {
 
 function initializeDeveloperNarrator() {
   const panel = $('developerNarratorPanel');
+  const accessHint = $('developerNarratorAccessHint');
   if (!panel) return;
   const allowedEmails = new Set(['irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
+  let lastAccessState = '';
   const applyAccess = user => {
-    const allowed = allowedEmails.has(String(user?.email || '').trim().toLowerCase());
+    const email = String(user?.email || user?.googleEmail || user?.profile?.email || '').trim().toLowerCase();
+    const allowed = allowedEmails.has(email);
+    const state = (allowed ? 'allowed:' : 'blocked:') + email;
     panel.classList.toggle('hidden', !allowed);
+    if (accessHint) {
+      accessHint.classList.toggle('hidden', allowed);
+      if (!user) {
+        accessHint.textContent = 'Studio rekaman hanya tersedia untuk developer. Login melalui menu akun di kanan atas menggunakan irvan1609@gmail.com atau achmad.kautsar@gmail.com.';
+      } else if (!email) {
+        accessHint.textContent = 'Akun sudah masuk, tetapi email belum terbaca. Keluar dari akun lalu login kembali.';
+      } else {
+        accessHint.textContent = 'Akun ' + email + ' belum memiliki akses Studio Rekaman. Keluar lalu login dengan salah satu akun developer yang terdaftar.';
+      }
+    }
     if (allowed) {
-      renderDeveloperNarratorClips();
-      void loadDeveloperNarratorStatus();
+      if (lastAccessState !== state) {
+        renderDeveloperNarratorClips();
+        void loadDeveloperNarratorStatus();
+      }
     } else if (activeNarratorRecording) {
       const recording = activeNarratorRecording;
       recording.cancelled = true;
@@ -4139,10 +4155,13 @@ function initializeDeveloperNarrator() {
       recording.stream.getTracks().forEach(track => track.stop());
       activeNarratorRecording = null;
     }
+    lastAccessState = state;
   };
-  document.addEventListener('accountchange', event => applyAccess(event.detail?.user || null));
-  if (window.IrvanAccount?.authenticated) applyAccess(window.IrvanAccount.user);
-  if (window.IrvanAccount?.ready) {
+  document.addEventListener('accountchange', event => {
+    applyAccess(window.IrvanAccount?.user || event.detail?.user || null);
+  });
+  applyAccess(window.IrvanAccount?.user || null);
+  if (typeof window.IrvanAccount?.ready === 'function') {
     window.IrvanAccount.ready()
       .then(() => applyAccess(window.IrvanAccount?.user || null))
       .catch(() => applyAccess(null));
