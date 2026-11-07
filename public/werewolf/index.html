@@ -68,33 +68,26 @@
           </label>
           <button class="primary wide" id="createButton" type="submit">Buat Room</button>
           <p class="hint">Host otomatis masuk ke daftar pemain. Jika host atau pemain lain dipilih sebagai moderator, ia sementara tidak menerima kartu role.</p>
+          <details id="developerNarratorPanel" class="developer-narrator-panel hidden">
+            <summary>Studio Rekaman Narator · Developer</summary>
+            <div class="developer-narrator-content">
+              <p class="hint">Rekam setiap kalimat langsung dari mikrofon. Tekan <b>Rekam</b>, bacakan kalimat, lalu tekan <b>Selesai &amp; Simpan</b>. Nama file dibuat otomatis dan rekaman langsung disimpan ke server Werewolf.</p>
+              <label class="developer-narrator-consent">
+                <input id="narratorClipConsent" type="checkbox">
+                Saya pemilik suara ini atau sudah mendapat izin dari pemilik suara untuk merekam dan menggunakannya.
+              </label>
+              <div class="developer-narrator-overview">
+                <strong id="developerNarratorProgress">0 / 40 rekaman tersimpan</strong>
+                <span>1 kalimat = 1 rekaman · Maks. 3 MB per rekaman</span>
+              </div>
+              <div id="narratorClipList" class="narrator-clip-list"></div>
+              <p id="developerNarratorStatus" class="developer-narrator-status" role="status" aria-live="polite">Memeriksa akses developer…</p>
+            </div>
+          </details>
         </form>
       </div>
       <p id="entryMessage" class="message-line" role="status" aria-live="polite"></p>
     </section>
-
-          <details id="developerNarratorPanel" class="developer-narrator-panel hidden">
-            <summary>Rekaman Narator · Developer</summary>
-            <div class="developer-narrator-content">
-              <p class="hint">Isi suara narator secara manual. Pilih satu kalimat, unggah satu rekaman, lalu lanjutkan ke kalimat berikutnya. Tidak memakai API Key atau AI Voice Cloning. Gunakan suara sendiri atau rekaman teman dengan izin pemilik suara.</p>
-              <label>Kalimat yang akan diisi
-                <select id="narratorClipSelect"></select>
-              </label>
-              <p id="narratorClipText" class="narrator-clip-text"></p>
-              <label>File rekaman (MP3, WAV, M4A, OGG, atau WEBM · maks. 3 MB)
-                <input id="narratorClipFile" type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,audio/ogg,audio/aac,.mp3,.wav,.m4a,.webm,.ogg,.aac">
-              </label>
-              <label class="developer-narrator-consent">
-                <input id="narratorClipConsent" type="checkbox">
-                Saya pemilik suara ini atau telah mendapat izin untuk menggunakan rekamannya.
-              </label>
-              <div class="developer-narrator-actions">
-                <button id="saveNarratorClip" class="primary" type="button">Simpan Rekaman</button>
-                <button id="testNarratorClip" class="secondary" type="button" disabled>Uji Rekaman</button>
-              </div>
-              <p id="developerNarratorStatus" class="developer-narrator-status" role="status" aria-live="polite">Memeriksa akses developer…</p>
-            </div>
-          </details>
 
     <section id="roomPanel" class="hidden">
       <div class="panel room-panel">
