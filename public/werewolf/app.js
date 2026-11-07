@@ -3879,16 +3879,27 @@ function initializeAudioSettings() {
 
 async function requestDeveloperNarratorAssertion() {
   const account = window.IrvanAccount;
-  if (!account?.authenticated || typeof account.request !== 'function') {
+  if (!account || typeof account.request !== 'function') {
     throw new Error('Masuk menggunakan akun Google developer terlebih dahulu.');
+  }
+  if (typeof account.refresh === 'function') await account.refresh().catch(() => null);
+  const email = String(account.user?.email || '').trim().toLowerCase();
+  if (!account.authenticated || !email) {
+    throw new Error('Sesi login tidak aktif. Keluar lalu login kembali menggunakan andyirvan1609@gmail.com.');
+  }
+  const allowedEmails = new Set(['andyirvan1609@gmail.com', 'irvan1609@gmail.com', 'achmad.kautsar@gmail.com']);
+  if (!allowedEmails.has(email)) {
+    throw new Error('Akun yang terdeteksi adalah ' + email + '. Gunakan akun developer yang terdaftar.');
   }
   const response = await account.request('/v1/auth/developer-assertion', {
     method: 'POST',
-    body: '{}'
+    body: '{}',
+    cache: 'no-store'
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || !data.assertion) {
-    throw new Error(data.message || data.error || 'Verifikasi akun developer gagal.');
+    throw new Error('Verifikasi akun ' + email + ' ditolak oleh layanan akun: '
+      + (data.message || data.error || 'HTTP ' + response.status));
   }
   return data.assertion;
 }
@@ -4115,7 +4126,9 @@ async function uploadNarratorRecording(id, blob) {
   if (status) status.textContent = 'Unggahan diterima. Memastikan rekaman tercatat di server…';
 
   try {
-    const clips = await fetchDeveloperNarratorClips(assertion);
+    // Assertions are single-use on the account service: request a fresh one for this second server call.
+    const verificationAssertion = await requestDeveloperNarratorAssertion();
+    const clips = await fetchDeveloperNarratorClips(verificationAssertion);
     if (!clips.some(item => item.id === id)) {
       throw new Error('Rekaman belum muncul pada daftar penyimpanan server.');
     }
