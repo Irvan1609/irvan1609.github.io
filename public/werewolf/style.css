@@ -216,6 +216,17 @@ footer{display:flex;justify-content:center;align-items:center;gap:9px;color:#768
 }
 
 
+.developer-narrator-access-hint {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(214, 177, 111, .24);
+  border-radius: 9px;
+  color: #c7d2e0;
+  background: rgba(10, 17, 28, .52);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.developer-narrator-access-hint.hidden { display: none !important; }
 .developer-narrator-panel {
   margin-top: 12px;
   padding: 12px;
