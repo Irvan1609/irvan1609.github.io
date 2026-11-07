@@ -363,7 +363,7 @@ function corsHeaders(request, env) {
   const origin = request.headers.get('Origin') || '';
   const headers = {
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Player-Token',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Player-Token,X-File-Name',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin'
   };
@@ -441,15 +441,7 @@ async function handleNarratorClipUpload(request, env, id) {
   if (contentLength > MAX_NARRATOR_CLIP_BYTES + 128 * 1024) {
     throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
   }
-  const form = await request.formData();
-  const file = form.get('file');
-  if (!file || typeof file.arrayBuffer !== 'function' || !Number(file.size)) {
-    throw new HttpError(400, 'Pilih satu file rekaman audio.');
-  }
-  if (Number(file.size) > MAX_NARRATOR_CLIP_BYTES) {
-    throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
-  }
-  const extension = String(file.name || '').split('.').pop().toLowerCase();
+
   const allowedTypes = new Set([
     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave',
     'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/aac'
@@ -458,23 +450,74 @@ async function handleNarratorClipUpload(request, env, id) {
     mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', mp4: 'audio/mp4',
     webm: 'audio/webm', ogg: 'audio/ogg', aac: 'audio/aac'
   };
-  const reportedType = String(file.type || '').toLowerCase();
-  const contentType = allowedTypes.has(reportedType) ? reportedType : (extensionTypes[extension] || '');
-  if (!contentType) {
-    throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
+  const mimeExtensions = {
+    'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav',
+    'audio/x-wav': 'wav', 'audio/wave': 'wav', 'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a', 'audio/m4a': 'm4a', 'audio/webm': 'webm',
+    'audio/ogg': 'ogg', 'audio/aac': 'aac'
+  };
+
+  const requestContentType = String(request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+  let audio;
+  let contentType;
+  let fileName;
+  if (requestContentType === 'multipart/form-data') {
+    const form = await request.formData();
+    const file = form.get('file');
+    if (!file || typeof file.arrayBuffer !== 'function' || !Number(file.size)) {
+      throw new HttpError(400, 'Pilih satu file rekaman audio.');
+    }
+    if (Number(file.size) > MAX_NARRATOR_CLIP_BYTES) {
+      throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
+    }
+    const extension = String(file.name || '').split('.').pop().toLowerCase();
+    const reportedType = String(file.type || '').split(';')[0].trim().toLowerCase();
+    contentType = allowedTypes.has(reportedType) ? reportedType : (extensionTypes[extension] || '');
+    if (!contentType) {
+      throw new HttpError(400, 'Format rekaman harus MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
+    }
+    audio = await file.arrayBuffer();
+    fileName = file.name || ('narrator-' + id + '.' + (mimeExtensions[contentType] || 'webm'));
+  } else {
+    contentType = requestContentType;
+    if (!allowedTypes.has(contentType)) {
+      throw new HttpError(400, 'Tipe audio tidak didukung. Gunakan MP3, WAV, M4A, MP4, WEBM, OGG, atau AAC.');
+    }
+    audio = await request.arrayBuffer();
+    fileName = request.headers.get('X-File-Name') || ('narrator-' + id + '.' + (mimeExtensions[contentType] || 'webm'));
   }
-  const safeName = String(file.name || ('narrator-' + id)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
-  const response = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id), {
+
+  if (!audio?.byteLength) throw new HttpError(400, 'Rekaman audio kosong.');
+  if (audio.byteLength > MAX_NARRATOR_CLIP_BYTES) {
+    throw new HttpError(413, 'Ukuran satu rekaman maksimal 3 MB.');
+  }
+  const safeName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+  const storageResponse = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id), {
     method: 'PUT',
     headers: {
-      'Content-Type': contentType || extensionTypes[extension] || 'application/octet-stream',
+      'Content-Type': contentType,
       'X-File-Name': safeName
     },
-    body: await file.arrayBuffer()
+    body: audio
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new HttpError(response.status, data.error || 'Rekaman gagal disimpan.');
-  return json({ ok: true, id, size: Number(file.size), fileName: safeName, updatedAt: data.updatedAt }, 201);
+  const storageData = await storageResponse.json().catch(() => ({}));
+  if (!storageResponse.ok) throw new HttpError(storageResponse.status, storageData.error || 'Rekaman gagal disimpan.');
+
+  // Read the clip back before reporting success so the UI never counts a local preview as a saved file.
+  const verifyResponse = await narratorStorageRequest(env, '/internal/narrator-clip?id=' + encodeURIComponent(id));
+  if (!verifyResponse.ok) throw new HttpError(503, 'Server menerima audio tetapi gagal memverifikasi penyimpanannya.');
+  const verifiedAudio = await verifyResponse.arrayBuffer();
+  if (verifiedAudio.byteLength !== audio.byteLength) {
+    throw new HttpError(503, 'Ukuran rekaman yang tersimpan tidak cocok. Coba rekam ulang.');
+  }
+
+  return json({
+    ok: true,
+    id,
+    size: verifiedAudio.byteLength,
+    fileName: safeName,
+    updatedAt: storageData.updatedAt || new Date().toISOString()
+  }, 201);
 }
 
 async function handleNarratorClipPlayback(request, env, id) {

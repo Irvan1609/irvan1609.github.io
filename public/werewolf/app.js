@@ -107,6 +107,7 @@ let narratorAudioElement = null;
 let narratorAudioUrl = '';
 let narratorAudioCancel = null;
 let narratorAudioSource = null;
+let narratorUploadRevision = 0;
 const narratorLocalPreviewBlobs = new Map();
 let narratorUploadedClipIds = new Set();
 let narratorUploadedClipMeta = new Map();
@@ -3892,6 +3893,19 @@ async function requestDeveloperNarratorAssertion() {
   return data.assertion;
 }
 
+async function fetchDeveloperNarratorClips(assertion) {
+  const response = await fetch(API_BASE + '/developer/narrator/status', {
+    headers: { Authorization: 'Bearer ' + assertion },
+    cache: 'no-store'
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || 'Daftar rekaman tidak dapat dibaca (HTTP ' + response.status + ').');
+  }
+  if (!Array.isArray(data.clips)) throw new Error('Format daftar rekaman dari server tidak valid.');
+  return data.clips;
+}
+
 function narratorClipFileName(id, mimeType = 'audio/webm') {
   const index = NARRATOR_CLIPS.findIndex(item => item.id === id);
   const extension = ({
@@ -4059,20 +4073,35 @@ async function uploadNarratorRecording(id, blob) {
   const status = $('developerNarratorStatus');
   if (!blob?.size) throw new Error('Rekaman kosong. Coba rekam kembali.');
   if (blob.size > 3 * 1024 * 1024) throw new Error('Rekaman lebih dari 3 MB. Bacakan lebih singkat atau turunkan kualitas mikrofon.');
-  updateNarratorClipCard(id, 'uploading', 'Mengunggah rekaman…');
+  narratorUploadRevision += 1;
+  updateNarratorClipCard(id, 'uploading', 'Mengunggah audio ke server…');
   const mimeType = normalizedNarratorMimeType(blob.type);
   const extensionName = narratorClipFileName(id, mimeType);
   const normalizedBlob = new Blob([blob], { type: mimeType });
-  const payload = new FormData();
-  payload.append('file', normalizedBlob, extensionName);
   const assertion = await requestDeveloperNarratorAssertion();
-  const response = await fetch(API_BASE + '/developer/narrator/clips/' + encodeURIComponent(id), {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + assertion },
-    body: payload
-  });
+  let response;
+  try {
+    response = await fetch(API_BASE + '/developer/narrator/clips/' + encodeURIComponent(id), {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + assertion,
+        'Content-Type': mimeType,
+        'X-File-Name': extensionName
+      },
+      body: normalizedBlob,
+      cache: 'no-store'
+    });
+  } catch {
+    throw new Error('Koneksi ke server terputus saat mengunggah. Preview tetap tersedia; tekan Rekam ulang untuk mencoba lagi.');
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Rekaman gagal disimpan.');
+  if (!response.ok) {
+    throw new Error(data.error || 'Rekaman gagal disimpan (HTTP ' + response.status + ').');
+  }
+  if (data.ok !== true || data.id !== id) {
+    throw new Error('Server belum mengonfirmasi penyimpanan rekaman. Coba ulangi.');
+  }
+
   narratorUploadedClipIds.add(id);
   narratorUploadedClipMeta.set(id, {
     id,
@@ -4080,9 +4109,24 @@ async function uploadNarratorRecording(id, blob) {
     size: Number(data.size || blob.size),
     updatedAt: data.updatedAt || new Date().toISOString()
   });
+  narratorUploadRevision += 1;
   updateNarratorClipCard(id, 'saved', 'Tersimpan · ' + (data.fileName || extensionName));
   updateDeveloperNarratorProgress();
-  if (status) status.textContent = 'Rekaman ' + extensionName + ' berhasil disimpan.';
+  if (status) status.textContent = 'Unggahan diterima. Memastikan rekaman tercatat di server…';
+
+  try {
+    const clips = await fetchDeveloperNarratorClips(assertion);
+    if (!clips.some(item => item.id === id)) {
+      throw new Error('Rekaman belum muncul pada daftar penyimpanan server.');
+    }
+    narratorUploadedClipMeta = new Map(clips.map(item => [item.id, item]));
+    narratorUploadedClipIds = new Set(narratorUploadedClipMeta.keys());
+    updateNarratorClipCard(id, 'saved', 'Tersimpan dan terverifikasi di server.');
+    updateDeveloperNarratorProgress();
+    if (status) status.textContent = narratorUploadedClipIds.size + ' dari ' + NARRATOR_CLIPS.length + ' rekaman tersimpan di server.';
+  } catch (error) {
+    if (status) status.textContent = 'Rekaman sudah diterima, tetapi daftar server belum dapat disegarkan: ' + (error.message || 'coba muat ulang halaman.');
+  }
 }
 
 async function handleNarratorRecordingStopped(recording) {
@@ -4098,14 +4142,15 @@ async function handleNarratorRecordingStopped(recording) {
     return;
   }
   narratorLocalPreviewBlobs.set(recording.id, blob);
-  updateNarratorClipCard(recording.id, 'preview', 'Rekaman selesai · preview lokal siap diputar.');
+  updateNarratorClipCard(recording.id, 'preview', 'Preview lokal siap diputar · menyimpan ke server…');
   try {
     await uploadNarratorRecording(recording.id, blob);
   } catch (error) {
     const failedState = narratorUploadedClipIds.has(recording.id) ? 'saved' : 'preview';
-    updateNarratorClipCard(recording.id, failedState, error.message || 'Rekaman gagal disimpan.');
+    const message = error.message || 'Rekaman gagal disimpan.';
+    updateNarratorClipCard(recording.id, failedState, 'Preview tersedia, tetapi penyimpanan gagal: ' + message);
     const status = $('developerNarratorStatus');
-    if (status) status.textContent = error.message || 'Rekaman gagal disimpan.';
+    if (status) status.textContent = 'Preview bisa diputar, tetapi rekaman belum tersimpan: ' + message;
   } finally {
     updateNarratorRecordingControls();
   }
@@ -4211,16 +4256,13 @@ async function testNarratorClip(id) {
 async function loadDeveloperNarratorStatus() {
   const status = $('developerNarratorStatus');
   if (!status) return;
-  status.textContent = 'Memuat status rekaman…';
+  const loadRevision = narratorUploadRevision;
+  status.textContent = 'Memuat status rekaman dari server…';
   try {
     const assertion = await requestDeveloperNarratorAssertion();
-    const response = await fetch(API_BASE + '/developer/narrator/status', {
-      headers: { Authorization: 'Bearer ' + assertion },
-      cache: 'no-store'
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Daftar rekaman tidak dapat dibaca.');
-    narratorUploadedClipMeta = new Map((data.clips || []).map(item => [item.id, item]));
+    const clips = await fetchDeveloperNarratorClips(assertion);
+    if (loadRevision !== narratorUploadRevision) return;
+    narratorUploadedClipMeta = new Map(clips.map(item => [item.id, item]));
     narratorUploadedClipIds = new Set(narratorUploadedClipMeta.keys());
     renderDeveloperNarratorClips();
     NARRATOR_CLIPS.forEach(clip => {
@@ -4228,8 +4270,9 @@ async function loadDeveloperNarratorStatus() {
     });
     updateDeveloperNarratorProgress();
     status.textContent = narratorUploadedClipIds.size + ' dari ' + NARRATOR_CLIPS.length
-      + ' rekaman tersimpan. Pilih Rekam pada kalimat yang ingin diisi.';
+      + ' rekaman tersimpan di server. Pilih Rekam pada kalimat yang ingin diisi.';
   } catch (error) {
+    if (loadRevision !== narratorUploadRevision) return;
     status.textContent = error.message || 'Tidak dapat memeriksa rekaman narator.';
   }
 }
