@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#15121d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Photobooth — Irvan</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="booth-shell">
+    <header class="topbar">
+      <a class="back-link" href="/" aria-label="Kembali ke beranda">‹ Beranda</a>
+      <div class="brand"><span class="brand-mark">PB</span><span>Photobooth</span></div>
+      <button class="icon-button" id="fullscreenBtn" type="button" aria-label="Layar penuh">⛶</button>
+    </header>
+
+    <section class="booth-layout">
+      <div class="stage-card">
+        <div class="stage">
+          <video id="camera" autoplay playsinline muted aria-label="Pratinjau kamera"></video>
+          <div class="stage-placeholder" id="placeholder">
+            <div class="camera-icon">◉</div>
+            <h1>Siap bikin foto?</h1>
+            <p>Izinkan kamera, lalu tekan mulai. Posisikan iPad secara tegak agar hasil strip lebih rapi.</p>
+            <button class="primary-button" id="startBtn" type="button">Aktifkan kamera</button>
+          </div>
+          <div class="countdown" id="countdown" aria-live="assertive"></div>
+          <div class="flash" id="flash"></div>
+          <div class="stage-hint" id="stageHint">Kamera belum aktif</div>
+        </div>
+        <div class="stage-controls">
+          <button class="secondary-button" id="retakeBtn" type="button" disabled>Ulangi</button>
+          <button class="capture-button" id="captureBtn" type="button" disabled aria-label="Ambil foto"><span></span></button>
+          <button class="secondary-button" id="cameraBtn" type="button">Mulai</button>
+        </div>
+      </div>
+
+      <aside class="result-card" aria-label="Hasil photobooth">
+        <div class="result-head">
+          <div><span class="eyebrow">Hasil</span><h2 id="resultTitle">Belum ada foto</h2></div>
+          <span class="shot-count" id="shotCount">0/3</span>
+        </div>
+        <div class="strip-wrap empty" id="stripWrap">
+          <canvas id="resultCanvas" aria-label="Hasil foto photobooth"></canvas>
+          <div class="empty-state" id="emptyState">Tiga foto akan muncul di sini.</div>
+        </div>
+        <div class="result-actions">
+          <button class="primary-button" id="downloadBtn" type="button" disabled>Unduh foto</button>
+          <button class="secondary-button" id="shareBtn" type="button" disabled>Bagikan</button>
+        </div>
+        <p class="privacy-note">Foto diproses di perangkat ini. Tidak ada unggahan otomatis ke server.</p>
+      </aside>
+    </section>
+
+    <section class="settings-card" aria-label="Pengaturan photobooth">
+      <div class="settings-title"><span class="eyebrow">Pengaturan</span><h2>Atur sebelum memotret</h2></div>
+      <div class="settings-grid">
+        <label>Jumlah foto
+          <select id="shotSelect">
+            <option value="3">3 foto — strip klasik</option>
+            <option value="4">4 foto — grid 2×2</option>
+          </select>
+        </label>
+        <label>Jeda hitung mundur
+          <select id="delaySelect">
+            <option value="3">3 detik</option>
+            <option value="5">5 detik</option>
+            <option value="1">1 detik</option>
+          </select>
+        </label>
+        <label class="check-label"><input id="mirrorToggle" type="checkbox" checked> Cermin selfie</label>
+      </div>
+      <p class="tip" id="tip">Tip: letakkan iPad di posisi stabil, gunakan cahaya dari depan, lalu tekan tombol rana.</p>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

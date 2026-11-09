@@ -801,3 +801,15 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Status:** implementasi berada di branch development. Belum dipromosikan ke master.
 - **Langkah berikutnya:** jalankan syntax/UI/build checks, deploy staging bila lulus, lalu uji login Google, upload/rekam clip, dan pemutaran narasi pada beberapa browser.
 
+
+
+### 2026-11-09 — Subweb Photobooth untuk iPad
+
+- **Tujuan pengguna:** membuat subweb bernama Photobooth yang dapat digunakan sebagai photobooth melalui iPad.
+- **Keputusan implementasi:** subweb ditempatkan di `public/photobooth/` dan menggunakan kamera browser secara lokal melalui `getUserMedia`, tanpa unggah otomatis ke server.
+- **Fitur awal:** pratinjau kamera, mode cermin selfie, hitung mundur 1/3/5 detik, 3 foto strip klasik atau 4 foto grid 2×2, retake, unduh JPEG, bagikan melalui Web Share jika tersedia, dan tombol layar penuh.
+- **File:** `public/photobooth/index.html`, `public/photobooth/style.css`, `public/photobooth/app.js`, serta kartu tautan Photobooth pada `index.html`.
+- **Branch:** `feat/photobooth-ipad-20261109`.
+- **Verifikasi:** file dibuat melalui GitHub Contents API. Build, uji iPad/Safari, izin kamera, dan uji visual belum dijalankan pada catatan ini.
+- **Status:** implementasi awal tersedia di branch pekerjaan; belum dipromosikan ke `master`.
+- **Langkah berikutnya:** jalankan pemeriksaan sintaks/build, uji kamera pada iPad melalui HTTPS, lalu perbaiki temuan sebelum membuat PR atau mempromosikan perubahan.
