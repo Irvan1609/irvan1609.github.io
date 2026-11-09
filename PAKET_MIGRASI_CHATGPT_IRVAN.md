@@ -801,3 +801,14 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Status:** implementasi berada di branch development. Belum dipromosikan ke master.
 - **Langkah berikutnya:** jalankan syntax/UI/build checks, deploy staging bila lulus, lalu uji login Google, upload/rekam clip, dan pemutaran narasi pada beberapa browser.
 
+
+
+### 2026-11-09 — Photobooth subweb (staging)
+
+- **Tujuan pengguna:** meminta subweb bernama Photobooth yang dapat dipakai sebagai photobooth melalui iPad, lalu meminta deployment.
+- **Audit awal:** repository `Irvan1609/irvan1609.github.io` tidak memiliki file/rute Photobooth pada branch yang diperiksa. `vite.config.js` memakai `base: './'` dan plugin public-build menyalin aset dari `public/` ke artefak `dist/`; karena itu lokasi implementasi yang sesuai adalah `public/photobooth/index.html`.
+- **Implementasi dibuat pada branch `development`:** `public/photobooth/index.html` (kamera browser via getUserMedia, tampilan responsif iPad/mobile, kamera depan/belakang, sesi 1/3/4 foto dengan timer, retake per foto/semua, pilihan warna strip, ekspor PNG). Foto diproses lokal di browser dan tidak diunggah ke server. Akses kamera memerlukan HTTPS dan izin browser.
+- **Commit implementasi:** `527657d7edb4f10110623053433814fdbecc9378`.
+- **Verifikasi yang tersedia:** file berhasil dibuat dan dibaca kembali dari branch `development`. Workflow `Validate Statistical Web` terpicu otomatis pada push branch development; hasil CI dan deployment staging belum diverifikasi pada catatan ini. Tidak ada perubahan pada `master`.
+- **URL yang dituju setelah artefak Pages berhasil diterbitkan:** `https://irvan1609.github.io/photobooth/`. URL belum boleh dinyatakan aktif sebelum workflow Pages dan pemeriksaan URL publik sukses.
+- **Langkah berikutnya:** periksa hasil workflow validasi. Jika lulus, sediakan preview melalui mekanisme branch/preview yang memang dikonfigurasi atau minta persetujuan sebelum promosi ke `master`; setelah deployment, uji akses kamera dan pengambilan foto di Safari iPad.
