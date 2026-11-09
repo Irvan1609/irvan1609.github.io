@@ -75,9 +75,10 @@
     }
   }
   async function retakeOne(index) {
-    if(!stream||busy)return;
-    photos.splice(index,1);updateUI();
-    while(photos.length<shotCount()) await takeOne();
+    if(!stream||busy||!Number.isInteger(index)||index<0||index>=photos.length)return;
+    busy=true;updateUI();
+    try { await countdown(); const image=captureFrame(); if(image)photos[index]=image; }
+    finally { $('countdown').textContent='';busy=false;updateUI(); }
   }
   function drawCover(image,x,y,w,h) {
     const scale=Math.max(w/image.width,h/image.height),sw=w/scale,sh=h/scale;
