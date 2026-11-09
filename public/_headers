@@ -24,3 +24,6 @@
 
 /pengukur/*
   Permissions-Policy: camera=(self), geolocation=(), microphone=(), payment=()
+
+/photobooth/*
+  Permissions-Policy: camera=(self), geolocation=(), microphone=(), payment=()
