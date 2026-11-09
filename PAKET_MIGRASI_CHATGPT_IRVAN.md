@@ -826,3 +826,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Koreksi CSP, 9 November 2026:** validasi PR pertama menemukan JavaScript inline ditolak oleh kebijakan Content Security Policy pada `scripts/check-security-headers.mjs`. Logika dipindahkan ke `public/photobooth/app.js` dan halaman memuatnya sebagai ES module eksternal. Perubahan ini dibuat pada branch fitur; validasi ulang masih menunggu.
+
+
+- **Koreksi izin kamera dan retake, 9 November 2026:** audit header keamanan menunjukkan `Permissions-Policy` global menonaktifkan kamera dan hanya mengizinkannya pada beberapa subweb. Ditambahkan aturan `camera=(self)` khusus `/photobooth/*` serta marker pemeriksaannya pada `scripts/check-security-headers.mjs`. Fungsi retake satu foto juga diperbaiki agar mengganti foto pada slot yang sama, bukan memindahkannya ke akhir strip. Validasi CI ulang masih menunggu.
