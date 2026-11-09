@@ -812,3 +812,20 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **Batas uji:** workflow Pages memverifikasi URL publik Werewolf tersedia dan build menyertakan berkas game. Uji manual login developer, izin mikrofon, merekam, menyimpan, memutar, dan merekam ulang belum dilakukan.
 - **Batas/hal belum diuji:** belum melakukan uji browser manual sebagai akun developer, izin mikrofon, rekam-simpan-putar, atau rekam ulang. Rekaman hanya dapat dibuat oleh pengguna yang memiliki suara tersebut atau telah memperoleh izin pemilik suara.
 - **Langkah berikutnya:** periksa run terbaru `Deploy Vite to GitHub Pages` dan `Deploy Werewolf Room API` pada master; pastikan pemeriksaan URL Pages dan health check Worker sukses; lalu login developer, buka Studio Rekaman di bawah Buat Room, dan uji satu kalimat dari awal hingga audio tersimpan serta dapat diputar.
+
+
+### 2026-11-09 — Photobooth subweb
+
+- **Tujuan pengguna:** meminta subweb Photobooth yang dapat digunakan sebagai photobooth melalui iPad, kemudian meminta deployment.
+- **Audit:** implementasi belum ada di branch produksi `master`. Situs memakai Vite + GitHub Pages; folder `public/` disalin ke artefak build, sehingga halaman ditempatkan pada `public/photobooth/index.html`.
+- **Implementasi:** kamera browser via `getUserMedia`, layout responsif iPad/mobile, pilihan kamera depan/belakang, sesi 1/3/4 foto dengan timer, retake foto individual/semua, pilihan warna strip, dan ekspor PNG. Foto diproses lokal di browser dan tidak diunggah ke server. Kamera memerlukan HTTPS dan izin browser.
+- **Branch deployment terisolasi:** `feature/photobooth-20261109`, dibuat dari `master` agar PR hanya berisi fitur Photobooth dan catatan konteks; PR percobaan dari `development` ditutup karena branch tersebut memuat banyak perubahan lain yang tidak terkait.
+- **File fitur:** `public/photobooth/index.html`. Catatan ini diperbarui pada branch yang sama.
+- **Status:** menunggu validasi PR dan deployment GitHub Pages. URL target setelah deploy sukses: `https://irvan1609.github.io/photobooth/`. Belum ada perubahan pada `master` dan URL belum boleh diklaim live.
+- **Verifikasi berikutnya:** pastikan `Validate Statistical Web` lulus, tinjau PR yang hanya memuat file Photobooth dan dokumen ini, lalu deploy sesuai alur branch repository. Uji kamera secara manual di Safari iPad setelah URL live.
+
+
+- **Koreksi CSP, 9 November 2026:** validasi PR pertama menemukan JavaScript inline ditolak oleh kebijakan Content Security Policy pada `scripts/check-security-headers.mjs`. Logika dipindahkan ke `public/photobooth/app.js` dan halaman memuatnya sebagai ES module eksternal. Perubahan ini dibuat pada branch fitur; validasi ulang masih menunggu.
+
+
+- **Koreksi izin kamera dan retake, 9 November 2026:** audit header keamanan menunjukkan `Permissions-Policy` global menonaktifkan kamera dan hanya mengizinkannya pada beberapa subweb. Ditambahkan aturan `camera=(self)` khusus `/photobooth/*` serta marker pemeriksaannya pada `scripts/check-security-headers.mjs`. Fungsi retake satu foto juga diperbaiki agar mengganti foto pada slot yang sama, bukan memindahkannya ke akhir strip. Validasi CI ulang masih menunggu.
