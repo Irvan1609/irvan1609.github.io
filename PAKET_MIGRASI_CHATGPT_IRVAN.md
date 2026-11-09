@@ -823,3 +823,6 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 - **File fitur:** `public/photobooth/index.html`. Catatan ini diperbarui pada branch yang sama.
 - **Status:** menunggu validasi PR dan deployment GitHub Pages. URL target setelah deploy sukses: `https://irvan1609.github.io/photobooth/`. Belum ada perubahan pada `master` dan URL belum boleh diklaim live.
 - **Verifikasi berikutnya:** pastikan `Validate Statistical Web` lulus, tinjau PR yang hanya memuat file Photobooth dan dokumen ini, lalu deploy sesuai alur branch repository. Uji kamera secara manual di Safari iPad setelah URL live.
+
+
+- **Koreksi CSP, 9 November 2026:** validasi PR pertama menemukan JavaScript inline ditolak oleh kebijakan Content Security Policy pada `scripts/check-security-headers.mjs`. Logika dipindahkan ke `public/photobooth/app.js` dan halaman memuatnya sebagai ES module eksternal. Perubahan ini dibuat pada branch fitur; validasi ulang masih menunggu.
