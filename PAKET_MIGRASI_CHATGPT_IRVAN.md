@@ -829,3 +829,7 @@ Catat satu entri untuk setiap rangkaian perubahan yang terkait. Perbarui juga ba
 
 
 - **Koreksi izin kamera dan retake, 9 November 2026:** audit header keamanan menunjukkan `Permissions-Policy` global menonaktifkan kamera dan hanya mengizinkannya pada beberapa subweb. Ditambahkan aturan `camera=(self)` khusus `/photobooth/*` serta marker pemeriksaannya pada `scripts/check-security-headers.mjs`. Fungsi retake satu foto juga diperbaiki agar mengganti foto pada slot yang sama, bukan memindahkannya ke akhir strip. Validasi CI ulang masih menunggu.
+
+
+- **Promosi ke produksi, 9 November 2026:** PR #194 (`feature/photobooth-20261109` → `master`) digabung dengan squash merge, commit `a44ea3c6c7a0fc8a2b6eea8b893dda0cc750d8b9`. Validasi `Validate Statistical Web` run `42628150356` sukses; `Security Guard` run `42628150332` sukses termasuk cross-account isolation smoke test. File Photobooth, modul JS eksternal, aturan Permissions-Policy kamera, dan catatan migrasi telah dikonfirmasi tersedia pada `master`. Push master seharusnya memicu GitHub Pages workflow; status run deployment dan pemeriksaan URL publik belum dapat dikonfirmasi dari sesi ini. URL target: `https://irvan1609.github.io/photobooth/`.
+- **Batas verifikasi:** build/validasi CI lulus, tetapi akses live URL dan pengujian kamera Safari/iPad belum terverifikasi. Jangan menyatakan deployment selesai sampai URL mengembalikan halaman Photobooth. Jika halaman sudah tampil, uji izin kamera, ganti kamera depan/belakang, ambil beberapa foto, retake, dan unduh PNG.
