@@ -18,12 +18,12 @@
     "test:observations": "node --check src/observation-workflow.js && node --check src/observation-store.js && node scripts/check-observations.mjs"
   },
   "dependencies": {
-    "bootstrap": "^5.3.8",
+    "bootstrap": "^5.3.9",
     "exceljs": "^4.4.0",
     "jstat": "^1.9.6"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.0.0",
-    "vite": "^7.1.3"
+    "vite": "^8.3.8"
   }
 }
